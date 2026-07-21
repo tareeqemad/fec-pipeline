@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+env/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Run logs, backups, and scratch/review files
+*.log
+*.bak
+*.bak_*
+data/_*
+
+# Database dumps pulled from the dev server (contain donor data; can be large)
+backup_db/
+
+# Claude
+.claude/
+
+# Address review reports (regenerated each clean run)
+data/address_manual_review.csv
+data/address_regeocode_suspects.csv
+

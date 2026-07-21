@@ -1,0 +1,407 @@
+{
+  "top50_occupation": [
+    {
+      "value": "RETIRED",
+      "count": 31434
+    },
+    {
+      "value": "ATTORNEY",
+      "count": 9550
+    },
+    {
+      "value": "NOT EMPLOYED",
+      "count": 6214
+    },
+    {
+      "value": "REAL ESTATE",
+      "count": 5674
+    },
+    {
+      "value": "PHYSICIAN",
+      "count": 3373
+    },
+    {
+      "value": "CEO",
+      "count": 3253
+    },
+    {
+      "value": "EXECUTIVE",
+      "count": 2697
+    },
+    {
+      "value": "LAWYER",
+      "count": 2422
+    },
+    {
+      "value": "CONSULTANT",
+      "count": 1796
+    },
+    {
+      "value": "INVESTOR",
+      "count": 1759
+    },
+    {
+      "value": "PRESIDENT",
+      "count": 1680
+    },
+    {
+      "value": "FINANCE",
+      "count": 1276
+    },
+    {
+      "value": "MANAGER",
+      "count": 1022
+    },
+    {
+      "value": "MEDICAL DOCTOR",
+      "count": 740
+    },
+    {
+      "value": "OWNER",
+      "count": 733
+    },
+    {
+      "value": "SALES",
+      "count": 733
+    },
+    {
+      "value": "CPA",
+      "count": 703
+    },
+    {
+      "value": "INVESTMENTS",
+      "count": 692
+    },
+    {
+      "value": "FINANCIAL ADVISOR",
+      "count": 650
+    },
+    {
+      "value": "CHAIRMAN",
+      "count": 637
+    },
+    {
+      "value": "REAL ESTATE INVESTOR",
+      "count": 623
+    },
+    {
+      "value": "SELF-EMPLOYED",
+      "count": 621
+    },
+    {
+      "value": "MARKETING",
+      "count": 617
+    },
+    {
+      "value": "RADIOLOGIST",
+      "count": 571
+    },
+    {
+      "value": "REAL ESTATE DEVELOPER",
+      "count": 567
+    },
+    {
+      "value": "INVESTMENT MANAGEMENT",
+      "count": 485
+    },
+    {
+      "value": "PARTNER",
+      "count": 448
+    },
+    {
+      "value": "PROFESSOR",
+      "count": 438
+    },
+    {
+      "value": "DIRECTOR",
+      "count": 395
+    },
+    {
+      "value": "MANAGING PARTNER",
+      "count": 378
+    },
+    {
+      "value": "PRINCIPAL",
+      "count": 371
+    },
+    {
+      "value": "CFO",
+      "count": 368
+    },
+    {
+      "value": "MANAGEMENT",
+      "count": 350
+    },
+    {
+      "value": "BUSINESS OWNER",
+      "count": 348
+    },
+    {
+      "value": "BUSINESS",
+      "count": 345
+    },
+    {
+      "value": "FOUNDER",
+      "count": 325
+    },
+    {
+      "value": "SPECIAL PROGRAMS ADMINISTRATOR",
+      "count": 304
+    },
+    {
+      "value": "VICE PRESIDENT",
+      "count": 302
+    },
+    {
+      "value": "DENTIST",
+      "count": 301
+    },
+    {
+      "value": "PSYCHOLOGIST",
+      "count": 287
+    },
+    {
+      "value": "MANAGING DIRECTOR",
+      "count": 276
+    },
+    {
+      "value": "DOCTOR",
+      "count": 269
+    },
+    {
+      "value": "VENTURE CAPITAL",
+      "count": 268
+    },
+    {
+      "value": "RABBI",
+      "count": 268
+    },
+    {
+      "value": "REGISTERED INVESTMENT ADVISOR",
+      "count": 256
+    },
+    {
+      "value": "ENGINEER",
+      "count": 254
+    },
+    {
+      "value": "PORTFOLIO MANAGER",
+      "count": 251
+    },
+    {
+      "value": "CTO",
+      "count": 249
+    },
+    {
+      "value": "INSURANCE",
+      "count": 248
+    },
+    {
+      "value": "TEACHER",
+      "count": 248
+    }
+  ],
+  "top50_employer": [
+    {
+      "value": "CAMPAIGN/COMMITTEE",
+      "count": 97223
+    },
+    {
+      "value": "RETIRED",
+      "count": 32974
+    },
+    {
+      "value": "SELF-EMPLOYED",
+      "count": 11778
+    },
+    {
+      "value": "NOT EMPLOYED",
+      "count": 6378
+    },
+    {
+      "value": "KIRKLAND & ELLIS LLP",
+      "count": 598
+    },
+    {
+      "value": "MORGAN STANLEY",
+      "count": 353
+    },
+    {
+      "value": "TOURO UNIVERSITY",
+      "count": 319
+    },
+    {
+      "value": "LA COUNTY",
+      "count": 301
+    },
+    {
+      "value": "CAPITAL GROUP",
+      "count": 279
+    },
+    {
+      "value": "CEDARS-SINAI MEDICAL CENTER",
+      "count": 277
+    },
+    {
+      "value": "BAMKO",
+      "count": 265
+    },
+    {
+      "value": "CASTLEWOOD CAPITAL PARTNERS LLC",
+      "count": 252
+    },
+    {
+      "value": "JW LOPES LLC",
+      "count": 249
+    },
+    {
+      "value": "ORGANIZATION",
+      "count": 248
+    },
+    {
+      "value": "GOLDMAN SACHS",
+      "count": 241
+    },
+    {
+      "value": "CONG. YETEV LEV",
+      "count": 210
+    },
+    {
+      "value": "GRT",
+      "count": 202
+    },
+    {
+      "value": "CROWNE PARTNERS INC",
+      "count": 174
+    },
+    {
+      "value": "HOWARD PROPERTIES",
+      "count": 170
+    },
+    {
+      "value": "DONFELD & ROLLMAN",
+      "count": 164
+    },
+    {
+      "value": "JAFFE FAMILY LAW GROUP",
+      "count": 161
+    },
+    {
+      "value": "GRAYROBINSON",
+      "count": 152
+    },
+    {
+      "value": "CITY OF PHILADELPHIA",
+      "count": 148
+    },
+    {
+      "value": "NTR",
+      "count": 140
+    },
+    {
+      "value": "BROWNSTEIN HYATT FARBER SCHRECK",
+      "count": 135
+    },
+    {
+      "value": "ARCH INSURANCE",
+      "count": 135
+    },
+    {
+      "value": "LANGSAM PROPERTY SERVICES",
+      "count": 133
+    },
+    {
+      "value": "FANNIE MAE",
+      "count": 133
+    },
+    {
+      "value": "AMIR DEVELOPMENT",
+      "count": 130
+    },
+    {
+      "value": "VENSURE",
+      "count": 130
+    },
+    {
+      "value": "GIBSON DUNN & CRUTCHER",
+      "count": 129
+    },
+    {
+      "value": "HACKMAN CAPITAL PARTNERS",
+      "count": 129
+    },
+    {
+      "value": "EDWARD C. LEVY CO",
+      "count": 122
+    },
+    {
+      "value": "FISHMAN, BLOCK, DIAMOND, BY CERITY PARK PC",
+      "count": 121
+    },
+    {
+      "value": "BBR PARTNERS",
+      "count": 117
+    },
+    {
+      "value": "PACHULSKI, STANG, ZIEHL & JONES",
+      "count": 117
+    },
+    {
+      "value": "UBS",
+      "count": 117
+    },
+    {
+      "value": "INIZIO",
+      "count": 117
+    },
+    {
+      "value": "KTBS LAW LLP",
+      "count": 116
+    },
+    {
+      "value": "CONGREGATION SHAAREY TIKVAH",
+      "count": 114
+    },
+    {
+      "value": "STERLINGRISK",
+      "count": 113
+    },
+    {
+      "value": "WELLS FARGO ADVISORS",
+      "count": 109
+    },
+    {
+      "value": "LAWRENCE BERKELEY NATIONAL LAB",
+      "count": 109
+    },
+    {
+      "value": "VIBRANT CAPITAL PARTNERS",
+      "count": 106
+    },
+    {
+      "value": "RON WOLNER MD",
+      "count": 102
+    },
+    {
+      "value": "MEDICAL CENTER",
+      "count": 101
+    },
+    {
+      "value": "AIPAC",
+      "count": 98
+    },
+    {
+      "value": "NEUBERGER BERMAN",
+      "count": 97
+    },
+    {
+      "value": "MILLER BARONDESS",
+      "count": 97
+    },
+    {
+      "value": "MARBLE BRIDGE FUNDING GROUP",
+      "count": 94
+    }
+  ],
+  "committee_default_count": 0
+}

@@ -1,0 +1,4 @@
+# Test-only dependencies (install: pip install -r requirements-dev.txt)
+-r requirements.txt
+pytest>=7.0
+testcontainers[postgres]>=4.0   # ephemeral Postgres for DB tests (needs Docker)

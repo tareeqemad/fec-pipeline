@@ -1,0 +1,3 @@
+score,surname_edit_distance,category,name_a,name_b,filings_a,filings_b,donor_key_a,donor_key_b,shared_signals,shared_zip_or_employer
+50,2,spelling typo,"MERO, STEVEN","HERZ, STEVEN",3,4,93285d8cfcdd,f1c2b2635109,state+city+zip5,10023
+50,3,spelling typo,"KATZMAN, STEPHEN","KATZ, STEVEN",2,1,91e6fa47b8f2,b01b05865666,state+city+zip5,07078

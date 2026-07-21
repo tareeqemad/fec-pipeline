@@ -1,0 +1,120 @@
+"""tests/test_manual_overrides.py — per-sub_id hand-curated corrections.
+
+The override file may set contributor_employer, contributor_occupation, or both.
+Both are needed for the swap case: a filer who put the job title in the employer
+field and the COMPANY in the occupation field ("CHAIRMAN" / "KIMCO"), which the
+generic swap-back can't fix because its detector doesn't know bare brand names.
+"""
+import csv
+
+import pandas as pd
+import pytest
+
+import fec.cleaning.manual_overrides as mo
+
+
+@pytest.fixture
+def override_file(tmp_path, monkeypatch):
+    def _write(rows, cols=("sub_id", "contributor_employer", "contributor_occupation", "note")):
+        p = tmp_path / "overrides.csv"
+        with p.open("w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(cols))
+            w.writeheader()
+            for r in rows:
+                w.writerow({c: r.get(c, "") for c in cols})
+        monkeypatch.setattr(mo, "OVERRIDES_CSV", p)
+        return p
+    return _write
+
+
+def _frame():
+    return pd.DataFrame({
+        "sub_id": ["1", "2", "3"],
+        "contributor_employer": ["CHAIRMAN", "OLD EMPLOYER", "UNTOUCHED"],
+        "contributor_occupation": ["KIMCO", "ATTORNEY", "ENGINEER"],
+    })
+
+
+def test_both_fields_can_be_overridden(override_file):
+    """The swap case — employer and occupation corrected together."""
+    override_file([{"sub_id": "1", "contributor_employer": "KIMCO REALTY",
+                    "contributor_occupation": "CHAIRMAN"}])
+    df = _frame()
+
+    assert mo.apply_manual_employer_overrides(df) == 1
+    assert df.loc[0, "contributor_employer"] == "KIMCO REALTY"
+    assert df.loc[0, "contributor_occupation"] == "CHAIRMAN"
+    # other rows untouched
+    assert df.loc[2, "contributor_employer"] == "UNTOUCHED"
+
+
+def test_employer_only_leaves_occupation_alone(override_file):
+    """The original single-column use — occupation must not be blanked."""
+    override_file([{"sub_id": "2", "contributor_employer": "NEW EMPLOYER"}])
+    df = _frame()
+
+    assert mo.apply_manual_employer_overrides(df) == 1
+    assert df.loc[1, "contributor_employer"] == "NEW EMPLOYER"
+    assert df.loc[1, "contributor_occupation"] == "ATTORNEY"
+
+
+def test_occupation_only(override_file):
+    override_file([{"sub_id": "3", "contributor_occupation": "SOFTWARE ENGINEER"}])
+    df = _frame()
+
+    assert mo.apply_manual_employer_overrides(df) == 1
+    assert df.loc[2, "contributor_occupation"] == "SOFTWARE ENGINEER"
+    assert df.loc[2, "contributor_employer"] == "UNTOUCHED"
+
+
+def test_legacy_file_without_the_occupation_column_still_loads(override_file):
+    override_file([{"sub_id": "2", "contributor_employer": "NEW EMPLOYER"}],
+                  cols=("sub_id", "contributor_employer", "note"))
+    df = _frame()
+
+    assert mo.apply_manual_employer_overrides(df) == 1
+    assert df.loc[1, "contributor_employer"] == "NEW EMPLOYER"
+
+
+def test_unknown_sub_id_is_not_an_error(override_file):
+    override_file([{"sub_id": "999", "contributor_employer": "GHOST"}])
+    df = _frame()
+
+    assert mo.apply_manual_employer_overrides(df) == 0
+    assert "GHOST" not in df["contributor_employer"].tolist()
+
+
+def test_shipped_override_file_is_wellformed():
+    """The real file must parse and every row must carry a sub_id + a value."""
+    if not mo.OVERRIDES_CSV.exists():
+        pytest.skip("no override file shipped")
+    with mo.OVERRIDES_CSV.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert rows, "override file is empty"
+    for r in rows:
+        assert (r.get("sub_id") or "").strip(), r
+        assert ((r.get("contributor_employer") or "").strip()
+                or (r.get("contributor_occupation") or "").strip()), r
+
+
+def test_no_override_reinstates_a_known_truncation():
+    """Manual per-row overrides run LAST, so they beat the synonym map.
+
+    An override whose value is itself a known 38-char truncation therefore
+    silently undoes the repair — which is exactly what kept
+    'JEWISH FEDERATION OF GREATER FAIRFIELD' truncated on 2 rows after the
+    repair had already been added to manual_typo_overrides.json.
+    """
+    import json
+
+    with open("data/manual_typo_overrides.json", encoding="utf-8") as f:
+        truncations = {k.strip().upper() for k in json.load(f)}
+    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+
+    clashes = [
+        (r["sub_id"], r["contributor_employer"])
+        for r in rows
+        if (r.get("contributor_employer") or "").strip().upper() in truncations
+    ]
+    assert not clashes, f"overrides reinstate a repaired truncation: {clashes}"

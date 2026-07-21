@@ -1,0 +1,160 @@
+{
+  "rows": 208283,
+  "employer_abbreviations": {
+    "distinct_employers_flagged": 0,
+    "by_token": {}
+  },
+  "employer_near_duplicates": {
+    "groups": 3,
+    "examples": [
+      [
+        "UNIVERSITY OF WASHINGTON",
+        "WASHINGTON UNIVERSITY"
+      ],
+      [
+        "GOOD HEALTH",
+        "GOOD HEALTH INC"
+      ],
+      [
+        "CITY OF NEW YORK",
+        "NEW YORK CITY"
+      ]
+    ]
+  },
+  "name_composite_drift": {
+    "rows": 0,
+    "donors": 0,
+    "examples": []
+  },
+  "address_order_variants": {
+    "groups": 0,
+    "examples": []
+  },
+  "junk_occupation_suspects": {
+    "distinct": 67,
+    "rows": 76,
+    "examples": [
+      {
+        "value": "ECB",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 31x CEO/CHAIRMAN"
+        ]
+      },
+      {
+        "value": "EXEC",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 13x BUSINESS DEVELOPMENT/DEVELOPMENT",
+          "1x vs 10x BANKER/LAWYER"
+        ]
+      },
+      {
+        "value": "CANDIDATE FOR DC DELEGATE TO CONGRESS",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 19x CANDIDATE FOR DC DELEGATE/CONGRESSIONAL CANDIDATE"
+        ]
+      },
+      {
+        "value": "LITIGATION NEUTRAL",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 19x ARBITRATOR/ARBITRATOR AND LITIGATION NEUTRAL"
+        ]
+      },
+      {
+        "value": "REGULATION",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 13x CONSULTANT/REGULATORY"
+        ]
+      },
+      {
+        "value": "OMNINET",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 30x CEO/PARTNER"
+        ]
+      },
+      {
+        "value": "WNTRERENEUR",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 10x ATTORNEY/CEO"
+        ]
+      },
+      {
+        "value": "OFFICER OF RICHKER METALS",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 23x OFFICER/SECRETARY"
+        ]
+      },
+      {
+        "value": "DIR OF ADVANCEMENT",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 20x CHIEF DEVELOPMENT OFFICER"
+        ]
+      },
+      {
+        "value": "WEALTH ADVSIOR",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 30x ATTORNEY/DOCTOR"
+        ]
+      },
+      {
+        "value": "CEP",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 11x CEO/LAWYER"
+        ]
+      },
+      {
+        "value": "COSMETICS",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 27x ATTORNEY/BEAUTY"
+        ]
+      },
+      {
+        "value": "INFRASTRUCTURE DEVELOPMENT AND OPERATI",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 39x INDIGO CAPITAL/PRIVATE EQUITY"
+        ]
+      },
+      {
+        "value": "STEEL DISTRIBUTION",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 28x PRESIDENT/STEEL DISTRIBUTOR"
+        ]
+      },
+      {
+        "value": "GROUP CEI",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 13x EXECUTIVE"
+        ]
+      }
+    ]
+  }
+}

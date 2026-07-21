@@ -1,0 +1,62 @@
+{
+  "passed": false,
+  "checks": {
+    "no_nan_strings": {
+      "passed": true,
+      "count": 0
+    },
+    "valid_categories": {
+      "passed": true,
+      "invalid": []
+    },
+    "zip_coverage": {
+      "passed": true,
+      "pct_empty": 0.01
+    },
+    "no_duplicate_sub_id": {
+      "passed": true,
+      "count": 0
+    },
+    "no_duplicate_transaction_id": {
+      "passed": true,
+      "count": 0
+    },
+    "no_extreme_amounts": {
+      "passed": false,
+      "count": 14,
+      "threshold": "$1M"
+    },
+    "no_future_dates": {
+      "passed": true,
+      "count": 0
+    },
+    "row_count": 208283,
+    "zip_state_match": {
+      "passed": true,
+      "count": 0
+    },
+    "no_email_as_address": {
+      "passed": true,
+      "count": 0
+    },
+    "no_special_chars_in_names": {
+      "passed": true,
+      "count": 0
+    },
+    "retired_donor_consistency": {
+      "passed": true,
+      "count": 0
+    },
+    "no_slash_in_previous_employer": {
+      "passed": true,
+      "count": 0
+    },
+    "null_surname_preserved": {
+      "passed": true,
+      "count": 0
+    }
+  },
+  "issues": [
+    "Extreme amounts (>$1M): 14"
+  ]
+}
