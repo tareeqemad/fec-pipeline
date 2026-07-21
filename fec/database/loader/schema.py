@@ -121,6 +121,17 @@ def reset_schema(conn: Any, cur: Any) -> None:
     failed: list[tuple[str, str, str, str]] = []  # (name, kind, owner, reason)
 
     for i, (name, kind, owner) in enumerate(objects):
+        # The object list is a snapshot taken before the loop, but each DROP
+        # below is CASCADE — so dropping one object can take its dependent
+        # views with it. By the time the loop reaches such a view it is
+        # already gone, and ALTER OWNER (unlike DROP, which is IF EXISTS)
+        # would fail with "relation does not exist". That is a SUCCESS, not a
+        # failure: the object is gone, which is all reset_schema wants.
+        cur.execute("SELECT to_regclass(%s)", (f'public."{name}"',))
+        if cur.fetchone()[0] is None:
+            dropped += 1
+            continue
+
         # If we don't own it, DROP will fail — try ALTER OWNER first.
         if owner != current_user:
             try:
