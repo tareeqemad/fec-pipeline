@@ -97,18 +97,23 @@ def _branch_states() -> dict:
     return states
 
 
-def _write_branches(df: pd.DataFrame, branch_states: dict) -> int:
-    """Write one row per (employer, donor state) branch office, with the coordinates geocode already resolved. Returns rows written."""
+def _rows_on_a_branch(df: pd.DataFrame, branch_states: dict) -> pd.Series:
+    """Which rows carry a branch address rather than the company HQ."""
     if not branch_states:
+        return pd.Series(False, index=df.index)
+    keys = {f"{name}|{state}" for name, states in branch_states.items() for state in states}
+    pair = (df["contributor_employer"].fillna("").str.upper() + "|"
+            + df["contributor_state"].fillna("").str.upper())
+    return pair.isin(keys)
+
+
+def _write_branches(df: pd.DataFrame, is_branch: pd.Series) -> int:
+    """Write one row per (employer, donor state) branch office, with the coordinates geocode already resolved. Returns rows written."""
+    if not is_branch.any():
         if BRANCHES_CSV.exists():
             BRANCHES_CSV.unlink()
         return 0
 
-    is_branch = df.apply(
-        lambda row: str(row.get("contributor_state") or "").upper()
-        in branch_states.get(str(row.get("contributor_employer") or "").upper(), set()),
-        axis=1,
-    )
     branches = (df[is_branch][["contributor_employer", "contributor_state"] + EMP_ADDR_COLS]
                 .rename(columns={"contributor_employer": "employer_name",
                                  "contributor_state": "donor_state"})
@@ -180,21 +185,15 @@ def _dedupe_dimension(emp: pd.DataFrame) -> pd.DataFrame:
     the md5 gate stops meaning anything.
     """
     emp = emp[emp["employer_name"].map(is_real_employer)]
-    hq = _hq_addresses()
-
-    def rank(row) -> tuple:
-        address = row["employer_address"]
-        if not isinstance(address, str) or not address:
-            return (2, "")
-        # the cache entry for this exact name is the company's real HQ
-        is_hq = address != hq.get(str(row["employer_name"]).upper())
-        return (int(is_hq), address)
-
-    ordered = emp.assign(_rank=[rank(row) for _, row in emp.iterrows()])
-    return (ordered.sort_values(["employer_name", "_rank"], kind="stable")
-                   .drop_duplicates("employer_name", keep="first")
-                   .drop(columns="_rank")
-                   .sort_values("employer_name").reset_index(drop=True))
+    address = emp["employer_address"].fillna("")
+    cached_hq = emp["employer_name"].str.upper().map(_hq_addresses()).fillna("")
+    # 0 = the cache calls this the company's HQ, 1 = some other address, 2 = none
+    preference = pd.Series(1, index=emp.index).mask(address == cached_hq, 0).mask(address == "", 2)
+    return (emp.assign(_pick=preference)
+               .sort_values(["employer_name", "_pick", "employer_address"], kind="stable")
+               .drop_duplicates("employer_name", keep="first")
+               .drop(columns="_pick")
+               .sort_values("employer_name").reset_index(drop=True))
 
 
 def _restyle_names(df: pd.DataFrame) -> int:
@@ -242,8 +241,8 @@ def build() -> tuple[int, int]:
 
     # 2. fresh build: pull every referenced company HQ from the now-canonical rows
     src, src_by_address = _source_map(df)
-    branch_states = _branch_states()
-    n_branches = _write_branches(df, branch_states)
+    is_branch = _rows_on_a_branch(df, _branch_states())
+    n_branches = _write_branches(df, is_branch)
     if n_branches:
         logger.info(f"  employer_branches.csv: {n_branches:,} branch office(s) "
                     f"for donors outside the HQ state")
@@ -254,14 +253,9 @@ def build() -> tuple[int, int]:
     # non-branch row while the company still gets a dimension entry even when
     # every one of its donors sits at a branch.
     hq_view = df
-    if branch_states:
-        on_branch = df.apply(
-            lambda row: str(row.get("contributor_state") or "").upper()
-            in branch_states.get(str(row.get("contributor_employer") or "").upper(), set()),
-            axis=1,
-        )
+    if is_branch.any():
         hq_view = df.copy()
-        hq_view.loc[on_branch, EMP_ADDR_COLS] = None
+        hq_view.loc[is_branch, EMP_ADDR_COLS] = None
 
     active = (hq_view[(hq_view["entity_type"] == "INDIVIDUAL") & (status == "active")
                       & hq_view["contributor_employer"].notna()]
@@ -273,16 +267,13 @@ def build() -> tuple[int, int]:
             .rename(columns={"previous_employer": "employer_name"}))
 
     emp = _dedupe_dimension(pd.concat([active, prev], ignore_index=True))
-    def grade(row) -> tuple:
-        found = src.get(row["employer_name"])
-        if found:
-            return found
-        street = str(row["employer_address"] or "").strip().upper()
-        return src_by_address.get(street, ("", ""))
-
-    graded = [grade(row) for _, row in emp.iterrows()]
-    emp["address_source"] = [g[0] for g in graded]
-    emp["address_trust"] = [g[1] for g in graded]
+    # grade by name, then fall back to the street for the retired-donor rows whose
+    # displayed name is absent from the cache
+    street = emp["employer_address"].fillna("").str.strip().str.upper()
+    graded = emp["employer_name"].map(src)
+    graded = graded.where(graded.notna(), street.map(src_by_address))
+    emp["address_source"] = [g[0] if isinstance(g, tuple) else "" for g in graded]
+    emp["address_trust"] = [g[1] if isinstance(g, tuple) else "" for g in graded]
     no_addr = emp["employer_address"].isna()
     emp.loc[no_addr, ["address_source", "address_trust"]] = ""
     emp.to_csv(EMPLOYERS_CSV, index=False, na_rep="")

@@ -18,6 +18,8 @@ public FEC records: **pull → clean → resolve employers → geocode → build
 - **`data/employers.csv`** — employer dimension (one row per company + HQ).
   - join: `contributor_employer` / `previous_employer` → `employer_name`.
   - `address_source` (ai/manual), `address_trust`.
+  - `address_trust` stays in the CSV **on purpose** — it is a curation worklist,
+    not a published field. The DB schema and the dashboard are untouched by it.
   - `address_trust` grades an address on evidence, not on what the AI claimed
     about itself: `verified` (human-curated) / `grounded` (web-search answer) /
     `corroborated` (closed-book, but a donor lives in that state) /
@@ -162,8 +164,11 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   turns that into `donor_employments.address_id`, read as
   `COALESCE(de.address_id, emp.address_id)`.
   Two rules, both measured on this data:
-  - `COMMUTER_STATE_PAIRS` — a NJ donor at a NY firm commutes (2,307 of the 14,744
-    out-of-state rows); never invent a local branch for those pairs.
+  - **Commuter metros are not evidence of a local office.** A NJ/CT donor at a NY
+    firm commutes; so does MD/VA→DC. Those pairs cover 2,307 of the 14,744
+    out-of-state rows, so never invent a local branch for them. (Curated branches
+    are chosen by hand, so this lives here as a rule rather than as a constant —
+    an automated branch lookup would need to encode it.)
   - Only accept a branch when the company has ONE findable office in that state.
     Morgan Stanley has a dozen Florida offices, so "the Florida office" is a guess.
   Empty branch set = the old behavior exactly (proven: identical md5).

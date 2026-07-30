@@ -6,7 +6,6 @@ a California donor at a New-York-headquartered firm must not be shown New York.
 import pandas as pd
 
 from fec.resolve.pipeline.apply import _resolve_row
-from fec.resolve.pipeline.constants import COMMUTER_STATE_PAIRS
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_branches, load_manual_overrides,
 )
@@ -72,15 +71,6 @@ def test_no_branch_cache_is_the_old_behaviour():
     result = _resolve_row(_row("BIG FIRM", "CA"), FakeCache(), addr_cache, FakeCache())
 
     assert result["employer_address"] == "1585 Broadway"
-
-
-def test_commuter_pairs_are_listed_both_ways_where_people_commute_both_ways():
-    # A New Jersey donor at a New York firm commutes; never invent a NJ branch.
-    assert ("NJ", "NY") in COMMUTER_STATE_PAIRS
-    assert ("VA", "DC") in COMMUTER_STATE_PAIRS
-    # Cross-country is not commuting - those pairs stay eligible for a branch.
-    assert ("CA", "NY") not in COMMUTER_STATE_PAIRS
-    assert ("FL", "NY") not in COMMUTER_STATE_PAIRS
 
 
 def test_curated_csv_splits_hq_rows_from_branch_rows(tmp_path):

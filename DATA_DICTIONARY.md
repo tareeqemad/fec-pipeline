@@ -115,6 +115,12 @@ grades on evidence the pipeline actually holds:
 > suspects, and one `resolve.py` run with API credit clears it, because a
 > web-search answer always overwrites a closed-book one.
 
+`address_trust` is **deliberately CSV-only**. It is a curation aid — it tells
+whoever works on the data which addresses to re-check — not a published field.
+The `employers` table stays `(employer_id, name, address_id)` and the dashboard
+does not read the grade. Decided 2026-07-30; do not "fix" this by adding a
+column.
+
 ### Resolving a donor's work location
 
 ```

@@ -1,7 +1,7 @@
 employer_name,employer_address,employer_city,employer_state,employer_zip,employer_latitude,employer_longitude,address_source,address_trust
 01 ADVISORS,"1 Letterman Dr, Building C",San Francisco,CA,94129,37.7879363,-122.4075201,ai,grounded
 10 EAST,244 5th Avenue,New York,NY,10001,40.744628,-73.9877206,ai,corroborated
-1130 COLLINS,,,,,,,,
+1130 COLLINS,1130 Collins Avenue,Miami Beach,FL,33139,25.7825214,-80.1315904,manual,verified
 13TH FLOOR INVESTMENTS,848 Brickell Avenue PH1,Miami,FL,33131,25.7741566,-80.1935973,manual,verified
 1440 FOODS,"450 7th Avenue, 10th Floor",New York,NY,10123,40.7514791,-73.9907411,ai,grounded
 154 PARTNERS,"34 E 51st Street, 17th Floor",New York,NY,10022,40.7579447,-73.9744308,ai,grounded
