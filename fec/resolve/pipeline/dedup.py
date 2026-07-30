@@ -1,28 +1,6 @@
-"""
-Post-resolve address-cache deduplication.
-
-After `step_ai_lookup` finishes, this module collapses cache entries that
-resolved to the same address AND share a strict prefix relationship in
-their canonical key.
-
-Why this isn't in cleaning: cleaning has no resolved addresses to compare,
-so it can only catch name-level variants. Cases like
-
-    MORGAN LEWIS                       1701 Market Street  [HIGH]
-    MORGAN LEWIS AND BOCKIUS           1701 Market Street  [HIGH]
-    MORGAN LEWIS BOCKIUS LLP           1701 Market Street  [HIGH]
-
-are obvious duplicates only AFTER the AI has returned the same address
-for all three, so they merge here.
-
-Safety rule: the strict canonical keys of the two names must be in a
-prefix relationship, AND the longer must be at most 2× the shorter. That
-catches the Morgan-Lewis case but rejects e.g. "MCGUIREWOODS" vs
-"BECKERS HEALTHCARE AND MCGUIREWOODS" (different prefixes).
-"""
+"""Post-resolve cache dedup: entries that resolved to the same address and are plausibly the same company merge only after the AI returns matching addresses - cleaning can't see this."""
 import re
 from collections import defaultdict
-from typing import Tuple
 
 from fec.cleaning.employer_synonyms import canonical_key
 from fec.log import get_logger
@@ -31,13 +9,13 @@ logger = get_logger(__name__)
 
 
 def _same_entity(a: str, b: str) -> bool:
-    """True if two employer names plausibly refer to the same company."""
-    ka, kb = canonical_key(a), canonical_key(b)
-    if not ka or not kb:
+    """Same company: canonical keys equal, or in a prefix relationship with the longer at most 2x the shorter (catches MORGAN LEWIS / MORGAN LEWIS BOCKIUS LLP, rejects unrelated prefixes)."""
+    key_a, key_b = canonical_key(a), canonical_key(b)
+    if not key_a or not key_b:
         return False
-    if ka == kb:
+    if key_a == key_b:
         return True
-    short, long_ = sorted([ka, kb], key=len)
+    short, long_ = sorted([key_a, key_b], key=len)
     if not long_.startswith(short):
         return False
     return len(long_) <= 2 * len(short)
@@ -45,100 +23,76 @@ def _same_entity(a: str, b: str) -> bool:
 
 def _addr_norm(entry: dict) -> str:
     """Normalize a cached address for grouping."""
-    addr = (entry.get('employer_address') or '').strip().upper()
-    if not addr:
+    address = (entry.get('employer_address') or '').strip().upper()
+    if not address:
         return ''
-    return re.sub(r'[^A-Z0-9]+', ' ', addr).strip()
+    return re.sub(r'[^A-Z0-9]+', ' ', address).strip()
 
 
 def _score(entry: dict) -> tuple:
-    """Higher = better. Prefer rows with addresses, then HIGH > MEDIUM > LOW.
-    Web-search-grounded answers (ai_*_search, from the state-mismatch recheck)
-    outrank closed-book recall — they were verified against live sources."""
-    has_addr = 1 if entry.get('employer_address') else 0
-    conf_rank = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}.get(entry.get('confidence', ''), 0)
+    """Higher = better: has address, then confidence, then method - ai_*_search outranks closed-book (verified against live sources)."""
+    has_address = 1 if entry.get('employer_address') else 0
+    confidence_rank = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}.get(entry.get('confidence', ''), 0)
     method = entry.get('method', '')
-    if method in ('ai_openai_search', 'ai_xai_search'):
-        method_pri = 3
-    elif method in ('ai_openai', 'ai_openai_gpt5', 'ai_xai'):
-        method_pri = 2
+    # by pattern, not by model name, so a new model's methods rank correctly;
+    # ai_not_found is an AI MISS and must stay in the generic tier
+    if method.startswith('ai_') and method.endswith('_search'):
+        method_priority = 3
+    elif method.startswith('ai_') and not method.endswith('_not_found'):
+        method_priority = 2
     elif method:
-        method_pri = 1
+        method_priority = 1
     else:
-        method_pri = 0
-    return (has_addr, conf_rank, method_pri)
+        method_priority = 0
+    return (has_address, confidence_rank, method_priority)
 
 
-def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> Tuple[int, int, dict]:
-    """
-    Merge cache entries that have the same resolved address AND are
-    plausibly the same entity.
-
-    Args:
-        addr_cache: the resolve address cache
-        freq: optional {NAME_UPPER -> donor_row_count} from current CSV.
-              When provided, the most-frequent variant wins as canonical
-              (best rule — preserves the form most donors actually wrote).
-              Falls back to longest-name + alphabetical tie-break.
-
-    Returns: (merged_count, canonical_picks, mapping)
-        merged_count    — entries removed from cache
-        canonical_picks — number of merge groups processed
-        mapping         — variant_name -> canonical_name (for caller to apply
-                          to dataframe / CSV)
-    """
+def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int, int, dict]:
+    """Merge same-address same-entity cache entries; returns (removed, groups, variant->canonical mapping) with the most-frequent CSV variant winning as canonical."""
     freq = freq or {}
-    # Group entries by normalized address (only HIGH/MEDIUM confidence)
-    by_addr: dict[str, list[str]] = defaultdict(list)
+    by_address: dict[str, list[str]] = defaultdict(list)
     for name, entry in addr_cache.data.items():
         if not isinstance(entry, dict):
             continue
         if entry.get('alias_of'):
-            continue   # alias spellings mirror their canonical — already merged
+            continue   # alias spellings mirror their canonical - already merged
         if entry.get('method') == 'manual_override':
-            # A manual override is an authoritative human decision keyed to the
-            # exact spelling in manual_employer_addresses.csv. Merging it away
-            # made Step 0 re-create it on every run (7 updated -> 7 merged ->
-            # repeat forever) and demoted human data to the AI canonical's.
+            # Never merge: keyed to the exact CSV spelling; merging made Step 0
+            # re-create it every run and demoted human data to the AI canonical's.
             continue
         if entry.get('confidence') not in ('HIGH', 'MEDIUM'):
             continue
-        addr = _addr_norm(entry)
-        if not addr:
+        address = _addr_norm(entry)
+        if not address:
             continue
-        by_addr[addr].append(name)
+        by_address[address].append(name)
 
     mapping: dict[str, str] = {}  # variant_name -> canonical_name
     groups = 0
-    for addr, names in by_addr.items():
+    for address, names in by_address.items():
         if len(names) < 2:
             continue
-        # Within an address group, cluster names that pass _same_entity
         clusters: list[list[str]] = []
-        for n in names:
+        for name in names:
             placed = False
             for cluster in clusters:
-                if any(_same_entity(n, m) for m in cluster):
-                    cluster.append(n)
+                if any(_same_entity(name, member) for member in cluster):
+                    cluster.append(name)
                     placed = True
                     break
             if not placed:
-                clusters.append([n])
+                clusters.append([name])
 
         for cluster in clusters:
             if len(cluster) < 2:
                 continue
             groups += 1
-            # Canonical = most-frequently-written variant (what donors
-            # actually filed). Falls back to longest, then alphabetical.
-            # Without frequency data this would pick a short name like just
-            # "GOLDMAN" — but with frequency, the canonical is whatever
-            # 231 Goldman donors actually wrote ("GOLDMAN SACHS"), not a
-            # rarer division name ("GOLDMAN SACHS NEW JERSEY") that
-            # happened to also share the HQ address.
+            # Canonical = most-frequently-filed variant, then longest, then
+            # alphabetical - frequency keeps "GOLDMAN SACHS" over a rare
+            # division name that happens to share the HQ address.
             canonical = sorted(
                 cluster,
-                key=lambda v: (-freq.get(v, 0), -len(v), v)
+                key=lambda variant: (-freq.get(variant, 0), -len(variant), variant)
             )[0]
             for variant in cluster:
                 if variant != canonical:
@@ -147,34 +101,29 @@ def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> Tuple[int
     if not mapping:
         return 0, 0, {}
 
-    # Apply, two passes. First settle each canonical with the best-scored
-    # data among its variants…
+    # Pass 1: settle each canonical with the best-scored data among its variants.
     removed = 0
     for variant, canonical in mapping.items():
         if variant not in addr_cache.data:
             continue
-        v_entry = addr_cache.data[variant]
+        variant_entry = addr_cache.data[variant]
         if canonical in addr_cache.data:
-            c_entry = addr_cache.data[canonical]
-            if _score(v_entry) > _score(c_entry):
-                addr_cache.data[canonical] = v_entry
+            canonical_entry = addr_cache.data[canonical]
+            if _score(variant_entry) > _score(canonical_entry):
+                addr_cache.data[canonical] = variant_entry
         else:
-            addr_cache.data[canonical] = v_entry
+            addr_cache.data[canonical] = variant_entry
         removed += 1
 
-    # …then keep each variant as an ALIAS carrying the canonical's address.
-    # DELETING variants looked clean but created an infinite re-resolve loop:
-    # previous_employer lookups still use the variant spelling (prev_cache
-    # values are never remapped), so the deleted key made _needs_ai re-ask
-    # the AI on every run — and dedup deleted the fresh answer again. The
-    # same ~20 employers burned API tokens on every `resolve.py` run.
-    # An alias keeps every spelling resolvable, and the grouping above skips
-    # aliases, so the merge is idempotent (second run: 0 merged).
+    # Pass 2: keep each variant as an ALIAS of the canonical. Deleting variants
+    # caused an infinite re-resolve loop (previous_employer lookups use the
+    # variant spelling, so _needs_ai re-asked the AI every run); aliases keep
+    # every spelling resolvable and the grouping above skips them (idempotent).
     for variant, canonical in mapping.items():
-        c_entry = addr_cache.data.get(canonical)
-        if not isinstance(c_entry, dict):
+        canonical_entry = addr_cache.data.get(canonical)
+        if not isinstance(canonical_entry, dict):
             continue
-        alias = {k: v for k, v in c_entry.items() if k != 'alias_of'}
+        alias = {key: value for key, value in canonical_entry.items() if key != 'alias_of'}
         alias['alias_of'] = canonical
         addr_cache.data[variant] = alias
 

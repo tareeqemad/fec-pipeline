@@ -1,5 +1,4 @@
-"""Tests for _unify_street_spacing — collapse spacing/punctuation-only variants."""
-import numpy as np
+"""_unify_street_spacing collapses spacing/punctuation-only street variants."""
 import pandas as pd
 
 from fec.cleaning.pipeline.address_fixes import _unify_street_spacing
@@ -15,7 +14,7 @@ def _df(streets):
 
 
 def test_collapses_space_and_punctuation_variants():
-    # Same letters/digits, order preserved — provably one address.
+    # Same letters/digits in order, provably one address.
     df = _df([
         "16201 MEADOWRIDGE WAY", "16201 MEADOWRIDGE WAY", "16201 MEADOWRIDGE WAY",
         "16201 MEADOW RIDGE WAY",          # extra space
@@ -34,14 +33,12 @@ def test_collapses_space_and_punctuation_variants():
 
 
 def test_does_not_merge_letter_typo_or_move():
-    # A dropped LETTER (not just a space) is a different fingerprint — kept apart.
-    # A different house number (a move) is also kept apart.
+    # A dropped letter or a different house number is a different fingerprint, kept apart.
     df = _df([
         "8 SPENCEHILL CT", "8 SPENCEHILL CT",
-        "8 SPENCEHIL CT",          # missing L — NOT a spacing variant
+        "8 SPENCEHIL CT",          # missing L, not a spacing variant
         "100 OAK ST", "200 OAK ST",  # different house number = different address
     ])
-    before = df["contributor_street_1"].tolist()
     _unify_street_spacing(df)
     after = df["contributor_street_1"].tolist()
     assert "8 SPENCEHIL CT" in after        # typo left untouched

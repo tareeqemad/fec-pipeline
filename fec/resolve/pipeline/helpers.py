@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .constants import TIERS, NOT_REAL_EMPLOYER
+from .constants import TIERS
 
 
 def _s(val, default: str = "") -> str:
@@ -17,25 +17,16 @@ def _s(val, default: str = "") -> str:
 
 def _load_env() -> None:
     try:
-        from dotenv import load_dotenv; load_dotenv()
+        from dotenv import load_dotenv
+        load_dotenv()
     except ImportError:
-        env = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-        if env.exists():
-            for line in env.read_text().splitlines():
+        env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    os.environ.setdefault(k.strip(), v.strip())
-
-
-def _is_real_employer(emp: str) -> bool:
-    """Return True if employer is a real company name (not RETIRED, SELF-EMPLOYED, etc.)."""
-    if not emp or pd.isna(emp):
-        return False
-    s = str(emp).strip()
-    if s.lower() in ('nan', 'none', 'n/a', 'na', ''):
-        return False
-    return s.upper() not in NOT_REAL_EMPLOYER
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
 
 
 def _prev_key(name, state) -> str:
@@ -49,9 +40,9 @@ def _compute_donor_totals(df: pd.DataFrame) -> pd.Series:
     totals.columns = ["donor_key", "donor_total"]
 
     def _tier(amount):
-        for num, _, lo, hi in TIERS:
-            if lo <= amount < hi:
-                return num
+        for tier_number, _, low, high in TIERS:
+            if low <= amount < high:
+                return tier_number
         return 6
 
     totals["tier"] = totals["donor_total"].apply(_tier)

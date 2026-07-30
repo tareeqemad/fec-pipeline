@@ -20,8 +20,7 @@ Everything is driven from CLI scripts.
 
 ```
             ┌─────────────┐
-  FEC API → │  pull.py /  │ → data/contributions.csv        (raw filings, append-only)
-            │  fec_pull   │
+  FEC API → │   pull.py   │ → data/contributions.csv        (raw filings, append-only)
             └─────────────┘
                    │
                    ▼
@@ -46,9 +45,10 @@ Everything is driven from CLI scripts.
           healthcheck.py / query_checks  (read-only correctness verification)
 ```
 
-`run.py` runs **clean → geocode → resolve → geocode employers →
-build_employers** in one go. Each stage **caches** its work and resumes if
-interrupted, so re-running is cheap and idempotent.
+The full pipeline is **clean → geocode → resolve --apply → geocode
+--employer-only → build_employers** (see the Quick start in README.md). Each
+stage **caches** its work and resumes if interrupted, so re-running is cheap
+and idempotent.
 
 ---
 
@@ -56,15 +56,12 @@ interrupted, so re-running is cheap and idempotent.
 
 | Script | Role | Notes |
 |--------|------|-------|
-| `run.py` | **Orchestrator** — clean → geocode → resolve → build_employers | the normal "do everything" |
-| `fec_pull.py` | Pull ONE committee from the FEC API | `--committee-id Cxxxxxxxx --period 2026` |
-| `pull.py` | Pull wrapper — the 3 tracked committees, or any id(s) | calls `fec_pull.run()` per committee |
+| `pull.py` | Pull from the FEC API — the 3 tracked committees, or any id(s) | `python pull.py [Cxxxxxxxx ...] [--full]` |
 | `clean.py` | **Clean + match + post-merge + canonicalize** (self-contained) | writes `contributions_cleaned.csv` with `donor_key` |
 | `geocode.py` | Lat/lng for donor + employer addresses | cached in `data/geocode_cache.json` |
 | `resolve.py` | Employer HQ address resolution (cross-record + FEC API + AI) | cached in `data/resolve_*.json` |
 | `build_employers.py` | Normalize employer HQs → `employers.csv` | last file-writing stage |
 | `loader.py` | Load the cleaned CSV into PostgreSQL | thin wrapper for `fec.database.loader` |
-| `donor_match.py` | *Manual tool:* re-run donor matching on an existing clean CSV | thin wrapper; `clean.py` already does this inline |
 
 > Root scripts marked **wrapper/thin** just call into the `fec/` package — the
 > real logic lives there. The *manual tool* is not part of the automated

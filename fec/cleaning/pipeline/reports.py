@@ -1,26 +1,17 @@
-"""cleaning/pipeline/reports.py — sanity check + missing-data report.
-
-Pipeline reporting steps (no mutation of the data beyond dropping the temporary
-`_occ_missing` / `_emp_missing` flags after the report is built).
-"""
+"""Sanity check + missing-data report."""
 from __future__ import annotations
-
-from typing import List
 
 import pandas as pd
 
 
-def _sanity_check(df: pd.DataFrame) -> List[str]:
-    """
-    Check for unusual amounts and dates.
-    Returns a list of warning strings (empty = all OK).
-    """
+def _sanity_check(df: pd.DataFrame) -> list[str]:
+    """Check for unusual amounts and dates; returns warning strings (empty = all OK)."""
     warnings = []
-    amt = df['contribution_receipt_amount']
+    amounts = df['contribution_receipt_amount']
 
-    n_negative = int((amt < 0).sum())
-    n_zero = int((amt == 0).sum())
-    n_extreme = int((amt.abs() > 100_000).sum())
+    n_negative = int((amounts < 0).sum())
+    n_zero = int((amounts == 0).sum())
+    n_extreme = int((amounts.abs() > 100_000).sum())
 
     if n_negative:
         warnings.append(f"negative amounts: {n_negative:,}")
@@ -29,7 +20,6 @@ def _sanity_check(df: pd.DataFrame) -> List[str]:
     if n_extreme:
         warnings.append(f"amounts > $100K: {n_extreme:,}")
 
-    # Future dates (more than 30 days from now)
     today = pd.Timestamp.now()
     n_future = int((df['contribution_receipt_date'] > today + pd.Timedelta(days=30)).sum())
     if n_future:
@@ -43,10 +33,7 @@ def _sanity_check(df: pd.DataFrame) -> List[str]:
 
 
 def _build_missing_report(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Build a report of records that had missing occupation or employer
-    in the ORIGINAL data (before we filled them in).
-    """
+    """Report rows whose occupation/employer was missing in the ORIGINAL data; drops the temp _occ/_emp flags from df."""
     missing_mask = df['_occ_missing'] | df['_emp_missing']
 
     report = df.loc[
@@ -59,7 +46,6 @@ def _build_missing_report(df: pd.DataFrame) -> pd.DataFrame:
         'occupation_was_missing', 'employer_was_missing',
     ]
 
-    # Clean up temp columns
-    df.drop(columns=['_occ_missing', '_emp_missing'], errors='ignore', inplace=True)
+    df.drop(columns=['_occ_missing', '_emp_missing'], inplace=True)
 
     return report

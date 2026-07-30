@@ -4,14 +4,20 @@ import re
 
 from .constants import NAME_SUFFIXES
 
+# stripped in this order -- " CO" runs before " CORP" on purpose, changing it
+# changes the output
+_EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
+                   " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
+
+_COMM_SUFFIXES_RE = re.compile(
+    r'\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)'
+    r'\.?\s*$',
+    re.IGNORECASE,
+)
+
 
 def normalize_name(name: str) -> str:
-    """
-    Normalize to LAST|FIRST (drop middle, suffixes, punctuation).
-
-    SMITH, JOHN DAVID    -> SMITH|JOHN
-    SMITH JR, JOHN       -> SMITH|JOHN
-    """
+    """Normalize to LAST|FIRST (drop middle, suffixes, punctuation)."""
     name = str(name or "").strip().upper()
     if "," not in name:
         return name
@@ -47,26 +53,13 @@ def extract_middle(name: str) -> str:
 def normalize_employer(emp: str) -> str:
     """Normalize employer name for comparison."""
     emp = str(emp or "").strip().upper()
-    for suffix in [" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
-                   " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'"]:
+    for suffix in _EMPLOYER_STRIP:
         emp = emp.replace(suffix, "")
     return emp.strip()
 
 
-_COMM_SUFFIXES_RE = re.compile(
-    r'\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)'
-    r'\.?\s*$',
-    re.IGNORECASE,
-)
-
-
 def normalize_committee_name(name: str) -> str:
-    """
-    Normalize committee contributor name for deduplication.
-
-    DON DAVIS FOR NC, DON REP.  ->  DONDAVISFOR NC|DON
-    BELL FOR MISSOURI, WESLEY   ->  BELLFORMISSOURI|WESLEY
-    """
+    """Normalize a committee contributor name to ORG|FIRST for deduplication."""
     name = str(name or "").strip().upper()
     if "," not in name:
         return name.replace(".", "").replace(" ", "").strip()

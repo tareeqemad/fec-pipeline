@@ -1,7 +1,7 @@
 # CLAUDE.md — FEC Pipeline
 
 Context for Claude Code sessions. See `README.md` / `ARCHITECTURE.md` for the full
-design and **`docs/data_dictionary.md`** for the column-level data contract.
+design and **`DATA_DICTIONARY.md`** for the column-level data contract.
 
 ## What this is
 A pipeline tracking donations to three pro-Israel PACs (AIPAC, DMFI, UDP) from
@@ -54,10 +54,11 @@ public FEC records: **pull → clean → resolve employers → geocode → build
 - **Address hygiene** (rule: safe mechanical fixes applied automatically;
   anything needing a guess goes to a review report, never edited):
   - `fec/cleaning/address_review.py` — `apply_safe_fixes` (house numbers,
-    C/O-prefix street recovery, trailing-unit split) + `build_address_reports`
+    C/O-prefix street recovery, trailing-unit split). Its sibling
+    `fec/cleaning/address_reports.py` holds `build_address_reports`
     → `data/address_manual_review.csv` (human judgment, ~470 rows) and
     `data/address_regeocode_suspects.csv` (PO box / PMB / missing ZIP).
-  - `fec/cleaning/pipeline/address_fixes.py` — per-donor recovery/unification
+  - `fec/cleaning/pipeline/address_fixes/` — per-donor recovery/unification
     (null + fragment streets from the donor's own filings, spelling/spacing
     variants via `_unify_street_variants`).
   - `fec/cleaning/pipeline/fec_recovery.py` — last resort: pulls a donor's
@@ -89,9 +90,10 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   restores a STALE snapshot, and the loader then loads old data (this bit hard:
   fresh address fixes kept getting reverted under the user, then loaded). When the
   pipeline is re-run for real, **commit the refreshed data** — don't revert it.
-- The two street-type token lists differ ON PURPOSE: `address_review._STREET_TYPES`
+- The two street-type token lists differ ON PURPOSE: `address_reports._STREET_TYPES`
   (pre-normalization, includes full words + unit keywords) vs
-  `address_fixes._STREET_TYPE_RE` (post-normalization geocodability). Don't merge.
+  `address_fixes.recovery._STREET_TYPE_RE` (post-normalization geocodability).
+  Don't merge.
 - **Preserve real info over blind cleaning** — the recurring rule: a value carrying
   real signal (a company, address, name) is MOVED/recovered to its right field, not
   destroyed. e.g. a company in the occupation field → moved to `contributor_employer`
@@ -117,12 +119,15 @@ public FEC records: **pull → clean → resolve employers → geocode → build
 - `resolve.py` **without `--apply` only updates the caches** (prep); `--apply`
   writes the `employer_*` columns to the CSV. It warns at the end when run
   without `--apply`. Caches are git-tracked (`resolve_employer_addr.json` etc.).
-- Closed-book AI (gpt) **hallucinates** HQ addresses; the apply-time filter
-  clears the obvious fakes. Web-search-**grounded** answers carry method
-  `ai_*_search` and are **exempt** from that filter — verified harder than the
-  heuristics can re-check (don't second-guess them). Triage via donor-state
-  mismatch. (The one-off repair scripts were removed 2026-07-20 — recover
-  `scripts/recheck_*.py` from git history if a bad-address batch reappears.)
+- ALL new AI lookups are **web-search-grounded** (closed-book path removed
+  2026-07-29 — it hallucinated HQ addresses): one `/responses` search call per
+  company, method `ai_<provider>_search`, cached forever. Search answers are
+  **exempt** from the apply-time quality filter — verified harder than the
+  heuristics can re-check (don't second-guess them). The filter stays for the
+  LEGACY closed-book cache entries (`ai_openai`/`ai_xai`, no `_search` suffix);
+  it dies when the last of those is re-resolved. First search-only run also
+  retries the old `ai_not_found` backlog once (resolver tag changed) — expected,
+  budget accordingly. Triage via donor-state mismatch.
 - `dedup_by_resolved_address` **aliases** merged variants (`alias_of=…`) instead
   of deleting them — deleting caused an infinite re-resolve loop (previous_employer
   lookups use the variant spelling). `manual_override` entries are never merged.

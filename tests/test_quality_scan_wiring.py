@@ -1,10 +1,9 @@
-"""tests/test_quality_scan_wiring.py — clean.py writes quality_scan.json each run
-(detect-only proactive scan; must not touch the cleaned data)."""
+"""clean.py writes quality_scan.json each run; the scan is detect-only."""
 import json
 
 import pandas as pd
 
-import clean
+from fec.cleaning import cli
 
 
 def test_write_quality_scan(tmp_path):
@@ -22,7 +21,7 @@ def test_write_quality_scan(tmp_path):
     out = tmp_path / "contributions_cleaned.csv"
     df.to_csv(out, index=False)
 
-    report = clean._write_quality_scan(str(out), str(tmp_path))
+    report = cli._write_quality_scan(str(out), str(tmp_path))
 
     written = json.loads((tmp_path / "quality_scan.json").read_text(encoding="utf-8"))
     assert written == report

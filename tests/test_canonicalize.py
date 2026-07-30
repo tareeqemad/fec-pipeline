@@ -1,25 +1,18 @@
-"""Unit tests for the per-donor canonicalization passes (clean stage).
-
-These lock in the exact behaviours verified by hand during review:
-names/employers/addresses unify the SAME entity written differently, while
-genuinely-different ones stay separate.
-"""
+"""Per-donor canonicalization: same entity unifies, different entities stay apart."""
 import pandas as pd
-import pytest
 
-from fec.database.donor_match.output import (
+from fec.database.donor_match.names import (
     canonicalize_donor_names,
     canonicalize_donor_employers,
-    canonicalize_donor_addresses,
-    canonicalize_donor_addresses_geo,
 )
+from fec.database.donor_match.addresses import canonicalize_donor_addresses
+from fec.database.donor_match.geo import canonicalize_donor_addresses_geo
 
 
 def _df(rows, cols):
     return pd.DataFrame(rows, columns=cols)
 
 
-# ── names ─────────────────────────────────────────────────────────────
 def test_names_unify_and_regenerate_composite():
     df = _df(
         [
@@ -32,7 +25,6 @@ def test_names_unify_and_regenerate_composite():
     )
     n = canonicalize_donor_names(df)
     assert n == 3
-    # one unified composite + first/last
     assert df["contributor_name"].nunique() == 1
     assert df["contributor_first_name"].nunique() == 1
     assert df["contributor_last_name"].unique().tolist() == ["HARBERG"]
@@ -41,7 +33,7 @@ def test_names_unify_and_regenerate_composite():
 
 
 def test_names_preserve_literal_null_surname():
-    """`NULL` is a real surname here — canonicalization must not drop it."""
+    """NULL is a real surname here; canonicalization must not drop it."""
     df = _df(
         [
             ["INDIVIDUAL", "N", "NULL, JAMES", "JAMES", "NULL"],
@@ -56,16 +48,12 @@ def test_names_preserve_literal_null_surname():
 
 
 def test_names_reversed_filing_does_not_wipe_first_name():
-    """A reversed/mis-parsed filing ("GARY, HOFFMAN" → first='HOFFMAN') must NOT
-    let the surname win the "fullest first name" pick and then get stripped to
-    nothing — the real first name (GARY) has to survive for ALL the donor's rows.
-    Regression for the HOFFMAN/LEIBOWITZ/HOLLANDER… wipe bug.
-    """
+    """A reversed mis-parse must not win the fullest-first-name pick (HOFFMAN bug)."""
     df = _df(
         [
             ["INDIVIDUAL", "G", "HOFFMAN, GARY", "GARY", "HOFFMAN"],
             ["INDIVIDUAL", "G", "HOFFMAN, GARY", "GARY", "HOFFMAN"],
-            ["INDIVIDUAL", "G", "GARY, HOFFMAN", "HOFFMAN", "GARY"],   # reversed mis-parse
+            ["INDIVIDUAL", "G", "GARY, HOFFMAN", "HOFFMAN", "GARY"],  # reversed mis-parse
         ],
         ["entity_type", "donor_key", "contributor_name",
          "contributor_first_name", "contributor_last_name"],
@@ -77,8 +65,7 @@ def test_names_reversed_filing_does_not_wipe_first_name():
 
 
 def test_names_surname_in_first_field_still_collapses_when_no_real_first():
-    """When the ONLY first-name spellings ARE the surname (COHEN/COHEN), there is
-    no real first name to keep — it collapses to the bare surname (unchanged)."""
+    """No real first name at all (COHEN/COHEN) collapses to the bare surname."""
     df = _df(
         [
             ["INDIVIDUAL", "C", "COHEN, COHEN", "COHEN", "COHEN"],
@@ -92,7 +79,6 @@ def test_names_surname_in_first_field_still_collapses_when_no_real_first():
     assert df["contributor_name"].unique().tolist() == ["COHEN"]
 
 
-# ── employers ─────────────────────────────────────────────────────────
 def test_employers_merge_same_firm_to_most_complete():
     df = _df(
         [
@@ -105,7 +91,6 @@ def test_employers_merge_same_firm_to_most_complete():
     )
     canonicalize_donor_employers(df)
     emps = set(df["contributor_employer"])
-    # the firm collapses to the fullest name; the unrelated org stays
     assert "HARBERG HUVARD JACOBS WADLER LLP" in emps
     assert "HARBERG HUVARD LLP" not in emps
     assert "INTERFAITH MINISTRIES FOR GREATER HOUSTON" in emps
@@ -123,7 +108,6 @@ def test_employers_do_not_merge_on_single_shared_token():
     assert set(df["contributor_employer"]) == {"SMITH LLP", "SMITH JONES LLP"}
 
 
-# ── addresses ─────────────────────────────────────────────────────────
 def test_addresses_unify_moved_directional():
     df = _df(
         [
@@ -163,7 +147,6 @@ def test_addresses_different_zip_stays_separate():
     assert set(df["contributor_zip"]) == {"10001", "90001"}  # zips untouched
 
 
-# ── addresses (geo) ───────────────────────────────────────────────────
 _GEO_COLS = ["entity_type", "donor_key", "contributor_street_1",
              "latitude", "longitude", "geocode_level"]
 

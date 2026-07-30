@@ -8,16 +8,13 @@ database that powers the [israelsaccomplices.org](https://israelsaccomplices.org
 dashboard.
 
 New here? Read [ARCHITECTURE.md](ARCHITECTURE.md) for the data flow, module
-map, and domain rules, and [docs/data_dictionary.md](docs/data_dictionary.md)
+map, and domain rules, and [DATA_DICTIONARY.md](DATA_DICTIONARY.md)
 for the column-level data contract.
 
 ## Quick start
 
 ```bash
-# The whole file pipeline in one command
-python run.py
-
-# ...or stage by stage — order matters (employer geocoding needs
+# Stage by stage — order matters (employer geocoding needs
 # resolve --apply to have written the employer_* columns first)
 python pull.py                 # 1. Pull new FEC data (3 tracked committees)
 python clean.py                # 2. Clean + de-duplicate + canonicalize
@@ -58,37 +55,36 @@ runs.
 
 ```
 fec-pipeline/
-├── run.py                       # Orchestrator: clean → geocode → resolve → build_employers
-├── pull.py / fec_pull.py        # FEC API pull (tracked committees or any id)
+├── pull.py                      # FEC API pull (tracked committees or any id)
 ├── clean.py                     # Cleaning + donor matching + canonicalization
 ├── geocode.py                   # Lat/lng geocoding (donors; --employer-only for HQs)
 ├── resolve.py                   # Employer address resolution (--apply writes the CSV)
 ├── build_employers.py           # Normalize employer HQs into employers.csv
 ├── loader.py                    # PostgreSQL loader
-├── donor_match.py               # Manual tool: re-run matching on an existing CSV
 │
 ├── fec/
 │   ├── config/                  # Constants, occupation rules, cities, streets
 │   ├── cleaning/
 │   │   ├── pipeline/            # clean() (12 steps), clean_rows()/unify_donors(),
 │   │   │                        #   address fixes, names, reclassify, fec_recovery
-│   │   ├── enhancements.py      # 16 enhancement steps
+│   │   ├── enhancements/        # 16 enhancement steps
 │   │   ├── safety_nets/         # 40+ consistency fixes (A–AS)
-│   │   ├── employer_synonyms.py # Name mappings + abbreviation expansion
-│   │   ├── address_review.py    # Safe address fixes + manual-review reports
-│   │   ├── quality_scan.py      # Proactive issue scanner
-│   │   └── quality.py / audit.py
+│   │   ├── employer_synonyms/   # Name mappings + abbreviation expansion
+│   │   ├── address_review.py    # Safe address fixes
+│   │   ├── address_reports.py   # Manual-review + regeocode-suspect reports
+│   │   ├── quality_scan/        # Proactive issue scanner
+│   │   └── quality/ + audit.py
 │   ├── database/
 │   │   ├── schema.sql           # Schema v1.2 (15 tables, 10 views, 1 MV)
-│   │   ├── loader.py            # Loader + schema-integrity verification
+│   │   ├── loader/              # Loader + schema-integrity verification
 │   │   ├── healthcheck.py       # 80 read-only checks against the live db
-│   │   ├── post_merge_fixes.py  # Fixes requiring donor_key
+│   │   ├── post_merge_fixes/    # Fixes requiring donor_key
 │   │   └── donor_match/         # Score-based de-duplication + canonicalization
 │   ├── resolve/pipeline/        # Multi-step employer resolution
-│   ├── geocoding/pipeline.py    # Nominatim + Google geocoder
+│   ├── geocoding/               # Nominatim + Google geocoder
 │   └── io.py                    # CSV I/O that preserves the literal "NULL" surname
 │
-├── docs/                        # Data dictionary + ERD/DBML generators
+├── DATA_DICTIONARY.md           # The column-level data contract
 ├── tests/                       # Unit + live-DB tests, CI configs
 └── data/                        # Input/output CSVs, caches, reports, overrides
 ```
@@ -147,7 +143,7 @@ stubborn real-world cases.
 
 ## Quality and integrity
 
-- Quality scanner (`fec/cleaning/quality_scan.py`) sweeps the cleaned output
+- Quality scanner (`fec/cleaning/quality_scan/`) sweeps the cleaned output
   for suspicious patterns the rules might have missed — surviving
   abbreviations, near-duplicate company names, name drift, address variants —
   and writes `data/quality_scan.json`.
@@ -182,9 +178,7 @@ Views: `v_donor_current_*` / `v_donor_newest_*` (DISTINCT ON sub-views),
 
 Constraints are deliberate: FKs and range CHECKs everywhere they hold;
 reference tables are not FK-bound because the lookup data is not exhaustive.
-`_verify_schema_integrity()` runs after every create. The ERD and dbdiagram.io
-DBML are generated from the live DB by `docs/build_erd.py` and
-`docs/build_dbml.py`.
+`_verify_schema_integrity()` runs after every create.
 
 ## Commands
 
@@ -198,6 +192,7 @@ python clean.py --no-audit           # Skip audit trail
 python resolve.py --stats            # Show progress
 python resolve.py --apply            # Resolve and write results to the CSV
 python resolve.py --dry-run          # Count without API calls
+python resolve.py --test-ai          # Verify the AI provider key with one tiny call
 
 # Geocoding
 python geocode.py                    # Donor addresses
@@ -205,9 +200,8 @@ python geocode.py --employer-only    # Employer HQs
 python geocode.py --stats            # Cache progress
 
 # Database
+python loader.py --first-run         # First time on a machine: roles + database + load
 python loader.py --reset             # Normal path: drop objects, reload
-python loader.py --stats             # Table counts
-python loader.py --refresh           # Refresh materialized views
 python -m fec.database.healthcheck   # 80 read-only checks
 ```
 
@@ -238,7 +232,7 @@ PG_DBNAME=fec_db
 PG_USER=fec_app
 PG_PASSWORD=
 
-POSTGRES_PASSWORD=            # For --nuke and --init-roles
+POSTGRES_PASSWORD=            # For loader.py --first-run
 DB_ROLES=fec_owner,fec_app
 DB_ROLE_PASSWORD=
 

@@ -1,62 +1,31 @@
-"""CSV I/O helpers for the pipeline.
-
-The FEC dataset contains real donors whose surname is literally "Null"
-(e.g. "NULL, JAMES" — 4 records as of 2026-04). Pandas' default
-`read_csv` treats the string `"NULL"` as a missing-value sentinel and
-silently converts it to NaN, which then writes out as empty — erasing
-the surname of real people. Every read in the pipeline must opt into
-an explicit `na_values` list that omits "NULL".
-
-`read_pipeline_csv()` centralises that config so no individual script
-can forget it. It also applies the standard string dtypes for ID / ZIP
-columns (leading-zero preservation).
-"""
+"""CSV I/O helpers: "Null" is a real donor surname, so every pipeline read must use an na_values list that omits "NULL" (read_pipeline_csv centralises this)."""
 from pathlib import Path
-from typing import Optional, Union
 
 import pandas as pd
 
 
-# Values pandas should treat as missing.  The canonical pandas default
-# list is ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN',
-# '-nan', '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NA', 'NULL', 'NaN',
-# 'None', 'n/a', 'nan', 'null'] — we drop 'NULL', 'NA', 'null', 'n/a'
-# because surnames like "Null" and "Na" are real names; we still
-# recognise the junk placeholders 'N/A' / 'NaN' / 'None' etc.
+# pandas' default missing-value list minus 'NULL', 'NA', 'null', 'n/a'
+# (real surnames like "Null" and "Na"); junk placeholders are still recognised
 NA_VALUES = ['', '#N/A', '#NA', 'N/A', '#N/A N/A', 'NaN', 'nan', 'None']
 
 
-# Columns that must be read as strings (not coerced to int/float), to
-# preserve leading zeros and avoid scientific-notation corruption.
+# columns read as strings to preserve leading zeros and avoid scientific notation
 ID_DTYPES = {
     'sub_id': 'string',
     'transaction_id': 'string',
     'committee_id': 'string',
     'contributor_zip': 'string',
-    'employer_zip': 'string',   # leading-zero ZIPs (08816) corrupt to float without this
+    'employer_zip': 'string',
 }
 
 
 def read_pipeline_csv(
-    path: Union[str, Path],
-    extra_dtypes: Optional[dict] = None,
+    path: str | Path,
+    extra_dtypes: dict | None = None,
     all_string: bool = False,
     **kwargs,
 ) -> pd.DataFrame:
-    """Read a pipeline CSV with NULL-surname-safe defaults.
-
-    Args:
-        path: CSV file path.
-        extra_dtypes: Additional column dtypes to apply (merged with
-            the default ID_DTYPES).
-        all_string: If True, read every column as `str`. ID_DTYPES is
-            still applied (string dtype is compatible).
-        **kwargs: Forwarded to `pd.read_csv` (e.g. `usecols`, `nrows`).
-            `dtype`, `keep_default_na`, and `na_values` are reserved.
-
-    Returns:
-        DataFrame. Empty cells → NaN; literal "NULL" stays as "NULL".
-    """
+    """Read a pipeline CSV with NULL-surname-safe defaults; dtype/keep_default_na/na_values are reserved, extra kwargs go to pd.read_csv."""
     for reserved in ('keep_default_na', 'na_values'):
         if reserved in kwargs:
             raise TypeError(
@@ -64,7 +33,7 @@ def read_pipeline_csv(
                 "pass additional na values via a custom read_csv instead."
             )
 
-    # Peek header to scope dtypes to present columns only
+    # peek header to scope dtypes to present columns only
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
 

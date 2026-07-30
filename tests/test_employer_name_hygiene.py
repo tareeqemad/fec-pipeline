@@ -1,6 +1,4 @@
-"""New employer-name hygiene rules from the 2026-07-20 audit."""
-import pandas as pd
-
+"""Employer-name hygiene: legal-suffix restyle, canonical key, display name."""
 from fec.cleaning.employer_synonyms import (
     restyle_legal_suffix, canonical_key, normalize_employer_display_name,
 )
@@ -13,8 +11,7 @@ def test_suffix_comma_restyle():
 
 
 def test_suffix_restyle_tolerates_filer_punctuation():
-    # raw FEC value: "T & M BUILDING CO,, INC." — the trailing period is
-    # stripped by a later step, so the comma must match while it is present
+    # the trailing period is stripped by a later step, so the comma must match while present
     assert restyle_legal_suffix('T & M BUILDING CO,, INC.') == 'T & M BUILDING CO INC.'
     assert restyle_legal_suffix('T & M BUILDING CO, INC') == 'T & M BUILDING CO INC'
 
@@ -27,7 +24,7 @@ def test_suffix_dedot_ordering_and_exception():
         'BURKE, WARREN, MACKAY & SERRITELLA PC'
     assert restyle_legal_suffix('CORNERSTONE PSYCHIATRY ASSOCIATES, P.A') == \
         'CORNERSTONE PSYCHIATRY ASSOCIATES PA'
-    # real company a.l.p. Lighting — not a limited partnership
+    # real company a.l.p. Lighting, not a limited partnership
     assert restyle_legal_suffix('A.L.P') == 'A.L.P'
     assert restyle_legal_suffix('A.L.P.') == 'A.L.P.'
 
@@ -54,7 +51,7 @@ def test_display_name_trailing_connectors_and_co():
 
 
 def test_display_name_converges_on_synonyms():
-    # previous_employer path must land on the curated canonical (IBM split fix)
+    # previous_employer path must land on the curated canonical
     assert normalize_employer_display_name('IBM') == 'IBM CORP'
 
 

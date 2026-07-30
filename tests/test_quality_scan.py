@@ -26,10 +26,9 @@ def test_near_duplicates_collapse_abbrev_but_split_different_firms():
         ["entity_type", "contributor_employer"],
     )
     r = qs.scan_employer_near_duplicates(df)
-    flat = ["|".join(g) for g in r["examples"]]
-    # the MGMT/MANAGEMENT pair is one group...
+    # the MGMT/MANAGEMENT pair is one group
     assert any("ROBICO MANAGEMENT" in g and "ROBICO MGMT" in g for g in r["examples"])
-    # ...but M&R vs S&A keep their single letters and do NOT collide
+    # M&R vs S&A keep their single letters and do not collide
     assert not any("M&R MANAGEMENT" in g and "S&A MANAGEMENT" in g for g in r["examples"])
 
 

@@ -1,6 +1,4 @@
-"""
-config/geography.py — US states and territories.
-"""
+"""US states and territories."""
 
 US_STATES = frozenset({
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -8,39 +6,37 @@ US_STATES = frozenset({
     'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
     'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
     'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
-    # Territories
+    # territories
     'DC', 'PR', 'VI', 'GU', 'AS', 'MP',
 })
 
 STATE_NAMES = {
-    'AL': 'Alabama',       'AK': 'Alaska',        'AZ': 'Arizona',
-    'AR': 'Arkansas',      'CA': 'California',     'CO': 'Colorado',
-    'CT': 'Connecticut',   'DE': 'Delaware',       'FL': 'Florida',
-    'GA': 'Georgia',       'HI': 'Hawaii',         'ID': 'Idaho',
-    'IL': 'Illinois',      'IN': 'Indiana',        'IA': 'Iowa',
-    'KS': 'Kansas',        'KY': 'Kentucky',       'LA': 'Louisiana',
-    'ME': 'Maine',         'MD': 'Maryland',       'MA': 'Massachusetts',
-    'MI': 'Michigan',      'MN': 'Minnesota',      'MS': 'Mississippi',
-    'MO': 'Missouri',      'MT': 'Montana',        'NE': 'Nebraska',
-    'NV': 'Nevada',        'NH': 'New Hampshire',  'NJ': 'New Jersey',
-    'NM': 'New Mexico',    'NY': 'New York',       'NC': 'North Carolina',
-    'ND': 'North Dakota',  'OH': 'Ohio',           'OK': 'Oklahoma',
-    'OR': 'Oregon',        'PA': 'Pennsylvania',   'RI': 'Rhode Island',
-    'SC': 'South Carolina','SD': 'South Dakota',   'TN': 'Tennessee',
-    'TX': 'Texas',         'UT': 'Utah',           'VT': 'Vermont',
-    'VA': 'Virginia',      'WA': 'Washington',     'WV': 'West Virginia',
-    'WI': 'Wisconsin',     'WY': 'Wyoming',
+    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona',
+    'AR': 'Arkansas', 'CA': 'California', 'CO': 'Colorado',
+    'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida',
+    'GA': 'Georgia', 'HI': 'Hawaii', 'ID': 'Idaho',
+    'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+    'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana',
+    'ME': 'Maine', 'MD': 'Maryland', 'MA': 'Massachusetts',
+    'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi',
+    'MO': 'Missouri', 'MT': 'Montana', 'NE': 'Nebraska',
+    'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+    'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina',
+    'ND': 'North Dakota', 'OH': 'Ohio', 'OK': 'Oklahoma',
+    'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island',
+    'SC': 'South Carolina', 'SD': 'South Dakota', 'TN': 'Tennessee',
+    'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+    'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia',
+    'WI': 'Wisconsin', 'WY': 'Wyoming',
     'DC': 'District of Columbia',
-    'PR': 'Puerto Rico',   'VI': 'US Virgin Islands',
-    'GU': 'Guam',          'AS': 'American Samoa',
+    'PR': 'Puerto Rico', 'VI': 'US Virgin Islands',
+    'GU': 'Guam', 'AS': 'American Samoa',
     'MP': 'Northern Mariana Islands',
 }
 
 
-# Per-state lat/lon bounding boxes (lat_min, lat_max, lng_min, lng_max).
-# Single source of truth shared by geocoding result-validation
-# (fec/geocoding/pipeline.py) and the address-review report
-# (fec/cleaning/address_review.py).
+# Per-state (lat_min, lat_max, lng_min, lng_max). Shared by geocoding
+# validation (fec/geocoding/pipeline.py) and fec/cleaning/address_review.py.
 US_STATE_BBOX = {
     'AL': (30.1, 35.0, -88.5, -84.9), 'AK': (51.2, 71.4, -180.0, -129.9),
     'AZ': (31.3, 37.0, -114.8, -109.0), 'AR': (33.0, 36.5, -94.6, -89.6),

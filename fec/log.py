@@ -1,18 +1,7 @@
-"""
-Centralized logging for the FEC pipeline.
-
-Usage:
-    from fec.log import get_logger
-    logger = get_logger(__name__)
-    logger.info("Processing %d records", count)
-
-Console output is clean (message only).
-File output is detailed (timestamp + level + module).
-"""
+"""Centralized logging: clean console output (message only), detailed file output (timestamp + level + module)."""
 import logging
 import os
 import sys
-from typing import Optional
 
 
 _CONFIGURED = False
@@ -25,7 +14,7 @@ class CleanFormatter(logging.Formatter):
         return record.getMessage()
 
 
-def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
+def setup_logging(level: str = "INFO", log_file: str | None = None) -> None:
     """Configure logging for the entire pipeline. Call once at startup."""
     global _CONFIGURED
     if _CONFIGURED:
@@ -37,8 +26,7 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     root = logging.getLogger()
     root.setLevel(getattr(logging, level, logging.INFO))
 
-    # Console: clean output (message only)
-    # Force UTF-8 on Windows (cp1256/cp1252 can't handle ✓→─ etc.)
+    # force UTF-8 on Windows: cp1256/cp1252 can't encode some log characters
     if sys.platform == "win32":
         import io
         console_stream = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -48,7 +36,6 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     console.setFormatter(CleanFormatter())
     root.addHandler(console)
 
-    # File: detailed output (timestamp + level + module)
     if log_file:
         fh = logging.FileHandler(log_file, encoding="utf-8")
         fh.setFormatter(logging.Formatter(

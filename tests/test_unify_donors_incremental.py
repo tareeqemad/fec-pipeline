@@ -1,10 +1,7 @@
-"""unify_donors() must give one person ONE donor_key even when their rows
-were cleaned in different batches — the incremental path unifies on the
-combined data; these tests pin that contract."""
+"""unify_donors() must give one person one donor_key even when rows were cleaned in different batches."""
 import pandas as pd
-import pytest
 
-import clean
+from fec.cleaning import cli
 from fec.cleaning.pipeline import unify_donors
 from fec.io import read_pipeline_csv
 
@@ -41,8 +38,7 @@ def _frame(rows):
     return pd.DataFrame(rows)
 
 
-# A donor FEC recorded under two cities (moved / filer inconsistency) but with
-# the same street + ZIP, so the matcher merges the two rids into one cluster.
+# Same donor filed under two cities but same street + ZIP, so the matcher merges the rids.
 OLD_ROWS = [
     _row('101', 'SHTREMBERG, VICTOR', 'VICTOR', 'SHTREMBERG',
          'ENCINO', 'CA', '91316', '123 MAPLE ST'),
@@ -77,9 +73,7 @@ def test_multi_rid_donor_gets_one_key_in_combined_run():
 
 
 def test_batch_only_matching_would_split_the_donor():
-    """Documents WHY the incremental path must not match the new batch alone:
-    the new LA filing, matched in isolation, gets a different key than the
-    full run assigned the donor."""
+    """The new batch matched alone gets a different key than the full run assigned."""
     full = unify_donors(_frame(OLD_ROWS))
     batch = unify_donors(_frame(NEW_ROWS))
     full_key = _keys_by_sub_id(full)['101']
@@ -101,21 +95,19 @@ def test_null_surname_survives():
 
 
 def _round_trip(tmp_path, old_rows, new_rows):
-    """Mirror clean.py's incremental chain: unify, save public CSV, read it
-    back, merge the new batch, unify again, restore prior keys."""
+    """Mirror clean.py's incremental chain: unify, save, read back, merge, unify, restore keys."""
     run1 = unify_donors(_frame(old_rows))
     out = tmp_path / 'out.csv'
-    clean._drop_internal_cols(run1).to_csv(out, index=False)
+    cli._drop_internal_cols(run1).to_csv(out, index=False)
     existing = read_pipeline_csv(out)
-    combined = clean._merge_incremental(existing, _frame(new_rows))
+    combined = cli._merge_incremental(existing, _frame(new_rows))
     combined = unify_donors(combined)
-    clean._restore_prior_donor_keys(combined, existing)
+    cli._restore_prior_donor_keys(combined, existing)
     return run1, combined
 
 
 def test_donor_key_survives_incremental_round_trip(tmp_path):
-    # Nickname pair: canonicalization rewrites BOB -> ROBERT in the saved
-    # output, so re-matching it alone would hash a different cluster root.
+    # BOB -> ROBERT canonicalization in the saved output would hash a different cluster root on re-match.
     old = [
         _row('101', 'SHTREMBERG, BOB', 'BOB', 'SHTREMBERG',
              'ENCINO', 'CA', '91316', '123 MAPLE ST'),

@@ -6,19 +6,18 @@ from .constants import STATUS_EMPLOYERS, GENERIC_OCC_CATEGORIES
 from .normalize import normalize_name, extract_middle, normalize_employer
 
 
+def _s(val) -> str:
+    """Cell value as a stripped string, NaN -> ''."""
+    if pd.isna(val):
+        return ""
+    return str(val).strip()
+
+
 def build_profiles(indiv: pd.DataFrame) -> dict:
-    """
-    Build a profile for each unique record_id (NAME|CITY|STATE).
-    Aggregates all contributions: streets, employers, zip codes.
-    """
+    """Build a per-record_id (NAME|CITY|STATE) profile aggregating streets, employers, and zips."""
     profiles = {}
 
     for _, row in indiv.iterrows():
-        def _s(val):
-            if pd.isna(val):
-                return ""
-            return str(val).strip()
-
         rid = (
             _s(row["contributor_name"]) + "|" +
             _s(row["contributor_city"]) + "|" +
@@ -35,7 +34,6 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
                 "state": _s(row["contributor_state"]).upper(),
                 "zip5": _s(row["contributor_zip"]),
                 "streets": set(),
-                "employers": set(),
                 "norm_employers": set(),
                 "occ_categories": set(),
                 "retired": False,
@@ -46,12 +44,11 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
         p["record_count"] += 1
 
         street = _s(row.get("contributor_street_1")).upper()
-        if street and street not in ("", "NAN"):
+        if street and street != "NAN":
             p["streets"].add(street)
 
         emp = _s(row.get("contributor_employer")).upper()
         if emp and emp not in STATUS_EMPLOYERS:
-            p["employers"].add(emp)
             p["norm_employers"].add(normalize_employer(emp))
 
         occ_cat = _s(row.get("occupation_category")).upper()

@@ -1,17 +1,4 @@
-"""Live query-correctness suite — runs against the REAL fec_db (read-only).
-
-The automation the project leans on most: it proves every view / query returns
-the RIGHT data on the actually-loaded database, not on toy seeds. The checks live
-in ONE place — fec.database.query_checks.CHECKS — so CI verifies exactly the
-same things every run.
-
-Each `crit` check becomes its own parametrized test (clear per-query pass/fail).
-`warn` checks (legitimate edge cases — refunds, territories) are reported but do
-not fail CI. The whole suite SKIPS cleanly when fec_db is unreachable / empty, so
-CI (no database) stays green while a developer / the panel runs it for real.
-
-    pytest -m live -v
-"""
+"""Live query-correctness suite for the real fec_db (read-only); skips when unreachable or empty."""
 from __future__ import annotations
 
 import pytest
@@ -51,7 +38,7 @@ def test_query_correctness(live, check):
 
 @pytest.mark.parametrize("check", _WARN, ids=[c.name for c in _WARN])
 def test_data_quality_signal(live, check):
-    """Data-quality signals — reported, never fail CI (legit edge cases exist)."""
+    """Data-quality signals are reported but never fail CI."""
     ok, detail = check.run(live)
     if not ok:
         pytest.skip(f"signal: {check.name} — {detail}")

@@ -118,7 +118,6 @@ JOHN A. GOLDEN ASSOCIATES,"12 East 49th Street, Floor 41",New York,NY,10017,"HIG
 CRESSON MANAGEMENT,7-L Estate Nazareth,St. Thomas,VI,00802,"HIGH (verified) — Cresson Management LLC; family investment office (direct private investments + VC); David Messer (Managing Partner, also linked to Freepoint Commodities)"
 "TG HOLDINGS, LLC","17895 Collins Avenue, Suite 2600",Sunny Isles Beach,FL,33160,"HIGH (verified) — part of The Trump Group (Julius ""Jules"" + Eddie Trump, NOT Donald Trump); RE dev/investment; Acqualina Resort + Williams Island; matches donor (Julius Trump, Sunny Isles Beach FL)"
 "LEIFER CAPITAL ADVISERS, LLC",86 Clements Road,Newton,MA,02458,investment advisory / Leifer family office
-SPRUCE CAPITAL PARTNERS,,NEW YORK,NY,10022,2026-05 manual cleanup session
 BAG INVESTMENTS,,CULVER CITY,CA,90232,2026-05 manual cleanup session
 GIBSON DUNN & CRUTCHER,333 South Grand Avenue,Los Angeles,CA,90071,"HIGH (verified) — Gibson, Dunn & Crutcher LLP (est. 1890 in LA); global law firm (2200+ lawyers in 23 offices); LA = historic HQ; matches most donors (LA-based attorneys). NY office at 200 Park Ave is also major"
 REICH BROTHERS,172 South Broadway,White Plains,NY,10605,HIGH (verified) — Reich Brothers LLC (est. 2009); industrial RE investment/redev (20M+ sq ft); Adam + Jonathan Reich (Co-CEOs); donor Adam Reich lives in LA but firm HQ is White Plains NY
@@ -135,7 +134,6 @@ GATEHOUSE MANAGEMENT,"120 Forbes Blvd, Suite 180",Mansfield,MA,02048,HIGH (verif
 OLD COURT GROUP,,NEW YORK,NY,10001,2026-05 manual cleanup session
 BLACKSTONE GROUP,345 Park Avenue,New York,NY,10154,HIGH (verified) — Blackstone Inc. (NYSE: BX); global alt asset manager
 MESIROW FINANCIAL,353 N Clark Street,Chicago,IL,60654,HIGH (verified) — Mesirow Financial; Chicago HQ; financial advisory + investment management
-NATIONAL DISTRIBUTING COMPANY,,ATLANTA,GA,,2026-05 manual cleanup session
 GUAC-LOCK,,Scarsdale,NY,10583,MEDIUM (city-only) — Guac-Lock (guacamole container product); Jane Och + Sharon Prince (inventors); company tied to founders' Scarsdale NY base; donor Jane Och lives in Miami Beach FL but company is NY-based per user verification
 ROCKDALE CAPITAL,650 Liberty Avenue,Union,NJ,07083,HIGH (verified) — Rockdale Capital; private investments; Warren Eisenberg (Managing Partner); Union NJ HQ (donor lives Short Hills NJ)
 JOHNSON REAL ESTATE,,West Hartford,CT,06117,"MEDIUM (city-only) — generic RE name; Jeremy Pava (Executive Chairman, West Hartford CT); private firm"
@@ -225,7 +223,6 @@ LINDEN,,Chicago,IL,60601,MEDIUM (city-only) — Linden (investor entity); Tony D
 MAVEN,,LOS ALTOS HILLS,CA,94022,2026-05 manual cleanup session
 GOLDBERG REALTY ASSOC.,,Livingston,NJ,07039,MEDIUM (city-only) — Goldberg Realty Associates; Michael Goldberg
 PROVIDENCE REAL ESTATE,,Wayzata,MN,55391,MEDIUM (city-only) — Providence RE; Phillip Jaffe (CEO)
-MG PROPERTIES,,SAN DIEGO,CA,92121,2026-05 manual cleanup session
 BLUESTAR ALLIANCE,"1350 Broadway, Suite 503",New York,NY,10018,HIGH (verified) — Bluestar Alliance (brand mgmt); Joseph Gabbay (CEO); Midtown NYC HQ
 BOSTON LAND COMPANY,,Palm Beach,FL,33480,MEDIUM (city-only) — Boston Land Co.; Robert Kargman (RE)
 WHOKNEW VENTURES LLC,,KENTFIELD,CA,94904,2026-05 manual cleanup session
@@ -266,7 +263,6 @@ HAWK HILL MANAGEMENT COMPANY LLC,,Boston,MA,02110,MEDIUM (city-only) — Hawk Hi
 EMPIRE DAWN LLC,,Phoenix,AZ,85016,MEDIUM (city-only) — Empire Dawn LLC; Jonathan Levine (President)
 CRAIG/IS,,Jacksonville,FL,32202,MEDIUM (city-only) — Craig/IS; Jeff Craig (CEO)
 CAVES VALLEY PARTNERS,,Cockeysville,MD,21030,MEDIUM (city-only) — Caves Valley Partners (RE development); Steven Sibel
-STRATA EQUITY GROUP,,San Diego,CA,92121,MEDIUM (city-only) — Strata Equity Group; Carlos Michan (RE)
 RECOM,,Spokane,WA,99201,MEDIUM (city-only) — Recom; Murray Huppin (Division President)
 MB DAVIS GROUP,,Austin,TX,78701,MEDIUM (city-only) — MB Davis Group; Mitch Davis (Insurance Consultant)
 MARON AND SANDLER,,Santa Monica,CA,90401,MEDIUM (city-only) — Maron and Sandler (law firm); Richard Sandler (Attorney)
@@ -469,3 +465,29 @@ DUKE UNIVERSITY,2138 Campus Drive,Durham,NC,27708,Main campus address (duke.edu/
 HOGAN LOVELLS,555 Thirteenth Street NW,Washington,DC,20004,"Principal US office, Columbia Square (hoganlovells.com) — cache had Birmingham UK office"
 AIRCALL,"44 W 28th Street, Floor 14",New York,NY,10001,US office (aircall.io/contact) — cache had Paris HQ
 "MICHIGAN PNEUMATIC TOOL, INC",6850 Middlebelt Rd,Romulus,MI,48174,"Verified HQ (michiganpneumatic.com / LeadIQ) — closed-book AI hallucinated '700 E Michigan Ave' (eponymous-street), correctly cleared by filter"
+ALTOPASS INC,"405 El Camino Real, Suite 629",Menlo Park,CA,94025,"CA Secretary of State registered address (entity C4312592, via OpenCorporates/BizProfile, 2026-07-29); founder/CEO Eugene Fooksman"
+AMAZON STUDIOS,9336 Washington Blvd,Culver City,CA,90232,"Amazon MGM Studios HQ at Culver Studios (Wikipedia/production directories, 2026-07-29); resolver had assigned parent Amazon Seattle HQ - donor is an LA-based TV writer"
+MILLENNIUM MANAGEMENT,399 Park Avenue,New York,NY,10022,Official HQ (mlp.com); MILLENIUM misspelling merged here - donor Jeffrey Verschleiser is Millennium Senior Advisor per company leadership page (2026-07-29)
+APOLLO ISG,"2121 Rosecrans Ave, Suite 5300",El Segundo,CA,90245,"Apollo Insurance Solutions Group LP principal office (LEI/state registrations, 2026-07-29); resolver had parent Apollo NYC HQ - donor James Belardi is AISG founder/CEO, lives in Manhattan Beach"
+FOUNDATION FOR DEFENSE OF DEMOCRACIES,1800 M Street NW,Washington,DC,20036,"Official HQ (fdd.org, 2026-07-29); FDD acronym expanded - donor Mark Dubowitz is FDD CEO"
+ADC THERAPEUTICS,"430 Mountain Avenue, Suite 404",New Providence,NJ,07974,"US office of ADC Therapeutics SA (state registrations, 2026-07-29); ADC/ADCT expanded - donor Ron Squarer is board chairman"
+JEWISH FAMILY AND CHILDREN'S SERVICES OF SAN FRANCISCO,2150 Post Street,San Francisco,CA,94115,"Official HQ (jfcs.org, 2026-07-29); JFCS expanded - donor Anita Friedman is executive director; kept separate from the Santa Ana JEWISH FAMILY & CHILDRENS SERVICES"
+RELATIVE VALUE PARTNERS,"1033 Skokie Blvd, Suite 470",Northbrook,IL,60062,"Official HQ (LeadIQ/ZoomInfo, 2026-07-29); RVP expanded - donor Maury Fertig is co-founder/CIO"
+RAIN MANAGEMENT GROUP,11162 La Grange Ave,Los Angeles,CA,90025,"Official HQ (rainmanagementgroup.com, 2026-07-29); RAIN expanded - donor Jonathan Baruch is founding partner"
+CSR PRIVACY SOLUTIONS,830 NE Pop Tilton Place,Jensen Beach,FL,34957,"Official HQ (csrps.com/Manta, 2026-07-29); CSRPS expanded - donors Ross and Warren Federgreen run the company"
+THE MAVEN GROUP,"4905 Del Ray Ave, Suite 200",Bethesda,MD,20814,"Official HQ (themavengroup.us, 2026-07-29); split from the MAVEN name collision with MAVEN VENTURES"
+MAVEN VENTURES,3340 Hillview Avenue,Palo Alto,CA,94304,"Official HQ (Crunchbase/PitchBook, 2026-07-29); donor Jim Scheinman is founding managing partner"
+NATIONAL DISTRIBUTING COMPANY,One National Drive SW,Atlanta,GA,30336,"Official HQ (company listings, 2026-07-29); GA/NM wine and spirits wholesaler, affiliate of RNDC"
+SPRUCE CAPITAL PARTNERS,"535 Madison Avenue, 19th Floor",New York,NY,10022,"Official HQ (sprucecap.com, 2026-07-29)"
+ATLANTIC AUTOMOTIVE CORP,"1 Olympic Place, Suite 1210",Towson,MD,21204,"Official HQ (Dun and Bradstreet, 2026-07-29); trades as MileOne Autogroup"
+HCT HEALTHCARE TRANSFORMATION,"875 N Michigan Ave, Suite 3100",Chicago,IL,60611,"Corporate office (ZoomInfo/thinkhct.com, 2026-07-29); Chicago base matches the Skokie IL donor"
+MG PROPERTIES,"10505 Sorrento Valley Rd, Suite 300",San Diego,CA,92121,"Official corporate office (mgproperties.com/contact, 2026-07-29)"
+NUT TREE CAPITAL MANAGEMENT LP,"55 Hudson Yards, 22nd Floor",New York,NY,10001,"Official address (SEC Form ADV / fund databases, 2026-07-29)"
+MEDSTAR MEDICAL GROUP ANESTHESIOLOGY,201 E University Pkwy,Baltimore,MD,21218,Practice address on the NPI registry (2026-07-29); the MMGA acronym expanded this session
+"BARUCH COLLEGE, CITY UNIVERSITY OF NEW YORK",One Bernard Baruch Way,New York,NY,10010,"Official campus address (baruch.cuny.edu, 2026-07-29); repairs the 38-char FEC truncation"
+GREAT PUBLIC SCHOOLS NOW,"1150 S Olive Street, Suite 1325",Los Angeles,CA,90015,"Official office (GuideStar/IRS 990, 2026-07-29); GPSN acronym expanded this session"
+STRATA EQUITY GROUP,"4370 La Jolla Village Dr, Suite 960",San Diego,CA,92122,"Official HQ (strataequity.com/contact, 2026-07-29)"
+TRANSPORTATION AGENT GRID,"480 Roland Way, Suite 102",Oakland,CA,94621,Shares the Progistics Distribution office (2026-07-29); donor Joel Ritch led both - TAG acronym expanded this session
+C.T. BAUER COLLEGE OF BUSINESS AT THE UNIVERSITY OF HOUSTON,4750 Calhoun Road,Houston,TX,77204,"Official campus address (bauer.uh.edu, 2026-07-29); repairs the 38-char FEC truncation"
+MCKINLEY ASSOCIATES INC,"320 N Main St, Suite 200",Ann Arbor,MI,48104,"Official HQ (Dun and Bradstreet, 2026-07-29); trades as McKinley Inc"
+CARDIOVASCULAR ASSOCIATES OF NORTH JERSEY,"25 Rockwood Place, Suite 440",Englewood,NJ,07631,"Branch where the donor actually works: Dr. Samuel Suede is the founding partner and practices at the Englewood office (englewoodhealth.org / cardiovascularnj.com, 2026-07-29); he lives 4 miles away in Demarest. Practice has 7 sites and no declared HQ"

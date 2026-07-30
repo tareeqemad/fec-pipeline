@@ -5,7 +5,7 @@
     "by_token": {}
   },
   "employer_near_duplicates": {
-    "groups": 3,
+    "groups": 2,
     "examples": [
       [
         "UNIVERSITY OF WASHINGTON",
@@ -14,10 +14,6 @@
       [
         "GOOD HEALTH",
         "GOOD HEALTH INC"
-      ],
-      [
-        "CITY OF NEW YORK",
-        "NEW YORK CITY"
       ]
     ]
   },
