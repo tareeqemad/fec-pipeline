@@ -196,6 +196,9 @@ SECTOR_AS_EMPLOYER = frozenset({
     # PM&R = physical medicine & rehabilitation (medical specialty); all three
     # keyed spellings must be here or the donor's other filings re-fill the null
     'MAGAZINE', 'MEDICAL', 'PM&R', 'PMR', 'PM AND R', 'NON PROFIT', 'PUBLIC SECTOR', 'E COMMERCE',
+    # names the line of work, same as REAL ESTATE above; it had survived as a
+    # "company" for a $615K donor whose occupation is simply RETIRED
+    'PROPERTY MANAGEMENT',
     'COLLEGE', 'A BANK', 'CDN PROVIDER', 'STARTUP', 'STEALTH STARTUP',
     # government: names the sector, not the agency
     'STATE EMPLOYEE', 'FEDERAL EMPLOYEE', 'LOCAL GOVERNMENT',
