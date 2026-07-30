@@ -55965,14 +55965,6 @@
   "provider": "openai",
   "confidence": "UNKNOWN"
  },
- "THREATCURVE": {
-  "employer_address": "1250 S Capital of Texas Hwy",
-  "employer_city": "Austin",
-  "employer_state": "TX",
-  "employer_zip": "78746",
-  "method": "ai_openai",
-  "confidence": "MEDIUM"
- },
  "THREE LEE INVESTMENTS LTD.": {
   "employer_address": "",
   "method": "ai_not_found",
