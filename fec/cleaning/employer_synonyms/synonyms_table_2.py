@@ -69,7 +69,9 @@ SYNONYMS = {
     'R.A. COHEN': 'R.A. COHEN AND ASSOCIATES',
     # short name -> full name
     'HACKMAN CAPITAL': 'HACKMAN CAPITAL PARTNERS',
-    'GRT CORPORATION': 'GRT',
+    # GRT -> GRT CORPORATION lives in manual_typo_overrides.json; the acronym is
+    # what 200 of the 201 filings say, but the registered name is the readable
+    # one and it carries the verified Stamford HQ.
     'OAKTREE CAPITAL MANAGEMENT': 'OAKTREE CAPITAL',
     'OAKTREE CAPITAL MGMT': 'OAKTREE CAPITAL',
     'SUTHERLAND CAPITAL MANAGEMENT': 'SUTHERLAND CAPITAL',
