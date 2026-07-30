@@ -24,18 +24,62 @@ EMP_ADDR_COLS = [
 EMP_NAME_COLS = ["contributor_employer", "previous_employer"]
 
 
-def _source_map() -> dict:
-    """employer name -> (address_source, address_confidence) from the resolve cache."""
+def _donor_states(df: pd.DataFrame) -> dict:
+    """employer name (upper) -> the states its donors file from."""
+    states: dict = defaultdict(set)
+    for col in EMP_NAME_COLS:
+        pairs = df[[col, "contributor_state"]].dropna()
+        for name, state in pairs.itertuples(index=False):
+            states[str(name).strip().upper()].add(str(state).strip().upper())
+    return states
+
+
+def _address_trust(method: str, address_state: str, donor_states: set) -> str:
+    """How much the address deserves to be believed, from evidence we hold.
+
+    The confidence the AI reported about itself is worthless as a signal: of 32
+    addresses proven wrong by hand in July 2026, all 32 claimed HIGH. So this
+    grades on what can be checked instead.
+
+    verified       a human curated it
+    grounded       answered with web search, which supersedes the closed-book path
+    corroborated   closed-book, but a donor of this company files from that state
+    uncorroborated closed-book and no donor lives there. Of 50 such entries checked
+                   by hand, 44 were wrong - treat them as wrong until re-resolved.
+    """
+    if method == "manual_override":
+        return "verified"
+    if method.endswith("_search"):
+        return "grounded"
+    if address_state and address_state.upper() in donor_states:
+        return "corroborated"
+    return "uncorroborated"
+
+
+def _source_map(df: pd.DataFrame) -> tuple[dict, dict]:
+    """Grade every cached address, indexed by employer name AND by the street itself.
+
+    The street index matters: a retired donor's address is looked up under the
+    NORMALISED previous-employer name, so the name shown in employers.csv can be
+    absent from the cache while its address is right there under another key.
+    Without the second index those rows come out ungraded.
+    """
     if not RESOLVE_CACHE.exists():
-        return {}
+        return {}, {}
     with open(RESOLVE_CACHE, encoding="utf-8") as handle:
         cache = json.load(handle)
-    out = {}
+    states = _donor_states(df)
+    by_name, by_address = {}, {}
     for name, entry in cache.items():
         method = (entry.get("method") or "")
         source = "manual" if method == "manual_override" else ("ai" if method.startswith("ai") else method)
-        out[name] = (source, entry.get("confidence") or "")
-    return out
+        grade = (source, _address_trust(method, entry.get("employer_state") or "",
+                                       states.get(name.upper(), set())))
+        by_name[name] = grade
+        street = (entry.get("employer_address") or "").strip().upper()
+        if street:
+            by_address.setdefault(street, grade)
+    return by_name, by_address
 
 
 def _branch_states() -> dict:
@@ -197,7 +241,7 @@ def build() -> tuple[int, int]:
         return n_emp, len(df.columns)
 
     # 2. fresh build: pull every referenced company HQ from the now-canonical rows
-    src = _source_map()
+    src, src_by_address = _source_map(df)
     branch_states = _branch_states()
     n_branches = _write_branches(df, branch_states)
     if n_branches:
@@ -229,11 +273,23 @@ def build() -> tuple[int, int]:
             .rename(columns={"previous_employer": "employer_name"}))
 
     emp = _dedupe_dimension(pd.concat([active, prev], ignore_index=True))
-    emp["address_source"] = emp["employer_name"].map(lambda n: src.get(n, ("", ""))[0])
-    emp["address_confidence"] = emp["employer_name"].map(lambda n: src.get(n, ("", ""))[1])
+    def grade(row) -> tuple:
+        found = src.get(row["employer_name"])
+        if found:
+            return found
+        street = str(row["employer_address"] or "").strip().upper()
+        return src_by_address.get(street, ("", ""))
+
+    graded = [grade(row) for _, row in emp.iterrows()]
+    emp["address_source"] = [g[0] for g in graded]
+    emp["address_trust"] = [g[1] for g in graded]
     no_addr = emp["employer_address"].isna()
-    emp.loc[no_addr, ["address_source", "address_confidence"]] = ""
+    emp.loc[no_addr, ["address_source", "address_trust"]] = ""
     emp.to_csv(EMPLOYERS_CSV, index=False, na_rep="")
+
+    trust_counts = emp.loc[~no_addr, "address_trust"].value_counts()
+    logger.info("  address trust: " + ", ".join(
+        f"{label} {count:,}" for label, count in trust_counts.items()))
 
     resolved = int(emp["employer_address"].notna().sum())
     logger.info(f"  employers.csv: {len(emp):,} companies ({resolved:,} with HQ address)")

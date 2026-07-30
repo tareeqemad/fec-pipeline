@@ -27,8 +27,8 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 67,
-    "rows": 76,
+    "distinct": 68,
+    "rows": 77,
     "examples": [
       {
         "value": "ECB",

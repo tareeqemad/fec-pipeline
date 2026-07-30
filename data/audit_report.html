@@ -1,9 +1,9 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Audit Report</title><style>body{font-family:system-ui,sans-serif;background:#f8f9fa;padding:1rem 2rem;color:#212529}h1{font-size:1.5rem}.meta{color:#6c757d;margin-bottom:1.5rem}.summary,.record{background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem}.record h2{font-size:1rem;margin:0 0 .5rem;color:#495057}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid #dee2e6}th{background:#f8f9fa;font-weight:600}.before{background:#fff5f5}.after{background:#f0fff0}.reason{font-size:.85rem;color:#6c757d}.evidence{font-size:.8rem;color:#0d6efd}</style></head><body>
 <h1>Audit Report — Record Changes</h1>
 <div class="meta">Each record shows before &rarr; after with the reason.</div>
-<div class="summary"><p><strong>Total changes:</strong> 100478</p>
-<p><strong>Records affected:</strong> 90412</p>
-<p><strong>By step:</strong> clean_streets: 60, enh_clean_junk: 325, enh_employer_synonyms: 6200, enh_employer_synonyms_final: 4872, enh_fix_apostrophes: 27, enh_fix_credential_in_name: 4, enh_fix_emp_eq_occ: 107, enh_fix_fullname_both: 36, enh_fix_norm_mid_suffix: 123, enh_fix_occ_as_employer: 22, enh_name_corrections: 3, enh_normalize_business_names: 5699, enh_normalize_name_periods: 1136, enh_normalize_occupation: 346, enh_swap_occ_emp: 569, garbled_name_fix: 124, reclassify: 80825</p></div>
+<div class="summary"><p><strong>Total changes:</strong> 100711</p>
+<p><strong>Records affected:</strong> 90464</p>
+<p><strong>By step:</strong> clean_streets: 60, enh_clean_junk: 325, enh_employer_synonyms: 6382, enh_employer_synonyms_final: 4923, enh_fix_apostrophes: 27, enh_fix_credential_in_name: 4, enh_fix_emp_eq_occ: 107, enh_fix_fullname_both: 36, enh_fix_norm_mid_suffix: 123, enh_fix_occ_as_employer: 22, enh_name_corrections: 3, enh_normalize_business_names: 5699, enh_normalize_name_periods: 1136, enh_normalize_occupation: 346, enh_swap_occ_emp: 569, garbled_name_fix: 124, reclassify: 80825</p></div>
 <div class="record"><h2>Record: 4012120261303040603 (row 9)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">PREMIER REALTY MICHIGAN, LLC</td><td class="after">PREMIER REALTY MICHIGAN LLC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
@@ -175,6 +175,8 @@
 <div class="record"><h2>Record: 4012120261303040560 (row 52)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303040559 (row 53)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -851,6 +853,7 @@
 <div class="record"><h2>Record: 4012120261303040421 (row 732)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS PHYSICIAN GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303040420 (row 733)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -3315,6 +3318,7 @@
 <div class="record"><h2>Record: 4012120261303039476 (row 2360)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303039475 (row 2361)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -4078,6 +4082,7 @@
 <div class="record"><h2>Record: 4012120261303039124 (row 3290)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303039123 (row 3291)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -4265,6 +4270,8 @@
 <div class="record"><h2>Record: 4012120261303039073 (row 3342)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303039072 (row 3343)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -5505,6 +5512,7 @@
 <div class="record"><h2>Record: 4012120261303038716 (row 3715)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">UES PROFESSION SERVICES</td><td class="after">UES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303038713 (row 3718)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -10908,6 +10916,8 @@
 <div class="record"><h2>Record: 4011620261302587700 (row 7595)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302587699 (row 7596)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -11675,6 +11685,7 @@
 <div class="record"><h2>Record: 4011620261302587503 (row 7793)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">DAROMA</td><td class="after">DAROMA RESTAURANT EQUIPMENT CORP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302587502 (row 7794)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -14077,6 +14088,10 @@
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_employer</td><td class="before">ENT AND ALLERGY OF DE</td><td class="after">ENT AND ALLERGY OF DELAWARE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4011620261302586857 (row 8842)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MARINER</td><td class="after">MARINER WEALTH ADVISORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4011620261302586856 (row 8843)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -14814,6 +14829,7 @@
 <div class="record"><h2>Record: 4011620261302586660 (row 9050)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302586659 (row 9051)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -16138,14 +16154,17 @@
 <div class="record"><h2>Record: 4011620261302586150 (row 9771)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS PHYSICIAN GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302586149 (row 9772)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS PHYSICIAN GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302586148 (row 9773)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS PHYSICIAN GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302586147 (row 9774)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -17390,6 +17409,7 @@
 <div class="record"><h2>Record: 4011620261302592424 (row 10479)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302592423 (row 10480)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -22816,6 +22836,7 @@
 <div class="record"><h2>Record: 4011620261302591248 (row 13013)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">SIGMA INVESTMENTS</td><td class="after">SIGMA INVESTMENT COUNSELORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302591247 (row 13014)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -29271,6 +29292,7 @@
 <div class="record"><h2>Record: 4092220251291772290 (row 15845)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ENFIELD PRIVATE CREDIT</td><td class="after">ENFIELD CAPITAL PARTNERS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092220251291772289 (row 15846)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -30940,6 +30962,8 @@
 <div class="record"><h2>Record: 4092220251291771968 (row 16531)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092220251291771967 (row 16532)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -31084,6 +31108,8 @@
 <div class="record"><h2>Record: 4092220251291771933 (row 16566)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092220251291771932 (row 16567)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -38621,6 +38647,10 @@
 <tr><td>contributor_employer</td><td class="before">HEALTHSOURCE DISTRIBUTORS</td><td class="after">HEALTH SOURCE DISTRIBUTORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 <tr><td>contributor_employer</td><td class="before">HEALTHSOURCE DISTRIBUTORS</td><td class="after">HEALTH SOURCE DISTRIBUTORS</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4092420251292197627 (row 19512)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MARINER</td><td class="after">MARINER WEALTH ADVISORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4092420251292197626 (row 19513)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -41077,6 +41107,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645232872 (row 20839)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702354 (row 20841)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -41187,6 +41221,10 @@
 <div class="record"><h2>Record: 4122120231813093261 (row 20891)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645225398 (row 20895)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">TWINCO</td><td class="after">TWINCO INDUSTRIAL PRODUCTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112020241071381065 (row 20896)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -42058,6 +42096,7 @@
 <div class="record"><h2>Record: 4112020241071384288 (row 21416)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">RMC PRTT</td><td class="after">RMC PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813094429 (row 21418)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -44510,6 +44549,7 @@
 <div class="record"><h2>Record: 4112220231811442506 (row 22817)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">RATNER</td><td class="after">RATNER STEEL</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041365887 (row 22819)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -46759,6 +46799,8 @@
 <div class="record"><h2>Record: 4032520241885656248 (row 24131)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JPMORGAN CASH BANK</td><td class="after">JPMORGAN CHASE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">JP MORGAN CHASE</td><td class="after">JPMORGAN CHASE</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811444727 (row 24132)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -48552,6 +48594,11 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4110120231808000553 (row 25184)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EYE PHYSICIANS OF OC</td><td class="after">EYE PHYSICIANS OF ORANGE COUNTY PC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EYE PHYSICIANS OF ORANGE COUNTY, P.C</td><td class="after">EYE PHYSICIANS OF ORANGE COUNTY PC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4072420241978928638 (row 25186)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -49408,6 +49455,7 @@
 <div class="record"><h2>Record: 4011420231698184375 (row 25648)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NJY</td><td class="after">NJY CAMPS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978932361 (row 25651)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -52207,6 +52255,10 @@
 <div class="record"><h2>Record: 4092520231802906722 (row 27209)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4080620251215492596 (row 27211)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MARINER</td><td class="after">MARINER WEALTH ADVISORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962023973 (row 27214)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -55139,6 +55191,7 @@
 <div class="record"><h2>Record: 4060420241953435168 (row 28745)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NORTEX</td><td class="after">NORTEX WHOLESALE NURSERY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698184111 (row 28750)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -60194,6 +60247,7 @@
 <div class="record"><h2>Record: 4011420231698186912 (row 31549)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014749450 (row 31553)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -60715,6 +60769,10 @@
 <div class="record"><h2>Record: 4080620251215491745 (row 31895)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645228487 (row 31901)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">JEFFERSON</td><td class="after">JEFFERSON HEALTH</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052120241949842600 (row 31902)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -65033,6 +65091,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645232111 (row 34416)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4102420231807009517 (row 34418)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -68859,6 +68921,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4032020251180457926 (row 36589)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">FAMILY AND CHILDREN&#x27;S EYE CARE</td><td class="after">FAMILY &amp; CHILDREN&#x27;S EYE CENTER OF NM</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4072420241978933752 (row 36590)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
@@ -72183,6 +72249,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645228488 (row 38430)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">JEFFERSON</td><td class="after">JEFFERSON HEALTH</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4072420241978924792 (row 38434)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -72413,6 +72483,7 @@
 <div class="record"><h2>Record: 4030320251179410995 (row 38565)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823944492 (row 38569)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -75322,6 +75393,7 @@
 <div class="record"><h2>Record: 4062420241962025447 (row 40120)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">TWINCO</td><td class="after">TWINCO INDUSTRIAL PRODUCTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698185919 (row 40122)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -76353,6 +76425,7 @@
 <div class="record"><h2>Record: 4112020241071383393 (row 40682)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BNB REAL ESATTE</td><td class="after">BNB REALTY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209628345 (row 40684)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -79282,6 +79355,8 @@
 <div class="record"><h2>Record: 4112020241071381371 (row 42290)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010320231645639843 (row 42294)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -80339,6 +80414,7 @@
 <div class="record"><h2>Record: 4122320221644863185 (row 42902)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">TWINCO</td><td class="after">TWINCO INDUSTRIAL PRODUCTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122320221644863966 (row 42903)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -81706,6 +81782,11 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4032020251180457350 (row 43628)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4072420241978923174 (row 43629)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -82761,6 +82842,7 @@
 <div class="record"><h2>Record: 4052120241949844260 (row 44237)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NJY</td><td class="after">NJY CAMPS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702352 (row 44238)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -83652,6 +83734,10 @@
 <div class="record"><h2>Record: 4102420231807009378 (row 44700)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4110120231808000761 (row 44701)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813094098 (row 44704)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -85613,6 +85699,7 @@
 <div class="record"><h2>Record: 4011420231698184923 (row 45773)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953440560 (row 45775)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -85961,6 +86048,7 @@
 <div class="record"><h2>Record: 4123020221645490167 (row 45950)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">TWINCO</td><td class="after">TWINCO INDUSTRIAL PRODUCTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179409797 (row 45951)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -86321,6 +86409,11 @@
 <div class="record"><h2>Record: 4072420241978936695 (row 46140)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4110120231808001214 (row 46144)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EYE PHYSICIANS OF OC</td><td class="after">EYE PHYSICIANS OF ORANGE COUNTY PC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EYE PHYSICIANS OF ORANGE COUNTY, P.C</td><td class="after">EYE PHYSICIANS OF ORANGE COUNTY PC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823943428 (row 46147)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -89517,6 +89610,10 @@
 <div class="record"><h2>Record: 4011420251130091002 (row 47889)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">RUSSELL A. BIKOFF, ATTORNEY AND COUNSE</td><td class="after">RUSSELL A. BIKOFF, ATTORNEY AND COUNSELOR AT LAW</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4052120241949841534 (row 47893)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">INTERMOUNTAIN RESIDENTIAL</td><td class="after">INTERMOUNTAIN CHILDREN&#x27;S HOME</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014753578 (row 47894)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -97293,6 +97390,7 @@
 <div class="record"><h2>Record: 4030320251179411214 (row 52116)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179409116 (row 52119)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -97471,6 +97569,7 @@
 <div class="record"><h2>Record: 4030120241877879976 (row 52218)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">DORA&#x27;S NATRUALS</td><td class="after">DORA&#x27;S NATURALS INC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420251130091309 (row 52220)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -99529,6 +99628,7 @@
 <div class="record"><h2>Record: 4112020241071383206 (row 53416)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAYBERRY HEALTH CARE</td><td class="after">BAYBERRY CARE CENTER</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813093137 (row 53417)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -102907,6 +103007,7 @@
 <div class="record"><h2>Record: 4052120241949844388 (row 55314)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">CBG</td><td class="after">CBG REAL ESTATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978936054 (row 55318)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -103715,6 +103816,7 @@
 <div class="record"><h2>Record: 4072120251209628045 (row 55794)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807055387 (row 55798)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -109781,6 +109883,7 @@
 <div class="record"><h2>Record: 4092320242041367146 (row 59189)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645235780 (row 59192)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -112788,7 +112891,7 @@
 <div class="record"><h2>Record: 4032520241885655016 (row 60899)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GRY</td><td class="after">BAY CHILDRENS MEDICAL GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GRY</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420251130090607 (row 60906)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -114999,6 +115102,10 @@
 <div class="record"><h2>Record: 4060420241953441558 (row 62054)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645232049 (row 62056)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">WALDMAN AND COMPANY, CPA&#x27;&#x27;S</td><td class="after">WALDMAN AND CO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209630097 (row 62059)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -120235,6 +120342,8 @@
 <div class="record"><h2>Record: 4102420231807055055 (row 64949)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052120241949843554 (row 64950)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -125007,6 +125116,8 @@
 <div class="record"><h2>Record: 4112020241071381490 (row 67733)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4021920231732395625 (row 67736)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -127530,6 +127641,8 @@
 <div class="record"><h2>Record: 4072420241978922485 (row 69093)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978932984 (row 69094)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -130294,6 +130407,7 @@
 <div class="record"><h2>Record: 4112020241071383589 (row 70695)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813093280 (row 70696)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -132308,6 +132422,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4102420231807055148 (row 71809)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ALPHA EPLISON PI</td><td class="after">ALPHA EPSILON PI FOUNDATION</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4112020241071387642 (row 71810)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">LAUREL LEE FOR CONGRESS, INC.</td><td class="after">LAUREL LEE FOR CONGRESS</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
@@ -132721,6 +132839,8 @@
 <div class="record"><h2>Record: 4082220242014751556 (row 72071)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645234947 (row 72072)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -133098,6 +133218,8 @@
 <div class="record"><h2>Record: 4080620251215493481 (row 72275)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014750341 (row 72276)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -136163,6 +136285,7 @@
 <div class="record"><h2>Record: 4072120251209630189 (row 73960)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042820231745858182 (row 73963)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -136392,6 +136515,7 @@
 <div class="record"><h2>Record: 4052120241949843676 (row 74077)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">QTRADE CAPITAL MANAGEMENT</td><td class="after">QTRADE HOLDINGS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112020241071382939 (row 74082)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -144261,6 +144385,7 @@
 <div class="record"><h2>Record: 4122120231813094091 (row 78497)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MERIDIAN</td><td class="after">MERIDIAN CAPITAL GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823944114 (row 78502)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -146383,6 +146508,8 @@
 <div class="record"><h2>Record: 4112020241071381489 (row 79674)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962023659 (row 79675)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -146556,6 +146683,10 @@
 <div class="record"><h2>Record: 4102420231807054597 (row 79770)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645225844 (row 79771)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">WALDMAN AND COMPANY, CPA&#x27;&#x27;S</td><td class="after">WALDMAN AND CO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978933600 (row 79774)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -151731,6 +151862,7 @@
 <div class="record"><h2>Record: 4122320221644863651 (row 82797)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032120231736711112 (row 82798)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -152575,6 +152707,10 @@
 <div class="record"><h2>Record: 4122120231813092496 (row 83272)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">SUTHERLAND CAPITAL MGMT</td><td class="after">SUTHERLAND CAPITAL MGMT. INC.</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236233 (row 83274)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">SUNRISE</td><td class="after">SUNRISE SENIOR LIVING</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811442248 (row 83277)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -159439,6 +159575,7 @@
 <div class="record"><h2>Record: 4112020241071381722 (row 87144)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BNB REAL ESATTE</td><td class="after">BNB REALTY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807009046 (row 87147)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -162066,6 +162203,7 @@
 <div class="record"><h2>Record: 4112020241071381721 (row 88605)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BNB REAL ESATTE</td><td class="after">BNB REALTY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698186105 (row 88607)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -163164,6 +163302,8 @@
 <div class="record"><h2>Record: 4080620251215493482 (row 89225)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215491458 (row 89226)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -164053,6 +164193,8 @@
 <div class="record"><h2>Record: 4060420241953436832 (row 89766)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014753171 (row 89769)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -164851,6 +164993,7 @@
 <div class="record"><h2>Record: 4092320242041367148 (row 90224)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885656229 (row 90225)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -167100,6 +167243,7 @@
 <div class="record"><h2>Record: 4021920231732395606 (row 91471)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917613 (row 91472)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -170061,6 +170205,7 @@
 <div class="record"><h2>Record: 4032520241885656159 (row 93140)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">RANCHO SAHUARTIA</td><td class="after">RANCHO SAHUARITA MANAGEMENT COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014749931 (row 93141)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -170471,6 +170616,7 @@
 <div class="record"><h2>Record: 4080620251215491450 (row 93378)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042820231745857804 (row 93379)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -170793,6 +170939,7 @@
 <div class="record"><h2>Record: 4082220242014749313 (row 93571)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NJY</td><td class="after">NJY CAMPS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041365865 (row 93574)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -171629,6 +171776,7 @@
 <div class="record"><h2>Record: 4121920221637777874 (row 94072)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NJY</td><td class="after">NJY CAMPS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885654365 (row 94073)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -172136,6 +172284,10 @@
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_name</td><td class="before">ERICKSON, S. OSBORN</td><td class="after">ERICKSON, S OSBORN</td><td class="reason">enh_normalize_name_periods: remove_periods_from_initials</td></tr>
 <tr><td>contributor_employer</td><td class="before">EMERALD FUND, INC</td><td class="after">EMERALD FUND INC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4032020251180457925 (row 94367)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">FAMILY AND CHILDREN&#x27;S EYE CARE</td><td class="after">FAMILY &amp; CHILDREN&#x27;S EYE CENTER OF NM</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813094334 (row 94369)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -174028,6 +174180,7 @@
 <div class="record"><h2>Record: 4112020241071384287 (row 95478)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">RMC PRTT</td><td class="after">RMC PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807009080 (row 95479)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -176869,6 +177022,8 @@
 <div class="record"><h2>Record: 4052120241949844267 (row 97009)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052120241949844376 (row 97012)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -176915,6 +177070,7 @@
 <div class="record"><h2>Record: 4010420231645703242 (row 97039)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885654308 (row 97042)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -182694,6 +182850,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_employer</td><td class="before">THE ZITELMAN GROUP, INC</td><td class="after">THE ZITELMAN GROUP INC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645225304 (row 100252)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">DORA NATURAL</td><td class="after">DORA&#x27;S NATURALS INC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209628440 (row 100255)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -193120,6 +193280,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122320221644864875 (row 106209)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">SUPERCLEAN BRANDS</td><td class="after">SUPERCLEAN</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4112020241071381838 (row 106214)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -196616,6 +196780,8 @@
 <div class="record"><h2>Record: 4122120231813092410 (row 108187)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807010255 (row 108188)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -196904,6 +197070,7 @@
 <div class="record"><h2>Record: 4112220231811444105 (row 108348)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">INTREPID INVESTORS</td><td class="after">INTREPID INVESTMENT BANKERS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953434424 (row 108350)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -198480,6 +198647,8 @@
 <div class="record"><h2>Record: 4122120231813092418 (row 109226)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014748601 (row 109228)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -200525,6 +200694,8 @@
 <div class="record"><h2>Record: 4072120251209630067 (row 110383)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823944087 (row 110386)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -200640,6 +200811,7 @@
 <div class="record"><h2>Record: 4102420231807055168 (row 110445)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">WALDMAN AND CO CPAS</td><td class="after">WALDMAN AND CO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209630363 (row 110446)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -201531,6 +201703,8 @@
 <div class="record"><h2>Record: 4112020241071381370 (row 110973)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645235321 (row 110975)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -201633,6 +201807,10 @@
 <div class="record"><h2>Record: 4030320251179410932 (row 111039)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645231754 (row 111042)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">NJY</td><td class="after">NJY CAMPS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014752073 (row 111045)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -207007,6 +207185,7 @@
 <div class="record"><h2>Record: 4010320231645638156 (row 113962)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014754546 (row 113963)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -209317,6 +209496,7 @@
 <div class="record"><h2>Record: 4092320242041366523 (row 115265)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">DAROMA</td><td class="after">DAROMA RESTAURANT EQUIPMENT CORP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978934657 (row 115268)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -209744,6 +209924,8 @@
 <div class="record"><h2>Record: 4030320251179410768 (row 115492)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962024798 (row 115493)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -209938,6 +210120,7 @@
 <div class="record"><h2>Record: 4092320242041365025 (row 115590)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645226646 (row 115593)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -210611,6 +210794,7 @@
 <div class="record"><h2>Record: 4092320242041367147 (row 115933)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962028556 (row 115935)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -211244,6 +211428,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">KEAN FOR CONGRESS INC</td><td class="after">KEAN FOR CONGRESS</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4032020251180457497 (row 116243)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">RIVERGATE EDEN BASIS COMPANIES</td><td class="after">RIVERGATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4123020221645490769 (row 116244)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -211478,6 +211666,7 @@
 <div class="record"><h2>Record: 4052120241949844275 (row 116374)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811444622 (row 116375)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -216275,6 +216464,7 @@
 <div class="record"><h2>Record: 4011420231698185462 (row 119039)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702179 (row 119040)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -217460,6 +217650,7 @@
 <div class="record"><h2>Record: 4052120241949842347 (row 119710)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">SIXTY COLLECTIVE</td><td class="after">SIXTY HOTELS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215493337 (row 119712)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -218383,6 +218574,7 @@
 <div class="record"><h2>Record: 4092320242041364874 (row 120222)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">QTRADE CAPITAL MANAGEMENT</td><td class="after">QTRADE HOLDINGS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702849 (row 120224)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -219913,6 +220105,7 @@
 <div class="record"><h2>Record: 4122120231813093780 (row 121050)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MERIDIAN</td><td class="after">MERIDIAN CAPITAL GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082520251233303984 (row 121052)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -222627,6 +222820,7 @@
 <div class="record"><h2>Record: 4102420231807055147 (row 122464)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ALPHA EPLISON PI</td><td class="after">ALPHA EPSILON PI FOUNDATION</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052120241949843036 (row 122465)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -225169,6 +225363,7 @@
 <div class="record"><h2>Record: 4082120231799935269 (row 123954)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813094258 (row 123955)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -225583,6 +225778,7 @@
 <div class="record"><h2>Record: 4062420241962026737 (row 124170)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">SULLIVAN LAW</td><td class="after">SULLIVAN &amp; WORCESTER LLP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962028589 (row 124171)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -227067,6 +227263,7 @@
 <div class="record"><h2>Record: 4062420241962022890 (row 124961)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">SIXTY COLLECTIVE</td><td class="after">SIXTY HOTELS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917621 (row 124969)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -227998,6 +228195,7 @@
 <div class="record"><h2>Record: 4122320221644863300 (row 125519)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179408865 (row 125520)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -229047,6 +229245,10 @@
 <div class="record"><h2>Record: 4062420241962025560 (row 126054)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4052120241949841519 (row 126055)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">INTERMOUNTAIN RESIDENTIAL</td><td class="after">INTERMOUNTAIN CHILDREN&#x27;S HOME</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645235708 (row 126056)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -230194,6 +230396,7 @@
 <div class="record"><h2>Record: 4102420231807055080 (row 126680)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953435950 (row 126683)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -232967,6 +233170,7 @@
 <div class="record"><h2>Record: 4122320221644863937 (row 128238)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NJY</td><td class="after">NJY CAMPS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4123020221645490066 (row 128239)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -239938,6 +240142,7 @@
 <div class="record"><h2>Record: 4011420231698185463 (row 132157)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962022691 (row 132159)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -241119,6 +241324,7 @@
 <div class="record"><h2>Record: 4030320251179410254 (row 132787)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ZAIDY&#x27;S</td><td class="after">ZAIDY&#x27;S DELI</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215491613 (row 132788)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -243076,6 +243282,7 @@
 <div class="record"><h2>Record: 4122120231813093531 (row 133954)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">TWINCO</td><td class="after">TWINCO INDUSTRIAL PRODUCTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122320221644863302 (row 133956)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -243486,6 +243693,7 @@
 <div class="record"><h2>Record: 4011420231698185843 (row 134180)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">CBG</td><td class="after">CBG REAL ESTATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645228386 (row 134182)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -244043,6 +244251,7 @@
 <div class="record"><h2>Record: 4112220231811444759 (row 134507)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">GEARSUPPLY</td><td class="after">GEARSUPPLY DIRECT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962022738 (row 134508)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -244967,6 +245176,7 @@
 <div class="record"><h2>Record: 4010320231645638123 (row 135024)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122320221644864092 (row 135026)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -245193,6 +245403,7 @@
 <div class="record"><h2>Record: 4072420241978924519 (row 135141)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">DIVOTS SPORTSWEAR</td><td class="after">DIVOTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885655834 (row 135143)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -250973,6 +251184,7 @@
 <div class="record"><h2>Record: 4030320251179408987 (row 138411)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">QTRADE CAPITAL MANAGEMENT</td><td class="after">QTRADE HOLDINGS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962022444 (row 138412)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -253607,6 +253819,7 @@
 <div class="record"><h2>Record: 4122920221645234903 (row 139845)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042820231745858432 (row 139853)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -257624,6 +257837,7 @@
 <div class="record"><h2>Record: 4052120241949843052 (row 142092)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179410631 (row 142101)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -258139,6 +258353,7 @@
 <div class="record"><h2>Record: 4062420241962023125 (row 142345)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">QTRADE CAPITAL MANAGEMENT</td><td class="after">QTRADE HOLDINGS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978923236 (row 142346)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -258767,6 +258982,8 @@
 <div class="record"><h2>Record: 4112020241071382519 (row 142736)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811444454 (row 142738)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -260916,6 +261133,7 @@
 <div class="record"><h2>Record: 4072420241978926714 (row 143971)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978925275 (row 143974)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -265617,6 +265835,7 @@
 <div class="record"><h2>Record: 4112220231811442435 (row 146607)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">QTRADE CAPITAL MANAGEMENT</td><td class="after">QTRADE HOLDINGS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962024900 (row 146608)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -276861,6 +277080,7 @@
 <div class="record"><h2>Record: 4122320221644863650 (row 152836)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4110720231809900026 (row 152838)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -277509,6 +277729,7 @@
 <div class="record"><h2>Record: 4010320231645638124 (row 153182)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645232410 (row 153186)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -278350,6 +278571,10 @@
 <div class="record"><h2>Record: 4082220242014751787 (row 153684)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645235323 (row 153685)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">TUTOR</td><td class="after">TUTOR PERINI</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206918170 (row 153689)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -283332,6 +283557,7 @@
 <div class="record"><h2>Record: 4072420241978923217 (row 156527)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702931 (row 156532)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -283736,6 +283962,7 @@
 <div class="record"><h2>Record: 4072420241978924652 (row 156769)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">SULLIVAN LAW</td><td class="after">SULLIVAN &amp; WORCESTER LLP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082520251233303789 (row 156771)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -286494,6 +286721,8 @@
 <div class="record"><h2>Record: 4082220242014749836 (row 158384)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215492781 (row 158387)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -294519,6 +294748,7 @@
 <div class="record"><h2>Record: 4042820231745857753 (row 162765)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BROOKS ENERGY COMONAY</td><td class="after">BROOKS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953437097 (row 162768)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -294531,6 +294761,7 @@
 <div class="record"><h2>Record: 4112020241071383590 (row 162771)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209629449 (row 162781)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -294911,6 +295142,8 @@
 <div class="record"><h2>Record: 4062320251206918022 (row 162981)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917612 (row 162982)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -295457,6 +295690,7 @@
 <div class="record"><h2>Record: 4112020241071381853 (row 163285)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885658473 (row 163287)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -299633,6 +299867,7 @@
 <div class="record"><h2>Record: 4072120251209628416 (row 165644)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">THIMBLE COLLECTION</td><td class="after">THIMBLE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962025106 (row 165646)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -300473,6 +300708,8 @@
 <div class="record"><h2>Record: 4082220242014748735 (row 166111)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698184363 (row 166112)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -302408,6 +302645,10 @@
 <div class="record"><h2>Record: 4122120231813095566 (row 167171)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">MCCAUL FOR CONGRESS, INC</td><td class="after">MCCAUL FOR CONGRESS</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645225831 (row 167173)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">WALDMAN AND COMPANY, CPA&#x27;&#x27;S</td><td class="after">WALDMAN AND CO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885654214 (row 167175)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -307431,6 +307672,8 @@
 <div class="record"><h2>Record: 4102420231807055215 (row 170073)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EYE PHYSICIANS OF OC</td><td class="after">EYE PHYSICIANS OF ORANGE COUNTY PC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EYE PHYSICIANS OF ORANGE COUNTY, P.C</td><td class="after">EYE PHYSICIANS OF ORANGE COUNTY PC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978923329 (row 170075)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -308121,6 +308364,7 @@
 <div class="record"><h2>Record: 4060420241953435306 (row 170475)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">NORTEX</td><td class="after">NORTEX WHOLESALE NURSERY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978923026 (row 170477)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -310460,6 +310704,7 @@
 <div class="record"><h2>Record: 4122320221644863299 (row 171754)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BRADLEY LAW FIRM</td><td class="after">BRADLEY ARANT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962022540 (row 171755)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -313051,6 +313296,8 @@
 <div class="record"><h2>Record: 4060420241953435550 (row 173246)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885656163 (row 173250)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -315017,6 +315264,10 @@
 <div class="record"><h2>Record: 4030120241877880816 (row 174360)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4072420241978927287 (row 174361)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978933820 (row 174363)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -318248,6 +318499,7 @@
 <div class="record"><h2>Record: 4122920221645234902 (row 176109)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917559 (row 176112)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -322789,9 +323041,17 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">HARRIS, S.</td><td class="after">HARRIS, S</td><td class="reason">enh_normalize_name_periods: remove_periods_from_initials</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4081920251218698095 (row 178733)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4081920251218698015 (row 178738)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">HARRIS, S.</td><td class="after">HARRIS, S</td><td class="reason">enh_normalize_name_periods: remove_periods_from_initials</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4081920251218698093 (row 178752)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4081920251218698011 (row 178757)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -322809,13 +323069,29 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">STROOCK AND STROOCK AND LAVAN</td><td class="after">STROOCK</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4081920251218698091 (row 178780)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4081920251218698097 (row 178795)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">STROOCK AND STROOCK AND LAVAN</td><td class="after">STROOCK</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4081920251218698089 (row 178796)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4081920251218698087 (row 178816)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4081920251218698121 (row 178822)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">TRILOGY INTERACTIVE LLC</td><td class="after">TRILOGY INTERACTIVE</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4081920251218698085 (row 178834)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011020251127915740 (row 178899)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -322918,6 +323194,10 @@
 <div class="record"><h2>Record: 4061320241960683210 (row 179455)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">BLACKSTONE</td><td class="after">BLACKSTONE GROUP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4060720241960334769 (row 179489)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060720241960334703 (row 179502)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -323122,6 +323402,10 @@
 <div class="record"><h2>Record: 4022320221424360774 (row 180285)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">RMS INVESTMENT GROUP LLC</td><td class="after">RMS INVESTMENT GROUP</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4022320221424360681 (row 180289)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">WALLICK ASSOCIATES</td><td class="after">WALLICK COMMUNITIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4022320221424360708 (row 180291)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -323350,6 +323634,14 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_occupation</td><td class="before">MGMT CONSULTANT</td><td class="after">MANAGEMENT CONSULTANT</td><td class="reason">enh_normalize_occupation: canonical_variant</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4111020201893514256 (row 180671)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4111020201893514189 (row 180673)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4111020201893514267 (row 180686)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">KITU SYSTEMS, INC</td><td class="after">KITU SYSTEMS INC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
@@ -323559,6 +323851,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">CEDARS-SINAI</td><td class="after">CEDARS-SINAI MEDICAL CENTER</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4082920201831178325 (row 180849)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4082920201831178468 (row 180850)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -323701,6 +323997,10 @@
 <div class="record"><h2>Record: 4041620201737156485 (row 180979)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">HACKMAN CAPITAL</td><td class="after">HACKMAN CAPITAL PARTNERS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4041620201737156464 (row 180982)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4041620201737156529 (row 180985)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -325304,6 +325604,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">SCOTT FANE,CPA,PA</td><td class="after">SCOTT FANE,CPA PA</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4082320221565947240 (row 182880)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4082320221565947233 (row 182887)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">BHFS</td><td class="after">BROWNSTEIN HYATT FARBER SCHRECK</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
@@ -325414,6 +325718,10 @@
 <div class="record"><h2>Record: 4062720221536932240 (row 182984)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">CTC</td><td class="after">CHICAGO TRADING COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4062720221536932236 (row 182988)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MERIDIAN</td><td class="after">MERIDIAN CAPITAL GROUP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062720221536932223 (row 183001)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -325593,6 +325901,7 @@
 <div class="record"><h2>Record: 4022620261359401319 (row 183205)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">MOELIS, KENNETH D.</td><td class="after">MOELIS, KENNETH D</td><td class="reason">enh_normalize_name_periods: remove_periods_from_initials</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4022620261359401126 (row 183215)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -325788,6 +326097,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">NATIONAL DISTRIBUTION CO</td><td class="after">NATIONAL DISTRIBUTING COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4022620261359401245 (row 183520)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MERIDIAN</td><td class="after">MERIDIAN CAPITAL GROUP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4022620261359401133 (row 183528)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">SANTA MONICA PARTNER</td><td class="after">SANTA MONICA PARTNERS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
@@ -325862,6 +326175,11 @@
 <div class="record"><h2>Record: 4022620261359400943 (row 183655)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">True</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_no_identity</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4022620261359401224 (row 183656)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4022620261359401458 (row 183666)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -327745,6 +328063,7 @@
 <div class="record"><h2>Record: 4030420261386075904 (row 184988)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">CAMPBELL PROPERTIES</td><td class="after">CAMPBELL PROPERTY MANAGEMENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030420261386075902 (row 184990)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -328748,6 +329067,8 @@
 <div class="record"><h2>Record: 4030420261386075541 (row 185655)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030420261386075540 (row 185656)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -329015,6 +329336,8 @@
 <div class="record"><h2>Record: 4030420261386075466 (row 185730)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030420261386077966 (row 185737)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -330313,6 +330636,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4030420261386075133 (row 186438)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">CHAPMAN</td><td class="after">CHAPMAN &amp; CUTLER</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4030420261386075132 (row 186439)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -331594,14 +331921,38 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">CHARLES AND LYNN SCHUSTERMAN FAMILY PHIL</td><td class="after">CHARLES &amp; LYNN SCHUSTERMAN FAMILY PHILANTHROPIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4031320261423334969 (row 187124)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4031320261423334884 (row 187153)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">ARENTFOX</td><td class="after">ARENTFOX SCHIFF</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4031320261423334967 (row 187176)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4031320261423334965 (row 187208)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4031320261423334963 (row 187239)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4031320261423334961 (row 187280)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031320261423335010 (row 187300)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">True</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_org_keywords</td></tr>
 <tr><td>contributor_name</td><td class="before">GRASSROOTS MEDIA LLC</td><td class="after">GRASSROOTS MEDIA</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4031320261423334959 (row 187309)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">EDJCO AND HOPE HOMELESS HOUSING</td><td class="after">EDJCO</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424760227 (row 187311)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -333046,6 +333397,7 @@
 <div class="record"><h2>Record: 4031920261424759802 (row 188156)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAYBERRY HEALTH CARE</td><td class="after">BAYBERRY CARE CENTER</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759801 (row 188157)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -333459,6 +333811,8 @@
 <div class="record"><h2>Record: 4031920261424759696 (row 188263)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759695 (row 188264)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -334262,6 +334616,8 @@
 <div class="record"><h2>Record: 4031920261424759534 (row 188784)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759533 (row 188785)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -336355,6 +336711,7 @@
 <div class="record"><h2>Record: 4031920261424759041 (row 189544)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">DAROMA</td><td class="after">DAROMA RESTAURANT EQUIPMENT CORP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759040 (row 189545)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -339384,6 +339741,8 @@
 <div class="record"><h2>Record: 4032320261425016409 (row 191092)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032320261425016408 (row 191093)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -344368,6 +344727,7 @@
 <div class="record"><h2>Record: 4032320261425014966 (row 193157)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">DORA&#x27;S NATRUALS</td><td class="after">DORA&#x27;S NATURALS INC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032320261425014965 (row 193158)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -344896,6 +345256,7 @@
 <div class="record"><h2>Record: 4032320261425014854 (row 193606)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032320261425014853 (row 193607)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -345435,6 +345796,10 @@
 <div class="record"><h2>Record: 4042420261482841943 (row 193791)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">True</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_no_identity</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4042420261482841913 (row 193793)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">BERMAN ENTERPRISES</td><td class="after">BERMAN ENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042420261482841987 (row 193805)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -346166,10 +346531,12 @@
 <div class="record"><h2>Record: 4052620261511336810 (row 194553)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ZAIDY&#x27;S</td><td class="after">ZAIDY&#x27;S DELI</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511336809 (row 194554)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ZAIDY&#x27;S</td><td class="after">ZAIDY&#x27;S DELI</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511336808 (row 194555)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -349147,6 +349514,8 @@
 <div class="record"><h2>Record: 4052620261511335957 (row 196236)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511335956 (row 196237)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -350114,6 +350483,8 @@
 <div class="record"><h2>Record: 4052620261511335659 (row 196537)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD RE CAPITAL</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">EIGHTFOLD REAL ESTATE CAPITAL, L.P</td><td class="after">EIGHTFOLD REAL ESTATE CAPITAL LP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511335658 (row 196538)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -352209,10 +352580,12 @@
 <div class="record"><h2>Record: 4052620261511335112 (row 197592)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511335111 (row 197593)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS MEDICAL GROUP</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511335110 (row 197594)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -355619,6 +355992,7 @@
 <div class="record"><h2>Record: 4061720261521511317 (row 199764)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">APF PROPEERTIES</td><td class="after">APF PROPERTIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521511316 (row 199765)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -355770,6 +356144,7 @@
 <div class="record"><h2>Record: 4061720261521511280 (row 199801)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">METRO LOFT DEVELOPERS</td><td class="after">METRO LOFT MANAGEMENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521511279 (row 199802)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -357327,6 +357702,7 @@
 <div class="record"><h2>Record: 4061720261521510861 (row 200561)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ENVOY BUSINESS ADVOCATE</td><td class="after">ENVOY MERCHANT ADVOCATE LLC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521510860 (row 200562)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -357383,6 +357759,7 @@
 <div class="record"><h2>Record: 4061720261521510839 (row 200583)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">BAY CHILDRENS PHYSICIANS MEDICAL GR</td><td class="after">BAY CHILDREN&#x27;S MEDICAL GROUP (BCMG)</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521510837 (row 200585)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -359350,6 +359727,8 @@
 <div class="record"><h2>Record: 4061720261521509971 (row 201774)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">MOELIS</td><td class="after">MOELIS &amp; COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509970 (row 201775)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -359379,7 +359758,7 @@
 <div class="record"><h2>Record: 4061720261521509963 (row 201782)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">CORPAC STEEL PRODCUTS, CORP</td><td class="after">CORPAC STEEL PRODCUTS CORP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">CORPAC STEEL PRODCUTS</td><td class="after">CORPAC GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509962 (row 201783)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -359984,6 +360363,7 @@
 <div class="record"><h2>Record: 4061720261521509811 (row 202105)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">THATCH</td><td class="after">THATCH HEALTH</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509810 (row 202106)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -360093,6 +360473,7 @@
 <div class="record"><h2>Record: 4061720261521509783 (row 202133)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">TRAVIS CU</td><td class="after">TRAVIS CREDIT UNION/WEST YOST</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509782 (row 202134)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -360482,6 +360863,7 @@
 <div class="record"><h2>Record: 4061720261521509678 (row 202251)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">RIVERGATE EDEN BASIS COMPANIES</td><td class="after">RIVERGATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509677 (row 202252)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -360665,6 +361047,10 @@
 <div class="record"><h2>Record: 4061720261521509625 (row 202304)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4061720261521509624 (row 202305)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">COLUMBIA FINANCIAL ADVISORS</td><td class="after">COLUMBIA COMPANIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509623 (row 202306)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -361175,6 +361561,7 @@
 <div class="record"><h2>Record: 4070720261523714513 (row 202600)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">RIVERGATE EDEN BASIS COMPANIES</td><td class="after">RIVERGATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523714512 (row 202601)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -366070,6 +366457,7 @@
 <div class="record"><h2>Record: 4070720261523713113 (row 205037)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KPR</td><td class="after">KPR CENTERS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523713112 (row 205038)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -370131,6 +370519,7 @@
 <div class="record"><h2>Record: 4070720261523711897 (row 207669)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">GIVNER</td><td class="after">GIVNER LAW GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523711896 (row 207670)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
