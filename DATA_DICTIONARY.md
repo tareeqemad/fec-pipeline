@@ -95,11 +95,25 @@ geocoded once instead of being repeated on every contribution.
 | `employer_latitude` | float | Geocoded HQ coordinate. |
 | `employer_longitude` | float | See above. |
 | `address_source` | enum | How the HQ was obtained: **`ai`** (AI-resolved — the majority; treat as best-effort) or **`manual`** (hand-verified). Blank when no address. |
-| `address_confidence` | enum | `HIGH` / `MEDIUM` / `LOW` for the resolved address. Blank when no address. |
+| `address_trust` | enum | How much the address has earned belief. See below. Blank when no address. |
 
-> ⚠️ **Reliability:** most employer HQ addresses are **AI-resolved**, not
-> officially verified. Use `address_source` / `address_confidence` to weight
-> them; `manual` rows are hand-checked.
+**`address_trust`** replaced `address_confidence` in July 2026. The old column
+carried the AI's opinion of its own answer, which measured nothing: of 32
+addresses proven wrong by hand that month, all 32 claimed `HIGH`. The new column
+grades on evidence the pipeline actually holds:
+
+| Value | Meaning |
+|-------|---------|
+| `verified` | A person curated it in `data/manual_employer_addresses.csv`. |
+| `grounded` | Answered by a web-search-backed lookup (`ai_*_search`), which supersedes the retired closed-book path. |
+| `corroborated` | Closed-book answer, but at least one donor of this company files from the address's state. |
+| `uncorroborated` | Closed-book answer with no donor in that state. **Treat as wrong until re-resolved:** of 50 checked by hand, 44 were. |
+
+> ⚠️ **Reliability:** filter on `address_trust`. `verified` and `grounded` are
+> safe to show as the company's address. `corroborated` is plausible.
+> `uncorroborated` should not be presented as fact — it is a queue of known
+> suspects, and one `resolve.py` run with API credit clears it, because a
+> web-search answer always overwrites a closed-book one.
 
 ### Resolving a donor's work location
 

@@ -17,7 +17,14 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   - `donor_key` groups a person's filings (deduped identity).
 - **`data/employers.csv`** — employer dimension (one row per company + HQ).
   - join: `contributor_employer` / `previous_employer` → `employer_name`.
-  - `address_source` (ai/manual), `address_confidence`.
+  - `address_source` (ai/manual), `address_trust`.
+  - `address_trust` grades an address on evidence, not on what the AI claimed
+    about itself: `verified` (human-curated) / `grounded` (web-search answer) /
+    `corroborated` (closed-book, but a donor lives in that state) /
+    `uncorroborated` (closed-book, no donor there — 44 of 50 checked were wrong,
+    so treat as wrong until re-resolved). It replaced `address_confidence`, which
+    reported the model's self-assessment: all 32 addresses proven wrong by hand
+    in July 2026 had claimed HIGH.
 - **`data/database/committees.csv`** — committee identities, single source of
   truth. **Add a row for every new committee pulled.**
 
