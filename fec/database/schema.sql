@@ -169,6 +169,13 @@ CREATE TABLE donor_employments (
                                                     'not_employed', 'committee',
                                                     'organization', 'missing')),
     previous_employer_id    INT                 REFERENCES employers(employer_id),
+    -- The office THIS donor works at, when it is not the company HQ. employers
+    -- .address_id stays the corporate HQ (the company's identity); this column
+    -- overrides it per employment, so a California donor at a New-York-
+    -- headquartered firm shows the California office. NULL means "use the HQ",
+    -- which is the case for the ~93% of companies whose donors are all in one
+    -- state. Read it as COALESCE(de.address_id, emp.address_id).
+    address_id              INT                 REFERENCES addresses(address_id),
     -- "When" (first/last seen, career timeline) is NOT stored - derive it from
     -- contributions (MIN/MAX receipt_date GROUP BY donor_employment_id). One source
     -- of truth for dates; no cached column to drift.

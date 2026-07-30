@@ -76,3 +76,6 @@ DATA_DIR = PROJECT_ROOT / "data"
 COMMITTEES_CSV = PROJECT_ROOT / "data" / "database" / "committees.csv"
 # employer dimension (one row per company + HQ), built by build_employers.py
 EMPLOYERS_CSV = PROJECT_ROOT / "data" / "employers.csv"
+# branch offices (one row per company + donor state) for donors who do not work
+# at the HQ; also built by build_employers.py, absent when there are none
+EMPLOYER_BRANCHES_CSV = PROJECT_ROOT / "data" / "employer_branches.csv"

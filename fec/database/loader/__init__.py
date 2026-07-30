@@ -55,7 +55,8 @@ def load_all(conn: Any, cur: Any, df: pd.DataFrame) -> None:
     addr_dim_id = load_address_dimension(conn, cur, df)
     addr_key_to_id = load_donor_addresses(conn, cur, df, donor_key_to_id, addr_dim_id)
     empl_donor_emp_to_id = load_employments(conn, cur, df, donor_key_to_id, occ_cat_map,
-                                            donor_prev_employer_id, get_employer_id)
+                                            donor_prev_employer_id, get_employer_id,
+                                            addr_dim_id)
     load_contributions(conn, cur, df, donor_key_to_id, committee_map,
                        addr_key_to_id, empl_donor_emp_to_id, get_employer_id)
 

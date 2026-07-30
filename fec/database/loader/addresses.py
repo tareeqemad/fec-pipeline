@@ -11,7 +11,7 @@ try:
 except ImportError:
     raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
-from fec.env import EMPLOYERS_CSV
+from fec.env import EMPLOYERS_CSV, EMPLOYER_BRANCHES_CSV
 from fec.log import get_logger
 
 from ._base import _count, to_float_or_none, to_native
@@ -29,6 +29,25 @@ def _load_employer_hqs() -> dict:
     out = {}
     for row in employers_df.to_dict("records"):
         out[row["employer_name"]] = {
+            "address": row.get("employer_address"), "city": row.get("employer_city"),
+            "state": row.get("employer_state"), "zip": row.get("employer_zip"),
+            "lat": row.get("employer_latitude"), "lng": row.get("employer_longitude"),
+        }
+    return out
+
+
+def load_employer_branches() -> dict:
+    """(employer_name, donor_state) -> branch address dict; {} when no branches exist. The donor's local office overrides the company HQ for that employment."""
+    if not EMPLOYER_BRANCHES_CSV.exists():
+        return {}
+    branches_df = pd.read_csv(EMPLOYER_BRANCHES_CSV, dtype=str,
+                              keep_default_na=False, na_values=[""])
+    branches_df = branches_df[branches_df["employer_address"].notna()
+                              & (branches_df["employer_address"] != "")]
+    out = {}
+    for row in branches_df.to_dict("records"):
+        key = (row["employer_name"], str(row["donor_state"]).upper())
+        out[key] = {
             "address": row.get("employer_address"), "city": row.get("employer_city"),
             "state": row.get("employer_state"), "zip": row.get("employer_zip"),
             "lat": row.get("employer_latitude"), "lng": row.get("employer_longitude"),
@@ -74,6 +93,12 @@ def load_address_dimension(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     for hq in employer_hqs.values():
         _add_addr(hq['address'], None, hq['city'], hq['state'], hq['zip'],
                   to_float_or_none(hq.get('lat')), to_float_or_none(hq.get('lng')))
+
+    # 4c. Branch offices, one per (company, donor state) - same shape as an HQ,
+    # so a branch that happens to equal some donor's address dedups here too.
+    for branch in load_employer_branches().values():
+        _add_addr(branch['address'], None, branch['city'], branch['state'], branch['zip'],
+                  to_float_or_none(branch.get('lat')), to_float_or_none(branch.get('lng')))
 
     addr_keys = list(addr_dim.keys())
     execute_values(cur,
@@ -178,6 +203,7 @@ def link_employer_hqs(conn: Any, cur: Any, addr_dim_id: dict, get_employer_id) -
         DELETE FROM addresses a
         WHERE NOT EXISTS (SELECT 1 FROM donor_addresses d WHERE d.address_id = a.address_id)
           AND NOT EXISTS (SELECT 1 FROM employers e WHERE e.address_id = a.address_id)
+          AND NOT EXISTS (SELECT 1 FROM donor_employments de WHERE de.address_id = a.address_id)
     """)
     n_orphan = cur.rowcount
     conn.commit()
