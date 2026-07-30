@@ -14,7 +14,7 @@
     },
     {
       "value": "REAL ESTATE",
-      "count": 5675
+      "count": 5676
     },
     {
       "value": "PHYSICIAN",
@@ -58,7 +58,7 @@
     },
     {
       "value": "OWNER",
-      "count": 733
+      "count": 734
     },
     {
       "value": "SALES",
@@ -259,8 +259,12 @@
       "count": 210
     },
     {
-      "value": "GRT",
+      "value": "GRT CORPORATION",
       "count": 202
+    },
+    {
+      "value": "BROWNSTEIN HYATT FARBER SCHRECK",
+      "count": 183
     },
     {
       "value": "CROWNE PARTNERS INC",
@@ -289,10 +293,6 @@
     {
       "value": "NTR",
       "count": 140
-    },
-    {
-      "value": "BROWNSTEIN HYATT FARBER SCHRECK",
-      "count": 135
     },
     {
       "value": "ARCH INSURANCE",
