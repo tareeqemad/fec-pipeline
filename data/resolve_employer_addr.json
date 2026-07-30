@@ -18967,14 +18967,6 @@
   "method": "ai_openai",
   "confidence": "MEDIUM"
  },
- "FCE": {
-  "employer_address": "3 Great Pasture Road",
-  "employer_city": "Danbury",
-  "employer_state": "CT",
-  "employer_zip": "06813",
-  "method": "ai_xai",
-  "confidence": "HIGH"
- },
  "FDA": {
   "employer_address": "10903 New Hampshire Avenue",
   "employer_city": "Silver Spring",
