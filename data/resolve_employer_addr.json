@@ -46950,14 +46950,6 @@
   "provider": "openai",
   "confidence": "UNKNOWN"
  },
- "ROSENBERG AUTOMOTIVE HOLDINGS": {
-  "employer_address": "6600 N Scottsdale Rd, Suite 200",
-  "employer_city": "Scottsdale",
-  "employer_state": "AZ",
-  "employer_zip": "85250",
-  "method": "ai_openai",
-  "confidence": "MEDIUM"
- },
  "ROSENBLATT SECURITIES": {
   "employer_address": "650 California St., Suite 1900",
   "employer_city": "San Francisco",
@@ -94655,14 +94647,6 @@
   "provider": "openai",
   "confidence": "UNKNOWN"
  },
- "CROSSLAND LLC": {
-  "employer_address": "1701 N Beauregard St, Suite 400",
-  "employer_city": "Alexandria",
-  "employer_state": "VA",
-  "employer_zip": "22311",
-  "method": "ai_openai",
-  "confidence": "MEDIUM"
- },
  "CROWN ACQUISITIONS INC": {
   "employer_address": "2 Jericho Plaza, Suite 309",
   "employer_city": "Jericho",
@@ -96082,14 +96066,6 @@
   "employer_city": "Winter Park",
   "employer_state": "FL",
   "employer_zip": "32789",
-  "method": "ai_openai",
-  "confidence": "MEDIUM"
- },
- "LEIFER CAPITAL ADVISERS LLC": {
-  "employer_address": "441 West Lancaster Ave",
-  "employer_city": "Bryn Mawr",
-  "employer_state": "PA",
-  "employer_zip": "19010",
   "method": "ai_openai",
   "confidence": "MEDIUM"
  },
