@@ -165,6 +165,9 @@ ROLE_AS_EMPLOYER = frozenset({
     'INTERIOR ARCHITECT', 'BUSINESS DEVELOPMENT', 'FOUNDING ATTORNEY',
     'MORTGAGE LOAN ORIGINATOR', 'MANAGING MEMBER & CO-FOUNDER',
     'INSURANCE BROKER', 'FINANCIAL ADVISOR',
+    # "SELF" with the trade in parentheses - the parenthetical is the occupation,
+    # so the whole string means self-employed, not a company called SELF
+    'SELF (LANDSCAPE DESIGNER)',
 })
 
 # Industry/sector words a donor wrote instead of a company. They name an
