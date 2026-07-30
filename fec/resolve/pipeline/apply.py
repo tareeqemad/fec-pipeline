@@ -15,7 +15,8 @@ from .quality_fixes import (
 )
 
 
-def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache) -> pd.DataFrame:
+def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
+                  branch_cache=None) -> pd.DataFrame:
     """Write resolved addresses to DataFrame columns."""
     cols = {
         "employer_address": [], "employer_city": [],
@@ -25,7 +26,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache) -> pd.Da
     }
 
     for _, row in df.iterrows():
-        result = _resolve_row(row, prev_cache, addr_cache, comm_cache)
+        result = _resolve_row(row, prev_cache, addr_cache, comm_cache, branch_cache)
         for column in cols:
             cols[column].append(result.get(column, ""))
 
@@ -40,7 +41,8 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache) -> pd.Da
     return df
 
 
-def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache) -> dict:
+def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache,
+                 branch_cache=None) -> dict:
     """Resolve one row."""
     EMPTY = {
         "employer_address": "", "employer_city": "",
@@ -89,9 +91,23 @@ def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache) -> dict:
         EMPTY["employer_status"] = "organization"
         return EMPTY
 
-    # Real employer - cache is keyed by EMPLOYER (corporate HQ, no per-state).
+    # Real employer. The branch office this donor works at wins over the
+    # corporate HQ: the dashboard prints this address under the donor's name as
+    # their workplace, so a California donor must not be shown a New York HQ.
     if is_real_employer(emp):
         key = emp_upper
+        branch = branch_cache.get(f"{emp_upper}|{state.upper()}") if (branch_cache and state) else None
+        if branch and branch.get("employer_address"):
+            return {
+                "employer_address": branch["employer_address"],
+                "employer_city": branch.get("employer_city", ""),
+                "employer_state": branch.get("employer_state", state),
+                "employer_zip": branch.get("employer_zip", ""),
+                "resolve_method": f"branch_{branch.get('method', 'manual_override')}",
+                "resolve_confidence": branch.get("confidence", "HIGH"),
+                "employer_status": "active",
+                "previous_employer": "",
+            }
         cached = addr_cache.get(key)
         # A manual_override counts as resolved on city/state alone (deliberate
         # human decision); AI and other entries still need a street.

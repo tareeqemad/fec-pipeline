@@ -56,12 +56,24 @@ def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
 
 
 def load_manual_overrides(csv_path: Path, addr_cache) -> tuple[int, int]:
-    """Manual employer-HQ overrides - keyed by employer name (uppercased)."""
+    """Manual employer-HQ overrides - keyed by employer name (uppercased). Rows carrying a donor_state are branches, not the HQ, and are skipped here."""
     return _load_overrides(
         csv_path, addr_cache,
-        key_fn=lambda row: (row.get('name') or '').strip().upper(),
+        key_fn=lambda row: ('' if (row.get('donor_state') or '').strip()
+                            else (row.get('name') or '').strip().upper()),
         label="manual overrides",
     )
+
+
+def load_manual_branches(csv_path: Path, branch_cache) -> tuple[int, int]:
+    """Branch offices from the same curated CSV - the rows that fill in donor_state, keyed EMPLOYER|ST so apply can prefer them over the HQ for donors in that state."""
+    def _key(row):
+        donor_state = (row.get('donor_state') or '').strip().upper()
+        name = (row.get('name') or '').strip().upper()
+        return f"{name}|{donor_state}" if (name and donor_state) else ''
+
+    return _load_overrides(csv_path, branch_cache, key_fn=_key,
+                           label="manual branches")
 
 
 def load_manual_committee_overrides(csv_path: Path, comm_cache) -> tuple[int, int]:

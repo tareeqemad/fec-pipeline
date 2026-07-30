@@ -90,6 +90,18 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   restores a STALE snapshot, and the loader then loads old data (this bit hard:
   fresh address fixes kept getting reverted under the user, then loaded). When the
   pipeline is re-run for real, **commit the refreshed data** — don't revert it.
+- ⚠️ **The pipeline tail is not idempotent — known bug, diagnosed, unfixed.**
+  Re-running `resolve --apply → geocode --employer-only → build_employers` on an
+  already-built file adds ~1 employer row per pass and changes the md5.
+  Cause: `apply.py` rewrites `previous_employer` through
+  `normalize_employer_display_name`, which STRIPS legal suffixes (`APPLE INC` →
+  `APPLE`), while `build_employers._canonical_employer_map` collapses variants
+  back to the most-used (suffixed) spelling. The two fight every run.
+  It does NOT create duplicate companies (canonical_key groups them; measured 0
+  suffix-split pairs) — it just churns which spelling wins. Fix by making one
+  side own the spelling; until then run the tail ONCE per clean, and use
+  `git checkout HEAD -- data/contributions_cleaned.csv data/employers.csv` to get
+  back to the state the DB was loaded from.
 - The two street-type token lists differ ON PURPOSE: `address_reports._STREET_TYPES`
   (pre-normalization, includes full words + unit keywords) vs
   `address_fixes.recovery._STREET_TYPE_RE` (post-normalization geocodability).
@@ -133,6 +145,21 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   lookups use the variant spelling). `manual_override` entries are never merged.
 - Verified address fixes → `data/manual_employer_addresses.csv` (authoritative at
   Step 0).
+- **Branch offices** — the dashboard prints the employer address under the donor's
+  name as their workplace, so a California donor at a New-York-HQ firm must not be
+  shown New York. A curated row with `donor_state` filled is a BRANCH (cache key
+  `EMPLOYER|ST`, `resolve_employer_branch.json`); blank `donor_state` is the HQ, as
+  before. `apply` prefers the branch for donors in that state, falls back to the HQ,
+  and tags the row `branch_*`. `build_employers` keeps branch addresses out of the
+  one-row-per-company dimension and emits `data/employer_branches.csv`; the loader
+  turns that into `donor_employments.address_id`, read as
+  `COALESCE(de.address_id, emp.address_id)`.
+  Two rules, both measured on this data:
+  - `COMMUTER_STATE_PAIRS` — a NJ donor at a NY firm commutes (2,307 of the 14,744
+    out-of-state rows); never invent a local branch for those pairs.
+  - Only accept a branch when the company has ONE findable office in that state.
+    Morgan Stanley has a dozen Florida offices, so "the Florida office" is a guess.
+  Empty branch set = the old behavior exactly (proven: identical md5).
 
 ## Commands
 ```bash

@@ -12,7 +12,7 @@ from fec.log import get_logger
 
 from .constants import (
     TIERS, EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE, COMMITTEE_CACHE,
-    AI_SYSTEM_PROMPT,
+    EMPLOYER_BRANCH_CACHE, AI_SYSTEM_PROMPT,
 )
 from .cache import Cache
 from .ai_client import get_ai_client, get_ai_provider_model, ai_json_call
@@ -23,7 +23,9 @@ from .steps.ai_employer import step_ai_lookup, _parse_ai_json
 from .steps.committee_address import step_committees_own_address
 from .apply import apply_results
 from .dedup import dedup_by_resolved_address
-from .manual_overrides import load_manual_overrides, load_manual_committee_overrides
+from .manual_overrides import (
+    load_manual_overrides, load_manual_committee_overrides, load_manual_branches,
+)
 from .stats import show_stats
 
 logger = get_logger(__name__)
@@ -79,6 +81,7 @@ def main() -> None:
     prev_cache = Cache(os.path.join(data_dir, PREV_EMPLOYER_CACHE))
     addr_cache = Cache(os.path.join(data_dir, EMPLOYER_ADDR_CACHE))
     comm_cache = Cache(os.path.join(data_dir, COMMITTEE_CACHE))
+    branch_cache = Cache(os.path.join(data_dir, EMPLOYER_BRANCH_CACHE))
 
     # read_pipeline_csv preserves literal "NULL" surnames.
     from fec.io import read_pipeline_csv
@@ -103,6 +106,7 @@ def main() -> None:
     # them and dedup treats them as authoritative.
     logger.info("\n-- Step 0: Manual overrides --")
     load_manual_overrides(Path(data_dir) / "manual_employer_addresses.csv", addr_cache)
+    load_manual_branches(Path(data_dir) / "manual_employer_addresses.csv", branch_cache)
     load_manual_committee_overrides(Path(data_dir) / "manual_committee_addresses.csv", comm_cache)
 
     logger.info("\n-- Step 1: Cross-Record (find previous employer from our data) --")
@@ -137,7 +141,7 @@ def main() -> None:
 
     if args.apply and not args.dry_run:
         logger.info(f"\n-- Writing results -> {csv_path} --")
-        df = apply_results(df, prev_cache, addr_cache, comm_cache)
+        df = apply_results(df, prev_cache, addr_cache, comm_cache, branch_cache)
 
         # Resolve must KEEP resolve_method - geocode --employer-only reads it for
         # self-employed coords; the last writer (geocode) drops provenance cols.

@@ -15,6 +15,7 @@ from fec.cleaning.employer_synonyms import EMPLOYER_SYNONYMS, canonical_key
 from fec.log import get_logger
 
 from ._base import NON_EMPLOYER_STATUSES, _count, to_native
+from .addresses import load_employer_branches, _akey
 
 logger = get_logger(__name__)
 
@@ -138,7 +139,7 @@ def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
 
 def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                      occ_cat_map: dict, donor_prev_employer_id: dict,
-                     get_employer_id) -> dict:
+                     get_employer_id, addr_dim_id: dict | None = None) -> dict:
     """Step 6: donor_employments rows; returns (donor_id, employer_id, occupation) -> donor_employment_id."""
     logger.info("\n-- 6/8 Loading donor employments --")
     start = time.time()
@@ -147,10 +148,16 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
     empl_rows = []
     seen_empl = set()
 
+    # The donor's state picks their branch office; addr_dim_id turns that branch
+    # into the shared addresses row. Both absent -> every address_id is NULL and
+    # the views fall back to the company HQ.
+    branches = load_employer_branches() if addr_dim_id else {}
+
     # Grouping by (donor, employer, occupation) preserves career progression --
     # it is the schema's UNIQUE key; date ranges come from contributions later.
     agg_specs = {
         'occupation_category': ('occupation_category', 'first'),
+        'contributor_state': ('contributor_state', 'first'),
     }
     if 'employer_status' in individuals.columns:
         agg_specs['employer_status'] = ('employer_status', 'first')
@@ -184,15 +191,23 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
         emp_status = to_native(row.get('employer_status')) if 'employer_status' in row.index else None
         prev_emp_id = donor_prev_employer_id.get(donor_key)
 
+        branch_address_id = None
+        if branches:
+            donor_state = str(to_native(row.get('contributor_state')) or '').upper()
+            branch = branches.get((to_native(emp_val), donor_state))
+            if branch:
+                branch_address_id = addr_dim_id.get(_akey(
+                    branch['address'], None, branch['city'], branch['state'], branch['zip']))
+
         empl_rows.append((
             donor_id, emp_id, occ, occ_cat_id,
-            emp_status, prev_emp_id,
+            emp_status, prev_emp_id, branch_address_id,
         ))
 
     execute_values(cur,
         """INSERT INTO donor_employments
            (donor_id, employer_id, occupation, occupation_category_id,
-            employer_status, previous_employer_id)
+            employer_status, previous_employer_id, address_id)
            VALUES %s ON CONFLICT DO NOTHING""",
         empl_rows, page_size=5000)
     conn.commit()
