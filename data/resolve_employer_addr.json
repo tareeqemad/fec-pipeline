@@ -91028,14 +91028,6 @@
   "provider": "openai",
   "confidence": "UNKNOWN"
  },
- "SCHUSTERMAN INTERESTS LLC": {
-  "employer_address": "7015 East Camelback Road",
-  "employer_city": "Scottsdale",
-  "employer_state": "AZ",
-  "employer_zip": "85251",
-  "method": "ai_openai",
-  "confidence": "HIGH"
- },
  "SCOTT FANE,CPA,PA": {
   "employer_address": "",
   "method": "ai_not_found",
