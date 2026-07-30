@@ -1,5 +1,4 @@
-"""tests/test_pull_period.py — the default FEC pull period is derived from the
-date (no hardcoded year that rots at a cycle boundary)."""
+"""The default FEC pull period is derived from the date, not hardcoded."""
 import pull
 
 

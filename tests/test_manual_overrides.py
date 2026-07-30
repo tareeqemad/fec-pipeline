@@ -1,10 +1,4 @@
-"""tests/test_manual_overrides.py — per-sub_id hand-curated corrections.
-
-The override file may set contributor_employer, contributor_occupation, or both.
-Both are needed for the swap case: a filer who put the job title in the employer
-field and the COMPANY in the occupation field ("CHAIRMAN" / "KIMCO"), which the
-generic swap-back can't fix because its detector doesn't know bare brand names.
-"""
+"""Per-sub_id hand-curated corrections to employer and/or occupation."""
 import csv
 
 import pandas as pd
@@ -36,7 +30,7 @@ def _frame():
 
 
 def test_both_fields_can_be_overridden(override_file):
-    """The swap case — employer and occupation corrected together."""
+    """The swap case: employer and occupation corrected together."""
     override_file([{"sub_id": "1", "contributor_employer": "KIMCO REALTY",
                     "contributor_occupation": "CHAIRMAN"}])
     df = _frame()
@@ -49,7 +43,7 @@ def test_both_fields_can_be_overridden(override_file):
 
 
 def test_employer_only_leaves_occupation_alone(override_file):
-    """The original single-column use — occupation must not be blanked."""
+    """Occupation must not be blanked."""
     override_file([{"sub_id": "2", "contributor_employer": "NEW EMPLOYER"}])
     df = _frame()
 
@@ -94,17 +88,12 @@ def test_shipped_override_file_is_wellformed():
     for r in rows:
         assert (r.get("sub_id") or "").strip(), r
         assert ((r.get("contributor_employer") or "").strip()
-                or (r.get("contributor_occupation") or "").strip()), r
+                or (r.get("contributor_occupation") or "").strip()
+                or (r.get("contributor_city") or "").strip()), r
 
 
 def test_no_override_reinstates_a_known_truncation():
-    """Manual per-row overrides run LAST, so they beat the synonym map.
-
-    An override whose value is itself a known 38-char truncation therefore
-    silently undoes the repair — which is exactly what kept
-    'JEWISH FEDERATION OF GREATER FAIRFIELD' truncated on 2 rows after the
-    repair had already been added to manual_typo_overrides.json.
-    """
+    """Overrides run last, so an override whose value is a known truncation silently undoes the repair."""
     import json
 
     with open("data/manual_typo_overrides.json", encoding="utf-8") as f:

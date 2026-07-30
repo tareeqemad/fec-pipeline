@@ -1,6 +1,4 @@
-"""tests/test_admin_note_employer.py — the admin-note/refusal employer net nulls
-FEC placeholder phrasings (new wording included) WITHOUT touching a real company
-name that merely contains such a word."""
+"""Admin-note/refusal employers are nulled without touching real companies containing such words."""
 import pandas as pd
 
 from fec.cleaning.safety_nets.employer import _clear_admin_note_employers

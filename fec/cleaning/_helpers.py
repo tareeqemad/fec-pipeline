@@ -1,14 +1,10 @@
-"""
-cleaning/_helpers.py — Shared utility functions for enhancement sub-modules.
-
-Used by: enhancements.py, employer_synonyms.py, entity_classification.py, safety_nets.py
-"""
+"""Shared helpers for the enhancement sub-modules."""
 import numpy as np
 import pandas as pd
 
 
 def _norm(s: pd.Series) -> pd.Series:
-    """Normalize a Series for safe comparison: NaN→'', strip, upper."""
+    """Normalize a Series for safe comparison: NaN -> '', strip, upper."""
     return s.fillna('').astype(str).str.strip().str.upper()
 
 
@@ -25,15 +21,15 @@ def _set_missing(df: pd.DataFrame, idx) -> None:
 
 
 def levenshtein(a: str, b: str) -> int:
-    """Compute Levenshtein edit distance between two strings."""
+    """Levenshtein edit distance between two strings."""
     if len(a) < len(b):
         a, b = b, a
     if not b:
         return len(a)
-    prev = list(range(len(b) + 1))
-    for c1 in a:
-        curr = [prev[0] + 1]
-        for j, c2 in enumerate(b):
-            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (c1 != c2)))
-        prev = curr
-    return prev[-1]
+    previous_row = list(range(len(b) + 1))
+    for char_a in a:
+        current_row = [previous_row[0] + 1]
+        for position, char_b in enumerate(b):
+            current_row.append(min(previous_row[position + 1] + 1, current_row[position] + 1, previous_row[position] + (char_a != char_b)))
+        previous_row = current_row
+    return previous_row[-1]

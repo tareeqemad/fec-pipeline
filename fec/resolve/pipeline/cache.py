@@ -9,8 +9,8 @@ class Cache:
         self.path = path
         self.data = {}
         if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                self.data = json.load(f)
+            with open(path, "r", encoding="utf-8") as handle:
+                self.data = json.load(handle)
 
     def get(self, key):
         return self.data.get(key)
@@ -20,10 +20,10 @@ class Cache:
 
     def save(self):
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        tmp = self.path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(self.data, f, ensure_ascii=False)
-        os.replace(tmp, self.path)
+        temp_path = self.path + ".tmp"
+        with open(temp_path, "w", encoding="utf-8") as handle:
+            json.dump(self.data, handle, ensure_ascii=False)
+        os.replace(temp_path, self.path)
 
     def __len__(self):
         return len(self.data)

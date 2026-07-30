@@ -1,4 +1,4 @@
-"""Tests for recover_addresses_from_fec — apply cached FEC addresses (no network)."""
+"""recover_addresses_from_fec applies cached FEC addresses (no network)."""
 import json
 
 import pandas as pd
@@ -22,7 +22,7 @@ def test_no_outdir_is_a_noop():
 
 
 def test_applies_cached_address_and_normalizes(tmp_path):
-    # raw FEC street has a trailing "ST." — must be normalised like everything else
+    # raw FEC street has a trailing "ST." that must be normalised
     _seed(tmp_path, {"GHITIS, LEO|FL": {
         "street": "240 GOLDEN BEACH DR.", "city": "GOLDEN BEACH",
         "zip": "33160", "n": 22, "method": "fec_api"}})
@@ -34,7 +34,7 @@ def test_applies_cached_address_and_normalizes(tmp_path):
 
 
 def test_different_city_is_left_for_review(tmp_path):
-    # MENACHE case: FEC address is in a different city -> possible namesake -> skip
+    # FEC address in a different city -> possible namesake -> skip
     _seed(tmp_path, {"MENACHE, DANIELE|NY": {
         "street": "130 W 67TH ST", "city": "NEW YORK", "n": 9, "method": "fec_api"}})
     df = pd.DataFrame([_row("ELVENTS", name="MENACHE, DANIELE", city="WATER MILL", state="NY")])

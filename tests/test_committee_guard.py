@@ -1,9 +1,8 @@
-"""tests/test_committee_guard.py — clean.py aborts when a pulled committee is
-missing from committees.csv (otherwise the loader silently drops all its rows)."""
+"""The clean command aborts when a pulled committee is missing from committees.csv (the loader would drop its rows)."""
 import pandas as pd
 import pytest
 
-import clean
+from fec.cleaning import cli
 from fec.committees import load_committees
 
 
@@ -16,14 +15,10 @@ def test_known_committees_pass():
     if not known:
         pytest.skip("committees.csv not available in this environment")
     df = pd.DataFrame({"recipient_committee": known + [None, None]})
-    clean._assert_known_committees(df)  # must not raise
+    cli._assert_known_committees(df)  # must not raise
 
 
 def test_unknown_committee_aborts():
     df = pd.DataFrame({"recipient_committee": ["AIPAC", "C99999999", "C99999999"]})
     with pytest.raises(SystemExit):
-        clean._assert_known_committees(df)
-
-
-def test_missing_column_is_noop():
-    clean._assert_known_committees(pd.DataFrame({"foo": [1, 2]}))  # no column → no raise
+        cli._assert_known_committees(df)

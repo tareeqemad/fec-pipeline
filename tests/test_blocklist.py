@@ -1,10 +1,4 @@
-"""Unit tests for the donor-match do-not-merge guard (the merge-review feedback).
-
-`_is_blocked_merge` must block a flagged name pair regardless of case/spacing,
-since the reviewer's names and the matcher's `name` field can differ in form.
-"""
-import pytest
-
+"""_is_blocked_merge must block a flagged name pair regardless of case/spacing."""
 from fec.database.donor_match import constants as C
 
 

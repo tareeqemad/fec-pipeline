@@ -1,4 +1,4 @@
-"""Employer abbreviation expansion (MGMT → MANAGEMENT, run after synonyms)."""
+"""Employer abbreviation expansion (MGMT -> MANAGEMENT, run after synonyms)."""
 import pandas as pd
 
 from fec.cleaning.employer_synonyms import (
@@ -49,7 +49,7 @@ def test_skips_status_employers():
     assert n == 0
 
 
-# ── ASSOC (contextual: ASSOCIATES vs ASSOCIATION) ─────────────────────
+# ASSOC is contextual: ASSOCIATES vs ASSOCIATION
 def _assoc(pairs):
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * len(pairs),
                        "contributor_employer": [p[0] for p in pairs],

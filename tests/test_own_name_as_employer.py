@@ -1,12 +1,7 @@
-"""tests/test_own_name_as_employer.py — the donor's own name in the employer
-field becomes SELF-EMPLOYED instead of a phantom one-person company, while
-firms that merely SHARE a donor's surname are left alone.
-
-Covers both halves of the fix: the cleaning-stage net (contributor_employer)
-and the resolve-stage guard (previous_employer)."""
+"""The donor's own name in the employer field becomes SELF-EMPLOYED; shared-surname firms are kept."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer import _fix_own_name_as_employer
+from fec.cleaning.safety_nets.employer_swaps import _fix_own_name_as_employer
 
 
 def _frame(rows):
@@ -22,9 +17,7 @@ def _frame(rows):
 
 
 def test_own_name_becomes_self_employed_regardless_of_occupation():
-    # The bug these rows document: the FEC stores "LAST, FIRST" while filers
-    # write the employer "FIRST LAST", and the occupation is a real one
-    # (RETIRED / PHYSICIAN), not the 'SELF-EMPLOYED' the older net required.
+    # FEC stores "LAST, FIRST"; filers write the employer "FIRST LAST" with a real occupation.
     df = _frame([
         ("ALIDA", "", "HOWARD", "ALIDA HOWARD", "RETIRED"),
         ("JEFFREY", "", "HALBRECHT", "JEFFREY HALBRECHT", "PHYSICIAN"),
@@ -37,7 +30,7 @@ def test_own_name_becomes_self_employed_regardless_of_occupation():
 
     assert n == 5
     assert (df["contributor_employer"] == "SELF-EMPLOYED").all()
-    # the occupation is real information — it must survive untouched
+    # the occupation must survive untouched
     assert df["contributor_occupation"].tolist() == [
         "RETIRED", "PHYSICIAN", "DOCTOR", "REAL ESTATE", "RETIRED",
     ]
@@ -55,9 +48,7 @@ def test_shared_surname_firms_are_kept():
 
     n = _fix_own_name_as_employer(df)
 
-    # "PAUL WEISS" is the one genuine ambiguity: a Paul Weiss who names the firm
-    # is indistinguishable from one who named himself. Whole-name equality means
-    # it IS caught — documented here so the trade-off is deliberate, not a surprise.
+    # "PAUL WEISS" is the deliberate trade-off: whole-name equality catches a firm named after a real person.
     assert n == 1
     assert df["contributor_employer"].iloc[2] == "SELF-EMPLOYED"
     assert df["contributor_employer"].tolist()[:2] == before[:2]
@@ -87,7 +78,7 @@ def test_committees_are_untouched():
 
 def test_resolve_guard_matches_reversed_name_order():
     """The resolve-stage twin: previous_employer == the donor's own name."""
-    from fec.resolve.pipeline.apply import _normalize_previous_employer_column
+    from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
 
     df = pd.DataFrame({
         "contributor_name": ["HOWARD, ALIDA", "COMITER, RICHARD", "ROSEN, MARVIN"],

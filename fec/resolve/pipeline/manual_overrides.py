@@ -1,25 +1,7 @@
-"""
-Manual employer- and committee-address overrides.
-
-Loads human-curated addresses from CSV files into the resolve caches as
-`method='manual_override'` entries with HIGH confidence.
-
-Why a CSV instead of editing the cache directly:
-    - Caches are regenerated on every full pipeline reset
-    - The CSV is the persistent source of truth — survives cache wipes
-    - Easy to review/edit in a spreadsheet or PR diff
-
-Why method='manual_override':
-    - `_needs_ai()` treats these as final; the AI step never re-asks
-    - `_score()` in dedup.py ranks them above the ai_* methods
-
-Two files, two caches:
-    manual_employer_addresses.csv  -> employer cache, keyed by EMPLOYER name
-    manual_committee_addresses.csv -> committee cache, keyed by NAME|STATE
-"""
+"""Load human-curated addresses from CSV into the resolve caches as method='manual_override' - the CSV survives cache wipes, _needs_ai treats these as final, and dedup ranks them above ai_*."""
 import csv
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Tuple
 
 from fec.log import get_logger
 
@@ -30,29 +12,25 @@ _CHANGE_FIELDS = ('employer_address', 'employer_city',
 
 
 def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
-                    label: str) -> Tuple[int, int]:
-    """Inject manual address overrides from a CSV into a resolve cache.
-
-    key_fn(row) builds the cache key for a CSV row (return None/'' to skip it).
-    Returns (n_added, n_updated)."""
+                    label: str) -> tuple[int, int]:
+    """Inject manual overrides from a CSV into a cache; key_fn(row) builds the key (falsy skips the row). Returns (n_added, n_updated)."""
     if not csv_path.exists():
-        logger.info(f"    {label}: {csv_path.name} not found — skipping")
+        logger.info(f"    {label}: {csv_path.name} not found - skipping")
         return 0, 0
 
     n_added = n_updated = 0
-    with open(csv_path, encoding='utf-8', newline='') as f:
-        for row in csv.DictReader(f):
+    with open(csv_path, encoding='utf-8', newline='') as handle:
+        for row in csv.DictReader(handle):
             key = key_fn(row)
             if not key:
                 continue
             address = (row.get('address') or '').strip()
             city = (row.get('city') or '').strip()
             state = (row.get('address_state') or row.get('state') or '').strip().upper()
-            # A street address is ideal, but a deliberate city/state-only override
-            # is also valid — apply.py honors a manual_override with no street
-            # (e.g. a firm whose US-office city is known but exact street isn't).
+            # A deliberate city/state-only override is valid - apply.py honors
+            # a manual_override with no street.
             if not address and not (city and state):
-                continue  # nothing usable — skip
+                continue
             entry = {
                 'employer_address': address,
                 'employer_city':    city,
@@ -64,10 +42,10 @@ def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
             existing = cache.get(key)
             if existing is None:
                 n_added += 1
-            elif any(existing.get(k, '') != entry[k] for k in _CHANGE_FIELDS):
+            elif any(existing.get(field, '') != entry[field] for field in _CHANGE_FIELDS):
                 n_updated += 1
             else:
-                continue  # identical entry already present — no noisy diff
+                continue  # identical entry already present - no noisy diff
             cache.put(key, entry)
 
     if n_added or n_updated:
@@ -77,27 +55,22 @@ def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
     return n_added, n_updated
 
 
-def load_manual_overrides(csv_path: Path, addr_cache) -> Tuple[int, int]:
-    """Manual employer-HQ overrides — keyed by employer name (uppercased)."""
+def load_manual_overrides(csv_path: Path, addr_cache) -> tuple[int, int]:
+    """Manual employer-HQ overrides - keyed by employer name (uppercased)."""
     return _load_overrides(
         csv_path, addr_cache,
-        key_fn=lambda r: (r.get('name') or '').strip().upper(),
+        key_fn=lambda row: (row.get('name') or '').strip().upper(),
         label="manual overrides",
     )
 
 
-def load_manual_committee_overrides(csv_path: Path, comm_cache) -> Tuple[int, int]:
-    """Manual committee/organization overrides.
-
-    Keyed by NAME|STATE — the exact key step_committees_ai uses
-    (contributor_name | contributor_state). Use this for entities in the
-    COMMITTEE/PAC bucket whose address is curated by hand — including the
-    businesses that bucket lumps in (LLCs, holding companies, etc.)."""
-    def _key(r):
-        name = (r.get('committee_name') or '').strip()
+def load_manual_committee_overrides(csv_path: Path, comm_cache) -> tuple[int, int]:
+    """Manual overrides for the COMMITTEE/PAC bucket (incl. the LLCs it lumps in), keyed NAME|STATE - the exact key the committee steps use."""
+    def _key(row):
+        name = (row.get('committee_name') or '').strip()
         if not name:
             return None
-        state = (r.get('contributor_state') or '').strip()
+        state = (row.get('contributor_state') or '').strip()
         return f"{name}|{state}"
     return _load_overrides(csv_path, comm_cache, key_fn=_key,
                            label="manual committee overrides")

@@ -1,8 +1,4 @@
-"""tests/test_previous_employer_contract.py — previous_employer has ONE contract.
-
-The column is written by three post-merge steps and by the resolve stage. Before
-this contract was extracted, each writer decided for itself what counted as a
-company, so the column's contents depended on which stage ran last."""
+"""previous_employer has one contract shared by every writer (post-merge steps and resolve)."""
 import pandas as pd
 
 from fec.cleaning.previous_employer import (
@@ -10,15 +6,11 @@ from fec.cleaning.previous_employer import (
     normalize_previous_employer_column,
 )
 from fec.database.post_merge_fixes import _normalize_previous_employer
-from fec.resolve.pipeline.apply import _normalize_previous_employer_column
+from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
 
 
 def test_self_employed_is_kept_not_cleared():
-    """The fact a retiree worked for THEMSELVES is real information.
-
-    An empty column means "we don't know what they did"; 'SELF-EMPLOYED' means
-    "we know: not at a company". Clearing it would turn knowledge into ignorance.
-    """
+    """SELF-EMPLOYED is real information; empty means unknown."""
     assert V("SELF-EMPLOYED") == "SELF-EMPLOYED"
     assert V("SELF EMPLOYED") == "SELF-EMPLOYED"
     assert V("SELF") == "SELF-EMPLOYED"
@@ -45,26 +37,20 @@ def test_slash_composites_are_collapsed():
     assert V("RETIRED/ACME WIDGETS") == "ACME WIDGETS"            # status/company
     assert V("ACME WIDGETS/PRESIDENT") == "ACME WIDGETS"          # company/title
     assert V("LETTER SENT: ACME/PRESIDENT") == ""                 # admin note
-    # The admin-prefix guard lives INSIDE the slash branch, so a slash-less
-    # admin note is not caught here — it survives as a name. Recorded as the
-    # current behaviour, not endorsed as correct.
+    # The admin-prefix guard lives inside the slash branch; a slash-less admin note survives as a name.
     assert V("LETTER SENT: ACME") == "LETTER SENT: ACME"
-    # Quirk, documented rather than changed: a bare "SELF" yields SELF-EMPLOYED,
-    # but "SELF/<anything>" clears instead. The slash branch treats a SELF side
-    # as "no prior company" and returns '' before the self-employment marker can
-    # apply. Pre-existing behaviour — preserved byte-for-byte by the extraction.
+    # Quirk kept: the slash branch treats a SELF side as no prior company and clears before the marker applies.
     assert V("SELF") == "SELF-EMPLOYED"
     assert V("SELF/CONSULTANT") == ""
 
 
 def test_slash_result_still_passes_through_the_synonym_map():
-    """Collapsing the slash is not the last word — the surviving side is still
-    unified to the canonical company name, same as contributor_employer."""
+    """The surviving side still goes through the synonym map."""
     assert V("RETIRED/IBM") == "IBM CORP"
 
 
 def test_own_name_is_dropped():
-    """A donor's previous employer is never the donor — order-insensitive."""
+    """A donor's previous employer is never the donor, in either name order."""
     df = pd.DataFrame({
         "contributor_name": ["HOWARD, ALIDA", "COMITER, RICHARD", "ROSEN, MARVIN"],
         "previous_employer": [

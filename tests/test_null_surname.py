@@ -1,20 +1,8 @@
-"""
-tests/test_null_surname.py — Guard the real-donor surname "Null".
-
-There are real donors in the FEC dataset whose surname is literally
-"Null" (e.g. "NULL, JAMES" — 4 rows). Pandas' default `read_csv`
-coerces the string `"NULL"` to NaN, which then writes out as empty and
-silently erases the surname. Every CSV reader in the pipeline must go
-through `fec.io.read_pipeline_csv` so the literal value survives.
-
-This test is cheap and self-contained — it synthesises a 3-row CSV
-covering both cases and exercises the full write → read round trip.
-"""
+"""Real donors have the literal surname 'NULL'; every CSV read must go through read_pipeline_csv."""
 import tempfile
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from fec.io import read_pipeline_csv
 
@@ -22,7 +10,7 @@ from fec.io import read_pipeline_csv
 def _make_sample() -> pd.DataFrame:
     """3 rows: literal 'NULL' surname, genuinely missing surname, normal."""
     return pd.DataFrame([
-        # Real donor James Null — surname is the string "NULL"
+        # surname is the literal string "NULL"
         {'sub_id': '1', 'contributor_name': 'NULL, JAMES',
          'contributor_first_name': 'JAMES', 'contributor_last_name': 'NULL'},
         # Genuinely missing surname
@@ -58,9 +46,7 @@ def test_read_pipeline_csv_preserves_literal_null():
 
 
 def test_default_pandas_loses_distinction():
-    """Sanity check: default pd.read_csv merges 'NULL' and empty. This
-    is what we're protecting against — if pandas' default behaviour ever
-    changes, this test will start failing and we can revisit."""
+    """Default pd.read_csv merges 'NULL' and empty; fails if pandas ever changes this."""
     df = _make_sample()
     rt = _roundtrip(df, lambda p: pd.read_csv(p, dtype={'sub_id': 'string'}, low_memory=False))
 

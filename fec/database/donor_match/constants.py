@@ -4,18 +4,15 @@ import csv
 from collections import defaultdict
 from pathlib import Path
 
-# ── Employer statuses that are NOT real companies ──
+# employer statuses that are not real companies
 STATUS_EMPLOYERS = {
     "RETIRED", "SELF-EMPLOYED", "NOT EMPLOYED", "NOT DISCLOSED",
-    "STUDENT", "CAMPAIGN/COMMITTEE", "NONE", "N/A",
+    "STUDENT", "NONE", "N/A",
     "NAN", "nan", "None", "NA",
 }
 
-# ── Occupation categories that don't distinguish a person ──
-# A *real* professional field (LEGAL, MEDICAL, FINANCE …) matching across two
-# same-name records is corroboration. These generic buckets are not — they're
-# either life-status (RETIRED), placeholders, or too broad/common to mean much.
-# RETIRED is excluded here but tracked separately as a transition state.
+# occupation buckets too generic to corroborate a match (unlike a real field
+# such as LEGAL); RETIRED is also tracked separately as a transition state
 GENERIC_OCC_CATEGORIES = {
     "RETIRED", "NOT EMPLOYED", "SELF-EMPLOYED", "OTHER",
     "ORGANIZATION", "POLITICAL COMMITTEE", "HOMEMAKER", "STUDENT",
@@ -24,14 +21,6 @@ GENERIC_OCC_CATEGORIES = {
 
 NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V", "ESQ", "MD", "PHD", "DDS", "CPA", "DO"}
 
-# ── Do-not-merge / force-merge lists ──
-# FORCE_MERGE_NAMES is loaded from data/database/donor_overrides.csv at
-# import time. Each entry is a (LAST, FIRST) tuple — every record matching
-# that name gets merged into a single donor cluster after the regular
-# scoring pass. Use sparingly: it bypasses the geographic-corroboration
-# safety net, so only add names that you've verified are the same person.
-DO_NOT_MERGE_NAMES = set()
-
 
 def _norm_blk(s: str) -> str:
     """Whitespace/case-normalize a full name for do-not-merge comparison."""
@@ -39,9 +28,7 @@ def _norm_blk(s: str) -> str:
 
 
 def _load_do_not_merge() -> set:
-    """Read full-name pairs flagged 'not the same person' from
-    data/database/donor_no_merge.csv (curated during manual merge review).
-    Each blocked pair stops the matcher from ever fusing those two names."""
+    """Read curated 'not the same person' name pairs from data/database/donor_no_merge.csv."""
     path = Path(__file__).resolve().parents[3] / "data" / "database" / "donor_no_merge.csv"
     if not path.exists():
         return set()
@@ -54,21 +41,15 @@ def _load_do_not_merge() -> set:
     return pairs
 
 
-_DNM_SET = {frozenset(map(_norm_blk, pair)) for pair in DO_NOT_MERGE_NAMES} | _load_do_not_merge()
+_DNM_SET = _load_do_not_merge()
 
 
 def _donor_overrides_path() -> Path:
-    # fec/database/donor_match/constants.py → repo root is 4 parents up
     return Path(__file__).resolve().parents[3] / "data" / "database" / "donor_overrides.csv"
 
 
 def _load_force_merge_names() -> set:
-    """Read (last, first) pairs from donor_overrides.csv. Quiet on missing file.
-
-    Rows carrying a non-empty ``group`` are handled by
-    :func:`_load_force_merge_groups` instead (they merge ACROSS surnames),
-    so they're skipped here to avoid a redundant same-name pass.
-    """
+    """Read (last, first) pairs from donor_overrides.csv, quiet on missing file; rows with a group value belong to _load_force_merge_groups and are skipped."""
     path = _donor_overrides_path()
     if not path.exists():
         return set()
@@ -85,16 +66,7 @@ def _load_force_merge_names() -> set:
 
 
 def _load_force_merge_groups() -> dict:
-    """Read cross-surname same-person groups from donor_overrides.csv.
-
-    Rows sharing a non-empty ``group`` value are fused into ONE donor even
-    when their surnames are spelled differently (KHODARI / KHODAR / KHIDARI).
-    The regular matcher never compares records across different surnames
-    (the surname is a hard identity anchor), so this is the manual,
-    human-verified escape hatch for confirmed spelling variants.
-
-    Returns ``{group_id: [(LAST, FIRST), ...]}`` for groups of size >= 2.
-    """
+    """Read {group_id: [(LAST, FIRST), ...]} cross-surname same-person groups from donor_overrides.csv; the human-verified escape hatch, since the matcher never compares across surnames."""
     path = _donor_overrides_path()
     if not path.exists():
         return {}
@@ -118,7 +90,64 @@ def _is_blocked_merge(name1: str, name2: str) -> bool:
     return frozenset((_norm_blk(name1), _norm_blk(name2))) in _DNM_SET
 
 
-# ── Nickname canonicalization ──
+# scoring weights
+SCORE_CROSS_NAME_BONUS = 10
+SCORE_SAME_STREET    = 60
+SCORE_SAME_EMPLOYER  = 30
+SCORE_SAME_STATE     = 10
+SCORE_SAME_CITY      = 15
+SCORE_SAME_ZIP5      = 25
+SCORE_SAME_ZIP3      = 5
+SCORE_MIDDLE_MATCH   = 15
+SCORE_MIDDLE_PARTIAL = 5
+SCORE_MIDDLE_CONFLICT = -30
+SCORE_RARE_NAME      = 15
+SCORE_VERY_RARE_BONUS = 20
+SCORE_COMMON_PENALTY = -15
+SCORE_SAME_OCC       = 15
+SCORE_OCC_RETIRED    = 10
+
+# cross-state merge (no geographic anchor) needs a distinctive name: few
+# distinct full names sharing the surname (or first name)
+XSTATE_LAST_RARE_MAX  = 5
+XSTATE_FIRST_RARE_MAX = 6
+
+MERGE_THRESHOLD = 50
+
+# blocked first-name pairs: look similar but are different people
+_BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
+    ('DAN', 'DANA'),        ('DANIEL', 'DANA'),
+    ('BETH', 'SETH'),
+    ('JOAN', 'JOHN'),
+    ('ANDREA', 'ANDREW'),   ('ANDREA', 'ANDRE'),
+    ('ALLEN', 'ELLEN'),     ('ALAN', 'ELENA'),
+    ('RANDI', 'RANDY'),
+    ('ROBIN', 'ROB'),       ('ROBIN', 'ROBERT'),
+    ('SANDY', 'ANDY'),      ('SANDRA', 'ANDREW'),
+    ('CARL', 'CARI'),
+    ('EVAN', 'IVAN'),
+    ('MARK', 'MARY'),       ('MARC', 'MARY'),
+    ('KEREN', 'KAREN'),
+    ('EARL', 'CARL'),
+    ('JOY', 'JAY'),
+    ('DAWN', 'DAN'),
+    ('JANE', 'JUNE'),
+    ('JULIE', 'JULIA'),
+    ('ANN', 'DAN'),
+    ('BARRY', 'LARRY'),     ('BARRY', 'HARRY'),
+    ('LARRY', 'HARRY'),     ('TERRY', 'JERRY'),
+    ('TERRY', 'PERRY'),     ('TERRY', 'KERRY'),
+    ('JERRY', 'PERRY'),     ('JERRY', 'KERRY'),
+    ('LOREN', 'OREN'),
+    ('ARI', 'AVI'),         ('ARI', 'URI'),
+    ('ETAN', 'EVAN'),
+    ('KEN', 'BEN'),         ('KEN', 'LEN'),
+    ('BEN', 'LEN'),
+    ('ROY', 'ROB'),         ('ROY', 'RON'),
+    ('GARY', 'CARY'),
+]}
+
+
 NICKNAME_MAP = {
     'BILL': 'WILLIAM', 'BILLY': 'WILLIAM', 'WILL': 'WILLIAM',
     'BOB': 'ROBERT', 'BOBBY': 'ROBERT', 'ROB': 'ROBERT',
@@ -175,62 +204,3 @@ NICKNAME_MAP = {
     'MORT': 'MORTON',
     'JOSH': 'JOSHUA',
 }
-
-# ── Scoring weights ──
-SCORE_CROSS_NAME_BONUS = 10
-SCORE_SAME_STREET    = 60
-SCORE_SAME_EMPLOYER  = 30
-SCORE_SAME_STATE     = 10
-SCORE_SAME_CITY      = 15
-SCORE_SAME_ZIP5      = 25
-SCORE_SAME_ZIP3      = 5
-SCORE_MIDDLE_MATCH   = 15
-SCORE_MIDDLE_PARTIAL = 5
-SCORE_MIDDLE_CONFLICT = -30
-SCORE_RARE_NAME      = 15
-SCORE_VERY_RARE_BONUS = 20
-SCORE_COMMON_PENALTY = -15
-SCORE_SAME_OCC       = 15   # same real occupation field (LEGAL=LEGAL, …)
-SCORE_OCC_RETIRED    = 10   # career → retirement transition (lawyer who retired)
-
-# Cross-state merge (no geographic anchor) is allowed only for a DISTINCTIVE
-# name — measured as # of distinct full names sharing the surname / first name.
-# A rare surname (≤5, e.g. SHEAR) OR a rare first name (≤6, e.g. BATYA) qualifies;
-# common names (MOORE/COHEN/DAVID, hundreds of namesakes) never do.
-XSTATE_LAST_RARE_MAX  = 5
-XSTATE_FIRST_RARE_MAX = 6
-
-MERGE_THRESHOLD = 50
-
-# ── Blocked first-name pairs (look similar but are different people) ──
-_BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
-    ('DAN', 'DANA'),        ('DANIEL', 'DANA'),
-    ('BETH', 'SETH'),
-    ('JOAN', 'JOHN'),
-    ('ANDREA', 'ANDREW'),   ('ANDREA', 'ANDRE'),
-    ('ALLEN', 'ELLEN'),     ('ALAN', 'ELENA'),
-    ('RANDI', 'RANDY'),
-    ('ROBIN', 'ROB'),       ('ROBIN', 'ROBERT'),
-    ('SANDY', 'ANDY'),      ('SANDRA', 'ANDREW'),
-    ('CARL', 'CARI'),
-    ('EVAN', 'IVAN'),
-    ('MARK', 'MARY'),       ('MARC', 'MARY'),
-    ('KEREN', 'KAREN'),
-    ('EARL', 'CARL'),
-    ('JOY', 'JAY'),
-    ('DAWN', 'DAN'),
-    ('JANE', 'JUNE'),
-    ('JULIE', 'JULIA'),
-    ('ANN', 'DAN'),
-    ('BARRY', 'LARRY'),     ('BARRY', 'HARRY'),
-    ('LARRY', 'HARRY'),     ('TERRY', 'JERRY'),
-    ('TERRY', 'PERRY'),     ('TERRY', 'KERRY'),
-    ('JERRY', 'PERRY'),     ('JERRY', 'KERRY'),
-    ('LOREN', 'OREN'),
-    ('ARI', 'AVI'),         ('ARI', 'URI'),
-    ('ETAN', 'EVAN'),
-    ('KEN', 'BEN'),         ('KEN', 'LEN'),
-    ('BEN', 'LEN'),
-    ('ROY', 'ROB'),         ('ROY', 'RON'),
-    ('GARY', 'CARY'),
-]}

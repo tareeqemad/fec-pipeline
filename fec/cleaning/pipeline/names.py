@@ -1,9 +1,4 @@
-"""cleaning/pipeline/names.py — contributor-name cleaning.
-
-Parse and tidy individual names: strip titles/suffixes, split LAST/FIRST, fix
-garbled first names and compound last names, and rebuild the composite name so
-`contributor_name` always agrees with the clean first/last fields.
-"""
+"""Contributor-name cleaning: parse, tidy, and keep contributor_name in sync with first/last."""
 from __future__ import annotations
 
 import re
@@ -13,27 +8,39 @@ import pandas as pd
 
 from fec.config import (
     TITLE_TO_OCCUPATION, COMM_TAIL_RE, COMMITTEE_NAME_FIXES,
-    TITLE_RE, SUFFIX_RE, PRO_SUFFIX_RE,
+    TITLE_RE, SUFFIX_RE, PRO_SUFFIX_RE, FIRST_NAME_FIXES,
 )
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
+# professional/religious titles appearing after the comma in a name
+_NAME_TITLE_RE = re.compile(
+    r',\s*(DR\.?|RABBI|CANTOR|PASTOR|DEACON|BISHOP|FATHER|SISTER|'
+    r'IMAM|REV\.?|REVEREND|JUDGE|HON\.?|HONORABLE|'
+    r'PROF\.?|PROFESSOR|AMB\.?|AMBASSADOR)\s',
+    re.I,
+)
+
+_EMPTY_OCC = {np.nan, None, '', 'NOT DISCLOSED', 'NOT EMPLOYED'}
+
+# LAST, <titles/suffixes>, FIRST: WIENIR, MD, MICHAEL
+_EMBEDDED_TITLE_RE = re.compile(
+    r'^([A-Z][A-Z\'\-]+)\s*,?\s*'
+    r'(?:,?\s*(?:MD|M\.?D\.?|PHD|PH\.?D\.?|DDS|DPM|JR\.?|SR\.?|ESQ\.?|II|III|IV|FAAOS|FACS|DO|DVM)\s*)*'
+    r',\s*(.+)$',
+    re.IGNORECASE
+)
+
+_PURE_TITLE = {'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.', 'DR', 'DR.',
+               'MD', 'M.D.', 'PHD', 'PH.D.', 'ESQ', 'ESQ.',
+               'DDS', 'DVM', 'JR', 'JR.', 'SR', 'SR.'}
+
+_NAN_REPLACE = {'nan': np.nan, 'None': np.nan, '': np.nan}
+
 
 def _clean_names(df: pd.DataFrame) -> None:
-    """
-    Clean contributor names in-place.
-
-    Delegates to sub-functions for each phase:
-      1. Pre-clean punctuation
-      2. Extract titles → enrich occupation
-      3. Handle multi-comma embedded titles
-      4. Split missing first/last from contributor_name
-      5. Clean committee names
-      6. Strip titles & suffixes from individual names
-      7. Fix garbled first names, title-as-first, compound last names
-      8. Rebuild contributor_name from clean first/last
-    """
+    """Clean contributor names in-place: punctuation, titles, LAST/FIRST splits, committee tails, garbled fixes, then rebuild contributor_name."""
     for col in ['contributor_first_name', 'contributor_last_name']:
         df[col] = df[col].astype('object')
 
@@ -59,18 +66,14 @@ def _preclean_name_punctuation(df: pd.DataFrame) -> None:
         .str.replace('`', '', regex=False)
         .str.replace(';', '', regex=False)
         .str.replace(r'^\.+', '', regex=True)
-        # A dot sitting directly after the comma ("HAAS, .CANDICE") is filer
-        # noise the ^\.+ rule above can't see — it only strips dots at the very
-        # start of the name. The dot must IMMEDIATELY follow the comma, so real
-        # dotted tails ("JPMORGAN CHASE BANK, N.A.") are left alone.
+        # dot directly after the comma ("HAAS, .CANDICE") is filer noise; the
+        # dot must IMMEDIATELY follow the comma so dotted tails ("N.A.") survive
         .str.replace(r',\s*\.+\s*', ', ', regex=True)
         .str.replace(r',{2,}', ',', regex=True)
-        # Trailing dash the filer left on the end ("LEVY, ALLAN -"). A name
-        # never ends in a dash, and it leaks into first_name as "ALLAN -".
+        # trailing dash ("LEVY, ALLAN -") would leak into first_name
         .str.replace(r'\s*-\s*$', '', regex=True)
-        # Initial glued to the next name ("W.DAVID" -> "W DAVID"). The second
-        # part must be 2+ letters, so real dotted abbreviations stay intact:
-        # "N.A." keeps its form (A is a single letter), as does "J.P.".
+        # glued initial ("W.DAVID" -> "W DAVID"); second part needs 2+ letters
+        # so dotted abbreviations like "N.A." and "J.P." stay intact
         .str.replace(r'\b([A-Z])\.([A-Z]{2,})', r'\1 \2', regex=True)
         .str.strip()
         .str.replace(r'\s+', ' ', regex=True)
@@ -78,24 +81,17 @@ def _preclean_name_punctuation(df: pd.DataFrame) -> None:
 
 
 def _extract_title_to_occupation(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Extract professional/religious titles from name → enrich occupation if empty."""
-    _NAME_TITLE_RE = re.compile(
-        r',\s*(DR\.?|RABBI|CANTOR|PASTOR|DEACON|BISHOP|FATHER|SISTER|'
-        r'IMAM|REV\.?|REVEREND|JUDGE|HON\.?|HONORABLE|'
-        r'PROF\.?|PROFESSOR|AMB\.?|AMBASSADOR)\s',
-        re.I,
-    )
-    _EMPTY_OCC = {np.nan, None, '', 'NOT DISCLOSED', 'NOT EMPLOYED'}
+    """Extract professional/religious titles from the name; enrich occupation if empty."""
     n_title_enriched = 0
 
     for idx in df.loc[is_individual].index:
         name = str(df.at[idx, 'contributor_name'])
-        m = _NAME_TITLE_RE.search(name)
-        if not m:
+        match = _NAME_TITLE_RE.search(name)
+        if not match:
             continue
 
-        title_raw = m.group(1).upper().rstrip('.')
-        clean_name = name[:m.start(1)] + name[m.end(1):]
+        title_raw = match.group(1).upper().rstrip('.')
+        clean_name = name[:match.start(1)] + name[match.end(1):]
         clean_name = re.sub(r',\s*,', ',', clean_name)
         clean_name = re.sub(r'\s{2,}', ' ', clean_name).strip()
         df.at[idx, 'contributor_name'] = clean_name
@@ -110,32 +106,26 @@ def _extract_title_to_occupation(df: pd.DataFrame, is_individual: pd.Series) -> 
                 n_title_enriched += 1
 
     if n_title_enriched:
-        logger.info("Enriched %d occupations from name titles (DR→DOCTOR, RABBI→RABBI, etc.)", n_title_enriched)
+        logger.info("Enriched %d occupations from name titles (DR->DOCTOR, RABBI->RABBI, etc.)", n_title_enriched)
 
 
 def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Handle multi-comma names with embedded titles: WIENIR, MD, MICHAEL → last=WIENIR, first=MICHAEL."""
-    _EMBEDDED_TITLE_RE = re.compile(
-        r'^([A-Z][A-Z\'\-]+)\s*,?\s*'
-        r'(?:,?\s*(?:MD|M\.?D\.?|PHD|PH\.?D\.?|DDS|DPM|JR\.?|SR\.?|ESQ\.?|II|III|IV|FAAOS|FACS|DO|DVM)\s*)*'
-        r',\s*(.+)$',
-        re.IGNORECASE
-    )
+    """Handle multi-comma names with embedded titles: WIENIR, MD, MICHAEL -> last=WIENIR, first=MICHAEL."""
     multi_comma_mask = is_individual & (df['contributor_name'].str.count(',') > 1)
     if multi_comma_mask.any():
         for idx in df.loc[multi_comma_mask].index:
             name = df.at[idx, 'contributor_name']
-            m = _EMBEDDED_TITLE_RE.match(name)
-            if m:
-                clean_last = m.group(1).strip()
-                clean_first = m.group(2).strip().rstrip('.')
+            match = _EMBEDDED_TITLE_RE.match(name)
+            if match:
+                clean_last = match.group(1).strip()
+                clean_first = match.group(2).strip().rstrip('.')
                 df.at[idx, 'contributor_last_name'] = clean_last
                 df.at[idx, 'contributor_first_name'] = clean_first
                 df.at[idx, 'contributor_name'] = f"{clean_last}, {clean_first}"
 
 
 def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Split 'LAST, FIRST' for reclassified records missing first/last. Also repair missing last_name."""
+    """Split LAST, FIRST for reclassified records missing first/last; also repair missing last_name."""
     needs_split = is_individual & df['contributor_first_name'].isna()
     if needs_split.any():
         names = df.loc[needs_split, 'contributor_name'].astype(str)
@@ -148,7 +138,6 @@ def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
             if 1 in split.columns:
                 df.loc[comma_rows, 'contributor_first_name'] = split[1].str.strip()
 
-    # Repair: last_name NaN but contributor_name has comma
     missing_last = (
         is_individual
         & df['contributor_last_name'].isna()
@@ -181,24 +170,21 @@ def _clean_committee_names(df: pd.DataFrame, is_committee: pd.Series) -> None:
 
 def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Strip titles from first_name, suffixes from last_name, handle email in last_name."""
-    nan_replace = {'nan': np.nan, 'None': np.nan, '': np.nan}
-
     df.loc[is_individual, 'contributor_first_name'] = (
         df.loc[is_individual, 'contributor_first_name'].astype(str)
         .str.replace('`', '', regex=False)
         .str.replace(';', '', regex=False)
         .str.replace(TITLE_RE, '', regex=True)
         .str.strip()
-        .replace(nan_replace)
+        .replace(_NAN_REPLACE)
     )
 
-    # Handle email addresses in last_name
-    email_in_ln = (
+    email_in_last = (
         is_individual &
         df['contributor_last_name'].fillna('').str.contains('@', regex=False)
     )
-    if email_in_ln.any():
-        for idx in df.loc[email_in_ln].index:
+    if email_in_last.any():
+        for idx in df.loc[email_in_last].index:
             full_name = df.at[idx, 'contributor_name']
             if ',' in str(full_name):
                 parts = str(full_name).split(',', 1)
@@ -218,21 +204,19 @@ def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series
         .str.replace(';', '', regex=False)
         .str.replace(SUFFIX_RE, '', regex=True)
         .str.replace(PRO_SUFFIX_RE, '', regex=True)
-        .str.replace(PRO_SUFFIX_RE, '', regex=True)  # Second pass for stacked (MD FACS)
+        .str.replace(PRO_SUFFIX_RE, '', regex=True)  # second pass for stacked (MD FACS)
         .str.strip()
         .str.rstrip(',')
         .str.strip()
-        .replace(nan_replace)
+        .replace(_NAN_REPLACE)
     )
 
 
 def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Fix keyboard errors: JEFREY→JEFFREY, ROBERTB→ROBERT (verified by address matching)."""
-    from fec.config import FIRST_NAME_FIXES
-
-    fn = df.loc[is_individual, 'contributor_first_name'].fillna('')
-    fn_first_word = fn.str.split().str[0].fillna('')
-    garbled_mask = is_individual & fn_first_word.isin(FIRST_NAME_FIXES).reindex(df.index, fill_value=False)
+    """Fix keyboard errors like JEFREY/ROBERTB (verified by address matching)."""
+    first_names = df.loc[is_individual, 'contributor_first_name'].fillna('')
+    first_word = first_names.str.split().str[0].fillna('')
+    garbled_mask = is_individual & first_word.isin(FIRST_NAME_FIXES).reindex(df.index, fill_value=False)
     if garbled_mask.any():
         n_garbled = int(garbled_mask.sum())
         if '_garbled_before' not in df.columns:
@@ -252,29 +236,26 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
 
 
 def _fix_title_as_first_name(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Clear first_name if it's actually a title (MRS, DR., MD, etc.)."""
-    _PURE_TITLE = {'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.', 'DR', 'DR.',
-                   'MD', 'M.D.', 'PHD', 'PH.D.', 'ESQ', 'ESQ.',
-                   'DDS', 'DVM', 'JR', 'JR.', 'SR', 'SR.'}
-    title_as_fn = (
+    """Clear first_name when it is actually a title (MRS, DR., MD, etc.)."""
+    title_as_first = (
         is_individual &
         df['contributor_first_name'].fillna('').str.upper().isin(_PURE_TITLE)
     )
-    if title_as_fn.any():
-        df.loc[title_as_fn, 'contributor_first_name'] = np.nan
+    if title_as_first.any():
+        df.loc[title_as_first, 'contributor_first_name'] = np.nan
 
 
 def _fix_compound_last_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Split compound last names: 'BRIAN KROST' → first=BRIAN, last=KROST."""
-    compound_ln = (
+    """Split compound last names: BRIAN KROST becomes first=BRIAN, last=KROST."""
+    compound_last = (
         is_individual &
         df['contributor_first_name'].isna() &
         df['contributor_last_name'].fillna('').str.contains(' ', regex=False)
     )
-    if compound_ln.any():
-        for idx in df.loc[compound_ln].index:
-            ln = str(df.at[idx, 'contributor_last_name'])
-            parts = ln.strip().split()
+    if compound_last.any():
+        for idx in df.loc[compound_last].index:
+            last_name = str(df.at[idx, 'contributor_last_name'])
+            parts = last_name.strip().split()
             if len(parts) == 2:
                 df.at[idx, 'contributor_first_name'] = parts[0]
                 df.at[idx, 'contributor_last_name'] = parts[1]
@@ -282,7 +263,7 @@ def _fix_compound_last_names(df: pd.DataFrame, is_individual: pd.Series) -> None
 
 
 def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Rebuild contributor_name from clean first/last to ensure consistency."""
+    """Rebuild contributor_name from clean first/last so the fields agree."""
     has_both = (
         is_individual &
         df['contributor_first_name'].notna() &

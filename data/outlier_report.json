@@ -14,7 +14,7 @@
     },
     {
       "value": "REAL ESTATE",
-      "count": 5674
+      "count": 5675
     },
     {
       "value": "PHYSICIAN",
@@ -54,7 +54,7 @@
     },
     {
       "value": "MEDICAL DOCTOR",
-      "count": 740
+      "count": 739
     },
     {
       "value": "OWNER",
@@ -82,7 +82,7 @@
     },
     {
       "value": "REAL ESTATE INVESTOR",
-      "count": 623
+      "count": 622
     },
     {
       "value": "SELF-EMPLOYED",
@@ -166,7 +166,7 @@
     },
     {
       "value": "DOCTOR",
-      "count": 269
+      "count": 270
     },
     {
       "value": "VENTURE CAPITAL",
@@ -202,10 +202,6 @@
     }
   ],
   "top50_employer": [
-    {
-      "value": "CAMPAIGN/COMMITTEE",
-      "count": 97223
-    },
     {
       "value": "RETIRED",
       "count": 32974
@@ -253,10 +249,6 @@
     {
       "value": "JW LOPES LLC",
       "count": 249
-    },
-    {
-      "value": "ORGANIZATION",
-      "count": 248
     },
     {
       "value": "GOLDMAN SACHS",
@@ -401,6 +393,14 @@
     {
       "value": "MARBLE BRIDGE FUNDING GROUP",
       "count": 94
+    },
+    {
+      "value": "BRODIE GENERATIONAL CAPITAL PARTNERS",
+      "count": 93
+    },
+    {
+      "value": "CBRE",
+      "count": 93
     }
   ],
   "committee_default_count": 0

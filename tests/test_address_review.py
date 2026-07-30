@@ -1,11 +1,12 @@
-"""Tests for fec.cleaning.address_review — safe text fixes + review reports."""
+"""fec.cleaning.address_review: safe text fixes + review reports."""
 import csv
 
 import numpy as np
 import pandas as pd
 
 from fec.cleaning.address_review import (
-    apply_safe_fixes, build_address_reports, _fix_house_number, _collapse_dup_words,
+    apply_safe_fixes, _fix_house_number, _collapse_dup_words,
+    build_address_reports,
 )
 
 
@@ -50,11 +51,11 @@ def test_care_of_prefix_recovered_or_flagged(tmp_path):
          "contributor_city": "NEW YORK", "contributor_state": "NY"},
     ])
     df, counts = apply_safe_fixes(df)
-    # C/O lines with a real address are recovered …
+    # C/O lines with a real address are recovered
     assert df.loc[df.sub_id == "1", "contributor_street_1"].iloc[0] == "228 S WASHINGTON"
     assert df.loc[df.sub_id == "2", "contributor_street_1"].iloc[0] == "410 PARK AVE"
     assert counts["care_of"] == 2
-    # … a name-only C/O is left intact and later flagged
+    # a name-only C/O is left intact and later flagged
     assert df.loc[df.sub_id == "3", "contributor_street_1"].iloc[0] == "C/O MOELIS"
     df["contributor_zip"] = ""
     df, _ = build_address_reports(df, str(tmp_path))
@@ -83,12 +84,11 @@ def test_reports_split_review_vs_regeocode(tmp_path):
     regeo = list(csv.DictReader(open(tmp_path / "address_regeocode_suspects.csv", encoding="utf-8")))
     review_reasons = {r["review_reason"] for r in review}
 
-    # Genuine human-judgment cases land in manual review …
+    # human-judgment cases land in manual review
     assert "entity / non-address in street_1" in review_reasons
     assert "street_2 unit keyword without a number" in review_reasons
     assert "street_2 looks like a state/city abbreviation" in review_reasons
-    # … PO boxes and PMB private mailboxes go to the re-geocode notes,
-    # not manual review
+    # PO boxes and PMB private mailboxes go to the re-geocode notes, not manual review
     assert any("PO Box" in r["review_reason"] for r in regeo)
     assert any("PMB" in r["review_reason"] for r in regeo)
     assert not any("PO Box" in r for r in review_reasons)

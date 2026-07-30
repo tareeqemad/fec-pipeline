@@ -1,12 +1,7 @@
-"""
-config/employers.py — Employer name normalization mappings.
-
-Maps raw FEC employer strings → canonical forms.
-Self-employed, retired, not-employed variants.
-"""
+"""Employer name normalization: raw FEC employer strings to canonical forms."""
 
 EMPLOYER_NORMALIZE = {
-    # Self-employed variants
+    # self-employed
     'SELF': 'SELF-EMPLOYED',
     'SELF EMPLOYED': 'SELF-EMPLOYED',
     'SELF-EMPLOYED': 'SELF-EMPLOYED',
@@ -19,7 +14,6 @@ EMPLOYER_NORMALIZE = {
     'SELF-EMPLOYER': 'SELF-EMPLOYED',
     'SELF EMP': 'SELF-EMPLOYED',
     'SELF -EMPLOYED': 'SELF-EMPLOYED',
-    # ── Added: missed variants found in data ──
     'MYSELF': 'SELF-EMPLOYED',
     'SELFF': 'SELF-EMPLOYED',
     'SELF-EMPOYED': 'SELF-EMPLOYED',
@@ -29,13 +23,14 @@ EMPLOYER_NORMALIZE = {
     'SELF EMPLOYEF': 'SELF-EMPLOYED',
     'SELF-EMPLOYEED': 'SELF-EMPLOYED',
     'SELF EMPLOYED COMPANY OWNER': 'SELF-EMPLOYED',
+    'SOLE PROPRIETOR': 'SELF-EMPLOYED',
 
-    # Retired variants in employer field
+    # retired
     'RETIREE': 'RETIRED',
     'MOSTLY RETIRED': 'RETIRED',
     'UCLA RETIRED': 'RETIRED',
 
-    # Not employed variants
+    # not employed
     'NOT EMPLOYED': 'NOT EMPLOYED',
     'UNEMPLOYED': 'NOT EMPLOYED',
     'NOT WORKING': 'NOT EMPLOYED',
@@ -43,6 +38,5 @@ EMPLOYER_NORMALIZE = {
     'I AM UNEMPLOYED': 'NOT EMPLOYED',
     'UNEMPLOYMENT': 'NOT EMPLOYED',
 
-    # Homemaker in employer field — handled by _deep_clean_employer
-    # to properly sync both employer and occupation fields
+    # Homemaker deliberately absent — _deep_clean_employer syncs employer + occupation together.
 }

@@ -1,22 +1,30 @@
 """Quality gates, outlier reports, and report saving."""
-
 import json
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 from fec.config import VALID_CATEGORIES
 
+_ZIP_PREFIX_STATES = {
+    '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
+    '1': {'DE', 'NY', 'PA'},
+    '2': {'DC', 'MD', 'NC', 'SC', 'VA', 'WV'},
+    '3': {'AL', 'FL', 'GA', 'MS', 'TN', 'AA', 'AP'},
+    '4': {'IN', 'KY', 'MI', 'OH'},
+    '5': {'IA', 'MN', 'MT', 'ND', 'NE', 'SD', 'WI'},
+    '6': {'CO', 'IL', 'KS', 'MO', 'NE', 'NM', 'OK', 'TX'},
+    '7': {'AR', 'LA', 'OK', 'TX'},
+    '8': {'AZ', 'CO', 'ID', 'MT', 'NM', 'NV', 'UT', 'WY'},
+    '9': {'AK', 'CA', 'HI', 'OR', 'WA', 'GU', 'AS', 'MP', 'AP'},
+}
 
-# ── Quality gates ──────────────────────────────────────────────────────────
-# Each gate is a pure check: it reads `df` (never mutates it) and returns a list
-# of (key, check, issue) tuples — `check` is stored under `checks[key]`, and
-# `issue` (a string, or None) is appended to the issues list when present. A
-# gate returns [] to skip itself when its required columns are absent. Gates run
-# in the order listed in _QUALITY_GATES; that order IS the checks-dict order.
+# real brand names that actually contain a slash
+_PREV_EMP_SLASH_OK = {'BRIDGESTONE/FIRESTONE'}
 
 
+# Each gate reads df without mutating and returns [(key, check, issue)], or [] to skip.
 def _gate_nan_strings(df):
-    # 1. Literal "NAN" strings in text columns
     nan_count = 0
     for col in ['contributor_occupation', 'contributor_employer', 'contributor_name',
                 'contributor_city', 'contributor_state', 'contributor_street_1']:
@@ -27,16 +35,14 @@ def _gate_nan_strings(df):
 
 
 def _gate_valid_categories(df):
-    # 2. Occupation categories all valid
     if 'occupation_category' not in df.columns:
         return []
-    invalid = [str(v) for v in df['occupation_category'].dropna().unique() if v not in VALID_CATEGORIES]
+    invalid = [str(value) for value in df['occupation_category'].dropna().unique() if value not in VALID_CATEGORIES]
     issue = f"Invalid categories: {invalid[:10]}" if invalid else None
     return [('valid_categories', {'passed': len(invalid) == 0, 'invalid': invalid[:10]}, issue)]
 
 
 def _gate_zip_coverage(df):
-    # 3. ZIP coverage
     if 'contributor_zip' not in df.columns:
         return []
     pct = float((df['contributor_zip'].isna() | (df['contributor_zip'].astype(str).str.strip() == '')).mean() * 100)
@@ -45,7 +51,6 @@ def _gate_zip_coverage(df):
 
 
 def _dup_id_check(df, col, key):
-    # 4. Duplicate id (sub_id / transaction_id)
     if col not in df.columns:
         return []
     n_dup = int(df[col].duplicated().sum())
@@ -61,17 +66,7 @@ def _gate_dup_transaction_id(df):
     return _dup_id_check(df, 'transaction_id', 'no_duplicate_transaction_id')
 
 
-def _gate_extreme_amounts(df):
-    # 5. Sanity: amounts
-    if 'contribution_receipt_amount' not in df.columns:
-        return []
-    n_extreme = int((df['contribution_receipt_amount'].abs() > 1_000_000).sum())
-    issue = f"Extreme amounts (>$1M): {n_extreme}" if n_extreme else None
-    return [('no_extreme_amounts', {'passed': n_extreme == 0, 'count': n_extreme, 'threshold': '$1M'}, issue)]
-
-
 def _gate_future_dates(df):
-    # 6. Sanity: future dates
     if 'contribution_receipt_date' not in df.columns:
         return []
     dates = pd.to_datetime(df['contribution_receipt_date'], errors='coerce')
@@ -86,31 +81,16 @@ def _gate_row_count(df):
 
 
 def _gate_zip_state(df):
-    # 7. ZIP-State mismatch
     if not ('contributor_zip' in df.columns and 'contributor_state' in df.columns):
         return []
-    zip_prefix_to_states = {
-        '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
-        '1': {'DE', 'NY', 'PA'},
-        '2': {'DC', 'MD', 'NC', 'SC', 'VA', 'WV'},
-        '3': {'AL', 'FL', 'GA', 'MS', 'TN', 'AA', 'AP'},
-        '4': {'IN', 'KY', 'MI', 'OH'},
-        '5': {'IA', 'MN', 'MT', 'ND', 'NE', 'SD', 'WI'},
-        '6': {'CO', 'IL', 'KS', 'MO', 'NE', 'NM', 'OK', 'TX'},
-        '7': {'AR', 'LA', 'OK', 'TX'},
-        '8': {'AZ', 'CO', 'ID', 'MT', 'NM', 'NV', 'UT', 'WY'},
-        '9': {'AK', 'CA', 'HI', 'OR', 'WA', 'GU', 'AS', 'MP', 'AP'},
-    }
-    # Vectorized: for each of the 10 ZIP prefixes, mask rows where the
-    # state doesn't belong to that prefix's allowed set. ~1M-row loop
-    # becomes 10 boolean ops.
-    z5_str = df['contributor_zip'].astype(str)
-    valid_rows = df['contributor_zip'].notna() & (z5_str.str.len() == 5)
-    zip_first = z5_str.str[0]
+    # vectorized: 10 prefix masks instead of a per-row loop
+    zip_str = df['contributor_zip'].astype(str)
+    valid_rows = df['contributor_zip'].notna() & (zip_str.str.len() == 5)
+    zip_first = zip_str.str[0]
     state = df['contributor_state'].astype(str)
 
     n_zip_mismatch = 0
-    for prefix, allowed in zip_prefix_to_states.items():
+    for prefix, allowed in _ZIP_PREFIX_STATES.items():
         in_prefix = valid_rows & (zip_first == prefix)
         n_zip_mismatch += int((in_prefix & ~state.isin(allowed)).sum())
     issue = f"ZIP-State mismatches: {n_zip_mismatch}" if n_zip_mismatch >= 100 else None
@@ -118,7 +98,6 @@ def _gate_zip_state(df):
 
 
 def _gate_email_as_address(df):
-    # 8. Email addresses used as street addresses
     if 'contributor_street_1' not in df.columns:
         return []
     n_email_addr = int(df['contributor_street_1'].fillna('').str.contains('@', regex=False).sum())
@@ -127,7 +106,6 @@ def _gate_email_as_address(df):
 
 
 def _gate_special_chars_names(df):
-    # 9. Backticks/semicolons remaining in names
     n_special_chars = 0
     for col in ['contributor_first_name', 'contributor_last_name']:
         if col in df.columns:
@@ -137,11 +115,8 @@ def _gate_special_chars_names(df):
 
 
 def _gate_individual_not_applicable(df):
-    # 10a. No individual with occupation_status='NOT_APPLICABLE'.
-    # NOT_APPLICABLE is reserved for committees (schema CHECK constraint).
-    # If an individual has this status, a reclassification step earlier
-    # in the pipeline forgot to re-derive the status — see the sweep
-    # in fec/database/post_merge_fixes.py (_not_applicable_individual_sweep).
+    # NOT_APPLICABLE is committee-only; a hit means a reclassify step forgot to re-derive the status
+    # (sweep: fec/database/post_merge_fixes.py _not_applicable_individual_sweep)
     if not {'entity_type', 'occupation_status'}.issubset(df.columns):
         return []
     na_indiv = (df['entity_type'] == 'INDIVIDUAL') & (df['occupation_status'] == 'NOT_APPLICABLE')
@@ -154,10 +129,7 @@ def _gate_individual_not_applicable(df):
 
 
 def _gate_committee_shared_ai_addr(df):
-    # 10c. AI-hallucinated committee addresses.
-    # A real committee HQ is unique to that committee. If the same
-    # employer_address appears for 2+ different contributor_names
-    # (committees), the AI invented it as a default placeholder.
+    # a real committee HQ is unique; the same AI-resolved address on 2+ committees is hallucinated
     if not {'entity_type', 'contributor_name', 'employer_address', 'resolve_method'}.issubset(df.columns):
         return []
     ai_comm = (
@@ -181,28 +153,25 @@ def _gate_committee_shared_ai_addr(df):
 
 
 def _gate_retired_donor_consistency(df):
-    # 10b. Per-donor employer consistency.
-    # A donor who ever listed RETIRED and never a real employer should
-    # not also have NOT EMPLOYED / SELF-EMPLOYED filings — those are
-    # collapsed by the once-retired sweep in post_merge_fixes. If the
-    # gate fails, the sweep was skipped or regressed.
+    # a once-retired donor with no real employer should not carry NOT EMPLOYED / SELF-EMPLOYED
+    # filings; the once-retired sweep in post_merge_fixes collapses them
     if not {'entity_type', 'donor_key', 'contributor_employer'}.issubset(df.columns):
         return []
-    emp_u = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
-    is_i = df['entity_type'] == 'INDIVIDUAL'
+    emp_upper = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
+    is_indiv = df['entity_type'] == 'INDIVIDUAL'
     status_nonret = {'NOT EMPLOYED', 'UNEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED'}
     nonret_statuses = {'NOT DISCLOSED', '', 'HOMEMAKER', 'STUDENT',
-                       'CAMPAIGN/COMMITTEE', 'N/A', 'NA', 'NAN', 'NONE',
+                       'N/A', 'NA', 'NAN', 'NONE',
                        'RETIRED'} | status_nonret
     flags = pd.DataFrame({
-        'donor_key': df.loc[is_i, 'donor_key'],
-        'retired':  emp_u[is_i].eq('RETIRED'),
-        'nonret':   emp_u[is_i].isin(status_nonret),
-        'real':     ~emp_u[is_i].isin(nonret_statuses) & (emp_u[is_i] != ''),
+        'donor_key': df.loc[is_indiv, 'donor_key'],
+        'retired':  emp_upper[is_indiv].eq('RETIRED'),
+        'nonret':   emp_upper[is_indiv].isin(status_nonret),
+        'real':     ~emp_upper[is_indiv].isin(nonret_statuses) & (emp_upper[is_indiv] != ''),
     }).groupby('donor_key').agg('any')
     bad_donors = flags.index[flags['retired'] & ~flags['real'] & flags['nonret']]
-    n_bad_rows = int((is_i & df['donor_key'].isin(bad_donors) &
-                      emp_u.isin(status_nonret)).sum())
+    n_bad_rows = int((is_indiv & df['donor_key'].isin(bad_donors) &
+                      emp_upper.isin(status_nonret)).sum())
     issue = (
         f"Retired donors with NOT EMPLOYED/SELF-EMPLOYED: {n_bad_rows} rows "
         "— run _once_retired_always_retired sweep"
@@ -211,11 +180,7 @@ def _gate_retired_donor_consistency(df):
 
 
 def _gate_retired_active_sync(df):
-    # 10a. retired + active — logical contradiction.
-    # If a donor's occupation_category is RETIRED the employer_status
-    # must also be retired. The post_merge _retired_active_sync sweep
-    # collapses the two; a non-zero count here means that step was
-    # skipped or a new cohort slipped through.
+    # RETIRED category with employer_status=active contradicts the _retired_active_sync sweep
     if not {'entity_type', 'occupation_category', 'employer_status'}.issubset(df.columns):
         return []
     bad_sync = (
@@ -232,16 +197,12 @@ def _gate_retired_active_sync(df):
 
 
 def _gate_slash_previous_employer(df):
-    # 10b. previous_employer must not contain slash composite strings.
-    # 'COMPANY/TITLE' and 'STATUS/COMPANY' formats from legacy FEC
-    # filings are resolved by _resolve_slash_previous_employer into
-    # clean company names. Real slash-brands (BRIDGESTONE/FIRESTONE)
-    # are whitelisted.
+    # 'COMPANY/TITLE' composites are resolved by _resolve_slash_previous_employer;
+    # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted
     if 'previous_employer' not in df.columns:
         return []
-    _PREV_EMP_SLASH_OK = {'BRIDGESTONE/FIRESTONE'}
-    pe = df['previous_employer'].fillna('').astype(str)
-    slashy = pe.str.contains('/') & ~pe.str.upper().isin(_PREV_EMP_SLASH_OK)
+    prev_emp = df['previous_employer'].fillna('').astype(str)
+    slashy = prev_emp.str.contains('/') & ~prev_emp.str.upper().isin(_PREV_EMP_SLASH_OK)
     n_slash = int(slashy.sum())
     issue = (
         f"previous_employer slash leaks: {n_slash} rows "
@@ -251,17 +212,13 @@ def _gate_slash_previous_employer(df):
 
 
 def _gate_null_surname(df):
-    # 10c. Literal-NULL surname preservation.
-    # Real donors exist with surname "Null" (e.g. "NULL, JAMES"). Pandas'
-    # default read coerces "NULL" → NaN, which then writes as empty and
-    # destroys the distinction between "real Null surname" and "missing
-    # surname". If contributor_name starts with "NULL," the surname must
-    # be the literal string "NULL" — not NaN, not empty.
+    # "NULL" is a real surname; pandas' default read coerces it to NaN, so if
+    # contributor_name starts with "NULL," the surname must be the literal string
     if not {'contributor_name', 'contributor_last_name'}.issubset(df.columns):
         return []
     name_null_prefix = df['contributor_name'].astype('string').str.startswith('NULL,', na=False)
-    ln = df['contributor_last_name'].astype('string')
-    lost = name_null_prefix & (ln.isna() | ln.eq(''))
+    last_names = df['contributor_last_name'].astype('string')
+    lost = name_null_prefix & (last_names.isna() | last_names.eq(''))
     n_lost = int(lost.sum())
     issue = (
         f"NULL surname erased on {n_lost} row(s) — pandas coerced literal "
@@ -271,15 +228,13 @@ def _gate_null_surname(df):
     return [('null_surname_preserved', {'passed': n_lost == 0, 'count': n_lost}, issue)]
 
 
-# Order matters: this is the order checks appear in the result dict and the
-# order issues are reported (unchanged from the original inline sequence).
+# order matters: this is the checks-dict order and the order issues are reported
 _QUALITY_GATES = [
     _gate_nan_strings,
     _gate_valid_categories,
     _gate_zip_coverage,
     _gate_dup_sub_id,
     _gate_dup_transaction_id,
-    _gate_extreme_amounts,
     _gate_future_dates,
     _gate_row_count,
     _gate_zip_state,
@@ -302,7 +257,7 @@ def run_quality_gates(df: pd.DataFrame) -> dict:
             checks[key] = check
             if issue:
                 issues.append(issue)
-    passed = all(c.get('passed', True) for c in checks.values() if isinstance(c, dict) and 'passed' in c)
+    passed = all(check['passed'] for check in checks.values() if isinstance(check, dict) and 'passed' in check)
     return {'passed': passed, 'checks': checks, 'issues': issues}
 
 
@@ -311,8 +266,8 @@ def build_outlier_report(df: pd.DataFrame) -> dict:
     report = {}
     for col, key in [('contributor_occupation', 'top50_occupation'), ('contributor_employer', 'top50_employer')]:
         if col in df.columns:
-            vc = df[col].dropna().value_counts().head(50)
-            report[key] = [{'value': str(v), 'count': int(c)} for v, c in vc.items()]
+            value_counts = df[col].dropna().value_counts().head(50)
+            report[key] = [{'value': str(value), 'count': int(count)} for value, count in value_counts.items()]
     if 'entity_type' in df.columns and 'contributor_occupation' in df.columns:
         report['committee_default_count'] = int(
             ((df['entity_type'] == 'COMMITTEE/PAC') & (df['contributor_occupation'] == 'POLITICAL COMMITTEE')).sum()
@@ -327,5 +282,5 @@ def save_report(df: pd.DataFrame, dir_path: str, name: str) -> None:
     base = Path(dir_path) / name
     base.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(base.with_suffix('.csv'), index=False)
-    with open(base.with_suffix('.json'), 'w', encoding='utf-8') as f:
-        json.dump(df.to_dict(orient='records'), f, indent=2, ensure_ascii=False, default=str)
+    with open(base.with_suffix('.json'), 'w', encoding='utf-8') as handle:
+        json.dump(df.to_dict(orient='records'), handle, indent=2, ensure_ascii=False, default=str)

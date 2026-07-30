@@ -1,10 +1,4 @@
-"""Shared pytest fixtures.
-
-- `pg` (session, @db)          — a Postgres with schema.sql applied. Uses
-                                 TEST_DATABASE_URL when set (a CI service), else
-                                 spins one up with testcontainers locally; `db`
-                                 gives a per-test connection that is rolled back.
-"""
+"""Shared pytest fixtures."""
 from __future__ import annotations
 
 import os
@@ -17,8 +11,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 
 
-
-# ── Postgres (testcontainers) ─────────────────────────────────────────
 def _connect(dsn, retries=20, delay=1.0):
     """Connect, waiting for the server to accept connections (CI service startup)."""
     import psycopg2
@@ -34,11 +26,7 @@ def _connect(dsn, retries=20, delay=1.0):
 
 @pytest.fixture(scope="session")
 def pg():
-    """A DSN for a Postgres with schema.sql applied once.
-
-    CI: uses TEST_DATABASE_URL (e.g. a GitLab `postgres` service) — no Docker
-    daemon needed. Locally: spins an ephemeral container via testcontainers
-    (skipped if neither is available)."""
+    """DSN for a Postgres with schema.sql applied once; TEST_DATABASE_URL in CI, else testcontainers."""
     container = None
     dsn = os.getenv("TEST_DATABASE_URL")
     if not dsn:

@@ -6,6 +6,4 @@ requests>=2.28
 openai>=1.0
 python-dotenv>=1.0
 tqdm>=4.65
-svglib>=1.5          # ERD diagram: rasterize the SVG to PNG (docs/build_erd.py)
-reportlab>=4.0       # ERD diagram: PNG backend for svglib
 pytest>=7.0

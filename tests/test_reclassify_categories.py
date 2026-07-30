@@ -1,12 +1,4 @@
-"""tests/test_reclassify_categories.py — the OTHER-reclassifier may only write
-category names the rest of the pipeline recognises.
-
-Three names in its keyword map had drifted from CATEGORY_RULES
-('TECHNOLOGY / ENGINEERING', 'ARCHITECTURE / DESIGN',
-'NON-PROFIT / PHILANTHROPY'). Nothing caught it because no row had reached
-those branches — until an employer/occupation swap put 'INTERIOR ARCHITECT'
-in an occupation field and the quality gate started reporting an invalid
-category on every run."""
+"""The OTHER-reclassifier may only write category names the rest of the pipeline recognises."""
 import re
 
 from fec.config import VALID_CATEGORIES
