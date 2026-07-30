@@ -109,3 +109,4 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note
 4122320221644864868,THE MAVEN GROUP,,,"SCHOOLER, STUART (Bethesda MD) - The Maven Group co-founder/managing member; keyed employer MAVEN collides with Scheinman's MAVEN VENTURES"
 4021120221406549778,THE MAVEN GROUP,,,"SCHOOLER, AARON (New York NY) - The Maven Group (family firm of Stuart Schooler); keyed employer MAVEN collides with Scheinman's MAVEN VENTURES"
 4072420241978927256,SAN FRANCISCO SPINE SURGEONS,,,"ZUCHERMAN, JAMES (San Francisco CA) - senior partner at sfspine.com group; keyed SFSS collides with the Schwartzwald practice rows kept as-is"
+4011420231698184554,SCHUWARGER & ASSOCIATES,,,"BARAD, THOMAS (Los Angeles CA) - strips the C/O mail prefix. The synonym for this value fires in isolation but a later pipeline step restores the raw form, so it needs the per-row override that runs last"
