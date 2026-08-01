@@ -2,15 +2,15 @@
   "top50_occupation": [
     {
       "value": "RETIRED",
-      "count": 31434
+      "count": 31424
     },
     {
       "value": "ATTORNEY",
-      "count": 9550
+      "count": 9548
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6214
+      "count": 6221
     },
     {
       "value": "REAL ESTATE",
@@ -26,7 +26,7 @@
     },
     {
       "value": "EXECUTIVE",
-      "count": 2697
+      "count": 2699
     },
     {
       "value": "LAWYER",
@@ -118,7 +118,7 @@
     },
     {
       "value": "MANAGING PARTNER",
-      "count": 378
+      "count": 389
     },
     {
       "value": "PRINCIPAL",
@@ -204,15 +204,15 @@
   "top50_employer": [
     {
       "value": "RETIRED",
-      "count": 32974
+      "count": 32958
     },
     {
       "value": "SELF-EMPLOYED",
-      "count": 11778
+      "count": 11780
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6378
+      "count": 6385
     },
     {
       "value": "KIRKLAND & ELLIS LLP",
