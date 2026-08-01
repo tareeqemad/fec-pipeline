@@ -1,9 +1,9 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Audit Report</title><style>body{font-family:system-ui,sans-serif;background:#f8f9fa;padding:1rem 2rem;color:#212529}h1{font-size:1.5rem}.meta{color:#6c757d;margin-bottom:1.5rem}.summary,.record{background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem}.record h2{font-size:1rem;margin:0 0 .5rem;color:#495057}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid #dee2e6}th{background:#f8f9fa;font-weight:600}.before{background:#fff5f5}.after{background:#f0fff0}.reason{font-size:.85rem;color:#6c757d}.evidence{font-size:.8rem;color:#0d6efd}</style></head><body>
 <h1>Audit Report — Record Changes</h1>
 <div class="meta">Each record shows before &rarr; after with the reason.</div>
-<div class="summary"><p><strong>Total changes:</strong> 100711</p>
-<p><strong>Records affected:</strong> 90464</p>
-<p><strong>By step:</strong> clean_streets: 60, enh_clean_junk: 325, enh_employer_synonyms: 6382, enh_employer_synonyms_final: 4923, enh_fix_apostrophes: 27, enh_fix_credential_in_name: 4, enh_fix_emp_eq_occ: 107, enh_fix_fullname_both: 36, enh_fix_norm_mid_suffix: 123, enh_fix_occ_as_employer: 22, enh_name_corrections: 3, enh_normalize_business_names: 5699, enh_normalize_name_periods: 1136, enh_normalize_occupation: 346, enh_swap_occ_emp: 569, garbled_name_fix: 124, reclassify: 80825</p></div>
+<div class="summary"><p><strong>Total changes:</strong> 100782</p>
+<p><strong>Records affected:</strong> 90484</p>
+<p><strong>By step:</strong> clean_streets: 60, enh_clean_junk: 325, enh_employer_synonyms: 6451, enh_employer_synonyms_final: 4925, enh_fix_apostrophes: 27, enh_fix_credential_in_name: 4, enh_fix_emp_eq_occ: 107, enh_fix_fullname_both: 36, enh_fix_norm_mid_suffix: 123, enh_fix_occ_as_employer: 22, enh_name_corrections: 3, enh_normalize_business_names: 5699, enh_normalize_name_periods: 1136, enh_normalize_occupation: 346, enh_swap_occ_emp: 569, garbled_name_fix: 124, reclassify: 80825</p></div>
 <div class="record"><h2>Record: 4012120261303040603 (row 9)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">PREMIER REALTY MICHIGAN, LLC</td><td class="after">PREMIER REALTY MICHIGAN LLC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
@@ -7543,6 +7543,7 @@
 <div class="record"><h2>Record: 4012120261303038219 (row 5085)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303038218 (row 5086)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -18901,6 +18902,7 @@
 <div class="record"><h2>Record: 4011620261302592062 (row 11189)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302592060 (row 11190)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -24560,6 +24562,8 @@
 <div class="record"><h2>Record: 4011620261302590852 (row 13812)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">METRO REALTY</td><td class="after">METROPOLITAN REALTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">METROPOLITAN REALTY</td><td class="after">METROPOLITAN REALTY GROUP LLC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302590851 (row 13813)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -35474,6 +35478,8 @@
 <div class="record"><h2>Record: 4092420251292198378 (row 18479)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">METRO REALTY</td><td class="after">METROPOLITAN REALTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">METROPOLITAN REALTY</td><td class="after">METROPOLITAN REALTY GROUP LLC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092420251292198377 (row 18480)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -47780,6 +47786,7 @@
 <div class="record"><h2>Record: 4032120231736710984 (row 24721)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112020241071383336 (row 24723)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -61173,7 +61180,7 @@
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978924924 (row 32130)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_employer</td><td class="before">DEPT OF STATE</td><td class="after">DEPARTMENT OF STATE, RET</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">DEPT OF STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179409097 (row 32132)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -62122,6 +62129,7 @@
 <div class="record"><h2>Record: 4122920221645236540 (row 32669)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698184816 (row 32670)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -62443,6 +62451,7 @@
 <div class="record"><h2>Record: 4020920241823943694 (row 32825)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ISC</td><td class="after">INTEGRATED SPECIALTY COVERAGES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206918709 (row 32826)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -64225,6 +64234,7 @@
 <div class="record"><h2>Record: 4010420231645702223 (row 33883)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">YMPC</td><td class="after">YENKIN-MAJESTIC PAINT CORPORATION</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420251130091533 (row 33884)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -71556,6 +71566,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645226888 (row 38029)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4082220242014750337 (row 38030)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -76420,7 +76434,7 @@
 <div class="record"><h2>Record: 4052120241949844445 (row 40681)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U. S. DEP&#x27;T OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112020241071383393 (row 40682)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -77335,6 +77349,7 @@
 <div class="record"><h2>Record: 4062320251206918797 (row 41213)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807054811 (row 41214)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -77741,6 +77756,7 @@
 <div class="record"><h2>Record: 4020920241823945065 (row 41436)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645703454 (row 41438)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -81926,6 +81942,7 @@
 <div class="record"><h2>Record: 4062420241962025491 (row 43699)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885654085 (row 43700)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -82584,6 +82601,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">FINMARC MANAGEMENT</td><td class="after">FINMARC</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645225538 (row 44088)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">YMPC</td><td class="after">YENKIN-MAJESTIC PAINT CORPORATION</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4122320221644864728 (row 44095)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -83093,6 +83114,7 @@
 <div class="record"><h2>Record: 4082520251233304522 (row 44374)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">HGF</td><td class="after">HAROLD GRINSPOON FOUNDATION</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042820231745858412 (row 44378)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -86337,6 +86359,7 @@
 <div class="record"><h2>Record: 4122920221645235760 (row 46096)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978927480 (row 46097)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -86577,6 +86600,10 @@
 <div class="record"><h2>Record: 4060420241953437807 (row 46235)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236365 (row 46236)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4121920221637777522 (row 46237)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -88420,6 +88447,7 @@
 <div class="record"><h2>Record: 4042820231745858533 (row 47236)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702632 (row 47241)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -91296,6 +91324,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_employer</td><td class="before">IMPRINT CONSULTING, INC</td><td class="after">IMPRINT CONSULTING INC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122320221644864940 (row 48841)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MICH</td><td class="after">MUCH SHELIST</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215491831 (row 48842)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -104789,6 +104821,7 @@
 <div class="record"><h2>Record: 4030320251179409502 (row 56322)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953436955 (row 56324)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -105931,6 +105964,7 @@
 <div class="record"><h2>Record: 4112020241071382509 (row 57014)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978931116 (row 57015)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -117030,6 +117064,7 @@
 <div class="record"><h2>Record: 4082220242014750978 (row 63147)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041365085 (row 63149)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -119383,6 +119418,10 @@
 <div class="record"><h2>Record: 4122120231813094411 (row 64407)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236363 (row 64413)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179410528 (row 64415)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -122845,6 +122884,10 @@
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_employer</td><td class="before">EMA INVESTMENTS</td><td class="after">EMA INVESTMENT MANAGEMENT</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4032020251180458062 (row 66401)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ALTMAN</td><td class="after">THE ALTMAN COMPANIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4082520251233304173 (row 66407)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -124379,6 +124422,7 @@
 <div class="record"><h2>Record: 4062420241962025493 (row 67331)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179409320 (row 67332)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -127605,6 +127649,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645231656 (row 69080)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MICH</td><td class="after">MUCH SHELIST</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4082120231799935380 (row 69081)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -127722,6 +127770,7 @@
 <div class="record"><h2>Record: 4080620251215491647 (row 69131)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092520231802906579 (row 69133)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -128287,6 +128336,7 @@
 <div class="record"><h2>Record: 4030320251179409500 (row 69459)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030320251179408932 (row 69461)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -132353,7 +132403,7 @@
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978924923 (row 71770)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_employer</td><td class="before">DEPT OF STATE</td><td class="after">DEPARTMENT OF STATE, RET</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">DEPT OF STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030120241877880535 (row 71771)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -133293,6 +133343,7 @@
 <div class="record"><h2>Record: 4030320251179409506 (row 72315)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4021920231732395601 (row 72316)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -136899,6 +136950,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_employer</td><td class="before">APRIO, LLP</td><td class="after">APRIO LLP</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4032020251180458057 (row 74323)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ALTMAN</td><td class="after">THE ALTMAN COMPANIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4123020221645490268 (row 74327)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -146342,6 +146397,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">GRASSLEY COMMITTEE, INC.</td><td class="after">GRASSLEY COMMITTEE</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236367 (row 79575)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4082220242014752058 (row 79579)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
@@ -152035,6 +152094,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236366 (row 82895)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4052120241949841317 (row 82905)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -154289,7 +154352,7 @@
 <div class="record"><h2>Record: 4102420231807054892 (row 84149)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U. S. DEP&#x27;T OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052120241949841333 (row 84152)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -156280,6 +156343,7 @@
 <div class="record"><h2>Record: 4062320251206918800 (row 85246)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041367476 (row 85259)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -171915,6 +171979,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236364 (row 94142)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4092520231802906624 (row 94144)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -177466,6 +177534,7 @@
 <div class="record"><h2>Record: 4082220242014750977 (row 97248)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978923528 (row 97250)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -183333,6 +183402,7 @@
 <div class="record"><h2>Record: 4082520251233303267 (row 100520)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011320231697775636 (row 100522)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -185184,6 +185254,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236539 (row 101581)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4092320242041366666 (row 101582)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -186398,6 +186472,7 @@
 <div class="record"><h2>Record: 4062320251206918798 (row 102277)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978925108 (row 102280)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -186747,6 +186822,7 @@
 <div class="record"><h2>Record: 4030320251179409505 (row 102454)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041367636 (row 102456)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -186767,6 +186843,7 @@
 <div class="record"><h2>Record: 4030320251179410795 (row 102464)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ALTMAN</td><td class="after">THE ALTMAN COMPANIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978933075 (row 102465)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -190587,6 +190664,10 @@
 <div class="record"><h2>Record: 4020920241823944290 (row 104658)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4121920221637777537 (row 104659)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030120241877880867 (row 104662)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -194760,6 +194841,7 @@
 <div class="record"><h2>Record: 4010420231645703745 (row 107039)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MICH</td><td class="after">MUCH SHELIST</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112020241071381372 (row 107040)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -203816,7 +203898,7 @@
 <div class="record"><h2>Record: 4112020241071381609 (row 112102)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U. S. DEP&#x27;T OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092520231802907281 (row 112106)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -205375,6 +205457,7 @@
 <div class="record"><h2>Record: 4052120241949844004 (row 112957)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215493380 (row 112962)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -209159,6 +209242,7 @@
 <div class="record"><h2>Record: 4030320251179409138 (row 115089)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">GSSPORTS</td><td class="after">GOLDEN STATE WARRIORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962026074 (row 115091)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -237769,6 +237853,7 @@
 <div class="record"><h2>Record: 4062420241962025490 (row 130787)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962022781 (row 130791)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -243165,6 +243250,7 @@
 <div class="record"><h2>Record: 4092320242041366547 (row 133890)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014749605 (row 133894)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -244719,6 +244805,7 @@
 <div class="record"><h2>Record: 4010320231645639327 (row 134765)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112020241071381461 (row 134766)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -245071,6 +245158,7 @@
 <div class="record"><h2>Record: 4082220242014750232 (row 134965)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ANS</td><td class="after">ARIZONA NUTRITIONAL SUPPLEMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645236007 (row 134966)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -246246,6 +246334,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_employer</td><td class="before">GEM RC</td><td class="after">GEM REALTY CAPITAL</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4122920221645231655 (row 135626)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">MICH</td><td class="after">MUCH SHELIST</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962022560 (row 135627)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -260919,7 +261011,7 @@
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978928736 (row 143832)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_employer</td><td class="before">DEPT OF STATE</td><td class="after">DEPARTMENT OF STATE, RET</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">DEPT OF STATE</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823946828 (row 143833)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -267485,6 +267577,7 @@
 <div class="record"><h2>Record: 4030320251179409504 (row 147539)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122320221644863994 (row 147541)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -267628,6 +267721,7 @@
 <div class="record"><h2>Record: 4082220242014750979 (row 147619)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010320231645638311 (row 147622)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -272082,6 +272176,7 @@
 <div class="record"><h2>Record: 4082220242014750980 (row 150010)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823943567 (row 150012)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -280199,6 +280294,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">SHEILA CHERFILUS MCCORMICK FOR CONGRESS, INC</td><td class="after">SHEILA CHERFILUS MCCORMICK FOR CONGRESS</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4122920221645236541 (row 154680)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4060420241953437323 (row 154683)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -283654,6 +283753,10 @@
 <div class="record"><h2>Record: 4072420241978930794 (row 156578)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4032520241885655131 (row 156581)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ORTHOPEDIC CARE</td><td class="after">ORTHOPAEDIC CARE CENTER OF SOUTH FLORIDA</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953434697 (row 156585)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -290539,6 +290642,7 @@
 <div class="record"><h2>Record: 4072120251209630113 (row 160411)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">JFI</td><td class="after">JACOBSON FAMILY INVESTMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082520251233304237 (row 160412)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -296106,6 +296210,7 @@
 <div class="record"><h2>Record: 4011420231698186674 (row 163537)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813096315 (row 163542)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -296619,6 +296724,7 @@
 <div class="record"><h2>Record: 4030320251179409501 (row 163814)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811444492 (row 163818)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -297908,6 +298014,7 @@
 <div class="record"><h2>Record: 4030320251179408857 (row 164561)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ALTMAN</td><td class="after">THE ALTMAN COMPANIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978933017 (row 164564)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -299775,6 +299882,7 @@
 <div class="record"><h2>Record: 4112020241071382510 (row 165590)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823944574 (row 165594)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -300060,7 +300168,7 @@
 </tbody></table></div>
 <div class="record"><h2>Record: 4032020251180457693 (row 165741)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U. S. DEP&#x27;T OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">US STATE DEPARTMENT</td><td class="after">U.S. DEPARTMENT OF STATE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917931 (row 165742)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -300304,6 +300412,7 @@
 <div class="record"><h2>Record: 4030320251179409484 (row 165885)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">ALTMAN</td><td class="after">THE ALTMAN COMPANIES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032020251180457829 (row 165888)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -309945,6 +310054,7 @@
 <div class="record"><h2>Record: 4062320251206918799 (row 171355)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032520241885654601 (row 171356)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -310235,6 +310345,7 @@
 <div class="record"><h2>Record: 4062420241962025492 (row 171519)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041366668 (row 171524)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -312930,6 +313041,7 @@
 <div class="record"><h2>Record: 4030320251179409139 (row 173042)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">GSSPORTS</td><td class="after">GOLDEN STATE WARRIORS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962027419 (row 173046)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -316106,6 +316218,7 @@
 <div class="record"><h2>Record: 4010420231645702551 (row 174813)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">MICH</td><td class="after">MUCH SHELIST</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062420241962029628 (row 174819)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -324174,6 +324287,10 @@
 <tr><td>is_individual</td><td class="before">True</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_org_keywords</td></tr>
 <tr><td>contributor_name</td><td class="before">UNIVERSAL EXPORTS LLC</td><td class="after">UNIVERSAL EXPORTS</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4081420251217995490 (row 181124)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ANS</td><td class="after">ARIZONA NUTRITIONAL SUPPLEMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4081420251217995536 (row 181136)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>employer_name_normalized</td><td class="before">HOUSING INC</td><td class="after">HOUSING</td><td class="reason">enh_fix_norm_mid_suffix: strip_mid_string_llc_inc</td></tr>
@@ -324346,6 +324463,10 @@
 <tr><td>contributor_occupation</td><td class="before">HOWARD PROPERTIES</td><td class="after">REAL ESTATE</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 <tr><td>contributor_employer</td><td class="before">REAL ESTATE</td><td class="after">HOWARD PROPERTIES</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 <tr><td>occupation_category</td><td class="before">OTHER</td><td class="after">REAL ESTATE</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4020420251141353398 (row 181424)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ROSENBERG AUTOMOTIVE HOLDINGS</td><td class="after">DSR MOTOR GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011320251129678282 (row 181432)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -324965,6 +325086,10 @@
 <div class="record"><h2>Record: 4021220241824545592 (row 182197)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">MAVEN VENTURES</td><td class="after">MAVEN</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4021220241824545572 (row 182202)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ROSENBERG AUTOMOTIVE HOLDINGS</td><td class="after">DSR MOTOR GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4021220241824545495 (row 182208)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -345815,6 +345940,10 @@
 <tr><td>is_individual</td><td class="before">True</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_org_keywords</td></tr>
 <tr><td>contributor_name</td><td class="before">HMR PHD LLC</td><td class="after">HMR PHD</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4042420261482841971 (row 193846)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_employer</td><td class="before">ANS</td><td class="after">ARIZONA NUTRITIONAL SUPPLEMENTS</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4042420261482841984 (row 193849)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">CALIFORNIA STATE UNIVERSITY, NORTHRIDG</td><td class="after">CAL STATE UNIVERSITY NORTHRIDGE</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
@@ -346303,6 +346432,7 @@
 <div class="record"><h2>Record: 4052620261511336870 (row 194493)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">TEXAS IRON AND STEEL</td><td class="after">TEXAS IRON &amp; METAL</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511336869 (row 194494)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -371199,6 +371329,7 @@
 <div class="record"><h2>Record: 4070720261523711687 (row 207879)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">KEYSTONE</td><td class="after">KEYSTONE PROPERTY GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523711686 (row 207880)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
