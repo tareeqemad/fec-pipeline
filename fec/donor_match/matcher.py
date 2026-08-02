@@ -7,14 +7,17 @@ import pandas as pd
 
 from fec.log import get_logger
 
-from .constants import MERGE_THRESHOLD, FORCE_MERGE_NAMES, FORCE_MERGE_GROUPS
+from .constants import (
+    MERGE_THRESHOLD, FORCE_MERGE_NAMES, FORCE_MERGE_GROUPS,
+    STATUS_EMPLOYERS, GENERIC_OCC_CATEGORIES,
+)
 from .structures import UnionFind
 from .scoring import compute_score
-from .profiles import build_profiles
-from .pairs import _score_within_groups, _score_cross_groups
-from .surnames import (
-    _score_surname_variants, _score_surname_superset_variants,
-    _score_name_variants,
+from .normalize import normalize_name, extract_middle, normalize_employer
+from .phases import (
+    _score_within_groups, _score_cross_groups,
+    _score_surname_variants, _score_name_variants,
+    _score_surname_superset_variants,
 )
 
 logger = get_logger(__name__)
@@ -23,6 +26,59 @@ logger = get_logger(__name__)
 # below CHAIN_MIN against the canonical record is ejected
 CHAIN_MIN = 30
 CHAIN_CLUSTER_MIN = 4
+
+
+def _s(val) -> str:
+    """Cell value as a stripped string, NaN -> ''."""
+    if pd.isna(val):
+        return ""
+    return str(val).strip()
+
+
+def build_profiles(indiv: pd.DataFrame) -> dict:
+    """Build a per-record_id (NAME|CITY|STATE) profile: streets, employers and occupation categories aggregate across the rid's filings; zip5 is the FIRST filing's ZIP only."""
+    profiles = {}
+
+    for _, row in indiv.iterrows():
+        rid = (
+            _s(row["contributor_name"]) + "|" +
+            _s(row["contributor_city"]) + "|" +
+            _s(row["contributor_state"])
+        )
+
+        if rid not in profiles:
+            profiles[rid] = {
+                "name": _s(row["contributor_name"]),
+                "norm_name": normalize_name(row["contributor_name"]),
+                "middle": extract_middle(row["contributor_name"]),
+                "city": _s(row["contributor_city"]).upper(),
+                "state": _s(row["contributor_state"]).upper(),
+                "zip5": _s(row["contributor_zip"]),
+                "streets": set(),
+                "norm_employers": set(),
+                "occ_categories": set(),
+                "retired": False,
+                "record_count": 0,
+            }
+
+        p = profiles[rid]
+        p["record_count"] += 1
+
+        street = _s(row.get("contributor_street_1")).upper()
+        if street and street != "NAN":
+            p["streets"].add(street)
+
+        emp = _s(row.get("contributor_employer")).upper()
+        if emp and emp not in STATUS_EMPLOYERS:
+            p["norm_employers"].add(normalize_employer(emp))
+
+        occ_cat = _s(row.get("occupation_category")).upper()
+        if occ_cat == "RETIRED":
+            p["retired"] = True
+        elif occ_cat and occ_cat not in GENERIC_OCC_CATEGORIES:
+            p["occ_categories"].add(occ_cat)
+
+    return profiles
 
 
 def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:

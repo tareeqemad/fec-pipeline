@@ -5,11 +5,9 @@ from .keys import (
     apply_donor_key, merge_split_name_donors,
     apply_donor_dedup_merges,
 )
-from .names import (
+from .canonicalize import (
     canonicalize_donor_names, canonicalize_donor_employers,
     align_org_donor_company_names,
-)
-from .addresses import (
     canonicalize_donor_addresses,
     canonicalize_donor_pobox_typos, canonicalize_donor_units,
 )
