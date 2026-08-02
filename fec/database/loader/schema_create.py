@@ -110,10 +110,10 @@ def create_schema(conn: Any, cur: Any) -> None:
     logger.info(f"  all {len(TABLES)} expected tables present")
 
     _verify_extensions(conn, cur)
-    _verify_schema_integrity(conn, cur)
+    _verify_schema_integrity(cur)
 
 
-def _verify_schema_integrity(conn: Any, cur: Any) -> None:
+def _verify_schema_integrity(cur: Any) -> None:
     """Assert v1.2 invariants: views/matviews exist, leader_committees junction, donor_employments unique key, no legacy donor pointer columns."""
     cur.execute("SELECT viewname FROM pg_views WHERE schemaname='public'")
     actual_views = {row[0] for row in cur.fetchall()}

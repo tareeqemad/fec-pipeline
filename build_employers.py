@@ -308,7 +308,7 @@ def build() -> tuple[int, int]:
 
 
 def main():
-    setup_logging(level="INFO")
+    setup_logging()
     logger.info("-- Normalizing employer addresses -> employers.csv --")
     build()
 

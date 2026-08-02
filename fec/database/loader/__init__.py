@@ -25,7 +25,7 @@ from .schema_reset import reset_schema
 
 logger = get_logger(__name__)
 
-__all__ = ["main", "connect", "TABLES", "VIEWS", "MAT_VIEWS"]
+__all__ = ["main", "connect"]
 
 
 def show_stats(cur: Any) -> None:

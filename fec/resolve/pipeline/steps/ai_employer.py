@@ -19,7 +19,7 @@ WEB_SEARCH_WORKERS = 5
 
 
 def step_ai_lookup(df: pd.DataFrame, prev_cache, addr_cache,
-                   donor_totals: pd.Series, active_tiers: list,
+                   donor_totals: pd.Series,
                    dry_run: bool = False) -> int:
     """Look up employer addresses via the AI provider (batch)."""
     try:
@@ -34,7 +34,8 @@ def step_ai_lookup(df: pd.DataFrame, prev_cache, addr_cache,
 
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
 
-    tier_keys = set(donor_totals[donor_totals["tier"].isin(active_tiers)]["donor_key"])
+    # subsetting on donor_totals keys also drops NaN-keyed rows (groupby skips them)
+    tier_keys = set(donor_totals["donor_key"])
     tier_individuals = individuals[individuals["donor_key"].isin(tier_keys)]
 
     def _needs_ai(key):
@@ -42,8 +43,6 @@ def step_ai_lookup(df: pd.DataFrame, prev_cache, addr_cache,
         if cached is None:
             return True
         method = cached.get("method", "")
-        if method in ("ai_error", "fec_po_box", "fec_not_found", "needs_branch_lookup"):
-            return True
         # A not-found from a different resolver retries once; legacy entries lack a provider tag.
         if method == "ai_not_found" and cached.get("provider") != resolver_tag:
             return True

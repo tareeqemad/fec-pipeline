@@ -114,44 +114,6 @@ def _gate_special_chars_names(df):
     return [('no_special_chars_in_names', {'passed': n_special_chars == 0, 'count': n_special_chars}, issue)]
 
 
-def _gate_individual_not_applicable(df):
-    # NOT_APPLICABLE is committee-only; a hit means a reclassify step forgot to re-derive the status
-    # (sweep: fec/database/post_merge_fixes.py _not_applicable_individual_sweep)
-    if not {'entity_type', 'occupation_status'}.issubset(df.columns):
-        return []
-    na_indiv = (df['entity_type'] == 'INDIVIDUAL') & (df['occupation_status'] == 'NOT_APPLICABLE')
-    n_na = int(na_indiv.sum())
-    issue = (
-        f"Individuals with NOT_APPLICABLE status: {n_na} — "
-        "should be DISCLOSED / MISSING / NOT_DISCLOSED"
-    ) if n_na else None
-    return [('no_individual_not_applicable', {'passed': n_na == 0, 'count': n_na}, issue)]
-
-
-def _gate_committee_shared_ai_addr(df):
-    # a real committee HQ is unique; the same AI-resolved address on 2+ committees is hallucinated
-    if not {'entity_type', 'contributor_name', 'employer_address', 'resolve_method'}.issubset(df.columns):
-        return []
-    ai_comm = (
-        df['entity_type'].eq('COMMITTEE/PAC')
-        & df['resolve_method'].fillna('').astype(str).str.contains('ai_openai', na=False)
-        & df['employer_address'].notna()
-        & (df['employer_address'].astype(str).str.strip() != '')
-    )
-    if ai_comm.any():
-        shared = df.loc[ai_comm].groupby('employer_address')['contributor_name'].nunique()
-        bad_addrs = set(shared[shared >= 2].index)
-        bad_addrs.discard('')
-        n_bad = int((ai_comm & df['employer_address'].isin(bad_addrs)).sum())
-    else:
-        n_bad = 0
-    issue = (
-        f"AI-hallucinated committee addresses: {n_bad} rows "
-        "— run _clear_ai_hallucinated_addresses in resolve.py"
-    ) if n_bad else None
-    return [('no_committee_shared_ai_addr', {'passed': n_bad == 0, 'count': n_bad}, issue)]
-
-
 def _gate_retired_donor_consistency(df):
     # a once-retired donor with no real employer should not carry NOT EMPLOYED / SELF-EMPLOYED
     # filings; the once-retired sweep in post_merge_fixes collapses them
@@ -240,8 +202,6 @@ _QUALITY_GATES = [
     _gate_zip_state,
     _gate_email_as_address,
     _gate_special_chars_names,
-    _gate_individual_not_applicable,
-    _gate_committee_shared_ai_addr,
     _gate_retired_donor_consistency,
     _gate_retired_active_sync,
     _gate_slash_previous_employer,

@@ -54,7 +54,7 @@
 
 
 -- ----------------------------------------------------------
---  0. Extensions (fec/database/loader/schema.py nuke_db installs these as superuser)
+--  0. Extensions (fec/database/loader/schema_create.py ensures these; needs superuser)
 -- ----------------------------------------------------------
 -- CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- CREATE EXTENSION IF NOT EXISTS cube;
@@ -381,11 +381,10 @@ LEFT JOIN employers                  prev ON prev.employer_id          = e.previ
 
 -- Flat per-contribution view - one row per FEC filing with the donor,
 -- committee, address, employer and occupation all denormalized onto it.
--- The web app reads this for donor-profile history (employment, address,
--- committee breakdown, yearly totals) and for the "filter donors by
--- committee" sub-query. Zero storage - pure read layer over the
--- normalized tables. v1.1: employer HQ columns come straight from
--- `employers` (the old v_employer_primary_location was merged in).
+-- Consumed by the healthcheck's flat-view checks (fec/database/query_checks.py);
+-- the web app queries the normalized tables directly. Zero storage - pure
+-- read layer over the normalized tables. v1.1: employer HQ columns come
+-- straight from `employers` (the old v_employer_primary_location was merged in).
 CREATE OR REPLACE VIEW v_contributions_cleaned AS
 SELECT
     c.sub_id,
@@ -463,7 +462,7 @@ CREATE INDEX idx_mvdp_geo           ON mv_donor_profile (current_lat, current_ln
 
 
 -- The refresh runs at the end of every loader run from Python
--- (fec/database/loader/loading.py refresh_materialized_views):
+-- (fec/database/loader/__init__.py refresh_materialized_views):
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile
 -- CONCURRENTLY = no downtime, and it requires the UNIQUE index above.
 -- (An old SQL wrapper function of the same name had zero callers - removed.)
@@ -610,7 +609,7 @@ ORDER BY
 -- contributions per call (~60ms), and it does NOT push a `WHERE donor_key = ...`
 -- filter down. Fine at this size; if contributions grows large, promote
 -- v_key_accomplices and v_leaders to MATERIALIZED VIEWs refreshed by the
--- loader's refresh step (fec/database/loader/loading.py
+-- loader's refresh step (fec/database/loader/__init__.py
 -- refresh_materialized_views) alongside mv_donor_profile.
 CREATE OR REPLACE VIEW v_key_accomplices AS
 SELECT
@@ -792,7 +791,7 @@ LEFT JOIN addresses a  ON a.address_id = COALESCE(e.address_id, oad.org_address_
 -- ----------------------------------------------------------
 -- 11. Permissions
 -- ----------------------------------------------------------
--- Handled by fec/database/loader/schema.py nuke_db() (fec_app owns the DB).
+-- Handled by fec/database/loader/schema_create.py (fec_app owns the DB).
 
 
 -- ----------------------------------------------------------
@@ -800,8 +799,8 @@ LEFT JOIN addresses a  ON a.address_id = COALESCE(e.address_id, oad.org_address_
 -- ----------------------------------------------------------
 -- The rich `--` notes above are source-only (visible just when reading this
 -- file). These COMMENTs live IN the database, so DBeaver / pgAdmin / psql \d+
--- and the generated DBML (build_dbml.py emits them as `Note:`) all show the
--- purpose of each table and the intent behind the non-obvious columns.
+-- all show the purpose of each table and the intent behind the non-obvious
+-- columns.
 
 -- Tables
 COMMENT ON TABLE occupation_categories IS 'Lookup: ~29 standardized occupation buckets. LAWYER vs ATTORNEY stay distinct as raw occupations; this groups them for filtering.';

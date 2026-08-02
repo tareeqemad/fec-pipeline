@@ -8,7 +8,7 @@ from pathlib import Path
 STATUS_EMPLOYERS = {
     "RETIRED", "SELF-EMPLOYED", "NOT EMPLOYED", "NOT DISCLOSED",
     "STUDENT", "NONE", "N/A",
-    "NAN", "nan", "None", "NA",
+    "NAN", "NA",
 }
 
 # occupation buckets too generic to corroborate a match (unlike a real field

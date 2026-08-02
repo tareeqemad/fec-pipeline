@@ -11,8 +11,6 @@ CITY_NORMALIZE = {
     'LOS ANGELS': 'LOS ANGELES',
     'GREAT NCK PLZ': 'GREAT NECK PLAZA',
     'GREAT NCK': 'GREAT NECK',
-    'WASHINGTON DC': 'WASHINGTON',
-    'WASHINGTON, DC': 'WASHINGTON',
 
     # Saint/Fort/Mount abbreviation forms need no entries here --
     # expand_city_abbreviations (runs last) already unifies them; only real
@@ -82,8 +80,6 @@ CITY_NORMALIZE = {
     'LOS ANGLES': 'LOS ANGELES',
     'LOS ANGELE': 'LOS ANGELES',
     'MPLS': 'MINNEAPOLIS',
-    'TARZANA, CALIFORNIA': 'TARZANA',
-    'AUSTIN/TEXAS': 'AUSTIN',
     'HILTON HEAD': 'HILTON HEAD ISLAND',
 
     # short abbreviations, each verified by ZIP

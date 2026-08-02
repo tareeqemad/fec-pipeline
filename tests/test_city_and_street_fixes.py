@@ -13,19 +13,13 @@ class TestCityNormalize:
 
 class TestTrailingDirection:
     def test_trailing_s_moved_to_prefix(self):
-        import re
-        s = '101 WESTON LN S'
-        s = re.sub(r'^(\d+)\s+(.+?)\s+(N|S|E|W|NE|NW|SE|SW)\s*$', r'\1 \3 \2', s)
-        assert s == '101 S WESTON LN'
+        from fec.cleaning.addresses.streets import _normalize_street
+        assert _normalize_street('101 WESTON LN S') == '101 S WESTON LN'
 
     def test_trailing_nw_moved_to_prefix(self):
-        import re
-        s = '500 MAIN AVE NW'
-        s = re.sub(r'^(\d+)\s+(.+?)\s+(N|S|E|W|NE|NW|SE|SW)\s*$', r'\1 \3 \2', s)
-        assert s == '500 NW MAIN AVE'
+        from fec.cleaning.addresses.streets import _normalize_street
+        assert _normalize_street('500 MAIN AVE NW') == '500 NW MAIN AVE'
 
     def test_no_trailing_direction_unchanged(self):
-        import re
-        s = '123 MAIN ST'
-        result = re.sub(r'^(\d+)\s+(.+?)\s+(N|S|E|W|NE|NW|SE|SW)\s*$', r'\1 \3 \2', s)
-        assert result == '123 MAIN ST'
+        from fec.cleaning.addresses.streets import _normalize_street
+        assert _normalize_street('123 MAIN ST') == '123 MAIN ST'

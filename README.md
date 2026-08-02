@@ -237,7 +237,9 @@ DB_ROLES=fec_owner,fec_app
 DB_ROLE_PASSWORD=
 
 FEC_API_KEY=                  # Free: https://api.open.fec.gov/developers/
-OPENAI_API_KEY=               # Employer-resolution AI lookup
+AI_PROVIDER=openai            # Employer-resolution backend: openai or xai
+OPENAI_API_KEY=               # Employer-resolution AI lookup (AI_PROVIDER=openai)
+XAI_API_KEY=                  # Same, when AI_PROVIDER=xai
 GOOGLE_MAPS_API_KEY=          # Optional geocoding fallback
 ```
 

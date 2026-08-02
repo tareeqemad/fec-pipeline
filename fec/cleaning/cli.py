@@ -190,7 +190,7 @@ def main():
     from fec import env
     env.load_env()   # make FEC_API_KEY etc. available to the cleaning steps
     args = _parse_args()
-    setup_logging(level="INFO")
+    setup_logging()
     audit_enabled = not args.no_audit
 
     out_dir = os.path.dirname(args.output) or '.'

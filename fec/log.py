@@ -14,14 +14,14 @@ class CleanFormatter(logging.Formatter):
         return record.getMessage()
 
 
-def setup_logging(level: str = "INFO", log_file: str | None = None) -> None:
+def setup_logging() -> None:
     """Configure logging for the entire pipeline. Call once at startup."""
     global _CONFIGURED
     if _CONFIGURED:
         return
 
-    level = os.environ.get("LOG_LEVEL", level).upper()
-    log_file = log_file or os.environ.get("LOG_FILE", "").strip() or None
+    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    log_file = os.environ.get("LOG_FILE", "").strip() or None
 
     root = logging.getLogger()
     root.setLevel(getattr(logging, level, logging.INFO))

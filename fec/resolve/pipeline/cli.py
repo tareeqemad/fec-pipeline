@@ -10,13 +10,15 @@ import pandas as pd
 
 from fec.log import get_logger
 
+from fec.env import load_env
+
 from .constants import (
-    TIERS, EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE, COMMITTEE_CACHE,
+    EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE, COMMITTEE_CACHE,
     EMPLOYER_BRANCH_CACHE, AI_SYSTEM_PROMPT,
 )
 from .cache import Cache
 from .ai_client import get_ai_client, get_ai_provider_model, ai_json_call
-from .helpers import _load_env, _compute_donor_totals
+from .helpers import _compute_donor_totals
 from .steps.cross_record import step_cross_record
 from .steps.fec_api import step_fec_api
 from .steps.ai_employer import step_ai_lookup, _parse_ai_json
@@ -40,7 +42,7 @@ def main() -> None:
     parser.add_argument("--test-ai", action="store_true", help="Test the AI provider API key and exit")
     args = parser.parse_args()
 
-    _load_env()
+    load_env()
 
     if args.test_ai:
         try:
@@ -89,7 +91,6 @@ def main() -> None:
     df["contribution_receipt_amount"] = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce").fillna(0)
 
     donor_totals = _compute_donor_totals(df)
-    active_tiers = [tier[0] for tier in TIERS]
 
     if args.stats:
         show_stats(df, prev_cache, addr_cache, comm_cache, donor_totals)
@@ -113,11 +114,11 @@ def main() -> None:
     step_cross_record(df, prev_cache)
 
     logger.info("\n-- Step 2: FEC API (find previous employer from other committees) --")
-    step_fec_api(df, prev_cache, donor_totals, active_tiers, dry_run=args.dry_run)
+    step_fec_api(df, prev_cache, donor_totals, dry_run=args.dry_run)
 
     ai_provider, ai_model = get_ai_provider_model()
     logger.info(f"\n-- Step 3: AI Lookup ({ai_provider} {ai_model} - employer HQ addresses) --")
-    step_ai_lookup(df, prev_cache, addr_cache, donor_totals, active_tiers, dry_run=args.dry_run)
+    step_ai_lookup(df, prev_cache, addr_cache, donor_totals, dry_run=args.dry_run)
 
     # Step 3b: merge cache entries that resolved to the same address, then
     # remap the CSV to the canonical names - otherwise apply_results

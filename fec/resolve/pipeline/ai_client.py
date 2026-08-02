@@ -1,4 +1,4 @@
-"""AI provider abstraction - xAI (Grok, OpenAI-SDK-compatible) by default; AI_PROVIDER/AI_MODEL/XAI_*/OPENAI_API_KEY env vars are read after helpers._load_env()."""
+"""AI provider abstraction - xAI (Grok, OpenAI-SDK-compatible) by default; AI_PROVIDER/AI_MODEL/XAI_*/OPENAI_API_KEY env vars are read after fec.env.load_env()."""
 import os
 
 from fec.log import get_logger

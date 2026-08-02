@@ -62,7 +62,7 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
     })
 
     remap: dict[str, str] = {}
-    for (fpv, z), grp in work.groupby(["fp", "z"]):
+    for _, grp in work.groupby(["fp", "z"]):
         keys = grp["key"].unique()
         if len(keys) < 2:
             continue

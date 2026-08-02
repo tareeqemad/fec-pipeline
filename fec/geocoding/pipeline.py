@@ -16,9 +16,6 @@ logger = get_logger(__name__)
 
 _PO_BOX_RE = re.compile(r"^PO\s+BOX", re.I)
 
-# methods that use the contributor's own address (no employer geocoding needed)
-_SELF_METHODS = {"deterministic_self", "deterministic_no_workplace"}
-
 # require whitespace before the keyword and a word boundary after, so short
 # abbreviations (FL, STE, RM, APT) never match inside street names like FLANDERS
 _SUITE_RE = re.compile(
@@ -130,14 +127,13 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
 def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
                                google_key: str | None = None,
                                batch_size: int = 50):
-    """Geocode employer addresses; skips self/no-workplace/empty rows, but RETIRED with a previous employer IS geocoded at the company address."""
+    """Geocode employer addresses; skips empty rows, but RETIRED with a previous employer IS geocoded at the company address."""
     if "employer_address" not in df.columns:
         logger.info("  No employer_address column - run resolve.py first")
         return
 
     mask = (df['employer_address'].notna() &
-            (df['employer_address'] != '') &
-            (~df['resolve_method'].fillna('').isin(_SELF_METHODS)))
+            (df['employer_address'] != ''))
     keys = _employer_keys(df.loc[mask])
     all_keys = set(keys[keys != '|||'].unique())
 
@@ -159,24 +155,18 @@ def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
 
 
 def apply_employer_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
-    """Map cached employer geocoding onto employer_latitude/longitude/geocode_level; deterministic_self copies contributor coords."""
+    """Map cached employer geocoding onto employer_latitude/longitude/geocode_level."""
     method = df['resolve_method'].fillna('')
 
     df["employer_latitude"] = np.nan
     df["employer_longitude"] = np.nan
     df["employer_geocode_level"] = "no_address"
 
-    # deterministic_self: same address, copy contributor coords
-    mask_self = method == "deterministic_self"
-    df.loc[mask_self, "employer_latitude"] = df.loc[mask_self, "latitude"]
-    df.loc[mask_self, "employer_longitude"] = df.loc[mask_self, "longitude"]
-    df.loc[mask_self, "employer_geocode_level"] = "contributor_copy"
-
-    # no_workplace/unresolved rows keep no_address
-    mask_skip = method.isin({"deterministic_no_workplace", "unresolved", "fec_not_found"})
+    # fec_not_found rows keep no_address
+    mask_skip = method == "fec_not_found"
 
     employer_address = df['employer_address'].fillna('')
-    mask_real = (~mask_self) & (~mask_skip) & (employer_address != '')
+    mask_real = (~mask_skip) & (employer_address != '')
 
     if mask_real.any():
         keys = _employer_keys(df.loc[mask_real])

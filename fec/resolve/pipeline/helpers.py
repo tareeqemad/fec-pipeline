@@ -1,8 +1,5 @@
 """Shared helper functions for the resolve pipeline."""
 
-import os
-from pathlib import Path
-
 import pandas as pd
 
 from .constants import TIERS
@@ -13,20 +10,6 @@ def _s(val, default: str = "") -> str:
     if val is None or pd.isna(val):
         return default
     return str(val)
-
-
-def _load_env() -> None:
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except ImportError:
-        env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = line.split("=", 1)
-                    os.environ.setdefault(key.strip(), value.strip())
 
 
 def _prev_key(name, state) -> str:
