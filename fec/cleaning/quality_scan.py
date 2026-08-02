@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from fec.config.constants import OK_SHORT_OCCUPATIONS
+
 # employer abbreviations worth surfacing (whether or not auto-expanded yet)
 _ABBR_TOKENS = ["MGMT", "MGT", "MGMNT", "INV", "INTL", "INTNL", "ASSOC", "ASSOCS",
                 "SVC", "SVCS", "GRP", "MFG", "MKTG", "CONSTR", "DEVELOP", "TECHS"]
@@ -95,21 +97,12 @@ def scan_address_order_variants(df: pd.DataFrame) -> dict:
     return {"groups": n_groups, "examples": examples}
 
 
-# real short occupations/credentials -- a 2-5 char occupation is not junk just for being short.
-# Confirmed-real vowel-less entries get listed here: real abbreviations are a finite, slow-growing
-# set, so this whitelist converges; a junk denylist never would.
-_REAL_SHORT_OCCUPATIONS = {
-    "CPA", "CEO", "CFO", "COO", "CTO", "CIO", "CMO", "MD", "DO", "DDS", "DMD",
-    "RN", "LPN", "NP", "PA", "PT", "OT", "DVM", "ESQ", "JD", "PHD", "MBA",
-    "VP", "EVP", "SVP", "GM", "HR", "IT", "PR", "RE", "SW", "UX", "QA",
-    "VFX", "CPT", "RSM", "CLO", "CGO", "CRO", "CHRO", "PM", "PMO", "SRE",
-}
 _VOWELS = set("AEIOUY")
 
 
 def _is_rare_uncategorized(value, counts, occ, cat, uncategorized) -> bool:
     """True only for globally rare values no categorization rule matched; anything else is real."""
-    if not value or value in _STATUS or value in _REAL_SHORT_OCCUPATIONS:
+    if not value or value in _STATUS or value in OK_SHORT_OCCUPATIONS:
         return False
     if int(counts.get(value, 0)) > 5:
         return False
@@ -128,7 +121,7 @@ def scan_junk_occupations(df: pd.DataFrame) -> dict:
     uncategorized = {"", "OTHER"}
     suspects = {}
     for value, n_rows in counts.items():
-        if not value or value in _STATUS or value in _REAL_SHORT_OCCUPATIONS:
+        if not value or value in _STATUS or value in OK_SHORT_OCCUPATIONS:
             continue
         if n_rows > 5:                                   # common: almost surely real
             continue
@@ -221,7 +214,7 @@ def main(argv: list[str]) -> int:
         print(f"    - {'  |  '.join(group)}")
     junk_report = report["junk_occupation_suspects"]
     print(f"\n  Junk occupation suspects: {junk_report['distinct']:,} values / {junk_report['rows']:,} rows"
-          f"{'  — confirm, then add to OCCUPATION_FIXES (junk) or _REAL_SHORT_OCCUPATIONS (real)' if junk_report['distinct'] else ''}")
+          f"{'  — confirm, then add to OCCUPATION_FIXES (junk) or OK_SHORT_OCCUPATIONS (real)' if junk_report['distinct'] else ''}")
     for example in junk_report["examples"][:8]:
         print(f"    - {example['value']}  ({example['rows']} rows)")
 

@@ -48,17 +48,31 @@ REFUSAL_EMPLOYERS = frozenset({
     'XYX', 'MALE', 'NO E', 'GROUP', 'UNKEMPT CONCERT DONATION',
 })
 
-# 2-char employer abbreviations that are real companies; every consumer
-# gates on len <= 2, so longer names never reach this list.
+# Short-name whitelists - THE one home for "short but real" values.
+# Confirmed-real entries only: real abbreviations are a finite, slow-growing
+# set, so these whitelists converge; a junk denylist never would.
+# Each consumer applies its own length gate (deep-clean nulls only <=2-char
+# values, quality_scan advises on 2-5-char ones), so a longer entry is simply
+# inert where it does not apply - one list serves both.
+
+# employer abbreviations that are real companies
 OK_SHORT_EMPLOYERS = frozenset({
     '3M', 'HP', 'BP', 'GE', 'GM', 'LG', 'EY', 'PW',
     'BJ', 'C3', 'AT', 'QC',
 })
 
-# Short occupations that are legitimate abbreviations, kept when nulling
-# truncated garbage.
+# occupations and credentials that are real, not truncated garbage
 OK_SHORT_OCCUPATIONS = frozenset({
-    'IT', 'MD', 'RN', 'PA', 'VP', 'DJ', 'GP', 'OT', 'PT',
+    # medical
+    'MD', 'DO', 'DDS', 'DMD', 'RN', 'LPN', 'NP', 'PA', 'PT', 'OT', 'DVM', 'GP',
+    # legal / finance credentials
+    'ESQ', 'JD', 'CPA', 'PHD', 'MBA',
+    # executive titles
+    'CEO', 'CFO', 'COO', 'CTO', 'CIO', 'CMO', 'CLO', 'CGO', 'CRO', 'CHRO',
+    'VP', 'EVP', 'SVP', 'GM',
+    # fields and roles
+    'IT', 'HR', 'PR', 'RE', 'SW', 'UX', 'QA', 'VFX', 'CPT', 'RSM',
+    'PM', 'PMO', 'SRE', 'DJ',
 })
 
 # Every observed misspelling of SELF-EMPLOYED. The deep-clean step rewrites
