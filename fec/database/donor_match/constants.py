@@ -4,12 +4,10 @@ import csv
 from collections import defaultdict
 from pathlib import Path
 
+from fec.config.constants import EMPLOYER_STATUS_VALUES
+
 # employer statuses that are not real companies
-STATUS_EMPLOYERS = {
-    "RETIRED", "SELF-EMPLOYED", "NOT EMPLOYED", "NOT DISCLOSED",
-    "STUDENT", "NONE", "N/A",
-    "NAN", "NA",
-}
+STATUS_EMPLOYERS = EMPLOYER_STATUS_VALUES
 
 # occupation buckets too generic to corroborate a match (unlike a real field
 # such as LEGAL); RETIRED is also tracked separately as a transition state
