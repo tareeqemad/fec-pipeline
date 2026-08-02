@@ -29,7 +29,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     changed = 0
     fn_col = df.columns.get_loc("contributor_first_name")
     ln_col = df.columns.get_loc("contributor_last_name")
-    cn_col = df.columns.get_loc("contributor_name") if "contributor_name" in df.columns else None
+    cn_col = df.columns.get_loc("contributor_name")
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
         rows = df.loc[idx]
@@ -57,26 +57,23 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
             cur_l = df.iat[i, ln_col]
             cf = cur_f if (isinstance(cur_f, str) and cur_f.strip()) else None
             cl = cur_l if (isinstance(cur_l, str) and cur_l.strip()) else None
-            cur_n = df.iat[i, cn_col] if cn_col is not None else canon_name
+            cur_n = df.iat[i, cn_col]
             if cf != canon_first or cl != canon_last or cur_n != canon_name:
                 df.iat[i, fn_col] = canon_first
                 df.iat[i, ln_col] = canon_last
-                if cn_col is not None:
-                    df.iat[i, cn_col] = canon_name
+                df.iat[i, cn_col] = canon_name
                 changed += 1
     return changed
 
 
 def _emp_core_tokens(name: str) -> frozenset:
     """Significant tokens of an employer name (legal suffixes/connectors removed)."""
-    toks = _EMP_TOKEN_RE.findall((name or "").upper())
+    toks = _EMP_TOKEN_RE.findall(name.upper())
     return frozenset(t for t in toks if t not in _EMP_DROP_TOKENS and len(t) > 1)
 
 
 def canonicalize_donor_employers(df: pd.DataFrame) -> int:
     """Collapse per-donor employer variants of the same firm (token subset + >=2 shared tokens) to the most complete form; returns rows rewritten."""
-    if "contributor_employer" not in df.columns:
-        return 0
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
@@ -126,9 +123,6 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
 
 def align_org_donor_company_names(df: pd.DataFrame) -> int:
     """Rename ORGANIZATION donors to the canonical employer spelling of the same company (reuses canonical_key, adds no new normalization); returns rows aligned."""
-    if "entity_type" not in df.columns or "contributor_name" not in df.columns \
-            or "contributor_employer" not in df.columns:
-        return 0
     from fec.cleaning.employer_synonyms import canonical_key
 
     # canonical display name per canonical_key = the donor-side spelling seen most
@@ -167,7 +161,7 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
 
 def _addr_fingerprint(street: str) -> str:
     """Order-independent street key: house number anchored, remaining tokens sorted (keeps grid addresses distinct)."""
-    toks = _ADDR_TOKEN_RE.findall((street or "").upper())
+    toks = _ADDR_TOKEN_RE.findall(street.upper())
     if not toks:
         return ""
     return toks[0] + "|" + " ".join(sorted(toks[1:]))
@@ -175,14 +169,12 @@ def _addr_fingerprint(street: str) -> str:
 
 def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
     """Collapse per-donor street_1 variants with the same ZIP and anchored token set to the most common form; returns rows rewritten."""
-    if "contributor_street_1" not in df.columns:
-        return 0
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
 
     st_col = df.columns.get_loc("contributor_street_1")
-    zip_col = df.columns.get_loc("contributor_zip") if "contributor_zip" in df.columns else None
+    zip_col = df.columns.get_loc("contributor_zip")
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
@@ -192,7 +184,7 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
             s = df.iat[i, st_col]
             if not (isinstance(s, str) and s.strip()):
                 continue
-            z = df.iat[i, zip_col] if zip_col is not None else ""
+            z = df.iat[i, zip_col]
             z = z if isinstance(z, str) else ""
             fp = _addr_fingerprint(s)
             if fp:
@@ -205,8 +197,8 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
                 continue
             # canonical = most common spelling (tie: deterministic first)
             canon = max(sorted(distinct), key=lambda f: forms.count(f))
-            for i in rows:
-                if df.iat[i, st_col].strip() != canon:
+            for i, f in zip(rows, forms):
+                if f != canon:
                     df.iat[i, st_col] = canon
                     changed += 1
     return changed
@@ -214,17 +206,14 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
 
 def canonicalize_donor_units(df: pd.DataFrame) -> int:
     """Collapse per-donor street_2 spellings of the same unit (APT/UNIT/# 1503), bucketed by (street_1, ZIP, unit id), to the dominant form; returns rows rewritten."""
-    if "contributor_street_2" not in df.columns or "donor_key" not in df.columns:
-        return 0
-    ind = df["entity_type"] == "INDIVIDUAL" if "entity_type" in df.columns \
-        else pd.Series(True, index=df.index)
+    ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
     from fec.cleaning.pipeline.address_fixes import _unit_core
 
-    st1_col = df.columns.get_loc("contributor_street_1") if "contributor_street_1" in df.columns else None
+    st1_col = df.columns.get_loc("contributor_street_1")
     st2_col = df.columns.get_loc("contributor_street_2")
-    zip_col = df.columns.get_loc("contributor_zip") if "contributor_zip" in df.columns else None
+    zip_col = df.columns.get_loc("contributor_zip")
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
@@ -236,9 +225,9 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
             core = _unit_core(s2)
             if not core:
                 continue
-            s1 = df.iat[i, st1_col] if st1_col is not None else ""
+            s1 = df.iat[i, st1_col]
             s1 = s1.strip() if isinstance(s1, str) else ""
-            z = df.iat[i, zip_col] if zip_col is not None else ""
+            z = df.iat[i, zip_col]
             z = z if isinstance(z, str) else ""
             buckets[(s1, z, core)].append(i)
 
@@ -247,8 +236,8 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
             if len(set(forms)) < 2:
                 continue
             canon = max(sorted(set(forms)), key=lambda f: (forms.count(f), len(f)))
-            for i in rows:
-                if df.iat[i, st2_col].strip() != canon:
+            for i, f in zip(rows, forms):
+                if f != canon:
                     df.iat[i, st2_col] = canon
                     changed += 1
     return changed
@@ -256,7 +245,7 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
 
 def _pobox_num(street: str) -> str:
     """Extract the box number from a PO-box street, else ''."""
-    m = _POBOX_RE.search(str(street).upper())
+    m = _POBOX_RE.search(street.upper())
     return m.group(1) if m else ''
 
 
@@ -274,10 +263,8 @@ def _is_insertion_typo(a: str, b: str) -> bool:
 
 def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
     """Collapse per-donor same-ZIP PO-box numbers that differ by one inserted digit to the most frequent box (all entity types; same-length boxes never merge); returns rows rewritten."""
-    if "contributor_street_1" not in df.columns or "donor_key" not in df.columns:
-        return 0
     st_col = df.columns.get_loc("contributor_street_1")
-    zip_col = df.columns.get_loc("contributor_zip") if "contributor_zip" in df.columns else None
+    zip_col = df.columns.get_loc("contributor_zip")
     changed = 0
 
     for _, idx in df.groupby("donor_key").groups.items():
@@ -287,7 +274,7 @@ def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
             bn = _pobox_num(s) if isinstance(s, str) else ""
             if not bn:
                 continue
-            z = df.iat[i, zip_col] if zip_col is not None else ""
+            z = df.iat[i, zip_col]
             z = z if isinstance(z, str) else ""
             by_zip[z].append((i, s.strip(), bn))
 
@@ -344,15 +331,14 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
     needed = {"latitude", "longitude", "donor_key", "contributor_street_1"}
     if not needed <= set(df.columns):
         return 0
-    ind = df["entity_type"] == "INDIVIDUAL" if "entity_type" in df.columns \
-        else pd.Series(True, index=df.index)
+    ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
 
     st_col = df.columns.get_loc("contributor_street_1")
     lat_col = df.columns.get_loc("latitude")
     lng_col = df.columns.get_loc("longitude")
-    level_col = df.columns.get_loc("geocode_level") if "geocode_level" in df.columns else None
+    level_col = df.columns.get_loc("geocode_level")
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
@@ -361,10 +347,9 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
             s = df.iat[i, st_col]
             if not (isinstance(s, str) and s.strip()):
                 continue
-            if level_col is not None:
-                lvl = str(df.iat[i, level_col]).lower()
-                if any(t in lvl for t in _COARSE_LEVEL_TOKENS):
-                    continue
+            lvl = str(df.iat[i, level_col]).lower()
+            if any(t in lvl for t in _COARSE_LEVEL_TOKENS):
+                continue
             try:
                 lat, lng = float(df.iat[i, lat_col]), float(df.iat[i, lng_col])
             except (TypeError, ValueError):
@@ -394,8 +379,8 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
             rep = next(m for m in members if pts[m][1] == canon)
             rlat, rlng = pts[rep][2], pts[rep][3]
             for m in members:
-                i = pts[m][0]
-                if df.iat[i, st_col].strip() != canon:
+                if pts[m][1] != canon:
+                    i = pts[m][0]
                     df.iat[i, st_col] = canon
                     df.iat[i, lat_col] = rlat
                     df.iat[i, lng_col] = rlng
