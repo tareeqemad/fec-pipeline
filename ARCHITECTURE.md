@@ -104,9 +104,12 @@ fec/
 │   └── leadership_matcher.py   # match leadership/accomplices to donors
 │
 ├── donor_match/    # score-based donor de-duplication + canonicalization (runs inside clean, no DB)
-│   ├── __init__.py             # match_donors, apply_donor_key, canonicalize_* (public API)
-│   ├── constants.py            # match weights, do-not-merge blocklist
-│   └── names.py / addresses.py / geo.py  # canonicalize_donor_* (+ matcher/scoring/pairs/profiles)
+│   ├── matcher.py              # orchestrator: profiles → phases → chains → force merges → keys
+│   ├── phases.py               # the five pair-generation phases
+│   ├── scoring.py              # compute_score + candidate predicates
+│   ├── constants.py            # match weights (documented table), do-not-merge blocklist
+│   ├── canonicalize.py         # per-donor names/employers/streets/units/PO boxes
+│   └── keys.py / geo.py / normalize.py / reports.py / structures.py
 │
 ├── geocoding/
 │   ├── pipeline.py             # geocode orchestrator
