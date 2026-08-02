@@ -6,6 +6,7 @@ from collections import defaultdict
 import pandas as pd
 
 from .constants import STATUS_EMPLOYERS
+from .structures import UnionFind
 
 # legal suffixes/connectors carry no identity when comparing employer names
 _EMP_DROP_TOKENS = frozenset({
@@ -87,24 +88,18 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
         cores = {n: _emp_core_tokens(n) for n in names}
 
         # union-find over this donor's employer names by the same-firm rule
-        parent = {n: n for n in names}
-
-        def find(x):
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
+        uf = UnionFind()
 
         for a_i in range(len(names)):
             for b_i in range(a_i + 1, len(names)):
                 a, b = names[a_i], names[b_i]
                 ca, cb = cores[a], cores[b]
                 if len(ca & cb) >= 2 and (ca <= cb or cb <= ca):
-                    parent[find(a)] = find(b)
+                    uf.union(a, b)
 
         clusters: dict[str, list] = defaultdict(list)
         for n in names:
-            clusters[find(n)].append(n)
+            clusters[uf.find(n)].append(n)
 
         remap = {}
         for members in clusters.values():

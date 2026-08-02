@@ -4,8 +4,10 @@ import re
 
 from .constants import NAME_SUFFIXES
 
-# stripped in this order -- " CO" runs before " CORP" on purpose, changing it
-# changes the output
+# stripped in this order -- " CO" runs before " CORP" on purpose, and
+# str.replace hits mid-string too (" CO" also eats the start of " CONSULTING":
+# ACME CONSULTING -> ACMENSULTING). Both quirks are load-bearing: these strings
+# feed employer-match scoring and thus donor identity. Do not change.
 _EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
                    " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
 
@@ -70,6 +72,7 @@ def normalize_committee_name(name: str) -> str:
 
     person = _COMM_SUFFIXES_RE.sub("", person).strip()
     person = person.replace(".", "").strip()
-    first = person.split()[0] if person.split() else ""
+    person_parts = person.split()
+    first = person_parts[0] if person_parts else ""
 
     return f"{org}|{first}"

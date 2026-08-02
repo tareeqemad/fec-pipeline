@@ -25,8 +25,7 @@ CHAIN_MIN = 30
 CHAIN_CLUSTER_MIN = 4
 
 
-def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
-                 verbose: bool = True) -> tuple[dict, list]:
+def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:
     """Score-based donor matching; returns (rid_to_key, audit_log)."""
     indiv = df[df["entity_type"] == "INDIVIDUAL"].copy()
 
@@ -42,21 +41,16 @@ def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
     # a cross-state merge without geography, so common names are never fused
     last_to_names = defaultdict(set)
     first_to_names = defaultdict(set)
-    for nn in {p["norm_name"] for p in profiles.values()}:
-        last, _, first = nn.partition("|")
-        last_to_names[last].add(nn)
-        first_to_names[first].add(nn)
     for p in profiles.values():
         last, _, first = p["norm_name"].partition("|")
-        p["last_freq"] = len(last_to_names[last])
-        p["first_freq"] = len(first_to_names[first])
-
-    norm_name_counts = defaultdict(int)
-    for p in profiles.values():
-        norm_name_counts[p["norm_name"]] += 1
+        last_to_names[last].add(p["norm_name"])
+        first_to_names[first].add(p["norm_name"])
 
     name_groups = defaultdict(list)
     for rid, p in profiles.items():
+        last, _, first = p["norm_name"].partition("|")
+        p["last_freq"] = len(last_to_names[last])
+        p["first_freq"] = len(first_to_names[first])
         name_groups[p["norm_name"]].append(rid)
 
     uf = UnionFind()
@@ -68,32 +62,32 @@ def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
 
     # Phase 1: score within-group pairs
     merge_count, skip_count = _score_within_groups(
-        name_groups, norm_name_counts, profiles, uf, audit_log, score_dist, threshold, verbose
+        name_groups, profiles, uf, audit_log, score_dist, verbose
     )
 
     # Phase 2: cross-group matching (nicknames + typos)
     cross_merge, cross_skip = _score_cross_groups(
-        name_groups, profiles, uf, audit_log, score_dist, threshold, verbose
+        name_groups, profiles, uf, audit_log, score_dist, verbose
     )
 
     # Phase 2.5: surname-variant matching (typos/space forms across surnames)
     sv_merge, sv_skip = _score_surname_variants(
-        name_groups, profiles, uf, audit_log, score_dist, threshold, verbose
+        name_groups, profiles, uf, audit_log, score_dist, verbose
     )
 
     # Phase 2.6: name-format variants (first/last swap, missing comma, middle initial)
     nv_merge, nv_skip = _score_name_variants(
-        name_groups, profiles, uf, audit_log, score_dist, threshold, verbose
+        name_groups, profiles, uf, audit_log, score_dist, verbose
     )
 
     # Phase 2.7: maiden/married (one name's tokens a subset of the other + same street)
     ss_merge, ss_skip = _score_surname_superset_variants(
-        name_groups, profiles, uf, audit_log, score_dist, threshold, verbose
+        name_groups, profiles, uf, audit_log, score_dist, verbose
     )
 
     # Phase 3: chain validation
     components = _build_and_validate_chains(
-        uf, profiles, norm_name_counts, verbose
+        uf, profiles, name_groups, verbose
     )
 
     # Phase 4: force-merge verified pairs
@@ -101,6 +95,9 @@ def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
 
     rid_to_key = {}
     for root, members in components.items():
+        # same recipe as keys.individual_donor_key (sha256 of a rid, first 12
+        # hex) -- they must stay in sync: a singleton cluster's key here must
+        # equal the fallback key apply_donor_key computes for the same record
         key = hashlib.sha256(root.encode()).hexdigest()[:12]
         for rid in members:
             rid_to_key[rid] = key
@@ -111,8 +108,8 @@ def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
     if verbose:
         logger.info("\n  -- Results --")
         logger.info(f"  Pairs scored:   {merge_count + skip_count + cross_merge + cross_skip + sv_merge + sv_skip + nv_merge + nv_skip + ss_merge + ss_skip:>7,}")
-        logger.info(f"  Merged (>={threshold}):  {merge_count + cross_merge + sv_merge + nv_merge + ss_merge:>7,}")
-        logger.info(f"  Skipped (<{threshold}): {skip_count + cross_skip + sv_skip + nv_skip + ss_skip:>7,}")
+        logger.info(f"  Merged (>={MERGE_THRESHOLD}):  {merge_count + cross_merge + sv_merge + nv_merge + ss_merge:>7,}")
+        logger.info(f"  Skipped (<{MERGE_THRESHOLD}): {skip_count + cross_skip + sv_skip + nv_skip + ss_skip:>7,}")
         logger.info("  -----------------------------")
         logger.info(f"  Before: {unique_before:>6,} unique records")
         logger.info(f"  After:  {unique_after:>6,} unique donors")
@@ -121,10 +118,10 @@ def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
         logger.info("\n  -- Score Distribution --")
         for bucket in sorted(score_dist):
             bar = "#" * min(50, score_dist[bucket] // max(1, max(score_dist.values()) // 50))
-            marker = " <- THRESHOLD" if bucket <= threshold < bucket + 10 else ""
+            marker = " <- THRESHOLD" if bucket <= MERGE_THRESHOLD < bucket + 10 else ""
             logger.info(f"    {bucket:>4}-{bucket+9:<4}: {score_dist[bucket]:>5,}  {bar}{marker}")
 
-        near = [a for a in audit_log if threshold - 15 <= a["score"] <= threshold + 15]
+        near = [a for a in audit_log if MERGE_THRESHOLD - 15 <= a["score"] <= MERGE_THRESHOLD + 15]
         near.sort(key=lambda x: -x["score"])
         if near:
             logger.info(f"\n  -- Near Threshold (+/-15) - {len(near)} pairs --")
@@ -140,7 +137,7 @@ def match_donors(df: pd.DataFrame, threshold: int = MERGE_THRESHOLD,
 
 
 def _build_and_validate_chains(
-    uf: UnionFind, profiles: dict, norm_name_counts: dict, verbose: bool,
+    uf: UnionFind, profiles: dict, name_groups: dict, verbose: bool,
 ) -> dict:
     """Build components from union-find, then eject weakly-chained members of large clusters."""
     components = defaultdict(set)
@@ -153,9 +150,13 @@ def _build_and_validate_chains(
         if len(members) < CHAIN_CLUSTER_MIN:
             continue
 
+        # NOTE: members is a set, so a record_count tie is broken by set
+        # iteration order, which follows per-process-randomized str hashing --
+        # a tie here can pick a different canonical record between runs and
+        # flip ejections (and therefore donor keys)
         canonical_rid = max(members, key=lambda r: profiles[r]["record_count"])
         p_canon = profiles[canonical_rid]
-        canon_freq = norm_name_counts.get(p_canon["norm_name"], 1)
+        canon_freq = len(name_groups[p_canon["norm_name"]])
 
         ejected = set()
         for rid in members:
@@ -169,6 +170,10 @@ def _build_and_validate_chains(
         if ejected:
             n_chain_broken += len(ejected)
             components[root] -= ejected
+            # if the union-find root itself is ejected (root != canonical_rid),
+            # components[rid] = {rid} below clobbers the survivors' set and they
+            # fall back to per-rid keys in apply_donor_key. Reordering this would
+            # change existing donor_key values, so it is documented, not changed.
             for rid in ejected:
                 components[rid] = {rid}
 
@@ -193,31 +198,30 @@ def _merge_roots_of(components: dict, rids: list) -> int:
 
     roots_list = sorted(roots)
     target = roots_list[0]
-    folded = 0
     for other_root in roots_list[1:]:
-        if other_root in components:
-            components[target] |= components[other_root]
-            del components[other_root]
-            folded += 1
-    return folded
+        components[target] |= components[other_root]
+        del components[other_root]
+    return len(roots_list) - 1
 
 
 def _apply_force_merges(components: dict, profiles: dict, verbose: bool) -> None:
     """Force-merge human-verified same-person records from donor_overrides.csv: FORCE_MERGE_NAMES pairs plus FORCE_MERGE_GROUPS cross-surname spellings."""
     n_force = 0
     for (force_last, force_first) in FORCE_MERGE_NAMES:
+        prefix = f"{force_last}, {force_first}"
         rids = [
             rid for rid, p in profiles.items()
-            if p["name"].startswith(f"{force_last}, {force_first}")
+            if p["name"].startswith(prefix)
         ]
         if len(rids) >= 2:
             n_force += _merge_roots_of(components, rids)
 
     n_group = 0
     for identities in FORCE_MERGE_GROUPS.values():
+        prefixes = tuple(f"{last}, {first}" for (last, first) in identities)
         rids = [
             rid for rid, p in profiles.items()
-            if any(p["name"].startswith(f"{last}, {first}") for (last, first) in identities)
+            if p["name"].startswith(prefixes)
         ]
         if len(rids) >= 2:
             n_group += _merge_roots_of(components, rids)

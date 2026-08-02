@@ -16,6 +16,9 @@ from .constants import (
 # name and geography
 _SCORE_RETIRED_NO_EMP = 25
 
+# no-geography path: a shared employer plus a rare name still earns a nudge
+_SCORE_RARE_EMPLOYER_OK = 10
+
 
 def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     """Score merge confidence for a pair, returning (score, signals); at least one geographic signal is required to merge -- employer or name rarity alone is never enough."""
@@ -81,16 +84,13 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
         if m1 == m2:
             score += SCORE_MIDDLE_MATCH
             signals.append(f"middle_ok={m1}(+{SCORE_MIDDLE_MATCH})")
-        elif len(m1) == 1 and m2[0] == m1:
-            score += SCORE_MIDDLE_MATCH
-            signals.append(f"middle_ok={m1}/{m2}(+{SCORE_MIDDLE_MATCH})")
-        elif len(m2) == 1 and m1[0] == m2:
+        elif (len(m1) == 1 and m2[0] == m1) or (len(m2) == 1 and m1[0] == m2):
             score += SCORE_MIDDLE_MATCH
             signals.append(f"middle_ok={m1}/{m2}(+{SCORE_MIDDLE_MATCH})")
         elif len(m1) == 1 and len(m2) == 1:
             score += SCORE_MIDDLE_CONFLICT
             signals.append(f"MIDDLE_CONFLICT={m1}\u2260{m2}({SCORE_MIDDLE_CONFLICT})")
-        elif _is_typo(m1, m2):
+        elif levenshtein(m1, m2) == 1:
             score += SCORE_MIDDLE_MATCH
             signals.append(f"middle_typo={m1}/{m2}(+{SCORE_MIDDLE_MATCH})")
         else:
@@ -119,6 +119,10 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
         score += _SCORE_RETIRED_NO_EMP
         signals.append(f"retired_no_emp_rare_geo(+{_SCORE_RETIRED_NO_EMP})")
 
+    # eponymous = the shared employer name contains the donor's surname
+    # (SMITH at SMITH ASSOCIATES): below, that exempts moderately common
+    # names from the employer-only-no-geo cap, since a name-brand firm is
+    # much stronger evidence than an ordinary shared employer
     is_eponymous = False
     if has_employer and not has_geo:
         name_str = p1.get("name", "")
@@ -133,8 +137,8 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     if not has_geo:
         if has_employer:
             if name_freq <= 3:
-                score += 10
-                signals.append(f"rare_employer_ok(freq={name_freq},+10)")
+                score += _SCORE_RARE_EMPLOYER_OK
+                signals.append(f"rare_employer_ok(freq={name_freq},+{_SCORE_RARE_EMPLOYER_OK})")
             elif is_eponymous and name_freq <= 10:
                 signals.append(f"eponymous_employer(freq={name_freq})")
             elif name_freq <= 10:
@@ -165,28 +169,6 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     return score, signals
 
 
-def _is_typo(a: str, b: str) -> bool:
-    """True if the two strings differ by at most one edit."""
-    if abs(len(a) - len(b)) > 1:
-        return False
-    if len(a) == len(b):
-        return sum(c1 != c2 for c1, c2 in zip(a, b)) == 1
-    short, long = (a, b) if len(a) < len(b) else (b, a)
-    diffs = 0
-    si = 0
-    for li in range(len(long)):
-        if si < len(short) and short[si] == long[li]:
-            si += 1
-        else:
-            diffs += 1
-    return diffs <= 1
-
-
-def _canonical_first(name: str) -> str:
-    """Map first name to canonical form for cross-group candidate selection."""
-    return NICKNAME_MAP.get(name, name)
-
-
 def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
     """True when two LAST|FIRST norms share the surname and the first names are a nickname pair, edit distance <= 1, or a distance-2 prefix truncation; blocked look-alike pairs never match."""
     if "|" not in norm1 or "|" not in norm2:
@@ -205,7 +187,7 @@ def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
     if pair in _BLOCKED_FIRST_PAIRS:
         return False
 
-    if _canonical_first(first1) == _canonical_first(first2):
+    if NICKNAME_MAP.get(first1, first1) == NICKNAME_MAP.get(first2, first2):
         return True
 
     dist = levenshtein(first1, first2)

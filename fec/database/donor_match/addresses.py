@@ -5,6 +5,8 @@ from collections import defaultdict
 
 import pandas as pd
 
+from .structures import UnionFind
+
 _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _POBOX_RE = re.compile(r'\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)')
 
@@ -140,19 +142,14 @@ def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
             if len(nums) < 2:
                 continue
             # union typo-related box numbers into clusters
-            parent = {n: n for n in nums}
-            def find(x):
-                while parent[x] != x:
-                    parent[x] = parent[parent[x]]
-                    x = parent[x]
-                return x
+            uf = UnionFind()
             for a in nums:
                 for b in nums:
                     if a < b and _is_insertion_typo(a, b):
-                        parent[find(a)] = find(b)
+                        uf.union(a, b)
             clusters: dict[str, list] = defaultdict(list)
             for n in nums:
-                clusters[find(n)].append(n)
+                clusters[uf.find(n)].append(n)
 
             freq: dict[str, int] = defaultdict(int)
             for _, _, bn in rows:
@@ -160,6 +157,8 @@ def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
             for members in clusters.values():
                 if len(members) < 2:
                     continue
+                # tie on frequency: prefer the SHORTER box -- the insertion-
+                # typo variant is by construction the longer one
                 canon_box = max(members, key=lambda n: (freq[n], -len(n)))
                 canon_forms = [f for _, f, bn in rows if bn == canon_box]
                 canon_full = max(set(canon_forms), key=canon_forms.count)

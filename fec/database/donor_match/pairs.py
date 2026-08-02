@@ -4,30 +4,58 @@ from collections import defaultdict
 
 from fec.log import get_logger
 
-from .constants import SCORE_CROSS_NAME_BONUS, _is_blocked_merge
+from .constants import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, _is_blocked_merge
 from .structures import UnionFind
 from .scoring import compute_score, _are_cross_group_candidates
 
 logger = get_logger(__name__)
 
 
-def _score_within_groups(
-    name_groups: dict, norm_name_counts: dict, profiles: dict,
+def _merge_and_audit(
+    p1: dict, p2: dict, rid_a: str, rid_b: str, label: str,
+    score: int, signals: list,
     uf: UnionFind, audit_log: list, score_dist: dict,
-    threshold: int, verbose: bool,
+) -> tuple[bool, bool]:
+    """Bucket the score, union the pair at/above MERGE_THRESHOLD unless blocklisted, append the audit row; returns (merged, skipped)."""
+    score_dist[(score // 10) * 10] += 1
+    merged = False
+    skipped = False
+    if score >= MERGE_THRESHOLD:
+        if _is_blocked_merge(p1["name"], p2["name"]):
+            skipped = True
+            signals.append("BLOCKED(do_not_merge)")
+        elif uf.union(rid_a, rid_b):
+            merged = True
+    else:
+        skipped = True
+    audit_log.append({
+        "rid_a": rid_a,
+        "rid_b": rid_b,
+        "norm_name": label,
+        "score": score,
+        "merged": merged,
+        "signals": "; ".join(signals),
+    })
+    return merged, skipped
+
+
+def _score_within_groups(
+    name_groups: dict, profiles: dict,
+    uf: UnionFind, audit_log: list, score_dist: dict,
+    verbose: bool,
 ) -> tuple[int, int]:
     """Score all candidate pairs within each name group."""
     merge_count = 0
     skip_count = 0
 
     if verbose:
-        logger.info(f"\n  -- Scoring pairs (threshold={threshold}) --")
+        logger.info(f"\n  -- Scoring pairs (threshold={MERGE_THRESHOLD}) --")
 
     for norm_name, rids in name_groups.items():
         if len(rids) < 2:
             continue
 
-        name_freq = norm_name_counts[norm_name]
+        name_freq = len(rids)
 
         for i in range(len(rids)):
             for j in range(i + 1, len(rids)):
@@ -36,28 +64,12 @@ def _score_within_groups(
 
                 score, signals = compute_score(p1, p2, name_freq)
 
-                bucket = (score // 10) * 10
-                score_dist[bucket] += 1
-
-                merged = False
-                if score >= threshold:
-                    if _is_blocked_merge(p1["name"], p2["name"]):
-                        skip_count += 1
-                        signals.append("BLOCKED(do_not_merge)")
-                    elif uf.union(rids[i], rids[j]):
-                        merge_count += 1
-                        merged = True
-                else:
-                    skip_count += 1
-
-                audit_log.append({
-                    "rid_a": rids[i],
-                    "rid_b": rids[j],
-                    "norm_name": norm_name,
-                    "score": score,
-                    "merged": merged,
-                    "signals": "; ".join(signals),
-                })
+                m, s = _merge_and_audit(
+                    p1, p2, rids[i], rids[j], norm_name,
+                    score, signals, uf, audit_log, score_dist,
+                )
+                merge_count += m
+                skip_count += s
 
     return merge_count, skip_count
 
@@ -65,9 +77,9 @@ def _score_within_groups(
 def _score_cross_groups(
     name_groups: dict, profiles: dict,
     uf: UnionFind, audit_log: list, score_dist: dict,
-    threshold: int, verbose: bool,
+    verbose: bool,
 ) -> tuple[int, int]:
-    """Cross-group matching: nicknames + first-name typos. Requires street match."""
+    """Cross-group matching: nicknames + first-name typos sharing a surname. No geography pre-gate of its own -- compute_score decides, and the +10 cross-name bonus is withheld when the pair scored NO_CORROBORATION."""
     if verbose:
         logger.info("\n  -- Cross-group matching (nicknames + typos) --")
 
@@ -107,28 +119,13 @@ def _score_cross_groups(
                             signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")
 
                         cross_pairs += 1
-                        bucket = (score // 10) * 10
-                        score_dist[bucket] += 1
-
-                        merged = False
-                        if score >= threshold:
-                            if _is_blocked_merge(p1["name"], p2["name"]):
-                                cross_skip += 1
-                                signals.append("BLOCKED(do_not_merge)")
-                            elif uf.union(rid_a, rid_b):
-                                cross_merge += 1
-                                merged = True
-                        else:
-                            cross_skip += 1
-
-                        audit_log.append({
-                            "rid_a": rid_a,
-                            "rid_b": rid_b,
-                            "norm_name": f"{norm_list[i]} \u2194 {norm_list[j]}",
-                            "score": score,
-                            "merged": merged,
-                            "signals": "; ".join(signals),
-                        })
+                        m, s = _merge_and_audit(
+                            p1, p2, rid_a, rid_b,
+                            f"{norm_list[i]} \u2194 {norm_list[j]}",
+                            score, signals, uf, audit_log, score_dist,
+                        )
+                        cross_merge += m
+                        cross_skip += s
 
     if verbose:
         logger.info(f"  Cross-group pairs scored: {cross_pairs:>5,}")
