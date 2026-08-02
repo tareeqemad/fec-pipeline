@@ -40,3 +40,31 @@ EMPLOYER_NORMALIZE = {
 
     # Homemaker deliberately absent — _deep_clean_employer syncs employer + occupation together.
 }
+
+
+# Employer abbreviation tokens - THE one table, three consumers: the cleaner
+# auto-expands tokens that have an expansion, quality_scan surfaces every
+# token for human review, and the DB healthcheck warns on names still
+# carrying one. expansion=None marks a token as ambiguous or unverified -
+# surfaced and warned about, but never auto-expanded.
+EMPLOYER_ABBREVIATIONS = {
+    'MGMT': 'MANAGEMENT',
+    'MGMNT': 'MANAGEMENT',
+    'MGT': 'MANAGEMENT',
+    'INV': 'INVESTMENT',    # verified by hand for this dataset
+    'INTL': 'INTERNATIONAL',
+    'MFG': 'MANUFACTURING',
+    'GRP': 'GROUP',
+    'SVCS': 'SERVICES',
+    'SVC': 'SERVICES',
+    'INFO': 'INFORMATION',  # verified by hand; the \b guards protect INFOSYS/INFOSEC
+    # ASSOC splits between ASSOCIATES and ASSOCIATION - decided contextually
+    # in expand_employer_associates; the rest lack a verified single expansion
+    'ASSOC': None,
+    'ASSOCS': None,
+    'INTNL': None,
+    'MKTG': None,
+    'CONSTR': None,
+    'DEVELOP': None,
+    'TECHS': None,
+}

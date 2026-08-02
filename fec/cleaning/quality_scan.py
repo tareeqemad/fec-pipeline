@@ -10,17 +10,15 @@ from pathlib import Path
 import pandas as pd
 
 from fec.config.constants import OK_SHORT_OCCUPATIONS
+from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
-# employer abbreviations worth surfacing (whether or not auto-expanded yet)
-_ABBR_TOKENS = ["MGMT", "MGT", "MGMNT", "INV", "INTL", "INTNL", "ASSOC", "ASSOCS",
-                "SVC", "SVCS", "GRP", "MFG", "MKTG", "CONSTR", "DEVELOP", "TECHS"]
-_ABBR_RES = {token: re.compile(rf"\b{token}\b") for token in _ABBR_TOKENS}
+# every abbreviation token is worth surfacing, auto-expanded or not
+_ABBR_RES = {token: re.compile(rf"\b{token}\b") for token in EMPLOYER_ABBREVIATIONS}
 _LEGAL = {"LLC", "LLP", "INC", "CORP", "CO", "LTD", "LP", "PLC", "PC", "PA",
           "COMPANY", "CORPORATION", "THE", "AND", "OF"}
-# normalize a few abbreviations so "X MGMT" and "X MANAGEMENT" share a fingerprint
-_ABBR_NORM = {"MGMT": "MANAGEMENT", "MGT": "MANAGEMENT", "MGMNT": "MANAGEMENT",
-              "INTL": "INTERNATIONAL", "GRP": "GROUP", "SVC": "SERVICES",
-              "SVCS": "SERVICES", "MFG": "MANUFACTURING", "INV": "INVESTMENT"}
+# normalize expandable abbreviations so "X MGMT" and "X MANAGEMENT" share a fingerprint
+_ABBR_NORM = {token: expansion
+              for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion}
 _STATUS = {"RETIRED", "SELF-EMPLOYED", "SELF EMPLOYED", "NOT EMPLOYED", "UNEMPLOYED",
            "NONE", "N/A", "NA", "STUDENT", "HOMEMAKER", "NOT DISCLOSED", ""}
 
