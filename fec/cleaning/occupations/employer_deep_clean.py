@@ -5,7 +5,9 @@ import numpy as np
 import pandas as pd
 
 from fec.config import MISSING_VALUES
-from fec.config.constants import SELF_EMPLOYED_TYPOS
+from fec.config.constants import (
+    OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS,
+)
 
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
@@ -26,14 +28,6 @@ _EMP_TYPO_PATTERNS = [
     (r'MANAGEMNT', 'MANAGEMENT'),
     (r'INVESTEMENT', 'INVESTMENT'),
 ]
-
-# real 2-char names that must survive the truncated-value nulling
-_REAL_SHORT_EMPS = {
-    '3M', 'HP', 'BP', 'GE', 'GM', 'LG',
-    'EY', 'PW', 'BJ', 'C3', 'AT', 'QC',
-}
-_REAL_SHORT_OCCS = {'IT', 'MD', 'RN', 'PA', 'VP', 'DJ', 'GP', 'OT', 'PT'}
-
 
 def _deep_clean_employer(df: pd.DataFrame) -> int:
     """Employer-specific cleaning beyond text normalization; returns number of values changed."""
@@ -215,7 +209,7 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> int:
     emp_now = df['contributor_employer']
     short_emp = (
         emp_now.str.len().le(2) & emp_now.notna()
-        & ~emp_now.isin(_REAL_SHORT_EMPS) & ~emp_now.isin(MISSING_VALUES)
+        & ~emp_now.isin(OK_SHORT_EMPLOYERS) & ~emp_now.isin(MISSING_VALUES)
     )
     if short_emp.any():
         n_changed += int(short_emp.sum())
@@ -224,7 +218,7 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> int:
     occ_now = df['contributor_occupation']
     short_occ = (
         occ_now.str.len().le(2) & occ_now.notna()
-        & ~occ_now.isin(_REAL_SHORT_OCCS) & ~occ_now.isin(MISSING_VALUES)
+        & ~occ_now.isin(OK_SHORT_OCCUPATIONS) & ~occ_now.isin(MISSING_VALUES)
     )
     if short_occ.any():
         n_changed += int(short_occ.sum())
