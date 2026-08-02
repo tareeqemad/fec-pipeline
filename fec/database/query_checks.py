@@ -1,6 +1,8 @@
 """ONE registry (CHECKS) of query-correctness checks for the loaded fec_db, consumed by tests/test_db_live.py (crit asserted by pytest) and healthcheck.py (crit -> FAIL, warn -> WARN)."""
 from __future__ import annotations
 
+from fec.config.employers import EMPLOYER_ABBREVIATIONS
+
 CRIT, WARN = "crit", "warn"
 BIGINT_MAX = 9223372036854775807
 
@@ -273,8 +275,8 @@ def _build() -> list[Check]:
               "active row(s) without an employer", WARN),
         _zero("employer names not abbreviated",
               r"SELECT count(DISTINCT name) FROM employers "
-              r"WHERE name ~ '\m(MGMT|MGT|INV|ASSOC|MFG|INTL|GRP|SVCS?)\M'",
-              "employer(s) still abbreviated (ties to quality_scan)", WARN),
+              rf"WHERE name ~ '\m({'|'.join(EMPLOYER_ABBREVIATIONS)})\M'",
+              "employer(s) still abbreviated (same table quality_scan surfaces)", WARN),
     ]
 
     # value sanity

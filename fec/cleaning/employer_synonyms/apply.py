@@ -7,6 +7,7 @@ from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.occupations import _categorize
 from fec.config.constants import LEGAL_SUFFIX_RE as _LEGAL_SUFFIX_RE
 from fec.config.constants import SKIP_EMPLOYERS as _SKIP_EMPLOYERS
+from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
@@ -40,22 +41,12 @@ def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# Employer abbreviations -> full word (whole-word, optional trailing period).
-# Each expansion is unambiguous for THIS dataset; INV and INFO were verified
-# by hand. ASSOC deliberately absent: it splits between ASSOCIATES and
-# ASSOCIATION (handled contextually in expand_employer_associates). The \b
-# guards keep prefixes like INFOSYS/INFOSEC untouched.
+# Whole-word token + optional trailing period, derived from THE abbreviation
+# table; tokens without a verified expansion (e.g. the ambiguous ASSOC,
+# handled contextually in expand_employer_associates) are never auto-expanded.
 _EMPLOYER_ABBREV = [
-    (re.compile(r'\bMGMT\b\.?'), 'MANAGEMENT'),
-    (re.compile(r'\bMGMNT\b\.?'), 'MANAGEMENT'),
-    (re.compile(r'\bMGT\b\.?'), 'MANAGEMENT'),
-    (re.compile(r'\bINV\b\.?'), 'INVESTMENT'),
-    (re.compile(r'\bINTL\b\.?'), 'INTERNATIONAL'),
-    (re.compile(r'\bMFG\b\.?'), 'MANUFACTURING'),
-    (re.compile(r'\bGRP\b\.?'), 'GROUP'),
-    (re.compile(r'\bSVCS\b\.?'), 'SERVICES'),
-    (re.compile(r'\bSVC\b\.?'), 'SERVICES'),
-    (re.compile(r'\bINFO\b\.?'), 'INFORMATION'),
+    (re.compile(rf'\b{token}\b\.?'), expansion)
+    for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion
 ]
 
 
