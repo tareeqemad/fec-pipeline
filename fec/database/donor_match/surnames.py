@@ -1,12 +1,13 @@
-"""Phases 2.5, 2.6 and 2.7: matching across surname variants, surname supersets, and name-format variants."""
+"""Phases 2.5, 2.6 and 2.7: surname spelling variants, name-format variants (same token set), and maiden/married surname supersets."""
 
 import re
 from collections import defaultdict
 
 from fec.log import get_logger
 
-from .constants import SCORE_CROSS_NAME_BONUS, _is_blocked_merge
+from .constants import SCORE_CROSS_NAME_BONUS
 from .structures import UnionFind
+from .pairs import _merge_and_audit
 from .scoring import compute_score, _is_surname_variant
 
 logger = get_logger(__name__)
@@ -17,7 +18,7 @@ _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 
 def _score_surname_variants(
     name_groups: dict, profiles: dict, uf: UnionFind,
-    audit_log: list, score_dist: dict, threshold: int, verbose: bool,
+    audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
     """Match records whose surnames are spelling variants and first names equal; a merge additionally requires the same street or same ZIP5, so families are never fused on a near-miss surname."""
     first_to_norms = defaultdict(set)
@@ -57,27 +58,13 @@ def _score_surname_variants(
 
                         score, signals = compute_score(p1, p2, combined_freq)
                         signals.append("surname_variant")
-                        score_dist[(score // 10) * 10] += 1
-
-                        did_merge = False
-                        if score >= threshold:
-                            if _is_blocked_merge(p1["name"], p2["name"]):
-                                skipped += 1
-                                signals.append("BLOCKED(do_not_merge)")
-                            elif uf.union(ra, rb):
-                                merged += 1
-                                did_merge = True
-                        else:
-                            skipped += 1
-
-                        audit_log.append({
-                            "rid_a": ra,
-                            "rid_b": rb,
-                            "norm_name": f"{norm_list[i]} ↔ {norm_list[j]}",
-                            "score": score,
-                            "merged": did_merge,
-                            "signals": "; ".join(signals),
-                        })
+                        m, s = _merge_and_audit(
+                            p1, p2, ra, rb,
+                            f"{norm_list[i]} ↔ {norm_list[j]}",
+                            score, signals, uf, audit_log, score_dist,
+                        )
+                        merged += m
+                        skipped += s
 
     if verbose:
         logger.info("\n  -- Surname-variant matching --")
@@ -88,7 +75,7 @@ def _score_surname_variants(
 
 def _score_surname_superset_variants(
     name_groups: dict, profiles: dict, uf: UnionFind,
-    audit_log: list, score_dist: dict, threshold: int, verbose: bool,
+    audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
     """Merge a maiden/short name whose token set is a proper subset of the married/compound form; gated on a shared first-name token, non-suffix extra tokens, and the same exact street."""
     key_of: dict = {}
@@ -109,14 +96,11 @@ def _score_surname_superset_variants(
 
     merged = 0
     skipped = 0
-    seen_pairs = set()
     for nn1, k1 in key_of.items():
         # norms whose token set contains ALL of k1's tokens = supersets of nn1
         cand = None
         for t in k1:
             cand = set(tok_index[t]) if cand is None else (cand & tok_index[t])
-        if not cand:
-            continue
         for nn2 in cand:
             if nn2 == nn1:
                 continue
@@ -127,12 +111,8 @@ def _score_surname_superset_variants(
             if len(extra) > 2 or extra <= _SUFFIX_TOKENS:  # suffix-only diff = father/son
                 continue
             # the shorter name's first-name token must appear in the longer name
-            if not (first_of.get(nn1, frozenset()) & k2):
+            if not (first_of[nn1] & k2):
                 continue
-            pair = (nn1, nn2)
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
 
             combined_freq = len(name_groups[nn1]) + len(name_groups[nn2])
             for ra in name_groups[nn1]:
@@ -144,25 +124,13 @@ def _score_surname_superset_variants(
                     if not any(('MIDDLE_CONFLICT' in s) or ('HARD_BLOCK' in s) for s in signals):
                         score += SCORE_CROSS_NAME_BONUS
                     signals.append("surname_superset")
-                    score_dist[(score // 10) * 10] += 1
-
-                    did_merge = False
-                    if score >= threshold:
-                        if _is_blocked_merge(p1["name"], p2["name"]):
-                            skipped += 1
-                            signals.append("BLOCKED(do_not_merge)")
-                        elif uf.union(ra, rb):
-                            merged += 1
-                            did_merge = True
-                    else:
-                        skipped += 1
-
-                    audit_log.append({
-                        "rid_a": ra, "rid_b": rb,
-                        "norm_name": f"{nn1} ⊂ {nn2}",
-                        "score": score, "merged": did_merge,
-                        "signals": "; ".join(signals),
-                    })
+                    m, s = _merge_and_audit(
+                        p1, p2, ra, rb,
+                        f"{nn1} ⊂ {nn2}",
+                        score, signals, uf, audit_log, score_dist,
+                    )
+                    merged += m
+                    skipped += s
 
     if verbose:
         logger.info("\n  -- Maiden/married (surname-superset) matching --")
@@ -179,7 +147,7 @@ def _name_token_key(norm_name: str) -> frozenset:
 
 def _score_name_variants(
     name_groups: dict, profiles: dict, uf: UnionFind,
-    audit_log: list, score_dist: dict, threshold: int, verbose: bool,
+    audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
     """Match the same person written in a different name format, bucketed by token set and gated on same street or ZIP5; middle-name conflicts stay blocked/penalised."""
     token_to_norms = defaultdict(set)
@@ -218,27 +186,13 @@ def _score_name_variants(
                         if not any(('MIDDLE_CONFLICT' in s) or ('HARD_BLOCK' in s) for s in signals):
                             score += SCORE_CROSS_NAME_BONUS
                         signals.append("name_format_variant")
-                        score_dist[(score // 10) * 10] += 1
-
-                        did_merge = False
-                        if score >= threshold:
-                            if _is_blocked_merge(p1["name"], p2["name"]):
-                                skipped += 1
-                                signals.append("BLOCKED(do_not_merge)")
-                            elif uf.union(ra, rb):
-                                merged += 1
-                                did_merge = True
-                        else:
-                            skipped += 1
-
-                        audit_log.append({
-                            "rid_a": ra,
-                            "rid_b": rb,
-                            "norm_name": f"{norm_list[i]} ↔ {norm_list[j]}",
-                            "score": score,
-                            "merged": did_merge,
-                            "signals": "; ".join(signals),
-                        })
+                        m, s = _merge_and_audit(
+                            p1, p2, ra, rb,
+                            f"{norm_list[i]} ↔ {norm_list[j]}",
+                            score, signals, uf, audit_log, score_dist,
+                        )
+                        merged += m
+                        skipped += s
 
     if verbose:
         logger.info("\n  -- Name-format-variant matching --")

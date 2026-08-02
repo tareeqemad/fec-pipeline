@@ -14,7 +14,7 @@ def _s(val) -> str:
 
 
 def build_profiles(indiv: pd.DataFrame) -> dict:
-    """Build a per-record_id (NAME|CITY|STATE) profile aggregating streets, employers, and zips."""
+    """Build a per-record_id (NAME|CITY|STATE) profile: streets, employers and occupation categories aggregate across the rid's filings; zip5 is the FIRST filing's ZIP only."""
     profiles = {}
 
     for _, row in indiv.iterrows():
@@ -26,7 +26,6 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
 
         if rid not in profiles:
             profiles[rid] = {
-                "rid": rid,
                 "name": _s(row["contributor_name"]),
                 "norm_name": normalize_name(row["contributor_name"]),
                 "middle": extract_middle(row["contributor_name"]),

@@ -13,7 +13,7 @@ _VAGUE_OCC_CATEGORIES = ("", "OTHER", "NOT EMPLOYED", "RETIRED")
 
 
 def individual_record_id(name, city, state) -> str:
-    """The name|city|state record-id string used to key an individual donor."""
+    """The name|city|state record-id string used to key an individual donor; must produce exactly the same string as the rid built in profiles.build_profiles (which strips and maps NaN to ""), or apply_donor_key's rid_to_key lookup silently falls back to a per-record key."""
     return f"{name or ''}|{city or ''}|{state or ''}"
 
 
@@ -24,7 +24,7 @@ def individual_donor_key(name, city, state) -> str:
 
 
 def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
-    """Apply scored donor_key to DataFrame."""
+    """Apply scored donor_key: individuals take their cluster key from rid_to_key, silently falling back to a hash of their own rid when absent; non-individuals hash their normalized committee name instead."""
 
     def _get_key(row):
         if row["entity_type"] != "INDIVIDUAL":

@@ -5,7 +5,12 @@ from collections import defaultdict
 
 import pandas as pd
 
+from .structures import UnionFind
+
 _EARTH_RADIUS_M = 6371000.0
+
+# geocode_level substrings meaning the point is not address-precise
+_COARSE_LEVEL_TOKENS = ("city", "zip", "centroid", "state")
 
 
 def _haversine_m(lat1, lon1, lat2, lon2) -> float:
@@ -40,7 +45,7 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
                 continue
             if level_col is not None:
                 lvl = str(df.iat[i, level_col]).lower()
-                if any(t in lvl for t in ("city", "zip", "centroid", "state")):
+                if any(t in lvl for t in _COARSE_LEVEL_TOKENS):
                     continue
             try:
                 lat, lng = float(df.iat[i, lat_col]), float(df.iat[i, lng_col])
@@ -52,22 +57,16 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
         if len(pts) < 2:
             continue
 
-        parent = list(range(len(pts)))
-
-        def find(x):
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
+        uf = UnionFind()
 
         for a in range(len(pts)):
             for b in range(a + 1, len(pts)):
                 if _haversine_m(pts[a][2], pts[a][3], pts[b][2], pts[b][3]) <= radius_m:
-                    parent[find(a)] = find(b)
+                    uf.union(a, b)
 
         clusters = defaultdict(list)
         for k in range(len(pts)):
-            clusters[find(k)].append(k)
+            clusters[uf.find(k)].append(k)
 
         for members in clusters.values():
             forms = [pts[m][1] for m in members]
