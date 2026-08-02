@@ -75,7 +75,7 @@ def main():
 
         # with coords, collapse a donor's same-place addresses written differently
         # (the string pass can't see they're the same building)
-        from fec.donor_match.geo import canonicalize_donor_addresses_geo
+        from fec.donor_match.canonicalize import canonicalize_donor_addresses_geo
         n_geo = canonicalize_donor_addresses_geo(df)
         if n_geo:
             logger.info(f"  Geo-dedup: {n_geo:,} rows unified to a per-donor same-place address")
