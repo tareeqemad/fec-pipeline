@@ -49,7 +49,7 @@ def apply_post_merge_fixes(df: pd.DataFrame) -> int:
         ("once-retired-always-retired [AO]",         _once_retired_always_retired),
         ("propagate-prev-employer-within-donor [AP]", _propagate_previous_employer_within_donor),
         ("retired-active-sync [AQ]",                 _retired_active_sync),
-        # must run after all employer-fill steps (AI/AJ/AK/AL) and before AO pass 2
+        # must run after the employer-fill steps (AI/AK/AL) and before AO pass 2
         # (blanking a placeholder can itself create a once-retired case)
         ("null-refusal-employers [AS]",              _null_refusal_employers),
         # convergence: the fills and AS can expose retired pairs pass 1 couldn't see

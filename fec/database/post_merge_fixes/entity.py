@@ -72,7 +72,7 @@ def _reenforce_entity_consistency(df: pd.DataFrame) -> int:
     from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
     before = df['entity_type'].copy()
     n = _enforce_entity_name_consistency(df)
-    if n and 'occupation_category' in df.columns:
+    if n:
         flipped = (before == 'COMMITTEE/PAC') & (df['entity_type'] == 'ORGANIZATION')
         df.loc[flipped, 'occupation_category'] = 'ORGANIZATION'
     return n
