@@ -19,31 +19,12 @@ ID_DTYPES = {
 }
 
 
-def read_pipeline_csv(
-    path: str | Path,
-    extra_dtypes: dict | None = None,
-    all_string: bool = False,
-    **kwargs,
-) -> pd.DataFrame:
-    """Read a pipeline CSV with NULL-surname-safe defaults; dtype/keep_default_na/na_values are reserved, extra kwargs go to pd.read_csv."""
-    for reserved in ('keep_default_na', 'na_values'):
-        if reserved in kwargs:
-            raise TypeError(
-                f"read_pipeline_csv: {reserved!r} is managed internally; "
-                "pass additional na values via a custom read_csv instead."
-            )
-
+def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
+    """Read a pipeline CSV with NULL-surname-safe defaults."""
     # peek header to scope dtypes to present columns only
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
-
-    if all_string:
-        dtypes: dict = {c: str for c in present}
-    else:
-        dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
-
-    if extra_dtypes:
-        dtypes.update({k: v for k, v in extra_dtypes.items() if k in present})
+    dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
 
     return pd.read_csv(
         path,
@@ -51,5 +32,4 @@ def read_pipeline_csv(
         low_memory=False,
         keep_default_na=False,
         na_values=NA_VALUES,
-        **kwargs,
     )

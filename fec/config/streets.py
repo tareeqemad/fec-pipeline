@@ -70,7 +70,7 @@ STREET_TYPES = [
         ('COURT', 'CT'), ('CIRCLE', 'CIR'), ('PLACE', 'PL'),
         ('PARKWAY', 'PKWY'), ('HIGHWAY', 'HWY'), ('TERRACE', 'TER'),
         ('TURNPIKE', 'TPKE'), ('EXPRESSWAY', 'EXPY'), ('SQUARE', 'SQ'),
-        ('WAY', 'WAY'), ('TRAIL', 'TRL'), ('CROSSING', 'XING'),
+        ('TRAIL', 'TRL'), ('CROSSING', 'XING'),
         ('JUNCTION', 'JCT'), ('MOUNT', 'MT'),
     ]
 ]

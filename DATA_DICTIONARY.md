@@ -12,8 +12,8 @@ contributions_cleaned.csv ──┬── recipient_committee ──▶ committe
 
 | File | Grain | Rows |
 |------|-------|------|
-| `data/contributions_cleaned.csv` | one row per FEC contribution filing | ~198,800 |
-| `data/employers.csv` | one row per company (HQ dimension) | ~10,500 |
+| `data/contributions_cleaned.csv` | one row per FEC contribution filing | ~208,300 |
+| `data/employers.csv` | one row per company (HQ dimension) | ~10,400 |
 | `data/database/committees.csv` | one row per tracked recipient committee | 5 |
 
 All files are UTF-8, comma-separated, with a header row. Empty cells mean

@@ -17,7 +17,7 @@ FEC_BASE = "https://api.open.fec.gov/v1"
 
 
 def step_fec_api(df: pd.DataFrame, prev_cache, donor_totals: pd.Series,
-                 active_tiers: list, dry_run: bool = False) -> int:
+                 dry_run: bool = False) -> int:
     """For RETIRED donors without cross-record match, search FEC API (parallel)."""
     import requests
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -31,7 +31,8 @@ def step_fec_api(df: pd.DataFrame, prev_cache, donor_totals: pd.Series,
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     retired_keys = set(individuals[individuals["contributor_employer"] == RETIRED]["donor_key"].unique())
 
-    tier_keys = set(donor_totals[donor_totals["tier"].isin(active_tiers)]["donor_key"])
+    # subsetting on donor_totals keys also drops NaN-keyed rows (groupby skips them)
+    tier_keys = set(donor_totals["donor_key"])
 
     latest_retired = individuals[individuals["donor_key"].isin(retired_keys)] \
         .sort_values("contribution_receipt_date", ascending=False) \

@@ -13,10 +13,8 @@ from .addresses import (
     canonicalize_donor_addresses,
     canonicalize_donor_pobox_typos, canonicalize_donor_units,
 )
-from .geo import canonicalize_donor_addresses_geo
 from .reports import build_donor_dedup_review
 from .scoring import compute_score
-from .profiles import build_profiles
 
 __all__ = [
     "match_donors",
@@ -26,11 +24,9 @@ __all__ = [
     "canonicalize_donor_names",
     "canonicalize_donor_employers",
     "canonicalize_donor_addresses",
-    "canonicalize_donor_addresses_geo",
     "canonicalize_donor_pobox_typos",
     "canonicalize_donor_units",
     "align_org_donor_company_names",
     "build_donor_dedup_review",
     "compute_score",
-    "build_profiles",
 ]

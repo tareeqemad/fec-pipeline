@@ -1,8 +1,6 @@
 """Employer name normalization and synonym merging."""
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.cleaning.employer_synonyms.normalize import (
-    AMPERSAND_BRANDS,
-    GENERIC_WORDS_PROTECTED,
     normalize_employer_canonical,
     normalize_employer_display_name,
     restyle_legal_suffix,
@@ -23,8 +21,6 @@ from fec.cleaning.employer_synonyms.canonical import (
 
 __all__ = [
     "EMPLOYER_SYNONYMS",
-    "AMPERSAND_BRANDS",
-    "GENERIC_WORDS_PROTECTED",
     "normalize_employer_canonical",
     "normalize_employer_display_name",
     "restyle_legal_suffix",

@@ -64,8 +64,7 @@ and idempotent.
 | `loader.py` | Load the cleaned CSV into PostgreSQL | thin wrapper for `fec.database.loader` |
 
 > Root scripts marked **wrapper/thin** just call into the `fec/` package — the
-> real logic lives there. The *manual tool* is not part of the automated
-> pipeline; treat it as a utility.
+> real logic lives there.
 
 ---
 
@@ -79,7 +78,7 @@ fec/
 │
 ├── config/         # DATA, not logic — lookup tables & rules
 │   ├── constants.py        # skip-sets, status words
-│   ├── occupation_rules.py # occupation normalization + 15 category rules + typo fixes
+│   ├── occupation_rules/   # occupation normalization + 15 category rules + typo fixes
 │   ├── cities.py           # city corrections
 │   ├── geography.py        # state / ZIP validation
 │   └── streets.py          # street standardization
@@ -87,26 +86,26 @@ fec/
 ├── cleaning/       # the cleaning pipeline (CPU-only, no network)
 │   ├── pipeline/               # 12-step orchestrator package (clean() + names/reclassify/address_fixes/reports)
 │   ├── entity_classification.py# INDIVIDUAL vs COMMITTEE vs ORG vs …
-│   ├── occupations.py          # employer + occupation cleaning/categorization (logic)
-│   ├── addresses.py            # address normalization
-│   ├── employer_synonyms.py    # company-name mappings, abbreviation/ASSOC expansion
-│   ├── enhancements.py         # 16 enhancement steps
-│   ├── safety_nets/            # 39 consistency fixes package (by field: committee/occupation/employer/names/addresses) — see §6
+│   ├── occupations/            # employer + occupation cleaning/categorization (logic)
+│   ├── addresses/              # address normalization
+│   ├── employer_synonyms/      # company-name mappings, abbreviation/ASSOC expansion
+│   ├── enhancements/           # enhancement steps
+│   ├── safety_nets/            # consistency-fix package (by field: committee/occupation/employer/names/addresses) — see §6
 │   ├── audit.py                # change tracking
 │   ├── quality.py              # quality gates + outlier detection
 │   └── quality_scan.py         # proactive issue scanner → data/quality_scan.json
 │
 ├── database/
 │   ├── schema.sql              # the whole DB (15 tables, 10 views, 1 matview) — schema v1.2
-│   ├── loader/                 # CSV → PostgreSQL loader package (_base/schema/loading + CLI)
-│   ├── healthcheck.py          # 80 read-only checks vs the LIVE fec_db (registry + live-only extras)
-│   ├── query_checks.py         # 75 structured query-correctness checks (shared by tests + healthcheck)
-│   ├── post_merge_fixes.py     # fixes needing donor_key (Y–AP): fill-from-same-donor, etc.
+│   ├── loader/                 # CSV → PostgreSQL loader package (_base + schema_create/schema_reset + per-table modules)
+│   ├── healthcheck.py          # read-only checks vs the LIVE fec_db (registry + live-only extras)
+│   ├── query_checks.py         # structured query-correctness checks (shared by tests + healthcheck)
+│   ├── post_merge_fixes/       # fixes needing donor_key (Y–AP): fill-from-same-donor, etc.
 │   ├── leadership_matcher.py   # match leadership/accomplices to donors
 │   └── donor_match/            # score-based donor de-duplication + canonicalization
 │       ├── __init__.py             # match_donors, apply_donor_key, canonicalize_* (public API)
 │       ├── constants.py            # match weights, do-not-merge blocklist
-│       └── output.py               # canonicalize_donor_{names,employers,addresses}
+│       └── names.py / addresses.py / geo.py  # canonicalize_donor_* (+ matcher/scoring/pairs/profiles)
 │
 ├── geocoding/
 │   ├── pipeline.py             # geocode orchestrator
@@ -159,7 +158,7 @@ Each of these cost a real bug. They are enforced in code and tests.
 
 The cleaning **safety nets** (`fec/cleaning/safety_nets/`) are independent fix
 functions grouped by the field they touch (committee / occupation / employer /
-names / addresses); `apply_safety_nets()` runs them in order. `post_merge_fixes.py`
+names / addresses); `apply_safety_nets()` runs them in order. `post_merge_fixes/`
 continues the Y–AP fixes that need `donor_key`. Read each function's docstring.
 
 ---
@@ -187,8 +186,8 @@ continues the Y–AP fixes that need `donor_key`. Read each function's docstring
   `fec/cleaning/safety_nets/`, call it from `apply_safety_nets()`, add a test.
 - **Add/alter a view:** edit `fec/database/schema.sql`, add it to `loader.VIEWS`,
   add a correctness check to `fec/database/query_checks.py`.
-- **Verify the DB is correct:** `pytest -m live` — 69 checks cross-validate every
-  view against the base tables.
+- **Verify the DB is correct:** `pytest -m live` — the shared `query_checks`
+  registry cross-validates every view against the base tables.
 
 ---
 

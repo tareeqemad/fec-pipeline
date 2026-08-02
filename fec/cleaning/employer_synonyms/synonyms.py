@@ -17,7 +17,7 @@ EMPLOYER_SYNONYMS = {**_TABLE_1, **_TABLE_2}
 
 
 def _load_manual_overrides():
-    """Merge human-reviewed mappings from data/manual_typo_overrides.json (written by scans/apply_user_decisions.py) into EMPLOYER_SYNONYMS."""
+    """Merge human-reviewed mappings from data/manual_typo_overrides.json into EMPLOYER_SYNONYMS."""
     path = Path(__file__).resolve().parents[3] / 'data' / 'manual_typo_overrides.json'
     if not path.exists():
         return 0
