@@ -118,7 +118,7 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
     # 5. employer_status is populated only by apply_results, so clean.py's
     # retired+active sweep runs too early to see these rows - re-sync here
     # in the same pass that creates the contradiction (idempotent).
-    from fec.database.post_merge_fixes import _retired_active_sync
+    from fec.post_merge_fixes import _retired_active_sync
     _retired_active_sync(df)
 
 

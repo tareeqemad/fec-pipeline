@@ -77,8 +77,8 @@ fec-pipeline/
 │   ├── database/
 │   │   ├── schema.sql           # Schema v1.2 (15 tables, 10 views, 1 MV)
 │   │   ├── loader/              # Loader + schema-integrity verification
-│   │   ├── healthcheck.py       # Read-only checks against the live db
-│   │   └── post_merge_fixes/    # Fixes requiring donor_key
+│   │   └── healthcheck.py       # Read-only checks against the live db
+│   ├── post_merge_fixes/        # Fixes requiring donor_key (runs inside clean)
 │   ├── donor_match/             # Score-based de-duplication + canonicalization (runs inside clean)
 │   ├── resolve/pipeline/        # Multi-step employer resolution
 │   ├── geocoding/               # Nominatim + Google geocoder

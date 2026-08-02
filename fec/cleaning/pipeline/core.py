@@ -273,7 +273,7 @@ def unify_donors(df_clean: pd.DataFrame, out_dir: str | None = None,
     logger.info(f"  {n_donors:,} unique donors")
 
     # post-merge fixes need donor_key
-    from fec.database.post_merge_fixes import apply_post_merge_fixes
+    from fec.post_merge_fixes import apply_post_merge_fixes
     n_post = apply_post_merge_fixes(df_clean)
     if n_post:
         logger.info(f"  Post-merge fixes: {n_post:,} records corrected")
