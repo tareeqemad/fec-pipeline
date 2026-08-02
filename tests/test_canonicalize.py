@@ -1,12 +1,12 @@
 """Per-donor canonicalization: same entity unifies, different entities stay apart."""
 import pandas as pd
 
-from fec.database.donor_match.names import (
+from fec.donor_match.names import (
     canonicalize_donor_names,
     canonicalize_donor_employers,
 )
-from fec.database.donor_match.addresses import canonicalize_donor_addresses
-from fec.database.donor_match.geo import canonicalize_donor_addresses_geo
+from fec.donor_match.addresses import canonicalize_donor_addresses
+from fec.donor_match.geo import canonicalize_donor_addresses_geo
 
 
 def _df(rows, cols):

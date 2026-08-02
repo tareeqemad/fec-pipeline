@@ -77,9 +77,9 @@ fec-pipeline/
 │   ├── database/
 │   │   ├── schema.sql           # Schema v1.2 (15 tables, 10 views, 1 MV)
 │   │   ├── loader/              # Loader + schema-integrity verification
-│   │   ├── healthcheck.py       # 80 read-only checks against the live db
-│   │   ├── post_merge_fixes/    # Fixes requiring donor_key
-│   │   └── donor_match/         # Score-based de-duplication + canonicalization
+│   │   ├── healthcheck.py       # Read-only checks against the live db
+│   │   └── post_merge_fixes/    # Fixes requiring donor_key
+│   ├── donor_match/             # Score-based de-duplication + canonicalization (runs inside clean)
 │   ├── resolve/pipeline/        # Multi-step employer resolution
 │   ├── geocoding/               # Nominatim + Google geocoder
 │   └── io.py                    # CSV I/O that preserves the literal "NULL" surname

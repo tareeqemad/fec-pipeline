@@ -101,11 +101,12 @@ fec/
 │   ├── healthcheck.py          # read-only checks vs the LIVE fec_db (registry + live-only extras)
 │   ├── query_checks.py         # structured query-correctness checks (shared by tests + healthcheck)
 │   ├── post_merge_fixes/       # fixes needing donor_key (Y–AP): fill-from-same-donor, etc.
-│   ├── leadership_matcher.py   # match leadership/accomplices to donors
-│   └── donor_match/            # score-based donor de-duplication + canonicalization
-│       ├── __init__.py             # match_donors, apply_donor_key, canonicalize_* (public API)
-│       ├── constants.py            # match weights, do-not-merge blocklist
-│       └── names.py / addresses.py / geo.py  # canonicalize_donor_* (+ matcher/scoring/pairs/profiles)
+│   └── leadership_matcher.py   # match leadership/accomplices to donors
+│
+├── donor_match/    # score-based donor de-duplication + canonicalization (runs inside clean, no DB)
+│   ├── __init__.py             # match_donors, apply_donor_key, canonicalize_* (public API)
+│   ├── constants.py            # match weights, do-not-merge blocklist
+│   └── names.py / addresses.py / geo.py  # canonicalize_donor_* (+ matcher/scoring/pairs/profiles)
 │
 ├── geocoding/
 │   ├── pipeline.py             # geocode orchestrator

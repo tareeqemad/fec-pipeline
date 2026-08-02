@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fec.database.donor_match.keys import individual_donor_key
+from fec.donor_match.keys import individual_donor_key
 from fec.config.constants import SKIP_EMPLOYERS, REFUSAL_EMPLOYERS
 
 logger = logging.getLogger(__name__)

@@ -2,9 +2,10 @@
 
 import csv
 import hashlib
-from pathlib import Path
 
 import pandas as pd
+
+from fec.env import DATA_DIR
 
 from .normalize import normalize_committee_name
 
@@ -85,8 +86,7 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
 
 def apply_donor_dedup_merges(df: pd.DataFrame) -> int:
     """Apply curated merges from data/database/donor_dedup_merges.csv, repointing drop keys to keep keys (chains followed to a final key); returns rows repointed."""
-    path = (Path(__file__).resolve().parents[3]
-            / "data" / "database" / "donor_dedup_merges.csv")
+    path = DATA_DIR / "database" / "donor_dedup_merges.csv"
     if not path.exists() or "donor_key" not in df.columns:
         return 0
     remap: dict[str, str] = {}

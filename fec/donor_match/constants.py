@@ -5,6 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
+from fec.env import DATA_DIR
 
 # employer statuses that are not real companies
 STATUS_EMPLOYERS = EMPLOYER_STATUS_VALUES
@@ -27,7 +28,7 @@ def _norm_blk(s: str) -> str:
 
 def _load_do_not_merge() -> set:
     """Read curated 'not the same person' name pairs from data/database/donor_no_merge.csv."""
-    path = Path(__file__).resolve().parents[3] / "data" / "database" / "donor_no_merge.csv"
+    path = DATA_DIR / "database" / "donor_no_merge.csv"
     if not path.exists():
         return set()
     pairs: set = set()
@@ -43,7 +44,7 @@ _DNM_SET = _load_do_not_merge()
 
 
 def _donor_overrides_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "data" / "database" / "donor_overrides.csv"
+    return DATA_DIR / "database" / "donor_overrides.csv"
 
 
 def _load_force_merge_names() -> set:
