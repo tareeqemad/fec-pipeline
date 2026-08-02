@@ -13,8 +13,6 @@ _STATUS_OCC = {'SELF-EMPLOYED', 'RETIRED', 'NOT EMPLOYED', 'HOMEMAKER',
 
 def _rederive_occupation_status(df: pd.DataFrame) -> int:
     """AR. Re-derive occupation_status from the final occupation/employer state; rows with no occupation stay untouched."""
-    if 'occupation_status' not in df.columns:
-        return 0
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     has_occ = _norm(df['contributor_occupation']) != ''
     has_emp = _norm(df['contributor_employer']) != ''
@@ -33,11 +31,12 @@ def _rederive_occupation_category(df: pd.DataFrame) -> int:
     """AT. Re-derive occupation_category from the final occupation text; only stale status-bucket rows are touched."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
+    occ_u = occ.str.upper()
     cat = df['occupation_category'].fillna('')
 
     stale = (
         is_indiv & cat.isin(_STATUS_CATS)
-        & (occ != '') & ~occ.str.upper().isin(_STATUS_OCC)
+        & (occ != '') & ~occ_u.isin(_STATUS_OCC)
     )
     idx = df.index[stale]
     n_fixed = 0
@@ -50,7 +49,6 @@ def _rederive_occupation_category(df: pd.DataFrame) -> int:
         n_fixed = int(len(fix_idx))
 
     # inverse direction: a status-word occupation must not keep a professional category
-    occ_u = occ.str.upper()
     torn = is_indiv & occ_u.isin(_STATUS_OCC) & (cat != '') & ~cat.isin(_STATUS_CATS)
     if torn.any():
         status_cat = occ_u[torn].replace({'HOUSEWIFE': 'HOMEMAKER', 'UNEMPLOYED': 'NOT EMPLOYED'})
@@ -85,7 +83,7 @@ def _occupation_consolidation(df: pd.DataFrame) -> int:
         for other_occ in occs:
             if other_occ == canonical:
                 continue
-            other_count = counts.get(other_occ, 0)
+            other_count = counts[other_occ]
             if canonical_count >= 3 * other_count and (other_occ in canonical or canonical in other_occ):
                 mask = (
                     (df['donor_key'] == dk)

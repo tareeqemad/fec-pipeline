@@ -23,25 +23,26 @@ def _retired_while_active(df: pd.DataFrame) -> int:
 
         ret_rows = grp[grp['contributor_employer'] == 'RETIRED']
         active_rows = grp[grp['contributor_employer'].isin(real_emps)]
-        if ret_rows.empty or active_rows.empty:
+
+        # not(<=) rather than '>': NaT dates compare False either way, so only
+        # this form keeps skipping donors whose dates are unparseable
+        if not (ret_rows['contribution_receipt_date'].max() <= active_rows['contribution_receipt_date'].max()):
             continue
+        main_emp = active_rows['contributor_employer'].value_counts().index[0]
+        sub = active_rows[active_rows['contributor_employer'] == main_emp]
+        occ_vc = sub['contributor_occupation'].value_counts()
+        if occ_vc.empty:
+            continue          # no occupation to propagate - skip this donor
+        main_occ = occ_vc.index[0]
+        main_cat = sub['occupation_category'].mode()
+        main_cat = main_cat.iloc[0] if len(main_cat) > 0 else 'OTHER'
 
-        if ret_rows['contribution_receipt_date'].max() <= active_rows['contribution_receipt_date'].max():
-            main_emp = active_rows['contributor_employer'].value_counts().index[0]
-            sub = active_rows[active_rows['contributor_employer'] == main_emp]
-            occ_vc = sub['contributor_occupation'].value_counts()
-            if occ_vc.empty:
-                continue          # no occupation to propagate - skip this donor
-            main_occ = occ_vc.index[0]
-            main_cat = sub['occupation_category'].mode()
-            main_cat = main_cat.iloc[0] if len(main_cat) > 0 else 'OTHER'
-
-            mask = (df['donor_key'] == dk) & (df['contributor_employer'] == 'RETIRED')
-            df.loc[mask, 'contributor_employer'] = main_emp
-            df.loc[mask, 'contributor_occupation'] = main_occ
-            df.loc[mask, 'occupation_category'] = main_cat
-            df.loc[mask, 'occupation_status'] = 'DISCLOSED'
-            n_fixed += int(mask.sum())
+        mask = (df['donor_key'] == dk) & (df['contributor_employer'] == 'RETIRED')
+        df.loc[mask, 'contributor_employer'] = main_emp
+        df.loc[mask, 'contributor_occupation'] = main_occ
+        df.loc[mask, 'occupation_category'] = main_cat
+        df.loc[mask, 'occupation_status'] = 'DISCLOSED'
+        n_fixed += int(mask.sum())
     return n_fixed
 
 
@@ -55,8 +56,8 @@ def _selfemployed_while_retired(df: pd.DataFrame) -> int:
         if 'RETIRED' not in emps or 'SELF-EMPLOYED' not in emps:
             continue
 
-        ret_count = emps.get('RETIRED', 0)
-        se_count = emps.get('SELF-EMPLOYED', 0)
+        ret_count = emps['RETIRED']
+        se_count = emps['SELF-EMPLOYED']
         total = len(grp)
 
         # pd.isna first: NA != 'RETIRED' evaluates to NA, which raises inside `if`
@@ -64,7 +65,6 @@ def _selfemployed_while_retired(df: pd.DataFrame) -> int:
         if pd.isna(latest_emp) or latest_emp != 'RETIRED':
             continue
 
-        # >=60% RETIRED and <=3 stray SELF-EMPLOYED
         if ret_count / total >= 0.6 and se_count <= 3:
             mask = (df['donor_key'] == dk) & (df['contributor_employer'] == 'SELF-EMPLOYED')
             df.loc[mask, 'contributor_employer'] = 'RETIRED'
@@ -90,7 +90,7 @@ def _swapped_emp_occ_retired(df: pd.DataFrame) -> int:
         if not real_emps:
             continue
 
-        real_count = sum(emps.get(e, 0) for e in real_emps)
+        real_count = sum(emps[e] for e in real_emps)
 
         # ratio: RETIRED vs (RETIRED + real employers) - ignores NONE/NOT EMPLOYED/etc.
         if ret_count / (ret_count + real_count) < 0.70:
@@ -124,11 +124,7 @@ _STATUS_NON_RETIRED = _NOT_EMP_VARIANTS | _SELF_EMP_VARIANTS | {'NOT DISCLOSED',
 
 def _once_retired_always_retired(df: pd.DataFrame) -> int:
     """AO. Collapse NOT EMPLOYED / SELF-EMPLOYED to RETIRED for donors who never listed a real employer."""
-    if 'donor_key' not in df.columns:
-        return 0
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    if not is_indiv.any():
-        return 0
 
     emp_upper = _norm(df['contributor_employer'])
 
@@ -156,8 +152,6 @@ def _once_retired_always_retired(df: pd.DataFrame) -> int:
 
     to_change = is_indiv & df['donor_key'].isin(target_donors) & (is_notemp | is_selfemp)
     n = int(to_change.sum())
-    if n == 0:
-        return 0
 
     df.loc[to_change, 'contributor_employer'] = 'RETIRED'
 
@@ -180,7 +174,7 @@ _PREV_EMP_STATUS = EMPLOYER_STATUS_VALUES
 
 def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     """AN. Fill retired donors' previous_employer from their other records (same donor_key only)."""
-    if 'previous_employer' not in df.columns or 'donor_key' not in df.columns:
+    if 'previous_employer' not in df.columns:
         return 0
 
     need_fill = (
@@ -205,16 +199,12 @@ def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
         return 0
 
     # per donor: most common real employer, ties broken by recency
-    if 'contribution_receipt_date' in candidates.columns:
-        candidates = candidates.sort_values('contribution_receipt_date', ascending=False)
+    candidates = candidates.sort_values('contribution_receipt_date', ascending=False)
 
     best: dict[str, str] = {}
     for dk, grp in candidates.groupby('donor_key'):
         vc = grp['contributor_employer'].value_counts()
         best[dk] = vc.index[0]
-
-    if not best:
-        return 0
 
     fillable = need_fill & df['donor_key'].isin(best)
     n = int(fillable.sum())
@@ -225,7 +215,7 @@ def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
 
 def _propagate_previous_employer_within_donor(df: pd.DataFrame) -> int:
     """AP. Copy a donor's known previous_employer to their empty RETIRED rows; runs after AO collapses statuses."""
-    if 'previous_employer' not in df.columns or 'donor_key' not in df.columns:
+    if 'previous_employer' not in df.columns:
         return 0
     is_retired = (df['entity_type'] == 'INDIVIDUAL') & (df['contributor_employer'] == 'RETIRED')
     if not is_retired.any():
@@ -247,10 +237,7 @@ def _propagate_previous_employer_within_donor(df: pd.DataFrame) -> int:
         return 0
 
     # per donor: most common non-empty value, ties broken by recency via the sort
-    if 'contribution_receipt_date' in df.columns:
-        ret_sorted = df.loc[is_retired].sort_values('contribution_receipt_date', ascending=False)
-    else:
-        ret_sorted = df.loc[is_retired]
+    ret_sorted = df.loc[is_retired].sort_values('contribution_receipt_date', ascending=False)
     ret_sorted = ret_sorted[ret_sorted['donor_key'].isin(candidate_dks)]
     ret_sorted = ret_sorted[_norm(ret_sorted['previous_employer']) != '']
 

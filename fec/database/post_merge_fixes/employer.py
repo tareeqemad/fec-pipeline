@@ -36,19 +36,20 @@ def _employer_typos(df: pd.DataFrame) -> int:
             continue
 
         counts = grp['contributor_employer'].value_counts()
-        canonical = max(real, key=lambda e: counts.get(e, 0))
-        cc = counts.get(canonical, 0)
+        canonical = max(real, key=lambda e: counts[e])
+        cc = counts[canonical]
 
         for other in real:
             if other == canonical:
                 continue
-            oc = counts.get(other, 0)
+            oc = counts[other]
             if oc >= cc:
                 continue
-            lev_ok = (levenshtein(other.upper(), canonical.upper()) <= 2
-                      and cc / max(oc, 1) >= 3)
+            other_u, canonical_u = other.upper(), canonical.upper()
+            lev_ok = (levenshtein(other_u, canonical_u) <= 2
+                      and cc / oc >= 3)
             fuzzy_ok = SequenceMatcher(
-                None, other.upper(), canonical.upper()).ratio() * 100 >= 90
+                None, other_u, canonical_u).ratio() * 100 >= 90
             if lev_ok or fuzzy_ok:
                 mask = (df['donor_key'] == dk) & (df['contributor_employer'] == other)
                 df.loc[mask, 'contributor_employer'] = canonical
@@ -111,8 +112,8 @@ _NULL_EMPLOYER_WORDS = (
 
 def _null_refusal_employers(df: pd.DataFrame) -> int:
     """AS. Null refusal/placeholder employers that AK/AL re-filled from raw; valid status words stay."""
-    emp = df['contributor_employer'].fillna('').astype(str)
-    collapsed = emp.str.strip().str.upper().str.replace(_WS_RE, ' ', regex=True)
+    collapsed = (df['contributor_employer'].fillna('').astype(str)
+                 .str.strip().str.upper().str.replace(_WS_RE, ' ', regex=True))
     mask = (
         (df['entity_type'] == 'INDIVIDUAL')
         & collapsed.isin(_NULL_EMPLOYER_WORDS)
@@ -230,27 +231,29 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
     for key in empty_keys:
         person = raw_matches[raw_matches['_key'] == key]
         emps = person['contributor_employer'].fillna('').str.strip()
+        emps_u = emps.str.upper()
 
         # sector/role/title/refusal words are blanked or converted upstream on
         # purpose - never re-recover them from raw
-        real = emps[~emps.str.upper().isin(RAW_JUNK_EMPLOYERS)
-                    & ~emps.str.upper().isin(RAW_STATUS_MAP.keys())
-                    & ~emps.str.upper().isin(SECTOR_AS_EMPLOYER)
-                    & ~emps.str.upper().isin(ROLE_AS_EMPLOYER)
-                    & ~emps.str.upper().isin(OCCUPATION_AS_EMPLOYER)
-                    & ~emps.str.upper().isin(REFUSAL_EMPLOYERS)
+        real = emps[~emps_u.isin(RAW_JUNK_EMPLOYERS)
+                    & ~emps_u.isin(RAW_STATUS_MAP.keys())
+                    & ~emps_u.isin(SECTOR_AS_EMPLOYER)
+                    & ~emps_u.isin(ROLE_AS_EMPLOYER)
+                    & ~emps_u.isin(OCCUPATION_AS_EMPLOYER)
+                    & ~emps_u.isin(REFUSAL_EMPLOYERS)
                     & (emps.str.len() > 2)]
+        real_u = real.str.upper()
         # same structural-junk patterns the cleaner uses (emails, dates, masked
         # digits, admin notes) so junk blanked upstream is not re-recovered
         real = real[~real.str.contains('@', na=False)
-                    & ~real.str.upper().str.match(_JUNK_RE, na=False)
-                    & ~real.str.upper().str.match(_ADMIN_NOTE_RE, na=False)]
+                    & ~real_u.str.match(_JUNK_RE, na=False)
+                    & ~real_u.str.match(_ADMIN_NOTE_RE, na=False)]
         if len(real) > 0:
             key_to_emp[key] = real.value_counts().index[0]
             continue
 
         # Try status word
-        status = emps[emps.str.upper().isin(RAW_STATUS_MAP.keys())]
+        status = emps[emps_u.isin(RAW_STATUS_MAP.keys())]
         if len(status) > 0:
             raw_val = status.value_counts().index[0].upper()
             key_to_emp[key] = RAW_STATUS_MAP.get(raw_val, raw_val)
