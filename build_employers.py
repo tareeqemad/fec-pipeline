@@ -5,17 +5,17 @@ from collections import Counter, defaultdict
 
 import pandas as pd
 
-from fec.env import CLEANED_CSV, DATA_DIR
+from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYERS_CSV
+from fec.env import EMPLOYER_BRANCHES_CSV as BRANCHES_CSV
 from fec.log import get_logger, setup_logging
 from fec.cleaning.employer_synonyms import canonical_key, restyle_legal_suffix
 from fec.cleaning.previous_employer import is_real_employer
+from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE, EMPLOYER_BRANCH_CACHE
 
 logger = get_logger(__name__)
 
-EMPLOYERS_CSV = DATA_DIR / "employers.csv"
-BRANCHES_CSV = DATA_DIR / "employer_branches.csv"
-RESOLVE_CACHE = DATA_DIR / "resolve_employer_addr.json"
-BRANCH_CACHE = DATA_DIR / "resolve_employer_branch.json"
+RESOLVE_CACHE = DATA_DIR / EMPLOYER_ADDR_CACHE
+BRANCH_CACHE = DATA_DIR / EMPLOYER_BRANCH_CACHE
 
 EMP_ADDR_COLS = [
     "employer_address", "employer_city", "employer_state", "employer_zip",

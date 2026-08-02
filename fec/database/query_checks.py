@@ -1,6 +1,7 @@
 """ONE registry (CHECKS) of query-correctness checks for the loaded fec_db, consumed by tests/test_db_live.py (crit asserted by pytest) and healthcheck.py (crit -> FAIL, warn -> WARN)."""
 from __future__ import annotations
 
+from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
 CRIT, WARN = "crit", "warn"
@@ -258,8 +259,8 @@ def _build() -> list[Check]:
     # cleaning correctness
     checks += [
         _zero("no employer is a status word",
-              "SELECT count(*) FROM employers WHERE upper(name) IN "
-              "('RETIRED','SELF-EMPLOYED','SELF EMPLOYED','NOT EMPLOYED','UNEMPLOYED','NONE','N/A','HOMEMAKER','STUDENT')",
+              "SELECT count(*) FROM employers WHERE upper(name) IN ("
+              + ",".join(f"'{word}'" for word in sorted(SKIP_EMPLOYERS) if word) + ")",
               "employer(s) that are status words"),
         _zero("individuals have a surname",
               "SELECT count(*) FROM donors WHERE entity_type='INDIVIDUAL' AND COALESCE(last_name,'')=''",

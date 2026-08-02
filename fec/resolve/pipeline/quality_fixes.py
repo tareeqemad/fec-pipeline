@@ -5,11 +5,11 @@ import re
 import pandas as pd
 
 from fec.cleaning.previous_employer import normalize_previous_employer_column
+from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.geography import US_STATES
+from fec.config.streets import POBOX_RE
 
 _US_ZIP_RE = re.compile(r'^\d{5}(-\d{4})?$')
-
-_PO_BOX_RE = re.compile(r'P\.?O\.?\s*BOX|POST\s*OFFICE\s*BOX', re.IGNORECASE)
 
 # Closed-book AI resolve methods. The ai_*_search variants were verified
 # against live sources, so every filter below exempts them.
@@ -34,11 +34,7 @@ _AI_UNAMBIGUOUS_FAKE_NUMBERS = frozenset({
     '9101',  # seen in samples: '9101 E 22nd St'
 })
 
-_AI_STATUS_WORD_EMPLOYERS = frozenset({
-    'RETIRED', 'NOT EMPLOYED', 'UNEMPLOYED', 'SELF-EMPLOYED',
-    'SELF EMPLOYED', 'HOMEMAKER', 'STUDENT', 'NOT DISCLOSED',
-    'NONE', 'N/A', 'NA', 'NAN', '',
-})
+_AI_STATUS_WORD_EMPLOYERS = EMPLOYER_STATUS_VALUES
 
 _AI_STREET_STOPWORDS = frozenset({
     'STREET', 'ST', 'AVENUE', 'AVE', 'ROAD', 'RD', 'DRIVE', 'DR',
@@ -96,7 +92,7 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
     # 2. PO Box is wrong for a corporate HQ but is the FEC-registered address
     # of most campaign committees - only clear non-committee rows.
     emp_addr = df['employer_address'].fillna('')
-    is_po_box = emp_addr.str.contains(_PO_BOX_RE, na=False)
+    is_po_box = emp_addr.str.contains(POBOX_RE, na=False)
     # Closed-book AI only - a web-search-grounded (_search) PO box is the
     # firm's verified public address; keep it (still geocodes at ZIP level).
     method_col = df['resolve_method'].fillna('').astype(str)

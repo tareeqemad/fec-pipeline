@@ -7,7 +7,8 @@ import pandas as pd
 
 from fec.config.constants import (
     NOT_REAL_EMPLOYER, SECTOR_AS_EMPLOYER, ROLE_AS_EMPLOYER,
-    OCCUPATION_AS_EMPLOYER, JUNK_EMPLOYER_RE,
+    OCCUPATION_AS_EMPLOYER, JUNK_EMPLOYER_RE, STATUS_WORDS,
+    SLASH_BRAND_EMPLOYERS,
 )
 from fec.config.data import MISSING_VALUES
 from fec.cleaning.employer_synonyms import (
@@ -50,9 +51,7 @@ _SLASH_SECTOR_ONLY = frozenset({
 })
 
 # real brand names that actually contain a slash: keep verbatim
-_SLASH_KEEP = frozenset({
-    'BRIDGESTONE/FIRESTONE',
-})
+_SLASH_KEEP = SLASH_BRAND_EMPLOYERS
 
 _SLASH_ADMIN_PREFIX_RE = re.compile(r'^(LETTER SENT|REQUESTED)\b', re.I)
 
@@ -100,12 +99,12 @@ def _resolve_slash(s: str) -> str:
 
 
 # MISSING_VALUES is the SAME FEC-junk / admin-note set clean.py nulls out of
-# contributor_employer: single source of truth, not a second list.
-_NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | {
-    'MEDICAL', 'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'HOMEMAKER', 'HOUSEWIFE',
-    'NOT EMPLOYED', 'UNEMPLOYED', 'RETIRED', 'STUDENT', 'NONE', 'N/A', 'NA',
+# contributor_employer, and STATUS_WORDS the same life-status set: single
+# sources of truth, not second lists. SELF-EMPLOYED is excluded because the
+# contract KEEPS it (real information, handled first in the normalizer).
+_NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOYED'}) | {
     # keyboard junk / bare-status stumps seen only in previous_employer
-    'XXN', 'NOT',
+    'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'XXN', 'NOT',
 }
 _SE_PREV = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER
 # whitespace-stripped forms so spacing-mangled statuses ("NOTEMPLOYED",
