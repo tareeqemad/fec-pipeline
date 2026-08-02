@@ -5,7 +5,7 @@ from fec.cleaning.previous_employer import (
     normalize_previous_employer_value as V,
     normalize_previous_employer_column,
 )
-from fec.database.post_merge_fixes import _normalize_previous_employer
+from fec.post_merge_fixes import _normalize_previous_employer
 from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
 
 

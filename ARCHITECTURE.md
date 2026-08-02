@@ -100,8 +100,9 @@ fec/
 │   ├── loader/                 # CSV → PostgreSQL loader package (_base + schema_create/schema_reset + per-table modules)
 │   ├── healthcheck.py          # read-only checks vs the LIVE fec_db (registry + live-only extras)
 │   ├── query_checks.py         # structured query-correctness checks (shared by tests + healthcheck)
-│   ├── post_merge_fixes/       # fixes needing donor_key (Y–AP): fill-from-same-donor, etc.
 │   └── leadership_matcher.py   # match leadership/accomplices to donors
+│
+├── post_merge_fixes/   # fixes needing donor_key (Y–AP, runs inside clean, no DB): fill-from-same-donor, etc.
 │
 ├── donor_match/    # donor identity resolution (runs inside clean, no DB) — 6 files
 │   ├── matcher.py              # orchestrator: profiles → phases → chains → force merges (+ UnionFind)

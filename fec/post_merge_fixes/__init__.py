@@ -3,23 +3,23 @@ import pandas as pd
 
 from fec.log import get_logger
 
-from fec.database.post_merge_fixes.names_addresses import _truncated_house_numbers
-from fec.database.post_merge_fixes.retired import (
+from fec.post_merge_fixes.names_addresses import _truncated_house_numbers
+from fec.post_merge_fixes.retired import (
     _retired_while_active, _selfemployed_while_retired,
     _swapped_emp_occ_retired, _once_retired_always_retired,
     _fill_prev_employer_from_donor, _propagate_previous_employer_within_donor,
     _retired_active_sync, _normalize_previous_employer,
 )
-from fec.database.post_merge_fixes.employer import (
+from fec.post_merge_fixes.employer import (
     _employer_typos, _employer_substring_variants, _null_refusal_employers,
     _fill_employer_from_donor, _fill_employer_from_occupation,
 )
-from fec.database.post_merge_fixes.occupation import (
+from fec.post_merge_fixes.occupation import (
     _rederive_occupation_status, _rederive_occupation_category,
     _occupation_consolidation,
     _fill_occupation_from_donor, _not_applicable_individual_sweep,
 )
-from fec.database.post_merge_fixes.entity import (
+from fec.post_merge_fixes.entity import (
     _clear_nonindividual_employer_field, _apply_entity_overrides,
     _reenforce_entity_consistency,
 )
