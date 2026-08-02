@@ -6,7 +6,7 @@ from fec.donor_match.canonicalize import (
     canonicalize_donor_employers,
 )
 from fec.donor_match.canonicalize import canonicalize_donor_addresses
-from fec.donor_match.geo import canonicalize_donor_addresses_geo
+from fec.donor_match.canonicalize import canonicalize_donor_addresses_geo
 
 
 def _df(rows, cols):

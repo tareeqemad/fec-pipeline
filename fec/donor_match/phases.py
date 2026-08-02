@@ -6,7 +6,6 @@ from collections import defaultdict
 from fec.log import get_logger
 
 from .constants import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, _is_blocked_merge
-from .structures import UnionFind
 from .scoring import compute_score, _are_cross_group_candidates, _is_surname_variant
 
 logger = get_logger(__name__)
@@ -18,7 +17,7 @@ _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 def _merge_and_audit(
     p1: dict, p2: dict, rid_a: str, rid_b: str, label: str,
     score: int, signals: list,
-    uf: UnionFind, audit_log: list, score_dist: dict,
+    uf, audit_log: list, score_dist: dict,
 ) -> tuple[bool, bool]:
     """Bucket the score, union the pair at/above MERGE_THRESHOLD unless blocklisted, append the audit row; returns (merged, skipped)."""
     score_dist[(score // 10) * 10] += 1
@@ -45,7 +44,7 @@ def _merge_and_audit(
 
 def _score_within_groups(
     name_groups: dict, profiles: dict,
-    uf: UnionFind, audit_log: list, score_dist: dict,
+    uf, audit_log: list, score_dist: dict,
     verbose: bool,
 ) -> tuple[int, int]:
     """Score all candidate pairs within each name group."""
@@ -80,7 +79,7 @@ def _score_within_groups(
 
 def _score_cross_groups(
     name_groups: dict, profiles: dict,
-    uf: UnionFind, audit_log: list, score_dist: dict,
+    uf, audit_log: list, score_dist: dict,
     verbose: bool,
 ) -> tuple[int, int]:
     """Cross-group matching: nicknames + first-name typos sharing a surname. No geography pre-gate of its own -- compute_score decides, and the +10 cross-name bonus is withheld when the pair scored NO_CORROBORATION."""
@@ -140,7 +139,7 @@ def _score_cross_groups(
 
 
 def _score_surname_variants(
-    name_groups: dict, profiles: dict, uf: UnionFind,
+    name_groups: dict, profiles: dict, uf,
     audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
     """Match records whose surnames are spelling variants and first names equal; a merge additionally requires the same street or same ZIP5, so families are never fused on a near-miss surname."""
@@ -203,7 +202,7 @@ def _name_token_key(norm_name: str) -> frozenset:
 
 
 def _score_name_variants(
-    name_groups: dict, profiles: dict, uf: UnionFind,
+    name_groups: dict, profiles: dict, uf,
     audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
     """Match the same person written in a different name format, bucketed by token set and gated on same street or ZIP5; middle-name conflicts stay blocked/penalised."""
@@ -259,7 +258,7 @@ def _score_name_variants(
 
 
 def _score_surname_superset_variants(
-    name_groups: dict, profiles: dict, uf: UnionFind,
+    name_groups: dict, profiles: dict, uf,
     audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
     """Merge a maiden/short name whose token set is a proper subset of the married/compound form; gated on a shared first-name token, non-suffix extra tokens, and the same exact street."""

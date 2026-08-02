@@ -11,9 +11,9 @@ from .constants import (
     MERGE_THRESHOLD, FORCE_MERGE_NAMES, FORCE_MERGE_GROUPS,
     STATUS_EMPLOYERS, GENERIC_OCC_CATEGORIES,
 )
-from .structures import UnionFind
-from .scoring import compute_score
-from .normalize import normalize_name, extract_middle, normalize_employer
+from .scoring import (
+    compute_score, normalize_name, extract_middle, normalize_employer,
+)
 from .phases import (
     _score_within_groups, _score_cross_groups,
     _score_surname_variants, _score_name_variants,
@@ -26,6 +26,34 @@ logger = get_logger(__name__)
 # below CHAIN_MIN against the canonical record is ejected
 CHAIN_MIN = 30
 CHAIN_CLUSTER_MIN = 4
+
+
+class UnionFind:
+    """Disjoint-set with path compression and union by rank - the cluster engine."""
+
+    def __init__(self):
+        self.parent = {}
+        self.rank = {}
+
+    def find(self, x):
+        if x not in self.parent:
+            self.parent[x] = x
+            self.rank[x] = 0
+        while self.parent[x] != x:
+            self.parent[x] = self.parent[self.parent[x]]
+            x = self.parent[x]
+        return x
+
+    def union(self, a, b):
+        ra, rb = self.find(a), self.find(b)
+        if ra == rb:
+            return False
+        if self.rank[ra] < self.rank[rb]:
+            ra, rb = rb, ra
+        self.parent[rb] = ra
+        if self.rank[ra] == self.rank[rb]:
+            self.rank[ra] += 1
+        return True
 
 
 def _s(val) -> str:
