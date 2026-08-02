@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.config.constants import OK_SHORT_OCCUPATIONS
+from fec.config.constants import EMPLOYER_STATUS_VALUES, OK_SHORT_OCCUPATIONS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
 # every abbreviation token is worth surfacing, auto-expanded or not
@@ -19,8 +19,7 @@ _LEGAL = {"LLC", "LLP", "INC", "CORP", "CO", "LTD", "LP", "PLC", "PC", "PA",
 # normalize expandable abbreviations so "X MGMT" and "X MANAGEMENT" share a fingerprint
 _ABBR_NORM = {token: expansion
               for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion}
-_STATUS = {"RETIRED", "SELF-EMPLOYED", "SELF EMPLOYED", "NOT EMPLOYED", "UNEMPLOYED",
-           "NONE", "N/A", "NA", "STUDENT", "HOMEMAKER", "NOT DISCLOSED", ""}
+_STATUS = EMPLOYER_STATUS_VALUES
 
 _TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _REPEAT_RE = re.compile(r"(.)\1{2,}")

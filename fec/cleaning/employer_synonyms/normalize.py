@@ -4,6 +4,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx
+from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.constants import LEGAL_SUFFIX_RE as _LEGAL_SUFFIX_RE
 from fec.config.constants import OCCUPATION_AS_EMPLOYER
 from fec.config.constants import SKIP_EMPLOYERS as _SKIP_EMPLOYERS
@@ -15,11 +16,10 @@ from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 _TRAILING_PAREN_RE = re.compile(r'\s*\([A-Z]{1,5}\)\s*$')
 
 # Status words/artifacts that must never end up in previous_employer;
-# callers treat a match as "no previous employer known".
-_PREV_EMP_NOT_REAL = {
-    'NOT-EMPLOYED', 'NOT EMPLOYED', 'UNEMPLOYED', 'RETIRED',
-    'SELF-EMPLOYED', 'SELF EMPLOYED', 'STUDENT', 'HOMEMAKER',
-    'NOT DISCLOSED', 'PRIVATE', 'NONE', 'N/A', 'N.A', 'N.A.', 'NA', 'NAN',
+# callers treat a match as "no previous employer known". The canonical status
+# set plus display-stage extras (punctuated variants, honorifics, stumps).
+_PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
+    'NOT-EMPLOYED', 'PRIVATE', 'N.A', 'N.A.',
     'RET', 'RET.', 'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.',
     'DR', 'DR.',
     'RETIREDE', 'RETIREFT', 'NOT', 'NOT IN WORKFORCE', 'NO EMPLOYER',

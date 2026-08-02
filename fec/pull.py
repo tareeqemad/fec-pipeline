@@ -109,8 +109,7 @@ def fetch_page(session, params, limiter):
         return resp.json()
 
 
-# lowercase 'data' matches fec.env / clean.py; "DATA" silently became a separate dir on case-sensitive filesystems
-DATA_DIR = Path("data")
+from fec.env import DATA_DIR
 
 FIELDS = [
     "sub_id", "transaction_id", "two_year_transaction_period",

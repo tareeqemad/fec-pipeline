@@ -139,7 +139,9 @@ def _deep_clean_emp_retired_variants(df: pd.DataFrame) -> int:
         n_changed += int(ret_prefix.sum())
         df.loc[ret_prefix, 'contributor_employer'] = 'RETIRED'
 
-    # exact typos RETIRE_RE misses because the misspelling breaks the RETIRE substring
+    # exact typos RETIRE_RE misses because the misspelling breaks the RETIRE
+    # substring. Subset overlap with RETIRED_TYPO_EMPLOYERS is deliberate:
+    # this fixes the employer field only, safety net T also syncs occupation.
     ret_typo = emp.isin(['RETIEED', 'RETIREE', 'RETIERD', 'RETIREED'])
     if ret_typo.any():
         n_changed += int(ret_typo.sum())

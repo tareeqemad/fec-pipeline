@@ -1,6 +1,8 @@
 """Shared status/junk word sets and employer patterns — single source of truth."""
 import re
 
+from fec.config.employers import EMPLOYER_NORMALIZE
+
 # Occupations that are really life statuses.
 STATUS_WORDS = frozenset({
     'RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'HOUSEWIFE',
@@ -16,6 +18,20 @@ SKIP_EMPLOYERS = frozenset({
     'NOT EMOLOYED', 'NOT EMPLOYEDD', 'NOT EMPLOYE', 'UNEMPLOYE',
     'RETIRED.', 'RETIRD', 'SELF EMPLOYED',
     'NOT APPLICABLE', 'NOT APPLICAABLE', 'SELP EMPLOYED', 'PHYSICAN',
+})
+
+# The canonical "this employer value is a life status, not a company" set.
+# A literal on purpose - SKIP_EMPLOYERS carries typo members that must not
+# widen the runtime filters deriving from this one.
+EMPLOYER_STATUS_VALUES = frozenset({
+    'RETIRED', 'NOT EMPLOYED', 'UNEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED',
+    'HOMEMAKER', 'STUDENT', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN', '',
+})
+
+# Real brand names that actually contain a slash; the slash-resolver keeps
+# them verbatim and the quality gate asserts they survived.
+SLASH_BRAND_EMPLOYERS = frozenset({
+    'BRIDGESTONE/FIRESTONE',
 })
 
 # Values that are NOT real occupations.
@@ -89,6 +105,15 @@ SELF_EMPLOYED_TYPOS = frozenset({
     'SWLF', 'SWLF EMPLOYED', 'SWLF-EMPLOYED',
 })
 
+# RETIRED misspellings that break the RETIRE substring. Safety net T fixes
+# these AND syncs occupation/category/status; employer_deep_clean keeps its
+# own 4-member inline subset that fixes the employer field only - the overlap
+# is deliberate, unifying them was measured to lose the occupation sync.
+RETIRED_TYPO_EMPLOYERS = frozenset({
+    'TETIRED', 'RETURED', 'RETIERD', 'RETIED', 'REITRED', 'RETIREE',
+    'RETIREED', 'RERTIRED', 'RETIRD', 'REIRED', 'REITERED', 'RETITED',
+})
+
 # Raw FEC status words -> normalized. The raw-recovery step (post-merge AL)
 # re-reads the ORIGINAL filing, so every self-employed typo above is folded in.
 RAW_STATUS_MAP = {
@@ -100,6 +125,10 @@ RAW_STATUS_MAP = {
     'RETITED': 'RETIRED', 'NAT EMPLOYED': 'NOT EMPLOYED',
     'GARY-SELF': 'SELF-EMPLOYED',  # a donor who typed his name onto SELF
     **{typo: 'SELF-EMPLOYED' for typo in SELF_EMPLOYED_TYPOS},
+    # every raw variant the cleaner itself normalizes (MYSELF, RETIREE,
+    # SOLE PROPRIETOR...) - so the raw-recovery step can never resurrect a
+    # status typo as a "company" the cleaner would have normalized
+    **EMPLOYER_NORMALIZE,
 }
 
 # Junk employer values from raw FEC data (used in _fill_employer_from_raw).

@@ -3,7 +3,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm
 from fec.cleaning.previous_employer import normalize_previous_employer_column
-from fec.config.constants import SKIP_EMPLOYERS
+from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
 
 _SKIP = SKIP_EMPLOYERS
 
@@ -135,9 +135,8 @@ def _once_retired_always_retired(df: pd.DataFrame) -> int:
     is_retired  = emp_upper.eq('RETIRED')
     is_notemp   = emp_upper.isin(_NOT_EMP_VARIANTS)
     is_selfemp  = emp_upper.isin(_SELF_EMP_VARIANTS)
-    # "real" = not a status word; '' (in _STATUS_NON_RETIRED) covers NaN too
-    is_real = ~emp_upper.isin(_STATUS_NON_RETIRED | {'RETIRED', 'HOMEMAKER', 'STUDENT',
-                                                     'N/A', 'NA', 'NAN', 'NONE'})
+    # "real" = not a status word; '' (in EMPLOYER_STATUS_VALUES) covers NaN too
+    is_real = ~emp_upper.isin(EMPLOYER_STATUS_VALUES)
 
     donor_has = pd.DataFrame({
         'donor_key': df.loc[is_indiv, 'donor_key'],
@@ -176,11 +175,7 @@ def _once_retired_always_retired(df: pd.DataFrame) -> int:
 
 
 # Status-word employers that can't serve as a previous_employer value.
-_PREV_EMP_STATUS = {
-    'RETIRED', 'NOT EMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED',
-    'UNEMPLOYED', 'HOMEMAKER', 'STUDENT', 'NOT DISCLOSED',
-    'NONE', 'N/A', 'NA', 'NAN', '',
-}
+_PREV_EMP_STATUS = EMPLOYER_STATUS_VALUES
 
 
 def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:

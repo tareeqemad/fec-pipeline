@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from fec.config import VALID_CATEGORIES
+from fec.config.constants import SLASH_BRAND_EMPLOYERS
 
 _ZIP_PREFIX_STATES = {
     '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
@@ -20,7 +21,7 @@ _ZIP_PREFIX_STATES = {
 }
 
 # real brand names that actually contain a slash
-_PREV_EMP_SLASH_OK = {'BRIDGESTONE/FIRESTONE'}
+_PREV_EMP_SLASH_OK = SLASH_BRAND_EMPLOYERS
 
 
 # Each gate reads df without mutating and returns [(key, check, issue)], or [] to skip.

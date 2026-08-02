@@ -8,13 +8,10 @@ import pandas as pd
 
 from fec.config.constants import (
     REFUSAL_EMPLOYERS, OK_SHORT_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
-    OCCUPATION_AS_EMPLOYER,
+    OCCUPATION_AS_EMPLOYER, RETIRED_TYPO_EMPLOYERS,
 )
 
-_RETIRED_TYPOS = frozenset({
-    'TETIRED', 'RETURED', 'RETIERD', 'RETIED', 'REITRED', 'RETIREE',
-    'RETIREED', 'RERTIRED', 'RETIRD', 'REIRED', 'REITERED', 'RETITED',
-})
+_RETIRED_TYPOS = RETIRED_TYPO_EMPLOYERS
 
 # 'RETIRED <tail>': the tail is a previous employer or a profession word
 _RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
