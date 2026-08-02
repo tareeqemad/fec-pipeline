@@ -234,7 +234,7 @@ def unify_donors(df_clean: pd.DataFrame, out_dir: str | None = None,
     # per-donor canonicalizers use iat positions; labels must equal positions
     df_clean = df_clean.reset_index(drop=True)
     logger.info("\n-- Donor Matching --")
-    from fec.database.donor_match import (
+    from fec.donor_match import (
         match_donors, apply_donor_key, merge_split_name_donors,
         apply_donor_dedup_merges,
         canonicalize_donor_names, canonicalize_donor_employers,

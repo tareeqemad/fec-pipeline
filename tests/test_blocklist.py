@@ -1,5 +1,5 @@
 """_is_blocked_merge must block a flagged name pair regardless of case/spacing."""
-from fec.database.donor_match import constants as C
+from fec.donor_match import constants as C
 
 
 def test_norm_blk_collapses_case_and_space():
