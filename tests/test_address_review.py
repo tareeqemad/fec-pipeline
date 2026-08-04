@@ -97,3 +97,29 @@ def test_reports_split_review_vs_regeocode(tmp_path):
     # The only edit this step makes: a bad street_2 is emptied
     assert df.loc[df.sub_id == "3", "contributor_street_2"].isna().all()
     assert df.loc[df.sub_id == "4", "contributor_street_2"].isna().all()
+
+
+def test_near_street_spellings_are_reviewed_not_merged(tmp_path):
+    df = pd.DataFrame([
+        {"sub_id": "1", "entity_type": "INDIVIDUAL", "contributor_name": "SABAN, HAIM",
+         "contributor_street_1": "11301 W OLYMIC BLVD", "contributor_street_2": "STE 121-6",
+         "contributor_city": "LOS ANGELES", "contributor_state": "CA", "contributor_zip": "90064"},
+        {"sub_id": "2", "entity_type": "INDIVIDUAL", "contributor_name": "SABAN, HAIM",
+         "contributor_street_1": "11301 W OLYMPIC BLVD", "contributor_street_2": "STE 121-601",
+         "contributor_city": "LOS ANGELES", "contributor_state": "CA", "contributor_zip": "90064"},
+        {"sub_id": "3", "entity_type": "INDIVIDUAL", "contributor_name": "OTHER, PERSON",
+         "contributor_street_1": "100 MAIN ST", "contributor_street_2": "APT 1",
+         "contributor_city": "DENVER", "contributor_state": "CO", "contributor_zip": "80202"},
+        {"sub_id": "4", "entity_type": "INDIVIDUAL", "contributor_name": "OTHER, PERSON",
+         "contributor_street_1": "100 MAIN ST", "contributor_street_2": "APT 2",
+         "contributor_city": "DENVER", "contributor_state": "CO", "contributor_zip": "80202"},
+    ])
+
+    original = df.copy(deep=True)
+    _, counts = build_address_reports(df, str(tmp_path))
+    review = list(csv.DictReader(open(tmp_path / "address_manual_review.csv", encoding="utf-8")))
+    spelling_rows = [row for row in review if row["review_reason"].startswith("near-duplicate")]
+
+    assert {row["sub_id"] for row in spelling_rows} == {"1", "2"}
+    assert counts["manual_review"] == 2
+    pd.testing.assert_frame_equal(df, original)

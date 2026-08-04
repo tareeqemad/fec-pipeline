@@ -10,6 +10,37 @@ _PROVIDERS = {
     "openai": {"model": "gpt-5-mini", "base_url": None,                  "key_env": "OPENAI_API_KEY"},
 }
 
+_CREDIT_ERROR_MARKERS = (
+    'credit_balance_exhausted',
+    'insufficient_quota',
+    'billing_hard_limit_reached',
+    'billing_not_active',
+    'no credits remaining',
+    'insufficient balance',
+    'balance is too low',
+)
+
+
+class AIQuotaExhausted(RuntimeError):
+    """The AI provider cannot accept more requests until credits are added."""
+
+
+def is_ai_quota_error(error: Exception) -> bool:
+    """True only for billing/quota errors, not a temporary 429 rate limit."""
+    body = getattr(error, 'body', None)
+    if isinstance(body, dict):
+        details = body.get('error', body)
+        if isinstance(details, dict):
+            body_text = ' '.join(str(details.get(field, ''))
+                                 for field in ('code', 'type', 'message'))
+        else:
+            body_text = str(details)
+    else:
+        body_text = ''
+
+    text = f'{body_text} {error}'.lower()
+    return any(marker in text for marker in _CREDIT_ERROR_MARKERS)
+
 
 def get_ai_provider() -> str:
     """Active provider from AI_PROVIDER env (default xai)."""
@@ -54,30 +85,9 @@ def resolver_id() -> str:
     return f"{get_ai_provider()}+search"
 
 
-def ai_json_call(client, model: str, provider: str,
-                 system_prompt: str, user_prompt: str, max_tokens: int) -> str:
-    """One JSON-mode chat completion (used by --test-ai); hides provider params (gpt-5* takes reasoning_effort + max_completion_tokens, grok takes plain max_tokens)."""
-    params = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "response_format": {"type": "json_object"},
-    }
-    if provider == "openai":
-        params["max_completion_tokens"] = max_tokens
-        params["reasoning_effort"] = "minimal"
-    else:
-        params["max_tokens"] = max_tokens
-
-    response = client.chat.completions.create(**params)
-    return (response.choices[0].message.content or "").strip()
-
-
 def ai_web_search_call(client, model: str, system_prompt: str,
-                       user_prompt: str) -> tuple:
-    """One web-search-grounded lookup via xAI's /responses Agent Tools API; returns (text, cost_usd) where cost is xAI's usage.cost_in_usd_ticks (1e10 ticks = $1) including tool fees."""
+                       user_prompt: str) -> tuple[str, float]:
+    """Run one grounded Responses API lookup and return text plus reported cost."""
     response = client.responses.create(
         model=model,
         input=[

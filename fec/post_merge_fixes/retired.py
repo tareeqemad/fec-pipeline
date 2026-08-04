@@ -3,7 +3,14 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm
 from fec.cleaning.previous_employer import normalize_previous_employer_column
-from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
+from fec.config.constants import (
+    EMPLOYER_STATUS_VALUES,
+    NON_RETIRED_EMPLOYER_STATUSES,
+    NOT_EMPLOYED_VARIANTS,
+    RETIRED_PREVIOUS_EMPLOYER_PLACEHOLDERS,
+    SELF_EMPLOYED_VARIANTS,
+    SKIP_EMPLOYERS,
+)
 
 _SKIP = SKIP_EMPLOYERS
 
@@ -117,11 +124,6 @@ def _swapped_emp_occ_retired(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-_NOT_EMP_VARIANTS  = {'NOT EMPLOYED', 'UNEMPLOYED'}
-_SELF_EMP_VARIANTS = {'SELF-EMPLOYED', 'SELF EMPLOYED'}
-_STATUS_NON_RETIRED = _NOT_EMP_VARIANTS | _SELF_EMP_VARIANTS | {'NOT DISCLOSED', ''}
-
-
 def _once_retired_always_retired(df: pd.DataFrame) -> int:
     """AO. Collapse NOT EMPLOYED / SELF-EMPLOYED to RETIRED for donors who never listed a real employer."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -129,8 +131,8 @@ def _once_retired_always_retired(df: pd.DataFrame) -> int:
     emp_upper = _norm(df['contributor_employer'])
 
     is_retired  = emp_upper.eq('RETIRED')
-    is_notemp   = emp_upper.isin(_NOT_EMP_VARIANTS)
-    is_selfemp  = emp_upper.isin(_SELF_EMP_VARIANTS)
+    is_notemp   = emp_upper.isin(NOT_EMPLOYED_VARIANTS)
+    is_selfemp  = emp_upper.isin(SELF_EMPLOYED_VARIANTS)
     # "real" = not a status word; '' (in EMPLOYER_STATUS_VALUES) covers NaN too
     is_real = ~emp_upper.isin(EMPLOYER_STATUS_VALUES)
 
@@ -157,7 +159,7 @@ def _once_retired_always_retired(df: pd.DataFrame) -> int:
 
     # only update occupation / category if they were status words themselves
     occ_upper = _norm(df.loc[to_change, 'contributor_occupation'])
-    occ_is_status = occ_upper.isin(_STATUS_NON_RETIRED)
+    occ_is_status = occ_upper.isin(NON_RETIRED_EMPLOYER_STATUSES)
     occ_idx = df.loc[to_change].index[occ_is_status.values]
     df.loc[occ_idx, 'contributor_occupation'] = 'RETIRED'
     df.loc[occ_idx, 'occupation_category']    = 'RETIRED'
@@ -257,13 +259,6 @@ def _propagate_previous_employer_within_donor(df: pd.DataFrame) -> int:
     return n
 
 
-# Placeholders that look like company names but aren't - seen as
-# contributor_employer for retired filers. Never copy to previous_employer.
-_RETIRED_SYNC_NOT_A_COMPANY = frozenset({
-    'NOT SPECIFIED', 'MR AND MRS', 'NONE', 'N/A', 'NA', 'NAN', '',
-})
-
-
 def _retired_active_sync(df: pd.DataFrame) -> int:
     """AQ. occupation_category=RETIRED but employer_status=active -> move employer to previous_employer, unify to RETIRED; idempotent."""
     required = {'entity_type', 'occupation_category', 'employer_status',
@@ -283,7 +278,9 @@ def _retired_active_sync(df: pd.DataFrame) -> int:
     # copy employer -> previous_employer where safe
     if 'previous_employer' in df.columns:
         prev_empty = _norm(df['previous_employer']).eq('')
-        is_real_company = ~_norm(df['contributor_employer']).isin(_RETIRED_SYNC_NOT_A_COMPANY)
+        is_real_company = ~_norm(df['contributor_employer']).isin(
+            RETIRED_PREVIOUS_EMPLOYER_PLACEHOLDERS
+        )
         copy_mask = mask & prev_empty & is_real_company
         if copy_mask.any():
             df.loc[copy_mask, 'previous_employer'] = df.loc[copy_mask, 'contributor_employer']
@@ -307,6 +304,56 @@ def _retired_active_sync(df: pd.DataFrame) -> int:
         df.loc[mask, 'resolve_confidence'] = 'NONE'
 
     return n
+
+
+def _settle_retired_employer(df: pd.DataFrame) -> int:
+    """Move a final retired row's recovered company to previous_employer.
+
+    Employer recovery runs late and can correctly recover a real company while
+    the filing still explicitly says RETIRED. Preserve that company as prior
+    work, then restore the retired current-employer convention.
+    """
+    required = {
+        'entity_type', 'contributor_employer', 'contributor_occupation',
+        'occupation_category',
+    }
+    if not required.issubset(df.columns):
+        return 0
+
+    employer = _norm(df['contributor_employer'])
+    retired = (
+        df['entity_type'].eq('INDIVIDUAL')
+        & df['occupation_category'].eq('RETIRED')
+        & _norm(df['contributor_occupation']).eq('RETIRED')
+        & employer.ne('RETIRED')
+    )
+    count = int(retired.sum())
+    if not count:
+        return 0
+
+    if 'previous_employer' not in df.columns:
+        df['previous_employer'] = pd.NA
+    previous_empty = _norm(df['previous_employer']).eq('')
+    is_real_company = ~employer.isin(
+        EMPLOYER_STATUS_VALUES | RETIRED_PREVIOUS_EMPLOYER_PLACEHOLDERS
+    )
+    copy = retired & previous_empty & is_real_company
+    df.loc[copy, 'previous_employer'] = df.loc[copy, 'contributor_employer']
+
+    df.loc[retired, 'contributor_employer'] = 'RETIRED'
+    if 'occupation_status' in df.columns:
+        df.loc[retired, 'occupation_status'] = 'NOT_APPLICABLE'
+    if 'employer_status' in df.columns:
+        df.loc[retired, 'employer_status'] = 'retired'
+
+    for column in ('employer_address', 'employer_city', 'employer_state',
+                   'employer_zip', 'employer_latitude', 'employer_longitude'):
+        if column in df.columns:
+            df.loc[retired, column] = pd.NA
+    if 'employer_geocode_level' in df.columns:
+        df.loc[retired, 'employer_geocode_level'] = 'not_applicable'
+
+    return count
 
 
 def _normalize_previous_employer(df: pd.DataFrame) -> int:

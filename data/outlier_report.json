@@ -2,111 +2,111 @@
   "top50_occupation": [
     {
       "value": "RETIRED",
-      "count": 31424
+      "count": 32455
     },
     {
       "value": "ATTORNEY",
-      "count": 9548
+      "count": 9803
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6221
+      "count": 6279
     },
     {
       "value": "REAL ESTATE",
-      "count": 5676
+      "count": 5802
     },
     {
       "value": "PHYSICIAN",
-      "count": 3373
+      "count": 3605
     },
     {
       "value": "CEO",
-      "count": 3253
+      "count": 3355
     },
     {
       "value": "EXECUTIVE",
-      "count": 2699
+      "count": 2753
     },
     {
       "value": "LAWYER",
-      "count": 2422
+      "count": 2484
     },
     {
       "value": "CONSULTANT",
-      "count": 1796
+      "count": 1837
     },
     {
       "value": "INVESTOR",
-      "count": 1759
+      "count": 1786
     },
     {
       "value": "PRESIDENT",
-      "count": 1680
+      "count": 1726
     },
     {
       "value": "FINANCE",
-      "count": 1276
+      "count": 1306
     },
     {
       "value": "MANAGER",
-      "count": 1022
+      "count": 1045
     },
     {
       "value": "MEDICAL DOCTOR",
-      "count": 739
+      "count": 758
     },
     {
       "value": "OWNER",
-      "count": 733
+      "count": 745
     },
     {
       "value": "SALES",
-      "count": 733
+      "count": 744
     },
     {
       "value": "CPA",
-      "count": 703
+      "count": 727
     },
     {
       "value": "INVESTMENTS",
-      "count": 692
+      "count": 702
     },
     {
       "value": "FINANCIAL ADVISOR",
-      "count": 650
-    },
-    {
-      "value": "CHAIRMAN",
-      "count": 637
+      "count": 668
     },
     {
       "value": "REAL ESTATE INVESTOR",
-      "count": 622
+      "count": 654
+    },
+    {
+      "value": "CHAIRMAN",
+      "count": 650
     },
     {
       "value": "SELF-EMPLOYED",
-      "count": 621
+      "count": 632
     },
     {
       "value": "MARKETING",
-      "count": 617
+      "count": 621
+    },
+    {
+      "value": "REAL ESTATE DEVELOPER",
+      "count": 577
     },
     {
       "value": "RADIOLOGIST",
       "count": 571
     },
     {
-      "value": "REAL ESTATE DEVELOPER",
-      "count": 567
-    },
-    {
       "value": "INVESTMENT MANAGEMENT",
-      "count": 485
+      "count": 491
     },
     {
       "value": "PARTNER",
-      "count": 448
+      "count": 467
     },
     {
       "value": "PROFESSOR",
@@ -114,129 +114,133 @@
     },
     {
       "value": "DIRECTOR",
-      "count": 395
+      "count": 423
     },
     {
       "value": "MANAGING PARTNER",
-      "count": 389
+      "count": 399
     },
     {
       "value": "PRINCIPAL",
-      "count": 371
+      "count": 381
     },
     {
       "value": "CFO",
-      "count": 368
-    },
-    {
-      "value": "MANAGEMENT",
-      "count": 350
-    },
-    {
-      "value": "BUSINESS OWNER",
-      "count": 348
+      "count": 376
     },
     {
       "value": "BUSINESS",
-      "count": 345
+      "count": 356
+    },
+    {
+      "value": "BUSINESS OWNER",
+      "count": 355
+    },
+    {
+      "value": "MANAGEMENT",
+      "count": 354
     },
     {
       "value": "FOUNDER",
-      "count": 325
-    },
-    {
-      "value": "SPECIAL PROGRAMS ADMINISTRATOR",
-      "count": 304
-    },
-    {
-      "value": "VICE PRESIDENT",
-      "count": 302
+      "count": 332
     },
     {
       "value": "DENTIST",
-      "count": 301
+      "count": 313
+    },
+    {
+      "value": "VICE PRESIDENT",
+      "count": 308
+    },
+    {
+      "value": "SPECIAL PROGRAMS ADMINISTRATOR",
+      "count": 306
+    },
+    {
+      "value": "LIBRARIAN",
+      "count": 289
     },
     {
       "value": "PSYCHOLOGIST",
-      "count": 287
+      "count": 288
     },
     {
       "value": "MANAGING DIRECTOR",
-      "count": 276
+      "count": 283
     },
     {
       "value": "DOCTOR",
-      "count": 270
+      "count": 273
     },
     {
       "value": "VENTURE CAPITAL",
-      "count": 268
+      "count": 273
     },
     {
       "value": "RABBI",
-      "count": 268
+      "count": 269
+    },
+    {
+      "value": "ENGINEER",
+      "count": 261
+    },
+    {
+      "value": "TEACHER",
+      "count": 257
     },
     {
       "value": "REGISTERED INVESTMENT ADVISOR",
       "count": 256
     },
     {
-      "value": "ENGINEER",
-      "count": 254
+      "value": "INSURANCE",
+      "count": 253
     },
     {
       "value": "PORTFOLIO MANAGER",
-      "count": 251
-    },
-    {
-      "value": "CTO",
-      "count": 249
-    },
-    {
-      "value": "INSURANCE",
-      "count": 248
-    },
-    {
-      "value": "TEACHER",
-      "count": 248
+      "count": 253
     }
   ],
   "top50_employer": [
     {
       "value": "RETIRED",
-      "count": 32958
+      "count": 34191
     },
     {
       "value": "SELF-EMPLOYED",
-      "count": 11780
+      "count": 12033
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6385
+      "count": 6377
     },
     {
       "value": "KIRKLAND & ELLIS LLP",
-      "count": 598
+      "count": 611
     },
     {
       "value": "MORGAN STANLEY",
-      "count": 353
+      "count": 357
     },
     {
       "value": "TOURO UNIVERSITY",
-      "count": 319
+      "count": 321
     },
     {
       "value": "LA COUNTY",
-      "count": 301
+      "count": 302
     },
     {
       "value": "CAPITAL GROUP",
-      "count": 279
+      "count": 282
     },
     {
       "value": "CEDARS-SINAI MEDICAL CENTER",
-      "count": 277
+      "count": 279
+    },
+    {
+      "value": "CITY OF PHILADELPHIA",
+      "count": 266
     },
     {
       "value": "BAMKO",
@@ -252,7 +256,7 @@
     },
     {
       "value": "GOLDMAN SACHS",
-      "count": 241
+      "count": 247
     },
     {
       "value": "CONG. YETEV LEV",
@@ -263,8 +267,12 @@
       "count": 202
     },
     {
+      "value": "NORTHERN VALLEY MEDICAL ASSOCIATION",
+      "count": 201
+    },
+    {
       "value": "BROWNSTEIN HYATT FARBER SCHRECK",
-      "count": 183
+      "count": 189
     },
     {
       "value": "CROWNE PARTNERS INC",
@@ -272,35 +280,35 @@
     },
     {
       "value": "HOWARD PROPERTIES",
-      "count": 170
+      "count": 171
     },
     {
       "value": "DONFELD & ROLLMAN",
       "count": 164
     },
     {
+      "value": "GRAYROBINSON",
+      "count": 162
+    },
+    {
       "value": "JAFFE FAMILY LAW GROUP",
       "count": 161
-    },
-    {
-      "value": "GRAYROBINSON",
-      "count": 152
-    },
-    {
-      "value": "CITY OF PHILADELPHIA",
-      "count": 148
     },
     {
       "value": "NTR",
       "count": 140
     },
     {
-      "value": "ARCH INSURANCE",
-      "count": 135
+      "value": "GIBSON, DUNN & CRUTCHER LLP",
+      "count": 137
     },
     {
       "value": "LANGSAM PROPERTY SERVICES",
-      "count": 133
+      "count": 135
+    },
+    {
+      "value": "ARCH INSURANCE",
+      "count": 135
     },
     {
       "value": "FANNIE MAE",
@@ -308,15 +316,11 @@
     },
     {
       "value": "AMIR DEVELOPMENT",
-      "count": 130
+      "count": 132
     },
     {
       "value": "VENSURE",
       "count": 130
-    },
-    {
-      "value": "GIBSON DUNN & CRUTCHER",
-      "count": 129
     },
     {
       "value": "HACKMAN CAPITAL PARTNERS",
@@ -324,23 +328,23 @@
     },
     {
       "value": "EDWARD C. LEVY CO",
-      "count": 122
+      "count": 123
     },
     {
       "value": "FISHMAN, BLOCK, DIAMOND, BY CERITY PARK PC",
       "count": 121
     },
     {
+      "value": "UBS",
+      "count": 120
+    },
+    {
       "value": "BBR PARTNERS",
-      "count": 117
+      "count": 118
     },
     {
       "value": "PACHULSKI, STANG, ZIEHL & JONES",
-      "count": 117
-    },
-    {
-      "value": "UBS",
-      "count": 117
+      "count": 118
     },
     {
       "value": "INIZIO",
@@ -351,56 +355,52 @@
       "count": 116
     },
     {
+      "value": "WELLS FARGO ADVISORS",
+      "count": 115
+    },
+    {
+      "value": "STERLINGRISK",
+      "count": 114
+    },
+    {
       "value": "CONGREGATION SHAAREY TIKVAH",
       "count": 114
     },
     {
-      "value": "STERLINGRISK",
-      "count": 113
-    },
-    {
-      "value": "WELLS FARGO ADVISORS",
-      "count": 109
-    },
-    {
       "value": "LAWRENCE BERKELEY NATIONAL LAB",
-      "count": 109
+      "count": 112
     },
     {
       "value": "VIBRANT CAPITAL PARTNERS",
       "count": 106
     },
     {
+      "value": "NORTHWESTERN",
+      "count": 103
+    },
+    {
+      "value": "NEUBERGER BERMAN",
+      "count": 102
+    },
+    {
       "value": "RON WOLNER MD",
       "count": 102
     },
     {
-      "value": "MEDICAL CENTER",
-      "count": 101
+      "value": "MILLER BARONDESS",
+      "count": 98
     },
     {
       "value": "AIPAC",
       "count": 98
     },
     {
-      "value": "NEUBERGER BERMAN",
-      "count": 97
-    },
-    {
-      "value": "MILLER BARONDESS",
-      "count": 97
-    },
-    {
       "value": "MARBLE BRIDGE FUNDING GROUP",
-      "count": 94
-    },
-    {
-      "value": "BRODIE GENERATIONAL CAPITAL PARTNERS",
-      "count": 93
+      "count": 96
     },
     {
       "value": "CBRE",
-      "count": 93
+      "count": 96
     }
   ],
   "committee_default_count": 0

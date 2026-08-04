@@ -6,7 +6,7 @@ import pandas as pd
 
 from fec.config import (
     POBOX_RE, DIR_PREFIX, DIR_SUFFIX, DIR_MID, STREET_TYPES,
-    UNIT_RULES, UNIT_EXTRACT, HASH_EXTRACT,
+    UNIT_RULES, UNIT_EXTRACT, HASH_EXTRACT, STREET_TYPO_RULES,
 )
 
 # placeholder values that mean "no address"
@@ -16,6 +16,8 @@ _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
 
 # trailing unit word without a number
 _TRAILING_UNIT_RE = re.compile(r'\s+(?:APT|UNIT|STE|SUITE)\s*$')
+_INVALID_STREET_RE = re.compile(r'^(?:C\d{7,}|\d+)$')
+_SHORT_POBOX_RE = re.compile(r'^(?:P\.?\s*O\.?\s*B?|BOX)\s+(\d)')
 
 
 def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -86,7 +88,6 @@ def _normalize_street(s: str) -> str:
     s = re.sub(r'&SHY;', '', s)
     s = re.sub(r'&AMP;', '&', s)
     s = re.sub(r'&[A-Z]+;', '', s)
-    s = s.rstrip(';')
     s = s.replace(';', '')
     s = s.replace('[', '').replace(']', '')
     s = re.sub(r'\s*:', ' ', s)
@@ -96,17 +97,12 @@ def _normalize_street(s: str) -> str:
         return np.nan
 
     # placeholder words, FEC committee ids, bare house numbers
-    if s in _JUNK_STREETS:
-        return np.nan
-    if re.match(r'^C\d{7,}$', s):
-        return np.nan
-    if re.match(r'^\d+$', s):
+    if s in _JUNK_STREETS or _INVALID_STREET_RE.match(s):
         return np.nan
 
     # PO box variants missing PO or BOX; digits required so street names
     # like BOX CANYON RD are untouched
-    s = re.sub(r'^P\.?\s*O\.?\s*B?\s+(\d)', r'PO BOX \1', s)
-    s = re.sub(r'^BOX\s+(\d)', r'PO BOX \1', s)
+    s = _SHORT_POBOX_RE.sub(r'PO BOX \1', s)
 
     # leading OCR digit/letter confusion (E to 3, I to 1)
     s = re.sub(r'^E(\d{2,})\b', lambda match: '3' + match.group(1), s)
@@ -122,17 +118,15 @@ def _normalize_street(s: str) -> str:
     s = POBOX_RE.sub('PO BOX', s)
     s = re.sub(r'\s+', ' ', s)
 
+    for pattern, replacement in STREET_TYPO_RULES:
+        s = pattern.sub(replacement, s)
+
     # missing space between house number and street name
     s = re.sub(r'^(\d+)([A-Z])', r'\1 \2', s)
 
-    for pattern, replacement in DIR_PREFIX:
-        s = pattern.sub(replacement, s)
-    for pattern, replacement in DIR_MID:
-        s = pattern.sub(replacement, s)
-    for pattern, replacement in STREET_TYPES:
-        s = pattern.sub(replacement, s)
-    for pattern, replacement in DIR_SUFFIX:
-        s = pattern.sub(replacement, s)
+    for rules in (DIR_PREFIX, DIR_MID, STREET_TYPES, DIR_SUFFIX):
+        for pattern, replacement in rules:
+            s = pattern.sub(replacement, s)
 
     # trailing direction moved after the house number (USPS prefix form),
     # so "101 WESTON LN S" and "S WESTON LN 101" both match "101 S WESTON LN"
@@ -145,7 +139,6 @@ def _normalize_street(s: str) -> str:
     s = re.sub(r'\.{2,}', '.', s)
     s = re.sub(r'\bP\.0\.\s*BOX\b', 'PO BOX', s)
     s = re.sub(r'(\d)\.([A-Z])', r'\1 \2', s)
-    s = re.sub(r'\bSO\.\s', 'S ', s)
     s = re.sub(r'\bSO\.(?=\s|$)', 'S', s)
     s = re.sub(r'(\d+(?:ST|ND|RD|TH))\.', r'\1', s)
     # compound direction dots must run before single-letter cleanup (S.W stays SW)
@@ -175,6 +168,12 @@ def _normalize_unit(s: str) -> str:
     return s.strip()
 
 
+def _strip_named_unit(streets: pd.Series) -> pd.Series:
+    """Remove a trailing named unit and its leftover comma/whitespace."""
+    stripped = streets.str.replace(UNIT_EXTRACT, '', regex=True).str.strip()
+    return stripped.str.rstrip(',').str.strip()
+
+
 def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, pd.Series, int]:
     """Move unit info embedded in street_1 into empty street_2; returns (s1, s2, n_extracted)."""
     s1 = street1.fillna('').astype(str).replace({'nan': ''})
@@ -183,28 +182,21 @@ def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, p
     n_extracted = 0
 
     # named units (APT, STE, UNIT, ...)
-    match_named = s1.str.extract(UNIT_EXTRACT)
-    has_named = match_named[0].notna() & s2_blank
-    if has_named.any():
-        n_extracted += int(has_named.sum())
-        s2 = s2.where(~has_named, match_named[0].str.strip())
-        s1 = s1.where(
-            ~has_named,
-            s1.str.replace(UNIT_EXTRACT, '', regex=True).str.strip().str.rstrip(',').str.strip()
-        )
+    named_unit = s1.str.extract(UNIT_EXTRACT)[0]
+    move_named = named_unit.notna() & s2_blank
+    if move_named.any():
+        n_extracted += int(move_named.sum())
+        s2 = s2.where(~move_named, named_unit.str.strip())
+        s1 = s1.where(~move_named, _strip_named_unit(s1))
         s2_blank = s2.str.strip().eq('')
 
-    # street_1 still carries a unit already present in street_2: strip the duplicate
-    has_named_dup = match_named[0].notna() & ~s2_blank
-    if has_named_dup.any():
-        unit_in_s1 = match_named[0].str.strip().str.upper()
-        unit_in_s2 = s2.str.strip().str.upper()
-        is_same_unit = has_named_dup & (unit_in_s1 == unit_in_s2)
-        if is_same_unit.any():
-            s1 = s1.where(
-                ~is_same_unit,
-                s1.str.replace(UNIT_EXTRACT, '', regex=True).str.strip().str.rstrip(',').str.strip()
-            )
+    # A second pass is intentional: after SUITE is removed, a preceding
+    # "OFFICE PARK" can itself match the legacy unit rule.
+    same_named = named_unit.notna() & ~s2_blank & (
+        named_unit.str.strip().str.upper() == s2.str.strip().str.upper()
+    )
+    if same_named.any():
+        s1 = s1.where(~same_named, _strip_named_unit(s1))
 
     # hash units (#5A, # 200)
     match_hash = s1.str.extract(HASH_EXTRACT)

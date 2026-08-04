@@ -5,22 +5,19 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx, _set_missing
-from fec.cleaning.enhancements.swaps import _OCC_KEYWORDS
 from fec.cleaning.occupations import _categorize
-from fec.config.constants import JUNK_EMPLOYER_RE, REFUSAL_EMPLOYERS
+from fec.config.constants import JUNK_EMPLOYER_RE
+from fec.config.occupation_rules import (
+    FINAL_JUNK_EMPLOYERS,
+    FINAL_NULL_EMPLOYERS,
+    FINAL_SHORT_OCCUPATIONS,
+    OCCUPATION_KEYWORDS,
+)
 
 # matched against _norm() output (already uppercase), so case-sensitive on purpose
 _SCHOOL_EMP_RE = re.compile(
     r'SCHOOL|ACADEMY|COLLEGE|UNIVERSITY|EDUCATION|MDCPS|ISD\b|UNIFIED|DISTRICT',
 )
-
-_KNOWN_SHORT_OCC = frozenset({
-    'MD', 'VP', 'PA', 'RN', 'IT', 'PR', 'HR', 'AI', 'DJ', 'DO', 'GP', 'GM',
-})
-
-_EMP_JUNK = frozenset({
-    'VARIOUS', 'JOB', 'A', 'EMP', 'N', 'MULTIPLE', 'OTHER',
-})
 
 # anchored: SELF / SELF EMPLOYED / SELFEMPLOYED / SELF-EMP etc. match; SELFRIDGES and trailing text do not
 _SELF_EMP_RE = re.compile(r'^SELF(?:[\s\-/]*EMP(?:LOY\w*)?)?$')
@@ -31,15 +28,6 @@ _SELF_PREFIX_STRIP_RE = re.compile(r'^SELF[\s,/\-]+(?:EMPLOYED[\s,/\-]*)?')
 
 _OCC_NUM_TAIL_RE = re.compile(r'^[A-Z ]+\s+\d+$')
 _TRAILING_NUM_RE = re.compile(r'\s+\d+$')
-
-# refusals and N/A-style placeholders to null; RETIRED / SELF-EMPLOYED / NOT EMPLOYED stay by design
-_NULL_EMPLOYER_WORDS = (
-    REFUSAL_EMPLOYERS
-    | {'N/A', 'NA', 'N A', 'NONE', 'NOT APPLICABLE', 'NOT APPLICAABLE',
-       'NOT DISCLOSED', 'INFORMATION REQUESTED',
-       'INFORMATION REQUESTED PER BEST EFFORTS', 'PHYSICAN', 'SELP EMPLOYED'}
-)
-
 
 def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Final pass for junk that slipped through; returns (df, n_fixed)."""
@@ -78,7 +66,7 @@ def _clean_junk_employer_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
 
 def _clean_junk_short_occ(df: pd.DataFrame, ii: pd.Index) -> int:
     occ = _norm(df.loc[ii, 'contributor_occupation'])
-    short = ii[(occ.str.len() <= 2) & (occ != '') & ~occ.isin(_KNOWN_SHORT_OCC)]
+    short = ii[(occ.str.len() <= 2) & (occ != '') & ~occ.isin(FINAL_SHORT_OCCUPATIONS)]
     if len(short):
         _set_missing(df, short)
         return len(short)
@@ -138,7 +126,7 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
         n_fixed += len(doc_emp)
 
     # employer = occupation word + occ = SELF-EMPLOYED: swap
-    swap_se = ii[emp.isin(_OCC_KEYWORDS) & (occ == 'SELF-EMPLOYED')]
+    swap_se = ii[emp.isin(OCCUPATION_KEYWORDS) & (occ == 'SELF-EMPLOYED')]
     if len(swap_se):
         real_occ = df.loc[swap_se, 'contributor_employer'].copy()
         df.loc[swap_se, 'contributor_employer'] = 'SELF-EMPLOYED'
@@ -148,7 +136,7 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
         n_fixed += len(swap_se)
 
     # employer junk words
-    emp_junk = ii[emp.isin(_EMP_JUNK)]
+    emp_junk = ii[emp.isin(FINAL_JUNK_EMPLOYERS)]
     if len(emp_junk):
         df.loc[emp_junk, 'contributor_employer'] = np.nan
         n_fixed += len(emp_junk)
@@ -195,8 +183,6 @@ def _clean_self_employed_variants(df: pd.DataFrame) -> int:
     indiv_idx = _indiv_idx(df)
     n_fixed = 0
     for col in ('contributor_employer', 'contributor_occupation'):
-        if col not in df.columns:
-            continue
         values = _norm(df.loc[indiv_idx, col])
         hit = indiv_idx[(values != 'SELF-EMPLOYED') & values.str.match(_SELF_EMP_RE, na=False)]
         if len(hit):
@@ -212,7 +198,7 @@ def _clean_junk_status_word_employer(df: pd.DataFrame) -> int:
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     collapsed = emp.str.replace(r'\s+', ' ', regex=True)
-    hit = indiv_idx[(emp != '') & collapsed.isin(_NULL_EMPLOYER_WORDS)]
+    hit = indiv_idx[(emp != '') & collapsed.isin(FINAL_NULL_EMPLOYERS)]
     if len(hit):
         df.loc[hit, 'contributor_employer'] = np.nan
         return len(hit)

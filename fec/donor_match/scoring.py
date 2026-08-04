@@ -95,14 +95,12 @@ def normalize_committee_name(name: str) -> str:
 # -- the scoring engine ------------------------------------------------------
 
 
-def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
-    """Score merge confidence for a pair, returning (score, signals); at least one geographic signal is required to merge -- employer or name rarity alone is never enough."""
+def _shared_evidence(p1: dict, p2: dict) -> tuple:
+    """Score shared address and employer facts."""
     score = 0
     signals = []
     has_geo = False
-    has_employer = False
 
-    # -- 1. shared evidence: street / employer / state / city / ZIP --
     if p1["streets"] and p2["streets"]:
         common = p1["streets"] & p2["streets"]
         if common:
@@ -110,13 +108,11 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
             signals.append(f"street(+{SCORE_SAME_STREET})")
             has_geo = True
 
-    # employer match (real companies only)
-    if p1["norm_employers"] and p2["norm_employers"]:
-        common = p1["norm_employers"] & p2["norm_employers"]
-        if common:
-            score += SCORE_SAME_EMPLOYER
-            signals.append(f"employer={list(common)[0][:25]}(+{SCORE_SAME_EMPLOYER})")
-            has_employer = True
+    common_employers = p1["norm_employers"] & p2["norm_employers"]
+    if common_employers:
+        score += SCORE_SAME_EMPLOYER
+        employer = list(common_employers)[0][:25]
+        signals.append(f"employer={employer}(+{SCORE_SAME_EMPLOYER})")
 
     if p1["state"] and p2["state"] and p1["state"] == p2["state"]:
         score += SCORE_SAME_STATE
@@ -138,12 +134,18 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
             signals.append(f"zip3={z1[:3]}(+{SCORE_SAME_ZIP3})")
             has_geo = True
 
-    # -- 2. occupation corroboration; for a very rare name a consistent
-    # category also unlocks the cross-state path below, occ_conflict blocks it
+    return score, signals, has_geo, common_employers
+
+
+def _occupation_evidence(p1: dict, p2: dict) -> tuple:
+    """Score a consistent career or a career-to-retirement transition."""
+    score = 0
+    signals = []
     c1, c2 = p1.get("occ_categories", set()), p2.get("occ_categories", set())
     r1, r2 = p1.get("retired", False), p2.get("retired", False)
-    occ_conflict = bool(c1 and c2 and not (c1 & c2))   # two DIFFERENT real careers
+    occ_conflict = bool(c1 and c2 and not (c1 & c2))
     occ_compatible = False
+
     if c1 and c2 and (c1 & c2):
         score += SCORE_SAME_OCC
         signals.append(f"occ={sorted(c1 & c2)[0][:18]}(+{SCORE_SAME_OCC})")
@@ -153,11 +155,17 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
         signals.append(f"occ_retired_transition(+{SCORE_OCC_RETIRED})")
         occ_compatible = True
     elif r1 and r2:
-        occ_compatible = True                           # both retired: consistent, no points
+        occ_compatible = True
 
-    # -- 3. middle names: the only hard block. Two different FULL middle
-    # names = two different people; different initials just cost points --
-    m1, m2 = p1["middle"], p2["middle"]
+    return score, signals, occ_compatible, occ_conflict
+
+
+def _middle_name_evidence(m1: str, m2: str) -> tuple:
+    """Score middle names and hard-block two different full names."""
+    score = 0
+    signals = []
+    hard_block = False
+
     if m1 and m2:
         if m1 == m2:
             score += SCORE_MIDDLE_MATCH
@@ -172,15 +180,86 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
             score += SCORE_MIDDLE_MATCH
             signals.append(f"middle_typo={m1}/{m2}(+{SCORE_MIDDLE_MATCH})")
         else:
-            score = -999
             signals.append(f"HARD_BLOCK={m1}\u2260{m2} (different people)")
-            return score, signals
+            hard_block = True
     elif m1 or m2:
         score += SCORE_MIDDLE_PARTIAL
         signals.append(f"middle_partial(+{SCORE_MIDDLE_PARTIAL})")
 
-    # -- 4. name rarity: a rare name is evidence by itself, a common one
-    # raises the bar --
+    return score, signals, hard_block
+
+
+def _is_eponymous(p: dict, common_employers: set) -> bool:
+    """Return whether a shared employer contains the donor's surname."""
+    name = p.get("name", "")
+    surname = name.split(",")[0].strip().upper() if "," in name else ""
+    return (
+        len(surname) >= 3
+        and any(surname in employer.upper() for employer in common_employers)
+    )
+
+
+def _apply_no_geo_safety(
+    score: int,
+    signals: list,
+    p1: dict,
+    p2: dict,
+    name_freq: int,
+    common_employers: set,
+    occ_compatible: bool,
+    occ_conflict: bool,
+) -> int:
+    """Cap unsupported matches; allow only the documented rare-name cases."""
+    if common_employers:
+        if name_freq <= 3:
+            score += SCORE_RARE_EMPLOYER_OK
+            signals.append(f"rare_employer_ok(freq={name_freq},+{SCORE_RARE_EMPLOYER_OK})")
+        elif _is_eponymous(p1, common_employers) and name_freq <= 10:
+            signals.append(f"eponymous_employer(freq={name_freq})")
+        elif name_freq <= 10:
+            score = min(score, MERGE_THRESHOLD - 1)
+            signals.append(f"EMPLOYER_ONLY_NO_GEO(capped\u2192{score},freq={name_freq})")
+        else:
+            score = min(score, MERGE_THRESHOLD - 20)
+            signals.append(f"EMPLOYER_ONLY_COMMON(capped\u2192{score},freq={name_freq})")
+        return score
+
+    distinctive = (
+        p1.get("last_freq", 999) <= XSTATE_LAST_RARE_MAX
+        or (
+            p1.get("first_freq", 999) <= XSTATE_FIRST_RARE_MAX
+            and p2.get("first_freq", 999) <= XSTATE_FIRST_RARE_MAX
+        )
+    )
+    if name_freq <= 2 and occ_compatible and not occ_conflict and distinctive:
+        score = max(score, MERGE_THRESHOLD)
+        signals.append(f"RARE_OCC_CROSS_STATE(allow\u2192{score})")
+    elif name_freq <= 2:
+        score = min(score, MERGE_THRESHOLD - 1)
+        signals.append(f"NO_CORROBORATION_RARE(capped\u2192{score})")
+    else:
+        score = min(score, MERGE_THRESHOLD - 1)
+        signals.append(f"NO_CORROBORATION(capped\u2192{score})")
+
+    return score
+
+
+def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
+    """Return the donor-match score and the evidence behind it."""
+    score, signals, has_geo, common_employers = _shared_evidence(p1, p2)
+
+    points, evidence, occ_compatible, occ_conflict = _occupation_evidence(p1, p2)
+    score += points
+    signals.extend(evidence)
+
+    points, evidence, hard_block = _middle_name_evidence(
+        p1["middle"], p2["middle"]
+    )
+    signals.extend(evidence)
+    if hard_block:
+        return -999, signals
+    score += points
+
     if name_freq <= 3:
         score += SCORE_RARE_NAME
         signals.append(f"rare({name_freq})(+{SCORE_RARE_NAME})")
@@ -192,66 +271,24 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
         score += SCORE_VERY_RARE_BONUS
         signals.append(f"very_rare(+{SCORE_VERY_RARE_BONUS})")
 
-    # -- 5. bonus: RETIRED/no-employer + rare name + same geo --
-    if (not has_employer and has_geo and name_freq <= 3
-            and not p1.get("norm_employers", set())
-            and not p2.get("norm_employers", set())):
+    no_employers = not p1.get("norm_employers", set()) and not p2.get(
+        "norm_employers", set()
+    )
+    if not common_employers and has_geo and name_freq <= 3 and no_employers:
         score += SCORE_RETIRED_NO_EMP
         signals.append(f"retired_no_emp_rare_geo(+{SCORE_RETIRED_NO_EMP})")
 
-    # eponymous = the shared employer name contains the donor's surname
-    # (SMITH at SMITH ASSOCIATES): below, that exempts moderately common
-    # names from the employer-only-no-geo cap, since a name-brand firm is
-    # much stronger evidence than an ordinary shared employer
-    is_eponymous = False
-    if has_employer and not has_geo:
-        name_str = p1.get("name", "")
-        last1 = name_str.split(",")[0].strip().upper() if "," in name_str else ""
-        if last1 and len(last1) >= 3:
-            for emp in (p1.get("norm_employers", set()) & p2.get("norm_employers", set())):
-                if last1 in emp.upper():
-                    is_eponymous = True
-                    break
-
-    # -- 6. safety rail: NO geographic signal at all. Without geography the
-    # score is capped below the threshold unless one escape hatch applies:
-    #   shared employer + rare name (freq<=3)        -> +10, may merge
-    #   shared eponymous employer, freq<=10          -> allowed through as-is
-    #   shared employer, ordinary name (freq<=10)    -> capped at 49, never merges
-    #   shared employer, common name (freq>10)       -> capped at 30
-    #   no employer: very rare name + same career    -> forced UP to 50 (moved/two homes)
-    #   anything else                                -> capped at 49
     if not has_geo:
-        if has_employer:
-            if name_freq <= 3:
-                score += SCORE_RARE_EMPLOYER_OK
-                signals.append(f"rare_employer_ok(freq={name_freq},+{SCORE_RARE_EMPLOYER_OK})")
-            elif is_eponymous and name_freq <= 10:
-                signals.append(f"eponymous_employer(freq={name_freq})")
-            elif name_freq <= 10:
-                score = min(score, MERGE_THRESHOLD - 1)
-                signals.append(f"EMPLOYER_ONLY_NO_GEO(capped\u2192{score},freq={name_freq})")
-            else:
-                score = min(score, MERGE_THRESHOLD - 20)
-                signals.append(f"EMPLOYER_ONLY_COMMON(capped\u2192{score},freq={name_freq})")
-        else:
-            # the only merge path with no geography: very rare name (freq<=2) with a
-            # consistent occupation/life-status and no career conflict -- one person
-            # who moved or keeps two homes; common names are never fused here
-            distinctive = (
-                p1.get("last_freq", 999) <= XSTATE_LAST_RARE_MAX
-                or (p1.get("first_freq", 999) <= XSTATE_FIRST_RARE_MAX
-                    and p2.get("first_freq", 999) <= XSTATE_FIRST_RARE_MAX)
-            )
-            if name_freq <= 2 and occ_compatible and not occ_conflict and distinctive:
-                score = max(score, MERGE_THRESHOLD)
-                signals.append(f"RARE_OCC_CROSS_STATE(allow\u2192{score})")
-            elif name_freq <= 2:
-                score = min(score, MERGE_THRESHOLD - 1)
-                signals.append(f"NO_CORROBORATION_RARE(capped\u2192{score})")
-            else:
-                score = min(score, MERGE_THRESHOLD - 1)
-                signals.append(f"NO_CORROBORATION(capped\u2192{score})")
+        score = _apply_no_geo_safety(
+            score,
+            signals,
+            p1,
+            p2,
+            name_freq,
+            common_employers,
+            occ_compatible,
+            occ_conflict,
+        )
 
     return score, signals
 

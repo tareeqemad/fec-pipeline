@@ -112,7 +112,7 @@ def _fix_impossible_city_states(df: pd.DataFrame) -> int:
         return 0
 
     dominant_state = person_city.map(dominant)
-    to_fix = eligible & dominant_state.notna() & (dominant_state != '') & (state != dominant_state)
+    to_fix = eligible & dominant_state.notna() & (state != dominant_state)
 
     n_fixed = int(to_fix.sum())
     if n_fixed:

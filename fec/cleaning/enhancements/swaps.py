@@ -5,8 +5,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.occupations import _categorize
-from fec.config.occupation_rules import OCCUPATION_CANONICAL
-from fec.config.constants import OCCUPATION_AS_EMPLOYER
+from fec.config.occupation_rules import OCCUPATION_CANONICAL, OCCUPATION_KEYWORDS
 
 # Both patterns run against _norm() output (already uppercase), so they are
 # compiled without IGNORECASE on purpose.
@@ -35,21 +34,6 @@ _ORG_IN_OCC_RE = re.compile(
     r'|\bAIPAC\b|\bDMFI\b',
 )
 
-_OCC_KEYWORDS = frozenset({
-    'ATTORNEY', 'LAWYER', 'PARTNER', 'MANAGER', 'ADMINISTRATOR',
-    'PRESIDENT', 'DIRECTOR', 'EXECUTIVE', 'PHYSICIAN', 'ACCOUNTANT',
-    'CONSULTANT', 'ENGINEER', 'OFFICER', 'ANALYST', 'ADVISOR',
-    'COUNSEL', 'DENTIST', 'SURGEON', 'BROKER', 'AGENT',
-    # roles/industries filers enter as the employer; the real company then hides in occupation
-    'CLAIMS', 'CPA', 'OWNER', 'MANAGING PARTNER', 'MANAGING DIRECTOR',
-    'PAC MANAGER',
-    'INSURANCE BROKER', 'INSURANCE AGENT', 'REAL ESTATE',
-    'INVESTMENT MANAGEMENT', 'FINANCE', 'MARKETING', 'MANAGEMENT',
-    'SALES', 'CASHIER', 'DESIGNER', 'CATER', 'CATERER', 'WRITER',
-    'ARTIST', 'PSYCHOLOGIST', 'THERAPIST', 'PROFESSOR',
-}) | OCCUPATION_AS_EMPLOYER  # constants.py set adds the formal job titles
-
-
 def _swap_occ_emp(df: pd.DataFrame, idx: pd.Index) -> None:
     """Swap occupation and employer for the given index and re-categorize."""
     old_occ = df.loc[idx, 'contributor_occupation'].copy()
@@ -67,14 +51,14 @@ def fix_remaining_swapped_occ_emp(df: pd.DataFrame) -> tuple[pd.DataFrame, int, 
 
     # A) occ looks like company, emp looks like job title
     occ_is_corp = occ.str.contains(_CORP_IN_OCC_RE, na=False)
-    emp_is_job = emp.isin(_OCC_KEYWORDS)
+    emp_is_job = emp.isin(OCCUPATION_KEYWORDS)
     occ_starts_corp = occ.str.startswith('CORP ', na=False)
     swap_a = indiv_idx[occ_is_corp & emp_is_job & ~occ_starts_corp]
     if len(swap_a):
         _swap_occ_emp(df, swap_a)
 
     # B) occ == emp and both are job words: emp = SELF-EMPLOYED
-    same_idx = indiv_idx[(occ == emp) & emp.isin(_OCC_KEYWORDS)]
+    same_idx = indiv_idx[(occ == emp) & emp.isin(OCCUPATION_KEYWORDS)]
     n_same = len(same_idx)
     if n_same:
         df.loc[same_idx, 'contributor_employer'] = 'SELF-EMPLOYED'

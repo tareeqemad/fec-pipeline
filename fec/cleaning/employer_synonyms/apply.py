@@ -142,9 +142,6 @@ _MID_SUFFIX_RE = re.compile(
 def fix_normalized_mid_suffix(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Strip LLC/LLP/INC appearing mid-string in employer_name_normalized (and mirror into contributor_employer); returns (df, n_fixed)."""
     col = 'employer_name_normalized'
-    if col not in df.columns:
-        return df, 0
-
     vals = df[col].fillna('')
     has_mid = vals.str.contains(r'\bLLC\b|\bLLP\b|\bINC\b|\bCORP\b|\bLTD\b', case=False, regex=True)
     target = df.index[has_mid]

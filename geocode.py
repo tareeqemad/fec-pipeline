@@ -89,7 +89,7 @@ def main():
             df = apply_employer_to_dataframe(df, cache)
             changed = True
 
-            has = df["employer_latitude"].notna() & (df["employer_latitude"] != 0)
+            has = df["employer_latitude"].notna()
             logger.info(f"\n  Employer coords: {has.sum():,} / {len(df):,} ({has.mean()*100:.1f}%)")
             for src, cnt in df["employer_geocode_level"].value_counts().items():
                 logger.info(f"    {src:25s} {cnt:>7,}")

@@ -86,7 +86,7 @@ def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
     donor_prev_employer_id: dict[str, int] = {}
     if 'previous_employer' not in df.columns:
         return donor_prev_employer_id
-    prev_emp = df[df['previous_employer'].notna() & (df['previous_employer'] != '')]
+    prev_emp = df[df['previous_employer'].notna()]
     if len(prev_emp) == 0:
         return donor_prev_employer_id
 

@@ -2,6 +2,11 @@
 
 import pandas as pd
 
+from fec.cleaning.previous_employer import (
+    is_real_employer,
+    normalize_previous_employer_value,
+)
+
 from .constants import TIERS
 
 
@@ -15,6 +20,37 @@ def _s(val, default: str = "") -> str:
 def _prev_key(name, state) -> str:
     """Build stable cache key for previous-employer lookup: NAME|STATE."""
     return f"{_s(name).strip()}|{_s(state).strip()}"
+
+
+def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...]]:
+    """Return the clean company name and compatible address-cache keys.
+
+    The clean name is the only value written to pipeline output. Older resolve
+    caches may use an unclean spelling, so those spellings remain fallback keys
+    for address lookup instead of causing a duplicate AI request.
+    """
+    if not entry:
+        return "", ()
+
+    raw_name = _s(entry.get("employer")).strip()
+    normalized_name = _s(entry.get("employer_normalized")).strip()
+    source_name = _s(entry.get("employer_source")).strip()
+
+    clean_name = ""
+    for candidate in (raw_name, normalized_name, source_name):
+        cleaned = normalize_previous_employer_value(candidate)
+        if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned):
+            clean_name = cleaned
+            break
+    if not clean_name:
+        return "", ()
+
+    keys = []
+    for name in (clean_name, normalized_name, raw_name, source_name):
+        key = name.strip().upper()
+        if key and key not in keys:
+            keys.append(key)
+    return clean_name, tuple(keys)
 
 
 def _compute_donor_totals(df: pd.DataFrame) -> pd.Series:

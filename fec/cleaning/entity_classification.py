@@ -47,6 +47,8 @@ _GENERIC_EMP_OCC = frozenset({
 
 _NAME_CORRECTIONS = {
     "CHALME'', RAYMOND": "CHALME, RAYMOND",
+    "MEYERS, STUART SARA": "MEYERS, STUART",
+    "MEYERS, SARA STUART": "MEYERS, SARA",
     # Hand-verified org names the LAST, FIRST parse flipped (auto-unflipping comma'd
     # org names is unsafe); keys must stay in sync with data/database/entity_overrides.csv.
     "BANK, FIRST CENTRAL": "FIRST CENTRAL SAVINGS BANK",
@@ -198,6 +200,11 @@ def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         count = mask.sum()
         if count:
             df.loc[mask, 'contributor_name'] = new
+            individual = mask & df['entity_type'].eq('INDIVIDUAL')
+            if individual.any() and ',' in new:
+                last, first = (part.strip() for part in new.split(',', 1))
+                df.loc[individual, 'contributor_first_name'] = first
+                df.loc[individual, 'contributor_last_name'] = last
             n_fixed += count
     return df, n_fixed
 
@@ -213,35 +220,6 @@ def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
                 df.loc[has_double, col] = vals[has_double].str.replace("''", "'", regex=False)
                 if col == 'contributor_name':
                     n_fixed += int(has_double.sum())
-
-    return df, n_fixed
-
-
-def fix_null_last_name(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Strip artifact 'NULL, ' prefixes; a real employer plus occupation means NULL is a true surname."""
-    indiv_idx = _indiv_idx(df)
-    names = df.loc[indiv_idx, 'contributor_name'].fillna('')
-    null_mask = indiv_idx[names.str.startswith('NULL, ')]
-    n_fixed = 0
-
-    STATUS = {'RETIRED', 'SELF-EMPLOYED', 'NOT EMPLOYED', 'NOT DISCLOSED', '', 'nan', 'NAN'}
-
-    if len(null_mask):
-        for idx in null_mask:
-            emp = str(df.at[idx, 'contributor_employer'] or '').strip()
-            occ = str(df.at[idx, 'contributor_occupation'] or '').strip()
-
-            if emp and emp not in STATUS and occ and occ not in STATUS:
-                df.at[idx, 'contributor_last_name'] = 'NULL'
-                first = df.at[idx, 'contributor_name'].replace('NULL, ', '', 1).strip()
-                df.at[idx, 'contributor_first_name'] = first
-                df.at[idx, 'contributor_name'] = f"NULL, {first}"
-            else:
-                name = df.at[idx, 'contributor_name']
-                first = name.replace('NULL, ', '', 1).strip()
-                df.at[idx, 'contributor_name'] = first
-                df.at[idx, 'contributor_last_name'] = np.nan
-                n_fixed += 1
 
     return df, n_fixed
 

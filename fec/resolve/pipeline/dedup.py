@@ -104,14 +104,8 @@ def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int
     # Pass 1: settle each canonical with the best-scored data among its variants.
     removed = 0
     for variant, canonical in mapping.items():
-        if variant not in addr_cache.data:
-            continue
         variant_entry = addr_cache.data[variant]
-        if canonical in addr_cache.data:
-            canonical_entry = addr_cache.data[canonical]
-            if _score(variant_entry) > _score(canonical_entry):
-                addr_cache.data[canonical] = variant_entry
-        else:
+        if _score(variant_entry) > _score(addr_cache.data[canonical]):
             addr_cache.data[canonical] = variant_entry
         removed += 1
 
@@ -120,9 +114,7 @@ def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int
     # variant spelling, so _needs_ai re-asked the AI every run); aliases keep
     # every spelling resolvable and the grouping above skips them (idempotent).
     for variant, canonical in mapping.items():
-        canonical_entry = addr_cache.data.get(canonical)
-        if not isinstance(canonical_entry, dict):
-            continue
+        canonical_entry = addr_cache.data[canonical]
         alias = {key: value for key, value in canonical_entry.items() if key != 'alias_of'}
         alias['alias_of'] = canonical
         addr_cache.data[variant] = alias

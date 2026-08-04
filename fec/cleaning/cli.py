@@ -24,8 +24,6 @@ def _drop_internal_cols(df):
 
 def _restore_prior_donor_keys(df, existing):
     """Pin existing donors to their first-assigned key; re-matching canonicalized output can pick a different cluster root and orphan curated donor_dedup_merges."""
-    if 'donor_key' not in existing.columns or 'donor_key' not in df.columns:
-        return 0
     prior = dict(zip(existing['sub_id'].astype(str), existing['donor_key']))
     prior_of_row = df['sub_id'].astype(str).map(prior)
     remap = {}
@@ -85,9 +83,6 @@ def _assert_known_committees(df):
 
 def _ensure_zip_format(df):
     """Force contributor_zip to a zero-padded 5-digit string right before to_csv (pandas ops can float-ify it, losing leading zeros)."""
-    if 'contributor_zip' not in df.columns:
-        return
-
     zips = df['contributor_zip']
 
     if zips.dtype.name in ('object', 'string'):
@@ -147,16 +142,24 @@ def _filter_new_records(df, tracker_path):
 
 
 def _update_tracker(df_clean, tracker_path):
-    """Append newly cleaned sub_ids to the tracker file."""
-    new_ids = df_clean[['sub_id']].copy()
+    """Append genuinely new sub_ids to the tracker file."""
+    new_ids = df_clean[['sub_id']].astype({'sub_id': 'string'})
 
-    if os.path.exists(tracker_path):
-        existing = pd.read_csv(tracker_path, dtype={'sub_id': 'string'},
-                               keep_default_na=False, na_values=[''])
-        combined = pd.concat([existing, new_ids], ignore_index=True).drop_duplicates()
-        combined.to_csv(tracker_path, index=False)
-    else:
-        new_ids.to_csv(tracker_path, index=False)
+    if not os.path.exists(tracker_path):
+        new_ids.drop_duplicates().to_csv(tracker_path, index=False)
+        return
+
+    existing = pd.read_csv(
+        tracker_path,
+        dtype={'sub_id': 'string'},
+        keep_default_na=False,
+        na_values=[''],
+    )
+    new_ids = new_ids[~new_ids['sub_id'].isin(existing['sub_id'])]
+    if new_ids.empty:
+        return
+
+    pd.concat([existing, new_ids], ignore_index=True).to_csv(tracker_path, index=False)
 
 
 def _print_summary(full, df_clean, quality, args):

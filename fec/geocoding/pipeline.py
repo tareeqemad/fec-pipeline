@@ -45,10 +45,8 @@ def _valid_for_state(lat: float, lng: float, state: str) -> bool:
     return (lat_min - 1 <= lat <= lat_max + 1) and (lng_min - 1 <= lng <= lng_max + 1)
 
 
-def is_po_box(street) -> bool:
-    if pd.isna(street):
-        return False
-    return bool(_PO_BOX_RE.match(str(street).strip()))
+def is_po_box(street: str) -> bool:
+    return bool(_PO_BOX_RE.match(street.strip()))
 
 
 def _contributor_keys(df: pd.DataFrame) -> pd.Series:
@@ -106,7 +104,7 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
         if result and result["lat"] is not None:
             lat, lng = result["lat"], result["lng"]
             country = result.get("country", "US")
-            state = key.split("|")[2] if "|" in key else ""
+            state = key.split("|")[2]
             if country == "US" and not _valid_for_state(lat, lng, state):
                 return np.nan, np.nan, "US", "rejected_out_of_us"
             return lat, lng, country, result["source"]
@@ -128,10 +126,6 @@ def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
                                google_key: str | None = None,
                                batch_size: int = 50):
     """Geocode employer addresses; skips empty rows, but RETIRED with a previous employer IS geocoded at the company address."""
-    if "employer_address" not in df.columns:
-        logger.info("  No employer_address column - run resolve.py first")
-        return
-
     mask = (df['employer_address'].notna() &
             (df['employer_address'] != ''))
     keys = _employer_keys(df.loc[mask])

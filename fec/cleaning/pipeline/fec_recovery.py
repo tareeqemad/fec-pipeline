@@ -119,9 +119,8 @@ def recover_addresses_from_fec(df: pd.DataFrame, out_dir: str | None) -> int:
         df.at[idx, 'contributor_street_1'] = street
         if not our_city and fec_city:
             df.at[idx, 'contributor_city'] = fec_city
-        if 'contributor_zip' in df.columns:
-            if not str(df.at[idx, 'contributor_zip'] or '').strip() and hit.get('zip'):
-                df.at[idx, 'contributor_zip'] = hit['zip']
+        if not str(df.at[idx, 'contributor_zip'] or '').strip() and hit.get('zip'):
+            df.at[idx, 'contributor_zip'] = hit['zip']
         n_filled += 1
 
     return n_filled

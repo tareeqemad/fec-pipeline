@@ -83,7 +83,7 @@ ORG_KEYWORDS = re.compile(
     r'|,\s+[\w\s]+\s+(?:REP|SEN)\.'                     # ", MIKE REP." / ", SHELLEY MOORE SEN."
     r'| FOR [A-Z]{2,},\s'                              # "FOR LOUISIANA, " "FOR NH, "
     r'|COMMITTEE|PAC |PAC$'
-    r'|NRSC|NRCC|DCCC|DSCC|RNC'
+    r'|\b(?:NRSC|NRCC|DCCC|DSCC|RNC)\b'
     r'| INC\.?| LLC| LLP| LP\b| CORP| ASSOC| FUND| TRUST| FOUNDATION'
     r'| HOLDINGS| INVESTMENT| PARTNERS| PARTNERSHIP| COMPANY| COUNCIL'
     r'| SERVICES| MEDIA| PROPERTY| PROPERTIES| TRADES| GROUP| VENTURES'
@@ -94,8 +94,8 @@ ORG_KEYWORDS = re.compile(
 
 # Individual names: "LASTNAME, F..." (FEC standard). Spaces/parens allowed in
 # the last name; `*` after the first letter so single-letter surnames match
-# ("Y, IVAN"); backtick tolerated for stray-punctuation names.
-INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`]*,\s*[A-Z]")
+# ("Y, IVAN"); backticks and semicolons are tolerated as stray punctuation.
+INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 
 # Trailing junk on committee names (", SOMETOWN", appended candidate name) but
 # not a legal suffix (", INC"). 30-char cap covers "FIRST MIDDLE LAST TITLE".
@@ -123,16 +123,15 @@ OUTPUT_COLUMNS = [
     'entity_type',
     # name
     'contributor_name', 'contributor_first_name', 'contributor_last_name',
-    # address; state_name flows through the pipeline but is internal-only
+    # address
     'contributor_street_1', 'contributor_street_2',
-    'contributor_city', 'contributor_state', 'state_name', 'contributor_zip',
+    'contributor_city', 'contributor_state', 'contributor_zip',
     # work; contributor_employer is the per-donor unified name — the raw
     # per-filing value (contributor_employer_original) is internal-only
     'contributor_employer',
     'contributor_occupation', 'occupation_category',
-    # committee_type / employer_change_type are read by later safety nets, so
-    # they flow through — internal-only, dropped at save
-    'occupation_status', 'committee_type', 'employer_change_type',
+    # internal working fields read by later safety nets; dropped at save
+    'occupation_status', 'committee_type',
     # contribution; contributor_year deliberately absent (DB derives it), as
     # are is_refund / is_zero_amount (amount alone suffices; refunds < 0).
     # Refund rows are almost all COMMITTEE/PAC, but the rare INDIVIDUAL refund
@@ -149,8 +148,6 @@ INTERNAL_OUTPUT_COLUMNS = [
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
     'committee_type',  # overloaded with non-committee sentinels
     'occupation_status',  # ~99% derivable; not in DB
-    'state_name',  # redundant translation of contributor_state
-    'employer_change_type',  # internal QA flag
     'resolve_method',  # how the employer address was resolved
     'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived

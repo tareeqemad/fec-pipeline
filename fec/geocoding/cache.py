@@ -49,7 +49,7 @@ class GeoCache:
         found = sum(1 for entry in self.data.values() if entry["lat"] is not None)
         by_source: dict[str, int] = {}
         for entry in self.data.values():
-            source = entry.get("source", "unknown")
+            source = entry["source"]
             by_source[source] = by_source.get(source, 0) + 1
 
         return {

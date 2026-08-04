@@ -27,17 +27,20 @@ def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
             address = (row.get('address') or '').strip()
             city = (row.get('city') or '').strip()
             state = (row.get('address_state') or row.get('state') or '').strip().upper()
+            note = (row.get('note') or '').strip()
+            suppressed = note.upper().startswith('INVALID:')
             # A deliberate city/state-only override is valid - apply.py honors
-            # a manual_override with no street.
-            if not address and not (city and state):
+            # a manual_override with no street. INVALID keeps a known-bad
+            # address blank and prevents the AI from restoring it.
+            if not address and not (city and state) and not suppressed:
                 continue
             entry = {
                 'employer_address': address,
                 'employer_city':    city,
                 'employer_state':   state,
                 'employer_zip':     (row.get('zip') or '').strip(),
-                'method':           'manual_override',
-                'confidence':       'HIGH',
+                'method':           'manual_invalid' if suppressed else 'manual_override',
+                'confidence':       'NONE' if suppressed else 'HIGH',
             }
             existing = cache.get(key)
             if existing is None:

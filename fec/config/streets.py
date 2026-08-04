@@ -34,29 +34,25 @@ def _direction_rule(word: str, abbr: str, prefix: bool = True) -> tuple:
         return (re.compile(rf'^{word}\b\s+', re.I), f'{abbr} ')
     return (re.compile(rf'\s+{word}\s*$', re.I), f' {abbr}')
 
+
+_DIRECTIONS = [
+    ('NORTHWEST', 'NW'), ('NORTHEAST', 'NE'),
+    ('SOUTHWEST', 'SW'), ('SOUTHEAST', 'SE'),
+    ('NORTH', 'N'), ('SOUTH', 'S'), ('EAST', 'E'), ('WEST', 'W'),
+]
+
 # Direction words after a house number ("123 NORTH MAIN ST")
 DIR_MID = [
-    (re.compile(rf'(\d\s+){w}\b', re.I), rf'\g<1>{a}')
-    for w, a in [
-        ('NORTHWEST', 'NW'), ('NORTHEAST', 'NE'),
-        ('SOUTHWEST', 'SW'), ('SOUTHEAST', 'SE'),
-        ('NORTH', 'N'), ('SOUTH', 'S'),
-        ('EAST', 'E'), ('WEST', 'W'),
-    ]
+    (re.compile(rf'(\d\s+){word}\b', re.I), rf'\g<1>{abbr}')
+    for word, abbr in _DIRECTIONS
 ]
 
 DIR_PREFIX = [
-    _direction_rule('NORTHWEST', 'NW'), _direction_rule('NORTHEAST', 'NE'),
-    _direction_rule('SOUTHWEST', 'SW'), _direction_rule('SOUTHEAST', 'SE'),
-    _direction_rule('NORTH', 'N'), _direction_rule('SOUTH', 'S'),
-    _direction_rule('EAST', 'E'), _direction_rule('WEST', 'W'),
+    _direction_rule(word, abbr) for word, abbr in _DIRECTIONS
 ]
 
 DIR_SUFFIX = [
-    _direction_rule('NORTHWEST', 'NW', False), _direction_rule('NORTHEAST', 'NE', False),
-    _direction_rule('SOUTHWEST', 'SW', False), _direction_rule('SOUTHEAST', 'SE', False),
-    _direction_rule('NORTH', 'N', False), _direction_rule('SOUTH', 'S', False),
-    _direction_rule('EAST', 'E', False), _direction_rule('WEST', 'W', False),
+    _direction_rule(word, abbr, False) for word, abbr in _DIRECTIONS
 ]
 
 
@@ -89,4 +85,11 @@ UNIT_RULES = [
         (r'OFFICE\b', 'OFF'), (r'OFF\.?\s*', 'OFF '),
         (r'#\s*', '# '),
     ]
+]
+
+
+# Human-verified FEC street typos. These are exact word replacements, not
+# fuzzy matching: a near-looking street can still be a real different place.
+STREET_TYPO_RULES = [
+    (re.compile(r'\bOLYMIC\b', re.I), 'OLYMPIC'),
 ]

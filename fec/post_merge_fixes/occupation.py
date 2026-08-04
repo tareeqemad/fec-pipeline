@@ -3,12 +3,12 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm
 from fec.cleaning.occupations import _categorize
-from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
-
-# status buckets a professional occupation must not keep (and vice versa)
-_STATUS_CATS = {'SELF-EMPLOYED', 'RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'STUDENT'}
-_STATUS_OCC = {'SELF-EMPLOYED', 'RETIRED', 'NOT EMPLOYED', 'HOMEMAKER',
-               'HOUSEWIFE', 'STUDENT', 'UNEMPLOYED'}
+from fec.config.constants import (
+    SKIP_EMPLOYERS,
+    SKIP_OCCUPATIONS,
+    STATUS_CATEGORIES,
+    STATUS_WORDS,
+)
 
 
 def _rederive_occupation_status(df: pd.DataFrame) -> int:
@@ -35,30 +35,32 @@ def _rederive_occupation_category(df: pd.DataFrame) -> int:
     cat = df['occupation_category'].fillna('')
 
     stale = (
-        is_indiv & cat.isin(_STATUS_CATS)
-        & (occ != '') & ~occ_u.isin(_STATUS_OCC)
+        is_indiv & cat.isin(STATUS_CATEGORIES)
+        & (occ != '') & ~occ_u.isin(STATUS_WORDS)
     )
     idx = df.index[stale]
     n_fixed = 0
     if len(idx):
         new_cats = _categorize(df.loc[idx, 'contributor_occupation'])
-        keep = new_cats.notna() & ~new_cats.isin(_STATUS_CATS) & (new_cats != 'OTHER')
+        keep = new_cats.notna() & ~new_cats.isin(STATUS_CATEGORIES) & (new_cats != 'OTHER')
         fix_idx = idx[keep.values]
         if len(fix_idx):
             df.loc[fix_idx, 'occupation_category'] = new_cats[keep].values
         n_fixed = int(len(fix_idx))
 
     # inverse direction: a status-word occupation must not keep a professional category
-    torn = is_indiv & occ_u.isin(_STATUS_OCC) & (cat != '') & ~cat.isin(_STATUS_CATS)
+    torn = is_indiv & occ_u.isin(STATUS_WORDS) & (cat != '') & ~cat.isin(STATUS_CATEGORIES)
     if torn.any():
         status_cat = occ_u[torn].replace({'HOUSEWIFE': 'HOMEMAKER', 'UNEMPLOYED': 'NOT EMPLOYED'})
         df.loc[torn, 'occupation_category'] = status_cat.values
         n_fixed += int(torn.sum())
 
-    # NOT DISCLOSED is deliberately uncategorized (see OCCUPATION_FIXES)
-    nd = is_indiv & (occ_u == 'NOT DISCLOSED') & (cat != '')
+    # Keep explicit refusals visible without leaving a hole in the category
+    # dimension. The original text and occupation_status still distinguish
+    # NOT DISCLOSED from a genuinely unknown occupation.
+    nd = is_indiv & (occ_u == 'NOT DISCLOSED') & (cat != 'OTHER')
     if nd.any():
-        df.loc[nd, 'occupation_category'] = pd.NA
+        df.loc[nd, 'occupation_category'] = 'OTHER'
         n_fixed += int(nd.sum())
 
     return n_fixed

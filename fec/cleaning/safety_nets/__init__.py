@@ -30,7 +30,6 @@ from .employer import (
     _clear_orphan_normalized,
     _clear_refusal_employers,
     _fix_email_employer_final,
-    _fix_filled_but_null_employer,
     _fix_junk_employer_patterns,
     _fix_numeric_employer_final,
     _fix_retired_typos,
@@ -78,7 +77,6 @@ _SAFETY_NETS = [
     (_classify_committee_types,         _NON_INDIV),
     (_fix_disclosed_no_employer,        _ALL),
     (_fix_employed_no_category,         _ALL),
-    (_fix_filled_but_null_employer,     _INDIV),
     (_fix_status_word_in_occupation,    _INDIV),
     (_fix_not_disclosed_with_real_occ,  _INDIV),
     (_fill_null_occupation_category,    _INDIV),
@@ -136,10 +134,6 @@ def apply_safety_nets(df: pd.DataFrame, verbose: bool = True) -> int:
     # computed once: no net mutates entity_type / is_individual
     is_indiv: pd.Series = df['is_individual'].astype(bool)
     not_indiv: pd.Series = ~is_indiv
-
-    # committee_type is an internal column, may be absent; committee nets need it
-    if 'committee_type' not in df.columns:
-        df['committee_type'] = pd.Series(pd.NA, index=df.index, dtype='object')
 
     n_fixed = 0
     for fix, scope in _SAFETY_NETS:

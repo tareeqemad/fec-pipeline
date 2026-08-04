@@ -2,6 +2,7 @@
 import pandas as pd
 
 from fec.cleaning.pipeline.address_fixes import _unify_street_spacing
+from fec.post_merge_fixes.names_addresses import _recover_missing_streets
 
 
 def _df(streets):
@@ -56,3 +57,24 @@ def test_scoped_per_donor_never_across_people():
     before = df["contributor_street_1"].tolist()
     _unify_street_spacing(df)
     assert df["contributor_street_1"].tolist() == before   # untouched
+
+
+def test_recovers_blank_street_only_from_one_exact_donor_address():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 6,
+        'donor_key': ['safe', 'safe', 'ambiguous', 'ambiguous', 'ambiguous', 'other_zip'],
+        'contributor_street_1': [
+            '129 ALTA AVE', None,
+            '10 OAK ST', '20 OAK ST', None,
+            None,
+        ],
+        'contributor_city': ['YONKERS'] * 6,
+        'contributor_state': ['NY'] * 6,
+        'contributor_zip': ['10705', '10705', '10705', '10705', '10705', '10706'],
+    })
+
+    assert _recover_missing_streets(df) == 1
+    assert df.loc[1, 'contributor_street_1'] == '129 ALTA AVE'
+    assert pd.isna(df.loc[4, 'contributor_street_1'])
+    assert pd.isna(df.loc[5, 'contributor_street_1'])
+    assert _recover_missing_streets(df) == 0

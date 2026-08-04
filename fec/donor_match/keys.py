@@ -65,13 +65,23 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
     work = pd.DataFrame({
         "fp": fp[eligible], "z": zip5[eligible],
         "key": df.loc[eligible, "donor_key"],
+        "name": df.loc[eligible, "contributor_name"].fillna(""),
         "occ": df.loc[eligible, "occupation_category"].fillna(""),
     })
+    names_by_key = work.groupby("key")["name"].agg(set).to_dict()
 
     remap: dict[str, str] = {}
     for _, grp in work.groupby(["fp", "z"]):
         keys = grp["key"].unique()
         if len(keys) < 2:
+            continue
+        blocked = any(
+            _is_blocked_merge(name_a, name_b)
+            for key_a, key_b in combinations(keys, 2)
+            for name_a in names_by_key[key_a]
+            for name_b in names_by_key[key_b]
+        )
+        if blocked:
             continue
         # >1 distinct real occupation category: could be two people, skip
         real_occs = {o for o in grp["occ"].unique() if o not in _VAGUE_OCC_CATEGORIES}

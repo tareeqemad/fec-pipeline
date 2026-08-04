@@ -24,3 +24,7 @@ def test_bare_box_becomes_po_box():
     assert norm("BOX CANYON RD") == "BOX CANYON RD"
     # Already-correct forms unchanged.
     assert norm("PO BOX 137") == "PO BOX 137"
+
+
+def test_verified_street_typo_is_corrected():
+    assert norm("11301 W. OLYMIC BLVD") == "11301 W OLYMPIC BLVD"
