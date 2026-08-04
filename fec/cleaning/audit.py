@@ -8,89 +8,117 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
+from fec.log import get_logger
+
+logger = get_logger(__name__)
+
+
+def _collect_reclassifications(before, after, add_change):
+    if '_reclass_reason' not in after.columns:
+        return
+
+    reasons = after['_reclass_reason'].astype('string')
+    for sub_id in after.index[reasons.notna()]:
+        reason = str(reasons.loc[sub_id])
+        for field in ('is_individual', 'entity_type'):
+            if field in before.columns and field in after.columns:
+                add_change(sub_id, field, 'reclassify', reason)
+
+
+def _collect_street_changes(before, after, add_change):
+    if '_street_email_in_s1' not in after.columns:
+        return
+
+    flagged = after['_street_email_in_s1'].fillna(False).astype(bool)
+    swapped = after['_street_swapped_from_s2'].fillna(False).astype(bool)
+    nulled = after['_street_nulled_email'].fillna(False).astype(bool)
+
+    for sub_id in after.index[flagged]:
+        if bool(swapped.loc[sub_id]):
+            reason = 'street_swap_due_to_email_in_street1'
+        elif bool(nulled.loc[sub_id]):
+            reason = 'street_nulled_due_to_email_in_street1'
+        else:
+            reason = 'street_email_in_street1'
+
+        for field in ('contributor_street_1', 'contributor_street_2'):
+            if field in before.columns and field in after.columns:
+                add_change(sub_id, field, 'clean_streets', reason)
+
+
+def _collect_garbled_names(after, add_change):
+    if '_garbled_before' not in after.columns:
+        return
+
+    garbled = after['_garbled_before'].astype('string')
+    changed = garbled.notna() & (garbled != '<NA>')
+    for sub_id in after.index[changed]:
+        evidence = f'was: {garbled.loc[sub_id]}'
+        for field in ('contributor_first_name', 'contributor_name'):
+            add_change(
+                sub_id, field, 'garbled_name_fix',
+                'keyboard_error', evidence,
+            )
+
+
+def _append_enhancements(records, enhancements, row_index):
+    for record in enhancements or ():
+        sub_id = record.get('sub_id', '')
+        value = row_index.get(sub_id)
+        record['row_index'] = int(value) if pd.notna(value) else None
+        record.setdefault('evidence', None)
+        records.append(record)
+
 
 def write_audit(df_before, df_after, orig_map, out_dir, enh_audit=None):
-    """Compare before/after and write the audit files (reclassification, street/email handling, name fixes, enhancement steps)."""
+    """Compare before/after and write every cleaning audit artifact."""
     if 'sub_id' not in df_before.columns or 'sub_id' not in df_after.columns:
         return
 
-    before = df_before.drop_duplicates(subset='sub_id', keep='first').set_index('sub_id')
-    after  = df_after.drop_duplicates(subset='sub_id', keep='first').set_index('sub_id')
-    row_idx = orig_map.drop_duplicates(subset='sub_id', keep='first').set_index('sub_id')['row_index']
-
+    before = df_before.drop_duplicates('sub_id', keep='first').set_index('sub_id')
+    after = df_after.drop_duplicates('sub_id', keep='first').set_index('sub_id')
+    row_index = (
+        orig_map.drop_duplicates('sub_id', keep='first')
+        .set_index('sub_id')['row_index']
+    )
     records = []
 
-    def _val(df, col, sid):
-        if col not in df.columns:
+    def value(frame, field, sub_id):
+        if field not in frame.columns or sub_id not in frame.index:
             return ''
-        value = df.at[sid, col] if sid in df.index else ''
-        return '' if pd.isna(value) else str(value)
+        cell = frame.at[sub_id, field]
+        return '' if pd.isna(cell) else str(cell)
 
-    def _add(sid, field, step, reason, evidence=None):
-        rec = {
-            'sub_id': str(sid),
-            'row_index': int(row_idx.get(sid)) if sid in row_idx.index and pd.notna(row_idx.get(sid)) else None,
+    def add_change(sub_id, field, step, reason, evidence=None):
+        before_value = value(before, field, sub_id)
+        after_value = value(after, field, sub_id)
+        if before_value == after_value:
+            return
+
+        row_number = row_index.get(sub_id)
+        records.append({
+            'sub_id': str(sub_id),
+            'row_index': int(row_number) if pd.notna(row_number) else None,
             'field': field,
-            'before': _val(before, field, sid),
-            'after':  _val(after,  field, sid),
+            'before': before_value,
+            'after': after_value,
             'step': step,
             'reason': reason,
             'evidence': evidence,
-        }
-        if rec['before'] != rec['after']:
-            records.append(rec)
+        })
 
-    # 1. reclassification
-    if '_reclass_reason' in after.columns:
-        reclass_reasons = after['_reclass_reason'].astype('string')
-        for sid in after.index[reclass_reasons.notna()]:
-            reason = str(reclass_reasons.loc[sid])
-            for field in ('is_individual', 'entity_type'):
-                if field in before.columns and field in after.columns:
-                    _add(sid, field, step='reclassify', reason=reason)
-
-    # 2. street / email handling
-    if '_street_email_in_s1' in after.columns:
-        flag = after['_street_email_in_s1'].fillna(False).astype(bool)
-        swapped = after.get('_street_swapped_from_s2', pd.Series(False, index=after.index)).fillna(False).astype(bool)
-        nulled  = after.get('_street_nulled_email',    pd.Series(False, index=after.index)).fillna(False).astype(bool)
-
-        for sid in after.index[flag]:
-            if bool(swapped.loc[sid]):
-                reason = 'street_swap_due_to_email_in_street1'
-            elif bool(nulled.loc[sid]):
-                reason = 'street_nulled_due_to_email_in_street1'
-            else:
-                reason = 'street_email_in_street1'
-            for field in ('contributor_street_1', 'contributor_street_2'):
-                if field in before.columns and field in after.columns:
-                    _add(sid, field, step='clean_streets', reason=reason)
-
-    # 3. garbled first name fixes
-    if '_garbled_before' in after.columns:
-        garbled = after['_garbled_before'].astype('string')
-        for sid in after.index[garbled.notna() & (garbled != '<NA>')]:
-            old_first = str(garbled.loc[sid])
-            for field in ('contributor_first_name', 'contributor_name'):
-                _add(sid, field, step='garbled_name_fix',
-                     reason='keyboard_error',
-                     evidence=f'was: {old_first}')
-
-    # 4. enhancement audit records
-    if enh_audit:
-        for record in enh_audit:
-            sid = record.get('sub_id', '')
-            record['row_index'] = int(row_idx.get(sid)) if sid in row_idx.index and pd.notna(row_idx.get(sid)) else None
-            if 'evidence' not in record:
-                record['evidence'] = None
-            records.append(record)
+    _collect_reclassifications(before, after, add_change)
+    _collect_street_changes(before, after, add_change)
+    _collect_garbled_names(after, add_change)
+    _append_enhancements(records, enh_audit, row_index)
 
     _write_csv_jsonl(records, out_dir)
-    _write_amount_flags(after, row_idx, out_dir)
-    _write_html(records, out_dir)
+    _write_amount_flags(after, row_index, out_dir)
+    try:
+        _write_html(records, out_dir)
+    except OSError as error:
+        logger.warning("Audit HTML skipped: %s", error)
 
-    # release the indexed copies before collecting (plain rebinding, not `del`:
-    # the nested _val/_add close over `before`/`after`/`records`)
     records = before = after = None
     gc.collect()
 

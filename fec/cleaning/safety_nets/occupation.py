@@ -7,7 +7,11 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.occupations import _categorize
-from fec.config.constants import SKIP_EMPLOYERS, STATUS_WORDS
+from fec.config.constants import NOT_EMPLOYED_VARIANTS, SKIP_EMPLOYERS, STATUS_WORDS
+from fec.config.occupation_rules import (
+    RECLASSIFY_CATEGORY_RULES,
+    WEB_ARTIFACT_OCCUPATIONS,
+)
 
 # a company name (legal suffix) alone in the occupation field; a leading
 # role word ("PRESIDENT, X INC") is a real title, so it's excluded
@@ -17,29 +21,6 @@ _OCC_ROLE_PREFIX_RE = re.compile(
     r'^(?:PRESIDENT|VP|VICE PRESIDENT|CEO|CFO|COO|CTO|OWNER|PARTNER|DIRECTOR|'
     r'MANAGER|FOUNDER|PRINCIPAL|CHAIRMAN|EXECUTIVE|MD|DR)\b', re.I)
 
-# web-form artifacts that end up in the occupation field
-_WEB_ARTIFACT_OCC = frozenset({'LOADING', 'ACMIO', 'REMD', 'SWAP MEET'})
-
-# every category here MUST be in VALID_CATEGORIES;
-# test_reclassify_categories_are_valid parses this table from source
-_KEYWORD_CATS = [
-    (r'\bATTORNEY\b|\bLAWYER\b|\bLEGAL\b|\bCOUNSEL\b|\bESQ\b', 'LEGAL'),
-    (r'\bDOCTOR\b|\bPHYSICIAN\b|\bSURGEON\b|\bMD\b|\bDENTIST\b|\bNURSE\b|\bRN\b|\bPHARMACIST\b|\bVETERINAR', 'MEDICAL / HEALTHCARE'),
-    (r'\bENGINEER\b|\bSOFTWARE\b|\bDEVELOPER\b|\bPROGRAMMER\b|\bIT\b|\bTECH\b', 'TECHNOLOGY'),
-    (r'\bPROFESSOR\b|\bTEACHER\b|\bEDUCATOR\b|\bPRINCIPAL\b|\bDEAN\b|\bACADEMIC\b', 'EDUCATION'),
-    (r'\bREAL ESTATE\b|\bREALTOR\b|\bBROKER\b|\bPROPERT', 'REAL ESTATE'),
-    (r'\bACCOUNTANT\b|\bCPA\b|\bAUDITOR\b|\bBOOKKEEPER\b', 'FINANCE / INVESTMENT'),
-    (r'\bBANKER\b|\bINVEST\b|\bFINANC\b|\bTRADER\b|\bANALYST\b|\bHEDGE\b|\bPORTFOLIO\b', 'FINANCE / INVESTMENT'),
-    (r'\bCONSULTANT\b|\bADVISOR\b', 'CONSULTING'),
-    (r'\bRABBI\b|\bPASTOR\b|\bMINISTER\b|\bCLERGY\b|\bPRIEST\b', 'RELIGIOUS'),
-    (r'\bWRITER\b|\bAUTHOR\b|\bJOURNALIST\b|\bEDITOR\b|\bREPORTER\b|\bPUBLISH', 'ARTS / ENTERTAINMENT'),
-    (r'\bARCHITECT\b', 'ARTS / ENTERTAINMENT'),
-    (r'\bPSYCHOLOG\b|\bTHERAPIST\b|\bSOCIAL WORK\b|\bCOUNSELOR\b', 'MEDICAL / HEALTHCARE'),
-    (r'\bSALES\b|\bMARKETING\b|\bADVERTIS', 'SALES / MARKETING'),
-    (r'\bEXECUTIVE\b|\bCEO\b|\bCFO\b|\bCOO\b|\bPRESIDENT\b|\bDIRECTOR\b', 'EXECUTIVE / C-SUITE'),
-    (r'\bPILOT\b|\bAVIAT', 'TRANSPORTATION'),
-    (r'\bPHILANTHROP\b|\bNON.?PROFIT\b|\bNGO\b', 'NONPROFIT / PHILANTHROPY'),
-]
 
 
 def _fix_disclosed_no_employer(df: pd.DataFrame) -> int:
@@ -136,7 +117,7 @@ def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 
 
 def _fix_not_disclosed_in_other(df: pd.DataFrame) -> int:
-    """AN. occupation='NOT DISCLOSED' with category=OTHER -> fix status."""
+    """AN. occupation='NOT DISCLOSED' stays in the reportable OTHER category."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     mask = (
         is_indiv
@@ -146,9 +127,6 @@ def _fix_not_disclosed_in_other(df: pd.DataFrame) -> int:
     n_fixed = int(mask.sum())
     if n_fixed:
         df.loc[mask, 'occupation_status'] = 'NOT_DISCLOSED'
-        no_emp = mask & df['contributor_employer'].isna()
-        if no_emp.any():
-            df.loc[no_emp, 'occupation_category'] = np.nan
     return n_fixed
 
 
@@ -156,7 +134,7 @@ def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
     """AP. Web form artifacts in occupation ('LOADING', 'ACMIO', 'REMD') -> NaN."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
-    mask = is_indiv & occ.isin(_WEB_ARTIFACT_OCC)
+    mask = is_indiv & occ.isin(WEB_ARTIFACT_OCCUPATIONS)
     n_fixed = int(mask.sum())
     if n_fixed:
         df.loc[mask, 'contributor_occupation'] = np.nan
@@ -199,8 +177,7 @@ def _null_junk_occupation(df: pd.DataFrame) -> int:
     n_fixed = int(email_mask.sum())
     if email_mask.any():
         df.loc[email_mask, 'contributor_occupation'] = np.nan
-        if 'occupation_category' in df.columns:
-            df.loc[email_mask, 'occupation_category'] = 'OTHER'
+        df.loc[email_mask, 'occupation_category'] = 'OTHER'
 
     company_mask = is_indiv & is_company & ~is_email
     if company_mask.any():
@@ -208,14 +185,12 @@ def _null_junk_occupation(df: pd.DataFrame) -> int:
         if move.any():
             df.loc[move, 'contributor_employer'] = df.loc[move, 'contributor_occupation']
             df.loc[move, 'contributor_occupation'] = np.nan
-            if 'occupation_category' in df.columns:
-                df.loc[move, 'occupation_category'] = 'OTHER'
+            df.loc[move, 'occupation_category'] = 'OTHER'
             n_fixed += int(move.sum())
         null_occ = company_mask & ~move
         if null_occ.any():
             df.loc[null_occ, 'contributor_occupation'] = np.nan
-            if 'occupation_category' in df.columns:
-                df.loc[null_occ, 'occupation_category'] = 'OTHER'
+            df.loc[null_occ, 'occupation_category'] = 'OTHER'
             n_fixed += int(null_occ.sum())
     return n_fixed
 
@@ -227,6 +202,21 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('')
     categories = df['occupation_category'].fillna('')
     n_fixed = 0
+
+    # The FEC sometimes carries NOT EMPLOYED in the employer field while the
+    # same filing explicitly says RETIRED in occupation. Retirement is the
+    # more specific status; no company or profession is inferred here.
+    retired_not_employed = (
+        is_indiv
+        & emp.isin(NOT_EMPLOYED_VARIANTS)
+        & occ.eq('RETIRED')
+        & categories.eq('RETIRED')
+    )
+    n_retired_not_employed = int(retired_not_employed.sum())
+    if n_retired_not_employed:
+        df.loc[retired_not_employed, 'contributor_employer'] = 'RETIRED'
+        df.loc[retired_not_employed, 'occupation_status'] = 'NOT_APPLICABLE'
+        n_fixed += n_retired_not_employed
 
     ret_wrong_cat = (
         is_indiv & (emp == 'RETIRED')
@@ -247,7 +237,9 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     )
     n_not_employed = int(not_employed_wrong_cat.sum())
     if n_not_employed:
+        df.loc[not_employed_wrong_cat, 'contributor_occupation'] = 'NOT EMPLOYED'
         df.loc[not_employed_wrong_cat, 'occupation_category'] = 'NOT EMPLOYED'
+        df.loc[not_employed_wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
         n_fixed += n_not_employed
 
     homemaker_wrong_cat = (
@@ -257,7 +249,9 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     )
     n_homemaker = int(homemaker_wrong_cat.sum())
     if n_homemaker:
+        df.loc[homemaker_wrong_cat, 'contributor_occupation'] = 'HOMEMAKER'
         df.loc[homemaker_wrong_cat, 'occupation_category'] = 'HOMEMAKER'
+        df.loc[homemaker_wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
         n_fixed += n_homemaker
 
     # category=SELF-EMPLOYED but employer is a real company: re-derive from occupation
@@ -308,7 +302,7 @@ def _reclassify_other_category(df: pd.DataFrame) -> int:
         return 0
 
     n_fixed = 0
-    for pattern, category in _KEYWORD_CATS:
+    for pattern, category in RECLASSIFY_CATEGORY_RULES:
         matches = is_other & occ.str.contains(pattern, case=False, na=False)
         # only records still in OTHER (avoid double-counting)
         still_other = matches & (df['occupation_category'] == 'OTHER')

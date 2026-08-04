@@ -145,9 +145,89 @@ def _reset_id_sequence(conn: Any, cur: Any, table: str) -> None:
         conn.rollback()
 
 
-def _load_donor_linked_csv(conn: Any, cur: Any, csv_filename: str,
-                           table: str, insert_row) -> None:
-    """Match-or-create a donor for every row, upsert its image/address, then insert_row(cur, row, donor_id)."""
+def _person_value(row, field: str) -> str:
+    """Read a shared person field from either leadership CSV format."""
+    value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
+    return value.strip()
+
+
+def _person_identity(row) -> tuple[str, str, str, str, str]:
+    """Return name, first, last, city, and state from either CSV format."""
+    name = _person_value(row, "name")
+    first = _person_value(row, "first_name")
+    last = _person_value(row, "last_name")
+
+    if (not first or not last) and "," in name:
+        last_part, _, first_part = name.partition(",")
+        last = last or last_part.strip()
+        first = first or first_part.strip()
+
+    return (
+        name,
+        first,
+        last,
+        _person_value(row, "city"),
+        _person_value(row, "state"),
+    )
+
+
+def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
+    """Parse an optional hand-maintained coordinate, warning on bad text."""
+    raw = (row.get(field) or "").strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning(
+            "  %s: %s -- unparseable %s %r, storing NULL",
+            csv_filename, name, field, raw,
+        )
+        return None
+
+
+def _upsert_image(cur: Any, row, donor_id: int) -> None:
+    image_path = (row.get("image_path") or "").strip()
+    if not image_path:
+        return
+    cur.execute(
+        "INSERT INTO donor_images (donor_id, image_path) VALUES (%s, %s) "
+        "ON CONFLICT (donor_id) DO UPDATE SET image_path = EXCLUDED.image_path",
+        (donor_id, image_path),
+    )
+
+
+def _upsert_address(
+    cur: Any,
+    row,
+    donor_id: int,
+    csv_filename: str,
+    name: str,
+    city: str,
+    state: str,
+    upsert_donor_address,
+) -> None:
+    street_1 = _person_value(row, "street_1")
+    if not street_1 and not city:
+        return
+
+    upsert_donor_address(
+        cur,
+        donor_id,
+        street_1=street_1,
+        street_2=_person_value(row, "street_2"),
+        city=city,
+        state=state,
+        zip_5=_person_value(row, "zip"),
+        latitude=_coordinate(row, "address_lat", csv_filename, name),
+        longitude=_coordinate(row, "address_lng", csv_filename, name),
+    )
+
+
+def _load_donor_linked_csv(
+    conn: Any, cur: Any, csv_filename: str, table: str, insert_row,
+) -> None:
+    """Match donors and load their shared profile plus the requested role row."""
     from fec.database.leadership_matcher import (
         match_or_create_donor,
         upsert_donor_address,
@@ -160,79 +240,37 @@ def _load_donor_linked_csv(conn: Any, cur: Any, csv_filename: str,
         return
 
     start = time.time()
-    df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
-
+    rows = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
     match_counts: dict[str, int] = defaultdict(int)
-    inserted = 0
-    skipped = 0
+    inserted = skipped = 0
 
-    # leaders.csv prefixes person columns leader_*, key_accomplices.csv accomplice_*;
-    # _col reads whichever is present so both files work through one loader.
-    def _col(row, field):
-        return (row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or "").strip()
-
-    for _, row in df.iterrows():
-        name = _col(row, "name")
+    for _, row in rows.iterrows():
+        name, first, last, city, state = _person_identity(row)
         if not name:
             skipped += 1
             continue
 
-        first = _col(row, "first_name")
-        last  = _col(row, "last_name")
-        # Derive first/last from the "LAST, FIRST" name when the CSV leaves them blank.
-        if (not first or not last) and "," in name:
-            last_part, _, first_part = name.partition(",")
-            last = last or last_part.strip()
-            first = first or first_part.strip()
-        city  = _col(row, "city")
-        state = _col(row, "state")
-
-        donor_id, method = match_or_create_donor(cur, name, first, last, city, state)
+        donor_id, method = match_or_create_donor(
+            cur, name, first, last, city, state
+        )
         match_counts[method] += 1
 
-        # Portrait is a property of the donor (1:1), not the role.
-        image_path = (row.get("image_path") or "").strip()
-        if image_path:
-            cur.execute(
-                "INSERT INTO donor_images (donor_id, image_path) VALUES (%s, %s) "
-                "ON CONFLICT (donor_id) DO UPDATE SET image_path = EXCLUDED.image_path",
-                (donor_id, image_path),
-            )
-
-        street_1 = _col(row, "street_1")
-        street_2 = _col(row, "street_2")
-        if street_1 or city:
-            # lat/lng parsed in SEPARATE guards so one bad value never nulls its
-            # valid twin; blank is valid, non-blank garbage warns (hand-maintained files).
-            lat_raw = (row.get("address_lat") or "").strip()
-            lng_raw = (row.get("address_lng") or "").strip()
-            latitude = longitude = None
-            if lat_raw:
-                try:
-                    latitude = float(lat_raw)
-                except ValueError:
-                    logger.warning("  %s: %s -- unparseable address_lat %r, storing NULL",
-                                   csv_filename, name, lat_raw)
-            if lng_raw:
-                try:
-                    longitude = float(lng_raw)
-                except ValueError:
-                    logger.warning("  %s: %s -- unparseable address_lng %r, storing NULL",
-                                   csv_filename, name, lng_raw)
-            upsert_donor_address(
-                cur, donor_id,
-                street_1=street_1, street_2=street_2,
-                city=city, state=state,
-                zip_5=_col(row, "zip"),
-                latitude=latitude, longitude=longitude,
-            )
-
-        # Employment ONLY from leaders.csv's leader_employer (a clean canonical
-        # company). accomplice_employer is an editorial description; feeding it in
-        # once inserted ~54 junk/duplicate employer rows that split companies in
-        # v_company. Only fires for people who never donated; no-op when blank.
-        upsert_leader_employment(cur, donor_id, (row.get("leader_employer") or "").strip())
-
+        _upsert_image(cur, row, donor_id)
+        _upsert_address(
+            cur,
+            row,
+            donor_id,
+            csv_filename,
+            name,
+            city,
+            state,
+            upsert_donor_address,
+        )
+        upsert_leader_employment(
+            cur,
+            donor_id,
+            (row.get("leader_employer") or "").strip(),
+        )
         insert_row(cur, row, donor_id)
         inserted += 1
 
@@ -240,5 +278,5 @@ def _load_donor_linked_csv(conn: Any, cur: Any, csv_filename: str,
     _reset_id_sequence(conn, cur, table)
     logger.info(
         f"  {table}: {inserted} rows ({skipped} skipped), "
-        f"match methods: {dict(match_counts)} ({time.time()-start:.1f}s)"
+        f"match methods: {dict(match_counts)} ({time.time() - start:.1f}s)"
     )

@@ -13,6 +13,10 @@ from fec.config.constants import (
 
 _RETIRED_TYPOS = RETIRED_TYPO_EMPLOYERS
 
+# Safe structural variants of the status word: RETIR / RETIRE / RETIRED /
+# RETIREE / RETIRD. Full-match only, so "RETIREMENT" is never touched.
+_RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
+
 # 'RETIRED <tail>': the tail is a previous employer or a profession word
 _RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
 _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
@@ -33,15 +37,6 @@ def _null_employer_where(df: pd.DataFrame, mask: pd.Series, *, set_status='EMPLO
     return n_changed
 
 
-def _fix_filled_but_null_employer(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """F. employer_change_type='filled' but employer=NULL -> 'cleared'."""
-    mask = is_indiv & (df['employer_change_type'] == 'filled') & df['contributor_employer'].isna()
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'employer_change_type'] = 'cleared'
-    return n_fixed
-
-
 def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """M. Employer is a refusal word (PRIVATE, CONFIDENTIAL): clear it."""
     mask = is_indiv & df['contributor_employer'].fillna('').str.upper().str.strip().isin(REFUSAL_EMPLOYERS)
@@ -54,10 +49,8 @@ def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     df.loc[has_real, 'contributor_employer'] = pd.NA
     df.loc[has_real, 'employer_name_normalized'] = pd.NA
     df.loc[has_real, 'occupation_status'] = 'EMPLOYER_MISSING'
-    df.loc[has_real, 'employer_change_type'] = 'cleared'
     df.loc[has_not_disclosed, 'contributor_employer'] = pd.NA
     df.loc[has_not_disclosed, 'employer_name_normalized'] = pd.NA
-    df.loc[has_not_disclosed, 'employer_change_type'] = 'cleared'
     return n_fixed
 
 
@@ -112,7 +105,8 @@ def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """T. RETIRED typos normalized; 'RETIRED <X>' splits X to previous_employer (company) or occupation (profession word)."""
     emp = df['contributor_employer'].fillna('')
-    mask = is_indiv & emp.isin(_RETIRED_TYPOS)
+    retired_marker = emp.isin(_RETIRED_TYPOS) | emp.str.fullmatch(_RETIRED_TOKEN_RE, na=False)
+    mask = is_indiv & retired_marker & emp.ne('RETIRED')
     n_fixed = int(mask.sum())
     if n_fixed:
         df.loc[mask, 'contributor_employer'] = 'RETIRED'

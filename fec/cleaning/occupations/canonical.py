@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
+from fec.config.constants import CANONICAL_EMPLOYER_SKIP_VALUES
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -20,10 +21,6 @@ _CORP_SUFFIX_RE = re.compile(
 _PA_PC_PROTECT_RE = re.compile(
     r'\b(CPA|DPA|RPA|EPA|SEPA|SHERPA)\s+(PA|PC)\s*$', re.I
 )
-
-# employment-status words are not company names; never canonicalize them
-_SKIP_VALUES = {'SELF-EMPLOYED', 'RETIRED', 'NOT EMPLOYED', 'NOT DISCLOSED'}
-
 
 def _employer_group_key(name: str) -> str:
     """Grouping key for canonicalization: strips suffixes, THE, punctuation and spacing."""
@@ -57,7 +54,7 @@ def _employer_group_key(name: str) -> str:
 def _canonicalize_employers(df: pd.DataFrame) -> int:
     """Group employer variants by normalized key, rewrite each group to its most frequent spelling; status words are skipped."""
     emp = df['contributor_employer']
-    mask = emp.notna() & (~emp.isin(_SKIP_VALUES))
+    mask = emp.notna() & (~emp.isin(CANONICAL_EMPLOYER_SKIP_VALUES))
     active = emp[mask]
 
     if active.empty:

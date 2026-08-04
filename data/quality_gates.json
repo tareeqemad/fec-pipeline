@@ -7,7 +7,8 @@
     },
     "valid_categories": {
       "passed": true,
-      "invalid": []
+      "invalid": [],
+      "blank": 0
     },
     "zip_coverage": {
       "passed": true,
@@ -25,7 +26,7 @@
       "passed": true,
       "count": 0
     },
-    "row_count": 208283,
+    "row_count": 214428,
     "zip_state_match": {
       "passed": true,
       "count": 0
@@ -39,6 +40,14 @@
       "count": 0
     },
     "retired_donor_consistency": {
+      "passed": true,
+      "count": 0
+    },
+    "retired_active_sync": {
+      "passed": true,
+      "count": 0
+    },
+    "retired_employer_marker": {
       "passed": true,
       "count": 0
     },

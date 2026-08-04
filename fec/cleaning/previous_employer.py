@@ -8,17 +8,18 @@ import pandas as pd
 from fec.config.constants import (
     NOT_REAL_EMPLOYER, SECTOR_AS_EMPLOYER, ROLE_AS_EMPLOYER,
     OCCUPATION_AS_EMPLOYER, JUNK_EMPLOYER_RE, STATUS_WORDS,
-    SLASH_BRAND_EMPLOYERS,
+    SLASH_BRAND_EMPLOYERS, LEGAL_SUFFIX_RE,
 )
 from fec.config.data import MISSING_VALUES
 from fec.cleaning.employer_synonyms import (
-    normalize_employer_display_name, EMPLOYER_SYNONYMS,
+    normalize_employer_display_name, restyle_legal_suffix, EMPLOYER_SYNONYMS,
 )
 
 __all__ = [
     "is_real_employer",
     "normalize_previous_employer_value",
     "normalize_previous_employer_column",
+    "preserve_own_named_legal_employer",
 ]
 
 
@@ -144,6 +145,27 @@ def normalize_previous_employer_value(v) -> str:
     return normalize_employer_display_name(text) or ''
 
 
+def _name_words(value) -> frozenset[str]:
+    """Comparable name words, ignoring punctuation and middle initials."""
+    return frozenset(
+        word for word in re.sub(r'[^A-Z]', ' ', str(value).upper()).split()
+        if len(word) > 1
+    )
+
+
+def preserve_own_named_legal_employer(
+    cleaned: str, original, contributor_name,
+) -> str:
+    """Keep an own-named legal company, but reject a bare donor name."""
+    if not cleaned or _name_words(cleaned) != _name_words(contributor_name):
+        return cleaned
+
+    original = str(original).strip().upper()
+    if LEGAL_SUFFIX_RE.search(original):
+        return restyle_legal_suffix(original).rstrip('.')
+    return ''
+
+
 def normalize_previous_employer_column(df: pd.DataFrame) -> int:
     """Apply the contract to a whole frame (idempotent, safe in both cleaning and resolve stages); also drops a previous_employer that is the donor's own name; returns rows changed."""
     if 'previous_employer' not in df.columns:
@@ -158,17 +180,15 @@ def normalize_previous_employer_column(df: pd.DataFrame) -> int:
     df.loc[non_empty, 'previous_employer'] = normed
 
     if 'contributor_name' in df.columns:
-        # own-name check compares word SETS ("LAST, FIRST" vs "FIRST LAST"),
-        # drops single letters (middle initials), and must match the WHOLE name:
-        # a shared surname is normal (name-partner firms are real employers)
-        def _words(s):
-            return frozenset(
-                word for word in re.sub(r'[^A-Z]', ' ', str(s).upper()).split() if len(word) > 1
+        # A bare donor name is not a company. A legal entity named after the
+        # donor is real information, so retain its LLC/PLLC/INC suffix.
+        df.loc[non_empty, 'previous_employer'] = [
+            preserve_own_named_legal_employer(cleaned, original, donor)
+            for cleaned, original, donor in zip(
+                df.loc[non_empty, 'previous_employer'],
+                before,
+                df.loc[non_empty, 'contributor_name'],
             )
-        own = (df.loc[non_empty, 'contributor_name'].map(_words)
-               == df.loc[non_empty, 'previous_employer'].map(_words))
-        own_idx = df.loc[non_empty].index[own & (df.loc[non_empty, 'previous_employer'] != '')]
-        if len(own_idx):
-            df.loc[own_idx, 'previous_employer'] = ''
+        ]
 
     return int((df.loc[non_empty, 'previous_employer'] != before).sum())

@@ -1,19 +1,15 @@
 {
-  "rows": 208283,
+  "rows": 214428,
   "employer_abbreviations": {
     "distinct_employers_flagged": 0,
     "by_token": {}
   },
   "employer_near_duplicates": {
-    "groups": 2,
+    "groups": 1,
     "examples": [
       [
         "UNIVERSITY OF WASHINGTON",
         "WASHINGTON UNIVERSITY"
-      ],
-      [
-        "GOOD HEALTH",
-        "GOOD HEALTH INC"
       ]
     ]
   },
@@ -27,9 +23,17 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 68,
-    "rows": 77,
+    "distinct": 69,
+    "rows": 78,
     "examples": [
+      {
+        "value": "CEP",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 12x CEO/LAWYER"
+        ]
+      },
       {
         "value": "ECB",
         "rows": 2,
@@ -44,15 +48,7 @@
         "why": "donor-history",
         "evidence": [
           "1x vs 13x BUSINESS DEVELOPMENT/DEVELOPMENT",
-          "1x vs 10x BANKER/LAWYER"
-        ]
-      },
-      {
-        "value": "CANDIDATE FOR DC DELEGATE TO CONGRESS",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 19x CANDIDATE FOR DC DELEGATE/CONGRESSIONAL CANDIDATE"
+          "1x vs 11x BANKER/CIBC"
         ]
       },
       {
@@ -68,7 +64,7 @@
         "rows": 2,
         "why": "donor-history",
         "evidence": [
-          "2x vs 13x CONSULTANT/REGULATORY"
+          "2x vs 16x CONSULTANT/REGULATORY"
         ]
       },
       {
@@ -84,7 +80,7 @@
         "rows": 2,
         "why": "donor-history",
         "evidence": [
-          "2x vs 10x ATTORNEY/CEO"
+          "2x vs 11x ATTORNEY/CEO"
         ]
       },
       {
@@ -92,7 +88,7 @@
         "rows": 2,
         "why": "donor-history",
         "evidence": [
-          "2x vs 23x OFFICER/SECRETARY"
+          "2x vs 25x OFFICER/SECRETARY"
         ]
       },
       {
@@ -104,19 +100,21 @@
         ]
       },
       {
+        "value": "UOOO[",
+        "rows": 1,
+        "why": "shape"
+      },
+      {
+        "value": "PRGRMR",
+        "rows": 1,
+        "why": "shape"
+      },
+      {
         "value": "WEALTH ADVSIOR",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
           "1x vs 30x ATTORNEY/DOCTOR"
-        ]
-      },
-      {
-        "value": "CEP",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 11x CEO/LAWYER"
         ]
       },
       {
@@ -140,15 +138,7 @@
         "rows": 1,
         "why": "donor-history",
         "evidence": [
-          "1x vs 28x PRESIDENT/STEEL DISTRIBUTOR"
-        ]
-      },
-      {
-        "value": "GROUP CEI",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 13x EXECUTIVE"
+          "1x vs 29x PRESIDENT/STEEL DISTRIBUTOR"
         ]
       }
     ]

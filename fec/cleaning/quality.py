@@ -38,9 +38,17 @@ def _gate_nan_strings(df):
 def _gate_valid_categories(df):
     if 'occupation_category' not in df.columns:
         return []
-    invalid = [str(value) for value in df['occupation_category'].dropna().unique() if value not in VALID_CATEGORIES]
-    issue = f"Invalid categories: {invalid[:10]}" if invalid else None
-    return [('valid_categories', {'passed': len(invalid) == 0, 'invalid': invalid[:10]}, issue)]
+    values = df['occupation_category'].astype('string').fillna('').str.strip()
+    invalid = [str(value) for value in values.unique() if value and value not in VALID_CATEGORIES]
+    blank = int(values.eq('').sum())
+    issue = None
+    if invalid or blank:
+        issue = f"Invalid categories: {invalid[:10]}; blank categories: {blank}"
+    return [('valid_categories', {
+        'passed': not invalid and blank == 0,
+        'invalid': invalid[:10],
+        'blank': blank,
+    }, issue)]
 
 
 def _gate_zip_coverage(df):
@@ -159,6 +167,22 @@ def _gate_retired_active_sync(df):
     return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
 
 
+def _gate_retired_employer_marker(df):
+    """A retired occupation must finish with the canonical RETIRED employer marker."""
+    required = {'entity_type', 'occupation_category', 'contributor_employer'}
+    if not required.issubset(df.columns):
+        return []
+    employer = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
+    bad = (
+        df['entity_type'].eq('INDIVIDUAL')
+        & df['occupation_category'].eq('RETIRED')
+        & employer.ne('RETIRED')
+    )
+    count = int(bad.sum())
+    issue = f"Retired rows without RETIRED employer marker: {count}" if count else None
+    return [('retired_employer_marker', {'passed': count == 0, 'count': count}, issue)]
+
+
 def _gate_slash_previous_employer(df):
     # 'COMPANY/TITLE' composites are resolved by _resolve_slash_previous_employer;
     # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted
@@ -205,6 +229,7 @@ _QUALITY_GATES = [
     _gate_special_chars_names,
     _gate_retired_donor_consistency,
     _gate_retired_active_sync,
+    _gate_retired_employer_marker,
     _gate_slash_previous_employer,
     _gate_null_surname,
 ]

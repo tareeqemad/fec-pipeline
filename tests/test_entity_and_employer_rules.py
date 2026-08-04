@@ -2,6 +2,9 @@
 import pandas as pd
 
 from test_enhancements import _make_df
+from fec.cleaning.pipeline.names import _clean_names
+from fec.cleaning.pipeline.reclassify import _reclassify_entities
+from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
 
 
 class TestCommitteeReclassification:
@@ -72,3 +75,71 @@ class TestEmployerSynonyms:
         df, n = apply_employer_synonyms(df)
         assert n == 1
         assert df['contributor_employer'].iloc[0] == 'GOLDMAN SACHS'
+
+
+def test_person_names_survive_false_committee_filing():
+    df = _make_df([
+        {
+            'is_individual': False,
+            'entity_type': 'COMMITTEE/PAC',
+            'contributor_name': 'FERRNCZ, ROBERT',
+            'contributor_first_name': 'ROBERT',
+            'contributor_last_name': 'FERRNCZ',
+            'committee_type': 'PARTY ORGANIZATION',
+        },
+        {
+            'is_individual': False,
+            'entity_type': 'COMMITTEE/PAC',
+            'contributor_name': 'WAL;DMAN, GARY',
+            'contributor_first_name': 'GARY',
+            'contributor_last_name': 'WAL;DMAN',
+            'committee_type': 'POLITICAL COMMITTEE',
+        },
+    ])
+
+    assert _reclassify_entities(df) == (2, 0)
+    _clean_names(df)
+
+    assert df['entity_type'].tolist() == ['INDIVIDUAL', 'INDIVIDUAL']
+    assert df['contributor_name'].tolist() == ['FERRNCZ, ROBERT', 'WALDMAN, GARY']
+    assert df['contributor_first_name'].tolist() == ['ROBERT', 'GARY']
+    assert df['contributor_last_name'].tolist() == ['FERRNCZ', 'WALDMAN']
+
+
+def test_status_employer_fills_empty_occupation_idempotently():
+    df = _make_df([
+        {
+            'contributor_employer': 'RETIRED',
+            'contributor_occupation': None,
+            'occupation_category': 'OTHER',
+            'occupation_status': 'MISSING',
+        },
+        {
+            'contributor_employer': 'NOT EMPLOYED',
+            'contributor_occupation': None,
+            'occupation_category': 'OTHER',
+            'occupation_status': 'MISSING',
+        },
+    ])
+
+    assert _fix_emp_occ_category_consistency(df) == 2
+    assert df['contributor_occupation'].tolist() == ['RETIRED', 'NOT EMPLOYED']
+    assert df['occupation_category'].tolist() == ['RETIRED', 'NOT EMPLOYED']
+    assert _fix_emp_occ_category_consistency(df) == 0
+
+
+def test_manual_individual_name_correction_keeps_name_columns_consistent():
+    from fec.cleaning.entity_classification import apply_name_corrections
+
+    df = _make_df([{
+        'contributor_name': 'MEYERS, SARA STUART',
+        'contributor_first_name': 'SARA STUART',
+        'contributor_last_name': 'MEYERS',
+    }])
+
+    df, count = apply_name_corrections(df)
+
+    assert count == 1
+    assert df.loc[0, 'contributor_name'] == 'MEYERS, SARA'
+    assert df.loc[0, 'contributor_first_name'] == 'SARA'
+    assert df.loc[0, 'contributor_last_name'] == 'MEYERS'

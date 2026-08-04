@@ -28,6 +28,16 @@ def test_identical_rerun_is_idempotent():
     assert not out['sub_id'].duplicated().any()
 
 
+def test_tracker_treats_numeric_and_text_ids_as_the_same(tmp_path):
+    tracker = tmp_path / 'cleaned_ids.csv'
+    pd.DataFrame({'sub_id': ['1', '2']}).to_csv(tracker, index=False)
+
+    cli._update_tracker(pd.DataFrame({'sub_id': [1, 2, 3]}), tracker)
+
+    saved = pd.read_csv(tracker, dtype={'sub_id': 'string'})
+    assert saved['sub_id'].tolist() == ['1', '2', '3']
+
+
 def test_date_normalization_mixed_schema_no_caller_mutation():
     existing = pd.DataFrame({'sub_id': ['1'],
                              'contribution_receipt_date': ['2024-01-02'],

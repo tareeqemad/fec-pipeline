@@ -1,14 +1,19 @@
 """Fixes that need donor_key, so they can't run in clean.py's safety nets; runs inside unify_donors() after donor matching."""
 import pandas as pd
 
+from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
 from fec.log import get_logger
 
-from fec.post_merge_fixes.names_addresses import _truncated_house_numbers
+from fec.post_merge_fixes.names_addresses import (
+    _recover_missing_streets,
+    _truncated_house_numbers,
+)
 from fec.post_merge_fixes.retired import (
     _retired_while_active, _selfemployed_while_retired,
     _swapped_emp_occ_retired, _once_retired_always_retired,
     _fill_prev_employer_from_donor, _propagate_previous_employer_within_donor,
-    _retired_active_sync, _normalize_previous_employer,
+    _retired_active_sync, _settle_retired_employer,
+    _normalize_previous_employer,
 )
 from fec.post_merge_fixes.employer import (
     _employer_typos, _employer_substring_variants, _null_refusal_employers,
@@ -32,6 +37,7 @@ def apply_post_merge_fixes(df: pd.DataFrame) -> int:
     total = 0
     # labels are slugs of the function names; the trailing [letter] is the historical step tag
     steps = [
+        ("recover-missing-streets [Y]",               _recover_missing_streets),
         ("truncated-house-numbers [Z]",              _truncated_house_numbers),
         ("retired-while-active -> real employer [AA]", _retired_while_active),
         ("employer-typos (pass 1) [AB]",             _employer_typos),
@@ -58,10 +64,17 @@ def apply_post_merge_fixes(df: pd.DataFrame) -> int:
         ("reenforce-entity-consistency [AU]",        _reenforce_entity_consistency),
         # hand-curated fixes; wins over AU
         ("apply-entity-overrides [AV]",              _apply_entity_overrides),
+        ("final-emp-occ-category-consistency [AQ2]", _fix_emp_occ_category_consistency),
         # every preceding step can change occupation/employer, leaving the status stale
         ("rederive-occupation-status [AR]",          _rederive_occupation_status),
         # the occupation fills above can leave the category stale
         ("rederive-occupation-category [AT]",        _rederive_occupation_category),
+        # employer recovery can leave a real company on an explicitly retired row
+        ("settle-retired-employer [AT2]",            _settle_retired_employer),
+        # settling can expose donor-level status rows and prior-work propagation
+        ("once-retired-always-retired (pass 3) [AO]", _once_retired_always_retired),
+        ("propagate-prev-employer (pass 2) [AP]",
+                                                       _propagate_previous_employer_within_donor),
         # must run after AU/AV re-typing so re-typed rows get their employer cleared
         ("clear-nonindividual-employer-field [AW]",  _clear_nonindividual_employer_field),
         # one pass owning the previous_employer contract, after AN/AP/AQ all wrote it

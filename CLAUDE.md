@@ -35,7 +35,9 @@ public FEC records: **pull → clean → resolve employers → geocode → build
 - Removed internal/provenance/redundant cols: `is_individual`, `contributor_year`,
   `committee_type`, `state_name`, `occupation_status`, `employer_change_type`,
   `resolve_method`, `resolve_confidence`, `geocode_level`, `employer_geocode_level`,
-  `contributor_employer_original`. See `INTERNAL_OUTPUT_COLUMNS` in `fec/config/data.py`.
+  `contributor_employer_original`. `state_name` and `employer_change_type` are no
+  longer generated at all; the remaining working fields are listed in
+  `INTERNAL_OUTPUT_COLUMNS` in `fec/config/data.py`.
 - Employer HQ addresses **normalized out** to `employers.csv` (`build_employers.py`).
 - Entity classification fixed (campaign committees → COMMITTEE/PAC; banks/trusts →
   ORGANIZATION). Only `INDIVIDUAL` has first/last; committee/org name tails stripped.
@@ -99,18 +101,12 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   restores a STALE snapshot, and the loader then loads old data (this bit hard:
   fresh address fixes kept getting reverted under the user, then loaded). When the
   pipeline is re-run for real, **commit the refreshed data** — don't revert it.
-- ⚠️ **The pipeline tail is not idempotent — known bug, diagnosed, unfixed.**
-  Re-running `resolve --apply → geocode --employer-only → build_employers` on an
-  already-built file adds ~1 employer row per pass and changes the md5.
-  Cause: `apply.py` rewrites `previous_employer` through
-  `normalize_employer_display_name`, which STRIPS legal suffixes (`APPLE INC` →
-  `APPLE`), while `build_employers._canonical_employer_map` collapses variants
-  back to the most-used (suffixed) spelling. The two fight every run.
-  It does NOT create duplicate companies (canonical_key groups them; measured 0
-  suffix-split pairs) — it just churns which spelling wins. Fix by making one
-  side own the spelling; until then run the tail ONCE per clean, and use
-  `git checkout HEAD -- data/contributions_cleaned.csv data/employers.csv` to get
-  back to the state the DB was loaded from.
+- **Pipeline-tail idempotence was fixed on 2026-08-03.** Resolve owns employer
+  identity; `build_employers` owns the settled display spelling. Resolve preserves
+  `previous_employer` when the cached and existing names have the same
+  `canonical_key`, but still applies a genuinely different cached company.
+  Verified on 33,093 retired rows: the first pass kept 40 real identity updates
+  and the second pass changed zero `previous_employer` values.
 - The two street-type token lists differ ON PURPOSE: `address_reports._STREET_TYPES`
   (pre-normalization, includes full words + unit keywords) vs
   `address_fixes.recovery._STREET_TYPE_RE` (post-normalization geocodability).

@@ -5,7 +5,8 @@ a California donor at a New-York-headquartered firm must not be shown New York.
 """
 import pandas as pd
 
-from fec.resolve.pipeline.apply import _resolve_row
+from fec.resolve.pipeline.apply import apply_results, _resolve_row
+from fec.resolve.pipeline.cache import Cache
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_branches, load_manual_overrides,
 )
@@ -54,6 +55,25 @@ def test_branch_wins_for_a_donor_in_that_state():
     assert result["resolve_method"].startswith("branch_")
 
 
+def test_branch_matches_a_legal_suffix_alias(tmp_path):
+    df = pd.DataFrame([_row("BIG FIRM PC", "CA")])
+    addr_cache = FakeCache({"BIG FIRM PC": HQ})
+    branch_cache = Cache(tmp_path / "branches.json")
+    branch_cache.put("BIG FIRM|CA", BRANCH)
+
+    result = apply_results(
+        df,
+        FakeCache(),
+        addr_cache,
+        FakeCache(),
+        branch_cache,
+    )
+
+    assert result.loc[0, "employer_address"] == "555 California St"
+    assert result.loc[0, "employer_state"] == "CA"
+    assert result.loc[0, "resolve_method"].startswith("branch_")
+
+
 def test_donor_in_another_state_still_gets_the_hq():
     addr_cache = FakeCache({"BIG FIRM": HQ})
     branch_cache = FakeCache({"BIG FIRM|CA": BRANCH})
@@ -92,3 +112,47 @@ def test_curated_csv_splits_hq_rows_from_branch_rows(tmp_path):
     assert branch_cache["BIG FIRM|CA"]["employer_city"] == "San Francisco"
     # a branch row must never overwrite the HQ
     assert len(addr_cache) == 1
+
+
+def test_invalid_manual_address_stays_blank(tmp_path):
+    from fec.resolve.pipeline.steps.ai_employer import _needs_ai
+
+    csv_path = tmp_path / "manual_employer_addresses.csv"
+    csv_path.write_text(
+        "name,address,city,state,zip,donor_state,note\n"
+        "LINE G,,,,,,INVALID: residential address\n",
+        encoding="utf-8",
+    )
+    cache = FakeCache({"LINE G": {"employer_address": "123 HOME ST"}})
+
+    load_manual_overrides(csv_path, cache)
+
+    assert cache["LINE G"]["employer_address"] == ""
+    assert cache["LINE G"]["method"] == "manual_invalid"
+    assert not _needs_ai(cache["LINE G"], "current-resolver")
+
+
+def test_hq_matches_an_unambiguous_legal_suffix_alias():
+    df = pd.DataFrame([_row("CRESSON MANAGEMENT VIRGIN ISLANDS LLC", "VI")])
+    addr_cache = FakeCache({"CRESSON MANAGEMENT VIRGIN ISLANDS, LLC": HQ})
+
+    result = apply_results(df, FakeCache(), addr_cache, FakeCache())
+
+    assert result.loc[0, "employer_address"] == "1585 Broadway"
+    assert result.loc[0, "resolve_method"] == "manual_override"
+
+
+def test_explicit_not_found_is_not_replaced_by_a_canonical_alias():
+    df = pd.DataFrame([_row("CRESSON MANAGEMENT VIRGIN ISLANDS LLC", "VI")])
+    addr_cache = FakeCache({
+        "CRESSON MANAGEMENT VIRGIN ISLANDS LLC": {
+            "employer_address": "",
+            "method": "ai_not_found",
+        },
+        "CRESSON MANAGEMENT VIRGIN ISLANDS, LLC": HQ,
+    })
+
+    result = apply_results(df, FakeCache(), addr_cache, FakeCache())
+
+    assert result.loc[0, "employer_address"] == ""
+    assert result.loc[0, "resolve_method"] == "pending"

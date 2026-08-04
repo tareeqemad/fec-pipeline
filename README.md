@@ -192,7 +192,7 @@ python clean.py --no-audit           # Skip audit trail
 python resolve.py --stats            # Show progress
 python resolve.py --apply            # Resolve and write results to the CSV
 python resolve.py --dry-run          # Count without API calls
-python resolve.py --test-ai          # Verify the AI provider key with one tiny call
+python resolve.py --test-ai          # Verify the provider with one grounded search
 
 # Geocoding
 python geocode.py                    # Donor addresses
@@ -204,6 +204,10 @@ python loader.py --first-run         # First time on a machine: roles + database
 python loader.py --reset             # Normal path: drop objects, reload
 python -m fec.database.healthcheck   # 80 read-only checks
 ```
+
+Employer searches use cleaned names plus limited donor location/occupation context
+for identity only. Accepted AI results require a complete US address and source URL;
+the cache records the prompt version and resolution date for auditability.
 
 ## Testing and CI
 

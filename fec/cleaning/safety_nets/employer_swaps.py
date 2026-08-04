@@ -10,6 +10,7 @@ from fec.config.constants import (
     SKIP_EMPLOYERS, SKIP_OCCUPATIONS, OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER,
     JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP,
 )
+from fec.config.occupation_rules import KNOWN_COMPANY_OCCUPATIONS
 
 # Markers that a string is a real legal entity name, not an industry word.
 # Non-capturing group avoids the pandas regex-with-group warning.
@@ -34,14 +35,6 @@ _COMPANY_SUFFIX_RE = re.compile(
 )
 
 _SKIP_OCC = SKIP_OCCUPATIONS | {'OWNER', 'CEO', 'PRESIDENT'}
-
-# occupation values verified to be company names (step AO)
-_KNOWN_COMPANY_OCCS = frozenset({
-    'ARCH INSURANCE', 'BROWN & BROWN', 'DANZIGER & DE LLANO LLP',
-    'NNA SERVICES LLC', 'BAKER TILLY', 'AMERICAN EXPRESS',
-    'NFI INDUSTRIES', 'SKYRISE PROPERTIES', 'PAYROLL COMPANY',
-})
-
 
 def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> None:
     """Swap contributor_employer <-> contributor_occupation where mask is True, optionally setting occupation_status."""
@@ -164,7 +157,7 @@ def _fix_role_as_employer(df: pd.DataFrame) -> int:
 
 
 def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
-    """AE. occ='SELF-EMPLOYED' rows: own-name employer -> SELF-EMPLOYED, occupation-word employer moved to occ, employer_status synced."""
+    """AE. occ='SELF-EMPLOYED' rows: own-name employer -> SELF-EMPLOYED, occupation-word employer moved to occ."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')
@@ -202,23 +195,6 @@ def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
             df.loc[emp_is_occ, 'contributor_employer'] = 'SELF-EMPLOYED'
             df.loc[emp_is_occ, 'occupation_status'] = 'DISCLOSED'
             n_fixed += int(emp_is_occ.sum())
-
-    # Pattern 3: employer_status='active' but the row says self-employed
-    if 'employer_status' in df.columns:
-        emp = df['contributor_employer'].fillna('')
-        se_active = (
-            is_indiv
-            & (df['employer_status'] == 'active')
-            & (
-                (df['occupation_category'] == 'SELF-EMPLOYED')
-                | (occ == 'SELF-EMPLOYED')
-                | (emp == 'SELF-EMPLOYED')
-            )
-        )
-        n_status = int(se_active.sum())
-        if n_status:
-            df.loc[se_active, 'employer_status'] = 'self_employed'
-            n_fixed += n_status
 
     return n_fixed
 
@@ -318,7 +294,7 @@ def _fix_occ_emp_both_swapped(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')
 
-    mask = is_indiv & occ.isin(_KNOWN_COMPANY_OCCS) & (emp != '')
+    mask = is_indiv & occ.isin(KNOWN_COMPANY_OCCUPATIONS) & (emp != '')
     n_fixed = int(mask.sum())
     if n_fixed:
         _swap_occ_emp_fields(df, mask)

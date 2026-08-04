@@ -135,8 +135,7 @@ def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
         if comma_rows.any():
             split = df.loc[comma_rows, 'contributor_name'].str.split(',', n=1, expand=True)
             df.loc[comma_rows, 'contributor_last_name'] = split[0].str.strip()
-            if 1 in split.columns:
-                df.loc[comma_rows, 'contributor_first_name'] = split[1].str.strip()
+            df.loc[comma_rows, 'contributor_first_name'] = split[1].str.strip()
 
     missing_last = (
         is_individual
@@ -146,12 +145,11 @@ def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     if missing_last.any():
         split2 = df.loc[missing_last, 'contributor_name'].str.split(',', n=1, expand=True)
         df.loc[missing_last, 'contributor_last_name'] = split2[0].str.strip()
-        if 1 in split2.columns:
-            fn_to_fill = missing_last & df['contributor_first_name'].isna()
-            if fn_to_fill.any():
-                df.loc[fn_to_fill, 'contributor_first_name'] = (
-                    split2.loc[fn_to_fill.reindex(split2.index, fill_value=False), 1].str.strip()
-                )
+        fn_to_fill = missing_last & df['contributor_first_name'].isna()
+        if fn_to_fill.any():
+            df.loc[fn_to_fill, 'contributor_first_name'] = (
+                split2.loc[fn_to_fill.reindex(split2.index, fill_value=False), 1].str.strip()
+            )
 
 
 def _clean_committee_names(df: pd.DataFrame, is_committee: pd.Series) -> None:
@@ -223,15 +221,14 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
             df['_garbled_before'] = pd.Series(pd.NA, index=df.index, dtype='object')
         for idx in df.loc[garbled_mask].index:
             old_first = df.at[idx, 'contributor_first_name']
-            old_first_word = old_first.split()[0] if old_first else ''
-            new_first_word = FIRST_NAME_FIXES.get(old_first_word)
-            if new_first_word:
-                df.at[idx, '_garbled_before'] = old_first_word
-                rest = old_first[len(old_first_word):].strip()
-                new_first = f"{new_first_word} {rest}".strip() if rest else new_first_word
-                last = df.at[idx, 'contributor_last_name'] or ''
-                df.at[idx, 'contributor_first_name'] = new_first
-                df.at[idx, 'contributor_name'] = f"{last}, {new_first}"
+            old_first_word = old_first.split()[0]
+            new_first_word = FIRST_NAME_FIXES[old_first_word]
+            df.at[idx, '_garbled_before'] = old_first_word
+            rest = old_first[len(old_first_word):].strip()
+            new_first = f"{new_first_word} {rest}".strip() if rest else new_first_word
+            last = df.at[idx, 'contributor_last_name'] or ''
+            df.at[idx, 'contributor_first_name'] = new_first
+            df.at[idx, 'contributor_name'] = f"{last}, {new_first}"
         logger.info("Fixed %d garbled first names (keyboard errors)", n_garbled)
 
 

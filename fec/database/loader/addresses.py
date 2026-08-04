@@ -24,8 +24,7 @@ def _load_employer_hqs() -> dict:
     if not EMPLOYERS_CSV.exists():
         return {}
     employers_df = pd.read_csv(EMPLOYERS_CSV, dtype=str, keep_default_na=False, na_values=[""])
-    employers_df = employers_df[
-        employers_df["employer_address"].notna() & (employers_df["employer_address"] != "")]
+    employers_df = employers_df[employers_df["employer_address"].notna()]
     out = {}
     for row in employers_df.to_dict("records"):
         out[row["employer_name"]] = {
@@ -42,8 +41,7 @@ def load_employer_branches() -> dict:
         return {}
     branches_df = pd.read_csv(EMPLOYER_BRANCHES_CSV, dtype=str,
                               keep_default_na=False, na_values=[""])
-    branches_df = branches_df[branches_df["employer_address"].notna()
-                              & (branches_df["employer_address"] != "")]
+    branches_df = branches_df[branches_df["employer_address"].notna()]
     out = {}
     for row in branches_df.to_dict("records"):
         key = (row["employer_name"], str(row["donor_state"]).upper())

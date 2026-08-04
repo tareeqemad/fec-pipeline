@@ -1,5 +1,7 @@
 """Address hygiene beside clean_streets: safe mechanical text fixes are applied; anything needing a guess goes to the review reports."""
 import re
+from difflib import SequenceMatcher
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -116,10 +118,58 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
-    keep = [column for column in ("sub_id", "donor_key", S1, S2, CITY, STATE, ZIP) if column in df.columns]
+    keep = [column for column in (
+        "sub_id", "donor_key", "contributor_name", S1, S2, CITY, STATE, ZIP,
+    ) if column in df.columns]
     out = df.loc[mask, keep].copy()
     out.insert(0, "review_reason", reason)
     return out
+
+
+def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
+    """Return one representative row per near street spelling; never edits data."""
+    needed = {"contributor_name", S1, CITY, STATE, ZIP}
+    if not needed.issubset(df.columns):
+        return pd.DataFrame()
+
+    work = df.copy()
+    if "entity_type" in work.columns:
+        work = work[work["entity_type"] == "INDIVIDUAL"]
+
+    work = work[
+        work["contributor_name"].fillna("").ne("")
+        & work[S1].fillna("").str.match(r"^\d+")
+    ].copy()
+    if work.empty:
+        return pd.DataFrame()
+
+    work["_house"] = work[S1].str.extract(r"^(\d+[A-Z]?)\b", expand=False)
+    groups = ["contributor_name", CITY, STATE, ZIP, "_house"]
+    candidates = []
+
+    for _, rows in work.groupby(groups, dropna=False, sort=False):
+        streets = sorted(rows[S1].dropna().unique())
+        if len(streets) < 2:
+            continue
+
+        near = set()
+        for left, right in combinations(streets, 2):
+            score = SequenceMatcher(None, left, right).ratio()
+            if score >= 0.88:
+                near.update((left, right))
+
+        if near:
+            candidates.append(rows[rows[S1].isin(near)].drop_duplicates(S1))
+
+    if not candidates:
+        return pd.DataFrame()
+
+    variants = pd.concat(candidates, ignore_index=False)
+    return _df_subset(
+        variants,
+        pd.Series(True, index=variants.index),
+        "near-duplicate street spelling for same donor/location",
+    )
 
 
 def build_address_reports(df: pd.DataFrame, out_dir: str | None) -> tuple[pd.DataFrame, dict]:
@@ -133,6 +183,10 @@ def build_address_reports(df: pd.DataFrame, out_dir: str | None) -> tuple[pd.Dat
     zips = df[ZIP].fillna("").astype(str)
 
     review, regeocode = [], []
+
+    spelling_variants = _near_street_variant_review(df)
+    if not spelling_variants.empty:
+        review.append(spelling_variants)
 
     # a street_2 that is a bare unit keyword ("STE") or a state/city
     # abbreviation ("POTO MD") is certainly wrong: empty it and flag the row

@@ -8,6 +8,10 @@ from fec.config import MISSING_VALUES
 from fec.config.constants import (
     OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS,
 )
+from fec.config.occupation_rules import (
+    EMPLOYER_TYPO_FIXES,
+    HOMEMAKER_EMPLOYER_VALUES,
+)
 
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
@@ -15,19 +19,6 @@ _TITLE_PREFIX_RE = re.compile(
     r'MANAGING DIRECTOR|EXECUTIVE DIRECTOR|DIRECTOR|MANAGER)\s*,\s*(?=\S)',
     re.I,
 )
-
-_HOMEMAKER_VALUES = {'HOMEMAKER', 'HOUSEWIFE', 'HOUSWIFE', 'HOUSEWIVES',
-                     'STAY AT HOME MOM', 'STAY AT HOME DAD'}
-
-_EMP_TYPO_PATTERNS = [
-    (r'ASSOCAITE', 'ASSOCIATE'),
-    (r'ASSOICATE', 'ASSOCIATE'),
-    (r'ASOCIATE', 'ASSOCIATE'),
-    (r'DERMATOLOGITS\b', 'DERMATOLOGISTS'),
-    (r'MANAGMENT', 'MANAGEMENT'),
-    (r'MANAGEMNT', 'MANAGEMENT'),
-    (r'INVESTEMENT', 'INVESTMENT'),
-]
 
 def _deep_clean_employer(df: pd.DataFrame) -> int:
     """Employer-specific cleaning beyond text normalization; returns number of values changed."""
@@ -177,7 +168,7 @@ def _deep_clean_emp_self_employed_typos(df: pd.DataFrame) -> int:
 
 def _deep_clean_emp_homemaker_sync(df: pd.DataFrame) -> int:
     """HOMEMAKER/HOUSEWIFE in employer -> NOT EMPLOYED, sync occupation."""
-    homemaker_mask = df['contributor_employer'].isin(_HOMEMAKER_VALUES)
+    homemaker_mask = df['contributor_employer'].isin(HOMEMAKER_EMPLOYER_VALUES)
     n_changed = int(homemaker_mask.sum())
     if n_changed:
         df.loc[homemaker_mask, 'contributor_employer'] = 'NOT EMPLOYED'
@@ -193,7 +184,7 @@ def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> int:
     """Fix common employer typos (ASSOCAITE, MANAGMENT, INVESTEMENT...)."""
     n_changed = 0
     emp_col = df['contributor_employer']
-    for typo_pattern, fix in _EMP_TYPO_PATTERNS:
+    for typo_pattern, fix in EMPLOYER_TYPO_FIXES:
         mask = emp_col.str.contains(typo_pattern, na=False, regex=True)
         if mask.any():
             df.loc[mask, 'contributor_employer'] = (

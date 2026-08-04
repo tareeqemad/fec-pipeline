@@ -9,11 +9,23 @@ STATUS_WORDS = frozenset({
     'SELF-EMPLOYED', 'STUDENT', 'UNEMPLOYED',
 })
 
-# Values that are NOT real employer names.
-SKIP_EMPLOYERS = frozenset({
-    'RETIRED', 'NOT EMPLOYED', 'SELF-EMPLOYED', 'STUDENT',
-    'HOMEMAKER', 'UNEMPLOYED',
-    'NOT DISCLOSED', 'NONE', 'N/A', 'NA', '',
+STATUS_CATEGORIES = STATUS_WORDS - {'HOUSEWIFE', 'UNEMPLOYED'}
+CANONICAL_EMPLOYER_SKIP_VALUES = (
+    STATUS_CATEGORIES - {'HOMEMAKER', 'STUDENT'}
+) | {'NOT DISCLOSED'}
+NOT_EMPLOYED_VARIANTS = frozenset({'NOT EMPLOYED', 'UNEMPLOYED'})
+SELF_EMPLOYED_VARIANTS = frozenset({'SELF-EMPLOYED', 'SELF EMPLOYED'})
+NON_RETIRED_EMPLOYER_STATUSES = (
+    NOT_EMPLOYED_VARIANTS | SELF_EMPLOYED_VARIANTS | {'NOT DISCLOSED', ''}
+)
+
+# Values that are NOT real occupations. HOUSEWIFE is normalized to HOMEMAKER.
+SKIP_OCCUPATIONS = (STATUS_WORDS - {'HOUSEWIFE'}) | {''}
+
+# Values that are NOT real employer names: occupation statuses plus employer-only
+# placeholders and typos. Keep the additions here instead of copying statuses.
+SKIP_EMPLOYERS = SKIP_OCCUPATIONS | frozenset({
+    'NOT DISCLOSED', 'NONE', 'N/A', 'NA',
     # status-word typos, so a misspelling never survives as a "real" employer
     'NOT EMOLOYED', 'NOT EMPLOYEDD', 'NOT EMPLOYE', 'UNEMPLOYE',
     'RETIRED.', 'RETIRD', 'SELF EMPLOYED',
@@ -21,12 +33,14 @@ SKIP_EMPLOYERS = frozenset({
 })
 
 # The canonical "this employer value is a life status, not a company" set.
-# A literal on purpose - SKIP_EMPLOYERS carries typo members that must not
-# widen the runtime filters deriving from this one.
-EMPLOYER_STATUS_VALUES = frozenset({
-    'RETIRED', 'NOT EMPLOYED', 'UNEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED',
-    'HOMEMAKER', 'STUDENT', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN', '',
+# Deliberately excludes SKIP_EMPLOYERS' typo-only additions.
+EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | frozenset({
+    'SELF EMPLOYED', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN',
 })
+
+RETIRED_PREVIOUS_EMPLOYER_PLACEHOLDERS = (
+    EMPLOYER_STATUS_VALUES & {'NONE', 'N/A', 'NA', 'NAN', ''}
+) | {'NOT SPECIFIED', 'MR AND MRS'}
 
 # Real brand names that actually contain a slash; the slash-resolver keeps
 # them verbatim and the quality gate asserts they survived.
@@ -34,14 +48,8 @@ SLASH_BRAND_EMPLOYERS = frozenset({
     'BRIDGESTONE/FIRESTONE',
 })
 
-# Values that are NOT real occupations.
-SKIP_OCCUPATIONS = frozenset({
-    'RETIRED', 'NOT EMPLOYED', 'SELF-EMPLOYED', 'HOMEMAKER',
-    'STUDENT', 'UNEMPLOYED', '',
-})
-
-# Refusals and non-answers. Feeds _NULL_EMPLOYER_WORDS (post-merge step AS),
-# which BLANKS the field; SKIP_EMPLOYERS values are kept as a status instead.
+# Refusals and non-answers. FINAL_NULL_EMPLOYERS extends this shared base;
+# SKIP_EMPLOYERS values are kept as a status instead.
 REFUSAL_EMPLOYERS = frozenset({
     'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
     'DECLINED TO ANSWER', 'REFUSED', 'NOT PROVIDED',
@@ -117,11 +125,9 @@ RETIRED_TYPO_EMPLOYERS = frozenset({
 # Raw FEC status words -> normalized. The raw-recovery step (post-merge AL)
 # re-reads the ORIGINAL filing, so every self-employed typo above is folded in.
 RAW_STATUS_MAP = {
-    'RETIRED': 'RETIRED', 'NOT EMPLOYED': 'NOT EMPLOYED',
-    'SELF': 'SELF-EMPLOYED', 'SELF EMPLOYED': 'SELF-EMPLOYED',
-    'SELF-EMPLOYED': 'SELF-EMPLOYED',
+    'RETIRED': 'RETIRED',
     'HOMEMAKER': 'HOMEMAKER', 'HOUSEWIFE': 'HOMEMAKER',
-    'STUDENT': 'STUDENT', 'UNEMPLOYED': 'NOT EMPLOYED',
+    'STUDENT': 'STUDENT',
     'RETITED': 'RETIRED', 'NAT EMPLOYED': 'NOT EMPLOYED',
     'GARY-SELF': 'SELF-EMPLOYED',  # a donor who typed his name onto SELF
     **{typo: 'SELF-EMPLOYED' for typo in SELF_EMPLOYED_TYPOS},
@@ -277,13 +283,11 @@ LEGAL_SUFFIX_RE = re.compile(
 # there is no second list to keep in sync. Lives in config (data, not logic)
 # because cleaning, resolve AND database all need it.
 NOT_REAL_EMPLOYER = {
-    "RETIRED", "SELF-EMPLOYED", "SELF EMPLOYED", "SELF",
+    "SELF",
     "SELF EMPL.", "SELF EMPL", "SELF-EMP", "SELF EMP",
-    "NOT EMPLOYED", "NOT DISCLOSED", "NONE", "N/A", "NA",
-    "STUDENT", "HOMEMAKER", "UNEMPLOYED", "UNKNOWN",
+    "UNKNOWN",
     "INFORMATION REQUESTED", "INFORMATION REQUESTED PER BEST EFFORTS",
-    "REFUSED", "DECLINED TO STATE", "VOLUNTEER", "DISABLED",
-    "",
+    "DISABLED",
     # status / housewife variants
     "RETIREE", "RETIEED", "RETIRE", "HOUSEWIFE", "HOUSWIFE", "HOUSE WIFE",
     # occupations / job titles — these belong in occupation, not employer
@@ -293,17 +297,15 @@ NOT_REAL_EMPLOYER = {
     "REAL ESTATE", "HEALTHCARE", "HEALTH CARE", "FINANCE", "FINANCIAL SERVICES",
 } | SKIP_EMPLOYERS | REFUSAL_EMPLOYERS
 
-# Prefix check for variants like "SELF EMPL.", "SELF-EMPL", etc.
-NOT_REAL_PREFIXES = ("SELF EMPL", "SELF-EMPL", "NONE/", "N/A/", "NOT EMPLOYED")
-
 # Checked against state to avoid false positives (London OH, etc.)
 FOREIGN_CITIES_NO_US_STATE = frozenset({
     # Israel
     'REHOVOT', 'NETANYA', 'HERZLIYA', 'HAIFA', 'TEL AVIV',
     'RAANANA', 'MODIIN', 'ASHKELON', 'BEER SHEVA', 'PETAH TIKVA',
     'RISHON LEZION', 'KFAR SABA', 'GIVATAYIM', 'RAMAT GAN', 'SAVYON',
-    # Canada
-    'TORONTO', 'MONTREAL', 'VANCOUVER', 'OTTAWA', 'CALGARY',
+    # Canada-only names in this dataset. Canadian names that also name a US
+    # place belong in AMBIGUOUS_CITIES below and are checked against state.
+    'MONTREAL', 'OTTAWA', 'CALGARY',
     # no US city of the same name - safe to flag unconditionally.
     # Cities that DO also exist in the US (Paris TX, Berlin CT...) belong in
     # AMBIGUOUS_CITIES below, never here.
@@ -320,4 +322,6 @@ AMBIGUOUS_CITIES = {
     'MOSCOW': {'ID', 'PA', 'TN', 'TX'},
     'SYDNEY': {'FL', 'MT', 'NE'},
     'MELBOURNE': {'FL'},
+    'TORONTO': {'OH'},
+    'VANCOUVER': {'WA'},
 }

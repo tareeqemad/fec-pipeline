@@ -79,10 +79,8 @@ def _fix_pr_zip_wrong_state(df: pd.DataFrame) -> int:
     n_fixed = 0
     if vi_wrong.any():
         df.loc[vi_wrong, 'contributor_state'] = 'VI'
-        df.loc[vi_wrong, 'state_name'] = 'VIRGIN ISLANDS'
         n_fixed += int(vi_wrong.sum())
     if pr_wrong.any():
         df.loc[pr_wrong, 'contributor_state'] = 'PR'
-        df.loc[pr_wrong, 'state_name'] = 'PUERTO RICO'
         n_fixed += int(pr_wrong.sum())
     return n_fixed

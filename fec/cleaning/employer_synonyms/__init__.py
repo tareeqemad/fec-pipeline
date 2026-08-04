@@ -16,7 +16,6 @@ from fec.cleaning.employer_synonyms.canonical import (
     canonical_key,
     restore_display_suffixes,
     _recanonicalize_employers,
-    merge_typo_variants,
 )
 
 __all__ = [
@@ -32,5 +31,4 @@ __all__ = [
     "canonical_key",
     "restore_display_suffixes",
     "_recanonicalize_employers",
-    "merge_typo_variants",
 ]

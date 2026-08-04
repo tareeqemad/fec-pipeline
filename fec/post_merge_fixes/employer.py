@@ -11,6 +11,11 @@ from fec.config.constants import (
     JUNK_EMPLOYER_RE, REFUSAL_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
     ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER,
 )
+from fec.config.occupation_rules import (
+    EMPLOYER_FROM_CATEGORY,
+    FINAL_NULL_EMPLOYERS,
+    POST_MERGE_EMPLOYER_FROM_OCCUPATION,
+)
 from fec.env import RAW_CSV
 from fec.log import get_logger
 
@@ -99,24 +104,13 @@ def _employer_substring_variants(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# Refusal/placeholder words to null out of the employer field - unlike RETIRED /
-# SELF-EMPLOYED / NOT EMPLOYED (kept as status values) these carry no information.
-# Internal whitespace is collapsed so "N A" and "N/A" both match.
-_NULL_EMPLOYER_WORDS = (
-    REFUSAL_EMPLOYERS
-    | {'N/A', 'NA', 'N A', 'NONE', 'NOT APPLICABLE', 'NOT APPLICAABLE',
-       'NOT DISCLOSED', 'INFORMATION REQUESTED',
-       'INFORMATION REQUESTED PER BEST EFFORTS', 'PHYSICAN', 'SELP EMPLOYED'}
-)
-
-
 def _null_refusal_employers(df: pd.DataFrame) -> int:
     """AS. Null refusal/placeholder employers that AK/AL re-filled from raw; valid status words stay."""
     collapsed = (df['contributor_employer'].fillna('').astype(str)
                  .str.strip().str.upper().str.replace(_WS_RE, ' ', regex=True))
     mask = (
         (df['entity_type'] == 'INDIVIDUAL')
-        & collapsed.isin(_NULL_EMPLOYER_WORDS)
+        & collapsed.isin(FINAL_NULL_EMPLOYERS)
     )
     n = int(mask.sum())
     if n:
@@ -161,25 +155,6 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# status-word occupation/category -> the employer value it implies (step AK)
-_EMP_FROM_OCCUPATION = {
-    'RETIRED': 'RETIRED',
-    'HOMEMAKER': 'HOMEMAKER',
-    'HOUSEWIFE': 'HOMEMAKER',
-    'NOT EMPLOYED': 'NOT EMPLOYED',
-    'STUDENT': 'STUDENT',
-    'UNEMPLOYED': 'NOT EMPLOYED',
-    'SELF-EMPLOYED': 'SELF-EMPLOYED',
-}
-_EMP_FROM_CATEGORY = {
-    'RETIRED': 'RETIRED',
-    'NOT EMPLOYED': 'NOT EMPLOYED',
-    'HOMEMAKER': 'HOMEMAKER',
-    'STUDENT': 'STUDENT',
-    'SELF-EMPLOYED': 'SELF-EMPLOYED',
-}
-
-
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
     """AK. Empty employer + status-word occupation/category -> employer = that status; else recover from raw."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -187,7 +162,7 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('')
 
     n = 0
-    for occ_val, emp_val in _EMP_FROM_OCCUPATION.items():
+    for occ_val, emp_val in POST_MERGE_EMPLOYER_FROM_OCCUPATION.items():
         mask = is_indiv & empty_emp & (occ == occ_val)
         cnt = int(mask.sum())
         if cnt:
@@ -196,7 +171,7 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
 
     # Still empty? Set from occupation_category
     still_empty = is_indiv & (df['contributor_employer'].isna() | (df['contributor_employer'] == ''))
-    for cat, emp_val in _EMP_FROM_CATEGORY.items():
+    for cat, emp_val in EMPLOYER_FROM_CATEGORY.items():
         mask = still_empty & (df['occupation_category'] == cat)
         cnt = int(mask.sum())
         if cnt:

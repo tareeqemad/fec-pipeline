@@ -2,6 +2,36 @@
 import pandas as pd
 
 
+def _recover_missing_streets(df: pd.DataFrame) -> int:
+    """Fill a blank street from the donor's only street at the same city/state/ZIP."""
+    keys = ['donor_key', 'contributor_city', 'contributor_state', 'contributor_zip']
+    street = df['contributor_street_1'].fillna('').astype(str).str.strip()
+    is_individual = df['entity_type'] == 'INDIVIDUAL'
+    context = df[keys].fillna('').astype(str).apply(lambda column: column.str.strip())
+    has_context = context.ne('').all(axis=1)
+
+    source_mask = is_individual & has_context & street.ne('')
+    sources = df.loc[source_mask, keys].copy()
+    sources['contributor_street_1'] = street[source_mask]
+    if sources.empty:
+        return 0
+
+    candidates = sources.groupby(keys)['contributor_street_1'].agg(
+        lambda values: values.iloc[0] if values.nunique() == 1 else None
+    )
+    candidates = candidates.dropna().to_dict()
+
+    n_recovered = 0
+    target = is_individual & has_context & street.eq('')
+    for idx in df.index[target]:
+        key = tuple(df.at[idx, column] for column in keys)
+        recovered = candidates.get(key)
+        if recovered:
+            df.at[idx, 'contributor_street_1'] = recovered
+            n_recovered += 1
+    return n_recovered
+
+
 def _truncated_house_numbers(df: pd.DataFrame) -> int:
     """Z. '97 SHIRLEY RD'(1) -> '970 SHIRLEY RD'(103) for same donor."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']

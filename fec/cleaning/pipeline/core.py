@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fec.config import US_STATES, STATE_NAMES, MISSING_VALUES, OUTPUT_COLUMNS
+from fec.config import US_STATES, MISSING_VALUES, OUTPUT_COLUMNS
 from fec.cleaning.addresses import clean_streets, clean_cities, clean_zips
 from fec.cleaning.address_review import apply_safe_fixes, build_address_reports
 from fec.cleaning.occupations import clean_employer_occupation
@@ -149,7 +149,6 @@ def clean(df: pd.DataFrame, verbose: bool = True, fuzzy_city: bool = True,
         log(f"Address review: {review_counts['manual_review']:,} flagged for manual review, "
             f"{review_counts['regeocode']:,} for re-geocoding "
             f"({review_counts['street2_emptied']:,} bad street_2 emptied)")
-    df['state_name'] = df['contributor_state'].map(STATE_NAMES)
     # committee_id -> recipient PAC name; unknown ids keep the raw id so nothing drops
     from fec.committees import committee_id_to_name
     names = committee_id_to_name()
@@ -176,11 +175,9 @@ def clean(df: pd.DataFrame, verbose: bool = True, fuzzy_city: bool = True,
 
 def _report_suffix_merge_suspects(df: pd.DataFrame, out_dir, raw_names=None) -> int:
     """Report donor_keys that merged a JR/SR-marked RAW name with an unmarked one differing beyond the suffix; detect-only (the shape is usually one person), reads raw names because clean() strips suffixes."""
-    if out_dir is None or 'donor_key' not in df.columns or not raw_names:
+    if out_dir is None or not raw_names:
         return 0
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
-    if 'sub_id' not in individuals.columns:
-        return 0
     per_key = defaultdict(set)
     for sub_id, key in zip(individuals['sub_id'].astype(str), individuals['donor_key']):
         original = raw_names.get(sub_id)
@@ -217,7 +214,7 @@ def clean_rows(df: pd.DataFrame, fuzzy_city: bool = True,
 
     logger.info("\n-- Enhancements --")
     from fec.cleaning.enhancements import run_enhancements
-    df_clean, _enh_report, enh_audit = run_enhancements(df_clean)
+    df_clean, enh_audit = run_enhancements(df_clean)
 
     # hand-curated per-donor fixes keyed by sub_id; survive every re-clean
     from fec.cleaning.manual_overrides import apply_manual_employer_overrides

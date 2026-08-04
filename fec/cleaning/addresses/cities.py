@@ -83,8 +83,7 @@ def _auto_detect_city_typos(df: pd.DataFrame, cutoff: float = 0.88, min_common: 
     )
 
     fixes = {}
-    for state in city_counts['contributor_state'].unique():
-        state_cities = city_counts[city_counts['contributor_state'] == state]
+    for _, state_cities in city_counts.groupby('contributor_state', sort=False):
         common_names = state_cities[state_cities['n'] >= min_common]['contributor_city'].tolist()
         rare_cities = state_cities[state_cities['n'] <= max_rare]
 
