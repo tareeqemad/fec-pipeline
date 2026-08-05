@@ -2,7 +2,7 @@
   "top50_occupation": [
     {
       "value": "RETIRED",
-      "count": 32455
+      "count": 32460
     },
     {
       "value": "ATTORNEY",
@@ -22,7 +22,7 @@
     },
     {
       "value": "CEO",
-      "count": 3355
+      "count": 3350
     },
     {
       "value": "EXECUTIVE",
@@ -114,7 +114,7 @@
     },
     {
       "value": "DIRECTOR",
-      "count": 423
+      "count": 422
     },
     {
       "value": "MANAGING PARTNER",
@@ -204,11 +204,11 @@
   "top50_employer": [
     {
       "value": "RETIRED",
-      "count": 34191
+      "count": 34182
     },
     {
       "value": "SELF-EMPLOYED",
-      "count": 12033
+      "count": 12048
     },
     {
       "value": "NOT EMPLOYED",
