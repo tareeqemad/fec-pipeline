@@ -63,6 +63,66 @@ def _s(val) -> str:
     return str(val).strip()
 
 
+def _has_signal(row: dict, prefix: str) -> bool:
+    """Return whether an audit row contains a scoring signal with this prefix."""
+    return any(
+        signal.strip().startswith(prefix)
+        for signal in row["signals"].split(";")
+    )
+
+
+def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
+    """Fail if a final automatic merge bypassed an identity safety rule."""
+    final_merges = [
+        row for row in audit_log
+        if row["merged"]
+        and rid_to_key.get(row["rid_a"]) == rid_to_key.get(row["rid_b"])
+    ]
+    violations = []
+
+    for row in final_merges:
+        street = _has_signal(row, "street(")
+        zip5 = _has_signal(row, "zip5=")
+        employer = _has_signal(row, "employer=")
+        signals = row["signals"]
+
+        if any(block in signals for block in (
+            "HARD_BLOCK", "BLOCKED(", "CROSS_NAME_NO_ANCHOR",
+        )):
+            violations.append(row)
+        elif _has_signal(row, "cross_name(") and not (street or zip5 or employer):
+            violations.append(row)
+        elif "surname_variant" in signals and not (street or (zip5 and employer)):
+            violations.append(row)
+        elif "name_format_variant" in signals and not (street or zip5):
+            violations.append(row)
+        elif "surname_superset" in signals and not street:
+            violations.append(row)
+
+    if violations:
+        examples = ", ".join(
+            f"{row['rid_a']} <-> {row['rid_b']}" for row in violations[:3]
+        )
+        raise ValueError(
+            f"Donor identity quality gate rejected {len(violations)} unsafe "
+            f"merge(s): {examples}"
+        )
+
+    return {
+        "checked": len(final_merges),
+        "rare_cross_state": sum(
+            "RARE_OCC_CROSS_STATE" in row["signals"] for row in final_merges
+        ),
+        "cross_name_zip_only": sum(
+            _has_signal(row, "cross_name(")
+            and _has_signal(row, "zip5=")
+            and not _has_signal(row, "street(")
+            and not _has_signal(row, "employer=")
+            for row in final_merges
+        ),
+    }
+
+
 def build_profiles(indiv: pd.DataFrame) -> dict:
     """Build a per-record_id (NAME|CITY|STATE) profile: streets, employers and occupation categories aggregate across the rid's filings; zip5 is the FIRST filing's ZIP only."""
     profiles = {}
@@ -186,10 +246,18 @@ def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:
         for rid in members:
             rid_to_key[rid] = key
 
+    identity_gate = _validate_merge_audit(rid_to_key, audit_log)
+
     unique_before = len(profiles)
     unique_after = len(components)
 
     if verbose:
+        logger.info(
+            "  Identity gate: "
+            f"{identity_gate['checked']:,} final merge edges valid; "
+            f"{identity_gate['rare_cross_state']:,} rare cross-state; "
+            f"{identity_gate['cross_name_zip_only']:,} cross-name ZIP-only"
+        )
         logger.info("\n  -- Results --")
         logger.info(f"  Pairs scored:   {merge_count + skip_count + cross_merge + cross_skip + sv_merge + sv_skip + nv_merge + nv_skip + ss_merge + ss_skip:>7,}")
         logger.info(f"  Merged (>={MERGE_THRESHOLD}):  {merge_count + cross_merge + sv_merge + nv_merge + ss_merge:>7,}")
@@ -234,11 +302,12 @@ def _build_and_validate_chains(
         if len(members) < CHAIN_CLUSTER_MIN:
             continue
 
-        # NOTE: members is a set, so a record_count tie is broken by set
-        # iteration order, which follows per-process-randomized str hashing --
-        # a tie here can pick a different canonical record between runs and
-        # flip ejections (and therefore donor keys)
-        canonical_rid = max(members, key=lambda r: profiles[r]["record_count"])
+        # The rid tie-break makes chain ejections and donor keys repeatable
+        # across processes; set iteration order is hash-randomized.
+        canonical_rid = max(
+            members,
+            key=lambda rid: (profiles[rid]["record_count"], rid),
+        )
         p_canon = profiles[canonical_rid]
         canon_freq = len(name_groups[p_canon["norm_name"]])
 

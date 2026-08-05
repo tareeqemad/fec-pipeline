@@ -132,7 +132,10 @@ def _write_results(
     from fec.config import expand_city_abbreviations
     df["employer_city"] = df["employer_city"].map(expand_city_abbreviations)
 
-    df.to_csv(csv_path, index=False)
+    destination = Path(csv_path)
+    temporary = destination.with_suffix(f"{destination.suffix}.tmp")
+    df.to_csv(temporary, index=False)
+    os.replace(temporary, destination)
     logger.info(f"  Written {len(df):,} rows")
     return df
 

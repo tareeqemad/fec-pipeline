@@ -82,7 +82,7 @@ def _score_cross_groups(
     uf, audit_log: list, score_dist: dict,
     verbose: bool,
 ) -> tuple[int, int]:
-    """Cross-group matching: nicknames + first-name typos sharing a surname. No geography pre-gate of its own -- compute_score decides, and the +10 cross-name bonus is withheld when the pair scored NO_CORROBORATION."""
+    """Match first-name variants only when street, ZIP, or employer corroborates them."""
     if verbose:
         logger.info("\n  -- Cross-group matching (nicknames + typos) --")
 
@@ -115,11 +115,16 @@ def _score_cross_groups(
                         p2 = profiles[rid_b]
 
                         score, signals = compute_score(p1, p2, combined_freq)
-
-                        no_corrob = any("NO_CORROBORATION" in s for s in signals)
-                        if not no_corrob:
+                        has_anchor = any(
+                            signal.startswith(("street(", "zip5=", "employer="))
+                            for signal in signals
+                        )
+                        if has_anchor:
                             score += SCORE_CROSS_NAME_BONUS
                             signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")
+                        else:
+                            score = min(score, MERGE_THRESHOLD - 1)
+                            signals.append("CROSS_NAME_NO_ANCHOR")
 
                         cross_pairs += 1
                         m, s = _merge_and_audit(
@@ -142,7 +147,7 @@ def _score_surname_variants(
     name_groups: dict, profiles: dict, uf,
     audit_log: list, score_dist: dict, verbose: bool,
 ) -> tuple[int, int]:
-    """Match records whose surnames are spelling variants and first names equal; a merge additionally requires the same street or same ZIP5, so families are never fused on a near-miss surname."""
+    """Match surname typos only when the records share a street, or a ZIP and employer."""
     first_to_norms = defaultdict(set)
     for nn in name_groups:
         if "|" in nn:
@@ -171,11 +176,13 @@ def _score_surname_variants(
                     for rb in rids_b:
                         p1, p2 = profiles[ra], profiles[rb]
 
-                        z1, z2 = p1["zip5"], p2["zip5"]
-                        strong_geo = bool(p1["streets"] & p2["streets"]) or (
-                            z1 and len(z1) == 5 and z1 == z2
+                        same_street = bool(p1["streets"] & p2["streets"])
+                        same_employer = bool(
+                            p1["norm_employers"] & p2["norm_employers"]
                         )
-                        if not strong_geo:
+                        z1, z2 = p1["zip5"], p2["zip5"]
+                        same_zip = bool(z1 and len(z1) == 5 and z1 == z2)
+                        if not (same_street or (same_zip and same_employer)):
                             continue
 
                         score, signals = compute_score(p1, p2, combined_freq)

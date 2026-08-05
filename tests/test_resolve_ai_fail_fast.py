@@ -109,3 +109,4 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     assert applied == [True]
     written = pd.read_csv(csv_path)
     assert written['employer_city'].tolist() == ['NEW YORK']
+    assert not csv_path.with_suffix('.csv.tmp').exists()

@@ -38,6 +38,8 @@ def test_curated_previous_employer_abbreviations_are_expanded():
     assert V("NUCLEAR ONCOLOGY ASSOC.") == "NUCLEAR ONCOLOGY SC"
     assert V("SNOWS & ASSOC. LLP/CONSULTANT") == "SNOWS AND ASSOCIATES"
     assert V("TIGER MGMT") == "TIGER MANAGEMENT"
+    assert V("SOUTH JERSEY PROSTHODONTIC ASSOC./O") == \
+        "SOUTH JERSEY PROSTHODONTIC ASSOCIATES PA"
 
 
 def test_slash_composites_are_collapsed():
