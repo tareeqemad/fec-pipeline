@@ -6,11 +6,15 @@ import re
 import pandas as pd
 
 from fec.cleaning.occupations import _categorize
+from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.config.constants import (
     SKIP_EMPLOYERS, SKIP_OCCUPATIONS, OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER,
-    JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP,
+    JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE,
 )
-from fec.config.occupation_rules import KNOWN_COMPANY_OCCUPATIONS
+from fec.config.occupation_rules import (
+    KNOWN_COMPANY_OCCUPATIONS,
+    OCCUPATION_CANONICAL,
+)
 
 # Markers that a string is a real legal entity name, not an industry word.
 # Non-capturing group avoids the pandas regex-with-group warning.
@@ -41,7 +45,9 @@ def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> N
     old_emp = df.loc[mask, 'contributor_employer'].copy()
     old_occ = df.loc[mask, 'contributor_occupation'].copy()
     df.loc[mask, 'contributor_employer'] = old_occ
-    df.loc[mask, 'contributor_occupation'] = old_emp
+    new_occ = old_emp.replace(OCCUPATION_CANONICAL)
+    df.loc[mask, 'contributor_occupation'] = new_occ
+    df.loc[mask, 'occupation_category'] = _categorize(new_occ)
     if status is not None:
         df.loc[mask, 'occupation_status'] = status
 
@@ -125,7 +131,8 @@ def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
     if not real:
         return 0
 
-    mask = candidates & occ.isin(real)
+    known_company = occ.replace(EMPLOYER_SYNONYMS)
+    mask = candidates & (occ.isin(real) | known_company.isin(real))
     n_fixed = int(mask.sum())
     if n_fixed:
         _swap_occ_emp_fields(df, mask, status='DISCLOSED')
@@ -167,18 +174,8 @@ def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
 
     if se_with_company.any():
         # Pattern 1: employer is the person's own name
-        first_names = df['contributor_first_name'].fillna('').str.upper()
-        last_names = df['contributor_last_name'].fillna('').str.upper()
-        emp_upper = emp.str.upper()
-
         for idx in df.loc[se_with_company].index:
-            first = first_names.at[idx].strip()
-            last = last_names.at[idx].strip()
-            employer = emp_upper.at[idx].strip()
-            if not first or not last or not employer:
-                continue
-            emp_words = set(employer.replace(',', ' ').split())
-            if {first, last}.issubset(emp_words):
+            if _is_own_name(df, idx, emp.at[idx]) and not _had_legal_suffix(df, idx):
                 df.at[idx, 'contributor_employer'] = 'SELF-EMPLOYED'
                 n_fixed += 1
 
@@ -205,6 +202,29 @@ def _name_word_set(*parts: str) -> frozenset[str]:
     return frozenset(word for word in words if len(word) > 1)
 
 
+def _is_own_name(df: pd.DataFrame, idx, employer: str) -> bool:
+    """True only when the whole employer value is the donor's name."""
+    first = _name_word_set(df.at[idx, 'contributor_first_name'])
+    last = _name_word_set(df.at[idx, 'contributor_last_name'])
+    if not first or not last:
+        return False
+
+    possible = {first | last}
+    if 'contributor_middle_name' in df.columns:
+        middle = _name_word_set(df.at[idx, 'contributor_middle_name'])
+        if middle:
+            possible.add(first | middle | last)
+    return _name_word_set(employer) in possible
+
+
+def _had_legal_suffix(df: pd.DataFrame, idx) -> bool:
+    """The raw suffix proves an own-named value is a company, not a bare name."""
+    if 'contributor_employer_original' not in df.columns:
+        return False
+    original = str(df.at[idx, 'contributor_employer_original']).strip().upper()
+    return bool(LEGAL_SUFFIX_RE.search(original))
+
+
 def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
     """AE2. Employer is the donor's own FULL name -> SELF-EMPLOYED; a shared surname alone is often a real firm, so both names required."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -213,23 +233,9 @@ def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
     if not mask.any():
         return 0
 
-    first = df['contributor_first_name'].fillna('')
-    last = df['contributor_last_name'].fillna('')
-    has_mid = 'contributor_middle_name' in df.columns
-    mid = df['contributor_middle_name'].fillna('') if has_mid else None
-
     hits = []
     for idx in df.index[mask]:
-        first_words = _name_word_set(first.at[idx])
-        last_words = _name_word_set(last.at[idx])
-        if not first_words or not last_words:
-            continue  # need the full name to be safe
-        own = {first_words | last_words}
-        if has_mid:
-            mid_words = _name_word_set(mid.at[idx])
-            if mid_words:
-                own.add(first_words | mid_words | last_words)
-        if _name_word_set(emp.at[idx]) in own:
+        if _is_own_name(df, idx, emp.at[idx]) and not _had_legal_suffix(df, idx):
             hits.append(idx)
 
     if hits:
@@ -245,7 +251,12 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
     emp = df['contributor_employer'].fillna('')
     occ = df['contributor_occupation'].fillna('')
 
-    se_mask = is_indiv & (emp == 'SELF-EMPLOYED') & (occ != '')
+    se_mask = (
+        is_indiv
+        & (emp == 'SELF-EMPLOYED')
+        & (occ != '')
+        & ~occ.isin(SKIP_OCCUPATIONS)
+    )
 
     emp_counts = df.loc[is_indiv, 'contributor_employer'].value_counts()
     known_employers = set(emp_counts[emp_counts >= 10].index)
@@ -289,12 +300,15 @@ def _fix_swapped_emp_occ_company(df: pd.DataFrame) -> int:
 
 
 def _fix_occ_emp_both_swapped(df: pd.DataFrame) -> int:
-    """AO. Known swapped pairs where occ is a company and emp a job description -> swap."""
+    """AO. Swap a curated company from occupation only when employer is a job."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')
 
-    mask = is_indiv & occ.isin(KNOWN_COMPANY_OCCUPATIONS) & (emp != '')
+    # Two company names are not a safe swap. That case needs a per-row
+    # override because neither field tells us the person's actual role.
+    emp_is_company = emp.str.contains(_COMPANY_NAME_RE, na=False)
+    mask = is_indiv & occ.isin(KNOWN_COMPANY_OCCUPATIONS) & emp.ne('') & ~emp_is_company
     n_fixed = int(mask.sum())
     if n_fixed:
         _swap_occ_emp_fields(df, mask)

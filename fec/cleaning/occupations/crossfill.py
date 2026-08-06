@@ -13,7 +13,7 @@ from .normalize import _categorize
 
 _CORP_NAME_RE = re.compile(
     r'\bLLC\b|\bLLP\b|\bINC\b\.?|\bCORP\b|\bP\.?A\.?\s*$'
-    r'|\bPARTNERS\b|\bGROUP\b|\bASSOCIATES\b|\bVENTURES\b'
+    r'|\bPARTNERS\b|\bGROUP\b|\bASSOCIATES\b|\bVENTURES\b|\bCAPITAL\b'
     r'|\bHOLDINGS\b|\bSERVICES\b|\bENTERPRISES\b'
     r'|\bUNIVERSITY\b|\bCOLLEGE\b|\bSCHOOL\b|\bACADEMY\b'
     r'|\bHOSPITAL\b|\bINSTITUTE\b'
@@ -46,10 +46,14 @@ def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
     """Swap back rows where occupation holds a company name and employer holds a job title."""
     has_both = df['contributor_occupation'].notna() & df['contributor_employer'].notna()
 
-    occ_is_corp = df['contributor_occupation'].str.contains(_CORP_NAME_RE, na=False)
     emp_is_job = df['contributor_employer'].isin(SWAP_JOB_TITLES)
+    real_employers = set(df.loc[~emp_is_job, 'contributor_employer'].dropna())
+    occ_is_company = (
+        df['contributor_occupation'].str.contains(_CORP_NAME_RE, na=False)
+        | df['contributor_occupation'].isin(real_employers)
+    )
 
-    swap_mask = has_both & occ_is_corp & emp_is_job
+    swap_mask = has_both & occ_is_company & emp_is_job
     if swap_mask.any():
         old_occ = df.loc[swap_mask, 'contributor_occupation'].copy()
         old_emp = df.loc[swap_mask, 'contributor_employer'].copy()

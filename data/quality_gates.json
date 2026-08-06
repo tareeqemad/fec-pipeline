@@ -10,6 +10,16 @@
       "invalid": [],
       "blank": 0
     },
+    "occupation_category_consistency": {
+      "passed": true,
+      "count": 0
+    },
+    "self_employed_status_consistency": {
+      "passed": true,
+      "count": 0,
+      "marker_without_status": 0,
+      "status_without_marker": 0
+    },
     "zip_coverage": {
       "passed": true,
       "pct_empty": 0.01
@@ -40,6 +50,10 @@
       "count": 0
     },
     "retired_donor_consistency": {
+      "passed": true,
+      "count": 0
+    },
+    "retired_active_sync": {
       "passed": true,
       "count": 0
     },

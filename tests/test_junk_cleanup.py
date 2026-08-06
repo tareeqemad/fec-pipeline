@@ -71,12 +71,30 @@ class TestJunkCleanup:
         df, _ = clean_remaining_junk(df)
         assert pd.isna(df['contributor_employer'].iloc[0])
 
-    def test_self_variant_normalized(self):
+    def test_self_prefix_preserves_named_company(self):
         from fec.cleaning.enhancements import clean_remaining_junk
         df = _make_df([{'contributor_employer': 'SELF, TANTUM REAL ESTATE'}])
         df, n = clean_remaining_junk(df)
-        assert df['contributor_employer'].iloc[0] == 'SELF-EMPLOYED'
+        assert df['contributor_employer'].iloc[0] == 'TANTUM REAL ESTATE'
         assert n >= 1
+
+    def test_self_prefix_without_named_company_stays_self_employed(self):
+        from fec.cleaning.enhancements import clean_remaining_junk
+        df = _make_df([{'contributor_employer': 'SELF EMPLOYED LAW OFFICE'}])
+        df, _ = clean_remaining_junk(df)
+        assert df['contributor_employer'].iloc[0] == 'SELF-EMPLOYED'
+
+    def test_verified_self_company_overrides(self):
+        from fec.cleaning.enhancements import clean_remaining_junk
+        df = _make_df([
+            {'contributor_employer': 'SELF EMPLOYED- STANDARDIZED SUCCESS, L'},
+            {'contributor_employer': 'SELF EMPLOYED AND TOTAL REALTY'},
+            {'contributor_employer': 'SELF AND STEVENSON UNIVERSITY'},
+        ])
+        df, _ = clean_remaining_junk(df)
+        assert df['contributor_employer'].tolist() == [
+            'STANDARDIZED SUCCESS LLC', 'TOTAL REALTY', 'STEVENSON UNIVERSITY',
+        ]
 
 
 class TestNistHandling:

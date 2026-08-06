@@ -1,7 +1,10 @@
 """The donor's own name in the employer field becomes SELF-EMPLOYED; shared-surname firms are kept."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer_swaps import _fix_own_name_as_employer
+from fec.cleaning.safety_nets.employer_swaps import (
+    _fix_own_name_as_employer,
+    _fix_self_employed_consistency,
+)
 
 
 def _frame(rows):
@@ -66,6 +69,44 @@ def test_partial_name_is_not_enough():
     assert df["contributor_employer"].tolist() == [
         "BROWNSTEIN", "ALIDA HOWARD", "ALIDA HOWARD",
     ]
+
+
+def test_own_named_legal_company_is_kept():
+    df = _frame([
+        ("JOEL", "", "REINSTEIN", "JOEL REINSTEIN", "ATTORNEY"),
+        ("SCOTT", "", "NAWY", "SCOTT NAWY", "ORTHODONTIST"),
+    ])
+    df["contributor_employer_original"] = ["JOEL REINSTEIN PLLC", "SCOTT NAWY LLC"]
+
+    assert _fix_own_name_as_employer(df) == 0
+    assert df["contributor_employer"].tolist() == ["JOEL REINSTEIN", "SCOTT NAWY"]
+
+
+def test_self_employed_occupation_does_not_hide_a_company():
+    df = _frame([
+        ("ELLYN", "", "BANK", "ELLYN BANK LAW", "SELF-EMPLOYED"),
+        ("LIZZIE", "", "TISCH", "LTD X LIZZIE TISCH", "SELF-EMPLOYED"),
+        ("ALIDA", "", "HOWARD", "ALIDA HOWARD", "SELF-EMPLOYED"),
+    ])
+
+    assert _fix_self_employed_consistency(df) == 1
+    assert df["contributor_employer"].tolist() == [
+        "ELLYN BANK LAW", "LTD X LIZZIE TISCH", "SELF-EMPLOYED",
+    ]
+
+
+def test_short_legal_company_keeps_its_suffix():
+    from fec.cleaning.employer_synonyms.apply import fix_normalized_mid_suffix
+    from fec.cleaning.employer_synonyms.normalize import normalize_employer_canonical
+
+    df = pd.DataFrame({
+        "entity_type": ["INDIVIDUAL"],
+        "contributor_employer": ["JB INC"],
+    })
+    normalize_employer_canonical(df)
+    fix_normalized_mid_suffix(df)
+
+    assert df["contributor_employer"].iloc[0] == "JB INC"
 
 
 def test_committees_are_untouched():

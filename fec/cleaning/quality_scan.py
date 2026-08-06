@@ -171,6 +171,25 @@ def scan_junk_occupations(df: pd.DataFrame) -> dict:
     }
 
 
+
+def scan_uncategorized_occupations(df: pd.DataFrame) -> dict:
+    """List nonblank occupations still in OTHER, ordered by impact."""
+    individuals = df[df["entity_type"] == "INDIVIDUAL"]
+    occupation = individuals["contributor_occupation"].fillna("").str.strip()
+    category = individuals.get(
+        "occupation_category", pd.Series("", index=individuals.index)
+    ).fillna("")
+    intentional = {"", "EMPLOYED", "NOT DISCLOSED", "OTHER"}
+    counts = occupation[(category == "OTHER") & ~occupation.isin(intentional)].value_counts()
+    return {
+        "distinct": int(len(counts)),
+        "rows": int(counts.sum()),
+        "examples": [
+            {"value": value, "rows": int(rows)}
+            for value, rows in counts.head(25).items()
+        ],
+    }
+
 def scan(df: pd.DataFrame) -> dict:
     return {
         "rows": len(df),
@@ -179,6 +198,7 @@ def scan(df: pd.DataFrame) -> dict:
         "name_composite_drift": scan_name_composite_drift(df),
         "address_order_variants": scan_address_order_variants(df),
         "junk_occupation_suspects": scan_junk_occupations(df),
+        "uncategorized_occupations": scan_uncategorized_occupations(df),
     }
 
 
@@ -213,6 +233,13 @@ def main(argv: list[str]) -> int:
     print(f"\n  Junk occupation suspects: {junk_report['distinct']:,} values / {junk_report['rows']:,} rows"
           f"{'  — confirm, then add to OCCUPATION_FIXES (junk) or OK_SHORT_OCCUPATIONS (real)' if junk_report['distinct'] else ''}")
     for example in junk_report["examples"][:8]:
+        print(f"    - {example['value']}  ({example['rows']} rows)")
+
+
+    other_report = report["uncategorized_occupations"]
+    print(f"\n  Uncategorized occupations: {other_report['distinct']:,} values / "
+          f"{other_report['rows']:,} rows")
+    for example in other_report["examples"][:8]:
         print(f"    - {example['value']}  ({example['rows']} rows)")
 
     out = path.parent / "quality_scan.json"

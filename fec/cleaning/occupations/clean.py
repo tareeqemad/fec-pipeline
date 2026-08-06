@@ -31,16 +31,17 @@ def clean_employer_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str,
     )
     counts['normalized'] = n_emp + n_occ
 
-    # 1b. employer-specific deep cleaning
+    # 1b. Swap first so short titles such as VP are not discarded before
+    # the company sitting in the occupation field can be recovered.
+    _fix_swapped_occ_emp(df)
+
+    # 1c. employer-specific deep cleaning
     n_emp_deep = _deep_clean_employer(df)
     counts['normalized'] += n_emp_deep
 
-    # 1c. canonicalize employer name variants
+    # 1d. canonicalize employer name variants
     n_canon = _canonicalize_employers(df)
     counts['normalized'] += n_canon
-
-    # 1e. swapped occ/emp fix; must run BEFORE step 4 clears committee occupations
-    _fix_swapped_occ_emp(df)
 
     # 1d. initial occupation_status (NaN here = raw was NULL/empty/junk)
     has_occ = df['contributor_occupation'].notna()

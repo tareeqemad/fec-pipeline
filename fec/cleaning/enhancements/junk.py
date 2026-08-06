@@ -22,9 +22,20 @@ _SCHOOL_EMP_RE = re.compile(
 # anchored: SELF / SELF EMPLOYED / SELFEMPLOYED / SELF-EMP etc. match; SELFRIDGES and trailing text do not
 _SELF_EMP_RE = re.compile(r'^SELF(?:[\s\-/]*EMP(?:LOY\w*)?)?$')
 
-# SELF with a tail ("SELF - ACME"); prefix strip also eats an EMPLOYED right after
+# SELF with a tail ("SELF - ACME"). A named company is preserved; generic
+# descriptions such as "SELF EMPLOYED LAW OFFICE" remain SELF-EMPLOYED.
 _SELF_PREFIX_RE = re.compile(r'^SELF[\s,/\-]+', re.IGNORECASE)
 _SELF_PREFIX_STRIP_RE = re.compile(r'^SELF[\s,/\-]+(?:EMPLOYED[\s,/\-]*)?')
+_SELF_COMPANY_TAIL_RE = re.compile(
+    r'\b(?:LLC|LLP|PLLC|INC|CORP|LTD|PC|PA|CAPITAL|REALTY|REAL ESTATE|'
+    r'STRATEGIES|LAW|LAW OFFICES?|TRADING CO)\b',
+)
+_SELF_COMPANY_OVERRIDES = {
+    'SELF EMPLOYED- STANDARDIZED SUCCESS, L': 'STANDARDIZED SUCCESS LLC',
+    'SELF EMPLOYED AND TOTAL REALTY': 'TOTAL REALTY',
+    'SELF AND STEVENSON UNIVERSITY': 'STEVENSON UNIVERSITY',
+}
+_GENERIC_SELF_TAILS = {'LAW OFFICE', 'COMPANY OWNER', 'PRIVATE CONTRACTOR', 'CONTRACTOR'}
 
 _OCC_NUM_TAIL_RE = re.compile(r'^[A-Z ]+\s+\d+$')
 _TRAILING_NUM_RE = re.compile(r'\s+\d+$')
@@ -151,10 +162,15 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
         extracted = emp_raw[self_pattern].str.replace(
             _SELF_PREFIX_STRIP_RE, '', regex=True
         ).str.strip().str.lstrip(',').str.lstrip('-').str.lstrip('/').str.strip()
-        good = self_pattern[extracted.str.len() > 2]
-        if len(good):
-            df.loc[good, 'contributor_employer'] = 'SELF-EMPLOYED'
-            n_fixed += len(good)
+        for idx, tail in extracted.items():
+            original = emp_raw.at[idx].strip().upper()
+            company = _SELF_COMPANY_OVERRIDES.get(original)
+            clean_tail = tail.strip('() ').strip()
+            if not company and clean_tail not in _GENERIC_SELF_TAILS:
+                if _SELF_COMPANY_TAIL_RE.search(clean_tail):
+                    company = clean_tail
+            df.at[idx, 'contributor_employer'] = company or 'SELF-EMPLOYED'
+            n_fixed += 1
 
     return n_fixed
 

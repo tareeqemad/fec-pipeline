@@ -2,13 +2,9 @@
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.occupations import _categorize
-from fec.config.constants import (
-    SKIP_EMPLOYERS,
-    SKIP_OCCUPATIONS,
-    STATUS_CATEGORIES,
-    STATUS_WORDS,
-)
+from fec.cleaning.employer_synonyms import canonical_key
+from fec.cleaning.occupations import _categorize_final
+from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 
 
 def _rederive_occupation_status(df: pd.DataFrame) -> int:
@@ -28,105 +24,123 @@ def _rederive_occupation_status(df: pd.DataFrame) -> int:
 
 
 def _rederive_occupation_category(df: pd.DataFrame) -> int:
-    """AT. Re-derive occupation_category from the final occupation text; only stale status-bucket rows are touched."""
+    """AT. Make every individual's category match their final occupation."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    occ = df['contributor_occupation'].fillna('')
-    occ_u = occ.str.upper()
-    cat = df['occupation_category'].fillna('')
+    expected = _categorize_final(df.loc[is_indiv, 'contributor_occupation'])
+    current = df.loc[is_indiv, 'occupation_category'].fillna('')
+    changed = current.ne(expected)
 
-    stale = (
-        is_indiv & cat.isin(STATUS_CATEGORIES)
-        & (occ != '') & ~occ_u.isin(STATUS_WORDS)
+    df.loc[expected.index[changed], 'occupation_category'] = expected.loc[changed]
+    return int(changed.sum())
+
+
+def _one_confirmed_role(df, donor_key, employer):
+    """Return the donor's only real role at this employer, or None."""
+    same_job = (
+        df['donor_key'].eq(donor_key)
+        & df['entity_type'].eq('INDIVIDUAL')
+        & df['contributor_employer'].eq(employer)
     )
-    idx = df.index[stale]
-    n_fixed = 0
-    if len(idx):
-        new_cats = _categorize(df.loc[idx, 'contributor_occupation'])
-        keep = new_cats.notna() & ~new_cats.isin(STATUS_CATEGORIES) & (new_cats != 'OTHER')
-        fix_idx = idx[keep.values]
-        if len(fix_idx):
-            df.loc[fix_idx, 'occupation_category'] = new_cats[keep].values
-        n_fixed = int(len(fix_idx))
+    occupations = df.loc[same_job, 'contributor_occupation'].dropna()
+    occupations = occupations[
+        occupations.ne('') & ~occupations.isin(SKIP_OCCUPATIONS)
+    ]
 
-    # inverse direction: a status-word occupation must not keep a professional category
-    torn = is_indiv & occ_u.isin(STATUS_WORDS) & (cat != '') & ~cat.isin(STATUS_CATEGORIES)
-    if torn.any():
-        status_cat = occ_u[torn].replace({'HOUSEWIFE': 'HOMEMAKER', 'UNEMPLOYED': 'NOT EMPLOYED'})
-        df.loc[torn, 'occupation_category'] = status_cat.values
-        n_fixed += int(torn.sum())
-
-    # Keep explicit refusals visible without leaving a hole in the category
-    # dimension. The original text and occupation_status still distinguish
-    # NOT DISCLOSED from a genuinely unknown occupation.
-    nd = is_indiv & (occ_u == 'NOT DISCLOSED') & (cat != 'OTHER')
-    if nd.any():
-        df.loc[nd, 'occupation_category'] = 'OTHER'
-        n_fixed += int(nd.sum())
-
-    return n_fixed
+    employer_key = canonical_key(employer)
+    occupations = occupations[
+        occupations.map(canonical_key).ne(employer_key)
+    ].unique()
+    return occupations[0] if len(occupations) == 1 else None
 
 
-def _occupation_consolidation(df: pd.DataFrame) -> int:
-    """AE. Same donor + same employer -> most common occupation when >=3x dominant and substring-related."""
-    indiv = df[df['entity_type'] == 'INDIVIDUAL']
-    n_fixed = 0
-
-    for (dk, emp), grp in indiv.groupby(['donor_key', 'contributor_employer'], dropna=False):
-        if pd.isna(emp) or emp in SKIP_EMPLOYERS:
-            continue
-        occs = grp['contributor_occupation'].dropna().unique()
-        if len(occs) < 2:
-            continue
-
-        counts = grp['contributor_occupation'].value_counts()
-        canonical = counts.index[0]
-        canonical_count = counts.iloc[0]
-
-        for other_occ in occs:
-            if other_occ == canonical:
-                continue
-            other_count = counts[other_occ]
-            if canonical_count >= 3 * other_count and (other_occ in canonical or canonical in other_occ):
-                mask = (
-                    (df['donor_key'] == dk)
-                    & (df['contributor_employer'] == emp)
-                    & (df['contributor_occupation'] == other_occ)
-                )
-                df.loc[mask, 'contributor_occupation'] = canonical
-                n_fixed += int(mask.sum())
-
-    return n_fixed
+def _set_derived_occupation(df, rows, occupation):
+    df.loc[rows, 'contributor_occupation'] = occupation
+    df.loc[rows, 'occupation_category'] = _categorize_final(
+        pd.Series(occupation, index=rows)
+    )
+    df.loc[rows, 'occupation_status'] = 'DERIVED'
 
 
 def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
-    """AJ. Fill NaN occupation from same donor's other records (needs donor_key)."""
+    """AJ. Recover a missing occupation from the same donor and employer.
+
+    Employer identity is already settled by the previous step, so an inferred
+    employer is safe here. The same-employer guard prevents cross-job guesses.
+    """
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
-    null_occ = indiv[indiv['contributor_occupation'].isna()]
-    if null_occ.empty:
-        return 0
+    employer = indiv['contributor_employer']
+    missing_occ = indiv[
+        indiv['contributor_occupation'].isna()
+        & employer.notna()
+        & ~employer.isin(SKIP_EMPLOYERS)
+    ]
 
     n_fixed = 0
-    for dk, grp in null_occ.groupby('donor_key'):
-        all_recs = df[(df['donor_key'] == dk) & (df['entity_type'] == 'INDIVIDUAL')]
-        real_recs = all_recs[all_recs['contributor_occupation'].notna()
-                             & ~all_recs['contributor_occupation'].isin(SKIP_OCCUPATIONS)
-                             & (all_recs['contributor_occupation'] != '')]
+    for (dk, emp), missing in missing_occ.groupby(['donor_key', 'contributor_employer']):
+        same_job = (
+            (df['donor_key'] == dk)
+            & (df['entity_type'] == 'INDIVIDUAL')
+            & (df['contributor_employer'] == emp)
+        )
+        real_recs = df[
+            same_job
+            & df['contributor_occupation'].notna()
+            & ~df['contributor_occupation'].isin(SKIP_OCCUPATIONS)
+            & df['contributor_occupation'].ne('')
+        ]
         if real_recs.empty:
             continue
 
-        # latest-dated qualifying filing - closest in time = best estimate
-        main_occ = real_recs.sort_values(
-            'contribution_receipt_date', na_position='first'
-        )['contributor_occupation'].iloc[-1]
-        main_cat = all_recs[all_recs['contributor_occupation'] == main_occ]['occupation_category'].dropna()
-        main_cat = main_cat.value_counts().index[0] if len(main_cat) > 0 else None
+        counts = real_recs['contributor_occupation'].value_counts()
+        if len(counts) > 1 and counts.iloc[0] == counts.iloc[1]:
+            continue
 
-        mask = (df['donor_key'] == dk) & df['contributor_occupation'].isna()
-        df.loc[mask, 'contributor_occupation'] = main_occ
-        df.loc[mask, 'occupation_status'] = 'DERIVED'   # filled from donor history
-        if main_cat:
-            df.loc[mask, 'occupation_category'] = main_cat
-        n_fixed += int(mask.sum())
+        main_occ = counts.index[0]
+        df.loc[missing.index, 'contributor_occupation'] = main_occ
+        df.loc[missing.index, 'occupation_category'] = _categorize_final(
+            pd.Series(main_occ, index=missing.index)
+        )
+        df.loc[missing.index, 'occupation_status'] = 'DERIVED'
+        n_fixed += len(missing)
+
+    # SELF-EMPLOYED is sometimes filed as the occupation beside a named company.
+    # Recover it only when this donor has one clear role at that same company.
+    placeholder_occ = indiv[
+        indiv['contributor_occupation'].eq('SELF-EMPLOYED')
+        & employer.notna()
+        & ~employer.isin(SKIP_EMPLOYERS)
+    ]
+    for (dk, emp), placeholders in placeholder_occ.groupby(
+        ['donor_key', 'contributor_employer']
+    ):
+        occupation = _one_confirmed_role(df, dk, emp)
+        if occupation is None:
+            continue
+
+        _set_derived_occupation(df, placeholders.index, occupation)
+        n_fixed += len(placeholders)
+
+    # A company occasionally lands in both fields (for example KIRKLAND &
+    # ELLIS beside KIRKLAND & ELLIS LLP). Legal suffixes and punctuation are
+    # ignored only for detecting this placeholder; the role still needs unique
+    # same-donor, same-employer evidence.
+    occupation_key = indiv['contributor_occupation'].fillna('').map(canonical_key)
+    employer_key = employer.fillna('').map(canonical_key)
+    company_occ = indiv[
+        occupation_key.ne('')
+        & occupation_key.eq(employer_key)
+        & employer.notna()
+        & ~employer.isin(SKIP_EMPLOYERS)
+    ]
+    for (dk, emp), placeholders in company_occ.groupby(
+        ['donor_key', 'contributor_employer']
+    ):
+        occupation = _one_confirmed_role(df, dk, emp)
+        if occupation is None:
+            continue
+
+        _set_derived_occupation(df, placeholders.index, occupation)
+        n_fixed += len(placeholders)
 
     return n_fixed
 

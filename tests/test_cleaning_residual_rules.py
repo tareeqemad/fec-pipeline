@@ -1,13 +1,23 @@
 import pandas as pd
 
 from fec.cleaning.quality import run_quality_gates
+from fec.cleaning.quality_scan import scan_uncategorized_occupations
 from fec.cleaning.safety_nets.addresses import _fix_foreign_addresses
 from fec.cleaning.safety_nets.employer import _fix_retired_typos
+from fec.cleaning.safety_nets.employer_swaps import (
+    _fix_occ_emp_both_swapped,
+    _swap_role_employer_with_known_company,
+)
 from fec.cleaning.safety_nets.occupation import (
     _fix_emp_occ_category_consistency,
     _fix_not_disclosed_in_other,
+    _fix_web_artifact_occupation,
 )
-from fec.post_merge_fixes.occupation import _rederive_occupation_category
+from fec.post_merge_fixes.employer import _fill_employer_from_donor
+from fec.post_merge_fixes.occupation import (
+    _fill_occupation_from_donor,
+    _rederive_occupation_category,
+)
 from fec.post_merge_fixes.retired import _settle_retired_employer
 
 
@@ -110,3 +120,179 @@ def test_quality_gates_reject_blank_category_and_retire_leak():
     df.loc[0, 'occupation_category'] = 'RETIRED'
     quality = run_quality_gates(df)
     assert not quality['checks']['retired_employer_marker']['passed']
+
+
+def test_quality_gates_reject_self_employed_status_mismatch():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_employer': ['SELF-EMPLOYED', 'ACME'],
+        'employer_status': ['active', 'self_employed'],
+    })
+
+    check = run_quality_gates(df)['checks']['self_employed_status_consistency']
+    assert not check['passed']
+    assert check['marker_without_status'] == 1
+    assert check['status_without_marker'] == 1
+
+    df['employer_status'] = ['self_employed', 'active']
+    assert run_quality_gates(df)['checks']['self_employed_status_consistency']['passed']
+
+
+def test_employer_fill_does_not_replace_existing_occupation_category():
+    df = pd.DataFrame({
+        'donor_key': ['same', 'same', 'same'],
+        'entity_type': ['INDIVIDUAL'] * 3,
+        'contributor_employer': [pd.NA, pd.NA, 'ACME'],
+        'contributor_occupation': ['ATTORNEY', pd.NA, 'CEO'],
+        'occupation_category': ['LEGAL', 'OTHER', 'EXECUTIVE / C-SUITE'],
+        'occupation_status': ['EMPLOYER_MISSING', 'MISSING', 'DISCLOSED'],
+        'contribution_receipt_date': ['2024-01-01', '2024-02-01', '2024-03-01'],
+    })
+
+    assert _fill_employer_from_donor(df) == 2
+    assert df.loc[0, 'contributor_employer'] == 'ACME'
+    assert df.loc[0, 'contributor_occupation'] == 'ATTORNEY'
+    assert df.loc[0, 'occupation_category'] == 'LEGAL'
+    assert pd.isna(df.loc[1, 'contributor_occupation'])
+    assert df.loc[1, 'occupation_category'] == 'OTHER'
+
+
+def test_occupation_fill_uses_same_employer_only():
+    df = pd.DataFrame({
+        'donor_key': ['same'] * 4,
+        'entity_type': ['INDIVIDUAL'] * 4,
+        'contributor_employer': ['ACME', 'ACME', 'SELF-EMPLOYED', 'ACME'],
+        'contributor_occupation': [pd.NA, 'CEO', 'ATTORNEY', pd.NA],
+        'occupation_category': [pd.NA, 'EXECUTIVE / C-SUITE', 'LEGAL', pd.NA],
+        'occupation_status': ['MISSING', 'DISCLOSED', 'DISCLOSED', 'DERIVED'],
+    })
+
+    assert _fill_occupation_from_donor(df) == 2
+    assert df.loc[0, 'contributor_occupation'] == 'CEO'
+    assert df.loc[0, 'occupation_category'] == 'EXECUTIVE / C-SUITE'
+    assert df.loc[3, 'contributor_occupation'] == 'CEO'
+
+
+def test_self_employed_occupation_needs_one_confirmed_role_at_same_company():
+    df = pd.DataFrame({
+        'donor_key': ['clear'] * 3 + ['ambiguous'] * 3 + ['solo'],
+        'entity_type': ['INDIVIDUAL'] * 7,
+        'contributor_employer': ['ACME'] * 3 + ['BETA'] * 3 + ['GAMMA'],
+        'contributor_occupation': [
+            'SELF-EMPLOYED', 'ATTORNEY', 'ATTORNEY',
+            'SELF-EMPLOYED', 'CEO', 'CONSULTANT',
+            'SELF-EMPLOYED',
+        ],
+        'occupation_category': ['SELF-EMPLOYED'] * 7,
+        'occupation_status': ['DISCLOSED'] * 7,
+    })
+
+    assert _fill_occupation_from_donor(df) == 1
+    assert df.loc[0, 'contributor_occupation'] == 'ATTORNEY'
+    assert df.loc[0, 'occupation_category'] == 'LEGAL'
+    assert df.loc[0, 'occupation_status'] == 'DERIVED'
+    assert df.loc[3, 'contributor_occupation'] == 'SELF-EMPLOYED'
+    assert df.loc[6, 'contributor_occupation'] == 'SELF-EMPLOYED'
+
+
+def test_company_name_in_occupation_needs_one_confirmed_role_at_same_company():
+    df = pd.DataFrame({
+        'donor_key': ['clear'] * 3 + ['ambiguous'] * 3,
+        'entity_type': ['INDIVIDUAL'] * 6,
+        'contributor_employer': [
+            'KIRKLAND & ELLIS LLP', 'KIRKLAND & ELLIS LLP', 'KIRKLAND & ELLIS LLP',
+            'BETA LLC', 'BETA LLC', 'BETA LLC',
+        ],
+        'contributor_occupation': [
+            'KIRKLAND & ELLIS', 'ATTORNEY', 'ATTORNEY',
+            'BETA', 'CEO', 'CONSULTANT',
+        ],
+        'occupation_category': ['OTHER'] * 6,
+        'occupation_status': ['DISCLOSED'] * 6,
+    })
+
+    assert _fill_occupation_from_donor(df) == 1
+    assert df.loc[0, 'contributor_occupation'] == 'ATTORNEY'
+    assert df.loc[0, 'occupation_category'] == 'LEGAL'
+    assert df.loc[0, 'occupation_status'] == 'DERIVED'
+    assert df.loc[3, 'contributor_occupation'] == 'BETA'
+
+
+def test_final_category_is_always_derived_from_final_occupation():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 4 + ['ORGANIZATION'],
+        'contributor_occupation': [
+            'ATTORNEY', 'COMPLIANCE', 'NOT DISCLOSED', pd.NA, pd.NA,
+        ],
+        'occupation_category': [
+            'EXECUTIVE / C-SUITE', 'OTHER', 'LEGAL', pd.NA, 'ORGANIZATION',
+        ],
+    })
+
+    quality = run_quality_gates(df)
+    assert not quality['checks']['occupation_category_consistency']['passed']
+    assert quality['checks']['occupation_category_consistency']['count'] == 4
+
+    assert _rederive_occupation_category(df) == 4
+    assert df['occupation_category'].tolist() == [
+        'LEGAL', 'LEGAL', 'OTHER', 'OTHER', 'ORGANIZATION',
+    ]
+
+    quality = run_quality_gates(df)
+    assert quality['checks']['occupation_category_consistency']['passed']
+
+
+def test_quality_scan_surfaces_frequent_other_occupations():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 5,
+        'contributor_occupation': ['CLAIMS', 'CLAIMS', '', 'NOT DISCLOSED', 'EMPLOYED'],
+        'occupation_category': ['OTHER'] * 5,
+    })
+
+    report = scan_uncategorized_occupations(df)
+
+    assert report == {
+        'distinct': 1,
+        'rows': 2,
+        'examples': [{'value': 'CLAIMS', 'rows': 2}],
+    }
+
+
+def test_company_in_both_fields_is_not_blindly_swapped():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_occupation': ['AMERICAN EXPRESS', 'ARCH INSURANCE'],
+        'contributor_employer': ['INDIGO CAPITAL LLC', 'CLAIMS'],
+    })
+
+    assert _fix_occ_emp_both_swapped(df) == 1
+
+    assert df.loc[0, 'contributor_occupation'] == 'AMERICAN EXPRESS'
+    assert df.loc[0, 'contributor_employer'] == 'INDIGO CAPITAL LLC'
+    assert df.loc[1, 'contributor_occupation'] == 'CLAIMS'
+    assert df.loc[1, 'contributor_employer'] == 'ARCH INSURANCE'
+
+
+def test_swapped_job_is_canonicalized_after_company_detection():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_occupation': ['JINSA', 'BANKER'],
+        'contributor_employer': ['EXEC', 'JINSA'],
+        'occupation_category': ['OTHER', 'FINANCE / INVESTMENT'],
+    })
+
+    assert _swap_role_employer_with_known_company(df) == 1
+    assert df.loc[0, 'contributor_employer'] == 'JINSA'
+    assert df.loc[0, 'contributor_occupation'] == 'EXECUTIVE'
+    assert df.loc[0, 'occupation_category'] == 'EXECUTIVE / C-SUITE'
+
+
+def test_garbled_web_artifact_is_removed():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'],
+        'contributor_occupation': ['UOOO['],
+        'occupation_category': ['OTHER'],
+    })
+
+    assert _fix_web_artifact_occupation(df) == 1
+    assert pd.isna(df.loc[0, 'contributor_occupation'])
