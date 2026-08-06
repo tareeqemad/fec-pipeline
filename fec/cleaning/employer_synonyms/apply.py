@@ -134,7 +134,7 @@ def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 
 _MID_SUFFIX_RE = re.compile(
-    r'\b(LLC|LLP|INC\.?|CORP\.?|LTD\.?)[\s,./]+',
+    r'\b(?:LLC|LLP|INC\.?|CORP\.?|LTD\.?)[\s,./]+',
     re.IGNORECASE,
 )
 
@@ -143,7 +143,7 @@ def fix_normalized_mid_suffix(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Strip LLC/LLP/INC appearing mid-string in employer_name_normalized (and mirror into contributor_employer); returns (df, n_fixed)."""
     col = 'employer_name_normalized'
     vals = df[col].fillna('')
-    has_mid = vals.str.contains(r'\bLLC\b|\bLLP\b|\bINC\b|\bCORP\b|\bLTD\b', case=False, regex=True)
+    has_mid = vals.str.contains(_MID_SUFFIX_RE, na=False)
     target = df.index[has_mid]
 
     if len(target) == 0:

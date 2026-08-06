@@ -5,15 +5,11 @@
     "by_token": {}
   },
   "employer_near_duplicates": {
-    "groups": 2,
+    "groups": 1,
     "examples": [
       [
         "UNIVERSITY OF WASHINGTON",
         "WASHINGTON UNIVERSITY"
-      ],
-      [
-        "GOOD HEALTH",
-        "GOOD HEALTH INC"
       ]
     ]
   },
@@ -27,106 +23,15 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 69,
-    "rows": 78,
+    "distinct": 6,
+    "rows": 6,
     "examples": [
-      {
-        "value": "CEP",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 12x CEO/LAWYER"
-        ]
-      },
-      {
-        "value": "ECB",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 31x CEO/CHAIRMAN"
-        ]
-      },
-      {
-        "value": "EXEC",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 13x BUSINESS DEVELOPMENT/DEVELOPMENT",
-          "1x vs 11x BANKER/CIBC"
-        ]
-      },
-      {
-        "value": "LITIGATION NEUTRAL",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 19x ARBITRATOR/ARBITRATOR AND LITIGATION NEUTRAL"
-        ]
-      },
-      {
-        "value": "REGULATION",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 16x CONSULTANT/REGULATORY"
-        ]
-      },
-      {
-        "value": "OMNINET",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 30x CEO/PARTNER"
-        ]
-      },
-      {
-        "value": "WNTRERENEUR",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 11x ATTORNEY/CEO"
-        ]
-      },
-      {
-        "value": "OFFICER OF RICHKER METALS",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 25x OFFICER/SECRETARY"
-        ]
-      },
-      {
-        "value": "DIR OF ADVANCEMENT",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 20x CHIEF DEVELOPMENT OFFICER"
-        ]
-      },
-      {
-        "value": "UOOO[",
-        "rows": 1,
-        "why": "shape"
-      },
-      {
-        "value": "PRGRMR",
-        "rows": 1,
-        "why": "shape"
-      },
-      {
-        "value": "WEALTH ADVSIOR",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 30x ATTORNEY/DOCTOR"
-        ]
-      },
       {
         "value": "COSMETICS",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
-          "1x vs 27x ATTORNEY/BEAUTY"
+          "1x vs 27x BEAUTY"
         ]
       },
       {
@@ -134,16 +39,146 @@
         "rows": 1,
         "why": "donor-history",
         "evidence": [
-          "1x vs 39x INDIGO CAPITAL/PRIVATE EQUITY"
+          "1x vs 39x INFRASTRUCTURE AND PRIVATE EQUITY/PRIVATE EQUITY"
         ]
       },
       {
-        "value": "STEEL DISTRIBUTION",
+        "value": "BIG BOY",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
-          "1x vs 29x PRESIDENT/STEEL DISTRIBUTOR"
+          "1x vs 17x REAL ESTATE/REAL ESTATE INVESTMENT & MANAGEMENT"
         ]
+      },
+      {
+        "value": "PRINTER",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 18x BUSINESS OWNER"
+        ]
+      },
+      {
+        "value": "SIGN",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 18x OWNER/PRESIDENT"
+        ]
+      },
+      {
+        "value": "CORPORATE",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 9x REAL ESTATE/REAL ESTATE EXECUTIVE"
+        ]
+      }
+    ]
+  },
+  "uncategorized_occupations": {
+    "distinct": 322,
+    "rows": 350,
+    "examples": [
+      {
+        "value": "TRUSTEE",
+        "rows": 7
+      },
+      {
+        "value": "STRATEGY",
+        "rows": 5
+      },
+      {
+        "value": "GM",
+        "rows": 3
+      },
+      {
+        "value": "BUYER",
+        "rows": 3
+      },
+      {
+        "value": "HAE",
+        "rows": 2
+      },
+      {
+        "value": "STRATEGY ASSOCIATE",
+        "rows": 2
+      },
+      {
+        "value": "CLEANING SERVICE",
+        "rows": 2
+      },
+      {
+        "value": "CAMPAIGN COMMITTEE",
+        "rows": 2
+      },
+      {
+        "value": "INTERPRETER",
+        "rows": 2
+      },
+      {
+        "value": "PA",
+        "rows": 2
+      },
+      {
+        "value": "INS AGENCY",
+        "rows": 2
+      },
+      {
+        "value": "MATHEMATICIAN",
+        "rows": 2
+      },
+      {
+        "value": "CLO",
+        "rows": 2
+      },
+      {
+        "value": "CGO",
+        "rows": 2
+      },
+      {
+        "value": "TAP",
+        "rows": 2
+      },
+      {
+        "value": "SERVICES",
+        "rows": 2
+      },
+      {
+        "value": "REPRESENTATIVE",
+        "rows": 2
+      },
+      {
+        "value": "LOVER",
+        "rows": 2
+      },
+      {
+        "value": "WRITE",
+        "rows": 1
+      },
+      {
+        "value": "LEARNING AND DEVELOPMENT",
+        "rows": 1
+      },
+      {
+        "value": "SR. MARKET REP ASSOCIATE",
+        "rows": 1
+      },
+      {
+        "value": "ADMISTRATIVE",
+        "rows": 1
+      },
+      {
+        "value": "CLINICAL DEVELOPMENT SVP",
+        "rows": 1
+      },
+      {
+        "value": "SVP, COMPOUNDING DIVISION",
+        "rows": 1
+      },
+      {
+        "value": "BRANDED SIGNS AND PROMOTIONS",
+        "rows": 1
       }
     ]
   }

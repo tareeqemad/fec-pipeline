@@ -21,7 +21,6 @@ from fec.post_merge_fixes.employer import (
 )
 from fec.post_merge_fixes.occupation import (
     _rederive_occupation_status, _rederive_occupation_category,
-    _occupation_consolidation,
     _fill_occupation_from_donor, _not_applicable_individual_sweep,
 )
 from fec.post_merge_fixes.entity import (
@@ -42,8 +41,6 @@ def apply_post_merge_fixes(df: pd.DataFrame) -> int:
         ("retired-while-active -> real employer [AA]", _retired_while_active),
         ("employer-typos (pass 1) [AB]",             _employer_typos),
         ("employer-typos (pass 2) [AB]",             _employer_typos),
-        ("occupation-consolidation (pass 1) [AE]",   _occupation_consolidation),
-        ("occupation-consolidation (pass 2) [AE]",   _occupation_consolidation),
         ("selfemployed-while-retired [AF]",          _selfemployed_while_retired),
         ("employer-substring-variants [AG]",         _employer_substring_variants),
         ("swapped-emp-occ-retired [AH]",             _swapped_emp_occ_retired),

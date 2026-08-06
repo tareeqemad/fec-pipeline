@@ -1,56 +1,64 @@
 {
   "top50_occupation": [
     {
+      "value": "",
+      "count": 100990
+    },
+    {
       "value": "RETIRED",
-      "count": 32460
+      "count": 32666
     },
     {
       "value": "ATTORNEY",
-      "count": 9803
+      "count": 8865
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6279
+      "count": 6286
     },
     {
       "value": "REAL ESTATE",
-      "count": 5802
+      "count": 5768
     },
     {
       "value": "PHYSICIAN",
-      "count": 3605
+      "count": 3622
     },
     {
       "value": "CEO",
-      "count": 3350
+      "count": 3355
     },
     {
       "value": "EXECUTIVE",
-      "count": 2753
+      "count": 2736
     },
     {
       "value": "LAWYER",
-      "count": 2484
+      "count": 2485
     },
     {
       "value": "CONSULTANT",
-      "count": 1837
+      "count": 1811
     },
     {
       "value": "INVESTOR",
-      "count": 1786
+      "count": 1784
     },
     {
       "value": "PRESIDENT",
-      "count": 1726
+      "count": 1728
     },
     {
       "value": "FINANCE",
-      "count": 1306
+      "count": 1314
+    },
+    {
+      "value": "SELF-EMPLOYED",
+      "count": 1227
     },
     {
       "value": "MANAGER",
-      "count": 1045
+      "count": 1051
     },
     {
       "value": "MEDICAL DOCTOR",
@@ -58,91 +66,87 @@
     },
     {
       "value": "OWNER",
-      "count": 745
+      "count": 747
     },
     {
       "value": "SALES",
-      "count": 744
+      "count": 742
     },
     {
       "value": "CPA",
-      "count": 727
+      "count": 729
     },
     {
       "value": "INVESTMENTS",
-      "count": 702
+      "count": 704
     },
     {
       "value": "FINANCIAL ADVISOR",
-      "count": 668
+      "count": 702
     },
     {
       "value": "REAL ESTATE INVESTOR",
-      "count": 654
+      "count": 668
     },
     {
       "value": "CHAIRMAN",
-      "count": 650
-    },
-    {
-      "value": "SELF-EMPLOYED",
-      "count": 632
+      "count": 644
     },
     {
       "value": "MARKETING",
-      "count": 621
+      "count": 619
     },
     {
       "value": "REAL ESTATE DEVELOPER",
-      "count": 577
+      "count": 581
     },
     {
       "value": "RADIOLOGIST",
-      "count": 571
+      "count": 569
     },
     {
       "value": "INVESTMENT MANAGEMENT",
-      "count": 491
+      "count": 489
     },
     {
       "value": "PARTNER",
-      "count": 467
+      "count": 472
     },
     {
       "value": "PROFESSOR",
-      "count": 438
+      "count": 431
     },
     {
       "value": "DIRECTOR",
       "count": 422
     },
     {
-      "value": "MANAGING PARTNER",
-      "count": 399
+      "value": "PRINCIPAL",
+      "count": 398
     },
     {
-      "value": "PRINCIPAL",
-      "count": 381
+      "value": "MANAGING PARTNER",
+      "count": 398
     },
     {
       "value": "CFO",
-      "count": 376
+      "count": 375
     },
     {
       "value": "BUSINESS",
       "count": 356
     },
     {
-      "value": "BUSINESS OWNER",
-      "count": 355
+      "value": "MANAGEMENT",
+      "count": 352
     },
     {
-      "value": "MANAGEMENT",
-      "count": 354
+      "value": "BUSINESS OWNER",
+      "count": 344
     },
     {
       "value": "FOUNDER",
-      "count": 332
+      "count": 328
     },
     {
       "value": "DENTIST",
@@ -150,7 +154,7 @@
     },
     {
       "value": "VICE PRESIDENT",
-      "count": 308
+      "count": 309
     },
     {
       "value": "SPECIAL PROGRAMS ADMINISTRATOR",
@@ -169,20 +173,16 @@
       "count": 283
     },
     {
-      "value": "DOCTOR",
-      "count": 273
-    },
-    {
       "value": "VENTURE CAPITAL",
       "count": 273
     },
     {
       "value": "RABBI",
-      "count": 269
+      "count": 270
     },
     {
       "value": "ENGINEER",
-      "count": 261
+      "count": 265
     },
     {
       "value": "TEACHER",
@@ -193,26 +193,30 @@
       "count": 256
     },
     {
-      "value": "INSURANCE",
-      "count": 253
+      "value": "CTO",
+      "count": 251
     },
     {
       "value": "PORTFOLIO MANAGER",
-      "count": 253
+      "count": 250
     }
   ],
   "top50_employer": [
     {
+      "value": "",
+      "count": 101104
+    },
+    {
       "value": "RETIRED",
-      "count": 34182
+      "count": 34137
     },
     {
       "value": "SELF-EMPLOYED",
-      "count": 12048
+      "count": 11812
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6377
+      "count": 6375
     },
     {
       "value": "KIRKLAND & ELLIS LLP",
@@ -396,10 +400,6 @@
     },
     {
       "value": "MARBLE BRIDGE FUNDING GROUP",
-      "count": 96
-    },
-    {
-      "value": "CBRE",
       "count": 96
     }
   ],

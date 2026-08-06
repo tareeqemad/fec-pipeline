@@ -149,14 +149,12 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     stripped = stripped.str.replace(r'\s+', ' ', regex=True).str.strip()
     stripped = stripped.str.rstrip('.,').str.strip()
 
-    # Hybrid rule: if stripping reduces the name to a single protected generic
-    # word (see GENERIC_WORDS_PROTECTED), keep the original with its suffix so
-    # a real company name does not read as a common noun.
+    # Keep the suffix when stripping leaves an ambiguous generic or <=2 chars.
+    # "JB INC" is a company; "JB" would be mistaken for short junk.
     raw_upper = raw.str.upper().str.strip()
     needs_protection = (
         (stripped != raw_upper)
-        & stripped.isin(GENERIC_WORDS_PROTECTED)
-        & ~stripped.str.contains(r'\s', regex=True, na=True)
+        & (stripped.isin(GENERIC_WORDS_PROTECTED) | stripped.str.len().le(2))
     )
     if needs_protection.any():
         for idx in raw[needs_protection].index:
@@ -203,10 +201,9 @@ def normalize_employer_display_name(name) -> str | None:
     while prev != stripped:
         prev = stripped
         stripped = _LEGAL_SUFFIX_RE.sub('', stripped).strip()
-    # Hybrid rule: a single protected generic word keeps its suffix
+    # Ambiguous generics and very short names keep their suffix.
     if (stripped != original
-            and len(stripped.split()) == 1
-            and stripped in GENERIC_WORDS_PROTECTED):
+            and (stripped in GENERIC_WORDS_PROTECTED or len(stripped) <= 2)):
         clean = re.sub(r',\s+', ' ', original)
         clean = re.sub(r'\s+', ' ', clean).strip().rstrip('.').rstrip(',').strip()
         return clean

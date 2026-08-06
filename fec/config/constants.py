@@ -196,7 +196,7 @@ OCCUPATION_AS_EMPLOYER = frozenset({
 # cross-record swap net) recognises titles listed here and recovers the
 # company, and AD falls back to SELF-EMPLOYED when none can be corroborated.
 ROLE_AS_EMPLOYER = frozenset({
-    'OWNER', 'CEO', 'PRESIDENT', 'FOUNDER', 'PRINCIPAL',
+    'OWNER', 'CEO', 'PRESIDENT', 'VICE PRESIDENT', 'VP', 'FOUNDER', 'PRINCIPAL',
     'SENIOR DIRECTOR', 'MANAGING DIRECTOR', 'MANAGING PARTNER',
     'PARTNER',
     # self-employment descriptors — genuinely mean "works for themselves"

@@ -1,7 +1,12 @@
 """AD0 swaps employer/occupation only when other donors already use that occupation string as an employer."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer_swaps import _swap_role_employer_with_known_company
+from fec.cleaning.occupations.crossfill import _fix_swapped_occ_emp
+from fec.cleaning.pipeline.reclassify import _restore_reclassified_committees
+from fec.cleaning.safety_nets.employer_swaps import (
+    _fix_company_name_as_occupation,
+    _swap_role_employer_with_known_company,
+)
 
 
 def _frame(rows):
@@ -24,6 +29,69 @@ def test_swaps_when_other_donors_use_the_occupation_as_an_employer():
     assert df.loc[0, "contributor_employer"] == "KIMCO REALTY"
     assert df.loc[0, "contributor_occupation"] == "CHAIRMAN"
     assert df.loc[1, "contributor_employer"] == "KIMCO REALTY"   # untouched
+
+
+def test_short_title_and_known_company_alias_are_swapped():
+    df = _frame([
+        ("VP", "CIBC"),
+        ("CIBC", "MANAGING DIRECTOR"),
+        ("CEO", "OMNINET"),
+        ("OMNINET CAPITAL", "EXECUTIVE"),
+    ])
+
+    assert _swap_role_employer_with_known_company(df) == 2
+    assert df.loc[0, "contributor_employer"] == "CIBC"
+    assert df.loc[0, "contributor_occupation"] == "VICE PRESIDENT"
+    assert df.loc[2, "contributor_employer"] == "OMNINET"
+    assert df.loc[2, "contributor_occupation"] == "CEO"
+
+
+def test_early_swap_preserves_short_titles_and_company_names():
+    df = _frame([
+        ("VP", "CIBC"),
+        ("CIBC", "MANAGING DIRECTOR"),
+        ("CEO", "OMNINET CAPITAL"),
+    ])
+
+    _fix_swapped_occ_emp(df)
+
+    assert df.loc[0, "contributor_employer"] == "CIBC"
+    assert df.loc[0, "contributor_occupation"] == "VP"
+    assert df.loc[2, "contributor_employer"] == "OMNINET CAPITAL"
+    assert df.loc[2, "contributor_occupation"] == "CEO"
+
+
+def test_reclassified_self_employed_swap_keeps_the_raw_role():
+    df = pd.DataFrame({
+        "is_individual": [True],
+        "_reclass_reason": ["committee_to_individual_last_first"],
+        "contributor_employer": ["SELF-EMPLOYED"],
+        "contributor_occupation": ["SELF-EMPLOYED"],
+        "occupation_category": ["SELF-EMPLOYED"],
+        "occupation_status": ["DISCLOSED"],
+        "committee_type": ["OTHER"],
+    })
+
+    _restore_reclassified_committees(
+        df,
+        pd.Series(["SELF EMPLOYED"]),
+        pd.Series(["PHYSICIAN"]),
+        lambda message: None,
+    )
+
+    assert df.loc[0, "contributor_employer"] == "SELF-EMPLOYED"
+    assert df.loc[0, "contributor_occupation"] == "PHYSICIAN"
+    assert df.loc[0, "occupation_category"] == "MEDICAL / HEALTHCARE"
+
+
+def test_self_employed_status_is_not_treated_as_a_company_name():
+    df = _frame([
+        ("SELF-EMPLOYED", "SELF-EMPLOYED"),
+        ("SELF-EMPLOYED", "ATTORNEY"),
+    ])
+
+    assert _fix_company_name_as_occupation(df) == 0
+    assert df.loc[0, "contributor_occupation"] == "SELF-EMPLOYED"
 
 
 def test_no_swap_without_corroboration():

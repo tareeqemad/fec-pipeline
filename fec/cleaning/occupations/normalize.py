@@ -2,10 +2,27 @@
 import numpy as np
 import pandas as pd
 
-from fec.config import MISSING_VALUES, RETIRE_RE, CATEGORY_PATTERNS, CATEGORY_OVERRIDES, COMM_PATTERNS
+from fec.config import (
+    CATEGORY_OVERRIDES,
+    CATEGORY_PATTERNS,
+    COMM_PATTERNS,
+    MISSING_VALUES,
+    OCCUPATION_FIXES,
+    RECLASSIFY_CATEGORY_RULES,
+    RETIRE_RE,
+)
 
 # junk value -> NaN, one batch replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
+
+# Some raw fixes intentionally give the cleaned value a category that the
+# general regex cannot infer (for example COMPLIANCE -> LEGAL). Keep that
+# knowledge available when a later step re-categorizes the final occupation.
+_FINAL_OCCUPATION_CATEGORIES = {
+    final_occupation: category
+    for final_occupation, category in OCCUPATION_FIXES.values()
+    if category
+}
 
 # Cyrillic lookalikes -> ASCII (common in FEC data entry)
 _CYRILLIC_TO_ASCII = str.maketrans({
@@ -72,6 +89,23 @@ def _categorize(occupation_series: pd.Series) -> pd.Series:
     for category, pattern in CATEGORY_PATTERNS:
         matches = filled.str.contains(pattern, na=False) & (result == 'OTHER')
         result[matches] = category
+
+    return result
+
+
+def _categorize_final(occupation_series: pd.Series) -> pd.Series:
+    """Categorize final cleaned occupations using every configured rule."""
+    occupation = occupation_series.fillna('').astype(str).str.strip().str.upper()
+    result = _categorize(occupation)
+
+    exact = occupation.map(_FINAL_OCCUPATION_CATEGORIES)
+    result.loc[exact.notna()] = exact.loc[exact.notna()]
+
+    for pattern, category in RECLASSIFY_CATEGORY_RULES:
+        matches = result.eq('OTHER') & occupation.str.contains(
+            pattern, case=False, na=False,
+        )
+        result.loc[matches] = category
 
     return result
 

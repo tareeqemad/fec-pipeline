@@ -10,7 +10,7 @@ from fec.cleaning._helpers import _norm
 from fec.cleaning.occupations import _categorize, _normalize_text
 from fec.config import (
     EMPLOYER_NORMALIZE, INDIV_NAME_RE, MISSING_VALUES,
-    OCCUPATION_FIXES, OCCUPATION_NORMALIZE, ORG_KEYWORDS,
+    OCCUPATION_FIXES, OCCUPATION_NORMALIZE, ORG_KEYWORDS, SWAP_JOB_TITLES,
 )
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 
@@ -224,6 +224,22 @@ def _restore_reclassified_committees(
             restored_occ, _ = _normalize_text(
                 raw_occ_for_reclass[has_raw_occ], OCCUPATION_NORMALIZE, collapse_retire=True
             )
+
+            # Some false committee filings also reversed employer/occupation.
+            # Preserve the role from the raw employer; the cleaned employer
+            # already holds the company name after the earlier swap pass.
+            restored_emp, _ = _normalize_text(
+                raw_emp_for_reclass[has_raw_occ], EMPLOYER_NORMALIZE
+            )
+            swapped = (
+                restored_emp.isin(SWAP_JOB_TITLES)
+                & (
+                    restored_occ.str.contains(_ORG_BUSINESS_RE, na=False)
+                    | restored_occ.eq('SELF-EMPLOYED')
+                )
+            )
+            restored_occ.loc[swapped] = restored_emp.loc[swapped]
+
             is_junk = restored_occ.isin(MISSING_VALUES) | restored_occ.isna()
             valid_restored = restored_occ[~is_junk]
 

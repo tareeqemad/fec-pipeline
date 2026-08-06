@@ -119,7 +119,12 @@ def _null_refusal_employers(df: pd.DataFrame) -> int:
 
 
 def _fill_employer_from_donor(df: pd.DataFrame) -> int:
-    """AI. Fill NaN employer from same donor's other records (needs donor_key)."""
+    """AI. Fill NaN employer from same donor's other records (needs donor_key).
+
+    Occupation recovery belongs to ``_fill_occupation_from_donor``. Keeping
+    the two operations separate prevents one inferred value from triggering a
+    second, less reliable inference.
+    """
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     null_emp = indiv[indiv['contributor_employer'].isna()]
     if null_emp.empty:
@@ -137,19 +142,9 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
         main_emp = real_recs.sort_values(
             'contribution_receipt_date', na_position='first'
         )['contributor_employer'].iloc[-1]
-        emp_recs = all_recs[all_recs['contributor_employer'] == main_emp]
-        main_occ = emp_recs['contributor_occupation'].dropna().value_counts()
-        main_occ = main_occ.index[0] if len(main_occ) > 0 else None
-        main_cat = emp_recs['occupation_category'].dropna().value_counts()
-        main_cat = main_cat.index[0] if len(main_cat) > 0 else None
-
         mask = (df['donor_key'] == dk) & df['contributor_employer'].isna()
         df.loc[mask, 'contributor_employer'] = main_emp
         df.loc[mask, 'occupation_status'] = 'DERIVED'   # employer filled from donor history
-        if main_occ and df.loc[mask, 'contributor_occupation'].isna().all():
-            df.loc[mask, 'contributor_occupation'] = main_occ
-        if main_cat:
-            df.loc[mask, 'occupation_category'] = main_cat
         n_fixed += int(mask.sum())
 
     return n_fixed

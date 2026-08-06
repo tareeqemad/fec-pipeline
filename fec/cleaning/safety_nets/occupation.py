@@ -6,10 +6,9 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize
+from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.config.constants import NOT_EMPLOYED_VARIANTS, SKIP_EMPLOYERS, STATUS_WORDS
 from fec.config.occupation_rules import (
-    RECLASSIFY_CATEGORY_RULES,
     WEB_ARTIFACT_OCCUPATIONS,
 )
 
@@ -293,22 +292,17 @@ def _fix_slash_occupation(df: pd.DataFrame) -> int:
 
 
 def _reclassify_other_category(df: pd.DataFrame) -> int:
-    """AT. Second pass: reclassify OTHER occupation_category by keyword match."""
+    """AT. Reclassify remaining OTHER values from the final occupation text."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     is_other = is_indiv & (df['occupation_category'] == 'OTHER')
-    occ = df.loc[is_other, 'contributor_occupation'].fillna('')
-
-    if occ.empty:
+    if not is_other.any():
         return 0
 
-    n_fixed = 0
-    for pattern, category in RECLASSIFY_CATEGORY_RULES:
-        matches = is_other & occ.str.contains(pattern, case=False, na=False)
-        # only records still in OTHER (avoid double-counting)
-        still_other = matches & (df['occupation_category'] == 'OTHER')
-        count = int(still_other.sum())
-        if count:
-            df.loc[still_other, 'occupation_category'] = category
-            n_fixed += count
-
-    return n_fixed
+    new_categories = _categorize_final(
+        df.loc[is_other, 'contributor_occupation']
+    )
+    improved = new_categories.ne('OTHER')
+    df.loc[new_categories.index[improved], 'occupation_category'] = (
+        new_categories.loc[improved]
+    )
+    return int(improved.sum())
