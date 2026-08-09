@@ -37,6 +37,10 @@ backup_db/
 # Claude
 .claude/
 
+# Local agent notes
+AGENTS.md
+CLAUDE.md
+
 # Address review reports (regenerated each clean run)
 data/address_manual_review.csv
 data/address_regeocode_suspects.csv
