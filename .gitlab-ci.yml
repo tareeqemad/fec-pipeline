@@ -4,6 +4,8 @@ stages:
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PG_USER: test
+  PG_PASSWORD: test
 
 cache:
   key: pip
