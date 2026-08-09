@@ -12,9 +12,6 @@ from fec.config.constants import (
     SKIP_EMPLOYERS,
 )
 
-_SKIP = SKIP_EMPLOYERS
-
-
 def _retired_while_active(df: pd.DataFrame) -> int:
     """AA. RETIRED entries while donor is still active -> restore the real employer."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
@@ -24,7 +21,7 @@ def _retired_while_active(df: pd.DataFrame) -> int:
         emp_vals = set(grp['contributor_employer'].dropna().unique())
         if 'RETIRED' not in emp_vals:
             continue
-        real_emps = emp_vals - _SKIP
+        real_emps = emp_vals - SKIP_EMPLOYERS
         if not real_emps:
             continue
 
@@ -93,7 +90,7 @@ def _swapped_emp_occ_retired(df: pd.DataFrame) -> int:
         if ret_count == 0:
             continue
 
-        real_emps = set(emps.index) - _SKIP
+        real_emps = set(emps.index) - SKIP_EMPLOYERS
         if not real_emps:
             continue
 
@@ -170,10 +167,6 @@ def _once_retired_always_retired(df: pd.DataFrame) -> int:
     return n
 
 
-# Status-word employers that can't serve as a previous_employer value.
-_PREV_EMP_STATUS = EMPLOYER_STATUS_VALUES
-
-
 def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     """AN. Fill retired donors' previous_employer from their other records (same donor_key only)."""
     if 'previous_employer' not in df.columns:
@@ -196,7 +189,9 @@ def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
         & (df['entity_type'] == 'INDIVIDUAL')
         & df['contributor_employer'].notna()
     ].copy()
-    candidates = candidates[~_norm(candidates['contributor_employer']).isin(_PREV_EMP_STATUS)]
+    candidates = candidates[
+        ~_norm(candidates['contributor_employer']).isin(EMPLOYER_STATUS_VALUES)
+    ]
     if candidates.empty:
         return 0
 

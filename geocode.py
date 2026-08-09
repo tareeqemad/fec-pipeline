@@ -2,23 +2,27 @@
 """Add lat/lng to contributor addresses; --employer-only geocodes employer addresses (after resolve.py)."""
 
 import argparse
+import json
 import os
 import sys
+
+import pandas as pd
 
 from fec.geocoding import (
     GeoCache,
     geocode_addresses, apply_to_dataframe,
     geocode_employer_addresses, apply_employer_to_dataframe,
 )
-from fec.env import load_env, get_env
 from fec.log import get_logger
+from fec.cleaning.previous_employer import referenced_employers
+from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
+from fec.resolve.pipeline.locations import (
+    address_cache_lookup,
+    location_candidates,
+    resolve_cache_entry,
+)
 
 logger = get_logger(__name__)
-load_env()
-
-
-def _load_google_key() -> str | None:
-    return get_env("GOOGLE_MAPS_API_KEY") or None
 
 
 def _find_csv() -> str:
@@ -26,6 +30,26 @@ def _find_csv() -> str:
         return "data/contributions_cleaned.csv"
     logger.info("  Error: no cleaned CSV found in data/")
     sys.exit(1)
+
+
+def _all_employer_addresses(df: pd.DataFrame, data_dir: str) -> pd.DataFrame:
+    """Include every published employer location."""
+    path = os.path.join(data_dir, EMPLOYER_ADDR_CACHE)
+    if not os.path.exists(path):
+        return df
+
+    with open(path, encoding="utf-8") as handle:
+        entries = json.load(handle)
+
+    lookup = address_cache_lookup(entries)
+    rows = []
+    for employer in referenced_employers(df):
+        entry = resolve_cache_entry(lookup, employer)
+        rows.extend(location_candidates(entry))
+
+    if not rows:
+        return df
+    return pd.concat([df, pd.DataFrame(rows)], ignore_index=True, sort=False)
 
 
 def main():
@@ -61,12 +85,11 @@ def main():
     df = read_pipeline_csv(csv_path)
     logger.info(f"  Rows: {len(df):,}")
 
-    google_key = _load_google_key()
     changed = False
 
     if not args.employer_only:
         logger.info("\n-- Contributor Addresses --")
-        geocode_addresses(df, cache, google_key=google_key)
+        geocode_addresses(df, cache)
         df = apply_to_dataframe(df, cache)
         changed = True
 
@@ -85,7 +108,8 @@ def main():
             logger.info("\n  No employer_address column - run resolve.py --apply first")
         else:
             logger.info("\n-- Employer Addresses --")
-            geocode_employer_addresses(df, cache, google_key=google_key)
+            addresses = _all_employer_addresses(df, data_dir)
+            geocode_employer_addresses(addresses, cache)
             df = apply_employer_to_dataframe(df, cache)
             changed = True
 

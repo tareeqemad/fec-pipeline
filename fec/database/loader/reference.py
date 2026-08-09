@@ -19,18 +19,17 @@ from ._base import _count
 logger = get_logger(__name__)
 
 REF_TABLES = [
-    # (table_name, csv_filename, columns)
+    # CSV table mappings.
     ("us_states", "us_states.csv",
      ["state_fips", "code", "name"]),
     ("zcta_state_rel", "zcta_state_rel.csv",
      ["zcta5", "state_fips"]),
     ("zip_centroids", "zip_centroids.csv",
      ["zip", "lat", "lng", "source"]),
-    # leaders.csv / key_accomplices.csv are NOT here: each of their rows needs
-    # match_or_create_donor + donor_addresses upsert before the table INSERT.
+    # Editorial tables load later.
 ]
 
-# Columns declared NOT NULL in the table definitions REF_TABLES loads into.
+# Required reference columns.
 NOT_NULL_COLS = {
     'us_states': ['state_fips', 'code', 'name'],
     'zcta_state_rel': ['zcta5', 'state_fips'],
@@ -56,7 +55,7 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
 
-        # Only columns present in both CSV and table definition
+        # Keep shared CSV columns.
         use_cols = [column for column in columns if column in df.columns]
         if not use_cols:
             logger.warning(f"  No matching columns in {csv_file}")
@@ -64,12 +63,11 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
 
         df = df[use_cols]
 
-        # Empty cell -> SQL NULL, then drop fully-empty (trailing blank) rows
+        # Empty cells become NULL.
         df = df.replace('', None)
         df = df.dropna(how='all')
 
-        # A row missing a NOT NULL column is corrupt reference data -- refuse
-        # to load rather than silently dropping it.
+        # Reject incomplete reference rows.
         for col in NOT_NULL_COLS.get(table_name, []):
             if col not in df.columns:
                 raise ValueError(
@@ -77,14 +75,14 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
                     f"(NOT NULL in {table_name})")
             missing = df[col].isna()
             if missing.any():
-                # +2: 1-based line numbers counting the header row
+                # Include CSV headers.
                 lines = [int(idx) + 2 for idx in df.index[missing][:10]]
                 raise ValueError(
                     f"{csv_file}: {int(missing.sum())} row(s) missing required "
                     f"column {col!r} (NOT NULL in {table_name}) -- "
                     f"sample CSV line number(s): {lines}")
 
-        # An INSERT failure propagates: bad reference data aborts the load.
+        # Propagate insert failures.
         cols_str = ", ".join(use_cols)
         rows = [tuple(None if pd.isna(value) else value for value in row)
                 for row in df.itertuples(index=False, name=None)]
@@ -126,7 +124,7 @@ def load_lookups(conn: Any, cur: Any) -> None:
                 "logo_path=EXCLUDED.logo_path",
                 vals)
         else:
-            # Non-FEC orgs (NULL committee_number): insert only if the name is new
+            # Deduplicate non-FEC organizations.
             cur.execute(
                 "INSERT INTO committees (committee_number, committee_name, committee_short, raised, spent, irs_990_link, logo_path) "
                 "SELECT %s, %s, %s, %s, %s, %s, %s "

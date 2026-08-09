@@ -10,7 +10,13 @@ from fec.log import get_logger
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
 
 from .cache import GeoCache
-from .engines import nominatim, nominatim_international, google, city_level, NOMINATIM_DELAY
+from .engines import (
+    NOMINATIM_DELAY,
+    NominatimUnavailable,
+    city_level,
+    nominatim,
+    nominatim_international,
+)
 
 logger = get_logger(__name__)
 
@@ -70,7 +76,6 @@ def _employer_keys(frame: pd.DataFrame) -> pd.Series:
 
 
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
-                      google_key: str | None = None,
                       batch_size: int = 50):
     """Geocode every unique address in df, skipping cached keys and saving the cache every batch_size lookups."""
     keys_series = _contributor_keys(df)
@@ -85,12 +90,10 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
         logger.info("  All addresses cached")
         return
 
-    has_google = bool(google_key)
     estimated_seconds = len(todo) * NOMINATIM_DELAY
-    logger.info(f"  Google fallback:   {'on' if has_google else 'off (set GOOGLE_MAPS_API_KEY in .env)'}")
     logger.info(f"  Estimated time:    ~{int(estimated_seconds//3600)}h {int((estimated_seconds%3600)//60)}m")
 
-    _geocode_todo(todo, cache, google_key, has_google, batch_size)
+    _geocode_todo(todo, cache, batch_size)
 
 
 def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
@@ -123,7 +126,6 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
 
 
 def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
-                               google_key: str | None = None,
                                batch_size: int = 50):
     """Geocode employer addresses; skips empty rows, but RETIRED with a previous employer IS geocoded at the company address."""
     mask = (df['employer_address'].notna() &
@@ -140,17 +142,18 @@ def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
         logger.info("  All employer addresses cached")
         return
 
-    has_google = bool(google_key)
     estimated_seconds = len(todo) * NOMINATIM_DELAY
-    logger.info(f"  Google fallback:     {'on' if has_google else 'off'}")
     logger.info(f"  Estimated time:      ~{int(estimated_seconds//3600)}h {int((estimated_seconds%3600)//60)}m")
 
-    _geocode_todo(todo, cache, google_key, has_google, batch_size)
+    _geocode_todo(todo, cache, batch_size)
 
 
 def apply_employer_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     """Map cached employer geocoding onto employer_latitude/longitude/geocode_level."""
-    method = df['resolve_method'].fillna('')
+    method = df.get(
+        "resolve_method",
+        pd.Series("", index=df.index),
+    ).fillna("")
 
     df["employer_latitude"] = np.nan
     df["employer_longitude"] = np.nan
@@ -182,25 +185,32 @@ def apply_employer_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFra
     return df
 
 
-def _geocode_todo(todo: list, cache: GeoCache, google_key: str | None,
-                  has_google: bool, batch_size: int) -> None:
+def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     """Run the engine chain over todo keys, saving the cache and logging an ETA every batch_size lookups."""
-    stats = {"found": 0, "failed": 0, "google": 0, "city": 0}
+    stats = {
+        "found": 0,
+        "failed": 0,
+        "transient": 0,
+        "city": 0,
+    }
     start = time.time()
 
     for done, key in enumerate(todo, 1):
         street, city, state, zipcode = key.split("|")
 
-        lat, lng, country, source = _geocode_one(
-            street, city, state, zipcode,
-            google_key=google_key, has_google=has_google,
-        )
+        try:
+            lat, lng, country, source = _geocode_one(
+                street, city, state, zipcode,
+            )
+        except NominatimUnavailable as error:
+            cache.put_transient(key)
+            stats["transient"] += 1
+            logger.debug("Geocoding unavailable for %s: %s", key, error)
+            continue
 
         if lat is not None:
             cache.put(key, lat, lng, source, country)
             stats["found"] += 1
-            if source == "google":
-                stats["google"] += 1
             if source == "nominatim_city":
                 stats["city"] += 1
         else:
@@ -230,16 +240,29 @@ def _clean_street_for_geocoding(street: str) -> str:
     return cleaned.strip().rstrip(',')
 
 
-def _geocode_one(street, city, state, zipcode, *,
-                 google_key=None, has_google=False):
-    """Engine chain for one address; order is load-bearing: PO box -> city level, else nominatim -> google -> city level -> international. Returns (lat, lng, country, source)."""
+def _city_fallback(city: str, state: str, zipcode: str) -> tuple:
+    """Retry city without ZIP."""
+    zip_codes = [zipcode]
+    if zipcode:
+        zip_codes.append("")
+
+    for zip_code in zip_codes:
+        lat, lng, country = city_level(city, state, zip_code)
+        time.sleep(NOMINATIM_DELAY)
+        if lat and _valid_for_state(lat, lng, state):
+            return lat, lng, country
+
+    return None, None, None
+
+
+def _geocode_one(street, city, state, zipcode):
+    """Geocode one address."""
     if not city and not state:
         return None, None, None, "not_found"
 
     if is_po_box(street):
-        lat, lng, country_code = city_level(city, state, zipcode)
-        time.sleep(NOMINATIM_DELAY)
-        if lat and _valid_for_state(lat, lng, state):
+        lat, lng, country_code = _city_fallback(city, state, zipcode)
+        if lat:
             return lat, lng, country_code or "US", "nominatim_city"
         return _geocode_international(street, city)
 
@@ -254,14 +277,8 @@ def _geocode_one(street, city, state, zipcode, *,
         elif lat:
             logger.debug("Nominatim result lat=%.4f lng=%.4f rejected - outside %s", lat, lng, state)
 
-    if has_google and street:
-        lat, lng, country_code = google(street, city, state, zipcode, google_key)
-        if lat and _valid_for_state(lat, lng, state):
-            return lat, lng, country_code or "US", "google"
-
-    lat, lng, country_code = city_level(city, state, zipcode)
-    time.sleep(NOMINATIM_DELAY)
-    if lat and _valid_for_state(lat, lng, state):
+    lat, lng, country_code = _city_fallback(city, state, zipcode)
+    if lat:
         return lat, lng, country_code or "US", "nominatim_city"
 
     # a foreign address mislabeled with a US state is kept and flagged, not dropped
@@ -285,7 +302,7 @@ def _print_summary(todo: list, stats: dict, elapsed: float) -> None:
     logger.info(f"  Processed:   {len(todo):,} in {int(elapsed//60)}m {int(elapsed%60)}s")
     logger.info(f"  Found:       {stats['found']:,}")
     logger.info(f"  Failed:      {stats['failed']:,}")
-    if stats["google"]:
-        logger.info(f"  Via Google:  {stats['google']:,}")
+    if stats.get("transient"):
+        logger.info(f"  Retry later: {stats['transient']:,}")
     if stats["city"]:
         logger.info(f"  City-level:  {stats['city']:,}")

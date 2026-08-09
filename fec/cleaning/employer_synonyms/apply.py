@@ -5,8 +5,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.occupations import _categorize
-from fec.config.constants import LEGAL_SUFFIX_RE as _LEGAL_SUFFIX_RE
-from fec.config.constants import SKIP_EMPLOYERS as _SKIP_EMPLOYERS
+from fec.config.constants import LEGAL_SUFFIX_RE, SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
@@ -54,7 +53,7 @@ def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Expand unambiguous abbreviations (MGMT -> MANAGEMENT, ...); must run LAST, after synonyms, so abbreviations a synonym target reintroduces get expanded too."""
     indiv_idx = _indiv_idx(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
-    has_emp = emp.notna() & ~emp.isin(_SKIP_EMPLOYERS)
+    has_emp = emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
     target = indiv_idx[has_emp]
     if len(target) == 0:
         return df, 0
@@ -79,7 +78,7 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Expand ASSOC contextually: real associations -> ASSOCIATION, everything else -> ASSOCIATES; checks the as-filed original too so truncated '...ASSOC' is caught."""
     indiv_idx = _indiv_idx(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
-    has_assoc = (emp.notna() & ~emp.isin(_SKIP_EMPLOYERS)
+    has_assoc = (emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
            & emp.str.upper().str.contains(r'\bASSOCS?\b', regex=True, na=False))
     target = indiv_idx[has_assoc]
     if len(target) == 0:
@@ -103,6 +102,23 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     if changed.any():
         df.loc[target[changed], 'contributor_employer'] = new[changed]
     return df, int(changed.sum())
+
+
+def finalize_employer_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Reapply employer rules after donor-history repairs."""
+    total = 0
+    for fix in (
+        apply_employer_synonyms,
+        expand_employer_abbreviations,
+        expand_employer_associates,
+    ):
+        df, changed = fix(df)
+        total += changed
+
+    from .canonical import _recanonicalize_employers
+
+    total += _recanonicalize_employers(df)
+    return df, total
 
 
 def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -150,7 +166,7 @@ def fix_normalized_mid_suffix(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         return df, 0
 
     cleaned = vals[has_mid].str.replace(_MID_SUFFIX_RE, ' ', regex=True)
-    cleaned = cleaned.str.replace(_LEGAL_SUFFIX_RE, '', regex=True)
+    cleaned = cleaned.str.replace(LEGAL_SUFFIX_RE, '', regex=True)
     cleaned = cleaned.str.replace(r'\s+', ' ', regex=True).str.strip()
 
     changed = cleaned != vals[has_mid]

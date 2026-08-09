@@ -1,12 +1,8 @@
 {
   "top50_occupation": [
     {
-      "value": "",
-      "count": 100990
-    },
-    {
       "value": "RETIRED",
-      "count": 32666
+      "count": 32686
     },
     {
       "value": "ATTORNEY",
@@ -14,7 +10,7 @@
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6286
+      "count": 6276
     },
     {
       "value": "REAL ESTATE",
@@ -26,11 +22,11 @@
     },
     {
       "value": "CEO",
-      "count": 3355
+      "count": 3352
     },
     {
       "value": "EXECUTIVE",
-      "count": 2736
+      "count": 2735
     },
     {
       "value": "LAWYER",
@@ -110,7 +106,7 @@
     },
     {
       "value": "PARTNER",
-      "count": 472
+      "count": 475
     },
     {
       "value": "PROFESSOR",
@@ -126,11 +122,11 @@
     },
     {
       "value": "MANAGING PARTNER",
-      "count": 398
+      "count": 391
     },
     {
       "value": "CFO",
-      "count": 375
+      "count": 374
     },
     {
       "value": "BUSINESS",
@@ -199,24 +195,24 @@
     {
       "value": "PORTFOLIO MANAGER",
       "count": 250
+    },
+    {
+      "value": "DOCTOR",
+      "count": 249
     }
   ],
   "top50_employer": [
     {
-      "value": "",
-      "count": 101104
-    },
-    {
       "value": "RETIRED",
-      "count": 34137
+      "count": 34157
     },
     {
       "value": "SELF-EMPLOYED",
-      "count": 11812
+      "count": 11786
     },
     {
       "value": "NOT EMPLOYED",
-      "count": 6375
+      "count": 6365
     },
     {
       "value": "KIRKLAND & ELLIS LLP",
@@ -400,6 +396,10 @@
     },
     {
       "value": "MARBLE BRIDGE FUNDING GROUP",
+      "count": 96
+    },
+    {
+      "value": "CBRE",
       "count": 96
     }
   ],

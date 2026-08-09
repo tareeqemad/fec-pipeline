@@ -6,14 +6,17 @@ import time
 
 import pandas as pd
 
+from fec.cleaning.employer_synonyms import canonical_key
 from fec.cleaning.previous_employer import (
+    classify_employer_status,
+    classify_employer_statuses,
     is_real_employer,
     normalize_previous_employer_value,
 )
 from fec.log import get_logger
 
 from ..constants import RETIRED
-from ..helpers import _prev_key, _s
+from ..helpers import _prev_key, _previous_employer_identity, _s
 
 logger = get_logger(__name__)
 FEC_BASE = "https://api.open.fec.gov/v1"
@@ -136,25 +139,53 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         else:
             eligible.add(donor_key)
 
+    statuses = classify_employer_statuses(individuals)
+    worked = statuses.isin({
+        "active", "self_employed",
+    })
     clean_employers = individuals["contributor_employer"].map(_clean_employer)
-    real_rows = (individuals.loc[clean_employers.ne("")]
-                 .sort_values("contribution_receipt_date", ascending=False))
+    work_rows = individuals.loc[worked & clean_employers.ne("")].assign(
+        _candidate_employer=individuals["contributor_employer"],
+        _candidate_method="cross_record",
+        _candidate_priority=1,
+    )
+    previous = individuals.get(
+        "previous_employer", pd.Series("", index=individuals.index),
+    )
+    clean_previous = previous.map(_clean_employer)
+    previous_rows = individuals.loc[clean_previous.ne("")].assign(
+        _candidate_employer=previous,
+        _candidate_method="cleaned_previous",
+        _candidate_priority=0,
+    )
+    real_rows = pd.concat([previous_rows, work_rows]).sort_values(
+        ["_candidate_priority", "contribution_receipt_date"],
+        ascending=[True, False],
+    )
     rows_by_donor = {
         key: group for key, group in real_rows.groupby("donor_key")
         if key in eligible
     }
 
-    found = refreshed = unchanged = 0
+    found = refreshed = unchanged = cleared = 0
     for donor_key, group in rows_by_donor.items():
         cache_key = donor_to_cache_key[donor_key]
         latest = group.iloc[0]
         entry = _cache_entry(
-            latest["contributor_employer"],
+            latest["_candidate_employer"],
             state=latest.get("contributor_state", ""),
-            method="cross_record",
+            method=latest["_candidate_method"],
             source_date=latest.get("contribution_receipt_date", ""),
         )
         cached = prev_cache.get(cache_key)
+        cached_name, _ = _previous_employer_identity(cached)
+        if (
+            cached_name
+            and canonical_key(cached_name)
+            == canonical_key(entry.get("employer", ""))
+        ):
+            unchanged += 1
+            continue
         if entry == cached:
             unchanged += 1
             continue
@@ -164,13 +195,31 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         else:
             refreshed += 1
 
-    changed = found + refreshed
+    invalid_rows = individuals.loc[
+        statuses.eq("not_employed") & clean_employers.ne("")
+    ].assign(_clean_employer=clean_employers)
+    for donor_key, group in invalid_rows.groupby("donor_key"):
+        if donor_key not in eligible or donor_key in rows_by_donor:
+            continue
+        cache_key = donor_to_cache_key[donor_key]
+        cached = prev_cache.get(cache_key)
+        invalid_names = set(group["_clean_employer"])
+        if (
+            cached
+            and cached.get("method") == "cross_record"
+            and _clean_employer(cached.get("employer")) in invalid_names
+        ):
+            prev_cache.discard(cache_key)
+            cleared += 1
+
+    changed = found + refreshed + cleared
     if changed:
         prev_cache.save()
     no_local = len(eligible) - len(rows_by_donor)
     logger.info(
         f"    Cross-record: {found:,} new, {refreshed:,} refreshed, "
-        f"{unchanged:,} current, {no_local:,} no local employer, "
+        f"{unchanged:,} current, {cleared:,} cleared, "
+        f"{no_local:,} no local employer, "
         f"{protected:,} protected"
     )
     return changed
@@ -238,6 +287,11 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
 
         for record in response.json().get("results", []):
             if not _same_fec_donor(person, record):
+                continue
+            if classify_employer_status(
+                record.get("contributor_employer", ""),
+                record.get("contributor_occupation", ""),
+            ) != "active":
                 continue
             entry = _cache_entry(
                 record.get("contributor_employer", ""),

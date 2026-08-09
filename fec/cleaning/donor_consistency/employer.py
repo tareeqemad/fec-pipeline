@@ -13,15 +13,13 @@ from fec.config.constants import (
 )
 from fec.config.occupation_rules import (
     EMPLOYER_FROM_CATEGORY,
+    FINAL_EMPLOYER_FROM_OCCUPATION,
     FINAL_NULL_EMPLOYERS,
-    POST_MERGE_EMPLOYER_FROM_OCCUPATION,
 )
 from fec.env import RAW_CSV
 from fec.log import get_logger
 
 logger = get_logger(__name__)
-
-_SKIP = SKIP_EMPLOYERS
 
 _WS_RE = re.compile(r'\s+')
 # the config patterns are plain strings; compile once for the .str calls below
@@ -36,7 +34,7 @@ def _employer_typos(df: pd.DataFrame) -> int:
 
     for dk, grp in indiv.groupby('donor_key'):
         emps = grp['contributor_employer'].dropna().unique()
-        real = [e for e in emps if e not in _SKIP]
+        real = [e for e in emps if e not in SKIP_EMPLOYERS]
         if len(real) < 2:
             continue
 
@@ -69,7 +67,7 @@ def _employer_substring_variants(df: pd.DataFrame) -> int:
 
     for dk, grp in indiv.groupby('donor_key'):
         emps = grp['contributor_employer'].dropna().unique()
-        real = [e for e in emps if e not in _SKIP]
+        real = [e for e in emps if e not in SKIP_EMPLOYERS]
         if len(real) < 2:
             continue
 
@@ -134,7 +132,7 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     for dk, grp in null_emp.groupby('donor_key'):
         all_recs = df[(df['donor_key'] == dk) & (df['entity_type'] == 'INDIVIDUAL')]
         real_recs = all_recs[all_recs['contributor_employer'].notna()
-                             & ~all_recs['contributor_employer'].isin(_SKIP)]
+                             & ~all_recs['contributor_employer'].isin(SKIP_EMPLOYERS)]
         if real_recs.empty:
             continue
 
@@ -157,7 +155,7 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('')
 
     n = 0
-    for occ_val, emp_val in POST_MERGE_EMPLOYER_FROM_OCCUPATION.items():
+    for occ_val, emp_val in FINAL_EMPLOYER_FROM_OCCUPATION.items():
         mask = is_indiv & empty_emp & (occ == occ_val)
         cnt = int(mask.sum())
         if cnt:
@@ -182,11 +180,17 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
 
 
 def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
-    """AL. Recover employer from the same person's raw FEC filings (name+state key)."""
+    """Recover an employer from raw filings."""
     if not RAW_CSV.exists():
         return 0
 
-    raw = pd.read_csv(RAW_CSV, dtype=str, usecols=['contributor_name', 'contributor_state', 'contributor_employer'], low_memory=False)
+    raw = pd.read_csv(
+        RAW_CSV,
+        dtype=str,
+        usecols=['contributor_name', 'contributor_state', 'contributor_employer'],
+        low_memory=False,
+        keep_default_na=False,
+    )
 
     empty_rows = df[empty_mask]
     empty_keys = {
@@ -239,5 +243,5 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
             n += 1
 
     if n:
-        logger.info(f"    AL. Recovered {n} employers from raw FEC filings")
+        logger.info("  %-38s %s", "recover employers from raw", f"{n:,}")
     return n

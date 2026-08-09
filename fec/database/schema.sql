@@ -26,11 +26,10 @@
 --       (live data has PR + VI addresses), and zip_centroids is a partial
 --       geocoding fallback (~394 zips in live addresses are not in it). Binding
 --       FKs would reject legitimate rows, so these stay free-text by design.
---    5. Resolve/geocode state lives on `employers` (where it semantically
---       belongs - per employer, not per contribution). NOTE: an earlier
---       revision kept this on a separate `employer_locations` table; it is now
---       merged into `employers` (always 1:1). See the note above the
---       contributions index block.
+--    5. `employers.address_id` is the default company location.
+--       `donor_employments.address_id` stores a same-state company office when
+--       available, otherwise the default company location
+--       for that donor; both point to the shared addresses dimension.
 --
 --  History (structural changes folded into the current v1.2 schema):
 --      - DROPPED `contributions_cleaned` (redundant with the normalized
@@ -40,8 +39,8 @@
 --      - MOVED per-employment status (employer_status / previous_employer)
 --        onto `donor_employments`
 --      - SIMPLIFIED all views - no more LATERAL joins
---      - MERGED `employer_locations` into `employers` (always 1:1) - drops a
---        JOIN per employer query and the old v_employer_primary_location view
+--      - MERGED the old 1:1 employer-location table into `employers`; additional
+--        offices now use donor_employments.address_id
 --      - REPLACED the single `leadership.committee_id` with the `leaders`
 --        table + M:N `leader_committees` junction (FKs enforced both sides)
 --      - ADDED `UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation)`
@@ -105,10 +104,10 @@ CREATE TABLE donors (
 
 
 -- --- Shared address dimension - one source of truth for EVERY address ---
--- A donor's residence (via donor_addresses) and an employer's HQ (via
+-- A donor's residence (via donor_addresses) and an employer location (via
 -- employers.address_id) both point here, so a physical address is stored and
--- geocoded exactly once - and a self-employed donor's home and "company"
--- address collapse to the same row. Privacy (the 500-800 m map fuzz) is
+-- geocoded exactly once - and a self-employed donor's reported and work
+-- address point to the same row. Privacy (the 500-800 m map fuzz) is
 -- applied at the API layer on the donor-facing path; it is never stored here.
 CREATE TABLE addresses (
     address_id  SERIAL              PRIMARY KEY,
@@ -124,9 +123,8 @@ CREATE TABLE addresses (
 );
 
 
--- Unique companies. The corporate HQ address lives in the shared `addresses`
--- table; `address_id` points at it (NULL when the AI lookup couldn't resolve
--- a small private firm).
+-- Unique companies. address_id is the default company location; a donor's
+-- selected company location lives on donor_employments.address_id.
 CREATE TABLE employers (
     employer_id SERIAL  PRIMARY KEY,
     name        TEXT    NOT NULL UNIQUE,
@@ -156,7 +154,7 @@ CREATE TABLE donor_addresses (
 -- `employer_id` is NULL when the donor is RETIRED / NOT EMPLOYED /
 -- SELF-EMPLOYED / HOMEMAKER / STUDENT / (committee).
 -- For RETIRED donors, `previous_employer_id` points at their prior
--- employer (filled by resolve.py's cache + post_merge_fixes).
+-- employer (filled by resolve.py's cache + donor consistency).
 CREATE TABLE donor_employments (
     donor_employment_id     SERIAL              PRIMARY KEY,
     donor_id                INT                 NOT NULL REFERENCES donors(donor_id),
@@ -169,12 +167,9 @@ CREATE TABLE donor_employments (
                                                     'not_employed', 'committee',
                                                     'organization', 'missing')),
     previous_employer_id    INT                 REFERENCES employers(employer_id),
-    -- The office THIS donor works at, when it is not the company HQ. employers
-    -- .address_id stays the corporate HQ (the company's identity); this column
-    -- overrides it per employment, so a California donor at a New-York-
-    -- headquartered firm shows the California office. NULL means "use the HQ",
-    -- which is the case for the ~93% of companies whose donors are all in one
-    -- state. Read it as COALESCE(de.address_id, emp.address_id).
+    -- Self-employed: the donor's reported address. Active/retired: a same-state
+    -- company office, falling back to the primary company location. Not-employed:
+    -- NULL. A company-office selection is an inference, not proof of workplace.
     address_id              INT                 REFERENCES addresses(address_id),
     -- "When" (first/last seen, career timeline) is NOT stored - derive it from
     -- contributions (MIN/MAX receipt_date GROUP BY donor_employment_id). One source
@@ -212,11 +207,8 @@ CREATE TABLE contributions (
 );
 
 
--- `employer_locations` was merged into `employers` above. The two
--- tables were always 1:1 (one corporate HQ per firm). Keeping a separate
--- table forced a JOIN on every employer query and required a view
--- (v_employer_primary_location) to pick one row per employer. Merging
--- eliminates both.
+-- Employer locations share the addresses dimension. The CSV may contain
+-- several known offices; the loader stores the selected one per employment.
 
 
 -- NOTE: `contributions_cleaned` table dropped. The same
@@ -261,7 +253,7 @@ CREATE INDEX idx_c_donor_address    ON contributions (donor_address_id);
 CREATE INDEX idx_c_donor_employment ON contributions (donor_employment_id);
 CREATE INDEX idx_c_donor_date       ON contributions (donor_id, receipt_date DESC);
 
--- employers (entity; HQ address lives in `addresses` via address_id)
+-- employers (entity; default location via address_id)
 CREATE INDEX idx_emp_name           ON employers (name);
 CREATE INDEX idx_emp_name_trgm      ON employers USING gin (name gin_trgm_ops);
 CREATE INDEX idx_emp_address        ON employers (address_id);
@@ -302,7 +294,8 @@ SELECT DISTINCT ON (c.donor_id)
     e.occupation,                 -- raw job title
     e.occupation_category_id,     -- normalized category (FK)
     e.employer_status,            -- active / retired / not_employed / ...
-    e.previous_employer_id        -- last real job before retirement
+    e.previous_employer_id,       -- last real job before retirement
+    e.address_id                  -- selected workplace
 FROM contributions c
 JOIN donor_employments e ON e.donor_employment_id = c.donor_employment_id
 ORDER BY
@@ -383,8 +376,7 @@ LEFT JOIN employers                  prev ON prev.employer_id          = e.previ
 -- committee, address, employer and occupation all denormalized onto it.
 -- Consumed by the healthcheck's flat-view checks (fec/database/query_checks.py);
 -- the web app queries the normalized tables directly. Zero storage - pure
--- read layer over the normalized tables. v1.1: employer HQ columns come
--- straight from `employers` (the old v_employer_primary_location was merged in).
+-- read layer over the normalized tables.
 CREATE OR REPLACE VIEW v_contributions_cleaned AS
 SELECT
     c.sub_id,
@@ -431,9 +423,16 @@ LEFT JOIN donor_addresses       a        ON a.donor_address_id        = c.donor_
 LEFT JOIN addresses             ca       ON ca.address_id             = a.address_id
 LEFT JOIN donor_employments     de       ON de.donor_employment_id    = c.donor_employment_id
 LEFT JOIN employers             emp      ON emp.employer_id           = de.employer_id
-LEFT JOIN addresses             ea       ON ea.address_id             = emp.address_id
-LEFT JOIN occupation_categories oc       ON oc.occupation_category_id = de.occupation_category_id
-LEFT JOIN employers             prev_emp ON prev_emp.employer_id      = de.previous_employer_id;
+LEFT JOIN employers             prev_emp ON prev_emp.employer_id      = de.previous_employer_id
+LEFT JOIN addresses             ea       ON ea.address_id = COALESCE(
+                                                    de.address_id,
+                                                    emp.address_id,
+                                                    CASE
+                                                        WHEN de.employer_status = 'retired'
+                                                        THEN prev_emp.address_id
+                                                    END
+                                                )
+LEFT JOIN occupation_categories oc       ON oc.occupation_category_id = de.occupation_category_id;
 
 
 -- ----------------------------------------------------------
@@ -762,7 +761,7 @@ org_self AS (   -- a firm that itself donated, keyed by the now-aligned name
     GROUP BY d.last_name
 ),
 org_addr AS (   -- the firm's own filing address (org-donor addresses are 100%
-                -- complete) - a fallback when the employer-HQ lookup was empty.
+                -- complete) - a fallback when the employer lookup was empty.
                 -- Kept SEPARATE from org_self so a firm with >1 address never
                 -- multiplies its donation sum.
     SELECT d.last_name AS name, MAX(da.address_id) AS org_address_id
@@ -778,8 +777,7 @@ SELECT
     COALESCE(ea.employee_total, 0)        AS employee_total,
     (os.name IS NOT NULL)                 AS firm_also_donated,
     COALESCE(os.firm_donation_total, 0)   AS firm_donation_total,
-    -- HQ from the employers dimension; fall back to the firm's own filing
-    -- address when the HQ lookup came up empty.
+    -- Default company location, then the firm's own filing address.
     a.street_1, a.city, a.state_code, a.zip_code, a.latitude, a.longitude
 FROM employers e
 LEFT JOIN emp_agg  ea  ON ea.employer_id = e.employer_id
@@ -791,7 +789,7 @@ LEFT JOIN addresses a  ON a.address_id = COALESCE(e.address_id, oad.org_address_
 -- ----------------------------------------------------------
 -- 11. Permissions
 -- ----------------------------------------------------------
--- Handled by fec/database/loader/schema_create.py (fec_app owns the DB).
+-- Loader grants read access.
 
 
 -- ----------------------------------------------------------
@@ -806,8 +804,8 @@ LEFT JOIN addresses a  ON a.address_id = COALESCE(e.address_id, oad.org_address_
 COMMENT ON TABLE occupation_categories IS 'Lookup: ~29 standardized occupation buckets. LAWYER vs ATTORNEY stay distinct as raw occupations; this groups them for filtering.';
 COMMENT ON TABLE committees            IS 'FEC-registered committees + related orgs (AIPAC, ZOA, …). committee_number is the FEC id; committee_id is a surrogate PK.';
 COMMENT ON TABLE donors                IS 'Unique donors (individuals + contributing orgs). One row per donor_key identity hash. No denormalized "latest" pointers — derived via views.';
-COMMENT ON TABLE addresses             IS 'Shared address dimension — one source of truth for every physical address. A donor residence and an employer HQ both point here, geocoded once.';
-COMMENT ON TABLE employers             IS 'Unique companies. Corporate HQ lives in addresses via address_id (NULL when the lookup could not resolve a small private firm).';
+COMMENT ON TABLE addresses             IS 'Shared address dimension — one source of truth for donor and employer locations, geocoded once.';
+COMMENT ON TABLE employers             IS 'Unique companies. address_id is the default known location; donor_employments may select a closer office.';
 COMMENT ON TABLE donor_addresses       IS 'Link: donor ↔ address. The "when" (first/last donation here) is NOT stored — it is derived from contributions (MIN/MAX receipt_date).';
 COMMENT ON TABLE donor_employments     IS 'Link: each distinct (donor, employer, occupation). employer_id is NULL for retired / self-employed / not-employed / committee donors.';
 COMMENT ON TABLE contributions         IS 'Fact table — one row per FEC filing. Foreign keys only, no denormalized copies. The largest table.';

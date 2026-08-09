@@ -25,20 +25,20 @@ TABLES = [
 
 
 VIEWS = [
-    # Latest-per-donor sub-views feeding v_donor_profile
+    # Donor profile helpers.
     "v_donor_current_address", "v_donor_current_employment",
-    "v_donor_newest_address",     # used by leaders / key_accomplices views
-    "v_donor_newest_employment",  # used by v_leaders (covers non-donor leaders)
-    # Aggregate view feeding v_donor_profile
+    "v_donor_newest_address",     # Leader addresses.
+    "v_donor_newest_employment",  # Leader employment.
+    # Donor aggregates.
     "v_donor_stats",
-    # Composed view, source for mv_donor_profile
+    # Donor profile source.
     "v_donor_profile",
-    # Flat per-contribution view; web app donor-profile history reads this
+    # Contribution history.
     "v_contributions_cleaned",
-    # Dashboard views (flatten leaders / key_accomplices for the app)
+    # Dashboard views.
     "v_leaders",
     "v_key_accomplices",
-    # Unified company view: employer firm + its own donation as one identity
+    # Company identities.
     "v_company",
 ]
 
@@ -54,11 +54,10 @@ def create_schema(conn: Any, cur: Any) -> None:
         logger.error(f"{SCHEMA_SQL} not found")
         sys.exit(1)
 
-    # explicit encoding: the schema is UTF-8, and Windows' default codepage would mojibake it
+    # Read UTF-8 SQL.
     sql = SCHEMA_SQL.read_text(encoding="utf-8")
 
-    # sqlparse.split() groups leading comments with their statement; drop chunks
-    # with no executable SQL -- psycopg2 raises "can't execute an empty query".
+    # Skip comment-only statements.
     def _has_sql(chunk: str) -> bool:
         return bool(sqlparse.format(chunk, strip_comments=True).strip())
 
@@ -85,7 +84,7 @@ def create_schema(conn: Any, cur: Any) -> None:
             cur.execute(f"ROLLBACK TO SAVEPOINT sp_{idx}")
             if 'already exists' in str(error):
                 continue
-            # STOP -- do not continue with a partial schema.
+            # Abort partial schemas.
             first_line = str(error).splitlines()[0][:120]
             preview = statement[:200].replace('\n', ' ')
             logger.error(f"Schema creation failed at statement #{idx + 1}: {first_line}")
@@ -98,7 +97,7 @@ def create_schema(conn: Any, cur: Any) -> None:
     conn.commit()
     logger.info(f"  {tables} tables, {indexes} indexes, {views} views, {functions} functions")
 
-    # Catch silent parser/DDL misbehavior before loading into a half-built schema.
+    # Verify expected tables.
     cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
     actual = {row[0] for row in cur.fetchall()}
     missing = sorted(set(TABLES) - actual)
@@ -127,7 +126,7 @@ def _verify_schema_integrity(cur: Any) -> None:
     if missing_mvs:
         raise RuntimeError(f"Schema: missing materialized views {missing_mvs}")
 
-    # leader/committee is a real M:N via the leader_committees junction.
+    # Verify leader relationships.
     cur.execute("""
         SELECT 1 FROM information_schema.tables
         WHERE table_schema='public' AND table_name='leader_committees'
@@ -138,8 +137,7 @@ def _verify_schema_integrity(cur: Any) -> None:
             "Schema: leader_committees junction table is missing"
         )
 
-    # Both the loader's dedup and leadership_matcher's plain INSERT count on this
-    # UNIQUE NULLS NOT DISTINCT key as the DB-level backstop.
+    # Verify employment uniqueness.
     cur.execute("""
         SELECT pg_get_constraintdef(oid)
         FROM pg_constraint
@@ -155,7 +153,7 @@ def _verify_schema_integrity(cur: Any) -> None:
             f"schema.sql (found: {unique_defs or 'no UNIQUE constraints'})"
         )
 
-    # Legacy denormalized pointers must NOT resurrect from an old schema file.
+    # Reject legacy columns.
     cur.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_schema='public' AND table_name='donors'
@@ -188,8 +186,8 @@ def _verify_extensions(conn: Any, cur: Any) -> None:
                     f"({', '.join(sorted(required))})")
         return
 
-    # CREATE EXTENSION works only for a superuser session.
-    still_missing: list[tuple[str, str, str]] = []  # (ext, reason, error)
+    # Extensions need a superuser.
+    still_missing: list[tuple[str, str, str]] = []  # Extension failure details.
     for extension, why in missing.items():
         try:
             cur.execute(f"SAVEPOINT sp_ext_{extension}")

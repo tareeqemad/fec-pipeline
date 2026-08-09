@@ -42,6 +42,10 @@ class GeoCache:
         """Mark an address as genuinely not geocodable (never retried)."""
         self.data[key] = {"lat": None, "lng": None, "source": "not_found"}
 
+    def put_transient(self, key: str):
+        """Keep a temporary failure retryable."""
+        self.data[key] = {"lat": None, "lng": None, "source": "transient_fail"}
+
     def __len__(self):
         return len(self.data)
 

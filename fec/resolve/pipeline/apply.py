@@ -4,84 +4,26 @@ import pandas as pd
 
 from fec.cleaning.employer_synonyms import canonical_key
 from fec.cleaning.previous_employer import (
-    is_real_employer,
+    classify_employer_status,
     preserve_own_named_legal_employer,
 )
 
-from .constants import RETIRED, SELF_EMPLOYED
 from .helpers import _prev_key, _previous_employer_identity, _s
+from .locations import address_cache_lookup, select_location
 from .quality_fixes import (
     _clear_nonindividual_employer,
     _fix_employer_address_quality,
 )
 
 
-def _branch_aliases(branch_cache) -> dict:
-    """Add unique canonical-name aliases to the small curated branch cache."""
-    if not branch_cache:
-        return {}
-
-    entries = getattr(branch_cache, "data", branch_cache)
-    lookup = {str(key).upper(): value for key, value in entries.items()}
-    aliases, ambiguous = {}, set()
-    for key, value in entries.items():
-        if "|" not in str(key):
-            continue
-        employer, state = str(key).rsplit("|", 1)
-        alias = f"{canonical_key(employer)}|{state.strip().upper()}"
-        if not alias or alias.startswith("|"):
-            continue
-        prior = aliases.get(alias)
-        if prior is not None and prior != value:
-            ambiguous.add(alias)
-        else:
-            aliases[alias] = value
-
-    for alias in ambiguous:
-        aliases.pop(alias, None)
-    for alias, value in aliases.items():
-        lookup.setdefault(alias, value)
-    return lookup
-
-
 def _address_aliases(addr_cache) -> dict:
-    """Add unambiguous canonical-name aliases to the employer address cache."""
+    """Build exact and canonical cache aliases."""
     entries = getattr(addr_cache, "data", addr_cache)
-    lookup = {str(key).upper(): value for key, value in entries.items()}
-    grouped = {}
-
-    for key, entry in entries.items():
-        alias = canonical_key(str(key))
-        if not alias:
-            continue
-        grouped.setdefault(alias, []).append(entry)
-
-    for alias, candidates in grouped.items():
-        invalid = [item for item in candidates
-                   if item.get("method") == "manual_invalid"]
-        if invalid:
-            lookup.setdefault(alias, invalid[0])
-            continue
-
-        usable = [item for item in candidates if _usable_address(item)]
-        manual = [item for item in usable
-                  if item.get("method") == "manual_override"]
-        preferred = manual or usable
-        signatures = {
-            tuple(item.get(field, "") for field in (
-                "employer_address", "employer_city",
-                "employer_state", "employer_zip",
-            ))
-            for item in preferred
-        }
-        if len(signatures) == 1:
-            lookup.setdefault(alias, preferred[0])
-
-    return lookup
+    return address_cache_lookup(entries)
 
 
-def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
-                  branch_cache=None) -> pd.DataFrame:
+def apply_results(df: pd.DataFrame, prev_cache, addr_cache,
+                  comm_cache) -> pd.DataFrame:
     """Write resolved addresses to DataFrame columns."""
     prior_previous = df.get("previous_employer")
     if prior_previous is not None:
@@ -95,11 +37,8 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
     }
 
     address_lookup = _address_aliases(addr_cache)
-    branch_lookup = _branch_aliases(branch_cache)
     for _, row in df.iterrows():
-        result = _resolve_row(
-            row, prev_cache, address_lookup, comm_cache, branch_lookup,
-        )
+        result = _resolve_row(row, prev_cache, address_lookup, comm_cache)
         for column in cols:
             cols[column].append(result.get(column, ""))
 
@@ -167,38 +106,36 @@ def _own_address(
     )
 
 
-def _usable_address(entry: dict | None) -> bool:
-    """An address may be street-level or an intentional manual city fallback."""
-    return bool(entry and (
-        entry.get("employer_address")
-        or (entry.get("method") == "manual_override"
-            and entry.get("employer_city"))
-    ))
-
-
-def _cached_address(addr_cache, keys: tuple[str, ...]) -> dict | None:
+def _cached_address(
+    addr_cache,
+    keys: tuple[str, ...],
+    donor_zip: str = "",
+    donor_state: str = "",
+) -> dict | None:
     """Return the first usable address under an exact or canonical cache key."""
     for key in keys:
         exact_key = str(key).upper()
         exact = addr_cache.get(exact_key)
-        if _usable_address(exact):
-            return exact
+        selected = select_location(exact, donor_zip, donor_state)
+        if selected:
+            return selected
         if exact is not None:
             continue
 
         alias = addr_cache.get(canonical_key(exact_key))
-        if _usable_address(alias):
-            return alias
+        selected = select_location(alias, donor_zip, donor_state)
+        if selected:
+            return selected
     return None
 
 
-def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache,
-                 branch_cache=None) -> dict:
+def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache) -> dict:
     """Resolve one row."""
     entity = row.get("entity_type", "")
     emp = _s(row.get("contributor_employer")).strip()
     emp_upper = emp.upper()
     state = _s(row.get("contributor_state")).strip()
+    zip_code = _s(row.get("contributor_zip")).strip()
 
     if entity == "COMMITTEE/PAC":
         name = str(row.get("contributor_name", ""))
@@ -216,26 +153,24 @@ def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache,
     if entity == "ORGANIZATION":
         return _result("organization")
 
-    # A donor's branch office wins over the corporate HQ.
-    if is_real_employer(emp):
-        branch = None
-        if branch_cache and state:
-            branch_key = f"{emp_upper}|{state.upper()}"
-            branch = branch_cache.get(branch_key)
-            if not branch:
-                branch = branch_cache.get(f"{canonical_key(emp_upper)}|{state.upper()}")
-        if branch and branch.get("employer_address"):
-            return _result(
-                "active", branch, method="manual_override", state=state,
-                method_prefix="branch_",
-            )
+    status = classify_employer_status(
+        emp,
+        row.get("contributor_occupation"),
+        row.get("occupation_category"),
+    )
 
-        cached = _cached_address(addr_cache, (emp_upper,))
+    if status == "active":
+        cached = _cached_address(
+            addr_cache, (emp_upper,), zip_code, state,
+        )
         if cached:
-            return _result("active", cached, method="ai_openai")
+            prefix = "" if cached.get("is_primary") else "nearest_"
+            return _result(
+                "active", cached, method="ai_openai", method_prefix=prefix,
+            )
         return _result("active", method="pending")
 
-    if emp_upper == RETIRED:
+    if status == "retired":
         prev_key = _prev_key(row.get("contributor_name", ""), state)
         prev_entry = prev_cache.get(prev_key)
         prev_name, address_keys = _previous_employer_identity(prev_entry)
@@ -265,18 +200,24 @@ def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache,
             *(key for key in address_keys if key != legal_key),
         )
 
-        cached = _cached_address(addr_cache, address_keys)
+        cached = _cached_address(
+            addr_cache, address_keys, zip_code, state,
+        )
         if cached:
+            location_prefix = "" if cached.get("is_primary") else "nearest_"
             return _result(
                 "retired", cached, method="ai_openai",
-                method_prefix=f"{prev_entry.get('method', 'cross_record')}+",
+                method_prefix=(
+                    f"{prev_entry.get('method', 'cross_record')}+"
+                    f"{location_prefix}"
+                ),
                 previous=prev_name,
             )
         return _result(
             "retired", method="pending_address", previous=prev_name,
         )
 
-    if emp_upper == SELF_EMPLOYED:
+    if status == "self_employed":
         return (
             _own_address(
                 row, state, "self_employed",
@@ -285,9 +226,4 @@ def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache,
             or _result("self_employed")
         )
 
-    status = (
-        "not_employed"
-        if emp_upper in ("NOT EMPLOYED", "STUDENT", "HOMEMAKER", "UNEMPLOYED")
-        else "missing"
-    )
     return _result(status)

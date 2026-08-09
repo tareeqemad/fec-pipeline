@@ -6,7 +6,8 @@ from collections import defaultdict
 
 import pandas as pd
 
-from .constants import STATUS_EMPLOYERS
+from fec.config.constants import EMPLOYER_STATUS_VALUES
+
 from .matcher import UnionFind
 
 # legal suffixes/connectors carry no identity when comparing employer names
@@ -27,9 +28,9 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
         return 0
 
     changed = 0
-    fn_col = df.columns.get_loc("contributor_first_name")
-    ln_col = df.columns.get_loc("contributor_last_name")
-    cn_col = df.columns.get_loc("contributor_name")
+    fn_col = "contributor_first_name"
+    ln_col = "contributor_last_name"
+    cn_col = "contributor_name"
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
         rows = df.loc[idx]
@@ -53,15 +54,15 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
         canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
 
         for i in idx:
-            cur_f = df.iat[i, fn_col]
-            cur_l = df.iat[i, ln_col]
+            cur_f = df.at[i, fn_col]
+            cur_l = df.at[i, ln_col]
             cf = cur_f if (isinstance(cur_f, str) and cur_f.strip()) else None
             cl = cur_l if (isinstance(cur_l, str) and cur_l.strip()) else None
-            cur_n = df.iat[i, cn_col]
+            cur_n = df.at[i, cn_col]
             if cf != canon_first or cl != canon_last or cur_n != canon_name:
-                df.iat[i, fn_col] = canon_first
-                df.iat[i, ln_col] = canon_last
-                df.iat[i, cn_col] = canon_name
+                df.at[i, fn_col] = canon_first
+                df.at[i, ln_col] = canon_last
+                df.at[i, cn_col] = canon_name
                 changed += 1
     return changed
 
@@ -78,12 +79,15 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
     if not ind.any():
         return 0
 
-    emp_col = df.columns.get_loc("contributor_employer")
+    emp_col = "contributor_employer"
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
         sub = df.loc[idx, "contributor_employer"].dropna().map(str).str.strip()
-        names = [n for n in sub.unique() if n and n.upper() not in STATUS_EMPLOYERS]
+        names = [
+            name for name in sub.unique()
+            if name and name.upper() not in EMPLOYER_STATUS_VALUES
+        ]
         if len(names) < 2:
             continue
         cores = {n: _emp_core_tokens(n) for n in names}
@@ -114,9 +118,9 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
             continue
 
         for i in idx:
-            cur = df.iat[i, emp_col]
+            cur = df.at[i, emp_col]
             if isinstance(cur, str) and cur.strip() in remap:
-                df.iat[i, emp_col] = remap[cur.strip()]
+                df.at[i, emp_col] = remap[cur.strip()]
                 changed += 1
     return changed
 
@@ -128,7 +132,7 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
     # canonical display name per canonical_key = the donor-side spelling seen most
     ind = df[df["entity_type"] == "INDIVIDUAL"]
     emp = ind["contributor_employer"].dropna().astype(str).str.strip()
-    emp = emp[(emp != "") & (~emp.str.upper().isin(STATUS_EMPLOYERS))]
+    emp = emp[(emp != "") & (~emp.str.upper().isin(EMPLOYER_STATUS_VALUES))]
     if emp.empty:
         return 0
     by_key: dict[str, str] = {}
@@ -173,25 +177,25 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
     if not ind.any():
         return 0
 
-    st_col = df.columns.get_loc("contributor_street_1")
-    zip_col = df.columns.get_loc("contributor_zip")
+    st_col = "contributor_street_1"
+    zip_col = "contributor_zip"
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
         # bucket this donor's rows by (zip, anchored-fingerprint)
         buckets: dict[tuple, list] = defaultdict(list)
         for i in idx:
-            s = df.iat[i, st_col]
+            s = df.at[i, st_col]
             if not (isinstance(s, str) and s.strip()):
                 continue
-            z = df.iat[i, zip_col]
+            z = df.at[i, zip_col]
             z = z if isinstance(z, str) else ""
             fp = _addr_fingerprint(s)
             if fp:
                 buckets[(z, fp)].append(i)
 
         for (_z, _fp), rows in buckets.items():
-            forms = [df.iat[i, st_col].strip() for i in rows]
+            forms = [df.at[i, st_col].strip() for i in rows]
             distinct = set(forms)
             if len(distinct) < 2:
                 continue
@@ -199,7 +203,7 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
             canon = max(sorted(distinct), key=lambda f: forms.count(f))
             for i, f in zip(rows, forms):
                 if f != canon:
-                    df.iat[i, st_col] = canon
+                    df.at[i, st_col] = canon
                     changed += 1
     return changed
 
@@ -211,34 +215,34 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
         return 0
     from fec.cleaning.pipeline.address_fixes import _unit_core
 
-    st1_col = df.columns.get_loc("contributor_street_1")
-    st2_col = df.columns.get_loc("contributor_street_2")
-    zip_col = df.columns.get_loc("contributor_zip")
+    st1_col = "contributor_street_1"
+    st2_col = "contributor_street_2"
+    zip_col = "contributor_zip"
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
         buckets: dict[tuple, list] = defaultdict(list)
         for i in idx:
-            s2 = df.iat[i, st2_col]
+            s2 = df.at[i, st2_col]
             if not (isinstance(s2, str) and s2.strip()):
                 continue
             core = _unit_core(s2)
             if not core:
                 continue
-            s1 = df.iat[i, st1_col]
+            s1 = df.at[i, st1_col]
             s1 = s1.strip() if isinstance(s1, str) else ""
-            z = df.iat[i, zip_col]
+            z = df.at[i, zip_col]
             z = z if isinstance(z, str) else ""
             buckets[(s1, z, core)].append(i)
 
         for _k, rows in buckets.items():
-            forms = [df.iat[i, st2_col].strip() for i in rows]
+            forms = [df.at[i, st2_col].strip() for i in rows]
             if len(set(forms)) < 2:
                 continue
             canon = max(sorted(set(forms)), key=lambda f: (forms.count(f), len(f)))
             for i, f in zip(rows, forms):
                 if f != canon:
-                    df.iat[i, st2_col] = canon
+                    df.at[i, st2_col] = canon
                     changed += 1
     return changed
 
@@ -263,18 +267,18 @@ def _is_insertion_typo(a: str, b: str) -> bool:
 
 def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
     """Collapse per-donor same-ZIP PO-box numbers that differ by one inserted digit to the most frequent box (all entity types; same-length boxes never merge); returns rows rewritten."""
-    st_col = df.columns.get_loc("contributor_street_1")
-    zip_col = df.columns.get_loc("contributor_zip")
+    st_col = "contributor_street_1"
+    zip_col = "contributor_zip"
     changed = 0
 
     for _, idx in df.groupby("donor_key").groups.items():
         by_zip: dict[str, list] = defaultdict(list)
         for i in idx:
-            s = df.iat[i, st_col]
+            s = df.at[i, st_col]
             bn = _pobox_num(s) if isinstance(s, str) else ""
             if not bn:
                 continue
-            z = df.iat[i, zip_col]
+            z = df.at[i, zip_col]
             z = z if isinstance(z, str) else ""
             by_zip[z].append((i, s.strip(), bn))
 
@@ -305,7 +309,7 @@ def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
                 canon_full = max(set(canon_forms), key=canon_forms.count)
                 for i, f, bn in rows:
                     if bn in members and f != canon_full:
-                        df.iat[i, st_col] = canon_full
+                        df.at[i, st_col] = canon_full
                         changed += 1
     return changed
 
@@ -335,23 +339,23 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
     if not ind.any():
         return 0
 
-    st_col = df.columns.get_loc("contributor_street_1")
-    lat_col = df.columns.get_loc("latitude")
-    lng_col = df.columns.get_loc("longitude")
-    level_col = df.columns.get_loc("geocode_level")
+    st_col = "contributor_street_1"
+    lat_col = "latitude"
+    lng_col = "longitude"
+    level_col = "geocode_level"
     changed = 0
 
     for _, idx in df[ind].groupby("donor_key").groups.items():
         pts = []  # (row_i, street, lat, lng)
         for i in idx:
-            s = df.iat[i, st_col]
+            s = df.at[i, st_col]
             if not (isinstance(s, str) and s.strip()):
                 continue
-            lvl = str(df.iat[i, level_col]).lower()
+            lvl = str(df.at[i, level_col]).lower()
             if any(t in lvl for t in _COARSE_LEVEL_TOKENS):
                 continue
             try:
-                lat, lng = float(df.iat[i, lat_col]), float(df.iat[i, lng_col])
+                lat, lng = float(df.at[i, lat_col]), float(df.at[i, lng_col])
             except (TypeError, ValueError):
                 continue
             if math.isnan(lat) or math.isnan(lng):
@@ -381,8 +385,8 @@ def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -
             for m in members:
                 if pts[m][1] != canon:
                     i = pts[m][0]
-                    df.iat[i, st_col] = canon
-                    df.iat[i, lat_col] = rlat
-                    df.iat[i, lng_col] = rlng
+                    df.at[i, st_col] = canon
+                    df.at[i, lat_col] = rlat
+                    df.at[i, lng_col] = rlng
                     changed += 1
     return changed

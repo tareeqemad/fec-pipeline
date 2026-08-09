@@ -851,15 +851,15 @@ EMPLOYER_FROM_OCCUPATION = {
     'STUDENT': 'STUDENT',
 }
 
-# Post-merge keeps homemaker as its own employer status and handles aliases.
-POST_MERGE_EMPLOYER_FROM_OCCUPATION = {
+# Donor consistency keeps homemaker distinct and handles aliases.
+FINAL_EMPLOYER_FROM_OCCUPATION = {
     **EMPLOYER_FROM_OCCUPATION,
     'HOMEMAKER': 'HOMEMAKER',
     'HOUSEWIFE': 'HOMEMAKER',
     'UNEMPLOYED': 'NOT EMPLOYED',
 }
 EMPLOYER_FROM_CATEGORY = {
-    category: POST_MERGE_EMPLOYER_FROM_OCCUPATION[category]
+    category: FINAL_EMPLOYER_FROM_OCCUPATION[category]
     for category in ('RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'STUDENT', 'SELF-EMPLOYED')
 }
 

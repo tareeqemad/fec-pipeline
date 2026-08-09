@@ -24,7 +24,7 @@ Everything is driven from CLI scripts.
             └─────────────┘
                    │
                    ▼
-            ┌─────────────┐   clean → match donors → post-merge fixes → canonicalize
+            ┌─────────────┐   clean records → identify donors → standardize donors
   clean.py →│ fec/cleaning│ → data/contributions_cleaned.csv   (+ donor_key)
             │ +donor_match│
             └─────────────┘
@@ -32,7 +32,7 @@ Everything is driven from CLI scripts.
         ┌──────────┴───────────┐
         ▼                      ▼
  ┌────────────┐         ┌────────────┐   (both cache to data/*.json; safe to re-run)
- │ geocode.py │         │ resolve.py │   geocode = lat/lng; resolve = employer HQ
+ │ geocode.py │         │ resolve.py │   geocode = lat/lng; resolve = employer locations
  │fec/geocoding│        │ fec/resolve│
  └────────────┘         └────────────┘
         └──────────┬───────────┘
@@ -57,10 +57,10 @@ and idempotent.
 | Script | Role | Notes |
 |--------|------|-------|
 | `pull.py` | Pull from the FEC API — the 3 tracked committees, or any id(s) | `python pull.py [Cxxxxxxxx ...] [--full]` |
-| `clean.py` | **Clean + match + post-merge + canonicalize** (self-contained) | writes `contributions_cleaned.csv` with `donor_key` |
+| `clean.py` | **Clean records + identify donors + standardize donors** | writes `contributions_cleaned.csv` with `donor_key` |
 | `geocode.py` | Lat/lng for donor + employer addresses | cached in `data/geocode_cache.json` |
-| `resolve.py` | Employer HQ address resolution (cross-record + FEC API + AI) | cached in `data/resolve_*.json` |
-| `build_employers.py` | Normalize employer HQs → `employers.csv` | last file-writing stage |
+| `resolve.py` | Employer location resolution (cross-record + FEC API + AI) | cached in `data/resolve_*.json` |
+| `build_employers.py` | Build `employer_locations.csv` | last file-writing stage |
 | `loader.py` | Load the cleaned CSV into PostgreSQL | thin wrapper for `fec.database.loader` |
 
 > Root scripts marked **wrapper/thin** just call into the `fec/` package — the
@@ -102,7 +102,7 @@ fec/
 │   ├── query_checks.py         # structured query-correctness checks (shared by tests + healthcheck)
 │   └── leadership_matcher.py   # match leadership/accomplices to donors
 │
-├── post_merge_fixes/   # fixes needing donor_key (Y–AP, runs inside clean, no DB): fill-from-same-donor, etc.
+├── cleaning/donor_consistency/  # cross-filing fixes that need donor_key
 │
 ├── donor_match/    # donor identity resolution (runs inside clean, no DB) — 6 files
 │   ├── matcher.py              # orchestrator: profiles → phases → chains → force merges (+ UnionFind)
@@ -114,7 +114,7 @@ fec/
 │
 ├── geocoding/
 │   ├── pipeline.py             # geocode orchestrator
-│   ├── engines.py              # Nominatim + Google backends
+│   ├── engines.py              # Nominatim backend
 │   └── cache.py                # on-disk cache
 │
 └── resolve/pipeline/
@@ -133,7 +133,7 @@ Normalized 3NF PostgreSQL (PG 18), **schema v1.2**, all defined in one file:
 `fec/database/schema.sql`. Layers:
 
 - **Tables** — `donors`, `contributions` (the fact table), `committees`,
-  `addresses` (shared dimension: donor homes *and* employer HQs dedup here),
+  `addresses` (shared dimension: donor and employer locations dedup here),
   `employers`, `donor_addresses`, `donor_employments`, `occupation_categories`,
   reference tables (`us_states`, `zcta_state_rel`, `zip_centroids`), and the
   dashboard tables (`key_accomplices`, `leaders`, `leader_committees`).
@@ -163,8 +163,8 @@ Each of these cost a real bug. They are enforced in code and tests.
 
 The cleaning **safety nets** (`fec/cleaning/safety_nets/`) are independent fix
 functions grouped by the field they touch (committee / occupation / employer /
-names / addresses); `apply_safety_nets()` runs them in order. `post_merge_fixes/`
-continues the Y–AP fixes that need `donor_key`. Read each function's docstring.
+names / addresses); `apply_safety_nets()` runs them in order.
+`cleaning/donor_consistency/` handles cross-filing repairs that need `donor_key`.
 
 ---
 
@@ -178,15 +178,15 @@ continues the Y–AP fixes that need `donor_key`. Read each function's docstring
 | `donor_key` | our hash that groups filings belonging to the same real person |
 | **matching** | score-based de-dup that assigns `donor_key` (threshold 50) |
 | **canonicalization** | pick the best name/employer/address a donor used and back-fill it to all their rows |
-| **resolve** | find an employer's HQ address (cross-record → FEC API → AI) |
+| **resolve** | find verified employer locations (cross-record → FEC API → AI) |
 | **safety net** | a targeted consistency fix applied during cleaning |
 
 ---
 
 ## 8. How to… (recipes)
 
-- **Add a tracked committee:** add its id to `TRACKED` in `pull.py` and a row to
-  `data/database/committees.csv`.
+- **Add a tracked committee:** add one row with its FEC id to
+  `data/database/committees.csv`; `pull.py` reads it automatically.
 - **Add a cleaning safety net:** add a function to the right module in
   `fec/cleaning/safety_nets/`, call it from `apply_safety_nets()`, add a test.
 - **Add/alter a view:** edit `fec/database/schema.sql`, add it to `loader.VIEWS`,
@@ -205,4 +205,4 @@ continues the Y–AP fixes that need `donor_key`. Read each function's docstring
 | **Live** | `tests/test_db_live.py` (`live`) | the **real `fec_db`** (skips if absent) |
 
 `pytest -m "not db"` runs everything that needs no Docker (incl. live checks when
-the DB is reachable). CI: GitHub Actions + GitLab CI.
+the DB is reachable). GitLab CI runs the automated test suite.

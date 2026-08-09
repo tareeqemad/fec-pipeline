@@ -5,8 +5,14 @@ from pathlib import Path
 import pandas as pd
 
 from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.previous_employer import classify_employer_statuses
 from fec.config import VALID_CATEGORIES
-from fec.config.constants import SLASH_BRAND_EMPLOYERS
+from fec.config.constants import (
+    EMPLOYER_STATUS_VALUES,
+    NOT_EMPLOYED_VARIANTS,
+    SELF_EMPLOYED_VARIANTS,
+    SLASH_BRAND_EMPLOYERS,
+)
 
 _ZIP_PREFIX_STATES = {
     '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
@@ -21,11 +27,20 @@ _ZIP_PREFIX_STATES = {
     '9': {'AK', 'CA', 'HI', 'OR', 'WA', 'GU', 'AS', 'MP', 'AP'},
 }
 
-# real brand names that actually contain a slash
-_PREV_EMP_SLASH_OK = SLASH_BRAND_EMPLOYERS
+# Each gate reads df without mutating.
+def _resolve_only_gate(key, df, required):
+    missing = sorted(required - set(df.columns))
+    if not missing:
+        return None
+    return [(key, {
+        'passed': None,
+        'count': None,
+        'not_run': True,
+        'missing_columns': missing,
+        'reason': 'run after resolve --apply',
+    }, None)]
 
 
-# Each gate reads df without mutating and returns [(key, check, issue)], or [] to skip.
 def _gate_nan_strings(df):
     nan_count = 0
     for col in ['contributor_occupation', 'contributor_employer', 'contributor_name',
@@ -70,15 +85,19 @@ def _gate_occupation_category_consistency(df):
 
 
 def _gate_self_employed_status(df):
-    """SELF-EMPLOYED marker and employer_status must describe the same rows."""
-    required = {'entity_type', 'contributor_employer', 'employer_status'}
-    if not required.issubset(df.columns):
-        return []
+    """Self-employment fields and status must agree."""
+    required = {
+        'entity_type', 'contributor_employer', 'contributor_occupation',
+        'occupation_category', 'employer_status',
+    }
+    not_run = _resolve_only_gate('self_employed_status_consistency', df, required)
+    if not_run:
+        return not_run
 
     individuals = df['entity_type'].eq('INDIVIDUAL')
-    employer = df['contributor_employer'].fillna('').str.strip().str.upper()
     status = df['employer_status'].fillna('').str.strip().str.lower()
-    marker = individuals & employer.eq('SELF-EMPLOYED')
+    expected = classify_employer_statuses(df)
+    marker = individuals & expected.eq('self_employed')
     self_status = individuals & status.eq('self_employed')
 
     marker_without_status = int((marker & ~self_status).sum())
@@ -90,6 +109,59 @@ def _gate_self_employed_status(df):
         'count': count,
         'marker_without_status': marker_without_status,
         'status_without_marker': status_without_marker,
+    }, issue)]
+
+
+def _gate_not_employed_status(df):
+    """Non-working occupations and status must agree."""
+    required = {
+        'entity_type', 'contributor_employer', 'contributor_occupation',
+        'occupation_category', 'employer_status',
+    }
+    not_run = _resolve_only_gate('not_employed_status_consistency', df, required)
+    if not_run:
+        return not_run
+
+    individuals = df['entity_type'].eq('INDIVIDUAL')
+    status = df['employer_status'].fillna('').str.strip().str.lower()
+    expected = classify_employer_statuses(df)
+    marker = individuals & expected.eq('not_employed')
+    not_status = individuals & status.eq('not_employed')
+
+    marker_without_status = int((marker & ~not_status).sum())
+    status_without_marker = int((not_status & ~marker).sum())
+    count = marker_without_status + status_without_marker
+    issue = f"NOT EMPLOYED/status mismatches: {count}" if count else None
+    return [('not_employed_status_consistency', {
+        'passed': count == 0,
+        'count': count,
+        'marker_without_status': marker_without_status,
+        'status_without_marker': status_without_marker,
+    }, issue)]
+
+
+def _gate_previous_employer_consistency(df):
+    """One retired donor must resolve to one previous employer."""
+    required = {'entity_type', 'donor_key', 'employer_status', 'previous_employer'}
+    not_run = _resolve_only_gate('previous_employer_consistency', df, required)
+    if not_run:
+        return not_run
+
+    retired = df[
+        df['entity_type'].eq('INDIVIDUAL')
+        & df['employer_status'].eq('retired')
+    ]
+    previous = retired['previous_employer'].fillna('').astype(str).str.strip()
+    counts = (
+        retired.assign(_previous=previous.mask(previous.eq('')))
+        .groupby('donor_key')['_previous']
+        .nunique(dropna=True)
+    )
+    bad = int(counts.gt(1).sum())
+    issue = f"Retired donors with multiple previous employers: {bad}" if bad else None
+    return [('previous_employer_consistency', {
+        'passed': bad == 0,
+        'count': bad,
     }, issue)]
 
 
@@ -167,20 +239,17 @@ def _gate_special_chars_names(df):
 
 def _gate_retired_donor_consistency(df):
     # a once-retired donor with no real employer should not carry NOT EMPLOYED / SELF-EMPLOYED
-    # filings; the once-retired sweep in post_merge_fixes collapses them
+    # Donor consistency settles these filings.
     if not {'entity_type', 'donor_key', 'contributor_employer'}.issubset(df.columns):
         return []
     emp_upper = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    status_nonret = {'NOT EMPLOYED', 'UNEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED'}
-    nonret_statuses = {'NOT DISCLOSED', '', 'HOMEMAKER', 'STUDENT',
-                       'N/A', 'NA', 'NAN', 'NONE',
-                       'RETIRED'} | status_nonret
+    status_nonret = NOT_EMPLOYED_VARIANTS | SELF_EMPLOYED_VARIANTS
     flags = pd.DataFrame({
         'donor_key': df.loc[is_indiv, 'donor_key'],
         'retired':  emp_upper[is_indiv].eq('RETIRED'),
         'nonret':   emp_upper[is_indiv].isin(status_nonret),
-        'real':     ~emp_upper[is_indiv].isin(nonret_statuses) & (emp_upper[is_indiv] != ''),
+        'real':     ~emp_upper[is_indiv].isin(EMPLOYER_STATUS_VALUES),
     }).groupby('donor_key').agg('any')
     bad_donors = flags.index[flags['retired'] & ~flags['real'] & flags['nonret']]
     n_bad_rows = int((is_indiv & df['donor_key'].isin(bad_donors) &
@@ -194,8 +263,10 @@ def _gate_retired_donor_consistency(df):
 
 def _gate_retired_active_sync(df):
     # RETIRED category with employer_status=active contradicts the _retired_active_sync sweep
-    if not {'entity_type', 'occupation_category', 'employer_status'}.issubset(df.columns):
-        return []
+    required = {'entity_type', 'occupation_category', 'employer_status'}
+    not_run = _resolve_only_gate('retired_active_sync', df, required)
+    if not_run:
+        return not_run
     bad_sync = (
         (df['entity_type'] == 'INDIVIDUAL')
         & (df['occupation_category'] == 'RETIRED')
@@ -204,7 +275,7 @@ def _gate_retired_active_sync(df):
     n_bad_sync = int(bad_sync.sum())
     issue = (
         f"retired+active contradiction: {n_bad_sync} rows "
-        "-- run _retired_active_sync in post_merge_fixes"
+        "-- run _retired_active_sync in donor_consistency"
     ) if n_bad_sync else None
     return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
 
@@ -231,7 +302,10 @@ def _gate_slash_previous_employer(df):
     if 'previous_employer' not in df.columns:
         return []
     prev_emp = df['previous_employer'].fillna('').astype(str)
-    slashy = prev_emp.str.contains('/') & ~prev_emp.str.upper().isin(_PREV_EMP_SLASH_OK)
+    slashy = (
+        prev_emp.str.contains('/')
+        & ~prev_emp.str.upper().isin(SLASH_BRAND_EMPLOYERS)
+    )
     n_slash = int(slashy.sum())
     issue = (
         f"previous_employer slash leaks: {n_slash} rows "
@@ -263,6 +337,8 @@ _QUALITY_GATES = [
     _gate_valid_categories,
     _gate_occupation_category_consistency,
     _gate_self_employed_status,
+    _gate_not_employed_status,
+    _gate_previous_employer_consistency,
     _gate_zip_coverage,
     _gate_dup_sub_id,
     _gate_dup_transaction_id,
@@ -287,7 +363,12 @@ def run_quality_gates(df: pd.DataFrame) -> dict:
             checks[key] = check
             if issue:
                 issues.append(issue)
-    passed = all(check['passed'] for check in checks.values() if isinstance(check, dict) and 'passed' in check)
+    results = [
+        check['passed']
+        for check in checks.values()
+        if isinstance(check, dict) and check.get('passed') is not None
+    ]
+    passed = all(results)
     return {'passed': passed, 'checks': checks, 'issues': issues}
 
 

@@ -50,7 +50,6 @@ eed0093ef668,2fe47733f34e,"WEISLEDER, ZACHARY","WEISLEDER, ZACH",NEW YORK,10016,
 ab75cec1e118,cc814649fa6e,"LOEW, LESLIE","LOEW, LES",WEST HARTFORD,06117,street,750.0
 f527195864eb,1c5b02028a3e,"PAULSON, FRANKLIN","PAULSON, FRANK",CHEVY CHASE,20815,street,650.0
 b6c151b2719f,34566ccb886c,"STOLLER, STANLEY","STOLLER, STAN",BETHESDA,20817,street,350.0
-61277b774ad7,09f4157c67d1,"COLLOFF, EDNA","COLLOFF, ED",SAN MATEO,94402,street,200.0
 5545ede7cfa3,52cca627b30d,"SZLAM, ALEKSANDER","SZLAM, ALEK",ALPHARETTA,30022,street,65900.0
 fe7d1bf3eebb,113178d56305,"BIRNBERG, BRAD","BIRNBERG, BRADLEY",NAPLES,34108,street,47500.0
 3a314f10577a,40ee119084f3,"HELD, JON","HELD, JONATHON",JERICHO,11753,street,25800.0
@@ -80,7 +79,6 @@ a44997ddb647,5b3d50645353,"HELLER, DAVID","HELLER, DAVID",NEW YORK,10023,emp+age
 af6e0f8fc633,1edc36a76ce7,"WOLF, DAVID","WOLF, DAVID",BLUE ASH,45242,emp+agent,41000.0
 b55b215f7856,b27bf2a6fd85,"MARGOLIS, LARRY","MARGOLIS, LARRY",BASALT,81621,emp+agent,121600.0
 7134cabe2b48,e6ca9200496a,"JACOBSON, MARINA","JACOBSON, MARINA",PALM BEACH,33480,emp+agent,116517.0
-d768877b9fdd,5be2ea511e26,"JACKSON, ANN","JACKSON, ANN",EDINA,55340,emp+agent,106500.0
 6986eaff6d2e,8b4a7264bfe6,"GOODMAN, RICHARD","GOODMAN, RICHARD",NEWPORT BEACH,92660,emp+agent,103374.95
 2864ae9ab37a,7d6243e918d8,"RUBIN, MARK","RUBIN, MARK",PALM BEACH GARDENS,33410,"web: Maric Inc founder, Boston-to-PBG retirement handoff",569040.0
 2864ae9ab37a,da13f0ae04f9,"RUBIN, MARK","RUBIN, MARK",PALM BEACH GARDENS,33410,"web: Maric Inc founder, Boston-to-PBG retirement handoff",569040.0
@@ -99,3 +97,68 @@ b2a745e3e1b8,6ff26c6bad4e,"TUCHIN, MICHAEL","TUCHIN, MICHAEL",LOS ANGELES,90049,
 f4fb4ae02cc6,b6e5515b5208,"KRAFT, DANIEL","KRAFT, DANIEL",FOXBORO,02035,"street: 1 Patriot Pl is Kraft Group HQ, he is its intl president",131400.0
 564fbe0b74bd,1f83982bdaa1,"KASSOFF, ERIC","KASSOFF, ERIC",BETHESDA,20814,emp: Wilkes Artis president; FL key is the snowbird home,110600.0
 564fbe0b74bd,e806b8c3ee45,"KASSOFF, ERIC","KASSOFF, ERIC",BETHESDA,20814,emp: Wilkes Artis president; FL key is the snowbird home,110600.0
+c111a7441053,a7dec58166b9,"JACOBSON, JONATHON","JACOBSON, JON",BOSTON,02117,"web+records: official Highfields bio; exact PO BOX and career-to-retired continuity",5640000.0
+6ee5bc0b5539,e9b54b293dc3,"GOLDHABER, MARK","GOLDHABER, MARKTHE WALL TILE",RALEIGH,27612,"web+records: NC Bankers directory has Mark and firm at exact home address",29250.0
+c0fc224db8e8,09969c5f4ffc,"OVES, LYNN","OVES, LYNNOVES",ATLANTA,30342,"web+records: Georgia business listing has Lynn Oves at exact address",8000.0
+c9faa2001b4c,3b96f00db29c,"BORENSTEIN, JONATHAN","BORENSTEIN, JON",FRANKLIN,48025,"web+records: official Honigman profile; exact address employer and occupation",4000.0
+b3c435c323c2,107eba211202,"LUTTWAK, JONATHAN","LUTTWAK, JON",DENVER,80220,"web+records: DHC founder in Denver; exact address employer and occupation",4000.0
+26b8f1ce8356,d96bceb64b7f,"WEINBACH, JON","WEINBACH, JONATHAN",LOS ANGELES,90024,"web+records: official Skydance bio uses Jon; exact address employer and title",1500.0
+0ce7a6372172,d4a6ca648507,"KARP, ROBERT","KARP, ROBERTRKARP",TAMPA,33613,"web+records: Florida medical license has Robert Karp at exact address",1150.0
+052a07e41976,e40abda7ea2c,"CHENEY, DAVID","CHENEY, D AVID",DOBBS FERRY,10522,"records: obvious spacing error; exact address employer occupation and same-date duplicate filings",700.0
+586cb6017f3f,a868abe960dd,"BERNSTEIN, ALISON","BERNSTEIN, ALI",NEW YORK,10022,"web+records: Alison bought unit 27; same building unit and donor details",8000.0
+4feb085aa406,5a6eac960304,"WOLF, AVROHOM","WOLF, AVI",ATLANTA,30342,"official city record: Avrohom Wolf applicant and Avi Wolf contact for the same project",5500.0
+4feb085aa406,6632401f1d20,"WOLF, AVROHOM","WOLF, A",ATLANTA,30342,"official city and state records: exact address occupation and related B Wolf/Balfour companies",7000.0
+1fb28d003191,1d9151de7889,"STERN, LYA","STERN, L",BETHESDA,20817,"web+records: exact address; public music-teacher record confirms Lya Stern",900.0
+ea00c7fab42d,0a2db6af1eb5,"FRIEDMAN, ELLIOT","FRIEDMAN, EL",JACKSONVILLE,32223,"web+records: same Mandarin Road donor; external filing confirms Elliot at full address",400.0
+01bcc8d23498,19df447affc6,"WINIGRAD, JACOB","WINIGRAD, JACOB",GREEN COVE SPRINGS,32043,"official records: Ventnor filing connects the Florida address to JSW Development and Philadelphia",5200.0
+03e717894399,509610f4f417,"KRASNOW, DEBORAH","KRASNOW, DEBORAH",NORTH PALM BEACH,33408,"foundation records: same family foundation moved from Cambridge to North Palm Beach",34600.0
+2141298ca3c2,5bdb36cf0d01,"ENGLANOFF, GILAT","ENGLANOFF, GILAT",HENDERSON,89074,"web: physician and family records document the California-to-Nevada move",15500.0
+294ddde7a89a,0231b9e76987,"HOREN, JEFF","HOREN, JEFF",OVERLAND PARK,66209,"professional record: one Card Compliant executive connected to Kansas and Atlanta",1670.0
+2ad753c59978,0ecaab08aaa4,"SYLVETSKY, BARRY","SYLVETSKY, BARRY",BOCA RATON,33496,"biography: Boston resident with documented seasonal move to South Florida",45500.0
+2d92e87f9ad8,fe5287af348c,"BINDLER, RICHARD","BINDLER, RICHARD",DELRAY BEACH,33483,"business and FINRA records connect the Florida home to the Chicago career",11550.0
+371ad023989e,6ff28195dcc0,"ZOLLER, ERIC","ZOLLER, ERIC",LIVINGSTON,07039,"professional history: Sixpoint Harris Williams and Taproot are one continuous career",22286.0
+3d66aa385c77,ee50f7a530d6,"BERG, AUSTIN","BERG, AUSTIN",OWINGS MILLS,21117,"official biography connects Berg Corp and Greenspring Realty across Maryland and DC",22650.0
+3eb6ae4c45dc,db832980068e,"LEVEN, MICHAEL","LEVEN, MICHAEL",BOCA RATON,33496,"biography and address history document the Atlanta-to-Florida retirement move",181250.0
+5af976737d66,6e98dc82a4f3,"NIR, PHOEBE","NIR, PHOEBE",SAN FRANCISCO,94118,"film biographies connect the same filmmaker to California and New York",4000.0
+5ff862908be6,e951634787da,"HELZBERG, BARNETT C","HELZBERG, BARNETT C.",KANSAS CITY,64111,"official board roster connects the Kansas home and Kansas City business",15000.0
+6b735974e3c5,b4c6e20ff5d7,"BODZY, LESLEY","BODZY, LESLEY",HOUSTON,77004,"official artist biography states the same lawyer-artist is based in Houston and New York",51050.0
+796e82cc9a43,145fe5868177,"ADVOCATE, AIDAN","ADVOCATE, AIDAN",TENAFLY,07670,"professional record connects the Tenafly home to the New York employment career",1000.0
+7dc99253c31e,51b3a7c4fe36,"ROYAL, RUSSIN","ROYAL, RUSSIN",DALLAS,75230,"professional profile explicitly connects the same consultant to Dallas and Chicago",14300.0
+804f33e7e230,d593ace3196c,"KREMEN, RICHARD","KREMEN, RICHARD",WEST PALM BEACH,33412,"property and legal records connect the Florida home to the Maryland attorney",13000.0
+820e36b0c221,24c16f163603,"HACKNER, MARK","HACKNER, MARK",ATLANTA,30327,"state company records identify the same officer and agent in Georgia and California",1500.0
+84d3ee8938f7,ad3d79f04c26,"GOTTESMAN, MARGERY ARCHIE","GOTTESMAN, MARGERY",NEW YORK,10014,"biographical records confirm Archie is Margery Gottesman's documented public name",112600.0
+8ebb201c5c65,90b03d596454,"SWIRNOW, DAVID","SWIRNOW, DAVID",BALTIMORE,21211,"Florida corporate filing directly links the Florida residence and Baltimore mailing address",34400.0
+9aadfe4a4749,bcc63d453db7,"GRANADER, ROBERT","GRANADER, ROBERT",MIAMI,33109,"professional record lists the same attorney with Maryland and Fisher Island offices",35800.0
+a2bdaa2ce103,ab78e935a7b1,"KREMEN, GLADYS","KREMEN, GLADYS",WEST PALM BEACH,33412,"joint property records connect Gladys and Richard Kremen across Florida and Maryland",3000.0
+aac51a456dae,7ff8c8d886cd,"PRAY, DAWN","PRAY, DAWN",CHATTANOOGA,37403,"Florida company record and employer records connect the same chiropractic executive",5050.0
+ae01c1b16e88,bd983ebe312d,"HERBER, JACOB","HERBER, JACOB",NORFOLK,23507,"official rabbinical biography documents the Virginia and Washington career",611.0
+c0bce41505b6,d9dfe24e3be0,"NAGROTSKY, JONAH","NAGROTSKY, JONAH",BRONX,10463,"professional history connects the same legal and policy career in New York and Washington",3560.0
+c0dbc0c9645e,1586091803bf,"WEINBERG, DEBBI","WEINBERG, DEBBI",OWINGS MILLS,21117,"organization and ownership records connect the Maryland volunteer and Texas filing",35000.0
+c2ab351b01ec,80bffc0c8372,"GRODOFSKY, ETHAN","GRODOFSKY, ETHAN",MOUNTAIN LAKES,07046,"company and property records directly connect the New Jersey and Florida addresses",2000.0
+c59cdecc2b69,defd897361b6,"GERSHON, STUART","GERSHON, STUART",COLLEGEVILLE,19426,"official rabbinical biography and membership records connect Pennsylvania and Charlotte",4868.0
+c6faf81d0baa,d9d9b63eb902,"SCHUCKIT, ROBERT","SCHUCKIT, ROBERT",CHICAGO,60611,"professional biography connects the same attorney to Illinois and Indiana",20200.0
+cb60926dcd7b,4125f7e26bdd,"RYAN, ARI","RYAN, ARI",CHICAGO,60611,"official board biography documents the same investor's California and Chicago properties",83949.98
+d3829b64ded7,8ee365bffa21,"ROSMAN, JUDITH","ROSMAN, JUDITH",TAMPA,33602,"professional profile explicitly connects Cerinfuse in Tampa and RosmanSearch in Ohio",49018.0
+d7a5b67e1deb,e3dd68f50bb0,"AZMAN, IRWIN","AZMAN, IRWIN",BALTIMORE,21208,"official medical record and Florida property record identify the same optometrist",1500.0
+e42a437b0ece,103b063f449d,"SINGER-BAEFSKY, BETHANY","SINGER-BAEFSKY, BETHANY",CAMBRIDGE,02140,"privacy-career records connect the same officer at National Grid and iRobot",7500.0
+eaeeb5e1fb38,423ddc0d42da,"EPSTEIN, YOEL","EPSTEIN, YOEL",PASSAIC,07055,"professional profile documents one psychologist's New York and New Jersey history",27.0
+ec12c440cc79,6b4a4193a9da,"SEIGLE, HARRY","SEIGLE, HARRY",CHICAGO,60611,"family obituary documents the Illinois business owner wintering in Florida",147500.0
+ec7da1f3c877,a1f3e23322c7,"LANDZBERG, ALAN","LANDZBERG, ALAN",SHERMAN,06784,"law-firm and local records connect the retired New York attorney to Sherman Connecticut",1100.0
+ed1ee90ad7f0,1e67e323ba80,"FRIEDSTEIN, SHELDON","FRIEDSTEIN, SHELDON",ASPEN,81611,"property and donor records identify Sheldon and Golda Friedstein in Arizona and Aspen",4750.0
+f92130c2b9e1,31b69ddc2a27,"FRANKLIN, W RANDOLPH","FRANKLIN, W. RANDOLPH",HENDERSON,89014,"official RPI profile identifies W Randolph Franklin at the Henderson address",15300.0
+fe9b5829d2c7,d8cc64ca5e11,"SPIVAK, MICHAEL","SPIVAK, MICHAEL",WEST PALM BEACH,33412,"Florida medical license links the exact Florida home to the New Jersey physician",8025.0
+446c11b64485,f52a12d010f9,"KRAMER, GERYL","KRAMER, GERYL",CHICAGO,60610,"property and public records connect the Chicago business owner to the West Palm Beach condo",225.0
+71dc1d02f6b4,3f3e33196dfd,"ABRAHAMS, MARSHALL","ABRAHAMS, MARSHALL",DENVER,80231,"address history lists both the Denver and Paradise Valley residences for Marshall Alan Abrahams",6500.0
+837d3434334c,5e880f210501,"WHITEMAN, ALFRED","WHITEMAN, ALFRED",OWINGS MILLS,21117,"address history lists both the Owings Mills and West Palm Beach residences for Alfred L Whiteman",25500.0
+8e5209de3db9,2311e1663c75,"WEISER, HOWARD","WEISER, HOWARD",WEST ORANGE,07052,"foundation records and the identical rare charity-board-member occupation connect the New Jersey and New York filings",3450.0
+a65d2485329b,f873ed46e04c,"POTOK, NANCY","POTOK, NANCY",BELTSVILLE,20705,"state company and professional records connect Nancy Potok and NAPx Consulting to the Ithaca address",225.0
+b234df75de43,11bd73c82535,"HERTOG, ROGER","HERTOG, ROGER",WEST PALM BEACH,33401,"property reporting connects Roger Hertog's Bristol condo to his New York residence",476000.0
+bb18ac5fe7bd,354734da1ea4,"KLEIN, BATYA","KLEIN, BATYA",ENGLEWOOD,07631,"business and property records connect the same interior designer to Englewood and Pompano Beach",72291.0
+bc7cc219dc39,e9039b783c94,"PERELMAN, LEONID","PERELMAN, LEONID",SARATOGA,95070,"Leonid Perelman states that he relocated from Saratoga to Franklin Tennessee",1000.0
+d47d769b4079,8e76d569f049,"GENIRBERG, RICHARD","GENIRBERG, RICHARD",STATELINE,89449,"address history lists both Stateline and El Cerrito for the same attorney",129900.0
+f2c31e930e0e,236df7f06bd6,"IRIS, KERRY","IRIS, KERRY",PALM BEACH GARDENS,33418,"biography and property records connect the commercial-real-estate professional's Maryland and Florida homes",14000.0
+fc22aeaba617,a676da8aabcf,"BOUCAI, SOLOMON","BOUCAI, SOLOMON",WEST PALM BEACH,33401,"property reporting identifies the Boston business owner buying at 1100 South Flagler",31700.0
+fd3fbf222d3d,fa6bde119d89,"BERNEY, JEFFREY","BERNEY, JEFFREY",WEST PALM BEACH,33412,"address and property records connect 12 Whitebridge Court to 7957 Via Villagio",9500.0
+fd3fbf222d3d,8e6f3fc76b3d,"BERNEY, JEFFREY","BERNEY, JEFFERY",WEST PALM BEACH,33412,"address and property records confirm Jeffery is the same Jeffrey Alan Berney",9500.0
+fd3fbf222d3d,341df1c66a5f,"BERNEY, JEFFREY","BERNEY, JEFFERY",PIKESVILLE,21208,"address and property records confirm Jeffery is the same Jeffrey Alan Berney",9500.0
+64c0d1537a30,a05633ed605f,"KIRSCH, ERIC","KIRSCH, ERIC",BOCA RATON,33496,"official FEC history identifies the Holmdel donor as AFLAC investments; Aflac records document the Boca retirement address",3500.0

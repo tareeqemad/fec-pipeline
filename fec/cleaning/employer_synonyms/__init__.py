@@ -9,6 +9,7 @@ from fec.cleaning.employer_synonyms.apply import (
     apply_employer_synonyms,
     expand_employer_abbreviations,
     expand_employer_associates,
+    finalize_employer_names,
     fix_occupation_as_employer,
     fix_normalized_mid_suffix,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "apply_employer_synonyms",
     "expand_employer_abbreviations",
     "expand_employer_associates",
+    "finalize_employer_names",
     "fix_occupation_as_employer",
     "fix_normalized_mid_suffix",
     "canonical_key",

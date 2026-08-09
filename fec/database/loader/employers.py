@@ -1,4 +1,4 @@
-"""Employers table: load, employer-name resolution, previous-employer linking, donor_employments."""
+"""Load employers and donor employments."""
 from __future__ import annotations
 
 import time
@@ -11,46 +11,130 @@ try:
 except ImportError:
     raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
-from fec.cleaning.employer_synonyms import EMPLOYER_SYNONYMS, canonical_key
+from fec.config.constants import NOT_REAL_EMPLOYER
+from fec.cleaning.previous_employer import current_employer_name, is_real_employer
 from fec.log import get_logger
+from fec.resolve.pipeline.locations import select_location
 
-from ._base import NON_EMPLOYER_STATUSES, _count, to_native
-from .addresses import load_employer_branches, _akey
+from ._base import _count, to_native
+from .addresses import load_employer_locations, _akey
 
 logger = get_logger(__name__)
 
 
-def _build_ck_index(emp_name_to_id: dict) -> dict[str, int]:
-    """canonical_key(name) -> employer_id, first name wins per key; the ONE builder for every ck index in the loader."""
-    index: dict[str, int] = {}
-    for name, employer_id in emp_name_to_id.items():
-        key = canonical_key(name)
-        if key and key not in index:
-            index[key] = employer_id
-    return index
+def _location_index(
+    employer_locations: list[dict] | None = None,
+) -> dict[str, dict]:
+    """Index known locations by exact employer name."""
+    grouped: dict[str, list[dict]] = {}
+    locations = employer_locations
+    if locations is None:
+        locations = load_employer_locations()
+    for location in locations:
+        grouped.setdefault(location["employer_name"], []).append(location)
+
+    lookup = {}
+    for name, locations in grouped.items():
+        primary = next(
+            (location for location in locations if location["is_primary"]),
+            None,
+        )
+        entry = {**(primary or {}), "locations": [
+            location for location in locations if location is not primary
+        ]}
+        lookup[name] = entry
+    return lookup
+
+
+def _employment_address_id(
+    row,
+    employer_name,
+    locations: dict,
+    address_ids: dict,
+):
+    """Choose the address attached to one employment."""
+    status = str(to_native(row.get("employer_status")) or "")
+
+    if status == "not_employed":
+        return None
+
+    if status == "self_employed":
+        address = _akey(
+            row.get("contributor_street_1"),
+            row.get("contributor_street_2"),
+            row.get("contributor_city"),
+            row.get("contributor_state"),
+            row.get("contributor_zip"),
+        )
+        if not any(address):
+            return None
+        address_id = address_ids.get(address)
+        if address_id is None:
+            raise RuntimeError(
+                "self-employed address was not loaded: "
+                f"donor_key={row.get('donor_key')}"
+            )
+        return address_id
+
+    name = str(to_native(employer_name) or "").strip()
+    if not name or not locations:
+        return None
+
+    entry = locations.get(name)
+    location = select_location(
+        entry,
+        str(to_native(row.get("contributor_zip")) or ""),
+        str(to_native(row.get("contributor_state")) or ""),
+    )
+    if not location:
+        return None
+
+    address = _akey(
+        location["employer_address"],
+        None,
+        location["employer_city"],
+        location["employer_state"],
+        location["employer_zip"],
+    )
+    address_id = address_ids.get(address)
+    if address_id is None:
+        raise RuntimeError(f"employer address was not loaded: {name!r}")
+    return address_id
+
+
+def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
+    """Keep the latest complete filing."""
+    keys = [
+        "donor_key",
+        "contributor_employer",
+        "contributor_occupation",
+    ]
+    return (
+        individuals.sort_values(
+            "contribution_receipt_date",
+            ascending=False,
+        )
+        .drop_duplicates(keys, keep="first")
+    )
+
+
+def _previous_employer_id(status, donor_key, employer_ids):
+    """Previous companies belong to retired rows."""
+    if status != "retired":
+        return None
+    return employer_ids.get(donor_key)
 
 
 def _make_employer_resolver(emp_name_to_id: dict):
-    """Build _get_employer_id over the COMPLETE employer map; call after link_previous_employers (the ck index is never refreshed -- safe because no later step inserts employers)."""
-    ck_index = _build_ck_index(emp_name_to_id)
+    """Map a cleaned employer name exactly."""
 
     def _get_employer_id(emp_name):
-        """Employer id by name (exact -> synonym -> canonical_key); None for status words."""
         if pd.isna(emp_name):
             return None
         emp = str(emp_name).strip()
-        if emp.upper() in NON_EMPLOYER_STATUSES:
+        if emp.upper() in NOT_REAL_EMPLOYER:
             return None
-        employer_id = emp_name_to_id.get(emp) or emp_name_to_id.get(emp.upper())
-        if employer_id:
-            return employer_id
-        synonym = EMPLOYER_SYNONYMS.get(emp.upper())
-        if synonym:
-            employer_id = emp_name_to_id.get(synonym) or emp_name_to_id.get(synonym.upper())
-            if employer_id:
-                return employer_id
-        key = canonical_key(synonym or emp)
-        return ck_index.get(key) if key else None
+        return emp_name_to_id.get(emp)
 
     return _get_employer_id
 
@@ -61,11 +145,13 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     start = time.time()
 
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
-    # contributor_employer arrives already normalized by the cleaning pipeline.
-    emp_series = individuals['contributor_employer'].dropna()
-    emp_unique = emp_series[~emp_series.isin(NON_EMPLOYER_STATUSES)].unique()
-
-    employer_rows = [(name,) for name in emp_unique]
+    employers = {
+        current_employer_name(status, employer)
+        for status, employer in individuals[[
+            'employer_status', 'contributor_employer',
+        ]].itertuples(index=False)
+    }
+    employer_rows = [(name,) for name in sorted(employers - {""})]
 
     execute_values(cur,
         "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
@@ -80,37 +166,28 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
 
 def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
                             emp_name_to_id: dict) -> dict[str, int]:
-    """Step 3: insert previous_employer companies missing from employers; grows emp_name_to_id IN PLACE (must run before _make_employer_resolver); returns donor_key -> previous employer_id."""
+    """Step 3: link exact previous-employer names."""
     logger.info("\n-- 3/8 Linking previous employers --")
 
     donor_prev_employer_id: dict[str, int] = {}
     if 'previous_employer' not in df.columns:
         return donor_prev_employer_id
-    prev_emp = df[df['previous_employer'].notna()]
+    prev_emp = df[
+        df['previous_employer'].notna()
+        & df['employer_status'].eq('retired')
+    ]
     if len(prev_emp) == 0:
         return donor_prev_employer_id
 
     prev_latest = (prev_emp.sort_values('contribution_receipt_date', ascending=False)
                    .drop_duplicates('donor_key', keep='first'))
 
-    # Route via canonical_key so "KIRKLAND & ELLIS" reuses the existing
-    # "KIRKLAND & ELLIS LLP" row instead of becoming a second employer.
-    ck_to_emp_id = _build_ck_index(emp_name_to_id)
-
     prev_names = set()
     for name in prev_latest['previous_employer']:
         employer_name = str(name).strip()
-        if not employer_name:
+        if not is_real_employer(employer_name):
             continue
-        # Synonym dict first (WHATSAPP -> WHATSAPP LLC, etc.)
-        upper_name = employer_name.upper()
-        employer_name = EMPLOYER_SYNONYMS.get(upper_name, employer_name)
-        if employer_name.upper() in NON_EMPLOYER_STATUSES:
-            continue
-        key = canonical_key(employer_name)
-        if key and key in ck_to_emp_id:
-            continue
-        if employer_name not in emp_name_to_id and employer_name.upper() not in emp_name_to_id:
+        if employer_name not in emp_name_to_id:
             prev_names.add(employer_name)
     if prev_names:
         execute_values(cur,
@@ -120,16 +197,11 @@ def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
         cur.execute("SELECT employer_id, name FROM employers")
         emp_name_to_id.clear()
         emp_name_to_id.update({row[1]: row[0] for row in cur.fetchall()})
-        # Refresh the ck index after the inserts
-        ck_to_emp_id = _build_ck_index(emp_name_to_id)
 
     for _, row in prev_latest.iterrows():
         donor_key = row['donor_key']
-        raw = str(row['previous_employer']).strip()
-        normalized = EMPLOYER_SYNONYMS.get(raw.upper(), raw)
-        emp_id = (emp_name_to_id.get(normalized)
-                  or emp_name_to_id.get(normalized.upper())
-                  or ck_to_emp_id.get(canonical_key(normalized)))
+        employer_name = str(row['previous_employer']).strip()
+        emp_id = emp_name_to_id.get(employer_name)
         if donor_key and emp_id:
             donor_prev_employer_id[donor_key] = emp_id
     if donor_prev_employer_id:
@@ -139,7 +211,8 @@ def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
 
 def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                      occ_cat_map: dict, donor_prev_employer_id: dict,
-                     get_employer_id, addr_dim_id: dict | None = None) -> dict:
+                     get_employer_id, addr_dim_id: dict | None = None,
+                     employer_locations: list[dict] | None = None) -> dict:
     """Step 6: donor_employments rows; returns (donor_id, employer_id, occupation) -> donor_employment_id."""
     logger.info("\n-- 6/8 Loading donor employments --")
     start = time.time()
@@ -148,26 +221,11 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
     empl_rows = []
     seen_empl = set()
 
-    # The donor's state picks their branch office; addr_dim_id turns that branch
-    # into the shared addresses row. Both absent -> every address_id is NULL and
-    # the views fall back to the company HQ.
-    branches = load_employer_branches() if addr_dim_id else {}
-
-    # Grouping by (donor, employer, occupation) preserves career progression --
-    # it is the schema's UNIQUE key; date ranges come from contributions later.
-    agg_specs = {
-        'occupation_category': ('occupation_category', 'first'),
-        'contributor_state': ('contributor_state', 'first'),
-    }
-    if 'employer_status' in individuals.columns:
-        agg_specs['employer_status'] = ('employer_status', 'first')
-
-    empl_agg = (
-        individuals.groupby(['donor_key', 'contributor_employer', 'contributor_occupation'],
-                            dropna=False)
-        .agg(**agg_specs)
-        .reset_index()
+    locations = (
+        _location_index(employer_locations)
+        if addr_dim_id else {}
     )
+    empl_agg = _latest_employment_rows(individuals)
 
     for _, row in empl_agg.iterrows():
         donor_key = row['donor_key']
@@ -178,7 +236,17 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
         if not donor_id:
             continue
 
-        emp_id = get_employer_id(emp_val)
+        emp_status = to_native(row.get('employer_status'))
+        employer_name = current_employer_name(emp_status, emp_val)
+        if emp_status == 'active' and not employer_name:
+            raise RuntimeError(
+                f"active employment has no employer: donor_key={donor_key}"
+            )
+        emp_id = get_employer_id(employer_name)
+        if employer_name and emp_id is None:
+            raise RuntimeError(
+                f"cleaned employer has no exact database match: {employer_name!r}"
+            )
 
         dedup_key = (donor_id, emp_id, occ or '')
         if dedup_key in seen_empl:
@@ -188,20 +256,29 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
         occ_cat = to_native(row.get('occupation_category'))
         occ_cat_id = occ_cat_map.get(occ_cat)
 
-        emp_status = to_native(row.get('employer_status')) if 'employer_status' in row.index else None
-        prev_emp_id = donor_prev_employer_id.get(donor_key)
+        prev_emp_id = _previous_employer_id(
+            emp_status,
+            donor_key,
+            donor_prev_employer_id,
+        )
 
-        branch_address_id = None
-        if branches:
-            donor_state = str(to_native(row.get('contributor_state')) or '').upper()
-            branch = branches.get((to_native(emp_val), donor_state))
-            if branch:
-                branch_address_id = addr_dim_id.get(_akey(
-                    branch['address'], None, branch['city'], branch['state'], branch['zip']))
+        if emp_id:
+            location_employer = employer_name
+        elif emp_status == 'retired':
+            location_employer = row.get('previous_employer')
+        else:
+            location_employer = None
+
+        location_address_id = _employment_address_id(
+            row,
+            location_employer,
+            locations,
+            addr_dim_id or {},
+        )
 
         empl_rows.append((
             donor_id, emp_id, occ, occ_cat_id,
-            emp_status, prev_emp_id, branch_address_id,
+            emp_status, prev_emp_id, location_address_id,
         ))
 
     execute_values(cur,
@@ -212,8 +289,7 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
         empl_rows, page_size=5000)
     conn.commit()
 
-    # Keyed by (donor_id, employer_id, occupation): career progression means
-    # several occupations per donor+employer.
+    # Build employment lookup.
     cur.execute("SELECT donor_employment_id, donor_id, employer_id, occupation FROM donor_employments")
     empl_donor_emp_to_id = {}
     for row in cur.fetchall():

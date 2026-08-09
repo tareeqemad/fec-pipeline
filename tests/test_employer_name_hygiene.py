@@ -1,6 +1,11 @@
 """Employer-name hygiene: legal-suffix restyle, canonical key, display name."""
+import pandas as pd
+
 from fec.cleaning.employer_synonyms import (
-    restyle_legal_suffix, canonical_key, normalize_employer_display_name,
+    canonical_key,
+    finalize_employer_names,
+    normalize_employer_display_name,
+    restyle_legal_suffix,
 )
 
 
@@ -41,6 +46,32 @@ def test_canonical_key_incorporated_and_tokens():
     assert canonical_key('MT SINAI HOSPITAL') == canonical_key('MOUNT SINAI HOSPITAL')
     # ASSOC deliberately NOT folded (ASSOCIATES vs ASSOCIATION is contextual)
     assert canonical_key('RADIOLOGY ASSOC') != canonical_key('RADIOLOGY ASSOCIATES')
+
+
+def test_final_employer_pass_collapses_late_variants():
+    df = pd.DataFrame({
+        "entity_type": ["INDIVIDUAL", "INDIVIDUAL"],
+        "contributor_employer": ["ACME MGMT LLC", "ACME MANAGEMENT"],
+        "previous_employer": ["", ""],
+    })
+
+    finalize_employer_names(df)
+
+    assert df["contributor_employer"].nunique() == 1
+    assert df["contributor_employer"].iloc[0] == "ACME MANAGEMENT LLC"
+
+
+def test_current_employer_spelling_wins_over_previous_history():
+    df = pd.DataFrame({
+        "entity_type": ["INDIVIDUAL"] * 3,
+        "contributor_employer": ["ACME LLC", "", ""],
+        "previous_employer": ["", "ACME", "ACME"],
+    })
+
+    finalize_employer_names(df)
+
+    assert df["contributor_employer"].iloc[0] == "ACME LLC"
+    assert set(df.loc[1:, "previous_employer"]) == {"ACME LLC"}
 
 
 def test_display_name_trailing_connectors_and_co():

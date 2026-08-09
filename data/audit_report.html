@@ -1,9 +1,9 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Audit Report</title><style>body{font-family:system-ui,sans-serif;background:#f8f9fa;padding:1rem 2rem;color:#212529}h1{font-size:1.5rem}.meta{color:#6c757d;margin-bottom:1.5rem}.summary,.record{background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem}.record h2{font-size:1rem;margin:0 0 .5rem;color:#495057}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid #dee2e6}th{background:#f8f9fa;font-weight:600}.before{background:#fff5f5}.after{background:#f0fff0}.reason{font-size:.85rem;color:#6c757d}.evidence{font-size:.8rem;color:#0d6efd}</style></head><body>
 <h1>Audit Report — Record Changes</h1>
 <div class="meta">Each record shows before &rarr; after with the reason.</div>
-<div class="summary"><p><strong>Total changes:</strong> 101126</p>
-<p><strong>Records affected:</strong> 90904</p>
-<p><strong>By step:</strong> clean_streets: 62, enh_clean_junk: 329, enh_employer_synonyms: 6651, enh_employer_synonyms_final: 5145, enh_fix_apostrophes: 27, enh_fix_credential_in_name: 4, enh_fix_emp_eq_occ: 83, enh_fix_fullname_both: 39, enh_fix_norm_mid_suffix: 54, enh_fix_occ_as_employer: 23, enh_name_corrections: 10, enh_normalize_business_names: 5756, enh_normalize_name_periods: 1195, enh_normalize_occupation: 351, enh_swap_occ_emp: 430, garbled_name_fix: 124, reclassify: 80843</p></div>
+<div class="summary"><p><strong>Total changes:</strong> 101069</p>
+<p><strong>Records affected:</strong> 90908</p>
+<p><strong>By step:</strong> clean_streets: 62, enh_clean_junk: 221, enh_employer_synonyms: 6655, enh_employer_synonyms_final: 5143, enh_fix_apostrophes: 27, enh_fix_credential_in_name: 4, enh_fix_emp_eq_occ: 125, enh_fix_fullname_both: 39, enh_fix_norm_mid_suffix: 54, enh_fix_occ_as_employer: 13, enh_name_corrections: 30, enh_normalize_business_names: 5756, enh_normalize_name_periods: 1195, enh_normalize_occupation: 352, enh_swap_occ_emp: 426, garbled_name_fix: 124, reclassify: 80843</p></div>
 <div class="record"><h2>Record: 4012120261303040603 (row 9)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">PREMIER REALTY MICHIGAN, LLC</td><td class="after">PREMIER REALTY MICHIGAN LLC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
@@ -7677,6 +7677,7 @@
 <div class="record"><h2>Record: 4012120261303038185 (row 5119)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">WEINBACH, JONATHAN</td><td class="after">WEINBACH, JON</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4012120261303038184 (row 5120)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -8522,16 +8523,10 @@
 <div class="record"><h2>Record: 4011620261302588355 (row 5701)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PHYSICIAN</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PHYSICIAN</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302588354 (row 5702)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PHYSICIAN</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PHYSICIAN</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302588353 (row 5703)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -16332,9 +16327,6 @@
 <div class="record"><h2>Record: 4011620261302586109 (row 9812)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302586108 (row 9813)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -19190,6 +19182,7 @@
 <div class="record"><h2>Record: 4011620261302591986 (row 11264)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">WEINBACH, JONATHAN</td><td class="after">WEINBACH, JON</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011620261302591985 (row 11265)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -32276,6 +32269,9 @@
 <div class="record"><h2>Record: 4092420251292199063 (row 17148)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">JB CONSULTING STRATEGIES</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">CONSULTING</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092420251292199062 (row 17149)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -37932,6 +37928,9 @@
 <div class="record"><h2>Record: 4092420251292197817 (row 19314)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">JB CONSULTING STRATEGIES</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">CONSULTING</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092420251292197816 (row 19315)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -38168,6 +38167,9 @@
 <div class="record"><h2>Record: 4092420251292197758 (row 19373)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">JB CONSULTING STRATEGIES</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">CONSULTING</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092420251292197757 (row 19374)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -45901,6 +45903,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4010320231645639081 (row 23595)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">KARP, ROBERTRKARP</td><td class="after">KARP, ROBERT</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4042820231745858175 (row 23597)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -49506,7 +49512,9 @@
 <div class="record"><h2>Record: 4042820231745858499 (row 25661)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">PROFESSOR</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
+<tr><td>contributor_occupation</td><td class="before">UCLA</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042820231745858165 (row 25662)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -49755,6 +49763,7 @@
 <div class="record"><h2>Record: 4102420231807054824 (row 25790)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">OVES, LYNNOVES</td><td class="after">OVES, LYNN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953439996 (row 25794)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -63824,9 +63833,6 @@
 <div class="record"><h2>Record: 4082520251233303331 (row 33627)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122320221644864034 (row 33628)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -66721,6 +66727,7 @@
 <div class="record"><h2>Record: 4062320251206917659 (row 35315)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_employer</td><td class="before">GIBSON, DUNN AND CRUTCHER</td><td class="after">GIBSON DUNN AND CRUTCHER</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4042820231745857957 (row 35316)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -72977,6 +72984,9 @@
 <div class="record"><h2>Record: 4092520231802906489 (row 38810)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">BAKER TILLY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014754345 (row 38812)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -84245,7 +84255,6 @@
 <div class="record"><h2>Record: 4092320242041365175 (row 44972)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">CONSULTANT</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4123020221645491068 (row 44974)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -93494,6 +93503,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4110120231808001325 (row 50005)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">OVES, LYNNOVES</td><td class="after">OVES, LYNN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4052120241949846734 (row 50006)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">LAWLER FOR CONGRESS, INC.</td><td class="after">LAWLER FOR CONGRESS</td><td class="reason">enh_normalize_business_names: strip_legal_suffix</td></tr>
@@ -95650,6 +95663,9 @@
 <div class="record"><h2>Record: 4010420231645702431 (row 51154)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">CROOKED MONKEY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978936536 (row 51156)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -96099,9 +96115,6 @@
 <div class="record"><h2>Record: 4092320242041365029 (row 51393)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DIRECTOR</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DIRECTOR</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">EXECUTIVE / C-SUITE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953434067 (row 51396)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -102487,9 +102500,6 @@
 <div class="record"><h2>Record: 4072120251209628273 (row 55025)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">ATTORNEY</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">LEGAL</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645225745 (row 55026)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -104049,9 +104059,6 @@
 <div class="record"><h2>Record: 4112020241071381430 (row 55903)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698184532 (row 55904)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -107964,6 +107971,7 @@
 <div class="record"><h2>Record: 4102420231807054820 (row 58100)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">OVES, LYNNOVES</td><td class="after">OVES, LYNN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209628285 (row 58101)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -113008,6 +113016,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4123020221645490329 (row 60955)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">KARP, ROBERTRKARP</td><td class="after">KARP, ROBERT</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4112220231811443664 (row 60958)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -114590,6 +114602,9 @@
 <div class="record"><h2>Record: 4122320221644863807 (row 61798)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">CROOKED MONKEY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813094480 (row 61803)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -116388,9 +116403,6 @@
 <div class="record"><h2>Record: 4060420241953435507 (row 62770)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">ATTORNEY</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">LEGAL</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807010092 (row 62771)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -121383,6 +121395,7 @@
 <div class="record"><h2>Record: 4082120231799935771 (row 65533)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">OVES, LYNNOVES</td><td class="after">OVES, LYNN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953435530 (row 65534)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -121935,9 +121948,6 @@
 <div class="record"><h2>Record: 4062320251206918866 (row 65843)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645235490 (row 65845)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -128200,7 +128210,6 @@
 <div class="record"><h2>Record: 4092320242041365177 (row 69390)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">CONSULTANT</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206918390 (row 69392)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -129726,6 +129735,7 @@
 <div class="record"><h2>Record: 4052120241949843032 (row 70305)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">OVES, LYNNOVES</td><td class="after">OVES, LYNN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122920221645233380 (row 70307)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -138171,6 +138181,9 @@
 <div class="record"><h2>Record: 4010320231645638767 (row 75047)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">CROOKED MONKEY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215491495 (row 75049)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -151453,7 +151466,6 @@
 <div class="record"><h2>Record: 4092320242041365176 (row 82487)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">CONSULTANT</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4032120231736710623 (row 82490)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -152364,9 +152376,6 @@
 <div class="record"><h2>Record: 4050520251188622077 (row 83042)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">ATTORNEY</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">LEGAL</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041367152 (row 83048)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -153977,9 +153986,6 @@
 <div class="record"><h2>Record: 4082220242014750838 (row 83958)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4123020221645490475 (row 83959)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -160503,12 +160509,6 @@
 <div class="record"><h2>Record: 4072420241978931465 (row 87616)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
-</tbody></table></div>
-<div class="record"><h2>Record: 4072420241978923742 (row 87619)</h2>
-<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PSYCHOLOGIST</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PSYCHOLOGIST</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010420231645703323 (row 87621)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -172658,6 +172658,7 @@
 <div class="record"><h2>Record: 4082120231799935762 (row 94542)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">GOLDHABER, MARKTHE WALL TILE</td><td class="after">GOLDHABER, MARK</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953437503 (row 94546)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -174495,12 +174496,6 @@
 <div class="record"><h2>Record: 4062420241962023954 (row 95615)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-</tbody></table></div>
-<div class="record"><h2>Record: 4072420241978924571 (row 95616)</h2>
-<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PSYCHOLOGIST</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PSYCHOLOGIST</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030120241877881317 (row 95618)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -176708,6 +176703,10 @@
 <div class="record"><h2>Record: 4032520241885655905 (row 96805)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4072420241978923450 (row 96808)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">CHENEY, D AVID</td><td class="after">CHENEY, DAVID</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052520221493485181 (row 96810)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -199356,9 +199355,6 @@
 <div class="record"><h2>Record: 4050520251188621739 (row 109594)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">ATTORNEY</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">LEGAL</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4123020221645490599 (row 109597)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -202385,12 +202381,6 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 <tr><td>contributor_occupation</td><td class="before">REAL ESTATE DRVELOPER</td><td class="after">REAL ESTATE DEVELOPER</td><td class="reason">enh_normalize_occupation: canonical_variant</td></tr>
-</tbody></table></div>
-<div class="record"><h2>Record: 4072420241978926872 (row 111293)</h2>
-<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PSYCHOLOGIST</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PSYCHOLOGIST</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030120241877880485 (row 111295)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -209485,9 +209475,6 @@
 <div class="record"><h2>Record: 4082520251233303332 (row 115230)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010320231645639326 (row 115232)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -210932,6 +210919,9 @@
 <div class="record"><h2>Record: 4122920221645235642 (row 115971)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">CROOKED MONKEY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080620251215492599 (row 115972)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -212012,9 +212002,6 @@
 <div class="record"><h2>Record: 4112220231811442154 (row 116539)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">CEO</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
-<tr><td>occupation_category</td><td class="before">EXECUTIVE / C-SUITE</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
-<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4122120231813093666 (row 116541)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -220689,6 +220676,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4072420241978923452 (row 121313)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">CHENEY, D AVID</td><td class="after">CHENEY, DAVID</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4080620251215492279 (row 121315)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -227659,6 +227650,9 @@
 <div class="record"><h2>Record: 4102420231807009925 (row 125142)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">BAKER TILLY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209628971 (row 125143)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -231370,9 +231364,6 @@
 <div class="record"><h2>Record: 4020920241823944446 (row 127227)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PHYSICIAN</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PHYSICIAN</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811443841 (row 127232)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -245623,6 +245614,9 @@
 <div class="record"><h2>Record: 4011420231698186360 (row 135216)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">CROOKED MONKEY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010320231645639882 (row 135220)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -245744,6 +245738,10 @@
 <div class="record"><h2>Record: 4112020241071382663 (row 135286)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4010320231645639080 (row 135287)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">KARP, ROBERTRKARP</td><td class="after">KARP, ROBERT</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4112220231811443158 (row 135288)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -246759,9 +246757,6 @@
 <div class="record"><h2>Record: 4060420241953433762 (row 135907)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">MILLER, ROSNICK, D&#x27;&#x27;AMICO, AUGUST &amp; BUT</td><td class="after">ATTORNEY</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">MILLER, ROSNICK, D&#x27;&#x27;AMICO, AUGUST &amp; BUT</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
-<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after">LEGAL</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 <tr><td>contributor_employer</td><td class="before">MILLER, ROSNICK, D&#x27;&#x27;AMICO, AUGUST AND BUT</td><td class="after">MILLER ROSNICK D&#x27;AMICO AUGUST &amp; BUTLER</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807009781 (row 135912)</h2>
@@ -250849,7 +250844,7 @@
 <div class="record"><h2>Record: 4032520241885654134 (row 138156)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">LAWYER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
+<tr><td>contributor_employer</td><td class="before">OWNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011320231697775965 (row 138157)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -253336,6 +253331,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4011420231698184704 (row 139501)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">KARP, ROBERTRKARP</td><td class="after">KARP, ROBERT</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4112020241071381797 (row 139502)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -253383,9 +253382,6 @@
 <div class="record"><h2>Record: 4020920241823944445 (row 139525)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PHYSICIAN</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PHYSICIAN</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917902 (row 139527)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -259090,9 +259086,6 @@
 <div class="record"><h2>Record: 4082220242014748537 (row 142747)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DIRECTOR</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DIRECTOR</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">EXECUTIVE / C-SUITE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4110720231809900054 (row 142748)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -260606,9 +260599,6 @@
 <div class="record"><h2>Record: 4082220242014749325 (row 143608)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DIRECTOR</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DIRECTOR</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">EXECUTIVE / C-SUITE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978936046 (row 143609)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -263863,9 +263853,6 @@
 <div class="record"><h2>Record: 4112020241071381429 (row 145483)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4010320231645638132 (row 145485)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -264373,9 +264360,6 @@
 <div class="record"><h2>Record: 4112020241071381428 (row 145781)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4062320251206917509 (row 145782)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -264813,6 +264797,7 @@
 <div class="record"><h2>Record: 4060420241953437784 (row 145996)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">OVES, LYNNOVES</td><td class="after">OVES, LYNN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072420241978935803 (row 145999)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -266085,9 +266070,6 @@
 <div class="record"><h2>Record: 4050520251188621922 (row 146699)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4123020221645490292 (row 146701)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -270149,12 +270131,6 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
 </tbody></table></div>
-<div class="record"><h2>Record: 4032020251180457686 (row 148882)</h2>
-<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-</tbody></table></div>
 <div class="record"><h2>Record: 4010420231645702576 (row 148887)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -271248,7 +271224,10 @@
 <div class="record"><h2>Record: 4032520241885655605 (row 149467)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
+<tr><td>contributor_occupation</td><td class="before">WOLF, RIFKIN</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>contributor_employer</td><td class="before">WOLF, RIFKIN</td><td class="after">WOLF, RIFKIN, SHAPIRO, SCHULMAN &amp; RABKIN LLP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4072120251209629744 (row 149470)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -271257,9 +271236,6 @@
 <div class="record"><h2>Record: 4062320251206918867 (row 149471)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4092320242041365352 (row 149473)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -287883,6 +287859,9 @@
 <div class="record"><h2>Record: 4110720231809900732 (row 158938)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_occupation</td><td class="before">BAKER TILLY</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011420231698185985 (row 158939)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -288637,9 +288616,6 @@
 <div class="record"><h2>Record: 4082220242014750135 (row 159344)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4020920241823946062 (row 159345)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -293105,6 +293081,10 @@
 <div class="record"><h2>Record: 4072420241978934538 (row 161753)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">False</td><td class="reason">reclassify: individual_to_committee_definite_prefix</td></tr>
+</tbody></table></div>
+<div class="record"><h2>Record: 4123020221645490340 (row 161755)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">KARP, ROBERTRKARP</td><td class="after">KARP, ROBERT</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082220242014749290 (row 161756)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -300427,12 +300407,6 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 </tbody></table></div>
-<div class="record"><h2>Record: 4072420241978926876 (row 165891)</h2>
-<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PSYCHOLOGIST</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PSYCHOLOGIST</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-</tbody></table></div>
 <div class="record"><h2>Record: 4122920221645235324 (row 165893)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
@@ -303394,7 +303368,10 @@
 <div class="record"><h2>Record: 4102420231807009338 (row 167534)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">LION BRAND YARNS</td><td class="after">LIONBRAND YARN COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+<tr><td>contributor_occupation</td><td class="before">LION BRAND YARNS</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">SALES / MARKETING</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>contributor_employer</td><td class="before">LION BRAND YARNS</td><td class="after">LIONBRAND YARN COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4102420231807054591 (row 167535)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -303972,9 +303949,6 @@
 <div class="record"><h2>Record: 4110720231809900691 (row 167856)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">CEO</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
-<tr><td>occupation_category</td><td class="before">EXECUTIVE / C-SUITE</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
-<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4060420241953435158 (row 167858)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -309400,9 +309374,6 @@
 <div class="record"><h2>Record: 4082220242014748538 (row 170982)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DIRECTOR</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DIRECTOR</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">EXECUTIVE / C-SUITE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4011320231697776028 (row 170984)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -314648,7 +314619,7 @@
 </tbody></table></div>
 <div class="record"><h2>Record: 4110120231808001237 (row 173910)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_employer</td><td class="before">LION BRAND YARNS</td><td class="after">LIONBRAND YARN COMPANY</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
+<tr><td>contributor_employer</td><td class="before">LION BRAND YARNS</td><td class="after">LIONBRAND YARN COMPANY</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4030120241877880199 (row 173913)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -321442,9 +321413,6 @@
 <div class="record"><h2>Record: 4082220242014750686 (row 177704)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">f</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DIRECTOR</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DIRECTOR</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">EXECUTIVE / C-SUITE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4082120231799935603 (row 177706)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -332949,16 +332917,10 @@
 <div class="record"><h2>Record: 4031920261424759974 (row 187973)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759973 (row 187974)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759972 (row 187975)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -334940,12 +334902,16 @@
 <div class="record"><h2>Record: 4031920261424759502 (row 188816)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">LAWYER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
+<tr><td>contributor_occupation</td><td class="before">MATTEL</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759501 (row 188817)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">LAWYER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
+<tr><td>contributor_occupation</td><td class="before">MATTEL</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after"></td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
+<tr><td>occupation_status</td><td class="before">DISCLOSED</td><td class="after">MISSING</td><td class="reason">enh_fix_emp_eq_occ: employer_equals_occupation</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424759500 (row 188818)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -338587,16 +338553,10 @@
 <div class="record"><h2>Record: 4031920261424758581 (row 190095)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">THERAPIST</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">THERAPIST</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424758580 (row 190096)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">THERAPIST</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">THERAPIST</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4031920261424758579 (row 190097)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -346704,9 +346664,6 @@
 <div class="record"><h2>Record: 4052620261511336817 (row 194546)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">KIRKLAND &amp; ELLIS</td><td class="after">ATTORNEY</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
-<tr><td>contributor_employer</td><td class="before">ATTORNEY</td><td class="after">KIRKLAND &amp; ELLIS</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
-<tr><td>occupation_category</td><td class="before">OTHER</td><td class="after">LEGAL</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4052620261511336816 (row 194547)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -355765,16 +355722,10 @@
 <div class="record"><h2>Record: 4061720261521511427 (row 199654)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521511426 (row 199655)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">DESIGNER</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">DESIGNER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">ARTS / ENTERTAINMENT</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521511425 (row 199656)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -357880,6 +357831,7 @@
 <div class="record"><h2>Record: 4061720261521510889 (row 200533)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">LUTTWAK, JON</td><td class="after">LUTTWAK, JONATHAN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 <tr><td>contributor_employer</td><td class="before">DHC REAL ESTATE SERVICE</td><td class="after">DHC REAL ESTATE SERVICES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521510888 (row 200534)</h2>
@@ -360247,7 +360199,7 @@
 <div class="record"><h2>Record: 4061720261521509898 (row 202018)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_employer</td><td class="before">CONSULTANT</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
+<tr><td>contributor_employer</td><td class="before">FINANCE</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_swap_occ_emp: occ_emp_swap_or_same_value</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4061720261521509897 (row 202019)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -366579,9 +366531,6 @@
 <div class="record"><h2>Record: 4070720261523713133 (row 205017)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
-<tr><td>contributor_occupation</td><td class="before">SELF-EMPLOYED</td><td class="after">PHYSICIAN</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>contributor_employer</td><td class="before">PHYSICIAN</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
-<tr><td>occupation_category</td><td class="before">SELF-EMPLOYED</td><td class="after">MEDICAL / HEALTHCARE</td><td class="reason">enh_clean_junk: junk_cleanup</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523713132 (row 205018)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -367257,6 +367206,7 @@
 <div class="record"><h2>Record: 4070720261523712940 (row 205210)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">JACOBSON, JON</td><td class="after">JACOBSON, JONATHON</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523712939 (row 205211)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -370449,6 +370399,7 @@
 <div class="record"><h2>Record: 4070720261523712032 (row 207534)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>is_individual</td><td class="before">False</td><td class="after">True</td><td class="reason">reclassify: committee_to_individual_last_first</td></tr>
+<tr><td>contributor_name</td><td class="before">BORENSTEIN, JON</td><td class="after">BORENSTEIN, JONATHAN</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4070720261523712031 (row 207535)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
@@ -372520,6 +372471,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_name</td><td class="before">B.POLLACK, ELLIOTT</td><td class="after">B POLLACK, ELLIOTT</td><td class="reason">enh_normalize_name_periods: remove_periods_from_initials</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4080120261540165200 (row 209164)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_occupation</td><td class="before">VP</td><td class="after">VICE PRESIDENT</td><td class="reason">enh_normalize_occupation: canonical_variant</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4080120261540165199 (row 209165)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">STACEY E. BURKE, PC</td><td class="after">STACEY E. BURKE PC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
@@ -373104,6 +373059,10 @@
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">ASG</td><td class="after">ASSESSMENT SOLUTIONS GROUP</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
 </tbody></table></div>
+<div class="record"><h2>Record: 4080120261540163966 (row 211505)</h2>
+<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+<tr><td>contributor_name</td><td class="before">WEINBACH, JONATHAN</td><td class="after">WEINBACH, JON</td><td class="reason">enh_name_corrections: manual_correction</td></tr>
+</tbody></table></div>
 <div class="record"><h2>Record: 4080120261540163963 (row 211508)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">PACHULSKI, STANG, ZIEHL AND JONES</td><td class="after">PACHULSKI STANG ZIEHL AND JONES</td><td class="reason">enh_employer_synonyms: verified_same_company</td></tr>
@@ -373610,10 +373569,6 @@
 <div class="record"><h2>Record: 4080120261540162811 (row 213291)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
 <tr><td>contributor_employer</td><td class="before">SENIOR INSURANCE SOLUTIONS, LLC</td><td class="after">SENIOR INSURANCE SOLUTIONS LLC</td><td class="reason">enh_employer_synonyms_final: verified_same_company</td></tr>
-</tbody></table></div>
-<div class="record"><h2>Record: 4080120261540162806 (row 213296)</h2>
-<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
-<tr><td>contributor_employer</td><td class="before">LAWYER</td><td class="after">SELF-EMPLOYED</td><td class="reason">enh_fix_occ_as_employer: occupation_word_in_employer</td></tr>
 </tbody></table></div>
 <div class="record"><h2>Record: 4080120261540162805 (row 213297)</h2>
 <table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>

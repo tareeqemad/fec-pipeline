@@ -1,4 +1,4 @@
-"""Shared addresses dimension, donor_addresses links, and employer HQ linking."""
+"""Shared address loading and links."""
 from __future__ import annotations
 
 import time
@@ -11,7 +11,7 @@ try:
 except ImportError:
     raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
-from fec.env import EMPLOYERS_CSV, EMPLOYER_BRANCHES_CSV
+from fec.env import EMPLOYER_LOCATIONS_CSV
 from fec.log import get_logger
 
 from ._base import _count, to_float_or_none, to_native
@@ -19,38 +19,31 @@ from ._base import _count, to_float_or_none, to_native
 logger = get_logger(__name__)
 
 
-def _load_employer_hqs() -> dict:
-    """employer_name -> HQ address dict for employers.csv rows with a resolved HQ; {} if the file is missing."""
-    if not EMPLOYERS_CSV.exists():
-        return {}
-    employers_df = pd.read_csv(EMPLOYERS_CSV, dtype=str, keep_default_na=False, na_values=[""])
-    employers_df = employers_df[employers_df["employer_address"].notna()]
-    out = {}
-    for row in employers_df.to_dict("records"):
-        out[row["employer_name"]] = {
-            "address": row.get("employer_address"), "city": row.get("employer_city"),
-            "state": row.get("employer_state"), "zip": row.get("employer_zip"),
-            "lat": row.get("employer_latitude"), "lng": row.get("employer_longitude"),
-        }
-    return out
-
-
-def load_employer_branches() -> dict:
-    """(employer_name, donor_state) -> branch address dict; {} when no branches exist. The donor's local office overrides the company HQ for that employment."""
-    if not EMPLOYER_BRANCHES_CSV.exists():
-        return {}
-    branches_df = pd.read_csv(EMPLOYER_BRANCHES_CSV, dtype=str,
-                              keep_default_na=False, na_values=[""])
-    branches_df = branches_df[branches_df["employer_address"].notna()]
-    out = {}
-    for row in branches_df.to_dict("records"):
-        key = (row["employer_name"], str(row["donor_state"]).upper())
-        out[key] = {
-            "address": row.get("employer_address"), "city": row.get("employer_city"),
-            "state": row.get("employer_state"), "zip": row.get("employer_zip"),
-            "lat": row.get("employer_latitude"), "lng": row.get("employer_longitude"),
-        }
-    return out
+def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
+    """Read resolved employer locations."""
+    if frame is None:
+        if not EMPLOYER_LOCATIONS_CSV.exists():
+            return []
+        frame = pd.read_csv(
+            EMPLOYER_LOCATIONS_CSV,
+            dtype=str,
+            keep_default_na=False,
+        )
+    locations = []
+    for row in frame.to_dict("records"):
+        if not row.get("employer_address"):
+            continue
+        locations.append({
+            "employer_name": row["employer_name"],
+            "employer_address": row.get("employer_address"),
+            "employer_city": row.get("employer_city"),
+            "employer_state": row.get("employer_state"),
+            "employer_zip": row.get("employer_zip"),
+            "employer_latitude": row.get("employer_latitude"),
+            "employer_longitude": row.get("employer_longitude"),
+            "is_primary": str(row.get("is_primary")).lower() == "true",
+        })
+    return locations
 
 
 def _akey(st1, st2, city, state, z):
@@ -59,8 +52,13 @@ def _akey(st1, st2, city, state, z):
             to_native(state) or '', to_native(z) or '')
 
 
-def load_address_dimension(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
-    """Step 4: shared addresses dimension (donor homes and employer HQs dedup here); returns _akey tuple -> address_id."""
+def load_address_dimension(
+    conn: Any,
+    cur: Any,
+    df: pd.DataFrame,
+    employer_locations: list[dict] | None = None,
+) -> dict:
+    """Step 4: load donor and employer addresses."""
     logger.info("\n-- 4/8 Loading addresses (shared dimension) --")
     start = time.time()
 
@@ -72,10 +70,10 @@ def load_address_dimension(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
         if entry is None:
             addr_dim[key] = [to_native(st1), to_native(st2), to_native(city),
                              to_native(state), to_native(z), lat, lng]
-        elif entry[5] is None and lat is not None:  # backfill coords from any source
+        elif entry[5] is None and lat is not None:  # Backfill coordinates.
             entry[5], entry[6] = lat, lng
 
-    # 4a. Donor residences; street_2 keeps different units in one building separate.
+    # Donor addresses.
     for (street_1, street_2, city, state, zip_code), group in df.groupby(
         ['contributor_street_1', 'contributor_street_2', 'contributor_city',
          'contributor_state', 'contributor_zip'], dropna=False
@@ -85,18 +83,17 @@ def load_address_dimension(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
                   to_float_or_none(first_row.get('latitude')),
                   to_float_or_none(first_row.get('longitude')))
 
-    # 4b. Employer HQs, one per company, no street_2. A self-employed donor's
-    # "company" address is their home, already added in 4a (employers.csv excludes them).
-    employer_hqs = _load_employer_hqs()
-    for hq in employer_hqs.values():
-        _add_addr(hq['address'], None, hq['city'], hq['state'], hq['zip'],
-                  to_float_or_none(hq.get('lat')), to_float_or_none(hq.get('lng')))
-
-    # 4c. Branch offices, one per (company, donor state) - same shape as an HQ,
-    # so a branch that happens to equal some donor's address dedups here too.
-    for branch in load_employer_branches().values():
-        _add_addr(branch['address'], None, branch['city'], branch['state'], branch['zip'],
-                  to_float_or_none(branch.get('lat')), to_float_or_none(branch.get('lng')))
+    locations = employer_locations
+    if locations is None:
+        locations = load_employer_locations()
+    for location in locations:
+        _add_addr(
+            location["employer_address"], None,
+            location["employer_city"], location["employer_state"],
+            location["employer_zip"],
+            to_float_or_none(location.get("employer_latitude")),
+            to_float_or_none(location.get("employer_longitude")),
+        )
 
     addr_keys = list(addr_dim.keys())
     execute_values(cur,
@@ -107,7 +104,7 @@ def load_address_dimension(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
         template="(%s, %s, %s, %s, %s, %s::float8, %s::float8)")
     conn.commit()
 
-    # COALESCE so NULLs hash equal to the _akey ''
+    # Match nullable fields.
     cur.execute("""SELECT address_id, COALESCE(street_1,''), COALESCE(street_2,''),
                           COALESCE(city,''), COALESCE(state_code,''), COALESCE(zip_code,'')
                    FROM addresses""")
@@ -144,8 +141,7 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
         donor_address_rows, page_size=5000)
     conn.commit()
 
-    # Join back to addresses for the (donor_id, address tuple) -> donor_address_id map
-    # that drives contributions.donor_address_id.
+    # Build donor-address lookup.
     cur.execute("""
         SELECT da.donor_address_id, da.donor_id,
                COALESCE(a.street_1,''), COALESCE(a.street_2,''),
@@ -159,44 +155,58 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
     return addr_key_to_id
 
 
-def link_employer_hqs(conn: Any, cur: Any, addr_dim_id: dict, get_employer_id) -> None:
-    """Step 8: point employers.address_id at the shared addresses row (first resolvable HQ per employer wins), then prune unreferenced addresses."""
-    logger.info("\n-- 8/8 Linking employer HQ addresses --")
+def link_employer_locations(
+    conn: Any,
+    cur: Any,
+    addr_dim_id: dict,
+    get_employer_id,
+    employer_locations: list[dict] | None = None,
+) -> None:
+    """Step 8: link each employer's default location."""
+    logger.info("\n-- 8/8 Linking employer locations --")
     start = time.time()
 
-    emp_hq_rows = []
-
-    # One HQ per company from employers.csv; keyed by company name, so it covers
-    # former employers too.
-    seen_emp = set()
-    for name, hq in _load_employer_hqs().items():
-        emp_id = get_employer_id(name)
-        if not emp_id or emp_id in seen_emp:
+    employer_rows = []
+    locations = employer_locations
+    if locations is None:
+        locations = load_employer_locations()
+    for location in locations:
+        if not location["is_primary"]:
             continue
-        # No street_2 -- matches how step 4b registered the HQ.
+        emp_id = get_employer_id(location["employer_name"])
+        if not emp_id:
+            raise RuntimeError(
+                "employer location has no exact employer match: "
+                f"{location['employer_name']!r}"
+            )
         address_id = addr_dim_id.get(_akey(
-            hq.get('address'), None, hq.get('city'), hq.get('state'), hq.get('zip')))
+            location["employer_address"], None,
+            location["employer_city"], location["employer_state"],
+            location["employer_zip"],
+        ))
         if address_id is None:
-            continue
-        seen_emp.add(emp_id)
-        emp_hq_rows.append((int(emp_id), int(address_id)))
+            raise RuntimeError(
+                "employer location has no exact address match: "
+                f"{location['employer_name']!r}"
+            )
+        employer_rows.append((int(emp_id), int(address_id)))
 
-    if emp_hq_rows:
+    if employer_rows:
         execute_values(cur, """
             UPDATE employers e
             SET address_id = v.address_id
             FROM (VALUES %s) AS v(employer_id, address_id)
             WHERE e.employer_id = v.employer_id
         """,
-        emp_hq_rows,
+        employer_rows,
         template="(%s::int, %s::int)",
         page_size=5000)
     conn.commit()
     cur.execute("SELECT COUNT(*) FROM employers WHERE address_id IS NOT NULL")
-    n_with_hq = cur.fetchone()[0]
-    logger.info(f"  employers with HQ: {n_with_hq:,} ({time.time()-start:.1f}s)")
+    linked = cur.fetchone()[0]
+    logger.info(f"  employers with location: {linked:,} ({time.time()-start:.1f}s)")
 
-    # Prune address rows nobody references so the shared dimension has no dangling rows.
+    # Remove unused addresses.
     cur.execute("""
         DELETE FROM addresses a
         WHERE NOT EXISTS (SELECT 1 FROM donor_addresses d WHERE d.address_id = a.address_id)

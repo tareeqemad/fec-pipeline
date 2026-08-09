@@ -25,12 +25,12 @@ def load_donors(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
 
     donor_rows = []
     for donor_key, group in df.groupby('donor_key'):
-        # Names are already canonical per donor_key (clean.py); any row gives the same pair.
+        # Names are already canonical.
         latest = group.sort_values('contribution_receipt_date', ascending=False).iloc[0]
         entity = to_native(latest['entity_type'])
         first = to_native(latest['contributor_first_name'])
         last = to_native(latest['contributor_last_name'])
-        # Committees: first/last are NULL, full name goes in last_name
+        # Organizations use last_name.
         if not last and entity in ('COMMITTEE/PAC', 'ORGANIZATION'):
             last = to_native(latest['contributor_name'])
         donor_rows.append((donor_key, entity, first, last))

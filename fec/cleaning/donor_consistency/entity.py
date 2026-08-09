@@ -43,8 +43,7 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
         if et == 'ORGANIZATION':
             df.loc[mask, 'is_individual'] = False
             df.loc[mask, 'occupation_category'] = 'ORGANIZATION'
-            # an org has no personal employer/occupation; first/last are cleared
-            # by the non-individual name-clear step that runs after post-merge
+            # Names clear after consistency.
             df.loc[mask, 'contributor_occupation'] = np.nan
             df.loc[mask, 'contributor_employer'] = np.nan
         elif et == 'COMMITTEE/PAC':

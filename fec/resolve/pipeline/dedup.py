@@ -21,12 +21,20 @@ def _same_entity(a: str, b: str) -> bool:
     return len(long_) <= 2 * len(short)
 
 
-def _addr_norm(entry: dict) -> str:
-    """Normalize a cached address for grouping."""
-    address = (entry.get('employer_address') or '').strip().upper()
-    if not address:
+def _address_key(entry: dict) -> str:
+    """Normalize a complete cached address."""
+    fields = (
+        entry.get('employer_address'),
+        entry.get('employer_city'),
+        entry.get('employer_state'),
+        entry.get('employer_zip'),
+    )
+    if not fields[0]:
         return ''
-    return re.sub(r'[^A-Z0-9]+', ' ', address).strip()
+    return '|'.join(
+        re.sub(r'[^A-Z0-9]+', ' ', str(value or '').upper()).strip()
+        for value in fields
+    )
 
 
 def _score(entry: dict) -> tuple:
@@ -47,8 +55,10 @@ def _score(entry: dict) -> tuple:
     return (has_address, confidence_rank, method_priority)
 
 
-def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int, int, dict]:
-    """Merge same-address same-entity cache entries; returns (removed, groups, variant->canonical mapping) with the most-frequent CSV variant winning as canonical."""
+def dedup_by_resolved_address(
+    addr_cache, freq: dict | None = None,
+) -> tuple[int, int]:
+    """Alias same-company entries resolved to the same complete address."""
     freq = freq or {}
     by_address: dict[str, list[str]] = defaultdict(list)
     for name, entry in addr_cache.data.items():
@@ -62,7 +72,7 @@ def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int
             continue
         if entry.get('confidence') not in ('HIGH', 'MEDIUM'):
             continue
-        address = _addr_norm(entry)
+        address = _address_key(entry)
         if not address:
             continue
         by_address[address].append(name)
@@ -99,7 +109,7 @@ def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int
                     mapping[variant] = canonical
 
     if not mapping:
-        return 0, 0, {}
+        return 0, 0
 
     # Pass 1: settle each canonical with the best-scored data among its variants.
     removed = 0
@@ -120,4 +130,4 @@ def dedup_by_resolved_address(addr_cache, freq: dict | None = None) -> tuple[int
         addr_cache.data[variant] = alias
 
     addr_cache.save()
-    return removed, groups, mapping
+    return removed, groups

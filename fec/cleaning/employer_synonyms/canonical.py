@@ -97,10 +97,13 @@ def _recanonicalize_employers(df: pd.DataFrame) -> int:
     # for the same firm.
     cols = [column for column in ('contributor_employer', 'previous_employer') if column in df.columns]
     series = []
+    current_counts = pd.Series(dtype="int64")
     for column in cols:
         values = df.loc[indiv_idx, column]
         values = values[_norm(values) != '']
         series.append(values)
+        if column == 'contributor_employer':
+            current_counts = values.value_counts()
     if not series:
         return 0
     all_names = pd.concat(series, ignore_index=True)
@@ -118,8 +121,16 @@ def _recanonicalize_employers(df: pd.DataFrame) -> int:
     for key, variants in groups.items():
         if len(variants) < 2:
             continue
-        canonical = sorted(variants,
-                           key=lambda variant: (-counts.get(variant, 0), -len(variant), variant))[0]
+        canonical = sorted(
+            variants,
+            key=lambda variant: (
+                -int(current_counts.get(variant, 0) > 0),
+                -current_counts.get(variant, 0),
+                -counts.get(variant, 0),
+                -len(variant),
+                variant,
+            ),
+        )[0]
         for variant in variants:
             if variant != canonical:
                 mapping[variant] = canonical

@@ -5,11 +5,15 @@
     "by_token": {}
   },
   "employer_near_duplicates": {
-    "groups": 1,
+    "groups": 2,
     "examples": [
       [
         "UNIVERSITY OF WASHINGTON",
         "WASHINGTON UNIVERSITY"
+      ],
+      [
+        "GOOD HEALTH",
+        "GOOD HEALTH INC"
       ]
     ]
   },

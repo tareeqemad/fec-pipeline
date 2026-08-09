@@ -20,15 +20,14 @@ from .constants import (
     AI_SYSTEM_PROMPT,
     COMMITTEE_CACHE,
     EMPLOYER_ADDR_CACHE,
-    EMPLOYER_BRANCH_CACHE,
     PREV_EMPLOYER_CACHE,
 )
 from .dedup import dedup_by_resolved_address
 from .helpers import _compute_donor_totals
 from .manual_overrides import (
-    load_manual_branches,
     load_manual_committee_overrides,
-    load_manual_overrides,
+    load_manual_locations,
+    load_manual_previous_employers,
 )
 from .stats import show_stats
 from .steps.ai_employer import (
@@ -97,22 +96,13 @@ def _find_csv_path(requested: str | None) -> str | None:
     return default if os.path.exists(default) else None
 
 
-def _deduplicate_employers(df: pd.DataFrame, addr_cache) -> None:
-    logger.info("\n-- Step 3b: Same-address dedup --")
+def _deduplicate_address_cache(df: pd.DataFrame, addr_cache) -> None:
+    logger.info("\n-- Step 3b: Address-cache aliases --")
     frequencies = df["contributor_employer"].value_counts().to_dict()
-    removed, groups, mapping = dedup_by_resolved_address(
+    aliases, groups = dedup_by_resolved_address(
         addr_cache, freq=frequencies
     )
-    logger.info(f"    merged {removed:,} cache entries across {groups:,} groups")
-    if not mapping:
-        return
-
-    employers = df["contributor_employer"]
-    to_remap = employers.isin(mapping)
-    rows_changed = int(to_remap.sum())
-    if rows_changed:
-        df.loc[to_remap, "contributor_employer"] = employers[to_remap].map(mapping)
-        logger.info(f"    rewrote {rows_changed:,} CSV rows to canonical names")
+    logger.info(f"    created {aliases:,} aliases across {groups:,} groups")
 
 
 def _write_results(
@@ -121,12 +111,15 @@ def _write_results(
     prev_cache,
     addr_cache,
     comm_cache,
-    branch_cache,
 ) -> pd.DataFrame:
     logger.info(f"\n-- Writing results -> {csv_path} --")
-    df = apply_results(
-        df, prev_cache, addr_cache, comm_cache, branch_cache
-    )
+    df = apply_results(df, prev_cache, addr_cache, comm_cache)
+
+    from fec.cleaning.quality import run_quality_gates
+    quality = run_quality_gates(df)
+    if not quality["passed"]:
+        details = "; ".join(quality["issues"]) or "quality gate failed"
+        raise ValueError(f"Resolved CSV was not written: {details}")
 
     # Expand Saint/Mount/Fort in resolved employer cities, matching clean.py.
     from fec.config import expand_city_abbreviations
@@ -158,7 +151,6 @@ def main() -> None:
     prev_cache = Cache(os.path.join(data_dir, PREV_EMPLOYER_CACHE))
     addr_cache = Cache(os.path.join(data_dir, EMPLOYER_ADDR_CACHE))
     comm_cache = Cache(os.path.join(data_dir, COMMITTEE_CACHE))
-    branch_cache = Cache(os.path.join(data_dir, EMPLOYER_BRANCH_CACHE))
 
     from fec.io import read_pipeline_csv
     df = read_pipeline_csv(csv_path)
@@ -179,8 +171,10 @@ def main() -> None:
 
     logger.info("\n-- Step 0: Manual overrides --")
     manual_path = Path(data_dir) / "manual_employer_addresses.csv"
-    load_manual_overrides(manual_path, addr_cache)
-    load_manual_branches(manual_path, branch_cache)
+    load_manual_locations(manual_path, addr_cache)
+    load_manual_previous_employers(
+        Path(data_dir) / "manual_employer_overrides.csv", df, prev_cache,
+    )
     load_manual_committee_overrides(
         Path(data_dir) / "manual_committee_addresses.csv", comm_cache
     )
@@ -193,7 +187,7 @@ def main() -> None:
 
     provider, model = get_ai_provider_model()
     logger.info(
-        f"\n-- Step 3: AI Lookup ({provider} {model} - employer HQ addresses) --"
+        f"\n-- Step 3: AI Lookup ({provider} {model} - employer locations) --"
     )
     ai_incomplete = False
     try:
@@ -208,14 +202,14 @@ def main() -> None:
         )
 
     if not args.dry_run:
-        _deduplicate_employers(df, addr_cache)
+        _deduplicate_address_cache(df, addr_cache)
 
     logger.info("\n-- Step 4: Committee Addresses (from FEC filings) --")
     step_committees_own_address(df, comm_cache)
 
     if args.apply and not args.dry_run:
         df = _write_results(
-            df, csv_path, prev_cache, addr_cache, comm_cache, branch_cache
+            df, csv_path, prev_cache, addr_cache, comm_cache
         )
     elif not args.dry_run:
         logger.info(

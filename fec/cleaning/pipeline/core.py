@@ -1,4 +1,4 @@
-"""Cleaning pipeline: clean() is the field-level pass, clean_rows() + unify_donors() = clean_and_match()."""
+"""Clean records, identify donors, and standardize their history."""
 from __future__ import annotations
 
 import re
@@ -206,9 +206,9 @@ def _report_suffix_merge_suspects(df: pd.DataFrame, out_dir, raw_names=None) -> 
     return len(rows)
 
 
-def clean_rows(df: pd.DataFrame, fuzzy_city: bool = True,
-               out_dir: str | None = None, audit: bool = False):
-    """Per-row half, safe on any subset: clean() + enhancements + manual employer overrides; returns (df_clean, missing_report, enh_audit)."""
+def clean_records(df: pd.DataFrame, fuzzy_city: bool = True,
+                  out_dir: str | None = None, audit: bool = False):
+    """Clean every contribution record."""
     df_clean, missing = clean(df, fuzzy_city=fuzzy_city, out_dir=out_dir,
                               audit=audit)
 
@@ -216,7 +216,7 @@ def clean_rows(df: pd.DataFrame, fuzzy_city: bool = True,
     from fec.cleaning.enhancements import run_enhancements
     df_clean, enh_audit = run_enhancements(df_clean)
 
-    # hand-curated per-donor fixes keyed by sub_id; survive every re-clean
+    # Reapply curated overrides.
     from fec.cleaning.manual_overrides import apply_manual_employer_overrides
     n_overrides = apply_manual_employer_overrides(df_clean)
     if n_overrides:
@@ -225,82 +225,127 @@ def clean_rows(df: pd.DataFrame, fuzzy_city: bool = True,
     return df_clean, missing, enh_audit
 
 
-def unify_donors(df_clean: pd.DataFrame, out_dir: str | None = None,
-                 raw_names: dict | None = None) -> pd.DataFrame:
-    """Cross-row half: donor matching, per-donor canonicalization, post-merge fixes, non-individual name clear; MUST see the complete dataset or donor_keys won't line up with rows outside the batch."""
-    # per-donor canonicalizers use iat positions; labels must equal positions
+def identify_donors(df_clean: pd.DataFrame, out_dir: str | None = None,
+                    raw_names: dict | None = None) -> pd.DataFrame:
+    """Assign one donor_key to each identity."""
     df_clean = df_clean.reset_index(drop=True)
-    logger.info("\n-- Donor Matching --")
+    logger.info("\n-- Donor identity --")
     from fec.donor_match import (
         match_donors, apply_donor_key, merge_split_name_donors,
         apply_donor_dedup_merges,
+    )
+
+    rid_to_key, match_audit = match_donors(df_clean, verbose=False)
+    df_clean = apply_donor_key(df_clean, rid_to_key)
+    _report_suffix_merge_suspects(df_clean, out_dir, raw_names)
+
+    repointed = merge_split_name_donors(df_clean)
+    repointed += apply_donor_dedup_merges(df_clean)
+
+    profiles = len(rid_to_key)
+    donors = df_clean.loc[
+        df_clean['entity_type'].eq('INDIVIDUAL'), 'donor_key'
+    ].nunique()
+    logger.info(
+        "  %s profiles -> %s donors (%s merged; %s pairs scored)",
+        f"{profiles:,}",
+        f"{donors:,}",
+        f"{profiles - donors:,}",
+        f"{len(match_audit):,}",
+    )
+    if repointed:
+        logger.info("  %s rows joined by identity rules", f"{repointed:,}")
+    return df_clean
+
+
+def standardize_donors(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFrame:
+    """Make each donor consistent across filings."""
+    df_clean = df_clean.reset_index(drop=True)
+    logger.info("\n-- Donor consistency --")
+    from fec.donor_match import (
         canonicalize_donor_names, canonicalize_donor_employers,
         canonicalize_donor_addresses, canonicalize_donor_pobox_typos,
         canonicalize_donor_units, align_org_donor_company_names,
         build_donor_dedup_review,
     )
-    rid_to_key, _ = match_donors(df_clean, verbose=True)
-    df_clean = apply_donor_key(df_clean, rid_to_key)
-    # over-merge guard must run before canonicalize_donor_names rewrites each
-    # cluster to one spelling (after that, the check can never fail)
-    _report_suffix_merge_suspects(df_clean, out_dir, raw_names)
-    # each canonicalization is scoped to ONE donor; order matters: names first
-    for fix, label in (
-        (merge_split_name_donors,        "Split-name merge: {n:,} rows repointed to canonical donor"),
-        (apply_donor_dedup_merges,       "Reviewed dedup merges: {n:,} rows repointed (human-curated pairs)"),
-        (canonicalize_donor_names,       "Canonical names: {n:,} rows normalized to per-donor name"),
-        (canonicalize_donor_employers,   "Canonical employers: {n:,} rows merged to per-donor firm name"),
-        (align_org_donor_company_names,  "Org-donor names aligned to employer firm: {n:,} rows (no duplicate company)"),
-        (canonicalize_donor_addresses,   "Canonical addresses: {n:,} rows normalized to per-donor address form"),
-        (canonicalize_donor_units,       "Canonical units: {n:,} street_2 unit-designators unified per donor"),
-        (canonicalize_donor_pobox_typos, "PO-box typos: {n:,} rows collapsed to canonical box"),
-    ):
+
+    canonicalizers = (
+        canonicalize_donor_names,
+        canonicalize_donor_employers,
+        align_org_donor_company_names,
+        canonicalize_donor_addresses,
+        canonicalize_donor_units,
+        canonicalize_donor_pobox_typos,
+    )
+    canonical_updates = 0
+    for fix in canonicalizers:
         count = fix(df_clean)
+        canonical_updates += count
         if count:
-            logger.info("  " + label.format(n=count))
+            label = fix.__name__.lstrip('_').replace('_', ' ')
+            logger.info("  %-38s %s", label, f"{count:,}")
 
-    # manual name corrections are a human decision and must win over
-    # canonicalize_donor_names; re-asserting here is idempotent
     from fec.cleaning.entity_classification import apply_name_corrections
-    df_clean, n_name_reassert = apply_name_corrections(df_clean)
-    if n_name_reassert:
-        logger.info(f"  Manual name corrections re-asserted: {n_name_reassert:,} rows")
 
-    n_donors = df_clean[df_clean['entity_type'] == 'INDIVIDUAL']['donor_key'].nunique()
-    logger.info(f"  {n_donors:,} unique donors")
+    df_clean, manual_updates = apply_name_corrections(df_clean)
+    if manual_updates:
+        logger.info("  %-38s %s", "curated name corrections", f"{manual_updates:,}")
 
-    # post-merge fixes need donor_key
-    from fec.post_merge_fixes import apply_post_merge_fixes
-    n_post = apply_post_merge_fixes(df_clean)
-    if n_post:
-        logger.info(f"  Post-merge fixes: {n_post:,} records corrected")
+    from fec.cleaning.donor_consistency import apply_donor_consistency
 
-    # detection only: writes a review report (out_dir set), never merges
+    consistency_updates = apply_donor_consistency(df_clean)
+
+    from fec.cleaning.employer_synonyms import finalize_employer_names
+
+    df_clean, employer_updates = finalize_employer_names(df_clean)
+    if employer_updates:
+        logger.info("  %-38s %s", "final employer names", f"{employer_updates:,}")
+    final_canonical = canonicalize_donor_employers(df_clean)
+    employer_updates += final_canonical
+    if final_canonical:
+        logger.info("  %-38s %s", "final donor employers", f"{final_canonical:,}")
+    canonical_updates += employer_updates
+
+    from fec.cleaning.manual_overrides import apply_manual_employer_overrides
+
+    protected = apply_manual_employer_overrides(df_clean, company_names_only=True)
+    if protected:
+        logger.info("  %-38s %s", "curated employer names", f"{protected:,}")
+        canonical_updates += protected
     build_donor_dedup_review(df_clean, out_dir)
 
-    # entity_type is canonical: only individuals keep first/last (a committee
-    # name with a comma parses as one); runs last so nothing repopulates them
     name_cols = [column for column in ('contributor_first_name', 'contributor_last_name')
                  if column in df_clean.columns]
+    cleared = 0
     if 'entity_type' in df_clean.columns and name_cols:
         mask = ((df_clean['entity_type'] != 'INDIVIDUAL')
                 & df_clean[name_cols].notna().any(axis=1))
         if mask.any():
             df_clean.loc[mask, name_cols] = np.nan
-            logger.info(f"  Cleared first/last on {int(mask.sum()):,} non-individual rows")
+            cleared = int(mask.sum())
+            logger.info("  %-38s %s", "non-individual names cleared", f"{cleared:,}")
+
+    logger.info(
+        "  %s canonical updates, %s consistency updates",
+        f"{canonical_updates + manual_updates + cleared:,}",
+        f"{consistency_updates:,}",
+    )
 
     return df_clean
 
 
-def clean_and_match(df: pd.DataFrame, fuzzy_city: bool = True,
-                    out_dir: str | None = None, audit: bool = False):
-    """The COMPLETE run, clean_rows() then unify_donors(): what clean.py executes on a full run; the incremental path calls the two halves separately. Returns (df_clean, missing_report, enh_audit)."""
-    # snapshot raw names before clean() drops generational suffixes;
-    # the JR/SR over-merge guard needs the originals
+def clean_pipeline(df: pd.DataFrame, fuzzy_city: bool = True,
+                   out_dir: str | None = None, audit: bool = False):
+    """Run the complete cleaning pipeline."""
     raw_names = (dict(zip(df['sub_id'].astype(str), df['contributor_name'].astype(str)))
                  if {'sub_id', 'contributor_name'}.issubset(df.columns) else None)
 
-    df_clean, missing, enh_audit = clean_rows(df, fuzzy_city=fuzzy_city,
-                                              out_dir=out_dir, audit=audit)
-    df_clean = unify_donors(df_clean, out_dir=out_dir, raw_names=raw_names)
+    df_clean, missing, enh_audit = clean_records(
+        df,
+        fuzzy_city=fuzzy_city,
+        out_dir=out_dir,
+        audit=audit,
+    )
+    df_clean = identify_donors(df_clean, out_dir=out_dir, raw_names=raw_names)
+    df_clean = standardize_donors(df_clean, out_dir=out_dir)
     return df_clean, missing, enh_audit

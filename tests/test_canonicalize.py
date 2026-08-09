@@ -155,7 +155,7 @@ def test_geo_unifies_same_spot_and_keeps_far_apart():
     df = _df(
         [
             ["INDIVIDUAL", "A", "123 MAIN ST", 40.71280, -74.00600, "nominatim"],
-            ["INDIVIDUAL", "A", "123 MAIN STREET STE 5", 40.71285, -74.00604, "google"],
+            ["INDIVIDUAL", "A", "123 MAIN STREET STE 5", 40.71285, -74.00604, "nominatim"],
             ["INDIVIDUAL", "A", "9 FAR AWAY RD", 41.50000, -72.00000, "nominatim"],
         ],
         _GEO_COLS,

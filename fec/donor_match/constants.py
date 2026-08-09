@@ -4,11 +4,7 @@ import csv
 from collections import defaultdict
 from pathlib import Path
 
-from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.env import DATA_DIR
-
-# employer statuses that are not real companies
-STATUS_EMPLOYERS = EMPLOYER_STATUS_VALUES
 
 # occupation buckets too generic to corroborate a match (unlike a real field
 # such as LEGAL); RETIRED is also tracked separately as a transition state
@@ -120,11 +116,6 @@ SCORE_COMMON_PENALTY = -15  # freq > 10: common names need more proof
 SCORE_CROSS_NAME_BONUS = 10  # nickname/typo first-name pair (phase 2), only with corroboration
 SCORE_RETIRED_NO_EMP   = 25  # neither side employed + rare name + shared geography
 SCORE_RARE_EMPLOYER_OK = 10  # no geography at all, but shared employer + rare name
-
-# cross-state merge (no geographic anchor) needs a distinctive name: few
-# distinct full names sharing the surname (or first name)
-XSTATE_LAST_RARE_MAX  = 5
-XSTATE_FIRST_RARE_MAX = 6
 
 MERGE_THRESHOLD = 50
 

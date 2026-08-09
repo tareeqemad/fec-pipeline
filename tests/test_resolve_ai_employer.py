@@ -4,7 +4,9 @@ import json
 
 import pandas as pd
 
+from fec.resolve.pipeline.cli import _deduplicate_address_cache
 from fec.resolve.pipeline.constants import EMPLOYER_PROMPT_VERSION
+from fec.resolve.pipeline.dedup import dedup_by_resolved_address
 from fec.resolve.pipeline.steps.ai_employer import (
     EmployerLookup,
     _is_explicit_unknown,
@@ -34,6 +36,41 @@ class _Cache:
         return len(self.data)
 
 
+def _address(city):
+    return {
+        "employer_address": "1 MAIN ST",
+        "employer_city": city,
+        "employer_state": "NY",
+        "employer_zip": "10001",
+        "method": "ai_openai_search",
+        "confidence": "HIGH",
+    }
+
+
+def test_address_aliases_never_rewrite_clean_employer_names():
+    df = pd.DataFrame({
+        "contributor_employer": ["ACME", "ACME LLC"],
+    })
+    original = df.copy()
+    cache = _Cache({"ACME": _address("NEW YORK"), "ACME LLC": _address("NEW YORK")})
+
+    _deduplicate_address_cache(df, cache)
+
+    pd.testing.assert_frame_equal(df, original)
+    assert cache.data["ACME"]["alias_of"] == "ACME LLC"
+
+
+def test_address_aliases_require_the_complete_address():
+    cache = _Cache({
+        "ACME": _address("NEW YORK"),
+        "ACME LLC": _address("ALBANY"),
+    })
+
+    aliases, groups = dedup_by_resolved_address(cache)
+
+    assert (aliases, groups) == (0, 0)
+
+
 def test_retry_policy_preserves_good_cache_and_retries_stale_misses():
     resolver = "openai+search"
 
@@ -46,6 +83,10 @@ def test_retry_policy_preserves_good_cache_and_retries_stale_misses():
         "employer_city": "New York",
         "employer_state": "NY",
         "method": "manual_override",
+    }, resolver)
+    assert _needs_ai({
+        "employer_address": "1 Possible St",
+        "method": "manual_review",
     }, resolver)
     assert _needs_ai({
         "employer_address": "",
@@ -64,7 +105,7 @@ def test_retry_policy_preserves_good_cache_and_retries_stale_misses():
     }, resolver)
 
 
-def test_prompt_keeps_context_for_identity_not_branch_selection():
+def test_prompt_uses_context_to_find_only_confirmed_locations():
     lookup = EmployerLookup(
         "ACME LLC",
         donor_locations=("NEW YORK, NY",),
@@ -75,11 +116,11 @@ def test_prompt_keeps_context_for_identity_not_branch_selection():
     instruction, payload_text = prompt.split("\n\n", 1)
     payload = json.loads(payload_text)
 
-    assert "must not be used to choose a nearby branch" in instruction
+    assert "only when an authoritative source confirms" in instruction
     assert payload == {
         "employer_name": "ACME LLC",
-        "donor_locations_for_identity_only": ["NEW YORK, NY"],
-        "donor_occupations_for_identity_only": ["ATTORNEY"],
+        "donor_locations": ["NEW YORK, NY"],
+        "donor_occupations": ["ATTORNEY"],
     }
 
 
@@ -96,6 +137,16 @@ def test_cache_entry_requires_complete_us_address_and_source():
         "source_name": "Acme",
         "source_url": "https://acme.example/contact",
         "confidence": "high",
+        "locations": [{
+            "address": "555 California St",
+            "city": "San Francisco",
+            "state": "CA",
+            "zip": "94104",
+            "address_type": "OFFICE",
+            "source_name": "Acme offices",
+            "source_url": "https://acme.example/offices",
+            "confidence": "HIGH",
+        }],
     }
 
     entry = _resolved_cache_entry(
@@ -106,6 +157,7 @@ def test_cache_entry_requires_complete_us_address_and_source():
     assert entry["employer_zip"] == "10001"
     assert entry["source_url"] == "https://acme.example/contact"
     assert entry["prompt_version"] == EMPLOYER_PROMPT_VERSION
+    assert entry["locations"][0]["employer_zip"] == "94104"
 
     for field, invalid_value in (
         ("state", "LONDON"),
@@ -142,6 +194,7 @@ def test_lookup_collection_aggregates_limited_public_context():
             "contributor_city": "NEW YORK",
             "contributor_state": "NY",
             "contributor_occupation": "ATTORNEY",
+            "contributor_zip": "10001",
         },
         {
             "entity_type": "INDIVIDUAL",
@@ -151,6 +204,7 @@ def test_lookup_collection_aggregates_limited_public_context():
             "contributor_city": "NEW YORK",
             "contributor_state": "NY",
             "contributor_occupation": "ATTORNEY",
+            "contributor_zip": "10001",
         },
         {
             "entity_type": "INDIVIDUAL",
@@ -160,6 +214,7 @@ def test_lookup_collection_aggregates_limited_public_context():
             "contributor_city": "BOSTON",
             "contributor_state": "MA",
             "contributor_occupation": "PARTNER",
+            "contributor_zip": "02108",
         },
     ])
     donor_totals = pd.DataFrame({"donor_key": ["D1", "D2", "D3"]})
@@ -175,7 +230,7 @@ def test_lookup_collection_aggregates_limited_public_context():
     assert lookups == [
         EmployerLookup(
             "ACME LLC",
-            donor_locations=("NEW YORK, NY", "BOSTON, MA"),
+            donor_locations=("NEW YORK, NY 10001", "BOSTON, MA 02108"),
             donor_occupations=("ATTORNEY", "PARTNER"),
         )
     ]
@@ -202,6 +257,27 @@ def test_lookup_collection_skips_self_employed_work_history():
     assert collect_employer_lookups(
         df,
         prev_cache=previous_employers,
+        addr_cache=_Cache(),
+        donor_totals=pd.DataFrame({"donor_key": ["D1"]}),
+        resolver_tag="openai+search",
+    ) == []
+
+
+def test_lookup_collection_skips_non_working_occupation():
+    df = pd.DataFrame([{
+        "entity_type": "INDIVIDUAL",
+        "donor_key": "D1",
+        "contributor_name": "STUDENT, ONE",
+        "contributor_employer": "NYU",
+        "contributor_city": "NEW YORK",
+        "contributor_state": "NY",
+        "contributor_occupation": "STUDENT",
+        "occupation_category": "STUDENT",
+    }])
+
+    assert collect_employer_lookups(
+        df,
+        prev_cache=_Cache(),
         addr_cache=_Cache(),
         donor_totals=pd.DataFrame({"donor_key": ["D1"]}),
         resolver_tag="openai+search",

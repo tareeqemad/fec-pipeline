@@ -15,6 +15,8 @@ CANONICAL_EMPLOYER_SKIP_VALUES = (
 ) | {'NOT DISCLOSED'}
 NOT_EMPLOYED_VARIANTS = frozenset({'NOT EMPLOYED', 'UNEMPLOYED'})
 SELF_EMPLOYED_VARIANTS = frozenset({'SELF-EMPLOYED', 'SELF EMPLOYED'})
+# Values resolve writes as employer_status=not_employed.
+NOT_EMPLOYED_STATUS_VALUES = NOT_EMPLOYED_VARIANTS | {'HOMEMAKER', 'STUDENT'}
 NON_RETIRED_EMPLOYER_STATUSES = (
     NOT_EMPLOYED_VARIANTS | SELF_EMPLOYED_VARIANTS | {'NOT DISCLOSED', ''}
 )
@@ -32,8 +34,8 @@ SKIP_EMPLOYERS = SKIP_OCCUPATIONS | frozenset({
     'NOT APPLICABLE', 'NOT APPLICAABLE', 'SELP EMPLOYED', 'PHYSICAN',
 })
 
-# The canonical "this employer value is a life status, not a company" set.
-# Deliberately excludes SKIP_EMPLOYERS' typo-only additions.
+# Life statuses/placeholders used by donor matching and consistency checks.
+# This is narrower than NOT_REAL_EMPLOYER: it excludes refusals, roles and sectors.
 EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | frozenset({
     'SELF EMPLOYED', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN',
 })
@@ -59,7 +61,7 @@ REFUSAL_EMPLOYERS = frozenset({
     # placeholders carrying NO employer info: HOME = works-from-home,
     # TBD = to-be-determined, VOLUNTEER = unpaid
     'NON', 'CHILD', 'UGH', 'SSSZSS', 'HOME', 'TBD', 'VOLUNTEER',
-    # misspelled FEC admin note that was surviving into employers.csv
+    # misspelled FEC admin note that was surviving into employer locations
     'INFORMATION REQESTED',
     # filer-typed refusals; CTR is one donor's truncated CONTRACTOR, never a company
     'NOT IMPORTANT', 'NOT SURE WHY YOU NEED THIS',
@@ -282,7 +284,7 @@ LEGAL_SUFFIX_RE = re.compile(
 # previous_employer contract clears them. Unions the skip/refusal sets so
 # there is no second list to keep in sync. Lives in config (data, not logic)
 # because cleaning, resolve AND database all need it.
-NOT_REAL_EMPLOYER = {
+NOT_REAL_EMPLOYER = frozenset({
     "SELF",
     "SELF EMPL.", "SELF EMPL", "SELF-EMP", "SELF EMP",
     "UNKNOWN",
@@ -295,7 +297,7 @@ NOT_REAL_EMPLOYER = {
     "BUSINESSMAN", "BUSINESSWOMAN", "ENTREPRENEUR", "PHILANTHROPIST", "EXECUTIVE",
     # industries / sectors written instead of an employer
     "REAL ESTATE", "HEALTHCARE", "HEALTH CARE", "FINANCE", "FINANCIAL SERVICES",
-} | SKIP_EMPLOYERS | REFUSAL_EMPLOYERS
+}) | SKIP_EMPLOYERS | REFUSAL_EMPLOYERS
 
 # Checked against state to avoid false positives (London OH, etc.)
 FOREIGN_CITIES_NO_US_STATE = frozenset({

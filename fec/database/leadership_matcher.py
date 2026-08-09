@@ -5,15 +5,20 @@ import logging
 from typing import Any
 
 from fec.donor_match.keys import individual_donor_key
-from fec.config.constants import SKIP_EMPLOYERS, REFUSAL_EMPLOYERS
+from fec.config.constants import (
+    NOT_EMPLOYED_VARIANTS,
+    REFUSAL_EMPLOYERS,
+    SELF_EMPLOYED_VARIANTS,
+    SKIP_EMPLOYERS,
+)
 
 logger = logging.getLogger(__name__)
 
 # employer strings that are a life-status, not a company -> employer_status code
 _STATUS_TO_CODE = {
     'RETIRED': 'retired',
-    'NOT EMPLOYED': 'not_employed', 'UNEMPLOYED': 'not_employed',
-    'SELF-EMPLOYED': 'self_employed', 'SELF EMPLOYED': 'self_employed',
+    **dict.fromkeys(NOT_EMPLOYED_VARIANTS, 'not_employed'),
+    **dict.fromkeys(SELF_EMPLOYED_VARIANTS, 'self_employed'),
     'SELF': 'self_employed',
 }
 _NON_EMPLOYER = SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | set(_STATUS_TO_CODE)

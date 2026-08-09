@@ -8,6 +8,8 @@ logger = get_logger(__name__)
 
 # project root = directory containing .env
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATABASE_OWNER = "fec_owner"
+DATABASE_READER = "fec_app"
 
 
 def load_env(env_path: Path | None = None) -> None:
@@ -74,8 +76,5 @@ SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 DATA_DIR = PROJECT_ROOT / "data"
 # single source of truth for committee identities; add a row for every new committee
 COMMITTEES_CSV = PROJECT_ROOT / "data" / "database" / "committees.csv"
-# employer dimension (one row per company + HQ), built by build_employers.py
-EMPLOYERS_CSV = PROJECT_ROOT / "data" / "employers.csv"
-# branch offices (one row per company + donor state) for donors who do not work
-# at the HQ; also built by build_employers.py, absent when there are none
-EMPLOYER_BRANCHES_CSV = PROJECT_ROOT / "data" / "employer_branches.csv"
+# Known employer offices, built by build_employers.py
+EMPLOYER_LOCATIONS_CSV = PROJECT_ROOT / "data" / "employer_locations.csv"

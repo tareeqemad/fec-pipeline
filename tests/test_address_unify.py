@@ -2,7 +2,7 @@
 import pandas as pd
 
 from fec.cleaning.pipeline.address_fixes import _unify_street_spacing
-from fec.post_merge_fixes.names_addresses import _recover_missing_streets
+from fec.cleaning.donor_consistency.names_addresses import _recover_missing_streets
 
 
 def _df(streets):

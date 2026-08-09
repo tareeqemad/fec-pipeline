@@ -112,6 +112,46 @@ def test_v_contributions_cleaned_name_case_and_null_surname(db):
     assert last == "NULL"
 
 
+def test_v_contributions_uses_selected_workplace(db):
+    cur = db.cursor()
+    donor_id = _seed_donor(cur)
+    cur.execute(
+        "INSERT INTO committees (committee_name) VALUES ('PAC') RETURNING committee_id"
+    )
+    committee_id = cur.fetchone()[0]
+    cur.execute(
+        "INSERT INTO addresses (street_1) VALUES ('DEFAULT OFFICE') RETURNING address_id"
+    )
+    default_address = cur.fetchone()[0]
+    cur.execute(
+        "INSERT INTO addresses (street_1) VALUES ('NEAREST OFFICE') RETURNING address_id"
+    )
+    nearest_address = cur.fetchone()[0]
+    cur.execute(
+        "INSERT INTO employers (name, address_id) VALUES ('ACME', %s) RETURNING employer_id",
+        (default_address,),
+    )
+    employer_id = cur.fetchone()[0]
+    cur.execute(
+        "INSERT INTO donor_employments "
+        "(donor_id, employer_id, employer_status, address_id) "
+        "VALUES (%s, %s, 'active', %s) RETURNING donor_employment_id",
+        (donor_id, employer_id, nearest_address),
+    )
+    employment_id = cur.fetchone()[0]
+    cur.execute(
+        "INSERT INTO contributions VALUES "
+        "(30, 't', %s, %s, NULL, %s, 5, '2024-01-01', 2024)",
+        (donor_id, committee_id, employment_id),
+    )
+
+    cur.execute(
+        "SELECT employer_address FROM v_contributions_cleaned WHERE sub_id = 30"
+    )
+
+    assert cur.fetchone()[0] == "NEAREST OFFICE"
+
+
 def test_v_donor_stats_aggregates(db):
     cur = db.cursor()
     did = _seed_donor(cur)

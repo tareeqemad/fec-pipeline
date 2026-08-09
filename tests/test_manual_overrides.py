@@ -61,6 +61,47 @@ def test_occupation_only(override_file):
     assert df.loc[2, "contributor_employer"] == "UNTOUCHED"
 
 
+def test_final_company_pass_does_not_restore_status_or_occupation(override_file):
+    override_file([
+        {
+            "sub_id": "1",
+            "contributor_employer": "REAL COMPANY LLC",
+            "contributor_occupation": "CHAIRMAN",
+        },
+        {
+            "sub_id": "2",
+            "contributor_employer": "SELF-EMPLOYED",
+            "contributor_occupation": "OWNER",
+        },
+    ])
+    df = _frame()
+    df.loc[1, "contributor_employer"] = "RETIRED"
+
+    assert mo.apply_manual_employer_overrides(
+        df, company_names_only=True,
+    ) == 1
+    assert df.loc[0, "contributor_employer"] == "REAL COMPANY LLC"
+    assert df.loc[0, "contributor_occupation"] == "KIMCO"
+    assert df.loc[1, "contributor_employer"] == "RETIRED"
+
+
+def test_final_pass_can_preserve_previous_self_employment(override_file):
+    override_file([{
+        "sub_id": "2",
+        "contributor_employer": "SELF-EMPLOYED",
+        "previous_employer": "SELF-EMPLOYED",
+    }], cols=("sub_id", "contributor_employer", "note", "previous_employer"))
+    df = _frame()
+    df["previous_employer"] = ""
+    df.loc[1, "contributor_employer"] = "RETIRED"
+
+    assert mo.apply_manual_employer_overrides(
+        df, company_names_only=True,
+    ) == 1
+    assert df.loc[1, "contributor_employer"] == "RETIRED"
+    assert df.loc[1, "previous_employer"] == "SELF-EMPLOYED"
+
+
 def test_legacy_file_without_the_occupation_column_still_loads(override_file):
     override_file([{"sub_id": "2", "contributor_employer": "NEW EMPLOYER"}],
                   cols=("sub_id", "contributor_employer", "note"))
@@ -89,7 +130,8 @@ def test_shipped_override_file_is_wellformed():
         assert (r.get("sub_id") or "").strip(), r
         assert ((r.get("contributor_employer") or "").strip()
                 or (r.get("contributor_occupation") or "").strip()
-                or (r.get("contributor_city") or "").strip()), r
+                or (r.get("contributor_city") or "").strip()
+                or (r.get("previous_employer") or "").strip()), r
 
 
 def test_no_override_reinstates_a_known_truncation():
@@ -107,3 +149,21 @@ def test_no_override_reinstates_a_known_truncation():
         if (r.get("contributor_employer") or "").strip().upper() in truncations
     ]
     assert not clashes, f"overrides reinstate a repaired truncation: {clashes}"
+
+
+def test_greglevine_domain_is_kept_as_a_company():
+    """The reported domain belongs to an active Florida corporation."""
+    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+        rows = {row["sub_id"]: row for row in csv.DictReader(f)}
+
+    assert rows["4011420251130090696"]["contributor_employer"] == "GREGLEVINE.COM INC"
+
+
+def test_robert_namoff_student_filing_is_repaired():
+    """Official records confirm he chaired the Miami chemical company."""
+    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+        rows = {row["sub_id"]: row for row in csv.DictReader(f)}
+
+    row = rows["4062420241962022446"]
+    assert row["contributor_employer"] == "ALLIED UNIVERSAL CORP"
+    assert row["contributor_occupation"] == "CHAIRMAN"
