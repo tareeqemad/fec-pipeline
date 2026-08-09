@@ -6,7 +6,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.config import COMM_PATTERNS
-from fec.config.constants import LEGAL_SUFFIX_RE as _LEGAL_SUFFIX_RE
+from fec.config.constants import LEGAL_SUFFIX_RE, STATUS_CATEGORIES
 
 _COMMITTEE_IN_NAME_RE = re.compile(
     r'FRIENDS TO ELECT|CITIZENS TO ELECT|COMMITTEE TO ELECT'
@@ -34,9 +34,8 @@ _BUSINESS_SUFFIX_RE = re.compile(
     re.IGNORECASE
 )
 
-_GENERIC_EMP_OCC = frozenset({
-    'RETIRED', 'SELF-EMPLOYED', 'NOT EMPLOYED', 'NOT DISCLOSED', 'HOMEMAKER',
-    'STUDENT', 'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
+_GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
+    'NOT DISCLOSED', 'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
     'INSURANCE', 'MARKETING', 'BANKING', 'GOVERNMENT', 'EDUCATION',
     'CONSTRUCTION', 'ACCOUNTING', 'TECHNOLOGY', 'ENGINEERING', 'VOLUNTEER',
     'CASHIER', 'NURSE', 'HEALTHCARE', 'ENTREPRENEUR', 'INDEPENDENT CONTRACTOR',
@@ -47,6 +46,16 @@ _GENERIC_EMP_OCC = frozenset({
 
 _NAME_CORRECTIONS = {
     "CHALME'', RAYMOND": "CHALME, RAYMOND",
+    # Human-verified donor spellings. These run again after donor
+    # canonicalization so a longer malformed filing cannot become the winner.
+    "JACOBSON, JON": "JACOBSON, JONATHON",
+    "GOLDHABER, MARKTHE WALL TILE": "GOLDHABER, MARK",
+    "OVES, LYNNOVES": "OVES, LYNN",
+    "BORENSTEIN, JON": "BORENSTEIN, JONATHAN",
+    "LUTTWAK, JON": "LUTTWAK, JONATHAN",
+    "WEINBACH, JONATHAN": "WEINBACH, JON",
+    "KARP, ROBERTRKARP": "KARP, ROBERT",
+    "CHENEY, D AVID": "CHENEY, DAVID",
     "MEYERS, STUART SARA": "MEYERS, STUART",
     "MEYERS, SARA STUART": "MEYERS, SARA",
     # Hand-verified org names the LAST, FIRST parse flipped (auto-unflipping comma'd
@@ -154,7 +163,7 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Strip legal suffixes (LLC, LLP, INC) from non-individual contributor names."""
     mask = df['entity_type'] != 'INDIVIDUAL'
     names = df.loc[mask, 'contributor_name'].fillna('')
-    cleaned = names.str.replace(_LEGAL_SUFFIX_RE, '', regex=True).str.strip()
+    cleaned = names.str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
     changed = (cleaned != names) & (cleaned != '')
     n_fixed = changed.sum()
     if n_fixed:

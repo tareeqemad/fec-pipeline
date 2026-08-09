@@ -18,6 +18,9 @@ class Cache:
     def put(self, key, value):
         self.data[key] = value
 
+    def discard(self, key):
+        self.data.pop(key, None)
+
     def save(self):
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
         temp_path = self.path + ".tmp"

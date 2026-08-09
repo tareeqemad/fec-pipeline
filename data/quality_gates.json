@@ -15,10 +15,31 @@
       "count": 0
     },
     "self_employed_status_consistency": {
-      "passed": true,
-      "count": 0,
-      "marker_without_status": 0,
-      "status_without_marker": 0
+      "passed": null,
+      "count": null,
+      "not_run": true,
+      "missing_columns": [
+        "employer_status"
+      ],
+      "reason": "run after resolve --apply"
+    },
+    "not_employed_status_consistency": {
+      "passed": null,
+      "count": null,
+      "not_run": true,
+      "missing_columns": [
+        "employer_status"
+      ],
+      "reason": "run after resolve --apply"
+    },
+    "previous_employer_consistency": {
+      "passed": null,
+      "count": null,
+      "not_run": true,
+      "missing_columns": [
+        "employer_status"
+      ],
+      "reason": "run after resolve --apply"
     },
     "zip_coverage": {
       "passed": true,
@@ -54,8 +75,13 @@
       "count": 0
     },
     "retired_active_sync": {
-      "passed": true,
-      "count": 0
+      "passed": null,
+      "count": null,
+      "not_run": true,
+      "missing_columns": [
+        "employer_status"
+      ],
+      "reason": "run after resolve --apply"
     },
     "retired_employer_marker": {
       "passed": true,

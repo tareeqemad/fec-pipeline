@@ -1,6 +1,6 @@
 """Donor identity resolution: decide who is who, then make each identity consistent.
 
-The flow (clean.py -> unify_donors -> here):
+The flow (clean.py -> identify_donors -> here):
 
     matcher.match_donors
         build_profiles (matcher)      one profile per NAME|CITY|STATE record

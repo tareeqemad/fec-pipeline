@@ -4,9 +4,29 @@ import pandas as pd
 from fec.cleaning.previous_employer import (
     normalize_previous_employer_value as V,
     normalize_previous_employer_column,
+    referenced_employers,
 )
-from fec.post_merge_fixes import _normalize_previous_employer
+from fec.cleaning.donor_consistency import _normalize_previous_employer
 from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
+
+
+def test_referenced_employers_are_individual_only():
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL",
+            "employer_status": "active",
+            "contributor_employer": "REAL EMPLOYER",
+            "previous_employer": "",
+        },
+        {
+            "entity_type": "ORGANIZATION",
+            "employer_status": "active",
+            "contributor_employer": "SHOULD NOT LOAD",
+            "previous_employer": "",
+        },
+    ])
+
+    assert referenced_employers(rows) == {"REAL EMPLOYER"}
 
 
 def test_self_employed_is_kept_not_cleared():

@@ -36,6 +36,8 @@ def _person(key, name, first):
         "contributor_name": name,
         "contributor_first_name": first,
         "contributor_last_name": "MEYERS",
+        "contributor_city": "DUNWOODY",
+        "contributor_state": "GA",
         "contributor_zip": "30338",
         "occupation_category": "RETIRED",
         "donor_key": key,
@@ -58,3 +60,24 @@ def test_split_name_merge_respects_blocked_people(monkeypatch):
 
     assert K.merge_split_name_donors(rows) == 0
     assert set(rows["donor_key"]) == {"stuart", "sara"}
+
+
+def test_review_uses_last_first_blocklist_names(monkeypatch, tmp_path):
+    checked = []
+    monkeypatch.setattr(
+        K,
+        "_is_blocked_merge",
+        lambda a, b: checked.append((a, b)) or True,
+    )
+    rows = pd.DataFrame([
+        _person("stuart", "MEYERS, STUART", "STUART"),
+        _person("joint", "MEYERS, STUARTANDSARA", "STUARTANDSARA"),
+    ])
+    report = tmp_path / "donor_dedup_review.csv"
+    report.write_text("stale")
+    rows["contribution_receipt_amount"] = "100"
+
+    assert K.build_donor_dedup_review(rows, tmp_path) == 0
+    assert not report.exists()
+    assert len(checked) == 1
+    assert frozenset(checked[0]) == {"MEYERS, STUART", "MEYERS, STUARTANDSARA"}

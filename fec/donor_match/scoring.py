@@ -13,7 +13,6 @@ from .constants import (
     SCORE_RARE_NAME, SCORE_VERY_RARE_BONUS, SCORE_COMMON_PENALTY,
     SCORE_SAME_OCC, SCORE_OCC_RETIRED,
     SCORE_RETIRED_NO_EMP, SCORE_RARE_EMPLOYER_OK,
-    XSTATE_LAST_RARE_MAX, XSTATE_FIRST_RARE_MAX,
 )
 
 # -- string normalization: make raw strings comparable ----------------------
@@ -143,21 +142,14 @@ def _occupation_evidence(p1: dict, p2: dict) -> tuple:
     signals = []
     c1, c2 = p1.get("occ_categories", set()), p2.get("occ_categories", set())
     r1, r2 = p1.get("retired", False), p2.get("retired", False)
-    occ_conflict = bool(c1 and c2 and not (c1 & c2))
-    occ_compatible = False
-
     if c1 and c2 and (c1 & c2):
         score += SCORE_SAME_OCC
         signals.append(f"occ={sorted(c1 & c2)[0][:18]}(+{SCORE_SAME_OCC})")
-        occ_compatible = True
     elif (c1 and r2) or (c2 and r1):
         score += SCORE_OCC_RETIRED
         signals.append(f"occ_retired_transition(+{SCORE_OCC_RETIRED})")
-        occ_compatible = True
-    elif r1 and r2:
-        occ_compatible = True
 
-    return score, signals, occ_compatible, occ_conflict
+    return score, signals
 
 
 def _middle_name_evidence(m1: str, m2: str) -> tuple:
@@ -203,13 +195,10 @@ def _apply_no_geo_safety(
     score: int,
     signals: list,
     p1: dict,
-    p2: dict,
     name_freq: int,
     common_employers: set,
-    occ_compatible: bool,
-    occ_conflict: bool,
 ) -> int:
-    """Cap unsupported matches; allow only the documented rare-name cases."""
+    """Require a shared employer when geography is absent."""
     if common_employers:
         if name_freq <= 3:
             score += SCORE_RARE_EMPLOYER_OK
@@ -224,17 +213,7 @@ def _apply_no_geo_safety(
             signals.append(f"EMPLOYER_ONLY_COMMON(capped\u2192{score},freq={name_freq})")
         return score
 
-    distinctive = (
-        p1.get("last_freq", 999) <= XSTATE_LAST_RARE_MAX
-        or (
-            p1.get("first_freq", 999) <= XSTATE_FIRST_RARE_MAX
-            and p2.get("first_freq", 999) <= XSTATE_FIRST_RARE_MAX
-        )
-    )
-    if name_freq <= 2 and occ_compatible and not occ_conflict and distinctive:
-        score = max(score, MERGE_THRESHOLD)
-        signals.append(f"RARE_OCC_CROSS_STATE(allow\u2192{score})")
-    elif name_freq <= 2:
+    if name_freq <= 2:
         score = min(score, MERGE_THRESHOLD - 1)
         signals.append(f"NO_CORROBORATION_RARE(capped\u2192{score})")
     else:
@@ -248,7 +227,7 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     """Return the donor-match score and the evidence behind it."""
     score, signals, has_geo, common_employers = _shared_evidence(p1, p2)
 
-    points, evidence, occ_compatible, occ_conflict = _occupation_evidence(p1, p2)
+    points, evidence = _occupation_evidence(p1, p2)
     score += points
     signals.extend(evidence)
 
@@ -283,11 +262,8 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
             score,
             signals,
             p1,
-            p2,
             name_freq,
             common_employers,
-            occ_compatible,
-            occ_conflict,
         )
 
     return score, signals

@@ -5,9 +5,9 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx
 from fec.config.constants import EMPLOYER_STATUS_VALUES
-from fec.config.constants import LEGAL_SUFFIX_RE as _LEGAL_SUFFIX_RE
+from fec.config.constants import LEGAL_SUFFIX_RE
 from fec.config.constants import OCCUPATION_AS_EMPLOYER
-from fec.config.constants import SKIP_EMPLOYERS as _SKIP_EMPLOYERS
+from fec.config.constants import SKIP_EMPLOYERS
 
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 
@@ -132,7 +132,7 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     indiv_idx = _indiv_idx(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
 
-    has_emp = emp.notna() & ~emp.isin(_SKIP_EMPLOYERS)
+    has_emp = emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
     target = indiv_idx[has_emp]
 
     if len(target) == 0:
@@ -142,7 +142,7 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     raw = emp[has_emp]
 
     stripped = raw.str.replace(_TRAILING_PAREN_RE, '', regex=True)
-    stripped = stripped.str.replace(_LEGAL_SUFFIX_RE, '', regex=True)
+    stripped = stripped.str.replace(LEGAL_SUFFIX_RE, '', regex=True)
     # & $ -> AND for non-brand forms; brand preservation happens via the
     # hybrid rule below through normalize_employer_display_name
     stripped = stripped.str.replace(r'[&$]', ' AND ', regex=True)
@@ -200,7 +200,7 @@ def normalize_employer_display_name(name) -> str | None:
     prev = None
     while prev != stripped:
         prev = stripped
-        stripped = _LEGAL_SUFFIX_RE.sub('', stripped).strip()
+        stripped = LEGAL_SUFFIX_RE.sub('', stripped).strip()
     # Ambiguous generics and very short names keep their suffix.
     if (stripped != original
             and (stripped in GENERIC_WORDS_PROTECTED or len(stripped) <= 2)):

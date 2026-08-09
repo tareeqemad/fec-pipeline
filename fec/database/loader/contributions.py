@@ -13,6 +13,7 @@ except ImportError:
 
 from fec.env import CLEANED_CSV
 from fec.log import get_logger
+from fec.cleaning.previous_employer import current_employer_name
 
 from ._base import _count, to_float_or_none, to_int_or_none
 
@@ -73,7 +74,12 @@ def _map_address_ids(rows, address_ids):
 
 def _map_employment_ids(rows, employment_ids, get_employer_id):
     """Match the composite key produced by load_employments."""
-    employer_ids = rows["contributor_employer"].map(get_employer_id)
+    employer_ids = [
+        get_employer_id(current_employer_name(status, employer))
+        for status, employer in rows[[
+            "employer_status", "contributor_employer",
+        ]].itertuples(index=False)
+    ]
     occupations = rows["contributor_occupation"].where(
         rows["contributor_occupation"].notna(), None
     )
@@ -85,16 +91,12 @@ def _map_employment_ids(rows, employment_ids, get_employer_id):
         )
     ]
 
-    missing = (
-        rows["entity_type"].eq("INDIVIDUAL")
-        & employer_ids.notna()
-        & rows["_employment_id"].isna()
-    )
+    missing = rows["entity_type"].eq("INDIVIDUAL") & rows["_employment_id"].isna()
     if missing.any():
         sample = rows.loc[missing, "sub_id"].head(10).tolist()
         raise RuntimeError(
             f"{CLEANED_CSV.name}: {int(missing.sum())} INDIVIDUAL contribution row(s) "
-            "resolved an employer_id but no donor_employment row -- "
+            "have no exact donor_employment row -- "
             f"sample sub_ids: {sample}"
         )
 

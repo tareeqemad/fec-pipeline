@@ -11,8 +11,6 @@ from fec.config.constants import (
     OCCUPATION_AS_EMPLOYER, RETIRED_TYPO_EMPLOYERS,
 )
 
-_RETIRED_TYPOS = RETIRED_TYPO_EMPLOYERS
-
 # Safe structural variants of the status word: RETIR / RETIRE / RETIRED /
 # RETIREE / RETIRD. Full-match only, so "RETIREMENT" is never touched.
 _RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
@@ -105,7 +103,10 @@ def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """T. RETIRED typos normalized; 'RETIRED <X>' splits X to previous_employer (company) or occupation (profession word)."""
     emp = df['contributor_employer'].fillna('')
-    retired_marker = emp.isin(_RETIRED_TYPOS) | emp.str.fullmatch(_RETIRED_TOKEN_RE, na=False)
+    retired_marker = (
+        emp.isin(RETIRED_TYPO_EMPLOYERS)
+        | emp.str.fullmatch(_RETIRED_TOKEN_RE, na=False)
+    )
     mask = is_indiv & retired_marker & emp.ne('RETIRED')
     n_fixed = int(mask.sum())
     if n_fixed:

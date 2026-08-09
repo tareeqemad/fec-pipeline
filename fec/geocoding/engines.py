@@ -1,4 +1,4 @@
-"""Geocoding API wrappers, tried in order: Nominatim, Google, city-level fallback."""
+"""Nominatim geocoding requests."""
 
 import time
 
@@ -14,12 +14,9 @@ NOMINATIM_DELAY = 1.05  # seconds; policy is max 1 req/sec
 NOMINATIM_RETRIES = 2  # retry on 429/timeout
 NOMINATIM_TIMEOUT = 10  # seconds
 
-GOOGLE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
-# permanent Google errors: stop retrying for the rest of the run
-_GOOGLE_FATAL_STATUSES = {"REQUEST_DENIED", "OVER_DAILY_LIMIT", "OVER_QUERY_LIMIT"}
-
-_google_disabled = False
+class NominatimUnavailable(RuntimeError):
+    """Nominatim could not be reached."""
 
 
 def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
@@ -52,58 +49,6 @@ def nominatim_international(street: str, city: str, state: str, zipcode: str) ->
     })
 
 
-def google(street: str, city: str, state: str, zipcode: str, api_key: str) -> tuple:
-    """Geocode via Google Maps; disables itself for the run on permanent errors (bad key, quota)."""
-    global _google_disabled
-    if _google_disabled:
-        return None, None, None
-
-    address = f"{street}, {city}, {state} {zipcode}, USA"
-    try:
-        response = requests.get(
-            GOOGLE_URL,
-            params={"address": address, "key": api_key},
-            timeout=10,
-        )
-        if not response.ok:
-            logger.warning("Google API HTTP %d - disabling", response.status_code)
-            _google_disabled = True
-            return None, None, None
-
-        data = response.json()
-        status = data.get("status", "")
-
-        if status == "OK" and data.get("results"):
-            first_result = data["results"][0]
-            location = first_result["geometry"]["location"]
-            country_code = None
-            for component in first_result.get("address_components", []):
-                if "country" in component.get("types", []):
-                    country_code = (component.get("short_name") or "").upper() or None
-                    break
-            return float(location["lat"]), float(location["lng"]), country_code
-
-        if status in _GOOGLE_FATAL_STATUSES:
-            message = data.get("error_message", status)
-            logger.warning("Google API: %s - disabling for this run", message)
-            _google_disabled = True
-            return None, None, None
-
-        # ZERO_RESULTS is normal (address not found)
-        return None, None, None
-
-    except requests.exceptions.Timeout:
-        logger.warning("Google API timeout")
-        return None, None, None
-    except requests.exceptions.ConnectionError:
-        logger.warning("Google API connection error - disabling")
-        _google_disabled = True
-        return None, None, None
-    except Exception as error:
-        logger.warning("Google API unexpected error: %s", error)
-        return None, None, None
-
-
 def city_level(city: str, state: str, zipcode: str) -> tuple:
     """Geocode city + state + ZIP only (PO boxes, or when street-level fails)."""
     query = f"{city}, {state} {zipcode}, USA"
@@ -115,6 +60,7 @@ def city_level(city: str, state: str, zipcode: str) -> tuple:
 def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
     """One Nominatim request, retried on 429/5xx/timeout only; returns (lat, lng, ISO-2 country) or Nones."""
     params = {**params, "addressdetails": 1}
+    last_error = "temporary Nominatim failure"
     for attempt in range(1 + _retries):
         try:
             response = requests.get(
@@ -123,12 +69,14 @@ def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
             )
 
             if response.status_code == 429:
+                last_error = "Nominatim rate limit"
                 wait = 2 ** attempt * NOMINATIM_DELAY
                 logger.debug("Nominatim 429 - waiting %.1fs (attempt %d)", wait, attempt + 1)
                 time.sleep(wait)
                 continue
 
             if response.status_code >= 500:
+                last_error = f"Nominatim HTTP {response.status_code}"
                 logger.debug("Nominatim %d - retrying (attempt %d)", response.status_code, attempt + 1)
                 time.sleep(NOMINATIM_DELAY * 2)
                 continue
@@ -143,18 +91,19 @@ def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
             return None, None, None
 
         except requests.exceptions.Timeout:
+            last_error = "Nominatim timeout"
             logger.debug("Nominatim timeout (attempt %d/%d)", attempt + 1, 1 + _retries)
             time.sleep(NOMINATIM_DELAY)
             continue
 
         except requests.exceptions.ConnectionError:
+            last_error = "Nominatim connection error"
             logger.debug("Nominatim connection error (attempt %d/%d)", attempt + 1, 1 + _retries)
             time.sleep(NOMINATIM_DELAY * 2)
             continue
 
         except Exception as error:
-            logger.warning("Nominatim unexpected error: %s", error)
-            return None, None, None
+            raise NominatimUnavailable(str(error)) from error
 
     logger.debug("Nominatim: all %d attempts failed", 1 + _retries)
-    return None, None, None
+    raise NominatimUnavailable(last_error)

@@ -13,12 +13,12 @@ from fec.cleaning.safety_nets.occupation import (
     _fix_not_disclosed_in_other,
     _fix_web_artifact_occupation,
 )
-from fec.post_merge_fixes.employer import _fill_employer_from_donor
-from fec.post_merge_fixes.occupation import (
+from fec.cleaning.donor_consistency.employer import _fill_employer_from_donor
+from fec.cleaning.donor_consistency.occupation import (
     _fill_occupation_from_donor,
     _rederive_occupation_category,
 )
-from fec.post_merge_fixes.retired import _settle_retired_employer
+from fec.cleaning.donor_consistency.retired import _settle_retired_employer
 
 
 def test_retire_truncation_is_a_retired_status():
@@ -126,16 +126,85 @@ def test_quality_gates_reject_self_employed_status_mismatch():
     df = pd.DataFrame({
         'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
         'contributor_employer': ['SELF-EMPLOYED', 'ACME'],
-        'employer_status': ['active', 'self_employed'],
+        'contributor_occupation': ['CONSULTANT', 'SELF-EMPLOYED'],
+        'occupation_category': ['CONSULTING', 'SELF-EMPLOYED'],
+        'employer_status': ['active', 'active'],
     })
 
     check = run_quality_gates(df)['checks']['self_employed_status_consistency']
     assert not check['passed']
-    assert check['marker_without_status'] == 1
-    assert check['status_without_marker'] == 1
+    assert check['marker_without_status'] == 2
+    assert check['status_without_marker'] == 0
 
-    df['employer_status'] = ['self_employed', 'active']
+    df['employer_status'] = ['self_employed', 'self_employed']
     assert run_quality_gates(df)['checks']['self_employed_status_consistency']['passed']
+
+
+def test_quality_gates_reject_not_employed_status_mismatch():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_employer': ['NOT EMPLOYED', 'NYU'],
+        'contributor_occupation': ['NOT EMPLOYED', 'STUDENT'],
+        'occupation_category': ['NOT EMPLOYED', 'STUDENT'],
+        'employer_status': ['active', 'active'],
+    })
+
+    check = run_quality_gates(df)['checks']['not_employed_status_consistency']
+    assert not check['passed']
+    assert check['marker_without_status'] == 2
+    assert check['status_without_marker'] == 0
+
+    df['employer_status'] = ['not_employed', 'not_employed']
+    assert run_quality_gates(df)['checks']['not_employed_status_consistency']['passed']
+
+
+def test_quality_gates_reject_multiple_previous_employers_per_donor():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'donor_key': ['same', 'same'],
+        'contributor_employer': ['RETIRED', 'RETIRED'],
+        'employer_status': ['retired', 'retired'],
+        'previous_employer': ['COMPANY A', 'COMPANY B'],
+    })
+
+    check = run_quality_gates(df)['checks']['previous_employer_consistency']
+
+    assert not check['passed']
+    assert check['count'] == 1
+
+    df.loc[1, 'previous_employer'] = ''
+    check = run_quality_gates(df)['checks']['previous_employer_consistency']
+    assert check['passed']
+
+
+def test_resolve_only_quality_gates_are_reported_before_resolve():
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'],
+        'contributor_employer': ['ACME'],
+        'occupation_category': ['EXECUTIVE / C-SUITE'],
+    })
+
+    checks = run_quality_gates(df)['checks']
+    for name in (
+        'self_employed_status_consistency',
+        'not_employed_status_consistency',
+        'retired_active_sync',
+    ):
+        assert checks[name]['not_run']
+        assert checks[name]['passed'] is None
+        expected = ['employer_status']
+        if name != 'retired_active_sync':
+            expected = [
+                'contributor_occupation', 'employer_status',
+            ]
+        assert checks[name]['missing_columns'] == expected
+
+    previous = checks['previous_employer_consistency']
+    assert previous['not_run']
+    assert previous['passed'] is None
+    assert previous['missing_columns'] == [
+        'donor_key', 'employer_status', 'previous_employer',
+    ]
 
 
 def test_employer_fill_does_not_replace_existing_occupation_category():

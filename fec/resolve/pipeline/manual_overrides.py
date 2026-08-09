@@ -1,14 +1,54 @@
-"""Load human-curated addresses from CSV into the resolve caches as method='manual_override' - the CSV survives cache wipes, _needs_ai treats these as final, and dedup ranks them above ai_*."""
+"""Load curated addresses, keeping uncertain research reviewable."""
 import csv
 from collections.abc import Callable
 from pathlib import Path
 
+import pandas as pd
+
+from fec.cleaning.previous_employer import normalize_previous_employer_value
+from fec.config import expand_city_abbreviations
 from fec.log import get_logger
+
+from .helpers import _prev_key
 
 logger = get_logger(__name__)
 
 _CHANGE_FIELDS = ('employer_address', 'employer_city',
                   'employer_state', 'employer_zip', 'method')
+_REVIEW_MARKERS = ('MEDIUM', 'LIKELY', 'UNCERTAIN', 'VERIFY')
+
+
+def _manual_method(note: str) -> str:
+    """Keep explicitly uncertain research in the review queue."""
+    upper = note.upper()
+    if 'HIGH (VERIFIED)' not in upper and any(
+        marker in upper for marker in _REVIEW_MARKERS
+    ):
+        return 'manual_review'
+    return 'manual_override'
+
+
+def _address_entry(row: dict) -> dict | None:
+    address = (row.get('address') or '').strip()
+    city = expand_city_abbreviations((row.get('city') or '').strip())
+    state = (row.get('address_state') or row.get('state') or '').strip().upper()
+    note = (row.get('note') or '').strip()
+    suppressed = note.upper().startswith('INVALID:')
+    if not address and not (city and state) and not suppressed:
+        return None
+    method = 'manual_invalid' if suppressed else _manual_method(note)
+    return {
+        'employer_address': address,
+        'employer_city': city,
+        'employer_state': state,
+        'employer_zip': (row.get('zip') or '').strip(),
+        'method': method,
+        'confidence': (
+            'NONE' if suppressed
+            else 'LOW' if method == 'manual_review'
+            else 'HIGH'
+        ),
+    }
 
 
 def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
@@ -24,24 +64,9 @@ def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
             key = key_fn(row)
             if not key:
                 continue
-            address = (row.get('address') or '').strip()
-            city = (row.get('city') or '').strip()
-            state = (row.get('address_state') or row.get('state') or '').strip().upper()
-            note = (row.get('note') or '').strip()
-            suppressed = note.upper().startswith('INVALID:')
-            # A deliberate city/state-only override is valid - apply.py honors
-            # a manual_override with no street. INVALID keeps a known-bad
-            # address blank and prevents the AI from restoring it.
-            if not address and not (city and state) and not suppressed:
+            entry = _address_entry(row)
+            if entry is None:
                 continue
-            entry = {
-                'employer_address': address,
-                'employer_city':    city,
-                'employer_state':   state,
-                'employer_zip':     (row.get('zip') or '').strip(),
-                'method':           'manual_invalid' if suppressed else 'manual_override',
-                'confidence':       'NONE' if suppressed else 'HIGH',
-            }
             existing = cache.get(key)
             if existing is None:
                 n_added += 1
@@ -58,25 +83,115 @@ def _load_overrides(csv_path: Path, cache, key_fn: Callable[[dict], str],
     return n_added, n_updated
 
 
-def load_manual_overrides(csv_path: Path, addr_cache) -> tuple[int, int]:
-    """Manual employer-HQ overrides - keyed by employer name (uppercased). Rows carrying a donor_state are branches, not the HQ, and are skipped here."""
-    return _load_overrides(
-        csv_path, addr_cache,
-        key_fn=lambda row: ('' if (row.get('donor_state') or '').strip()
-                            else (row.get('name') or '').strip().upper()),
-        label="manual overrides",
+def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
+    """Load primary and additional employer locations into one cache entry."""
+    if not csv_path.exists():
+        logger.info(f"    manual locations: {csv_path.name} not found - skipping")
+        return 0, 0
+
+    rows_by_name = {}
+    with csv_path.open(encoding='utf-8', newline='') as handle:
+        for row in csv.DictReader(handle):
+            name = (row.get('name') or '').strip().upper()
+            entry = _address_entry(row)
+            if not name or entry is None:
+                continue
+            group = rows_by_name.setdefault(name, {'primary': None, 'extra': []})
+            is_primary = (row.get('is_primary') or 'true').strip().lower()
+            if is_primary in {'true', '1', 'yes'}:
+                group['primary'] = entry
+            else:
+                group['extra'].append(entry)
+
+    added = updated = 0
+    for name, manual in rows_by_name.items():
+        existing = dict(addr_cache.get(name) or {})
+        ai_locations = [
+            location for location in existing.get('locations', [])
+            if not str(location.get('method', '')).startswith('manual_')
+        ]
+        replacement = dict(existing)
+        if (
+            manual['primary'] is not None
+            and (
+                manual['primary'].get('method') == 'manual_override'
+                or not str(existing.get('method', '')).endswith('_search')
+            )
+        ):
+            replacement.update(manual['primary'])
+        locations = ai_locations + manual['extra']
+        if locations:
+            replacement['locations'] = locations
+        else:
+            replacement.pop('locations', None)
+
+        if replacement == existing:
+            continue
+        if existing:
+            updated += 1
+        else:
+            added += 1
+        addr_cache.put(name, replacement)
+
+    if added or updated:
+        addr_cache.save()
+    logger.info(
+        f"    manual locations: {added:,} added, {updated:,} updated "
+        f"from {csv_path.name}"
     )
+    return added, updated
 
 
-def load_manual_branches(csv_path: Path, branch_cache) -> tuple[int, int]:
-    """Branch offices from the same curated CSV - the rows that fill in donor_state, keyed EMPLOYER|ST so apply can prefer them over the HQ for donors in that state."""
-    def _key(row):
-        donor_state = (row.get('donor_state') or '').strip().upper()
-        name = (row.get('name') or '').strip().upper()
-        return f"{name}|{donor_state}" if (name and donor_state) else ''
+def load_manual_previous_employers(
+    csv_path: Path, df: pd.DataFrame, prev_cache,
+) -> tuple[int, int]:
+    """Protect curated work history from later cache discovery."""
+    if not csv_path.exists() or "previous_employer" not in df.columns:
+        return 0, 0
 
-    return _load_overrides(csv_path, branch_cache, key_fn=_key,
-                           label="manual branches")
+    rows = df.assign(_sub_id=df["sub_id"].astype(str).str.strip()).set_index(
+        "_sub_id", drop=False,
+    )
+    entries = {}
+    with csv_path.open(encoding="utf-8", newline="") as handle:
+        for override in csv.DictReader(handle):
+            sub_id = (override.get("sub_id") or "").strip()
+            previous = normalize_previous_employer_value(
+                override.get("previous_employer") or "",
+            )
+            if not sub_id or not previous or sub_id not in rows.index:
+                continue
+            source = rows.loc[sub_id]
+            if isinstance(source, pd.DataFrame):
+                source = source.iloc[0]
+            name = str(source.get("contributor_name") or "").strip()
+            state = str(source.get("contributor_state") or "").strip().upper()
+            if not name:
+                continue
+            entries[_prev_key(name, state)] = {
+                "employer": previous,
+                "employer_normalized": previous.upper(),
+                "state": state,
+                "method": "manual_override",
+            }
+
+    added = updated = 0
+    for key, entry in entries.items():
+        existing = prev_cache.get(key)
+        if existing == entry:
+            continue
+        if existing is None:
+            added += 1
+        else:
+            updated += 1
+        prev_cache.put(key, entry)
+    if added or updated:
+        prev_cache.save()
+    logger.info(
+        f"    manual previous employers: {added:,} added, {updated:,} updated "
+        f"from {csv_path.name}"
+    )
+    return added, updated
 
 
 def load_manual_committee_overrides(csv_path: Path, comm_cache) -> tuple[int, int]:

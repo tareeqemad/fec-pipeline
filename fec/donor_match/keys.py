@@ -197,7 +197,7 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
             reason = _relation(fa, fb)
             if not reason:
                 continue
-            if _is_blocked_merge(f"{fa} {last}", f"{fb} {last}"):
+            if _is_blocked_merge(f"{last}, {fa}", f"{last}, {fb}"):
                 continue
             out.append({
                 "reason": reason, "zip": z, "last_name": last,
@@ -209,10 +209,11 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
                 "donations_b": int(summ.at[kb, "n"]), "amount_b": round(float(summ.at[kb, "amount"]), 2),
                 "combined_amount": round(float(summ.at[ka, "amount"] + summ.at[kb, "amount"]), 2),
             })
+    path = Path(out_dir) / "donor_dedup_review.csv"
     if not out:
+        path.unlink(missing_ok=True)
         return 0
     out.sort(key=lambda r: -r["combined_amount"])
-    path = Path(out_dir) / "donor_dedup_review.csv"
     pd.DataFrame(out).to_csv(path, index=False, na_rep="")
     logger.info(f"  Donor-dedup review -> {path} ({len(out):,} candidate pairs)")
     return len(out)

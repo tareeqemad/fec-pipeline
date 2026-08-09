@@ -34,8 +34,6 @@ _AI_UNAMBIGUOUS_FAKE_NUMBERS = frozenset({
     '9101',  # seen in samples: '9101 E 22nd St'
 })
 
-_AI_STATUS_WORD_EMPLOYERS = EMPLOYER_STATUS_VALUES
-
 _AI_STREET_STOPWORDS = frozenset({
     'STREET', 'ST', 'AVENUE', 'AVE', 'ROAD', 'RD', 'DRIVE', 'DR',
     'LANE', 'LN', 'COURT', 'CT', 'PLACE', 'PL', 'BOULEVARD', 'BLVD',
@@ -115,13 +113,6 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
     # 4. AI-hallucinated addresses - patterns documented in the function.
     _clear_ai_hallucinated_addresses(df)
 
-    # 5. employer_status is populated only by apply_results, so clean.py's
-    # retired+active sweep runs too early to see these rows - re-sync here
-    # in the same pass that creates the contradiction (idempotent).
-    from fec.post_merge_fixes import _retired_active_sync
-    _retired_active_sync(df)
-
-
 def _normalize_previous_employer_column(df: pd.DataFrame) -> None:
     """Apply the shared previous_employer contract (fec/cleaning/previous_employer.py) so every writer uses the same rules."""
     normalize_previous_employer_column(df)
@@ -170,7 +161,7 @@ def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
     # Pattern B: status-word employer (RETIRED etc.) with no previous_employer.
     employer_col = df['contributor_employer'].fillna('')
     prev_empty = df.get('previous_employer', pd.Series('', index=df.index)).fillna('').eq('')
-    status_no_prev = employer_col.isin(_AI_STATUS_WORD_EMPLOYERS) & prev_empty
+    status_no_prev = employer_col.isin(EMPLOYER_STATUS_VALUES) & prev_empty
 
     # Pattern C: committee address shared by 2+ committees. Real committee HQs
     # are unique; a shared address is the AI's default placeholder.

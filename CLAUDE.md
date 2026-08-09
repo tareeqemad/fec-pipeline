@@ -15,8 +15,9 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   - `recipient_committee` (AIPAC/DMFI/UDP) — the PAC that **received** the money.
   - `employer_status` keys the work fields. Employer addresses are **not** here.
   - `donor_key` groups a person's filings (deduped identity).
-- **`data/employers.csv`** — employer dimension (one row per company + HQ).
+- **`data/employer_locations.csv`** — known employer locations.
   - join: `contributor_employer` / `previous_employer` → `employer_name`.
+  - `is_primary` marks the safe default; a company may have verified extra offices.
   - `address_source` (ai/manual), `address_trust`.
   - `address_trust` stays in the CSV **on purpose** — it is a curation worklist,
     not a published field. The DB schema and the dashboard are untouched by it.
@@ -38,30 +39,24 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   `contributor_employer_original`. `state_name` and `employer_change_type` are no
   longer generated at all; the remaining working fields are listed in
   `INTERNAL_OUTPUT_COLUMNS` in `fec/config/data.py`.
-- Employer HQ addresses **normalized out** to `employers.csv` (`build_employers.py`).
+- Employer addresses **normalized out** to `employer_locations.csv` (`build_employers.py`).
 - Entity classification fixed (campaign committees → COMMITTEE/PAC; banks/trusts →
   ORGANIZATION). Only `INDIVIDUAL` has first/last; committee/org name tails stripped.
 - Committees/orgs have **no employer** (only individuals do).
 - Employer names unified cross-donor (same HQ + similar name → one canonical).
 - PO-box typos collapsed; FEC admin-note junk removed from employers.
 
-## Cleaning architecture (2026-06)
-- `fec.cleaning.pipeline.clean_and_match()` is THE full run (what `clean.py`
-  executes): `clean()` → enhancements → manual overrides → donor matching +
-  per-donor canonicalization → post-merge fixes → clear non-individual names.
-  `clean()` alone is the field-level pipeline (steps 1–12). Use these as
-  library functions; don't re-chain the steps in a CLI.
-- It is composed of `clean_rows()` (per-row half, safe on any subset) and
-  `unify_donors()` (cross-row half: matching + canonicalization). `donor_key`
-  is the hash of a cluster-root rid chosen from whatever rows the matcher
-  sees, so `unify_donors()` must ALWAYS see the complete dataset:
-  `clean.py --incremental` cleans only new rows but unifies on (existing
-  output + new rows) combined and rewrites the whole file. After unifying,
-  `_restore_prior_donor_keys` pins existing donors to their first-assigned
-  key (canonicalized names would otherwise hash a different cluster root,
-  orphaning curated donor_dedup_merges). Incremental runs also activate
-  post-merge previous_employer fills that are inert on full runs (the saved
-  CSV carries resolve-stage columns) — idempotent and intended.
+## Cleaning architecture (2026-08)
+- `fec.cleaning.pipeline.clean_pipeline()` is the full run used by `clean.py`:
+  `clean_records()` → `identify_donors()` → `standardize_donors()`.
+- `identify_donors()` must see the complete dataset. It matches identities,
+  assigns `donor_key`, and applies curated key merges. Rows are never aggregated;
+  every FEC filing remains one output row.
+- `standardize_donors()` canonicalizes each identity and then runs
+  `fec/cleaning/donor_consistency/`, whose fixes use donor history. The old
+  `post_merge_fixes` name was removed because no rows are physically merged.
+- `clean.py` always rebuilds the full output. Incremental mode and
+  `cleaned_ids.csv` were removed so old and new rows cannot use different rules.
 - **Address hygiene** (rule: safe mechanical fixes applied automatically;
   anything needing a guess goes to a review report, never edited):
   - `fec/cleaning/address_review.py` — `apply_safe_fixes` (house numbers,
@@ -149,34 +144,23 @@ public FEC records: **pull → clean → resolve employers → geocode → build
   of deleting them — deleting caused an infinite re-resolve loop (previous_employer
   lookups use the variant spelling). `manual_override` entries are never merged.
 - Verified address fixes → `data/manual_employer_addresses.csv` (authoritative at
-  Step 0).
-- **Branch offices** — the dashboard prints the employer address under the donor's
-  name as their workplace, so a California donor at a New-York-HQ firm must not be
-  shown New York. A curated row with `donor_state` filled is a BRANCH (cache key
-  `EMPLOYER|ST`, `resolve_employer_branch.json`); blank `donor_state` is the HQ, as
-  before. `apply` prefers the branch for donors in that state, falls back to the HQ,
-  and tags the row `branch_*`. `build_employers` keeps branch addresses out of the
-  one-row-per-company dimension and emits `data/employer_branches.csv`; the loader
-  turns that into `donor_employments.address_id`, read as
-  `COALESCE(de.address_id, emp.address_id)`.
-  Two rules, both measured on this data:
-  - **Commuter metros are not evidence of a local office.** A NJ/CT donor at a NY
-    firm commutes; so does MD/VA→DC. Those pairs cover 2,307 of the 14,744
-    out-of-state rows, so never invent a local branch for them. (Curated branches
-    are chosen by hand, so this lives here as a rule rather than as a constant —
-    an automated branch lookup would need to encode it.)
-  - Only accept a branch when the company has ONE findable office in that state.
-    Morgan Stanley has a dozen Florida offices, so "the Florida office" is a guess.
-  Empty branch set = the old behavior exactly (proven: identical md5).
+  Step 0). `is_primary=true` is the default company location; `false` is a
+  verified additional office.
+- **Employer locations** — one cache entry holds the primary location plus verified
+  additional offices. Donor location alone never proves an office exists. `apply`
+  and the loader prefer a verified office in the donor's state, using ZIP distance
+  only between offices in that state, then fall back to the primary location. This is an
+  inference, not proof that the donor works at that office.
 
 ## Commands
 ```bash
 python clean.py             # FULL clean: clean + enhance + match + canonicalize
-python build_employers.py   # normalize employers → employers.csv (after resolve+geocode)
+python geocode.py --employer-only  # geocode all known employer locations
+python build_employers.py   # build employer_locations.csv (after resolve+geocode)
 python loader.py --reset    # load into fec_db
 python -m pytest -m "not db"
 ```
-`clean.py` flags: `--incremental`, `--no-fuzzy-city`, `--no-audit`
+`clean.py` flags: `--no-fuzzy-city`, `--no-audit`
 (`--impute-street` was removed — in-pipeline recovery replaced it).
 
 ## Local database

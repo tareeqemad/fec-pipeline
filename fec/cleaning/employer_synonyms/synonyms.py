@@ -3,7 +3,7 @@ import json
 import re
 from pathlib import Path
 
-from fec.config.constants import LEGAL_SUFFIX_RE as _LEGAL_SUFFIX_RE
+from fec.config.constants import LEGAL_SUFFIX_RE
 from fec.log import get_logger
 
 from fec.cleaning.employer_synonyms.synonyms_table_1 import SYNONYMS as _TABLE_1
@@ -54,7 +54,7 @@ def _canonicalize_for_match(s: str) -> str:
     """Reduce a string to what apply_employer_synonyms sees at match time; mirrors the regex chain in normalize_employer_canonical - keep in sync."""
     s = (s or '').upper().strip()
     s = re.sub(r'\s*\([A-Z]{1,5}\)\s*$', '', s)
-    s = _LEGAL_SUFFIX_RE.sub('', s)
+    s = LEGAL_SUFFIX_RE.sub('', s)
     s = re.sub(r'[&$]', ' AND ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     return s.rstrip('.,').strip()

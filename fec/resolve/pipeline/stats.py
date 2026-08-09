@@ -2,11 +2,9 @@
 
 import pandas as pd
 
-from fec.config.constants import NOT_REAL_EMPLOYER
 from fec.log import get_logger
 
-from .constants import RETIRED, SELF_EMPLOYED, TIERS
-from .helpers import _prev_key, _previous_employer_identity, _s
+from .constants import TIERS
 
 logger = get_logger(__name__)
 
@@ -43,36 +41,12 @@ def show_stats(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
         if n_donors == 0:
             continue
 
-        emp_upper = tier["contributor_employer"].fillna("").str.upper().str.strip()
-        has_emp = emp_upper.map(
-            lambda employer: employer not in NOT_REAL_EMPLOYER and len(employer) > 1
-        ).sum()
-        retired = (emp_upper == RETIRED).sum()
-        self_emp = (emp_upper == SELF_EMPLOYED).sum()
+        status = tier["employer_status"]
+        has_emp = status.eq("active").sum()
+        retired = status.eq("retired").sum()
+        self_emp = status.eq("self_employed").sum()
         skip = n_donors - has_emp - retired - self_emp
-
-        addr_ok = 0
-        for _, row in tier.iterrows():
-            employer = _s(row.get("contributor_employer")).strip().upper()
-            state = _s(row.get("contributor_state"))
-
-            if employer not in NOT_REAL_EMPLOYER and len(employer) > 1:
-                cached = addr_cache.get(employer)
-                if cached and cached.get("employer_address"):
-                    addr_ok += 1
-            elif employer == RETIRED:
-                prev_entry = prev_cache.get(
-                    _prev_key(row.get("contributor_name", ""), state)
-                )
-                _, address_keys = _previous_employer_identity(prev_entry)
-                if any(
-                    addr_cache.get(key)
-                    and addr_cache.get(key).get("employer_address")
-                    for key in address_keys
-                ):
-                    addr_ok += 1
-            elif employer == SELF_EMPLOYED:
-                addr_ok += 1
+        addr_ok = tier["employer_address"].fillna("").str.strip().ne("").sum()
 
         logger.info(
             f"  {label:15s} {n_donors:>7,} {has_emp:>7,} "

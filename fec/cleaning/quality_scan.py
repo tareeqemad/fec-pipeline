@@ -19,7 +19,6 @@ _LEGAL = {"LLC", "LLP", "INC", "CORP", "CO", "LTD", "LP", "PLC", "PC", "PA",
 # normalize expandable abbreviations so "X MGMT" and "X MANAGEMENT" share a fingerprint
 _ABBR_NORM = {token: expansion
               for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion}
-_STATUS = EMPLOYER_STATUS_VALUES
 
 _TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _REPEAT_RE = re.compile(r"(.)\1{2,}")
@@ -31,7 +30,10 @@ def _ex(items, n=8):
 
 def scan_employer_abbreviations(df: pd.DataFrame) -> dict:
     emp = df.loc[df["entity_type"] == "INDIVIDUAL", "contributor_employer"]
-    distinct = {employer for employer in emp.unique() if employer and employer.upper() not in _STATUS}
+    distinct = {
+        employer for employer in emp.unique()
+        if employer and employer.upper() not in EMPLOYER_STATUS_VALUES
+    }
     per_token = {}
     flagged = set()
     for token, regex in _ABBR_RES.items():
@@ -54,7 +56,7 @@ def scan_employer_near_duplicates(df: pd.DataFrame) -> dict:
     emp = df.loc[df["entity_type"] == "INDIVIDUAL", "contributor_employer"]
     groups = defaultdict(set)
     for employer in emp.unique():
-        if employer and employer.upper() not in _STATUS:
+        if employer and employer.upper() not in EMPLOYER_STATUS_VALUES:
             fingerprint = _emp_fp(employer)
             if fingerprint:
                 groups[fingerprint].add(employer)
@@ -99,7 +101,7 @@ _VOWELS = set("AEIOUY")
 
 def _is_rare_uncategorized(value, counts, occ, cat, uncategorized) -> bool:
     """True only for globally rare values no categorization rule matched; anything else is real."""
-    if not value or value in _STATUS or value in OK_SHORT_OCCUPATIONS:
+    if not value or value in EMPLOYER_STATUS_VALUES or value in OK_SHORT_OCCUPATIONS:
         return False
     if int(counts.get(value, 0)) > 5:
         return False
@@ -118,7 +120,7 @@ def scan_junk_occupations(df: pd.DataFrame) -> dict:
     uncategorized = {"", "OTHER"}
     suspects = {}
     for value, n_rows in counts.items():
-        if not value or value in _STATUS or value in OK_SHORT_OCCUPATIONS:
+        if not value or value in EMPLOYER_STATUS_VALUES or value in OK_SHORT_OCCUPATIONS:
             continue
         if n_rows > 5:                                   # common: almost surely real
             continue
@@ -153,7 +155,8 @@ def scan_junk_occupations(df: pd.DataFrame) -> dict:
             # rare-for-this-donor AND the donor is otherwise well-established
             if count <= 2 and total >= 10 and (total - count) >= 8:
                 others = sorted({other for other in occ[individuals["donor_key"] == donor_key]
-                                 if other and other != value and other not in _STATUS})
+                                 if other and other != value
+                                 and other not in EMPLOYER_STATUS_VALUES})
                 if others:
                     evidence.setdefault(value, []).append(
                         f"{count}x vs {total - count}x {'/'.join(others[:2])}")

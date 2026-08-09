@@ -1,4 +1,4 @@
-# GitLab CI — mirrors .github/workflows/tests.yml for this GitLab remote.
+# GitLab test pipeline.
 stages:
   - test
 

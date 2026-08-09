@@ -20,13 +20,12 @@ logger = get_logger(__name__)
 
 def load_leadership(conn: Any, cur: Any) -> None:
     """Load leaders.csv into leaders (donor_id) plus the leader_committees M:N junction."""
-    # A CSV id pointing at a missing committee is skipped with a warning, not an FK abort.
+    # Skip missing committees.
     cur.execute("SELECT committee_id FROM committees")
     valid_committees = {row[0] for row in cur.fetchall()}
 
     def _insert(cur, row, donor_id):
-        # committee_ids is a Postgres array literal like "{1,2}"; blank is valid,
-        # non-blank unparseable tokens warn (hand-maintained file -- warn, don't raise).
+        # Parse committee IDs.
         raw = (row.get("committee_ids") or "").strip().strip("{}")
         wanted = []
         for token in raw.split(","):
@@ -43,8 +42,7 @@ def load_leadership(conn: Any, cur: Any) -> None:
         if dropped:
             logger.warning("  leader donor_id=%s: skipping unknown committee_ids %s", donor_id, dropped)
 
-        # One leaders row per donor; the no-op DO UPDATE lets RETURNING fetch the
-        # leader_id whether the row was inserted or already existed.
+        # Reuse existing leaders.
         cur.execute(
             """
             INSERT INTO leaders (donor_id) VALUES (%s)
@@ -55,7 +53,7 @@ def load_leadership(conn: Any, cur: Any) -> None:
         )
         leader_id = cur.fetchone()[0]
 
-        # Reset this leader's committee links, then re-add (idempotent on re-run).
+        # Rebuild committee links.
         cur.execute("DELETE FROM leader_committees WHERE leader_id = %s", (leader_id,))
         if kept:
             execute_values(
@@ -74,7 +72,7 @@ def load_key_accomplices(conn: Any, cur: Any) -> None:
         return value or None
 
     def _insert(cur, row, donor_id):
-        # Blank cells are valid editorial state; non-blank garbage warns, doesn't raise.
+        # Ignore blank editorial fields.
         who = (row.get("accomplice_name") or "").strip()
         committee_raw = (row.get("committee_id") or "").strip()
         committee_id = None

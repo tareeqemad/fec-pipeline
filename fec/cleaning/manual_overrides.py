@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 
+from fec.config.constants import NOT_REAL_EMPLOYER
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
 
@@ -11,8 +12,10 @@ logger = get_logger(__name__)
 OVERRIDES_CSV = PROJECT_ROOT / "data" / "manual_employer_overrides.csv"
 
 
-def apply_manual_employer_overrides(df) -> int:
-    """Apply per-row overrides matched on sub_id; returns rows changed; safe no-op if the file is missing or empty."""
+def apply_manual_employer_overrides(
+    df, *, company_names_only: bool = False,
+) -> int:
+    """Apply per-row overrides matched on sub_id."""
     if not OVERRIDES_CSV.exists():
         return 0
 
@@ -23,9 +26,17 @@ def apply_manual_employer_overrides(df) -> int:
             fields = {
                 col: (row.get(col) or "").strip()
                 for col in ("contributor_employer", "contributor_occupation",
-                            "contributor_city")
+                            "contributor_city", "previous_employer")
                 if (row.get(col) or "").strip()
             }
+            if company_names_only:
+                employer = fields.get("contributor_employer", "")
+                previous = fields.get("previous_employer", "")
+                fields = {}
+                if employer.upper() not in NOT_REAL_EMPLOYER:
+                    fields["contributor_employer"] = employer
+                if previous:
+                    fields["previous_employer"] = previous
             if sid and fields:
                 overrides[sid] = fields
 

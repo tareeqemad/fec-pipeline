@@ -78,8 +78,8 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     monkeypatch.setattr('fec.io.read_pipeline_csv', lambda _path: source.copy())
     monkeypatch.setattr(resolve_cli, 'load_env', lambda: None)
     monkeypatch.setattr(resolve_cli, '_compute_donor_totals', lambda _df: pd.DataFrame())
-    monkeypatch.setattr(resolve_cli, 'load_manual_overrides', lambda *args: None)
-    monkeypatch.setattr(resolve_cli, 'load_manual_branches', lambda *args: None)
+    monkeypatch.setattr(resolve_cli, 'load_manual_locations', lambda *args: None)
+    monkeypatch.setattr(resolve_cli, 'load_manual_previous_employers', lambda *args: None)
     monkeypatch.setattr(resolve_cli, 'load_manual_committee_overrides', lambda *args: None)
     monkeypatch.setattr(resolve_cli, 'step_cross_record', lambda *args: 0)
     monkeypatch.setattr(resolve_cli, 'step_fec_api', lambda *args, **kwargs: 0)
@@ -89,7 +89,7 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
         lambda *args, **kwargs: (_ for _ in ()).throw(AIQuotaExhausted('no credits')),
     )
     monkeypatch.setattr(resolve_cli, 'dedup_by_resolved_address',
-                        lambda *args, **kwargs: (0, 0, {}))
+                        lambda *args, **kwargs: (0, 0))
     monkeypatch.setattr(resolve_cli, 'step_committees_own_address', lambda *args: 0)
     monkeypatch.setattr(resolve_cli, 'show_stats', lambda *args: None)
 

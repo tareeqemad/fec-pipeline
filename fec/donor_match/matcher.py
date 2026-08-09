@@ -5,11 +5,12 @@ from collections import defaultdict
 
 import pandas as pd
 
+from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.log import get_logger
 
 from .constants import (
     MERGE_THRESHOLD, FORCE_MERGE_NAMES, FORCE_MERGE_GROUPS,
-    STATUS_EMPLOYERS, GENERIC_OCC_CATEGORIES,
+    GENERIC_OCC_CATEGORIES,
 )
 from .scoring import (
     compute_score, normalize_name, extract_middle, normalize_employer,
@@ -110,9 +111,6 @@ def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
 
     return {
         "checked": len(final_merges),
-        "rare_cross_state": sum(
-            "RARE_OCC_CROSS_STATE" in row["signals"] for row in final_merges
-        ),
         "cross_name_zip_only": sum(
             _has_signal(row, "cross_name(")
             and _has_signal(row, "zip5=")
@@ -157,7 +155,7 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
             p["streets"].add(street)
 
         emp = _s(row.get("contributor_employer")).upper()
-        if emp and emp not in STATUS_EMPLOYERS:
+        if emp and emp not in EMPLOYER_STATUS_VALUES:
             p["norm_employers"].add(normalize_employer(emp))
 
         occ_cat = _s(row.get("occupation_category")).upper()
@@ -181,8 +179,7 @@ def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:
     if verbose:
         logger.info(f"  {len(profiles):,} unique record profiles")
 
-    # component-name rarity: a rare surname OR rare first name is required before
-    # a cross-state merge without geography, so common names are never fused
+    # Name frequencies support scoring but never replace shared evidence.
     last_to_names = defaultdict(set)
     first_to_names = defaultdict(set)
     for p in profiles.values():
@@ -255,7 +252,6 @@ def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:
         logger.info(
             "  Identity gate: "
             f"{identity_gate['checked']:,} final merge edges valid; "
-            f"{identity_gate['rare_cross_state']:,} rare cross-state; "
             f"{identity_gate['cross_name_zip_only']:,} cross-name ZIP-only"
         )
         logger.info("\n  -- Results --")
