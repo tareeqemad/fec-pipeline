@@ -38,7 +38,7 @@ employer_name,employer_address,employer_city,employer_state,employer_zip,employe
 7 STAR CONSTRUCTION COMPANY,P.O. Box 861,Rock Hill,SC,29731,34.9248667,-81.0250784,True,ai,grounded
 72ND STREET MEDICAL ASSOCIATES,310 E 72nd St,New York,NY,10021,40.7684047,-73.9578231,True,ai,grounded
 73V,"580 Broadway, 7th Floor",New York,NY,10012,40.7246036,-73.9972882,True,ai,grounded
-757CFO LLC,,,,,,,True,,
+757CFO LLC,905 Enfield Chase,Virginia Beach,VA,23452,36.8703862,-76.0744902,True,manual,uncorroborated
 76 WEST HOLDINGS,,,,,,,True,,
 76UNDEFEATED,25 SE 2nd Ave Ste 550,Miami,FL,33131,25.7737529,-80.1901314,True,ai,grounded
 7H LEGACY PROPERTY LLC,,,,,,,True,,
@@ -521,7 +521,7 @@ AMERICAN UNIVERSITY,4400 Massachusetts Avenue NW,Washington,DC,20016,38.9394738,
 AMERINTHIUM LLC,,,,,,,True,,
 AMERIPRISE,707 2nd Avenue South,Minneapolis,MN,55402,44.9755282,-93.2695436,True,ai,uncorroborated
 AMG,777 South Flagler Drive,West Palm Beach,FL,33401,26.7063121,-80.0486874,True,ai,grounded
-AMG PROPERTIES INC,,,,,,,True,,
+AMG PROPERTIES INC,"1 Embarcadero Center, Suite 800",San Francisco,CA,94111,37.7947268,-122.3995563,True,manual,uncorroborated
 AMG PSYD PC,,,,,,,True,,
 AMGEN,One Amgen Center Drive,Thousand Oaks,CA,91320,34.1910399,-118.9206609,True,ai,grounded
 AMHERST,"401 Congress Ave, 33rd Floor",Austin,TX,78701,30.2667073,-97.7430582,True,ai,grounded
@@ -656,7 +656,7 @@ ARENA STAGE,1101 Sixth St SW,Washington,DC,20024,38.8950982,-77.0363849,True,ai,
 ARENTFOX SCHIFF,1301 K Street NW,Washington,DC,20005,38.9030498,-77.0308071,True,ai,grounded
 ARES MANAGEMENT,"2000 Avenue of the Stars, 12th Floor",Los Angeles,CA,90067,34.0583138,-118.4146758,True,ai,corroborated
 ARES PRIVATE EQUITY,"2000 Avenue of the Stars, 12th Floor",Los Angeles,CA,90067,34.0583138,-118.4146758,True,ai,corroborated
-ARETE WEALTH INC,,,,,,,True,,
+ARETE WEALTH INC,2200 E Camelback Rd Suite 250,Phoenix,AZ,85016,33.5099821,-112.033702,True,manual,uncorroborated
 AREX CAPITAL MANAGEMENT,299 Park Ave,New York,NY,10171,40.7560254,-73.9741826,True,ai,corroborated
 ARGENT CAPITAL MANAGEMENT,1745 N Brown Rd Suite 100,Lawrenceville,GA,30043,33.9566391,-83.9890066,True,ai,uncorroborated
 ARGENT MANAGEMENT LLC,980 American Pacific Dr Suite 111,Henderson,NV,89014,36.0424256,-115.0273529,True,ai,grounded
@@ -797,7 +797,7 @@ ATLANTIC REALTY DEV CORP,90 Woodbridge Center Dr Ste 600,Woodbridge,NJ,07095,40.
 ATLANTIC REALTY DEVELOPMENT CO,90 Woodbridge Center Dr Ste 600,Woodbridge,NJ,07095,40.5516999,-74.2998671,True,ai,grounded
 ATLANTIC TRANSPORTATION,,,,,,,True,,
 ATLANTIS CASINO RESORT & SPA,3800 S Virginia St,Reno,NV,89502,39.4889062,-119.7934661,True,ai,corroborated
-ATLAS BILLIARD SUPPLIES LLC,,,,,,,True,,
+ATLAS BILLIARD SUPPLIES LLC,118 West 6th Street,Garrettsville,OH,44231,41.284222,-81.096486,True,manual,uncorroborated
 ATLAS BRANDS,1155 Battery Ave SE,Atlanta,GA,30339,33.8907506,-84.4691663,True,ai,uncorroborated
 ATLAS FINANCIAL,"2 Seagate, Suite 600",Tampa,FL,33602,27.9389055,-82.4492677,True,ai,uncorroborated
 ATLAS HOLDINGS,"40 West 57th Street, 8th Floor",New York,NY,10019,40.7635878,-73.9759916,True,ai,uncorroborated
@@ -960,7 +960,7 @@ BARCLAY DAMON LLP,125 East Jefferson Street,Syracuse,NY,13202,43.0471904,-76.151
 BARCLAYS,745 Seventh Avenue,New York,NY,10019,40.9138474,-73.8064848,True,ai,corroborated
 BARETZ BRUNELLE,44 Wall Street,New York,NY,10005,40.706794,-74.0093855,True,ai,grounded
 BARG SINGER HOESLY PC,,,,,,,True,,
-"BARGAIN CAR, TRUCK & VAN RENTALS INC",,,,,,,True,,
+"BARGAIN CAR, TRUCK & VAN RENTALS INC",18 S Sproul Rd,Broomall,PA,19008,39.9812071,-75.361308,True,manual,uncorroborated
 BARKAI YESHIVAH,,,,,,,True,,
 BARKER LAW FIRM,,,,,,,True,,
 BARNABAS HEALTH,520 Broad St,Bloomfield,NJ,07003,40.8113845,-74.1938707,True,ai,corroborated
@@ -968,7 +968,7 @@ BARNABAS HEALTH MEDICAL GROUP,1 Johnson Drive,West Orange,NJ,07052,40.7987113,-7
 BARNARD COLLEGE,3009 Broadway,New York,NY,10027,40.808341,-73.9637813,True,ai,corroborated
 BARNES & THORNBURG,202 N. Meridian Street,Indianapolis,IN,46204,39.7700683,-86.15809,True,ai,grounded
 BARON PROPERTY GROUP,"152 West 57th Street, 37th Floor",New York,NY,10019,40.7648665,-73.9796202,True,ai,grounded
-BARON'S WHOLESALE CLOTHIER'S INC,,,,,,,True,,
+BARON'S WHOLESALE CLOTHIER'S INC,4301 W Roosevelt Rd,Chicago,IL,60624,41.865982,-87.732659,True,manual,uncorroborated
 BARONS,,,,,,,True,,
 "BARRACK, RODOS & BACINE",2001 Market St,Philadelphia,PA,19103,39.953671,-75.173318,True,ai,corroborated
 BARRINGTON JEWELS INC,,,,,,,True,,
@@ -1115,7 +1115,7 @@ BERGER COMMUNITIES,"1300 SE Stark St., Suite 210",Portland,OR,97214,45.5191349,-
 BERGER CONSULTING GROUP,,,,,,,True,,
 BERGER FIRM PA,10800 Biscayne Blvd Suite 201,Miami,FL,33161,25.8752091,-80.1707645,True,ai,grounded
 BERGER KAHN,350 Cambridge Ave,Palo Alto,CA,94306,37.4282175,-122.145052,True,ai,corroborated
-BERGER ORG,,,,,,,True,,
+BERGER ORG,60 Park Pl,Newark,NJ,07102,40.7386539,-74.1687975,True,manual,uncorroborated
 BERGER ORGANIZATION,1 Liberty Plaza,New York,NY,10006,40.6590616,-74.004415,True,ai,uncorroborated
 BERGERSCHATZ,,,,,,,True,,
 BERK MERCHANT & SIMS,510 Madison Avenue,New York,NY,10022,40.759672,-73.974396,True,ai,uncorroborated
@@ -1147,8 +1147,8 @@ BESPOKE,,,,,,,True,,
 BESPOKE FASHION,,,,,,,True,,
 BESSEMER VENTURE PARTNERS,"1 Letterman Drive, Building D, Suite D2-400",San Francisco,CA,94129,37.7879363,-122.4075201,True,ai,corroborated
 BEST BRANDS CONSUMER PRODUCTS,,,,,,,True,,
-BEST CARE HOME HEALTH INC,,,,,,,True,,
-BEST CARE NURSES REGISTRY INC,,,,,,,True,,
+BEST CARE HOME HEALTH INC,1500 Hempstead Turnpike,East Meadow,NY,11554,40.7221254,-73.5789034,True,manual,uncorroborated
+BEST CARE NURSES REGISTRY INC,208 South 28th Avenue,Hollywood,FL,33020,26.0102217,-80.1633519,True,manual,uncorroborated
 BEST DEVELOPMENT,,,,,,,True,,
 BEST ENERGY POWER,,,,,,,True,,
 BEST MANAGEMENT CONSTRUCTION INC,,,,,,,True,,
@@ -1210,7 +1210,7 @@ BISCAYNE ATLANTIC,1401 Brickell Ave #100,Miami,FL,33131,25.7597271,-80.1919203,T
 BISHOP GOLD GROUP,,,,,,,True,,
 BITDEFENDER INC,"6301 NW 5th Way, Suite 4300",Fort Lauderdale,FL,33309,26.2054213,-80.1511268,True,ai,grounded
 BITREK CORPORATION,,,,,,,True,,
-BIZMAVEN LLC,,,,,,,True,,
+BIZMAVEN LLC,600 W Chicago Ave,Chicago,IL,60654,41.8975826,-87.6437911,True,manual,uncorroborated
 BKM TOTAL OFFICE,8101 Sandy Spring Rd,Laurel,MD,20707,39.1022529,-76.8665898,True,ai,uncorroborated
 BLACK BEAR VALUE PARTNERS,100 S 5th St #1900,Minneapolis,MN,55402,44.9784227,-93.2686953,True,ai,uncorroborated
 BLACK DIAMOND GOURMET,1581 McDonald Ave,Brooklyn,NY,11230,40.614475,-73.973735,True,ai,grounded
@@ -1221,7 +1221,7 @@ BLACKROCK,55 East 52nd Street,New York,NY,10055,40.7590841,-73.9736001,True,ai,c
 BLACKROCK TCP CAPITAL CORP,55 East 52nd Street,New York,NY,10055,40.7590841,-73.9736001,True,ai,uncorroborated
 BLACKSTONE GROUP,345 Park Avenue,New York,NY,10154,40.7577559,-73.9722731,True,manual,verified
 BLACKSTREET,,,,,,,True,,
-BLADYKAS ENGINEERING PC,,,,,,,True,,
+BLADYKAS ENGINEERING PC,"50 Jackson Avenue, Suite 300",Syosset,NY,11791,40.8245175,-73.5027295,True,manual,uncorroborated
 BLAKE PARTNERS LLC,"270 West 39th Street, Second Floor",New York,NY,10018,40.7127281,-74.0060152,True,ai,grounded
 BLANK ROME LLP,130 N 18th St,Philadelphia,PA,19103,39.956259,-75.169447,True,ai,corroborated
 BLASS PROPERTIES,,,,,,,True,,
@@ -1229,7 +1229,7 @@ BLATT REALTY,241 S Linden Dr,Beverly Hills,CA,90212,34.0633237,-118.4080991,True
 BLATTNER FIDUCIARY SERVICES,1000 Nicollet Mall #900,Minneapolis,MN,55403,44.9737893,-93.2758321,True,ai,uncorroborated
 BLB&G LLP,222 Jarvis St,New York,NY,10038,42.1038562,-75.9294672,True,ai,grounded
 BLD THERAPY,,,,,,,True,,
-BLDG MANAGEMENT CO. INC,,,,,,,True,,
+BLDG MANAGEMENT CO. INC,417 5th Ave,New York,NY,10016,40.7506056,-73.9827251,True,manual,uncorroborated
 BLEAKLEY FINANCIAL GROUP,"9 Campus Drive, Suite 201",Parsippany,NJ,07054,40.8436,-74.45249,True,ai,grounded
 BLEEMA MANUFACTURING CO LLC,,,,,,,True,,
 BLESS THIS MESS CLEANING,,,,,,,True,,
@@ -1249,7 +1249,7 @@ BLOOMFIELD CAPITAL,700 Forest Ave,Birmingham,MI,48009,42.5453658,-83.2095409,Tru
 BLS CONSULTING,,,,,,,True,,
 BLT RESTAURANT GROUP,"106 East 57th Street, 12th Floor",New York,NY,10022,40.761365,-73.9703934,True,ai,corroborated
 BLUE ARCH CAPITAL,2875 NE 191st Street PH 2A,Aventura,FL,33180,25.9564812,-80.1392121,True,ai,grounded
-BLUE ARCH INVESTMENTS INC,,,,,,,True,,
+BLUE ARCH INVESTMENTS INC,30 N LaSalle St,Chicago,IL,60602,41.8828458,-87.632914,True,manual,uncorroborated
 BLUE CHIP CAPITAL,,,,,,,True,,
 BLUE FOG CAPITAL LLC,"111 Sutter Street, Suite 700",San Francisco,CA,94104,37.7901267,-122.4026973,True,ai,corroborated
 BLUE FOG MARINE LLC,,,,,,,True,,
@@ -1393,7 +1393,7 @@ BREIT BINIAZAN,,,,,,,True,,
 BREMER FINANCIAL SERVICES,"700 Wells Fargo Place, 30 East 7th Street",Saint Paul,MN,55101,44.9497487,-93.0931028,True,ai,corroborated
 BRENNAN & ROLAND,,,,,,,True,,
 BRENNER KAPROSY,One North Broadway,White Plains,NY,10601,41.0347951,-73.7638739,True,ai,uncorroborated
-BRENT GROVER & CO,,,,,,,True,,
+BRENT GROVER & CO,1000 Wilshire Blvd,Los Angeles,CA,90017,34.051474,-118.261657,True,manual,uncorroborated
 BREX,"251 Little Falls Drive, Suite 400",Wilmington,DE,19808,39.7459468,-75.546589,True,ai,uncorroborated
 BRG,"2200 Powell Street, Suite 1200",Emeryville,CA,94608,37.8379755,-122.3017537,True,ai,grounded
 BRI,,,,,,,True,,
@@ -1426,7 +1426,7 @@ BRINKHAVEN MANAGEMENT,,,,,,,True,,
 BRINKLEY MORGAN,,,,,,,True,,
 BRINSHORE,,,,,,,True,,
 BRISTOL ASSOCIATES,20 Morris Ln,Scarsdale,NY,10583,40.9913258,-73.7818008,True,ai,grounded
-BROAD STREET DEVELOPMENT,,,,,,,True,,
+BROAD STREET DEVELOPMENT,370 Lexington Ave,New York,NY,10017,40.7505447,-73.9768719,True,manual,uncorroborated
 BROADCASTER,,,,,,,True,,
 BROADER VIEW: ISRAEL RESOURCE CENTER,,,,,,,True,,
 BROADMOOR,"809 N 96th St, Ste 1",Omaha,NE,68114,41.2676563,-96.0620091,True,ai,grounded
@@ -1449,7 +1449,7 @@ BROOKS RECRUITING,,,,,,,True,,
 BROOKSTEIN ASSOCIATES,,,,,,,True,,
 BROOKVIEW ANIMAL HOSPITAL,11415 Brookview Dr,Overland Park,KS,66210,38.9742502,-94.6851702,True,ai,uncorroborated
 BROOKWOOD MEDICAL CENTER,601 North Murphey Avenue,Birmingham,AL,35211,33.5206824,-86.8024326,True,ai,corroborated
-BROWARD PAPER & PACKAGING INC,,,,,,,True,,
+BROWARD PAPER & PACKAGING INC,2300 NW 19th St,Pompano Beach,FL,33069,26.2544381,-80.1335886,True,manual,uncorroborated
 BROWN & BROWN INSURANCE,300 North Beach Street,Daytona Beach,FL,32114,29.2170771,-81.0220331,True,ai,grounded
 BROWN & BROWN METRO INC,220 S Ridgewood Ave,Daytona Beach,FL,32114,29.2078936,-81.021686,True,ai,uncorroborated
 BROWN BROWN & PREMSRIRUT,,,,,,,True,,
@@ -1524,7 +1524,7 @@ BUTTONEDUP,"22 W 19th St, 3rd Floor",New York,NY,10011,40.7395583,-73.9927449,Tr
 BUTZEL LONG,"1450 West Long Lake Road, Suite 200",Troy,MI,48098,42.5906664,-83.1773067,True,ai,corroborated
 BUXNER LAW FIRM,,,,,,,True,,
 BUY BUY BABY,895 East Gate Boulevard,Garden City,NY,11530,40.7429489,-73.6094225,True,manual,verified
-BUYERS REALTY INC,,,,,,,True,,
+BUYERS REALTY INC,"4980 Newport Drive, Suite 250",Rolling Meadows,IL,60008,42.0599477,-88.0185066,True,manual,uncorroborated
 BUYMEBEAUTY,,,,,,,True,,
 BVISION SPORTSMEDIA,111 Valley Drive,Greenwich,CT,06831,41.0268231,-73.6408713,True,manual,uncorroborated
 BW ANGEL INVESTMENTS,,,,,,,True,,
@@ -1600,7 +1600,7 @@ CAMERICAN INTERNATIONAL,300 Connell Drive,Berkeley Heights,NJ,07922,40.6629599,-
 CAMINO MEDICAL GROUP,701 E El Camino Real,Mountain View,CA,94040,37.3760856,-122.0656504,True,manual,verified
 CAMMEBY'S MANAGEMENT CO,"55 W 39th St, 14th Floor",New York,NY,10018,40.7523912,-73.9839779,True,ai,corroborated
 CAMP ROSMARIN INC,12 School Rd,Monroe,NY,10950,41.2998583,-74.2195155,True,ai,grounded
-CAMPBELL & LEVINE LLC,,,,,,,True,,
+CAMPBELL & LEVINE LLC,310 Grant St Suite 1700,Pittsburgh,PA,15219,40.4377116,-79.998096,True,manual,uncorroborated
 CAMPBELL PROPERTY MANAGEMENT,1215 E Hillsboro Blvd,Deerfield Beach,FL,33441,26.3157402,-80.0874999,True,ai,corroborated
 CAMPBELL SOUP COMPANY,1 Campbell Place,Camden,NJ,08103,39.9411627,-75.1079987,True,ai,corroborated
 CAMPDEN GROUP,,,,,,,True,,
@@ -1815,7 +1815,7 @@ CERES PIPE & METAL,2261 McHenry Ave,Modesto,CA,95350,37.6756407,-120.994197,True
 CERINFUSE TECHNOLOGIES AND SELD,,,,,,,True,,
 CERITY PARTNERS LLC,99 Park Avenue,New York,NY,10016,40.750694,-73.978591,True,manual,verified
 CERRITOS COLLEGE,11110 Alondra Boulevard,Norwalk,CA,90650,33.8831622,-118.0973395,True,ai,corroborated
-CERSONSKY& MCANELLY PC,,,,,,,True,,
+CERSONSKY& MCANELLY PC,"501 W Broadway, Suite 800",San Diego,CA,92101,32.715179,-117.167737,True,manual,uncorroborated
 CERTAIN INC,"1040 Park Ave, 2nd Floor",San Jose,CA,95126,37.3258325,-121.909356,True,ai,corroborated
 CERTARES MANAGEMENT LLC,"660 Madison Avenue, 12th Floor",New York,NY,10065,40.7647391,-73.9711425,True,ai,corroborated
 CERTIFIED FINANCIAL GROUP INC,"750 Park of Commerce Drive, Suite 102",Boca Raton,FL,33487,26.4005139,-80.1014674,True,ai,corroborated
@@ -1933,7 +1933,7 @@ CHOICE NEW YORK MANAGEMENT,"254 W 31st St, 4th Floor",New York,NY,10001,40.74985
 CHOICE NY MANAGEMENT,11 Penn Plaza Suite 1100,New York,NY,10001,43.1318845,-77.4402082,True,ai,corroborated
 CHOP,3400 Spruce St,Philadelphia,PA,19104,39.9499481,-75.1941014,True,ai,corroborated
 CHORDIO INC,"111 Sutter Street, 5th Floor",San Francisco,CA,94104,37.7901267,-122.4026973,True,ai,uncorroborated
-CHOSEN RESUMES LLC,,,,,,,True,,
+CHOSEN RESUMES LLC,1330 Cornell Dr SE,Grand Rapids,MI,49506,42.9394371,-85.6192288,True,manual,uncorroborated
 CHRISTENSEN GROUP,10900 Wayzata Blvd,Minnetonka,MN,55305,44.9713212,-93.4245478,True,ai,corroborated
 "CHRISTIAN DIOR COUTURE, AMERICAS",57 W 57th St,New York,NY,10019,40.764332,-73.9764332,True,ai,uncorroborated
 CHRISTIANACARE,1605 Philadelphia Pike,Wilmington,DE,19809,39.7459468,-75.546589,True,ai,corroborated
@@ -2097,7 +2097,7 @@ COLFAX LAW OFFICE,301 North Garfield Avenue,Pierre,SD,57501,44.365718,-100.31683
 COLGATE UNIVERSITY,13 Oak Drive,Hamilton,NY,13346,42.8165618,-75.5325514,True,ai,corroborated
 COLL CAPITAL,,,,,,,True,,
 COLLEEN HANABUSA AAL LLLC,"120 Pauoa Road, Suite 200",Honolulu,HI,96821,21.3215412,-157.8385456,True,ai,corroborated
-COLLEGE BOUND CONSULTANTS LLC,,,,,,,True,,
+COLLEGE BOUND CONSULTANTS LLC,"3400 Peachtree Road NE, Suite 1750",Atlanta,GA,30326,33.8495958,-84.3651565,True,manual,uncorroborated
 COLLEGE HUNKS ATLANTA,"1225 West Peachtree Street NW, Suite 2030",Atlanta,GA,30309,33.7875044,-84.3877022,True,ai,corroborated
 COLLEGE OF MARIN,835 College Avenue,Kentfield,CA,94904,37.955798,-122.5506398,True,ai,corroborated
 COLLEGE OF NOTRE DAME,1500 Ralston Avenue,Belmont,CA,94002,37.515251,-122.283712,True,ai,uncorroborated
@@ -2146,7 +2146,7 @@ COMMUNITY VOLUNTEER LEADER,,,,,,,True,,
 COMMVAULT SYSTEMS INC,3 West Hillside Avenue,Tinton Falls,NJ,07724,40.2890734,-74.0927967,True,ai,corroborated
 COMPASS,"90 5th Ave, 2nd Floor",New York,NY,10011,40.7362844,-73.9936689,True,ai,corroborated
 COMPASS BEVERLY HILLS,"150 South Rodeo Drive, Suite 100",Beverly Hills,CA,90212,34.0657561,-118.4009856,True,ai,corroborated
-COMPASS BUSINESS SOLUTIONS INC,,,,,,,True,,
+COMPASS BUSINESS SOLUTIONS INC,"250 Park Avenue South, 7th Floor",New York,NY,10003,40.7382829,-73.9880343,True,manual,uncorroborated
 COMPASS HEALTH CENTER,,,,,,,True,,
 COMPASS LEXECON,"555 12th St NW, Suite 501",Washington,DC,20004,38.8967216,-77.0275548,True,ai,grounded
 COMPASS TRANSPORTATION AND TECHNOLOGY,,,,,,,True,,
@@ -2311,7 +2311,7 @@ CRC,,,,,,,True,,
 CREATIVE ARTISTS AGENCY,2000 Avenue of the Stars,Los Angeles,CA,90067,34.0583138,-118.4146758,True,ai,corroborated
 CREATIVE CONSUMER CONCEPTS,4518 W 107th St,Overland Park,KS,66207,38.934912,-94.6385696,True,manual,verified
 CREATIVE CONTRACTORS,,,,,,,True,,
-CREATIVE EFFECTS INC,,,,,,,True,,
+CREATIVE EFFECTS INC,1901 E 51st St,Indianapolis,IN,46220,39.845175,-86.127601,True,manual,uncorroborated
 CREATIVE PLANNING,5454 W 110th St,Overland Park,KS,66211,38.9294324,-94.648236,True,ai,grounded
 CREDIT AGRICOLE CIB,1301 Avenue of the Americas,New York,NY,10019,40.7618616,-73.9801825,True,ai,corroborated
 CREDIT SUISSE,11 Madison Avenue,New York,NY,10010,40.7415982,-73.9871904,True,ai,grounded
@@ -2378,14 +2378,14 @@ CT GREEN BANK,"55 Trumbull Street, 3rd Floor",Hartford,CT,06103,41.7654624,-72.6
 CT MANAGEMENT,,,,,,,True,,
 CTB ADVISORY LLC,,,,,,,True,,
 CTCA,,,,,,,True,,
-CTR MANAGEMENT INC,,,,,,,True,,
+CTR MANAGEMENT INC,,BALTIMORE,MD,21201,,,True,manual,verified
 CUDDY & FEDER LLP,"1340 Avenue of the Americas, 28th Floor",New York,NY,10105,40.762567,-73.9783512,True,ai,corroborated
 CUDLIE ACCESSORIES LLC,,,,,,,True,,
 CULTURAL STRATEGIES,,,,,,,True,,
 CUMMING GROUP,"151 West 42nd Street, 12th Floor",New York,NY,10036,40.7554036,-73.9852254,True,ai,grounded
 CUNEO GILBERT & LADUCA LLP,"7733 Forsyth Boulevard, Suite 1675",St. Louis,MO,63105,38.6503629,-90.3356508,True,ai,uncorroborated
 CUNY,365 Fifth Avenue,New York,NY,10016,40.9163902,-73.807268,True,ai,corroborated
-CUPIXEL LTD,,,,,,,True,,
+CUPIXEL LTD,"1500 Broadway, 27th Floor",New York,NY,10036,40.7568024,-73.985668,True,manual,uncorroborated
 CURALEAF,"15 Farm Springs Road, Suite 200",Farmington,CT,06032,41.7198216,-72.8320435,True,ai,uncorroborated
 CURB GARDNER CREATIVE GROUP,,,,,,,True,,
 CURIO WELLNESS,10 Wight Ave,Cockeysville,MD,21030,39.4897875,-76.6481231,True,ai,corroborated
@@ -2457,7 +2457,7 @@ DATEL SOLUTIONS,"6001 Bollinger Canyon Rd, Suite 100",San Ramon,CA,94583,37.7583
 DAUM,312 West 4th Street,Loveland,CO,80537,40.3954446,-105.0796309,True,ai,uncorroborated
 DAVE ARONBERRG LAW PA,,,,,,,True,,
 DAVE PERRY MILLER REAL ESTATE,"12770 Coit Road, Suite 100",Dallas,TX,75251,32.9216608,-96.7682931,True,ai,corroborated
-"DAVID DANIEL, M.D. PC",,,,,,,True,,
+"DAVID DANIEL, M.D. PC",1133 Sage Street,Far Rockaway,NY,11691,40.6068076,-73.7453448,True,manual,verified
 DAVID F. JAFFE MD PA,,,,,,,True,,
 DAVID HIRSON & PARTNERS LLP,"1122 Broadway, Suite 900",New York,NY,10010,40.7431141,-73.9889848,True,ai,uncorroborated
 DAVID LERNER ASSOCIATES,,,,,,,True,,
@@ -2519,7 +2519,7 @@ DEBORAH SILVER ENTERTAINMENT,,,,,,,True,,
 DECHERT LLP,"Cira Centre, 2929 Arch Street",Philadelphia,PA,19104,39.9572797,-75.1824563,True,ai,corroborated
 DECIPHER,,,,,,,True,,
 DECISION TACTICAL LLC,,,,,,,True,,
-DECKO DESIGNS INC,,,,,,,True,,
+DECKO DESIGNS INC,90 Broad St,New York,NY,10004,40.7037965,-74.0119608,True,manual,uncorroborated
 DECON WORLDWIDE,"70 Linden Oaks, Suite 200",Malvern,PA,19355,40.036202,-75.5138959,True,ai,uncorroborated
 DECRON PROPERTIES,6222 Wilshire Blvd Ste 400,Los Angeles,CA,90048,34.0630768,-118.3643384,True,ai,grounded
 DEE BERKLEY JEWELRY,,,,,,,True,,
@@ -2641,7 +2641,7 @@ DINERSTEIN COMPANIES,"100 Jericho Quadrangle, Suite 100",Jericho,NY,11753,40.789
 DINESOL,,,,,,,True,,
 DIPLOMACY MATTERS,641 Lexington Ave,New York,NY,10022,40.758877,-73.9696441,True,ai,uncorroborated
 DIRECT DEMO,,,,,,,True,,
-DIRECT MARKETING NETWORK INC,,,,,,,True,,
+DIRECT MARKETING NETWORK INC,800 S Douglas Rd,Pembroke Pines,FL,33025,26.0010238,-80.2634674,True,manual,uncorroborated
 DISCOVER VISION CENTERS,4741 S Cochise Dr,Independence,MO,64055,39.0924792,-94.4137923,True,ai,grounded
 DISH NETWORK,9601 South Meridian Boulevard,Englewood,CO,80112,39.5451301,-104.8559924,True,ai,uncorroborated
 DISNEY,500 South Buena Vista Street,Burbank,CA,91521,34.1551262,-118.3265025,True,ai,corroborated
@@ -2680,7 +2680,7 @@ DOLLINGER PROPERTIES,"1500 Fashion Island Blvd, Suite 100",San Mateo,CA,94404,37
 DOLPHIN PROPERTY SERVICES,,,,,,,True,,
 DOMANI ADVISORS,"10 West 33rd Street, Suite 802",New York,NY,10001,40.7480451,-73.9859788,True,ai,grounded
 DOMINION ELECTRIC SUPPLY,5053 Langston Boulevard,Arlington,VA,22207,38.8968578,-77.1300703,True,ai,grounded
-DON KLEIN MANAGEMENT GROUP INC,,,,,,,True,,
+DON KLEIN MANAGEMENT GROUP INC,650 Townsend St,San Francisco,CA,94103,37.7709567,-122.4036566,True,manual,uncorroborated
 DONALDSON LUFKIN & JENRETTE,499 Park Avenue,New York,NY,10022,40.7625806,-73.9697327,True,ai,corroborated
 DONE,,,,,,,True,,
 DONFELD & ROLLMAN,"1901 AVENUE OF THE STARS, SUITE 500",LOS ANGELES,CA,90067,34.0595286,-118.4176184,True,manual,verified
@@ -2717,7 +2717,7 @@ DOWNTOWN REALTY,,,,,,,True,,
 DOWNTOWNWORKS,"550 West B Street, 4th Floor",San Diego,CA,92101,32.7178495,-117.1678376,True,ai,grounded
 DP&F,,,,,,,True,,
 DPIS BUILDER SERVICES,,,,,,,True,,
-DPIS ENGINEERING LLC,,,,,,,True,,
+DPIS ENGINEERING LLC,"19450 State Hwy 249, Ste 300",Houston,TX,77070,29.7589382,-95.3676974,True,manual,uncorroborated
 DR JACK L SCHAEFFER LLC,,,,,,,True,,
 DR M GELBORT,,,,,,,True,,
 DR MADRIGAL,,,,,,,True,,
@@ -2745,7 +2745,7 @@ DRAFTKINGS,"222 Berkeley Street, 5th Floor",Boston,MA,02116,42.3514077,-71.07302
 DRAGONFLY TECHNOLOGIES,"1333 Broadway, Suite 1506",New York,NY,10018,40.7512127,-73.9879717,True,ai,corroborated
 DREAM PROJECTS DBA RTA,,,,,,,True,,
 DREAMHAVEN,,,,,,,True,,
-DREAMWAVE LLC,,,,,,,True,,
+DREAMWAVE LLC,3000 Ocean Drive,Key Biscayne,FL,33149,25.6901908,-80.1586949,True,manual,uncorroborated
 DREAMWEAR INC,"183 Madison Ave, 10th Floor",New York,NY,10016,40.747617,-73.982941,True,manual,verified
 DREXEL BURNHAM LAMBERT,,,,,,,True,,
 DREXEL UNIVERSITY,3141 Chestnut Street,Philadelphia,PA,19104,39.9586721,-75.1888451,True,ai,corroborated
@@ -2823,7 +2823,7 @@ EAST GATE ENTERPRISES INC,,,,,,,True,,
 EAST ROAD ASSOCIATES LLC,,,,,,,True,,
 EAST WIND ADVISORS LLC,,,,,,,True,,
 EASTDIL SECURED,"245 Park Avenue, 11th Floor",New York,NY,10167,40.7546124,-73.9746719,True,ai,corroborated
-EASTERN CONCRETE FOUNDATION INC,,,,,,,True,,
+EASTERN CONCRETE FOUNDATION INC,6000 3rd Street SE,Cedar Rapids,IA,52403,41.9687959,-91.6559887,True,manual,uncorroborated
 EASTERN ILLINOIS UNIVERSITY,600 Lincoln Avenue,Charleston,IL,61920,39.478692,-88.1790663,True,ai,corroborated
 EASTERN WV COMMUNITY TECH. COL,316 Eastern Drive,Moorefield,WV,26836,39.0754201,-78.9325241,True,ai,corroborated
 EASTIL MANAGEMENT,,,,,,,True,,
@@ -2836,7 +2836,7 @@ EB5 CAPITAL,"6106 MacArthur Blvd, Suite 104",Bethesda,MD,20816,38.9429465,-77.11
 EBAY,2025 Hamilton Avenue,San Jose,CA,95125,37.2951544,-121.9261317,True,ai,corroborated
 EBM,,,,,,,True,,
 EBNER PROPERTIES,"1200 Route 22 West, Suite 300",Bridgewater,NJ,08807,40.5598127,-74.5517146,True,ai,uncorroborated
-EBR SYSTEMS INC,,,,,,,True,,
+EBR SYSTEMS INC,"2200 Powell Street, Suite 103",Emeryville,CA,94608,37.8379755,-122.3017537,True,manual,uncorroborated
 ECA,,,,,,,True,,
 ECA FUND ADVISORS,"3030 LBJ Freeway, Suite 1250",Dallas,TX,75234,32.92545,-96.8167644,True,ai,uncorroborated
 ECAPITAL CORP,,,,,,,True,,
@@ -2899,7 +2899,7 @@ EIM,,,,,,,True,,
 EINSTEIN MEDICAL CENTER,5501 Old York Road,Philadelphia,PA,19141,40.0368481,-75.1415887,True,ai,corroborated
 EIP,,,,,,,True,,
 EISEMAN LEVINE LEHRHAUPT & KAKOYIANNIS PC,805 Third Avenue,New York,NY,10022,40.8088444,-73.9303577,True,manual,verified
-EISEN STUDIOS LLC,,,,,,,True,,
+EISEN STUDIOS LLC,"120 W 45th St, Suite 800",New York,NY,10036,40.7570159,-73.9839641,True,manual,uncorroborated
 EISENBERG GROUP,,CORAL SPRINGS,FL,33065,,,True,manual,verified
 EISENBERG INVESTMENT GROUP,4613 N University Drive #411,Coral Springs,FL,33067,26.2872784,-80.250173,True,ai,grounded
 EISENBERG ROTHWEILER,1634 Spruce Street,Philadelphia,PA,19103,39.9474671,-75.1694376,True,ai,grounded
@@ -3065,7 +3065,7 @@ EQUITY COMMONWEALTH,"1415 W. Diehl Road, Suite 100",Naperville,IL,60563,41.80308
 EQUITY GROUP INVESTMENTS,"875 N Michigan Ave, Suite 3600",Chicago,IL,60611,41.8988813,-87.6230962,True,ai,corroborated
 EQUITY MARKETING,,,,,,,True,,
 ERADANI INC,"50 Tice Boulevard, Suite 340",Woodcliff Lake,NJ,07677,41.0430086,-74.0759221,True,ai,uncorroborated
-EREALTY ADVISORS INC,,,,,,,True,,
+EREALTY ADVISORS INC,"1900 Avenue of the Stars, 25th Floor",Los Angeles,CA,90067,34.0599711,-118.4169732,True,manual,uncorroborated
 ERETZ CAPITAL LLC,"475 Park Ave S, 3rd Floor",New York,NY,10016,40.7453824,-73.9819834,True,ai,uncorroborated
 ERETZ EQUITY PARTNERS,"475 Park Ave S, 3rd Floor",New York,NY,10016,40.7453824,-73.9819834,True,ai,uncorroborated
 EREZ ASSET MANAGEMENT,,,,,,,True,,
@@ -3076,7 +3076,7 @@ ERIC FORMAN ENTERPRISES,,,,,,,True,,
 ERIC SACKLER & ASSOCIATES,,,,,,,True,,
 ERICKSON RETIREMENT COMMUNITIE,1200 5th Street NE,Cedar Rapids,IA,52402,41.983478,-91.6683026,True,ai,uncorroborated
 ERICKSON SENIOR LIVING,"10401 Muirlands Boulevard, Suite 200",Irvine,CA,92618,33.6479948,-117.7251377,True,ai,uncorroborated
-ERL FOOD SERVICES INC,,,,,,,True,,
+ERL FOOD SERVICES INC,2839 Smith Avenue,Baltimore,MD,21209,39.3745082,-76.6911007,True,manual,uncorroborated
 ERLANGER,15 East Central Parkway,Cincinnati,OH,45246,39.1072363,-84.5134251,True,ai,uncorroborated
 ERNEST,,,,,,,True,,
 ERNO LASZLO,"100 Park Avenue, 18th Floor",New York,NY,10017,40.7513385,-73.9790005,True,ai,uncorroborated
@@ -3127,7 +3127,7 @@ EXCLUSIVE FLOORING COLLECTION,,,,,,,True,,
 EXDO MANAGEMENT,"2821 Blake Street, Suite 200",Denver,CO,80205,39.7620691,-104.9844303,True,ai,corroborated
 EXEC SOUNDING BOARD,,,,,,,True,,
 EXECUTIVE DIRECTOR,,,,,,,True,,
-EXECUTIVE REALTY TRANSFER INC,,,,,,,True,,
+EXECUTIVE REALTY TRANSFER INC,1495 Bedford Ave,Stamford,CT,06905,41.0534302,-73.5387341,True,manual,uncorroborated
 EXEC|COMM,,,,,,,True,,
 EXELA TECHNOLOGIES,"201 E. John Carpenter Freeway, Suite 900",Irving,TX,75062,32.8651212,-96.941317,True,ai,uncorroborated
 EXELON,10 S. Dearborn St,Chicago,IL,60603,41.8816239,-87.6301402,True,ai,uncorroborated
@@ -3165,7 +3165,7 @@ F&F CAPITAL GROUP,,,,,,,True,,
 F-FACTOR,"115 E 57th Street, Suite 1007",New York,NY,10022,40.761576,-73.9698613,True,ai,grounded
 F. K. STERNS ENTERPRISES,,,,,,,True,,
 F.F.R. PLANNING GROUP,,,,,,,True,,
-F.S. MAAS & COMPANY INC,,,,,,,True,,
+F.S. MAAS & COMPANY INC,1300 E. 9th Street,Cleveland,OH,44114,41.5041932,-81.6909464,True,manual,uncorroborated
 F2 STRATEGY,"605 3rd Avenue, 32nd Floor",New York,NY,10158,40.7490865,-73.975106,True,ai,uncorroborated
 F3 EQUITY LLC,,,,,,,True,,
 FABER & GITLITZ,"200 S. Biscayne Blvd., Suite 2790",Miami,FL,33131,25.7721711,-80.1877342,True,ai,corroborated
@@ -3177,7 +3177,7 @@ FACTOR FINDERS LLC,25101 CHAGRIN BLVD STE 250,BEACHWOOD,OH,44122,41.4645311,-81.
 FACTORLAW,"1 World Trade Center, 85th Floor",New York,NY,10007,40.7127281,-74.0060152,True,ai,uncorroborated
 FACTORY MOTOR PARTS,"1380 Corporate Center Curve, Suite 200",Eagan,MN,55121,44.8564327,-93.1632341,True,ai,grounded
 FADER & ASSOCIATES,,,,,,,True,,
-FAHN & CO,,,,,,,True,,
+FAHN & CO,"1330 Avenue of the Americas, 34th Floor",New York,NY,10019,40.7621082,-73.9782867,True,manual,uncorroborated
 FAIRFIELD PROPERTIES,"538 Broadhollow Road, Third Floor East",Melville,NY,11747,40.7934322,-73.4151214,True,ai,grounded
 FAIRLEAD,650 Chautauqua Avenue,Portsmouth,VA,23707,36.8431096,-76.3329959,True,ai,grounded
 FAME HARDWOOD,,,,,,,True,,
@@ -3190,11 +3190,11 @@ FAMILY MANAGEMENT OF FLORIDA,,,,,,,True,,
 FAMILY OFFICE,,,,,,,True,,
 FAMILY PARTNERS LTD,,,,,,,True,,
 FAMILY TREE DNA GENE BY GENE,"1445 North Loop 1604 W, Suite 101",San Antonio,TX,78248,29.6028128,-98.5371505,True,ai,corroborated
-FAMILY WEALTH SERVICES LLC,,,,,,,True,,
+FAMILY WEALTH SERVICES LLC,1650 Arch St,Philadelphia,PA,19103,39.9546392,-75.1676947,True,manual,uncorroborated
 FANGIRL SPORTS NETWORKJ,,,,,,,True,,
 FANNIE MAE,1100 15th Street NW,Washington,DC,20005,38.9045346,-77.0355803,True,ai,grounded
 FANNING ENTERPRISE INC,,,,,,,True,,
-FANNY GRUNBERG & ASSOCIATES LLC,,,,,,,True,,
+FANNY GRUNBERG & ASSOCIATES LLC,161 Madison Ave,New York,NY,10016,40.7467293,-73.98336,True,manual,uncorroborated
 FANTASEA YACHTS & YACHT CLUB,645 Bayview Dr,Dania Beach,FL,33004,26.0524224,-80.143929,True,ai,uncorroborated
 FANTASEYES,,,,,,,True,,
 FANTASTIK REALTY,,,,,,,True,,
@@ -3298,7 +3298,7 @@ FINESSE,,,,,,,True,,
 FINISH RICH MEDIA,,,,,,,True,,
 FINMARC,"7200 Wisconsin Avenue, Suite 1100",Bethesda,MD,20814,38.981212,-77.0936554,True,manual,verified
 FINNEGAN,901 New York Ave NW,Washington,DC,20001,38.9021086,-77.0248064,True,ai,uncorroborated
-FINOPTIMAL INC,,,,,,,True,,
+FINOPTIMAL INC,2860 Zanker Rd,San Jose,CA,95134,37.3948134,-121.9281669,True,manual,uncorroborated
 FINRA,1735 K St NW,Washington,DC,20006,38.9028961,-77.0409302,True,ai,uncorroborated
 FINTZ CPA,"3131 Executive Park Drive, Suite 200",Cincinnati,OH,45241,39.1012809,-84.5127405,True,ai,uncorroborated
 FIR TREE PARTNERS,280 Park Ave 18th Floor,New York,NY,10017,40.7564853,-73.975049,True,ai,corroborated
@@ -3587,7 +3587,7 @@ GARLAND FLOOR,,,,,,,True,,
 GARMENT CARE,,,,,,,True,,
 GARMIN,1200 East 151st Street,Olathe,KS,66062,38.8561425,-94.7998263,True,ai,uncorroborated
 GARNETT STATION PARTNERS,,,,,,,True,,
-GARRISON SYSTEMS LLC,,,,,,,True,,
+GARRISON SYSTEMS LLC,100 High St,Boston,MA,02110,42.3544401,-71.0556228,True,manual,uncorroborated
 GARSHOFSKY & CO,,,,,,,True,,
 GARSON & ASSOCIATES CO. LPA,,,,,,,True,,
 GARSON JOHNSON LLC,"26285 Broadway Avenue, Suite A3",Oakwood Village,OH,44146,41.0260379,-80.7038625,True,manual,verified
@@ -3632,7 +3632,7 @@ GELLER LAW FIRM,,,,,,,True,,
 GEM REALTY CAPITAL,"900 N Michigan Ave, 14th Floor",Chicago,IL,60611,41.8996454,-87.6256155,True,ai,grounded
 GEMINI PROPERTIES,1313 Washington St,Boston,MA,02118,42.3422441,-71.0685623,True,ai,grounded
 GEN CAP AMERICA,,,,,,,True,,
-GENCARE INC,,,,,,,True,,
+GENCARE INC,10 Minuteman Road,Andover,MA,01810,42.6903478,-71.2197852,True,manual,uncorroborated
 GENCO ATC,100 Papercraft Park,Pittsburgh,PA,15238,40.4406968,-80.0025666,True,manual,verified
 GENE BY GENE,"1445 North Loop West, Suite 760",Houston,TX,77008,29.8075198,-95.4441568,True,manual,verified
 GENEBYGENE,"1445 North Loop West, Suite 760",Houston,TX,77008,29.8075198,-95.4441568,True,manual,verified
@@ -3808,7 +3808,7 @@ GOLDENSOUL INC,,,,,,,True,,
 GOLDENTREE,"301 Tresser Boulevard, Suite 602",Stamford,CT,06901,41.0523467,-73.5328562,True,ai,uncorroborated
 GOLDENTREE ASSET MANAGEMENT,"300 Park Avenue, 12th Floor",New York,NY,10022,40.7570541,-73.9747565,True,ai,corroborated
 GOLDER INVESTMENT,,,,,,,True,,
-GOLDHABER POLICY SERVICES,,,,,,,True,,
+GOLDHABER POLICY SERVICES,4112 Gardenlake Drive,Raleigh,NC,27612,35.8312585,-78.6902143,True,manual,uncorroborated
 GOLDHABER POLICY SERVICES LLC,4112 Gardenlake Drive,Raleigh,NC,27612,35.8312585,-78.6902143,True,ai,grounded
 GOLDMAN DRAKE LLP,,,,,,,True,,
 GOLDMAN SACHS,200 West Street,New York,NY,10282,40.7147237,-74.0144315,True,manual,verified
@@ -3849,7 +3849,7 @@ GORLICK FINANCIAL STRATEGIES,,,,,,,True,,
 GOSHEN TRANSPORTATION,317 W Main St,Goshen,IN,46526,41.5709982,-85.8296697,True,ai,uncorroborated
 GOTHAM VENTURES,228 Park Ave S,New York,NY,10003,40.7377801,-73.9886747,True,ai,corroborated
 GOTTLIEB & SONS,,,,,,,True,,
-GOTTMAN INC,,,,,,,True,,
+GOTTMAN INC,370 Jay St,Brooklyn,NY,11201,40.6932906,-73.9880587,True,manual,uncorroborated
 GOTTMAN INSTITUTE,"3701 W. Kennedy Blvd., Suite 200",Tampa,FL,33609,27.944905,-82.503779,True,ai,uncorroborated
 GOULSTON & STORRS,"400 Atlantic Avenue, 10th Floor",Boston,MA,02110,42.3556115,-71.0504489,True,ai,corroborated
 GOURMET NUT,,,,,,,True,,
@@ -3901,7 +3901,7 @@ GREENBERG REGENERATIVE,,,,,,,True,,
 GREENBERG TRAURIG,"333 SE 2nd Avenue, Suite 4400",Miami,FL,33131,25.7712904,-80.1895021,True,manual,verified
 GREENBERGDAUBEREPSTEIN&TUCKER,1 Gateway Center,Newark,NJ,07102,40.7351297,-74.167597,True,ai,corroborated
 GREENBRIER ANIMAL HOSPITAL,,,,,,,True,,
-GREENE KARLIN REAL ESTATE LLC,,,,,,,True,,
+GREENE KARLIN REAL ESTATE LLC,500 Northland Ridge Court,Atlanta,GA,30342,33.7544657,-84.3898151,True,manual,uncorroborated
 GREENHOUSE SOFTWARE,"1 Lafayette Street, 4th Floor",New York,NY,10013,40.7148423,-74.0037874,True,ai,grounded
 GREENPOINT GLOBAL,"350 Fifth Avenue, 66th Floor",New York,NY,10118,40.9161016,-73.8071811,True,ai,uncorroborated
 GREENSKY,5565 Glenridge Connector,Atlanta,GA,30342,33.902716764522,-84.357580667377,True,manual,verified
@@ -3931,7 +3931,7 @@ GROSSMAN HEINZ,"1960 East Grand Avenue, Suite 300",El Segundo,CA,90245,33.918852
 GROSSMAN ROTH YAFFA COHEN,"45 Broadway, 6th Floor",New York,NY,10006,40.7063924,-74.0130532,True,ai,uncorroborated
 GROUNDSWELL INVESTMENTS,"1999 Harrison Street, Suite 1750",Oakland,CA,94612,37.8077827,-122.2651196,True,ai,corroborated
 GROUP 1001,,,,,,,True,,
-GROUP 1001 RESOURCES LLC,,,,,,,True,,
+GROUP 1001 RESOURCES LLC,10555 Group 1001 Way,Zionsville,IN,46077,39.9418037,-86.2524185,True,manual,uncorroborated
 GROUP W MANAGEMENT,"305 Madison Avenue, 4th Floor",New York,NY,10165,42.0924417,-76.7999904,True,ai,corroborated
 GROVE POINT PARTNERS,382 NE 191st St PMB 50448,Miami,FL,33179,25.7741566,-80.1935973,True,ai,grounded
 GROWTH MARKETING ADVISORS,"500 West Madison Street, Suite 300",Chicago,IL,60661,41.8825674,-87.6404921,True,ai,uncorroborated
@@ -3955,7 +3955,7 @@ GSU,,,,,,,True,,
 GSW,500 Olde Worthington Rd,Westerville,OH,43082,40.1404454,-82.9640968,True,ai,grounded
 GTA,,,,,,,True,,
 GTCR,"300 North LaSalle Street, Suite 4200",Chicago,IL,60654,41.8868828,-87.6324633,True,ai,uncorroborated
-GTJ REIT INC,,,,,,,True,,
+GTJ REIT INC,60 Hempstead Ave,West Hempstead,NY,11552,40.7033473,-73.6399931,True,manual,uncorroborated
 GTM FLOW,,,,,,,True,,
 GTREASURY,"2100 E. Lake Cook Rd., Suite 1100",Buffalo Grove,IL,60089,42.1542113,-87.9589265,True,ai,grounded
 GTS,545 Madison Ave,New York,NY,10022,40.760661,-73.9729948,True,ai,corroborated
@@ -3992,7 +3992,7 @@ GWC,,,,,,,True,,
 GWE,,,,,,,True,,
 GWYNEDD SQUARE NURSING CENTER,1019 Sumneytown Pike,North Wales,PA,19454,40.212544,-75.2849356,True,ai,corroborated
 GXO,Two American Lane,Greenwich,CT,06831,41.0264862,-73.6284598,True,ai,grounded
-GYL FINANCIAL SYNERGIES LLC,,,,,,,True,,
+GYL FINANCIAL SYNERGIES LLC,75 Isham Rd,West Hartford,CT,06107,41.7613268,-72.7401104,True,manual,uncorroborated
 GYNECOLOGY ASSOCIATES OF SOUTH FLORIDA,"8150 W. McNab Road, Suite 401",North Lauderdale,FL,33068,26.206734,-80.1993306,True,ai,corroborated
 "H DENISE WOOTEN, PSYD",,,,,,,True,,
 H&E DO IT YOURSELF CENTER,1901 NE 2nd Street,Fort Lauderdale,FL,33304,26.1245108,-80.127923,True,ai,uncorroborated
@@ -4173,7 +4173,7 @@ HERB SIMON ASSOCIATES,,,,,,,True,,
 HERBALIFE,800 W Olympic Blvd,Los Angeles,CA,90015,34.0446975,-118.2646054,True,ai,corroborated
 HERCULES,"400 Hamilton Avenue, Suite 310",Palo Alto,CA,94301,37.4465277,-122.1584661,True,manual,verified
 HERCULES FENCE,8580 Mission Rd,Jessup,MD,20794,39.1639077,-76.8092596,True,ai,grounded
-HERCULES REAL ESTATE SERVICES INC,,,,,,,True,,
+HERCULES REAL ESTATE SERVICES INC,100 W 33rd St,New York,NY,10001,40.7491552,-73.98929,True,manual,uncorroborated
 HERITAGE PROPERTY MANAGEMENT,,,,,,,True,,
 HERMAN CAPITAL CORPORATION,3539 Douglas Dr N,Crystal,MN,55422,45.0209113,-93.3601722,True,ai,grounded
 HERMAN CO,"6 E 45th St, 22nd Floor",New York,NY,10017,40.7549116,-73.9789109,True,ai,uncorroborated
@@ -4242,7 +4242,7 @@ HILLMAN GROUP,"500 E Diehl Rd, Suite 550",Naperville,IL,60563,41.8023918,-88.138
 HILLS DEVELOPERS,,,,,,,True,,
 HILLS PROPERTIES,,,,,,,True,,
 HILLSBOROUGH COUNTY,"601 E Kennedy Blvd, 28th Floor",Tampa,FL,33602,27.9483131,-82.4548198,True,ai,corroborated
-HILLSON FINANCIAL MANAGEMENT INC,,,,,,,True,,
+HILLSON FINANCIAL MANAGEMENT INC,1209 Orange Street,Wilmington,DE,19801,39.7485065,-75.5476836,True,manual,uncorroborated
 HILLSON GLOBAL STRATEGIES,1209 Orange Street,Wilmington,DE,19801,39.7485065,-75.5476836,True,ai,uncorroborated
 HILLSPIRE,1010 Alma St,Menlo Park,CA,94025,37.4545501,-122.1811108,True,ai,grounded
 HILLWOOD,"5215 N O'Connor Blvd, Suite 200",Irving,TX,75039,32.8697896,-96.9393103,True,ai,corroborated
@@ -4336,7 +4336,7 @@ HOWARD AND HOWARD ATTORNEYS PLLC,450 West Fourth Street,Royal Oak,MI,48067,42.48
 HOWARD COMMUNITY COLLEGE,10901 Little Patuxent Parkway,Columbia,MD,21044,39.2137888,-76.8805587,True,ai,corroborated
 HOWARD HANNA,"200 Park Avenue, Suite 100",Glenwillow,OH,44139,41.361721,-81.46956,True,ai,corroborated
 HOWARD M. ROSENBLATT PA,2400 E Commercial Blvd Suite 300,Fort Lauderdale,FL,33308,26.188942,-80.1146812,True,ai,corroborated
-HOWARD O. BERNSTEIN PC,,,,,,,True,,
+HOWARD O. BERNSTEIN PC,"1250 Connecticut Ave NW, Suite 700",Washington,DC,20036,38.9060956,-77.0412609,True,manual,uncorroborated
 HOWARD PROPERTIES,355 Hayes Street,San Francisco,CA,94102,37.7766999,-122.4222178,True,manual,uncorroborated
 HOWARD REAL ESTATE,,,,,,,True,,
 HOWARD TANNEY ASSOCIATES,,,,,,,True,,
@@ -4541,7 +4541,7 @@ INNISFREE M&A INC,245 Park Ave,New York,NY,10167,40.7546124,-73.9746719,True,ai,
 INNOVATION DEFENSE STRATEGIES,1500 K St NW,Washington,DC,20005,38.9021272,-77.035037,True,ai,uncorroborated
 INNOVATION GROUP,"1051 Perimeter Dr, Suite 800",Schaumburg,IL,60173,42.0480909,-88.0325107,True,ai,grounded
 INNOVATION LINE,,,,,,,True,,
-INNOVATIONS IN EDUCATION LLC,,,,,,,True,,
+INNOVATIONS IN EDUCATION LLC,10400 Hardwood Ct,Woodstock,MD,21163,39.3090752,-76.8724677,True,manual,uncorroborated
 INNOVATIVE HEALTH,one Elmcroft Blvd,Mansfield,MA,02048,42.0334326,-71.2189405,True,ai,uncorroborated
 INNOVATIVE RADIOLOGY,106 S Washington St,Falls Church,VA,22046,38.8821546,-77.1714079,True,ai,uncorroborated
 INOAPPS,"5177 Richmond Avenue, Suite 200",Houston,TX,77056,29.7311792,-95.4660149,True,ai,grounded
@@ -4623,7 +4623,7 @@ IP GROUP,,,,,,,True,,
 IP.COM,1715 North Laurel Street,Wilmington,DE,19806,39.7459468,-75.546589,True,ai,uncorroborated
 IPASS,55 Challenger Road,Ridgefield Park,NJ,07660,40.8467659,-74.0128485,True,ai,uncorroborated
 IPD ANALYTICS,,,,,,,True,,
-IPEX INC,,,,,,,True,,
+IPEX INC,,CHICAGO,IL,60601,,,True,manual,verified
 IPFS,"1055 Broadway Blvd, 11th Floor",Kansas City,MO,64105,39.1014352,-94.588002,True,ai,grounded
 IPI,,,,,,,True,,
 IPM,,,,,,,True,,
@@ -4650,7 +4650,7 @@ IRON MOUNTAIN,2000 Iron Mountain Drive,Boston,MA,02109,42.3588336,-71.0578303,Tr
 IRONGATE,10877 Wilshire Blvd Suite 2300,Los Angeles,CA,90024,34.0593157,-118.4421772,True,ai,grounded
 IRREGARDLESS CAFE,623 36th St,Gulfport,MS,39507,30.3937499,-89.0508587,True,ai,uncorroborated
 IRVING INVESTORS,"205 Detroit St, Ste 400",Denver,CO,80206,39.7195773,-104.954731,True,ai,grounded
-IRWIN M. BARG PC,,,,,,,True,,
+IRWIN M. BARG PC,375 Northlake Blvd,North Palm Beach,FL,33408,26.8075521,-80.0583182,True,manual,uncorroborated
 ISAACSON SHERIDAN,,,,,,,True,,
 ISDS,,,,,,,True,,
 ISHOFSKY FAMILY,,,,,,,True,,
@@ -4781,7 +4781,7 @@ JCRC OF GREATER BOSTON,"1 Arts Circle, Suite 200",Boston,MA,02115,42.3588336,-71
 JCRC OF GREATER WASHINGTON,"6101 Executive Boulevard, Suite 300",North Bethesda,MD,20852,39.0487522,-77.1239581,True,ai,grounded
 JCRC OF MINNESOTA & THE DAKOTAS,,,,,,,True,,
 JD CHAPMAN,,,,,,,True,,
-JDI REALTY,,,,,,,True,,
+JDI REALTY,"575 Lexington Avenue, 11th Floor",New York,NY,10022,40.7571656,-73.9713791,True,manual,uncorroborated
 JDJ CAPITAL MANAGEMENT COMPANY,,,,,,,True,,
 JDM FINANCIAL GROUP,,,,,,,True,,
 JDRC MANAGED SERVICES LLC,,,,,,,True,,
@@ -4841,9 +4841,9 @@ JEWISH COMMUNITY HOSPICE,,,,,,,True,,
 JEWISH COMMUNITY OF LOUISVILLE,3600 Dutchmans Ln,Louisville,KY,40205,38.225443,-85.651526,True,ai,corroborated
 JEWISH COMMUNITY RELATIONS COUNCIL OF GREATER PHOENIX,"12701 N Scottsdale Rd, Suite 203",Scottsdale,AZ,85254,33.6068153,-111.9258576,True,manual,verified
 JEWISH COMMUNITY SERVICES OF S,,,,,,,True,,
-JEWISH EDUCATION IN MEDIA INC,,,,,,,True,,
+JEWISH EDUCATION IN MEDIA INC,"3190 South Bascom Avenue, Suite 600",San Jose,CA,95124,37.2652325,-121.9413072,True,manual,uncorroborated
 JEWISH FAMILY & CHILDREN'S SERVICES,"2000 N Tustin Ave, Suite 200",Santa Ana,CA,92705,33.7720253,-117.8357718,True,ai,corroborated
-JEWISH FAMILY & CHILDRENS SERVICES,,,,,,,True,,
+JEWISH FAMILY & CHILDRENS SERVICES,"2000 N Tustin Ave, Suite 200",Santa Ana,CA,92705,33.7720253,-117.8357718,True,manual,uncorroborated
 JEWISH FAMILY AND CHILDREN'S SERVICES OF SAN FRANCISCO,2150 Post Street,San Francisco,CA,94115,37.7847128,-122.4372237,True,manual,verified
 JEWISH FAMILY SERVICES,,,,,,,True,,
 JEWISH FED OF GR. ROCHESTER,255 East Ave,Rochester,NY,14604,43.1555451,-77.5978566,True,ai,corroborated
@@ -4954,14 +4954,14 @@ JONOVA,,,,,,,True,,
 JORDACHE ENTERPRISES,"350 5th Avenue, Suite 5309",New York,NY,10118,40.7484421,-73.9856589,True,ai,corroborated
 JORDAN RAMIS PC,"1211 SW 5th Ave, Ste 2700 (PacWest, 27th Floor)",Portland,OR,97204,45.5152677,-122.6800549,True,ai,grounded
 JORDAN RIVER MOVING,"12515 Willows Rd NE, Suite 220",Kirkland,WA,98034,47.71293,-122.1552199,True,ai,grounded
-JORDON PERLMUTTER & CO,,,,,,,True,,
+JORDON PERLMUTTER & CO,"2275 Village East Road, Suite 200",Wheat Ridge,CO,80033,39.766098,-105.0772063,True,manual,uncorroborated
 "JOSEPH AHRAM, MD",,,,,,,True,,
 JOSEPH GOETZ MD,,,,,,,True,,
 JOSEPH M. MARVIZI DDS INC,,,,,,,True,,
 "JOSEPH RAFALOWICZ, ATTORNEY AT LAW",,,,,,,True,,
 JOSH SILVERMAN INSURANCE,"33 South Service Road, Suite 101",Melville,NY,11747,40.7804005,-73.4283778,True,ai,uncorroborated
 JOSH STEEL CO,,,,,,,True,,
-JOSHUA A. ROSENBAUM PC,,,,,,,True,,
+JOSHUA A. ROSENBAUM PC,"1200 Brickell Avenue, Suite 1950",Miami,FL,33131,25.7621104,-80.1923056,True,manual,uncorroborated
 JOSHUA P. FRIEDMAN AND ASSOCIATES,,,,,,,True,,
 JOSSELSON POTTER & ROBERTS,55 Washington Street,Norwalk,CT,06854,41.0990856,-73.419083,True,ai,uncorroborated
 JOULE VENTURES,535 W. 110th St #5F,New York,NY,10025,40.8039526,-73.9656848,True,ai,grounded
@@ -4998,7 +4998,7 @@ JUNE COLLECTIVE,,,,,,,True,,
 JUNO INVESTMENTS,"950 Third Avenue, Suite 2300",New York,NY,10022,40.8088444,-73.9303577,True,manual,verified
 JURIS CAPITAL LLC,100 FEDERAL STREET,BOSTON,MA,02110,42.3550533,-71.055957,True,ai,uncorroborated
 JURISLAW LLP,,,,,,,True,,
-JURISTEMPS INC,,,,,,,True,,
+JURISTEMPS INC,50 Beale St Suite 700,San Francisco,CA,94105,37.7912566,-122.3964864,True,manual,uncorroborated
 JUST WIRELESS,,,,,,,True,,
 JUVO AUTISM & BEHAVIORAL HEALTH SERVICES,,,,,,,True,,
 JVDEALS,,,,,,,True,,
@@ -5090,7 +5090,7 @@ KEAT PROPERTIES,,,,,,,True,,
 KECHES LAW GROUP,"2 Lakeshore Center, Suite 3",Bridgewater,MA,02324,41.9604191,-71.035117,True,ai,grounded
 KEE BOOKKEEPING,,,,,,,True,,
 KEEGAN HOMES,,,,,,,True,,
-KEELER REAL ESTATE LLC,,,,,,,True,,
+KEELER REAL ESTATE LLC,2603 Brentwood Drive NW,Grand Rapids,MI,49534,42.9632425,-85.6678639,True,manual,uncorroborated
 KEEPBOX,"1299 Pennsylvania Avenue NW, Suite 700",Washington,DC,20004,38.896492,-77.028214,True,ai,uncorroborated
 KEHILLAH OF ARIZONA,3643 E. Pueblo Ave,Phoenix,AZ,85040,33.40763,-112.0526318,True,ai,corroborated
 KEHILLAT LEV RA'ANANA,,,,,,,True,,
@@ -5193,7 +5193,7 @@ KITZMAN FOR TEXAS (POLITICAL CAMPAIGN),,,,,,,True,,
 KIXIE,"110 E 1st Ave, Suite 300",San Mateo,CA,94401,37.5691881,-122.3210165,True,ai,corroborated
 KJBINC,,,,,,,True,,
 KKR,9 West 57th Street,New York,NY,10019,40.7638353,-73.9749533,True,ai,corroborated
-KL CAPITAL INC,,,,,,,True,,
+KL CAPITAL INC,900 Third Avenue,New York,NY,10022,40.8088444,-73.9303577,True,manual,uncorroborated
 KLAIMAN UROLOGY,,,,,,,True,,
 KLEBAN & SAMOR,,,,,,,True,,
 KLEHR HARRISON,"1835 Market St, 14th Floor",Philadelphia,PA,19103,39.9537066,-75.1711096,True,ai,corroborated
@@ -5213,7 +5213,7 @@ KLEPAK FOUNDATION,,,,,,,True,,
 KLEYNER CONSULTING LLC,,,,,,,True,,
 KLINE PROPERTIES,"1910 E Washington St, Suite B",Indianapolis,IN,46201,39.7678362,-86.127869,True,manual,verified
 KLMR PROPERTIES,,,,,,,True,,
-KLNB LLC,,,,,,,True,,
+KLNB LLC,100 West Rd Ste 505,Towson,MD,21204,39.4123432,-76.6152314,True,manual,uncorroborated
 KLNF,,,,,,,True,,
 KLS FINANCIAL,15233 Ventura Blvd Ste 704,Sherman Oaks,CA,91403,34.1540942,-118.465252,True,manual,verified
 KLUGER KAPLAN,"201 S. Biscayne Blvd., Suite 1800",Miami,FL,33131,25.7722268,-80.1867876,True,ai,grounded
@@ -5398,7 +5398,7 @@ LATTICE CONSULTING LLC,"700 S Flower St, 37th Floor",Los Angeles,CA,90017,34.048
 LAUDER PARTNERS,"375 Park Avenue, 14th Floor",New York,NY,10152,40.7584073,-73.9719841,True,ai,corroborated
 LAUNCH PAD LLC,,,,,,,True,,
 "LAURA HUGGLER, PH.D",,,,,,,True,,
-LAURAND ASSOCIATES INC,,,,,,,True,,
+LAURAND ASSOCIATES INC,"20900 NE 30th Avenue, Suite 102",Miami,FL,33180,25.9694879,-80.142689,True,manual,uncorroborated
 LAUREATE MEDICAL GROUP,"3400 Old Milton Parkway, Building C, Suite 500",Alpharetta,GA,30005,34.0755962,-84.2945964,True,ai,grounded
 LAUREN GOLD DESIGN,,,,,,,True,,
 LAUTREC LTD,,,,,,,True,,
@@ -5449,7 +5449,7 @@ LAW OFFICES OF JEFFREY E. GOLDMAN,,,,,,,True,,
 LAW OFFICES OF JONATHAN A. SORKOWITZ,,,,,,,True,,
 LAW OFFICES OF JONATHAN J. DELSHAD,,,,,,,True,,
 LAW OFFICES OF JONATHAN STEIN,,,,,,,True,,
-"LAW OFFICES OF KEITH J. COHEN, ESQUIRE PC",,,,,,,True,,
+"LAW OFFICES OF KEITH J. COHEN, ESQUIRE PC","585 Skippack Pike, Suite 200",Blue Bell,PA,19422,40.1518025,-75.264933,True,manual,verified
 LAW OFFICES OF LAWRENCE B. GILL PC,9306 Bolton Rd,Los Angeles,CA,90034,34.0448831,-118.3921964,True,manual,verified
 "LAW OFFICES OF LAWRENCE ELKUS, PROFESSIONAL CORPORATION",,,,,,,True,,
 LAW OFFICES OF LORI A. GARBER,,,,,,,True,,
@@ -5462,7 +5462,7 @@ LAW OFFICES OF STUART A. COHN,,,,,,,True,,
 LAW OFFICES OF STUART D ZIMRING,,,,,,,True,,
 LAW OFFICES OF THOMAS N JACOBSON,,,,,,,True,,
 LAWFARE PROJECT,"1620 I Street NW, Suite 810",Washington,DC,20006,38.9010436,-77.0374925,True,ai,uncorroborated
-LAWLAND CORP,,,,,,,True,,
+LAWLAND CORP,"1501 Broadway, 12th Floor",New York,NY,10036,40.7572684,-73.9866623,True,manual,uncorroborated
 LAWRENCE BERKELEY NATIONAL LAB,1 Cyclotron Road,Berkeley,CA,94720,37.8743429,-122.2523379,True,ai,corroborated
 LAWRENCE FINANCIAL,"501 Office Center Dr, Suite 200",Fort Washington,PA,19034,40.1423219,-75.1727157,True,ai,uncorroborated
 LAWRENCE GORDON MD PLLC,,,,,,,True,,
@@ -5612,7 +5612,7 @@ LIFELINES,,,,,,,True,,
 LIFETOWN,,,,,,,True,,
 LIGHITLITY,"9200 Corporate Blvd, Suite 150",Rockville,MD,20850,39.0817985,-77.1516844,True,ai,grounded
 LIGHT ON ANXIETY,,,,,,,True,,
-LIGHT VERDE LLC,,,,,,,True,,
+LIGHT VERDE LLC,"2112 5th Avenue, Suite 200",San Diego,CA,92101,32.7274306,-117.1603551,True,manual,uncorroborated
 LIGHTBANK,"420 N May St, Suite 200",Chicago,IL,60642,41.88994,-87.655873,True,ai,corroborated
 LIGHTBOX,450 W 15th St,New York,NY,10011,40.742503,-74.0071772,True,ai,corroborated
 LIGHTHOUSE DENTAL CARE,88 Ryders Ln,Stratford,CT,06614,41.2429386,-73.1016567,True,ai,grounded
@@ -5818,7 +5818,7 @@ M-5 TEXAS ENTERPRISES LLC,,,,,,,True,,
 M-RETS,18 N Park St,Medina,OH,44256,41.0216361,-81.7269275,True,ai,uncorroborated
 M. BRASHEM INC,,,,,,,True,,
 M. JACOB & SONS,,,,,,,True,,
-M. RAPAPORT CO. INC,,,,,,,True,,
+M. RAPAPORT CO. INC,183 Madison Ave,New York,NY,10016,40.747617,-73.982941,True,manual,uncorroborated
 M.F.S. INVESTMENT MANAGEMENT,"125 High St, Suite 2300",Boston,MA,02110,42.3550474,-71.053416,True,ai,corroborated
 M.J. NEIDITZ & CO,"120 Broadway, 28th Floor",New York,NY,10271,40.7082035,-74.0105065,True,ai,uncorroborated
 M/I HOMES INC,5075 W Park Blvd,Plover,WI,54467,44.4563579,-89.544007,True,ai,uncorroborated
@@ -5864,7 +5864,7 @@ MAGNITE,"1250 Broadway, 9th Floor",New York,NY,10001,40.747666,-73.9878545,True,
 MAGNOLIA MARKETING LLC,524 Metairie Road,Metairie,LA,70005,29.9860305,-90.1297917,True,manual,verified
 MAH ASSOCIATES LLC,,,,,,,True,,
 MAH COACH,,,,,,,True,,
-MAHAAI PROPERTIES LLC,,,,,,,True,,
+MAHAAI PROPERTIES LLC,1883 Waltham Circle,Marietta,GA,30062,33.9528472,-84.5496148,True,manual,uncorroborated
 MAI CAPITAL MANAGEMENT LLC,"6050 OAK TREE BLVD, SUITE 500",CLEVELAND,OH,44131,41.3984944,-81.6351697,True,ai,grounded
 MAIDENBAUM & STERNBERG,"1500 Broadway, 38th Floor",New York,NY,10036,40.7568024,-73.985668,True,ai,corroborated
 MAIMONIDES,4802 Tilden Avenue,Brooklyn,NY,11203,40.6479907,-73.9317556,True,ai,uncorroborated
@@ -5967,7 +5967,7 @@ MARK J GERSTEIN CONSULTING LLC,,,,,,,True,,
 MARK R. VOGEL PA,,,,,,,True,,
 MARK SANDERS MD,,,,,,,True,,
 MARK SHERMAN CONSULTING,,,,,,,True,,
-MARKAY MANAGEMENT INC,,,,,,,True,,
+MARKAY MANAGEMENT INC,"1530 W Jefferson Blvd, Suite 1600",Los Angeles,CA,90007,34.0254221,-118.3011537,True,manual,uncorroborated
 MARKET JD,"222 W Merchandise Mart Plaza, Suite 1212",Chicago,IL,60654,41.8888053,-87.6344719,True,ai,corroborated
 MARKETING ANALYSIS APPLICATIONS,100 Enterprise Drive,Rockville,MD,20850,39.0817985,-77.1516844,True,ai,uncorroborated
 MARKETING COMPANY,,,,,,,True,,
@@ -5986,7 +5986,7 @@ MARSH MANAGEMENT,,,,,,,True,,
 MARSH MCLENNAN AGENCY,"360 Hamilton Ave, Suite 930",White Plains,NY,10601,41.0347482,-73.766963,True,ai,grounded
 MARSHALL DENNEHEY,"1845 Walnut Street, 21st Floor",Philadelphia,PA,19103,39.9504697,-75.1717913,True,ai,uncorroborated
 MARSHALLS,1 Star Street,Framingham,MA,01702,42.2773177,-71.4165905,True,ai,uncorroborated
-MARTIN FEIN INTERESTS LTD,,,,,,,True,,
+MARTIN FEIN INTERESTS LTD,"3100 Timmons Ln, Suite 200",Houston,TX,77027,29.7367629,-95.4370438,True,manual,uncorroborated
 MARTIN MARIETTA,2710 W 10th St,Charlotte,NC,28203,35.2323308,-80.8369949,True,ai,corroborated
 MARTIN TATE MORROW & MARSTON PC,"2100 ROSS AVENUE, SUITE 1600",DALLAS,TX,75201,32.7874484,-96.7975336,True,ai,uncorroborated
 MARTINI CPAS,"15760 Ventura Blvd, 16th Floor",Encino,CA,91436,34.1552716,-118.4762079,True,ai,corroborated
@@ -6240,8 +6240,8 @@ METROLOFT NYC,40 WALL ST,NEW YORK,NY,10005,40.7070219,-74.0096669,True,manual,ve
 METRON INC,"1150 18TH STREET NW, SUITE 1000",WASHINGTON,DC,20036,38.9052778,-77.0417891,True,ai,uncorroborated
 METROPOLIS,,,,,,,True,,
 METROPOLITAN MANAGEMENT,,,,,,,True,,
-METROPOLITAN MARKETING INC,,,,,,,True,,
-METROPOLITAN MORTGAGE AND REALTY INC,,,,,,,True,,
+METROPOLITAN MARKETING INC,,CALABASAS,CA,91302,34.1446643,-118.644097,True,manual,verified
+METROPOLITAN MORTGAGE AND REALTY INC,"443 Northfield Ave, Suite 306",West Orange,NJ,07052,40.7717569,-74.2699771,True,manual,verified
 METROPOLITAN NEUROSURGERY,,,,,,,True,,
 METROPOLITAN REALTY GROUP LLC,60 Cutter Mill Road,Great Neck,NY,11021,40.781289,-73.734026,True,ai,corroborated
 METROVAC,1601 Elm St,Manchester,NH,03101,43.001431,-71.464406,True,ai,uncorroborated
@@ -6320,7 +6320,7 @@ MIDTOWN EQUITIES,175 Varick Street,New York,NY,10014,40.7273875,-74.0059619,True
 MIDTOWN PRACTICE FOR PSYCHIATRY,,,,,,,True,,
 MIDWEST CARDIOLOGY ASSOCIATES,,,,,,,True,,
 MIDWEST NEUROSURGERY ASSOCIATES,,,,,,,True,,
-MIDWEST REPRESENTATIVES INC,,,,,,,True,,
+MIDWEST REPRESENTATIVES INC,3100 Dundee Rd,Northbrook,IL,60062,42.1384327,-87.8560033,True,manual,uncorroborated
 MIDWEST TRUCK & AUTO PARTS,,,,,,,True,,
 MIKE & ALLY,,,,,,,True,,
 MIKEY BUYS HOMES,,,,,,,True,,
@@ -6359,7 +6359,7 @@ MILLER ROSNICK D'AMICO AUGUST & BUTLER,150 North Avenue,Bridgeport,CT,06604,41.2
 MILLER STRATEGIES LLC,"1500 WALNUT STREET, SUITE 900",KANSAS CITY,MO,64108,39.09558,-94.582404,True,ai,uncorroborated
 MILLER TRADING,,,,,,,True,,
 MILLER UNITED REAL ESTATE LLC,,,,,,,True,,
-MILLICAN CONSTRUCTION CO,,,,,,,True,,
+MILLICAN CONSTRUCTION CO,431 S 7th St,Louisville,KY,40202,38.2525366,-85.7624098,True,manual,uncorroborated
 MILLIMAN,"2000 Powell Street, Suite 1400",Emeryville,CA,94608,37.8381093,-122.3008475,True,ai,uncorroborated
 MILLSTEIN & ASSOCIATES,"1185 Avenue of the Americas, 7th Floor",New York,NY,10036,40.7579319,-73.9821357,True,ai,uncorroborated
 MILTON L. EHRLICH INC,,,,,,,True,,
@@ -6378,7 +6378,7 @@ MINNESOTA LITERACY,1970 Oakcrest Ave S,Maplewood,MN,55109,45.0082216,-93.0456985
 MINOA MARKETING,,,,,,,True,,
 MINTZ,1 Financial Center,Boston,MA,02111,42.3524096,-71.0563898,True,ai,uncorroborated
 MINTZ LEVIN,One Financial Center,Boston,MA,02111,42.3524096,-71.0563898,True,ai,grounded
-MINUTE MEN INC,,,,,,,True,,
+MINUTE MEN INC,3740 Carnegie Ave,Cleveland,OH,44115,41.5005941,-81.6602777,True,manual,uncorroborated
 MIO PARTNERS,,,,,,,True,,
 MIR DEVELOPMENTS,,,,,,,True,,
 MIRMAN BUBMAN & NAHMIAS,"1875 Century Park East, Suite 1900",Los Angeles,CA,90067,34.0618409,-118.415054,True,ai,corroborated
@@ -6403,7 +6403,7 @@ MKDA ARCHITECTURE,"902 Broadway, 17th Floor",New York,NY,10010,40.7393401,-73.98
 MKG TRAIN CORP,,,,,,,True,,
 MKL ENTERPRISES LTD,,,,,,,True,,
 MKL PROPERTIES,,,,,,,True,,
-ML FINANCIAL INC,,,,,,,True,,
+ML FINANCIAL INC,"1201 PACIFIC AVE, SUITE 1800",TACOMA,WA,98402,47.2521325,-122.4374794,True,manual,verified
 MLCO,,,,,,,True,,
 MLEDLINE,,,,,,,True,,
 MLF CONSULTING,,,,,,,True,,
@@ -6672,7 +6672,7 @@ NEIL SOSKIN COMMERCIAL REAL ESTATE SERVICES,,,,,,,True,,
 NELLIS CORPORATION,"7811 Montrose Road, Suite 420",Potomac,MD,20854,39.0577892,-77.1599717,True,manual,verified
 NELSON MULLER,,,,,,,True,,
 NELSON MULLINS,"1320 Main St, 17th Floor",Columbia,SC,29201,34.0033199,-81.0339402,True,ai,corroborated
-NEMAN BROTHERS & ASSOCIATES INC,,,,,,,True,,
+NEMAN BROTHERS & ASSOCIATES INC,"2 Penn Plaza, Suite 1520",New York,NY,10121,40.7498014,-73.9916986,True,manual,uncorroborated
 NEMOURS,807 N Franklin St,Wilmington,DE,19801,39.7488252,-75.5620544,True,ai,uncorroborated
 NEMOURS HOSPITAL,501 N. Rockford Drive,Wilmington,DE,19803,39.7459468,-75.546589,True,ai,uncorroborated
 NERIO TRAVEL,,,,,,,True,,
@@ -6688,7 +6688,7 @@ NEUBERGER QUINN,"605 Third Avenue, 22nd Floor",New York,NY,10158,40.8088444,-73.
 NEURO MEDICAL CENTER,"3430 Wilshire Blvd, Suite 1440",Los Angeles,CA,90010,34.0616712,-118.2985356,True,ai,uncorroborated
 NEUROCK,,,,,,,True,,
 NEUROCK CAPITAL,"25 Robert Pitt Dr, Suite 204",Monsey,NY,10952,41.110622,-74.0657849,True,ai,grounded
-NEUROGENESIS BIO INC,,,,,,,True,,
+NEUROGENESIS BIO INC,"1450 Veterans Blvd, Suite 300",Redwood City,CA,94063,37.4885347,-122.2175069,True,manual,uncorroborated
 NEUROLOGICAL SERVICES OF ORLANDO,"800 N Magnolia Ave, Suite 900",Orlando,FL,32803,28.55759,-81.3769019,True,ai,corroborated
 NEUROMETRIX INC,27151 Tomball Pkwy Ste 400,Katy,TX,77494,29.7857853,-95.8243956,True,ai,uncorroborated
 NEUROSURGEONS OF NJ,132 Grand St,Hoboken,NJ,07030,40.738874,-74.0363518,True,ai,corroborated
@@ -6699,7 +6699,7 @@ NEVYAS EYE ASSOCIATES,"1000 Executive Pkwy, Suite 201",San Ramon,CA,94583,37.768
 NEW AMSTERDAM PHARMA,"20803 Biscayne Blvd, Suite 105",Aventura,FL,33180,25.9684602,-80.1430903,True,ai,grounded
 NEW ENGLAND DEVELOPMENT,"200 Market Street, Suite 201",Springfield,MA,01103,42.1028275,-72.5893153,True,ai,corroborated
 NEW ENGLAND FRIENDS OF MARCH OF THE LIVING,,,,,,,True,,
-NEW ENGLAND REAL ESTATE ACQUISITIONS,,,,,,,True,,
+NEW ENGLAND REAL ESTATE ACQUISITIONS,"One International Place, Suite 350",Boston,MA,02110,42.3557189,-71.0521484,True,manual,uncorroborated
 NEW ENGLAND REGIONAL COUNCIL OF CARPEN,"600 Congress Street, Suite 202",Portland,ME,04101,43.6536812,-70.2632937,True,ai,uncorroborated
 NEW HAVEN COMPANIES,3951 SW 30th Ave,Fort Lauderdale,FL,33312,26.113351,-80.1844634,True,ai,grounded
 NEW HORIZONS,"100 Cummings Center, Suite 307-A",Beverly,MA,01915,42.5569312,-70.8868623,True,ai,grounded
@@ -6831,7 +6831,7 @@ NORTH SHORE ASSOCIATION OF REA,,,,,,,True,,
 NORTH SHORE HOSPITAL,300 Community Dr,Manhasset,NY,11030,40.7752137,-73.7010277,True,ai,corroborated
 NORTH SHORE VISION,,,,,,,True,,
 NORTH SQUARE INVESTMENTS LLC,80 State St,Boston,MA,02109,42.359095,-71.056096,True,ai,uncorroborated
-NORTH STAR CONSULTING INC,,,,,,,True,,
+NORTH STAR CONSULTING INC,1100 17th St NW,Washington,DC,20036,38.9040481,-77.0388095,True,manual,uncorroborated
 NORTH STAR REALTY,,,,,,,True,,
 NORTH STATE MEDIA,125 Ellinwood Way,Corvallis,OR,97330,44.5645659,-123.2620435,True,ai,uncorroborated
 NORTH SUBURBAN,,,,,,,True,,
@@ -7078,7 +7078,7 @@ OPPENHEIMER,85 Broad Street,New York,NY,10004,40.704059,-74.011355,True,ai,corro
 OPPENHEIMER CAPITAL,1330 Avenue of the Americas,New York,NY,10019,40.7619298,-73.9786675,True,ai,corroborated
 OPRSYSTEMS INC,1000 N West St,Wilmington,DE,19801,39.7471805,-75.5500972,True,ai,uncorroborated
 OPTIMAL CARE SERVICES,,,,,,,True,,
-OPTIMUS PROPERTIES LLC,,,,,,,True,,
+OPTIMUS PROPERTIES LLC,"1801 Century Park East, Suite 2100",Los Angeles,CA,90067,34.0621057,-118.4159357,True,manual,uncorroborated
 OPTIONS GROUP,299 Park Ave,New York,NY,10171,40.7560254,-73.9741826,True,ai,corroborated
 OPTUM,11000 Optum Circle,Eden Prairie,MN,55344,44.8910281,-93.4167887,True,ai,grounded
 OPTUM HEALTH,11000 Optum Cir,Eden Prairie,MN,55344,44.8910281,-93.4167887,True,ai,grounded
@@ -7187,7 +7187,7 @@ PACKMAN ET AL,,,,,,,True,,
 PACVENTURES,,,,,,,True,,
 PAD CO,,,,,,,True,,
 PAEDRIN AND KINGSLEY GILLETT,,,,,,,True,,
-PAGE CONSULTING SERVICES INC,,,,,,,True,,
+PAGE CONSULTING SERVICES INC,"500 N Brand Blvd, Suite 1640",Glendale,CA,91203,34.1571252,-118.2551659,True,manual,uncorroborated
 PAGE FOUR MEDIA,,,,,,,True,,
 PAGNY,"420 Lexington Ave, Suite 1750",New York,NY,10170,40.7524677,-73.9757799,True,ai,grounded
 PALADIN MANAGEMENT,,,,,,,True,,
@@ -7258,7 +7258,7 @@ PARKWAY WHOLESALE,,,,,,,True,,
 PARRAGON,10 Tower Lane,Irvine,CA,92618,33.6856969,-117.825981,True,ai,uncorroborated
 PARRITZLAW PLLC,,,,,,,True,,
 PARSONS SCHOOL OF DESIGN,2 West 13th Street,New York,NY,10011,40.7354064,-73.9944521,True,ai,corroborated
-"PARSONS, LEE & JULIANO PC",,,,,,,True,,
+"PARSONS, LEE & JULIANO PC","26 Broadway, Suite 1500",New York,NY,10004,40.7053128,-74.0129107,True,manual,uncorroborated
 PARTNERS HEALTH CARE,399 Revolution Drive,Somerville,MA,02145,42.3915309,-71.0788755,True,ai,corroborated
 PARTNERSHIPS,,,,,,,True,,
 PAS,,,,,,,True,,
@@ -7278,7 +7278,7 @@ PATIENT SQUARE CAPITAL,"482 Lexington Ave, 18th Floor",New York,NY,10017,40.7537
 PATIENTPOINT LLC,"1000 Alderman Drive, Suite 300",Nashville,TN,37210,36.1622767,-86.7742984,True,ai,uncorroborated
 PATRICK B. JENKINS & ASSOCIATES,,,,,,,True,,
 PATRIOT AUTO GROUP,769 Portland Road,Saco,ME,04072,43.5272292,-70.4260099,True,ai,grounded
-PATRIOT GROWTH INSURANCE SERVICES,,,,,,,True,,
+PATRIOT GROWTH INSURANCE SERVICES,"1845 Walnut St, Suite 900",Philadelphia,PA,19103,39.9504697,-75.1717913,True,manual,uncorroborated
 PATRIOT SUBARU,769 Portland Rd,Saco,ME,04072,43.5272292,-70.4260099,True,ai,grounded
 PATRON CAPITAL MANAGEMENT,"45 W 36th St, 11th Floor",New York,NY,10018,40.7506544,-73.9855763,True,ai,corroborated
 PATTERSON BELKNAP WEBB & TYLER,1133 Avenue of the Americas,New York,NY,10036,40.7557898,-73.9836408,True,ai,corroborated
@@ -7395,7 +7395,7 @@ PHIL BRO,,,,,,,True,,
 PHILADELPHIA HOUSING AUTHORITY,2012 Hamilton Street,Philadelphia,PA,19130,39.9622197,-75.1716354,True,ai,corroborated
 PHILIP KAUFLER LAW OFFICES,"100 South 5th St, Suite 1900",Minneapolis,MN,55402,44.9784227,-93.2686953,True,ai,uncorroborated
 PHILIPS,3000 Minuteman Road,Andover,MA,01810,42.69281,-71.21554,True,ai,grounded
-PHILLIPS TADROS PA,,,,,,,True,,
+PHILLIPS TADROS PA,101 N. Hernando St,Tampa,FL,33602,27.9449854,-82.4583107,True,manual,uncorroborated
 PHILSON,1465 MAIN ST,WATERTOWN,CT,06795,41.5898699,-73.1003016,True,manual,verified
 PHM,,,,,,,True,,
 PHOENICIAN MEDICAL CENTER,501 E Thomas Rd,Phoenix,AZ,85012,33.4797895,-112.0670369,True,ai,corroborated
@@ -7427,7 +7427,7 @@ PILZER BROS,1414 Dean St,Brooklyn,NY,11216,40.6763852,-73.9423918,True,ai,corrob
 PIM,,,,,,,True,,
 PIMA COUNTY,130 W Congress St,Tucson,AZ,85701,32.2216417,-110.9740491,True,ai,corroborated
 PIMCO,1 New York Plaza,New York,NY,10004,40.7508733,-73.9923032,True,ai,corroborated
-PINKHASOV & ASSOCIATES PLLC,,,,,,,True,,
+PINKHASOV & ASSOCIATES PLLC,"6900 Jericho Turnpike, Suite 236",Syosset,NY,11791,40.8074857,-73.5179037,True,manual,uncorroborated
 PINNACLE,"1 Penn Plaza, Suite 4000",New York,NY,10119,40.7510985,-73.9919723,True,ai,grounded
 PINNACLE CAPITAL MANAGEMENT,"3600 Gaylord Parkway, Suite 200",Frisco,TX,75034,33.1019692,-96.8249236,True,ai,uncorroborated
 PINNACLE COMMUNITIES,"9100 S. Dadeland Blvd, Suite 700",Miami,FL,33156,25.6851049,-80.3146034,True,ai,grounded
@@ -7442,7 +7442,7 @@ PISMO BEACH ATHLETIC CLUB,861 Mattie Rd,Pismo Beach,CA,93449,35.1505501,-120.654
 PISON TECHNOLOGY,,,,,,,True,,
 PITCO FOODS,670 N Commercial St,Newberg,OR,97132,45.300347,-122.972751,True,ai,uncorroborated
 PITTSBURGH PUBLIC SCHOOLS,341 S Bellefield Avenue,Pittsburgh,PA,15213,40.4445898,-79.9508107,True,ai,corroborated
-PIVO INC,,,,,,,True,,
+PIVO INC,1355 Market St,San Francisco,CA,94103,37.7765419,-122.4168068,True,manual,uncorroborated
 PIVOT POINT CAPITAL,"600 Madison Ave, 11th Floor",New York,NY,10022,40.7629242,-73.9724077,True,ai,uncorroborated
 PIVOTSP,,,,,,,True,,
 PJ DICK,"1000 Sterling Pkwy, Suite 200",Moon Township,PA,15108,40.4937372,-80.2002864,True,ai,corroborated
@@ -7487,7 +7487,7 @@ PNC,"One PNC Plaza, 249 Fifth Avenue",Pittsburgh,PA,15222,40.4412126,-80.0004438
 PNC ARENA,1400 Edwards Mill Rd,Raleigh,NC,27607,35.803398,-78.7219166,True,ai,corroborated
 POB SCHOOLS,,,,,,,True,,
 POCKER FRAMING,,,,,,,True,,
-POGODA MANAGEMENT CO,,,,,,,True,,
+POGODA MANAGEMENT CO,4125 Old Norcross Rd NE,Duluth,GA,30096,34.0028569,-84.1441046,True,manual,uncorroborated
 POH,,,,,,,True,,
 POINT ENERGY SOLUTIONS,"175 Strafford Avenue, Suite 1",Wayne,PA,19087,40.0457151,-75.3984746,True,ai,corroborated
 POKERGO,6365 Montessouri Street,Las Vegas,NV,89113,36.1404295,-115.2474218,True,ai,grounded
@@ -7554,7 +7554,7 @@ PREMIER METAL,,,,,,,True,,
 PREMIER ORTHOPAEDICS,3805 W Chester Pike,Newtown Square,PA,19073,39.986328,-75.4091519,True,ai,corroborated
 PREMIER PAINT ROLLER,"11200 Metro Parkway, Suite 200",Fort Myers,FL,33966,26.5941722,-81.8504335,True,ai,uncorroborated
 PREMIER PLUS REALTY,,,,,,,True,,
-PREMIER REALTY MICHIGAN LLC,,,,,,,True,,
+PREMIER REALTY MICHIGAN LLC,,TROY,MI,48084,,,True,manual,verified
 PREMIUM PROPERTIES,,,,,,,True,,
 PRENGLER PRODUCTS,3100 West 76th Street,Bloomington,MN,55435,44.8322405,-93.3204872,True,ai,uncorroborated
 PRESCIENT MEDICAL,"5177 Mendenhall Oaks Pkwy, Suite 101",High Point,NC,27265,36.0471327,-79.9579882,True,ai,uncorroborated
@@ -7601,7 +7601,7 @@ PRO CHEM,,,,,,,True,,
 PRO ISRAEL,,,,,,,True,,
 PRO-ISRAEL AMERICA,"1776 K Street NW, Suite 900",Washington,DC,20006,38.9024421,-77.0406448,True,ai,corroborated
 PROBASCO SINGER BAYNE,"333 W. Wacker Drive, Suite 1900",Chicago,IL,60606,41.886173,-87.6358607,True,ai,uncorroborated
-PROCEL LAW PC,,,,,,,True,,
+PROCEL LAW PC,"3600 AMERICAS PARKWAY NE, SUITE 400",ALBUQUERQUE,NM,87110,35.1040139,-106.571777,True,manual,uncorroborated
 PROCOPIO,"525 B Street, Suite 2200",San Diego,CA,92101,32.71752,-117.159724,True,ai,corroborated
 PROCORE,"6309 Carpinteria Avenue, Suite 100",Carpinteria,CA,93013,34.38366,-119.491515,True,ai,grounded
 PROCTER & GAMBLE,1 Procter & Gamble Plaza,Cincinnati,OH,45202,39.10304,-84.5075818,True,ai,corroborated
@@ -7626,10 +7626,10 @@ PROJECT DESIGN,,,,,,,True,,
 PROJECT WITNESS,,,,,,,True,,
 PROLECTO RESOURCES,,,,,,,True,,
 PROLEXYS PHARMACEUTICALS,"1201 W University Ave, Suite 200",Gainesville,FL,32601,29.651975,-82.337264,True,ai,uncorroborated
-PROLIFIC ELECTRONICS LLC,,,,,,,True,,
+PROLIFIC ELECTRONICS LLC,2297 Worthing Lane,Los Angeles,CA,90077,34.112684,-118.4740876,True,manual,uncorroborated
 PROMEDICA,1550 Providence Ave,Toledo,OH,43616,41.6529143,-83.5378173,True,ai,corroborated
 PROMINENT EDGE,,,,,,,True,,
-PROMO PARTNERS INC,,,,,,,True,,
+PROMO PARTNERS INC,"6200 Canoga Ave, Suite 1250",Woodland Hills,CA,91367,34.1834205,-118.5968919,True,manual,uncorroborated
 PROMONTORY THERAPEUTICS,,,,,,,True,,
 PROPAGATE,2700 Colorado Ave,Santa Monica,CA,90404,34.031371,-118.470093,True,ai,corroborated
 PROPAGATE CONTENT,"1420 21st Street NW, Suite 300",Washington,DC,20036,38.9093536,-77.0469213,True,ai,uncorroborated
@@ -7693,7 +7693,7 @@ QUADRANT STRATEGIES,"4201 Connecticut Avenue NW, Suite 405",Washington,DC,20008,
 QUADRUM CAPITAL US CORP,,,,,,,True,,
 QUALCOMM,5775 Morehouse Drive,San Diego,CA,92121,32.8959414,-117.1958195,True,ai,corroborated
 QUALIFIED,,,,,,,True,,
-QUALITY INSURANCE CONCEPTS INC,,,,,,,True,,
+QUALITY INSURANCE CONCEPTS INC,1100 E Warrenville Rd #100,Naperville,IL,60563,41.8110307,-88.1466967,True,manual,uncorroborated
 QUALITY METALS INC,2575 Doswell Ave,St. Paul,MN,55108,44.98128,-93.2057002,True,ai,grounded
 QUANTESSENCE,,,,,,,True,,
 QUANTUM GEOMETRY LLC,,,,,,,True,,
@@ -7748,7 +7748,7 @@ RADIUS RECYCLING,"222 SW Columbia Street, Suite 1150",Portland,OR,97201,45.51313
 RADNET,"1301 Dove St, Suite 310",Newport Beach,CA,92660,33.6621366,-117.8666546,True,ai,corroborated
 RADNOR TOWNSHIP SCHOOL DISTRICT,135 W Wayne Ave,Wayne,PA,19087,40.0426142,-75.3907806,True,ai,corroborated
 RAE KUSHNER YESHIVA HS,110 South Orange Avenue,Short Hills,NJ,07078,40.7529601,-74.2961959,True,ai,corroborated
-RAE MANAGEMENT COMPANY INC,,,,,,,True,,
+RAE MANAGEMENT COMPANY INC,1001 N. Rengstorff Avenue,Mountain View,CA,94043,37.4192623,-122.0928381,True,manual,uncorroborated
 RAH,,,,,,,True,,
 RAHWAY PATHOLOGY,,,,,,,True,,
 RAIN MANAGEMENT GROUP,11162 La Grange Ave,Los Angeles,CA,90025,34.0422778,-118.4413494,True,manual,verified
@@ -7762,7 +7762,7 @@ RALES FOUNDATION,,,,,,,True,,
 RAM CATERERS,,,,,,,True,,
 RAMAPO COLLEGE OF NEW JERSEY,505 Ramapo Valley Rd,Mahwah,NJ,07430,41.0822446,-74.1738235,True,ai,corroborated
 RAMAPO RADIOLOGY,,,,,,,True,,
-RAMAX SEARCH INC,,,,,,,True,,
+RAMAX SEARCH INC,101 Greenwich St,New York,NY,10006,40.708381,-74.0134217,True,manual,uncorroborated
 RAMAZ,160 E 78th St,New York,NY,10075,40.7738963,-73.9589297,True,ai,grounded
 RAMAZ SCHOOL,160 West 97th Street,New York,NY,10025,40.7941727,-73.9690253,True,ai,corroborated
 RAMBLESIDE,,,,,,,True,,
@@ -7824,7 +7824,7 @@ REAL ESTATE BROKER,,,,,,,True,,
 REAL ESTATE INVESTMENT GROUP,,,,,,,True,,
 REAL ESTATE INVESTOR,,,,,,,True,,
 REAL ESTATE SALES,,,,,,,True,,
-REAL ESTATE SERVICE SOLUTIONS COMPANY LLC,,,,,,,True,,
+REAL ESTATE SERVICE SOLUTIONS COMPANY LLC,"26711 Northwestern Highway, Suite 175",Southfield,MI,48033,42.4733689,-83.2218731,True,manual,verified
 REALPAGE,2201 Lakeside Blvd,Richardson,TX,75082,32.97998,-96.710239,True,ai,corroborated
 REALTY EXECUTIVES,"8324 E Hartford Dr, Ste 100",Scottsdale,AZ,85255,33.6413265,-111.899138,True,ai,grounded
 REALTYMARK,2250 Terwood Drive,Huntingdon Valley,PA,19006,40.1226101,-75.0635049,True,ai,grounded
@@ -7925,7 +7925,7 @@ RESOURCE INSIGHT,,,,,,,True,,
 RESTAURANT EQUIPPERS,,,,,,,True,,
 RESTORE,"5151 Lake Howell Rd, Suite 100",Winter Park,FL,32792,28.6110386,-81.3281865,True,ai,uncorroborated
 RESTREPO PUBLICATIONS LLC,,,,,,,True,,
-RESTRUCTURING LAW ADVISORY PC,,,,,,,True,,
+RESTRUCTURING LAW ADVISORY PC,"605 Third Ave, 21st Floor",New York,NY,10158,40.8088444,-73.9303577,True,manual,uncorroborated
 RESURGENS,"945 E Paces Ferry Road NE, Suite 1000",Atlanta,GA,30326,33.8468614,-84.3555295,True,ai,corroborated
 RESURGENS TECHNOLOGY PARTNERS,3550 Peachtree Rd NE Suite 900,Atlanta,GA,30326,33.8537402,-84.3628875,True,ai,corroborated
 RET,,,,,,,True,,
@@ -7960,7 +7960,7 @@ RFG,,,,,,,True,,
 RFR HOLDING LLC,570 Lexington Avenue,New York,NY,10022,40.7570841,-73.9724543,True,ai,corroborated
 RG LEVY LAW PLLC,111 Broadway,New York,NY,10006,40.707698,-74.011877,True,ai,uncorroborated
 RGP,"15950 North Dallas Parkway, Suite 330",Dallas,TX,75248,32.9900868,-96.8287692,True,ai,grounded
-RHEOXTECH INC,,,,,,,True,,
+RHEOXTECH INC,300 Baker Ave,Concord,MA,01742,42.4599821,-71.3893114,True,manual,uncorroborated
 RHEUMATOLOGY CONSULTANTS,1351 Main St,Brockton,MA,02301,42.0586402,-71.0142588,True,ai,grounded
 RHH,,,,,,,True,,
 RHOADES MCKEE,"101 W Big Beaver Rd, Suite 700",Troy,MI,48084,42.5626021,-83.1490393,True,ai,corroborated
@@ -8138,7 +8138,7 @@ ROPES & GRAY LLP,"Prudential Tower, 800 Boylston St",Boston,MA,02199,42.3471718,
 RORY MANAGEMENT INC,"600 Montgomery Street, Suite 1100",San Francisco,CA,94111,37.7951883,-122.4027902,True,ai,uncorroborated
 ROSAM AND ASSOCIATES,310 Comstock Avenue,Los Angeles,CA,90024,34.0761898,-118.4368981,True,manual,verified
 ROSCOE VILLAGE ANIMAL HOSPITAL,2633 W Roscoe St,Chicago,IL,60618,41.9428008,-87.7224093,True,ai,corroborated
-ROSE REAL ESTATE SERVICES INC,,,,,,,True,,
+ROSE REAL ESTATE SERVICES INC,"600 Lexington Avenue, 48th Floor",New York,NY,10022,40.7580277,-73.9714246,True,manual,uncorroborated
 ROSEMAWR MANAGEMENT,"1674 Meridian Ave, Suite 420",Miami Beach,FL,33139,25.7915882,-80.1369257,True,manual,verified
 ROSEN ASSOCIATES MANAGEMENT CORP,11 Hartwell Ave,Lexington,MA,02421,42.4747153,-71.253952,True,ai,uncorroborated
 ROSEN LAW FIRM LLC,101 Greenwood Ave,Jenkintown,PA,19046,40.092805,-75.136941,True,ai,uncorroborated
@@ -8154,7 +8154,7 @@ ROSENBLUM & REISMAN PC,1717 Arch St Suite 2005,Philadelphia,PA,19103,39.9554164,
 ROSENTHAL FOODS CORP,1313 11th St Ste 2,Sioux City,IA,51105,42.5019552,-96.3932818,True,ai,grounded
 "ROSENTHAL, LEVY AND SIMON",,,,,,,True,,
 ROSEWOOD,2828 N. Harwood St,Dallas,TX,75201,32.7946637,-96.8081922,True,ai,grounded
-ROSEWOOD REALTY GROUP INC,,,,,,,True,,
+ROSEWOOD REALTY GROUP INC,55 Fruit Street,Boston,MA,02114,42.3628605,-71.068753,True,manual,uncorroborated
 ROSMANSEARCH,"10 Tremont St, Suite 700",Boston,MA,02108,42.3588222,-71.0595746,True,ai,uncorroborated
 ROSMARINS COTTAGES,,,,,,,True,,
 ROSNOV JEWELERS,,,,,,,True,,
@@ -8430,7 +8430,7 @@ SCIENCE IS ELEMENTARY,,,,,,,True,,
 SCIENCE LAB 3,,,,,,,True,,
 SCIENTIST,,,,,,,True,,
 SCMV,,,,,,,True,,
-SCOPE IMPORTS INC,,,,,,,True,,
+SCOPE IMPORTS INC,"1100 13th Street NW, Suite 800",Washington,DC,20005,38.9040804,-77.0298917,True,manual,uncorroborated
 SCOPP AND ASSOCIATES,,,,,,,True,,
 SCOR GLOBAL LIFE REINSURANCE,"101 South Tryon Street, Suite 3200",Charlotte,NC,28280,35.2259484,-80.8431228,True,ai,grounded
 SCOR REINSURANCE,"1166 Avenue of the Americas, 33rd Floor",New York,NY,10036,40.7568778,-73.9820036,True,ai,uncorroborated
@@ -8456,7 +8456,7 @@ SDG&E,8326 Century Park Court,San Diego,CA,92123,32.8235386,-117.1439682,True,ai
 SDI TECHNOLOGIES INC,1299 Main Street,Rahway,NJ,07065,40.60326,-74.275399,True,ai,grounded
 SDMG,,,,,,,True,,
 SDSU,5500 Campanile Drive,San Diego,CA,92182,32.7729919,-117.0736735,True,ai,corroborated
-SE ASSET MANAGEMENT GROUP INC,,,,,,,True,,
+SE ASSET MANAGEMENT GROUP INC,"1400 VINE STREET, SUITE 500",CINCINNATI,OH,45202,39.1115694,-84.5151261,True,manual,uncorroborated
 SE CHIRO,,,,,,,True,,
 SEA LAND CHEMICAL,1500 E. 1st Street,Marion,IN,46952,40.5605108,-85.6579087,True,ai,uncorroborated
 SEACOR HOLDINGS INC,"600 Brickell Ave, Suite 2525",Miami,FL,33131,25.7675114,-80.1910059,True,ai,corroborated
@@ -8467,7 +8467,7 @@ SEARS FINANCIAL CORP,"6340 N Campbell Ave, Ste 278",Tucson,AZ,85718,32.2876979,-
 SEATTLE POLICE DEPARTMENT,,,,,,,True,,
 SECOND LINE ADVISORS,"745 Fifth Avenue, 9th Floor",New York,NY,10151,42.7154556,-73.7079975,True,ai,corroborated
 SECOR ASSET MANAGEMENT,"10 W. Broadway, Suite 301",Long Beach,CA,90802,33.7693116,-118.193206,True,ai,uncorroborated
-SEDER $ CHANDLER LLP,,,,,,,True,,
+SEDER $ CHANDLER LLP,"339 Main Street, Suite 300",Worcester,MA,01608,42.2652128,-71.8009403,True,manual,uncorroborated
 SEDGWICK,"1251 Avenue of the Americas, 43rd Floor",New York,NY,10020,40.7600411,-73.9818903,True,ai,uncorroborated
 SEED AND SMITH,"1656 N Fort Lauderdale Beach Blvd, Suite 210",Fort Lauderdale,FL,33304,26.1301324,-80.1034298,True,ai,corroborated
 SEED MILL,,,,,,,True,,
@@ -8644,7 +8644,7 @@ SHOWD.ME,,,,,,,True,,
 SHOWPLACE,,,,,,,True,,
 SHOWRUNNER INDUSTRIES,,,,,,,True,,
 SHOWTIME NETWORKS,1633 Broadway,New York,NY,10019,40.762093,-73.9846559,True,ai,uncorroborated
-SHP REALTY INC,,,,,,,True,,
+SHP REALTY INC,2141 Mallard Dr,Northbrook,IL,60062,42.1139254,-87.8384126,True,manual,uncorroborated
 SHRIVER INVESTMENTS,,,,,,,True,,
 SHUMAKER,"100 North Tampa Street, Suite 1200",Tampa,FL,33602,27.9454769,-82.4582642,True,ai,corroborated
 "SHUMAKER, LOOP & KENDRICK",1000 Jackson Street,Toledo,OH,43604,41.656751,-83.538502,True,ai,grounded
@@ -8837,7 +8837,7 @@ SOL SCHWARTZ & ASSOCIATES,,,,,,,True,,
 SOL'S PIPE AND STEEL,,,,,,,True,,
 SOLARIA,"300 Spectrum Center Drive, Suite 1900",Irvine,CA,92618,33.6538734,-117.7472945,True,ai,grounded
 SOLEL PARTNERS,"699 Boylston Street, 15th Floor",Boston,MA,02116,42.3498335,-71.0792385,True,manual,verified
-SOLINSKY EYECARE LLC,,,,,,,True,,
+SOLINSKY EYECARE LLC,433 South Main St,West Hartford,CT,06110,41.7333591,-72.7447488,True,manual,uncorroborated
 SOLKOFF LEGAL PA,"224 Datura Street, Suite 800",West Palm Beach,FL,33401,26.7123375,-80.0591471,True,ai,corroborated
 SOLL ADVISORS LLC,,,,,,,True,,
 SOLOMON & BERNSTEIN,,,,,,,True,,
@@ -9127,7 +9127,7 @@ STONECOURT CAPITAL,717 5th Ave Fl 12,New York,NY,10022,40.7620101,-73.9744057,Tr
 STONECUTTER VENTURES LLC,,,,,,,True,,
 STONEHAGE FLEMING,405 Lexington Avenue,New York,NY,10174,40.7515592,-73.9755403,True,manual,verified
 STONEHENGE,"1114 Avenue of the Americas, 20th Floor",New York,NY,10036,40.7546914,-73.9826746,True,ai,corroborated
-STONEHOUSE PARTNERS,,,,,,,True,,
+STONEHOUSE PARTNERS,"1019 Kane Concourse, Suite 202",Bay Harbor Islands,FL,33154,25.8870459,-80.1299025,True,manual,uncorroborated
 STONY BROOK,100 Nicolls Rd,Stony Brook,NY,11794,40.9180643,-73.1294899,True,ai,corroborated
 STONY BROOK UNIVERSITY,100 Nicolls Road,Stony Brook,NY,11794,40.9133573,-73.134221,True,ai,corroborated
 STORAGE PROS MANAGEMENT,"30665 Northwestern Highway, Suite 100",Farmington Hills,MI,48334,42.4853125,-83.3771553,True,ai,grounded
@@ -9148,7 +9148,7 @@ STRATEGIC RELATIONSHIPS LLC,,,,,,,True,,
 STRATEGIC WEALTH PARTNERS,520 Lake Cook Road Suite 520,Deerfield,IL,60015,42.1528463,-87.839848,True,ai,grounded
 STRATEGIES INC,,,,,,,True,,
 STRATEGOS GROUP,"333 N. Michigan Avenue, Suite 1700",Chicago,IL,60601,41.8879438,-87.6241761,True,ai,uncorroborated
-STRATEGY MAVEN INC,,,,,,,True,,
+STRATEGY MAVEN INC,"10 W. 33rd Street, Suite 505",New York,NY,10001,40.7480451,-73.9859788,True,manual,uncorroborated
 STRATUM WEALTH,"19 West 44th Street, Suite 702",New York,NY,10036,40.7553003,-73.9808892,True,ai,uncorroborated
 STRAUSS INTERESTS LLC,,,,,,,True,,
 STREAM,1 Presidential Blvd,Bala Cynwyd,PA,19004,40.008791,-75.210815,True,ai,uncorroborated
@@ -9256,7 +9256,7 @@ SURVEYMONKEY,1 Curiosity Way,San Mateo,CA,94403,37.496904,-122.3330573,True,ai,u
 SUSAN EDELSTEIN PRODUCTIONS LLC,,,,,,,True,,
 SUSAN G. KOMEN FOR THE C,"5005 LBJ Freeway, Suite 250",Dallas,TX,75244,32.9279478,-96.8220407,True,ai,uncorroborated
 SUSAN KOEHN DESIGNS,,,,,,,True,,
-SUSAN ZISES GREEN INC,,,,,,,True,,
+SUSAN ZISES GREEN INC,301 Route 17M,Middletown,NY,10940,41.4618564,-74.4122871,True,manual,uncorroborated
 SUSMAN GODFREY LLP,"1000 Louisiana Street, Suite 5100",Houston,TX,77002,29.75843,-95.3682993,True,ai,grounded
 SUSQUEHANNA GROWTH EQUITY,1525 Locust Street,Philadelphia,PA,19102,39.9487706,-75.1673943,True,ai,corroborated
 SUSQUEHANNA INTERNATIONAL GROUP,"525 William Penn Place, 9th Floor",Pittsburgh,PA,15219,40.4401673,-79.9977351,True,ai,corroborated
@@ -9290,7 +9290,7 @@ SWORD BIO,"2 N LaSalle St, Suite 1300",Chicago,IL,60602,41.8823579,-87.632809,Tr
 SWRI,6220 Culebra Rd,San Antonio,TX,78238,29.4441204,-98.6136109,True,ai,corroborated
 SXHOLDINGS,,,,,,,True,,
 SYCAMORE MECHANICAL CONTRACTORS,,,,,,,True,,
-"SYKES, BOURDON, AHERN & LEVY PC",,,,,,,True,,
+"SYKES, BOURDON, AHERN & LEVY PC",99 Park Avenue,New York,NY,10016,40.750694,-73.978591,True,manual,uncorroborated
 SYLVAN CREST PARTNERS,,,,,,,True,,
 SYLVESTER COMPREHENSIVE CANCER CENTER,1601 NW 10th Ave,Miami,FL,33136,25.7903589,-80.2106983,True,ai,corroborated
 SYNAGILE CORPORATION,11601 Wilshire Blvd Suite 500,Los Angeles,CA,90025,34.0510414,-118.4599151,True,ai,uncorroborated
@@ -9349,7 +9349,7 @@ TARGETSEARCHGROUP,,,,,,,True,,
 TARRANT COUNTY,100 E Weatherford St,Fort Worth,TX,76196,32.7574794,-97.3331906,True,ai,corroborated
 TASK US,"1650 Independence Drive, Suite 100",New Braunfels,TX,78132,29.7184071,-98.1582751,True,ai,grounded
 TASTY BRANDS,"6800 Jericho Turnpike, Suite 100E",Syosset,NY,11791,40.8061341,-73.5183554,True,manual,verified
-TATE DEVELOPMENT CORP,,,,,,,True,,
+TATE DEVELOPMENT CORP,1133 Avenue of the Americas,New York,NY,10036,40.7557898,-73.9836408,True,manual,uncorroborated
 TAUB VENTURES,,,,,,,True,,
 TAX PRO SOLUTIONS,,,,,,,True,,
 TAXMAN POLLOCK MURRAY & BEKKERMAN,"One Penn Plaza, Suite 5215",New York,NY,10119,40.7510985,-73.9919723,True,ai,uncorroborated
@@ -9409,7 +9409,7 @@ TEMPLE CITY ADHC,,,,,,,True,,
 TEMPLE DE HIRSCH SINAI,501 East Pike Street,Seattle,WA,98122,47.6136392,-122.3251994,True,ai,corroborated
 TEMPLE EMANUEL,1010 University Ave,San Jose,CA,95126,37.3403374,-121.9205137,True,ai,grounded
 TEMPLE HAR ZION,1040 North Harlem Avenue,River Forest,IL,60305,41.8992135,-87.8059857,True,ai,grounded
-TEMPLE ISAIAH PRESCHOOL,,,,,,,True,,
+TEMPLE ISAIAH PRESCHOOL,10 Rockledge Ave,Lexington,MA,02421,42.4473175,-71.2245003,True,manual,uncorroborated
 TEMPLE ISRAEL,477 Longwood Ave,Boston,MA,02215,42.340448,-71.1092473,True,ai,corroborated
 TEMPLE ISRAEL OF SHARON,28-30 Spruce St,Sharon,MA,02067,42.1237328,-71.1787282,True,ai,corroborated
 TEMPLE JUDEA,,,,,,,True,,
@@ -9457,7 +9457,7 @@ TFS ENERGY FUTURES LLC,1001 Fannin St Suite 1600,Houston,TX,77002,29.7557946,-95
 TG HOLDINGS LLC,17895 COLLINS AVE STE 2600,SUNNY ISLES BEACH,FL,33160,25.9409338,-80.1206897,True,manual,verified
 TGH GROUP HOLDINGS LTD,,,,,,,True,,
 THALES GROUP,"2733 South Crystal Drive, Suite 1200",Arlington,VA,22202,38.8769326,-77.0893094,True,ai,grounded
-THALHEIMER BROTHERS LLC,,,,,,,True,,
+THALHEIMER BROTHERS LLC,700 E Godfrey Avenue,Philadelphia,PA,19124,40.038149,-75.101525,True,manual,uncorroborated
 THATCH HEALTH,1600 NW 167th St Suite 100,Beaverton,OR,97006,45.4871723,-122.80378,True,ai,uncorroborated
 THATS A RAPP PRODUCTIONS,,,,,,,True,,
 THCF,,,,,,,True,,
@@ -9484,7 +9484,7 @@ THE BERARD COMPANY,100 Cross St,Portsmouth,NH,03801,43.0751306,-70.7601826,True,
 THE BERG CORPORATION,2519 Wilkens Avenue,Baltimore,MD,21223,39.2791797,-76.6541815,True,ai,grounded
 THE BERKELEY SCHOOL-WESTCHESTER,909 Westchester Ave Suite 200,White Plains,NY,10604,41.0339862,-73.7629097,True,ai,corroborated
 THE BERNSTEIN COMPANIES,"2000 Market Street, Suite 1900",Philadelphia,PA,19103,39.953509,-75.173351,True,ai,uncorroborated
-THE BERNSTEIN COMPANY,,,,,,,True,,
+THE BERNSTEIN COMPANY,"1845 Walnut Street, Suite 900",Philadelphia,PA,19103,39.9504697,-75.1717913,True,manual,uncorroborated
 THE BG,,,,,,,True,,
 THE BINSKY CORPORATION,110 Wall St Suite 1050,New York,NY,10005,40.7049397,-74.0063279,True,ai,uncorroborated
 THE BIRCH WATHEN LENOX SCHOOL,210 East 77th Street,New York,NY,10075,40.7724645,-73.9577203,True,ai,corroborated
@@ -9496,7 +9496,7 @@ THE BRIDGEFUND & THE HUDSON GUILD,141 W 25th St 5th Floor,New York,NY,10001,40.7
 THE BUCKINGHAM RESEARCH GROUP,1000 N West St,Wilmington,DE,19801,39.7471805,-75.5500972,True,ai,uncorroborated
 THE CARLYLE GROUP,1001 Pennsylvania Avenue NW,Washington,DC,20004,38.8954637,-77.0264855,True,ai,grounded
 THE CARNELIAN GROUP,400 Atlantic Ave,Boston,MA,02110,42.3556115,-71.0504489,True,ai,uncorroborated
-THE CHAZIN GROUP INC,,,,,,,True,,
+THE CHAZIN GROUP INC,3100 West Lake Street Suite 230,Minneapolis,MN,55416,44.948278,-93.319481,True,manual,uncorroborated
 THE CHICAGO SCHOOL,325 North Wells Street,Chicago,IL,60654,41.8882472,-87.6337142,True,ai,uncorroborated
 THE CHOTIN FOUNDATION & FAMILY - TCG,,,,,,,True,,
 THE CHOTIN GROUP,,,,,,,True,,
@@ -9518,7 +9518,7 @@ THE DENTAL OFFICE AT CHESTNUT HILL,205 Boylston St,Chestnut Hill,MA,02467,42.322
 THE DENVER FIRM,"2990 S. Colorado Blvd, Suite 545",Denver,CO,80222,39.6636554,-104.940577,True,ai,corroborated
 THE DERF COMPANY,,,,,,,True,,
 THE DIAL CORPORATION,1800 Pacific Ave,Plano,TX,75074,33.0136764,-96.6925096,True,ai,uncorroborated
-THE DIAMOND LAW FIRM PA,,,,,,,True,,
+THE DIAMOND LAW FIRM PA,"1519 N. University Drive, Suite 103",Plantation,FL,33322,26.1443618,-80.256788,True,manual,uncorroborated
 THE DISCOVERY GROUP,,,,,,,True,,
 THE DOVER GROUP,280 Park Ave,New York,NY,10017,40.7564853,-73.975049,True,ai,uncorroborated
 THE DUBIN GROUP,,,,,,,True,,
@@ -9539,7 +9539,7 @@ THE FOUNTAIN CAPITAL LLC,,,,,,,True,,
 THE FOUNTAINS OF WEST COUNTY,1440 Dorsett Village West Dr,Maryland Heights,MO,63043,38.7150511,-90.435999,True,ai,corroborated
 THE FRACTIONAL OPERATOR,,,,,,,True,,
 THE FRIENDSHIP OF PITTSBURGH,320 Boulevard of the Allies,Pittsburgh,PA,15222,40.4380584,-80.0006835,True,ai,corroborated
-THE FUNDWORKS LLC,,,,,,,True,,
+THE FUNDWORKS LLC,"21031 Ventura Blvd, Suite 120",Woodland Hills,CA,91364,34.1692036,-118.6133546,True,manual,uncorroborated
 THE GART COMPANIES,"240 St. Paul Street, Suite 200",Denver,CO,80206,39.7201899,-104.9506875,True,ai,grounded
 THE GEORGETOWN COMPANY,10501 Dutton Rd,Sugar Land,TX,77478,29.6196787,-95.6349463,True,ai,uncorroborated
 THE GERGEL GROUP,"3300 NE 191st St, Suite 1017",Aventura,FL,33180,25.9521481,-80.1433833,True,ai,grounded
@@ -9631,7 +9631,7 @@ THE PARKOFF ORGANIZATION,"470 Park Avenue South, 7th Floor",New York,NY,10016,40
 THE PARTNERSHIP AT DRUGFREE.ORG,"1701 K Street NW, Suite 1100",Washington,DC,20006,38.9029793,-77.0387054,True,ai,uncorroborated
 THE PDI GROUP,,,,,,,True,,
 THE PEDIATRIC GROUP,,,,,,,True,,
-THE PERLES LAW FIRM PC,,,,,,,True,,
+THE PERLES LAW FIRM PC,"1050 Connecticut Ave NW, Suite 500",Washington,DC,20036,38.9034565,-77.0401538,True,manual,uncorroborated
 THE PERMANENTE MEDICAL GROUP,280 South 1st Street,San Jose,CA,95113,37.3320859,-121.8874257,True,ai,corroborated
 THE PEW CHARITABLE TRUSTS,2005 Market Street,Philadelphia,PA,19103,39.9539808,-75.1747158,True,ai,uncorroborated
 THE PINEWOOD ORGANIZATION,,,,,,,True,,
@@ -9686,7 +9686,7 @@ THE WATERMILL GROUP,1 Cranberry Hill,Lexington,MA,02421,42.4455151,-71.2634671,T
 THE WAVERLY GROUP,303 W Madison St,Chicago,IL,60606,41.8815036,-87.6356014,True,ai,uncorroborated
 THE WEALTH ALLIANCE,28 Liberty St,New York,NY,10005,40.7078495,-74.0089818,True,ai,uncorroborated
 THE WELL STUDIO,,,,,,,True,,
-THE WHISLER LAW FIRM PA,,,,,,,True,,
+THE WHISLER LAW FIRM PA,401 E Jackson St,Orlando,FL,32801,28.539215,-81.372464,True,manual,uncorroborated
 THE WILDWOOD SCHOOL,435 El Camino Real,Los Altos,CA,94022,37.4014539,-122.1141304,True,ai,uncorroborated
 THE WINTER PARK LAND TRUST,,,,,,,True,,
 THE WOLCOTT GROUP,"935 West Chestnut St, Suite 600",Chicago,IL,60642,41.8981194,-87.6543339,True,ai,grounded
@@ -9696,7 +9696,7 @@ THE WONDERFUL COMPANY,"One Park Place, 1920 7th Street",Beverly Hills,CA,90210,3
 THE WORKSPACE GROUP,43 W 23rd St,New York,NY,10010,40.7424103,-73.991245,True,ai,uncorroborated
 THE ZITELMAN GROUP,,,,,,,True,,
 THE ZITELMAN GROUP INC,600 Third Ave,New York,NY,10016,40.7493233,-73.9758905,True,ai,uncorroborated
-THE ZIZO GROUP INC,,,,,,,True,,
+THE ZIZO GROUP INC,,LOS ANGELES,CA,90001,,,True,manual,verified
 THERABODY,"1360 E Roseville Pkwy, Suite 200",Roseville,CA,95661,38.7482884,-121.2391824,True,ai,corroborated
 THIMBLE,"36 East 12th Street, Floor 5",New York,NY,10003,40.7334038,-73.9921673,True,ai,uncorroborated
 THINKEDU LLC,,,,,,,True,,
@@ -9731,7 +9731,7 @@ TIGER RESOURCES,,,,,,,True,,
 TIGER WEST CAPITAL LLC,,,,,,,True,,
 TIKAVH,,,,,,,True,,
 TILEBAR,15 Hoover Street,Inwood,NY,11096,40.6233161,-73.7455203,True,ai,grounded
-TILSNER CARTON CO,,,,,,,True,,
+TILSNER CARTON CO,33 E 2nd St,Mineola,NY,11501,40.7431466,-73.6329801,True,manual,uncorroborated
 TIME EQUITIES INC,20 West 55th Street,New York,NY,10019,40.7618909,-73.976208,True,ai,corroborated
 TIME WARNER,30 Hudson Yards,New York,NY,10001,40.7539277,-74.0005544,True,ai,corroborated
 TIMESHARES DIRECT,"7083 Grand National Drive, Suite 105",Orlando,FL,32819,28.4593875,-81.4561281,True,ai,grounded
@@ -9898,7 +9898,7 @@ TRUMP GROUP,4000 West Island Blvd,Aventura,FL,33160,25.9385517,-80.137984,True,a
 TRUST DEED INVESTMENTS,8 WOLFE AVE,SAN RAFAEL,CA,94901,37.9612491,-122.5310901,True,manual,verified
 TRUXTON TRUST COMPANY,"20 Burton Hills Blvd, Suite 200",Nashville,TN,37215,36.0945752,-86.8207015,True,ai,grounded
 TRV,"One Liberty Plaza, 165 Broadway",New York,NY,10006,40.7097367,-74.010857,True,ai,grounded
-TRYAX REALTY MANAGEMENT INC,,,,,,,True,,
+TRYAX REALTY MANAGEMENT INC,1476 Walton Avenue,Bronx,NY,10452,40.8412894,-73.9145631,True,manual,verified
 TS DISTRIBUTORS INC,,,,,,,True,,
 TSCG,"200 W Madison St, Suite 3850",Chicago,IL,60606,41.8822821,-87.634359,True,ai,uncorroborated
 TSG ADVOCATES,,,,,,,True,,
@@ -10006,7 +10006,7 @@ UIPATH,90 Park Ave,New York,NY,10016,40.7506425,-73.9798254,True,ai,grounded
 UJA-FEDERATION OF NEW YORK,130 East 59th Street,New York,NY,10022,40.7621908,-73.9687021,True,ai,corroborated
 UJC,,,,,,,True,,
 UKG,1 Carbonneau Plaza,Westwood,MA,02090,42.2186913,-71.2233829,True,ai,corroborated
-ULTIMATE INTERNET ACCESS INC,,,,,,,True,,
+ULTIMATE INTERNET ACCESS INC,1401 Pennsylvania Avenue NW,Washington,DC,20004,38.8967924,-77.032354,True,manual,uncorroborated
 ULYSSES MANAGEMENT,152 W 57th St,New York,NY,10019,40.7648665,-73.9796202,True,ai,corroborated
 UMASS MEMORIAL,119 Belmont Street,Worcester,MA,01605,42.272909,-71.7922374,True,ai,uncorroborated
 UMD,"3159 Administration Building, University of Maryland, College Park",College Park,MD,20742,38.980666,-76.9369189,True,ai,grounded
@@ -10125,7 +10125,7 @@ UPMC,"One Oxford Centre, 320 Blvd of the Allies, 3rd Floor",Pittsburgh,PA,15222,
 UPMC EYE CENTER,UPMC Presbyterian Shadyside (UPMC Eye Center is part of UPMC),Pittsburgh,PA,15232,40.4406968,-80.0025666,True,ai,corroborated
 UPPERWEST MUSIC GROUP,,,,,,,True,,
 UPS,55 Glenlake Parkway NE,Atlanta,GA,30328,33.9434971,-84.3595029,True,ai,corroborated
-UPSTREAM INSIGHTS LLC,,,,,,,True,,
+UPSTREAM INSIGHTS LLC,"Upstream Insights, LLC",Alexandria,VA,22314,38.8051095,-77.0470229,True,manual,uncorroborated
 URBAN EDGE PROPERTIES,,,,,,,True,,
 URBAN EQUITIES,"Urban Equities, LLC",New York,NY,10022,40.7127281,-74.0060152,True,ai,uncorroborated
 URBAN FRONTIER,,,,,,,True,,
@@ -10329,7 +10329,7 @@ VLSI TECHNOLOGY LLC,San Jose Research Park (formerly 1700 S. Amphlett Boulevard)
 VMY,,,,,,,True,,
 VNS HEAKTH,,,,,,,True,,
 VOBILE INC,2600 Michelson Dr,Irvine,CA,92612,33.6738701,-117.8511457,True,ai,corroborated
-VOICE EXPRESS CORP,,,,,,,True,,
+VOICE EXPRESS CORP,200 Crossways Park Dr W,Woodbury,NY,11797,40.81023,-73.4868936,True,manual,uncorroborated
 VOICES OF HOPE,,,,,,,True,,
 VOLKSWAGEN OF SOUTH CHARLOTTE,9900 South Blvd,Charlotte,NC,28273,35.1038221,-80.8815452,True,ai,corroborated
 VOLPERT FOUNDATION,,,,,,,True,,
@@ -10621,7 +10621,7 @@ WOLF CONSULTING,,,,,,,True,,
 WOLF POPPER LLP,,,,,,,True,,
 "WOLF, RIFKIN, SHAPIRO, SCHULMAN & RABKIN LLP","11400 West Olympic Boulevard, Ninth Floor",Los Angeles,CA,90064,34.0536909,-118.242766,True,manual,verified
 WOLFE & WYMAN LLP,2212 Dupont Drive,Irvine,CA,92612,33.6743577,-117.8588282,True,ai,grounded
-WOLFE LAW LLC,,,,,,,True,,
+WOLFE LAW LLC,"One International Place, Suite 3800",Boston,MA,02110,42.3557189,-71.0521484,True,manual,uncorroborated
 WOLFE RESEARCH,"757 Third Avenue, 6th Floor",New York,NY,10017,40.8088444,-73.9303577,True,ai,grounded
 WOLFPACK VENTURES,,,,,,,True,,
 WOLFSON GROUP,"One State Street Plaza, 29th Floor",New York,NY,10004,40.7028098,-74.0133384,True,ai,grounded
@@ -10653,7 +10653,7 @@ WORLD SECURITY SERVICE,,,,,,,True,,
 WORLD TOTAL RETURN,,,,,,,True,,
 WORLD WIDE TECHNOLOGY LLC,1501 N. WARSON ROAD,BRIDGETON,MO,63044,38.7566055,-90.42352,True,ai,uncorroborated
 WORLD WILDLIFE FUND,1250 24th Street NW,Washington,DC,20037,38.9064358,-77.0518652,True,ai,uncorroborated
-WORLDBRIDGE PARTNERS TOLEDO INC,,,,,,,True,,
+WORLDBRIDGE PARTNERS TOLEDO INC,"One Seagate, Suite 1700",Toledo,OH,43604,41.6529143,-83.5378173,True,manual,uncorroborated
 "WORTHINGTON ALTERNATIVE CAPITAL, MMC",,,,,,,True,,
 WPCM,,,,,,,True,,
 WPG FARBER FUND,,,,,,,True,,
