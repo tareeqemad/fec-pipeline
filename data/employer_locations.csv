@@ -254,7 +254,7 @@ AFHU,"633 Third Avenue, 10th Floor",New York,NY,10017,40.8088444,-73.9303577,Tru
 AFI,,,,,,,True,,
 AFIPO,"122 East 42nd Street, Suite 4507",New York,NY,10168,40.7512124,-73.9765595,True,ai,grounded
 AFLAC,1932 Wynnton Road,Columbus,GA,31999,32.4680083,-84.9642553,True,ai,uncorroborated
-AFRICAGEMS,,,,,,,True,,
+AFRICAGEMS,"38 Miller Ave, PMB 448",Mill Valley,CA,94941,37.9060368,-122.5449763,True,manual,uncorroborated
 AFTAU,"71 West 23rd Street, Suite 513",New York,NY,10010,40.7435779,-73.9919229,True,ai,corroborated
 AFTON PARK DEVELOPMENT,251 N 1st Ave,Minneapolis,MN,55401,44.9799917,-93.2742875,True,ai,grounded
 AG,,,,,,,True,,
@@ -1273,7 +1273,7 @@ BLUESTAR PROPERTIES,,,,,,,True,,
 BLUETENT,"1801 18th Street NW, Suite 400",Washington,DC,20009,38.914215,-77.041553,True,ai,uncorroborated
 BLUMAX PARTNERS LLC,,,,,,,True,,
 BLUMBERG CAPITAL,580 California St,San Francisco,CA,94104,37.7929844,-122.404152,True,ai,grounded
-BLUT LAW GROUP,,,,,,,True,,
+BLUT LAW GROUP,"300 S 4th St, Suite 701",Las Vegas,NV,89101,36.1672173,-115.1438848,True,manual,verified
 BLVD INN AND BISTRO,,,,,,,True,,
 BM TONKIN INC,,,,,,,True,,
 BMA,,,,,,,True,,
@@ -1616,7 +1616,7 @@ CANNON COUNTY KNITTING MILLS,,,,,,,True,,
 CANNON HEYMAN & WEISS LLP,535 E Pine St,Orlando,FL,32801,28.5414207,-81.3708274,True,ai,uncorroborated
 CANO HEALTH,"1000 N Ashley Dr, Suite 1800",Tampa,FL,33602,27.952089,-82.4623403,True,ai,corroborated
 CANOE BROOK MANAGEMENT,"300 Kimball Drive, Suite 200",Parsippany,NJ,07054,40.8608742,-74.4070377,True,ai,corroborated
-CANON EQUITY PARTNERS,,LOS ANGELES,CA,90001,,,True,manual,verified
+CANON EQUITY PARTNERS,439 N Canon Dr,Beverly Hills,CA,90210,34.0710875,-118.4021873,True,manual,uncorroborated
 CANTON TIRE,,,,,,,True,,
 CANTOR INJURY LAW,12283 Olive Boulevard,St. Louis,MO,63141,38.6731837,-90.4543284,True,ai,grounded
 CANUM CAPITAL PARTNERS,,,,,,,True,,
@@ -2990,7 +2990,7 @@ EMPATH HEALTH,15 Manning Drive,Swedesboro,NJ,08085,39.7476136,-75.3104654,True,a
 EMPIRE,,,,,,,True,,
 EMPIRE BRANDS,"1000 S. Wadsworth Blvd., Suite 400",Lakewood,CO,80226,39.698457,-105.081402,True,ai,uncorroborated
 EMPIRE BRUSHES,2400 N Memorial Dr,Greenville,NC,27834,35.6531134,-77.362707,True,ai,grounded
-EMPIRE DAWN LLC,,,,,,,True,,
+EMPIRE DAWN LLC,"6929 N Hayden Rd, # C4-235",Scottsdale,AZ,85250,33.5370996,-111.9065725,True,manual,uncorroborated
 EMPIRE DERMATOLOGY,,,,,,,True,,
 EMPIRE HOTEL GROUP,44 West 63rd Street,New York,NY,10023,40.7713368,-73.9826001,True,ai,corroborated
 EMPIRE OFFICE INC,105 Madison Ave,New York,NY,10016,40.7449703,-73.9848254,True,ai,corroborated
@@ -3820,7 +3820,7 @@ GOLDSEKER FOUNDATION,"165 W. 46th Street, Suite 1503",New York,NY,10036,40.75843
 GOLDSTEIN MANAGEMENT CORP,,,,,,,True,,
 GOLF FOR CAUSE,,,,,,,True,,
 GOLUB CAPITAL,"200 Park Avenue, 25th Floor",New York,NY,10166,40.7536135,-73.97658,True,ai,grounded
-"GOOD DOMUS, ET AL",,PLYMOUTH,MN,55447,,,True,manual,verified
+"GOOD DOMUS, ET AL",510 Evergreen Ln N,Plymouth,MN,55441,44.9846592,-93.4266905,True,manual,uncorroborated
 GOOD HEALTH,410 Cloverleaf Dr,Baldwin Park,CA,91706,34.0614678,-118.002484,True,manual,verified
 GOOD SAMARITAN HOSPITAL,2425 Samaritan Dr,San Jose,CA,95124,37.2522952,-121.9457139,True,ai,uncorroborated
 GOOD SAMARITAN SOCIETY,1010 West St Germain St,St. Cloud,MN,56301,45.5584924,-94.1640253,True,ai,uncorroborated
@@ -5037,7 +5037,7 @@ KAMRAS AND POLANSKY MEDICAL CORP,,,,,,,True,,
 KANSAS CITY JEWISH CHRONICLE,"5801 West 115th Street, Suite 201",Overland Park,KS,66211,38.9206441,-94.6519367,True,manual,verified
 KANSAS CITY SOUTHERN,427 West 12th Street,Kansas City,MO,64105,39.0997558,-94.5896998,True,ai,uncorroborated
 KAP'S WHOLESALE FOODS,1300 Maple Street,Detroit,MI,48207,42.3412438,-83.0385051,True,ai,grounded
-KAPITAL ENTERTAINMENT,,,,,,,True,,
+KAPITAL ENTERTAINMENT,"11444 W Olympic Blvd, 11th Floor",Los Angeles,CA,90064,34.036729,-118.4435263,True,manual,uncorroborated
 KAPLAN,1515 West Cypress Creek Road,Fort Lauderdale,FL,33309,26.2040735,-80.1643544,True,ai,grounded
 KAPLAN & ASSOCIATES LLC,,,,,,,True,,
 KARBANK REAL ESTATE COMPANY,2000 Shawnee Mission Pkwy,Mission Woods,KS,66205,39.034201,-94.609285,True,ai,corroborated
@@ -5977,7 +5977,7 @@ MARKS AND FLEISCHER PA,,,,,,,True,,
 "MARLA GLANZER CURTIS,AIA",,,,,,,True,,
 "MARLENE R BLOOM, PHD",,,,,,,True,,
 MARLENE Z. STANGER IMMIGRATION LAW,,,,,,,True,,
-MARON AND SANDLER,,,,,,,True,,
+MARON AND SANDLER,"1250 4th St, Suite 550",Santa Monica,CA,90401,34.0183601,-118.4975673,True,manual,uncorroborated
 MARQ MEDICAL,2075 San Joaquin Hills Rd,Newport Beach,CA,92660,33.617199,-117.8698141,True,ai,grounded
 MARRIOTT INTERNATIONAL,10400 Fernwood Road,Bethesda,MD,20817,39.025389,-77.137079,True,ai,corroborated
 MARS INCORPORATED,6885 Elm Street,McLean,VA,22101,38.9373288,-77.1822318,True,manual,verified
@@ -6056,7 +6056,8 @@ MAYO,200 1st St SW,Rochester,MN,55905,44.0228985,-92.4668375,True,ai,grounded
 MAYO CLINIC,200 First Street SW,Rochester,MN,55905,44.0234387,-92.4630182,True,ai,corroborated
 MAZEL COMPANY,,,,,,,True,,
 MAZIE SLATER KATZ & FREEMAN,"103 Eisenhower Parkway, 2nd Floor",Roseland,NJ,07068,40.82747,-74.3196581,True,manual,verified
-MB DAVIS GROUP,,,,,,,True,,
+MB DAVIS GROUP,3920 N Hills Drive,Austin,TX,78731,30.3564565,-97.7637788,True,manual,verified
+MB DAVIS GROUP,"111 Howard Blvd, Suite 202",Mount Arlington,NJ,07856,40.9001438,-74.633721,False,manual,verified
 MB FOOD,,,,,,,True,,
 MB REAL ESTATE,"600 Lexington Avenue, 7th Floor",New York,NY,10022,40.7580277,-73.9714246,True,ai,uncorroborated
 MBF CLEARING CORP,"One Exchange Plaza, 55 Broadway, 3rd Floor",New York,NY,10006,40.7068408,-74.013042,True,ai,uncorroborated
@@ -9017,7 +9018,7 @@ STARBUCKS,2401 Utah Ave S,Seattle,WA,98134,47.5807667,-122.3359179,True,ai,corro
 STARFIELD,,,,,,,True,,
 STARFISH CARE HOMES,6611 E River Hills Pl,Tucson,AZ,85750,32.2228765,-110.974847,True,ai,grounded
 STARK AND STARK PC,993 Lenox Drive,Lawrenceville,NJ,08648,40.2973299,-74.7296049,True,ai,corroborated
-STARK ENTERPRISES LLC,,LIVINGSTON,NJ,,,,True,manual,verified
+STARK ENTERPRISES LLC,,,,,,,True,,
 STARMOUNT LIFE INSURANCE,8485 Goodwood Blvd,Baton Rouge,LA,70806,30.4428277,-91.0965406,True,ai,corroborated
 STARPOINT PROPERTIES,"701 Market St, Suite 500",St. Louis,MO,63101,38.626702,-90.1925615,True,ai,uncorroborated
 STARWOOD CAPITAL,"1 Manhattanville Rd, Suite 408",Purchase,NY,10577,41.0249,-73.716379,True,ai,corroborated
@@ -9717,14 +9718,14 @@ THRIFTY OIL CO,13116 Imperial Hwy,Santa Fe Springs,CA,90670,33.916811,-118.05285
 THRIVE FP,809 N Cuernavaca Dr,Austin,TX,78733,30.332282,-97.8666465,True,ai,grounded
 THRIVE PET HEALTHCARE,"211 Walter Seaholm Drive, Suite 200",Austin,TX,78701,30.2679551,-97.7530453,True,ai,grounded
 THRYV INC,"2600 Dallas Parkway, Suite 300",Plano,TX,75093,33.0222681,-96.8292539,True,ai,grounded
-THUNDERING CLOUD LLC,,WEST BLOOMFIELD,MI,,,,True,manual,verified
+THUNDERING CLOUD LLC,,,,,,,True,,
 TIAA-CREF,730 Third Avenue,New York,NY,10017,40.8088444,-73.9303577,True,ai,corroborated
 TICTWO THERAPEUTICS,,,,,,,True,,
 TIDAL PARTNERS,,,,,,,True,,
 TIDEWATER JEWISH FOUNDATION,,,,,,,True,,
 TIEKS,"269 S Beverly Dr, Ste 1402",Beverly Hills,CA,90212,34.0624909,-118.39935,True,ai,grounded
 TIERRA EQUITY,1500 Broadway,New York,NY,10036,40.7568024,-73.985668,True,ai,uncorroborated
-TIERRAMANO LLC,,,,,,,True,,
+TIERRAMANO LLC,1405 W 24th Street,Miami Beach,FL,33140,25.8000718,-80.1422956,True,manual,verified
 TIFIN,"1411 Broadway, 12th Floor",New York,NY,10018,40.7542112,-73.9875646,True,ai,corroborated
 TIGER MANAGEMENT,"9 West 57th Street, 30th Floor",New York,NY,10019,40.7638353,-73.9749533,True,ai,uncorroborated
 TIGER RESOURCES,,,,,,,True,,
@@ -10526,7 +10527,7 @@ WHITE LAKE REAL ESTATE CAPITAL LLC,"1840 Century Park East, Suite 1200",Los Ange
 WHITE PINE CAPITAL MANAGEMENT,,,,,,,True,,
 WHITNEY PARTNERS LLC,"100 Rouse Boulevard, Suite 200",Philadelphia,PA,19087,39.896216,-75.174092,True,ai,uncorroborated
 WHITTIER PUBLICATIONS,12823 Philadelphia Street,Whittier,CA,90601,33.979188,-118.039263,True,ai,uncorroborated
-WHOKNEW VENTURES LLC,,KENTFIELD,CA,94904,,,True,manual,verified
+WHOKNEW VENTURES LLC,,,,,,,True,,
 WHOLE BODY RESEARCH,,,,,,,True,,
 WHOLE HEALTH,,,,,,,True,,
 WHOLEVIEW WELLNESS,,,,,,,True,,
