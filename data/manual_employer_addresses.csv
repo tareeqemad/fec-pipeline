@@ -923,3 +923,17 @@ UPSTREAM INSIGHTS LLC,"Upstream Insights, LLC",Alexandria,VA,22314,true,"MEDIUM 
 VOICE EXPRESS CORP,200 Crossways Park Dr W,Woodbury,NY,11797,true,"MEDIUM — twin adjudication: exact key held ai_not_found while cache key 'VOICE EXPRESS CORP.' (ai_openai_gpt5, MEDIUM) holds this address; human-reviewed as the same company (punctuation/suffix variant)"
 WOLFE LAW LLC,"One International Place, Suite 3800",Boston,MA,02110,true,"MEDIUM — twin adjudication: exact key held ai_not_found while cache key 'WOLFE LAW, LLC' (ai_openai, MEDIUM) holds this address; human-reviewed as the same company (punctuation/suffix variant)"
 WORLDBRIDGE PARTNERS TOLEDO INC,"One Seagate, Suite 1700",Toledo,OH,43604,true,"MEDIUM — twin adjudication: exact key held ai_not_found while cache key 'WORLDBRIDGE PARTNERS TOLEDO, INC' (ai_openai, MEDIUM) holds this address; human-reviewed as the same company (punctuation/suffix variant)"
+BLUT LAW GROUP,"300 S 4th St, Suite 701",Las Vegas,NV,89101,true,HIGH (VERIFIED) — blutlawgroup.com Las Vegas office page; founder Elliot Blut is the donor
+MARON AND SANDLER,"1250 4th St, Suite 550",Santa Monica,CA,90401,true,MEDIUM — Martindale/Lawyer.com concur; partner Richard Sandler (Milken Family Foundation EVP) is the donor
+KAPITAL ENTERTAINMENT,"11444 W Olympic Blvd, 11th Floor",Los Angeles,CA,90064,true,MEDIUM — productionlist.com industry directory; Wikipedia says West Hollywood generically; founder Aaron Kaplan is the donor
+AFRICAGEMS,"38 Miller Ave, PMB 448",Mill Valley,CA,94941,true,"MEDIUM — BBB + company's published mailing address (PMB; no public premises by policy); Sarosi family business, donor Charles Sarosi executive"
+TIERRAMANO LLC,1405 W 24th Street,Miami Beach,FL,33140,true,HIGH (VERIFIED) — FL Sunbiz principal+mailing address (L13000119000); manager Jeremy Goldstein is the donor
+MB DAVIS GROUP,3920 N Hills Drive,Austin,TX,78731,true,HIGH (VERIFIED) — mbdgrp.com contact page; founder Mitchell B. Davis is the donor
+MB DAVIS GROUP,"111 Howard Blvd, Suite 202",Mt Arlington,NJ,07856,false,HIGH (VERIFIED) — mbdgrp.com contact page lists the New Jersey office
+EMPIRE DAWN LLC,"6929 N Hayden Rd, # C4-235",Scottsdale,AZ,85250,true,"MEDIUM — AZ corporate registry; registered-agent mail suite (Jonathan Levine, the donor); no separate premises found"
+"GOOD DOMUS, ET AL",510 Evergreen Ln N,Plymouth,MN,55441,true,MEDIUM — BBB Minneapolis + D&B Plymouth concur; manager Bradley Birnberg is the donor; key keeps the cleaned 'ET AL' form
+CANON EQUITY PARTNERS,439 N Canon Dr,Beverly Hills,CA,90210,true,"MEDIUM — Yelp street listing; firm named for Canon Dr; principal Lewis Rudzki is the donor (canonep.com exists, address not shown on site)"
+WHOKNEW VENTURES LLC,,,,,true,INVALID: private early-stage venture vehicle of the donor (Howard Zack); directories conflict across Kentfield/Greenbrae/Sausalito CA with no street anywhere; researched 2026-08-10
+THUNDERING CLOUD LLC,,,,,true,"INVALID: donor's own single-member vehicle (Steven Weisberg, self-employed per LinkedIn); no public premises or registry address found; researched 2026-08-10"
+STARK ENTERPRISES LLC,,,,,true,INVALID: Arthur Stark's private NJ advisory LLC; name collides with Robert L. Stark Enterprises (Cleveland) - kept invalid so no lookup ever borrows the Cleveland address; Ezra's row disambiguated in manual_employer_overrides.csv
+AUKE BAY COMPANY,,,,,true,"INVALID: Schlosberg family company (Auke Bay Fish and Fruit Co pension trust, 9th Cir. 1990, 894 F.2d 342) with no current public address; donor is its Seattle GM; researched 2026-08-10"
