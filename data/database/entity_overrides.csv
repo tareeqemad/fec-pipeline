@@ -17,3 +17,4 @@ contributor_name,entity_type,note
 "WALDMAN",INDIVIDUAL,"bare-surname individual mistyped as COMMITTEE/PAC"
 "NOT EMPLOYED",INDIVIDUAL,"filer put the employment status in the NAME field — a $500 Atlanta GA donor with occupation=employer=NOT EMPLOYED. The name is unrecoverable, but it is plainly a person, not a committee; leaving it COMMITTEE/PAC pollutes committee totals"
 "FERRNCZ",INDIVIDUAL,"bare-surname individual mistyped as COMMITTEE/PAC"
+"LISA LEHMAN TRUST",ORGANIZATION,"living trust misparsed as INDIVIDUAL — filed as 'LEHMAN TRUST, LISA' (surname=LEHMAN TRUST), renamed by _NAME_CORRECTIONS"

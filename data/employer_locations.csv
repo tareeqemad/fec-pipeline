@@ -2882,7 +2882,6 @@ EDUCATION EXECUTIVES,,,,,,,True,,
 EDUCATION LEADERS OF COLOR,3680 Wilshire Blvd Ste P04-1052,Los Angeles,CA,90010,34.0614545,-118.306404,True,ai,grounded
 EDWARD C. LEVY CO,9300 Dix Ave,Dearborn,MI,48120,42.3098855,-83.1414675,True,manual,verified
 EDWARD JONES,12555 Manchester Road,St. Louis,MO,63131,38.6254063,-90.190009,True,ai,corroborated
-EDWARD LEVY,,,,,,,True,,
 EDWARD SIDER & COMPANY,"650 Third Avenue, 20th Floor",New York,NY,10017,40.8088444,-73.9303577,True,ai,uncorroborated
 EDWARDS LIFESCIENCES,One Edwards Way,Irvine,CA,92614,33.6986329,-117.8501723,True,ai,corroborated
 EDWIN ZAGHI,,,,,,,True,,
@@ -3795,7 +3794,7 @@ GOLDEN GATE CAPITAL,"1717 Embarcadero Road, Suite 200",Palo Alto,CA,94303,37.450
 GOLDEN GATE PRIVATE EQUITY INC,"301 Battery Street, Suite 300",San Francisco,CA,94111,37.7943298,-122.4007815,True,ai,corroborated
 GOLDEN HIPPO,1197 S MILWAUKEE AVE,LIBERTYVILLE,IL,60048,42.2638779,-87.949363,True,ai,uncorroborated
 GOLDEN ISLES BROADCASTING,610 TERNER ST,BRUNSWICK,GA,31520,31.1499528,-81.4914894,True,ai,corroborated
-GOLDEN LIONESS,,,,,,,True,,
+GOLDEN LIONESS,"32 Court St, PH",Brooklyn,NY,11201,40.6526006,-73.9497211,True,manual,verified
 GOLDEN MOUNTAIN,,,,,,,True,,
 GOLDEN MOUNTAIN MANAGEMENT LLC,,,,,,,True,,
 GOLDEN PET BRANDS,8725 Janelle St,Charlotte,NC,28216,35.2272086,-80.8430827,True,ai,uncorroborated
@@ -3822,8 +3821,7 @@ GOLDSTEIN MANAGEMENT CORP,,,,,,,True,,
 GOLF FOR CAUSE,,,,,,,True,,
 GOLUB CAPITAL,"200 Park Avenue, 25th Floor",New York,NY,10166,40.7536135,-73.97658,True,ai,grounded
 "GOOD DOMUS, ET AL",,PLYMOUTH,MN,55447,,,True,manual,verified
-GOOD HEALTH,,,,,,,True,,
-GOOD HEALTH INC,410 Cloverleaf Dr,Baldwin Park,CA,91706,34.0614678,-118.002484,True,manual,verified
+GOOD HEALTH,410 Cloverleaf Dr,Baldwin Park,CA,91706,34.0614678,-118.002484,True,manual,verified
 GOOD SAMARITAN HOSPITAL,2425 Samaritan Dr,San Jose,CA,95124,37.2522952,-121.9457139,True,ai,uncorroborated
 GOOD SAMARITAN SOCIETY,1010 West St Germain St,St. Cloud,MN,56301,45.5584924,-94.1640253,True,ai,uncorroborated
 GOODMAN AND COMPANY,,,,,,,True,,
@@ -5857,7 +5855,7 @@ MAGEN DAVID HIGH SCHOOL,222 Kinderkamack Rd,River Edge,NJ,07661,40.9128249,-74.0
 MAGIC,,,,,,,True,,
 MAGIC CITY CASINO,450 NW 37th Ave,Miami,FL,33125,25.7764606,-80.2568386,True,ai,corroborated
 MAGIC COTTAGE PRESCHOOL,1427 11th Ave,San Francisco,CA,94122,37.7615344,-122.4685559,True,ai,grounded
-MAGIC LANTERN VENTURES,,,,,,,True,,
+MAGIC LANTERN VENTURES,10822 Pine Lodge Tr,Davie,FL,33328,26.0628665,-80.2331038,True,manual,verified
 MAGIC PLANT FARMS,,,,,,,True,,
 MAGNET,45 Rockefeller Plaza,New York,NY,10111,40.7592576,-73.9799569,True,ai,uncorroborated
 MAGNETIC,,,,,,,True,,
@@ -5875,7 +5873,7 @@ MAIMONIDES SCHOOL,34 Ocean Ave,Brooklyn,NY,11218,40.6624867,-73.9630968,True,ai,
 MAIN STREAM ENTERPRISES,,,,,,,True,,
 MAIN STREET CONNECT,,,,,,,True,,
 MAJESTIC MANAGEMENT LLC,,,,,,,True,,
-MAJESTIC PROPERTY,,,,,,,True,,
+MAJESTIC PROPERTY,"60 Cuttermill Rd, Suite 303",Great Neck,NY,11021,40.7857264,-73.7307835,True,manual,uncorroborated
 MAJOR BRANDS INC,3200 Southwest Freeway Suite 2000,Houston,TX,77027,29.7308957,-95.4289492,True,ai,uncorroborated
 MAJORIE JACOBSON,55 West 39th Street,New York,NY,10018,40.7523912,-73.9839779,True,ai,corroborated
 MAKE TECHNOLOGY LLC,,,,,,,True,,
@@ -8053,6 +8051,7 @@ ROBERT FINVARB COMPANIES,,,,,,,True,,
 ROBERT HALF,2884 Sand Hill Road,Menlo Park,CA,94025,37.4205561,-122.2121956,True,ai,uncorroborated
 ROBERT HERTZBERG PA,,,,,,,True,,
 "ROBERT HERZOG, ARBITRATOR",,,,,,,True,,
+ROBERT L STARK ENTERPRISES,"629 Euclid Ave, Suite 1300",Cleveland,OH,44114,41.5002018,-81.6887336,True,manual,verified
 ROBERT MARTIN CO,100 CLEARBROOK RD,Elmsford,NY,10523,41.0752919,-73.8134674,True,manual,verified
 ROBERT MEYERS ASSOCIATES,,,,,,,True,,
 ROBERT SELKIN MD,,,,,,,True,,
@@ -8918,7 +8917,7 @@ SPEEDWELL TRANSPORTATION INC,,,,,,,True,,
 SPEKTOR DENTAL,"1120 Avenue of the Americas, 4th Floor",New York,NY,10036,40.7557338,-73.9824831,True,ai,uncorroborated
 SPEKTOR DENTAL CENTER,,,,,,,True,,
 SPENCER FANE LLP,"1 Westbrook Corporate Center, Suite 1200",Creve Coeur,MO,63141,38.6613007,-90.4423653,True,ai,grounded
-SPENCER FORREST,,,,,,,True,,
+SPENCER FORREST,"11777 San Vicente Blvd, Suite 650",Los Angeles,CA,90049,34.0444042,-118.4981905,True,manual,uncorroborated
 SPENCER STUART,"One North Wacker Drive, Suite 3200",Chicago,IL,60606,41.8820117,-87.6367884,True,ai,uncorroborated
 SPERO RECOVERY,"101 Arch Street, Suite 1205",Boston,MA,02110,42.3550299,-71.05928,True,ai,uncorroborated
 SPETNER ASSOCIATES,"8630 Delmar Blvd, Suite 100",St. Louis,MO,63124,38.6557551,-90.3027869,True,ai,grounded
@@ -8978,7 +8977,7 @@ ST. LUKE'S UNIVERSITY HEALTH NETWORK,801 Ostrum St,Bethlehem,PA,18015,40.6092805
 ST. PETER'S PHYSICIAN ASSOCIATES,315 S Manning Blvd,Albany,NY,12208,42.6550629,-73.8039756,True,ai,uncorroborated
 ST. PETERS HOSPITAL,254 Easton Avenue,New Brunswick,NJ,08901,40.5006491,-74.4598666,True,ai,grounded
 ST. THOMAS AQUINAS ELEMENTARY SCHOOL,,,,,,,True,,
-STACEY E. BURKE PC,,Houston,TX,77019,,,True,manual,verified
+STACEY E. BURKE PC,"448 W 19th St, #1010",Houston,TX,77008,29.8024872,-95.4055163,True,manual,verified
 STACEY GOLD MAYROCK,,,,,,,True,,
 STADLEN FAMILY HOLDINGS,"3101 S Ocean Drive, Suite 3808",Hollywood,FL,33019,25.9939262,-80.1177289,True,manual,verified
 STAENBERG GROUP,2127 Innerbelt Business Center Dr,Overland,MO,63114,38.6922215,-90.353532,True,ai,corroborated
@@ -9071,7 +9070,6 @@ STENSUL,"20 Jay St, Suite 302",Brooklyn,NY,11201,40.7040914,-73.9866937,True,ai,
 STEPHANIE PIKO CONSULTING,,,,,,,True,,
 STEPHANIE'S RESTAURANT GROUP,2350 Mission St,San Francisco,CA,94110,37.7594142,-122.4192317,True,ai,uncorroborated
 STEPHEN S WISE TEMPLE,,,,,,,True,,
-STEPHEN SAMUEL,,,,,,,True,,
 STEPHENS,111 Center Street,Little Rock,AR,72201,34.74788,-92.2724006,True,ai,uncorroborated
 STEPPING STONE,2643 S 750 E,Salt Lake City,UT,84106,40.750325,-111.8693196,True,ai,uncorroborated
 STEREN ELECTRONICS INTERNATIONAL,,,,,,,True,,

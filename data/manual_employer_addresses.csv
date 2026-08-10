@@ -87,7 +87,7 @@ OMNINET CAPITAL,"9595 Wilshire Blvd, Suite 700",Beverly Hills,CA,90212,true,"MED
 SILVER COMPANIES,4910 Plank Road,Fredericksburg,VA,22407,true,"MEDIUM — Silver Companies real estate developer, VA"
 VICTORY PARK,"150 N Riverside Plaza, Suite 5200",Chicago,IL,60606,true,"MEDIUM — Victory Park Capital, Chicago"
 SANTA MONICA PARTNERS,1865 Palmer Avenue,Larchmont,NY,10538,true,MEDIUM — investment firm in NY (not CA despite name)
-GOOD HEALTH INC,410 Cloverleaf Dr,Baldwin Park,CA,91706,true,"HIGH — Good Health Inc dba Premier Pharmacy Services (Stephen E. Samuel, CEO); verified via CA Board of Pharmacy + FDA records"
+GOOD HEALTH,410 Cloverleaf Dr,Baldwin Park,CA,91706,true,"HIGH — Good Health Inc dba Premier Pharmacy Services (Stephen E. Samuel, CEO); verified via CA Board of Pharmacy + FDA records [key is the canonical cleaned name; INC unified in manual_typo_overrides.json]"
 PORTAGE ADVISORS,"300 North LaSalle, Suite 1420",Chicago,IL,60654,true,HIGH — Portage Point Partners / Portage Advisors LLC Chicago HQ
 THE MARCUS FOUNDATION,"100 Colony Square, 1175 Peachtree St NE, Suite 2120",Atlanta,GA,30361,true,HIGH (verified) — was incorrectly linked to Home Depot HQ
 GREENSKY,5565 Glenridge Connector,Atlanta,GA,30342,true,"HIGH (verified) — Atlanta HQ, not the Naples FL office"
@@ -787,3 +787,10 @@ PLYMOUTH BEEF,355 Food Center Drive,Bronx,NY,10474,true,Official company contact
 WALDMAN ORTHODONTICS,"8641 Wilshire Boulevard, Suite 310",Beverly Hills,CA,90211,true,American Association of Orthodontists office listing confirms the practice address: https://aaoinfo.org/locator/dr-alexander-b-waldman-2/; reviewed 2026-08-04.
 PANTHEON SYSTEMS,"717 California Street, Floor 2",San Francisco,CA,94108,true,Current principal address in the Florida business registry and Pantheon privacy policy: https://search.sunbiz.org/Inquiry/corporationsearch/SearchResultDetail?aggregateId=forp-f19000004114-e969c2ce-d49b-49ce-9167-10838d95f644; reviewed 2026-08-04.
 SOUTH JERSEY PROSTHODONTIC ASSOCIATES PA,1793 Springdale Road,Cherry Hill,NJ,08003,true,Practice name and address verified from healthcare-provider listings; FEC previous-employer value was truncated as ASSOC./O; reviewed 2026-08-05.
+SPENCER FORREST,"11777 San Vicente Blvd, Suite 650",Los Angeles,CA,90049,true,"MEDIUM — Toppik maker; D&B company profile; donor Mark Kress is founder/CEO (LinkedIn)"
+STACEY E. BURKE PC,"448 W 19th St, #1010",Houston,TX,77008,true,"HIGH (VERIFIED) — official site staceyeburke.com/contact confirms 448 W 19th St #1010 Houston TX 77008; LawInfo/SuperLawyers concur; donor is the eponymous owner"
+"STACEY E. BURKE, PC","448 W 19th St, #1010",Houston,TX,77008,true,"HIGH (VERIFIED) — comma-variant cache key: repairs a stale partial manual entry (city-only, zip 77019) that outranked the exact-name row; same official-site source"
+MAJESTIC PROPERTY,"60 Cuttermill Rd, Suite 303",Great Neck,NY,11021,true,"MEDIUM — Majestic Property Management Corp; Bluebook/Yelp/Bloomberg concur; D&B lists donor Jay Gould as company contact"
+GOLDEN LIONESS,"32 Court St, PH",Brooklyn,NY,11201,true,"HIGH — Golden Lioness Corp; NY DOS registered/principal address (NYBizDb id 1828454); owner Mona Gora Sterling is the donor"
+MAGIC LANTERN VENTURES,10822 Pine Lodge Tr,Davie,FL,33328,true,"HIGH — FL Sunbiz principal+mailing address (L18000148414); registered agent/manager Randy Parker is the donor; residential-style address"
+ROBERT L STARK ENTERPRISES,"629 Euclid Ave, Suite 1300",Cleveland,OH,44114,true,"HIGH — starkenterprises.com footer; legal name Robert L. Stark Enterprises Inc dba Stark Enterprises; CEO Ezra Stark is the donor"
