@@ -58,11 +58,18 @@ _NAME_CORRECTIONS = {
     "CHENEY, D AVID": "CHENEY, DAVID",
     "MEYERS, STUART SARA": "MEYERS, STUART",
     "MEYERS, SARA STUART": "MEYERS, SARA",
+    # Filer swapped name/employer at source: the name field held the company
+    # (GOOD HEALTH) and the employer field held the donor (SARAH KELLOGG).
+    # Employer/occupation for the two rows are pinned in
+    # data/manual_employer_overrides.csv; the identity join with her named
+    # filing lives in data/database/donor_dedup_merges.csv.
+    "HEALTH, GOOD": "KELLOGG, SARAH",
     # Hand-verified org names the LAST, FIRST parse flipped (auto-unflipping comma'd
     # org names is unsafe); keys must stay in sync with data/database/entity_overrides.csv.
     "BANK, FIRST CENTRAL": "FIRST CENTRAL SAVINGS BANK",
     "CAPITAL, WHITE": "WHITE LAKE REAL ESTATE CAPITAL LLC",
     "KAHAN TRUST, DAVID": "DAVID KAHAN TRUST",
+    "LEHMAN TRUST, LISA": "LISA LEHMAN TRUST",
 }
 
 # Known credentials only, so real two-letter last names are not mistaken for one.
