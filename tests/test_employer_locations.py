@@ -8,7 +8,10 @@ from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
 )
-from fec.resolve.pipeline.steps.previous_employer import step_cross_record
+from fec.resolve.pipeline.steps.previous_employer import (
+    migrate_previous_employer_cache,
+    step_cross_record,
+)
 from fec.database.loader.employers import (
     _employment_address_id,
     _latest_employment_rows,
@@ -51,6 +54,7 @@ SF_OFFICE = {
 def _row(employer="BIG FIRM", state="CA", zip_code="94104"):
     return pd.Series({
         "entity_type": "INDIVIDUAL",
+        "donor_key": "D1",
         "contributor_employer": employer,
         "contributor_state": state,
         "contributor_zip": zip_code,
@@ -72,17 +76,42 @@ def test_curated_previous_employer_is_protected(tmp_path):
     )
     df = pd.DataFrame([{
         "sub_id": "1",
+        "donor_key": "D1",
         "contributor_name": "KATZ, OZZIE",
         "contributor_state": "AZ",
         "previous_employer": "SELF-EMPLOYED",
     }])
     cache = FakeCache({
-        "KATZ, OZZIE|AZ": {"employer": "AZRYEL KATZ", "method": "fec_api"},
+        "donor:D1": {"employer": "AZRYEL KATZ", "method": "fec_api"},
     })
 
     assert load_manual_previous_employers(path, df, cache) == (0, 1)
-    assert cache["KATZ, OZZIE|AZ"]["employer"] == "SELF-EMPLOYED"
-    assert cache["KATZ, OZZIE|AZ"]["method"] == "manual_override"
+    assert cache["donor:D1"]["employer"] == "SELF-EMPLOYED"
+    assert cache["donor:D1"]["method"] == "manual_override"
+
+
+def test_curated_previous_employer_can_be_cleared(tmp_path):
+    path = tmp_path / "manual_employer_overrides.csv"
+    path.write_text(
+        "sub_id,previous_employer\n1,[CLEAR]\n",
+        encoding="utf-8",
+    )
+    df = pd.DataFrame([{
+        "sub_id": "1",
+        "donor_key": "D1",
+        "contributor_state": "CA",
+        "previous_employer": "WRONG COMPANY",
+    }])
+    cache = FakeCache({
+        "donor:D1": {"employer": "WRONG COMPANY", "method": "fec_api"},
+    })
+
+    assert load_manual_previous_employers(path, df, cache) == (0, 1)
+    assert cache["donor:D1"] == {
+        "employer": "",
+        "state": "CA",
+        "method": "manual_clear",
+    }
 
 
 def test_same_state_office_wins():
@@ -314,12 +343,12 @@ def test_student_school_is_removed_from_previous_employer_cache():
         },
     ])
     cache = FakeCache({
-        "STUDENT, JANE|NY": {"employer": "NYU", "method": "cross_record"},
+        "donor:D1": {"employer": "NYU", "method": "cross_record"},
     })
 
     step_cross_record(rows, cache)
 
-    assert "STUDENT, JANE|NY" not in cache
+    assert "donor:D1" not in cache
 
 
 def test_cleaned_previous_employer_refreshes_a_failed_cache_entry():
@@ -331,13 +360,13 @@ def test_cleaned_previous_employer_refreshes_a_failed_cache_entry():
         "contribution_receipt_date": "2024-01-01",
     }])
     cache = FakeCache({
-        "RETIRED, JANE|NY": {"employer": "", "method": "fec_api_not_found"},
+        "donor:D1": {"employer": "", "method": "fec_api_not_found"},
     })
 
     step_cross_record(rows, cache)
 
-    assert cache["RETIRED, JANE|NY"]["employer"] == "ACME"
-    assert cache["RETIRED, JANE|NY"]["method"] == "cleaned_previous"
+    assert cache["donor:D1"]["employer"] == "ACME"
+    assert cache["donor:D1"]["method"] == "cleaned_previous"
 
 
 def test_same_previous_company_keeps_richer_cache_entry():
@@ -355,11 +384,34 @@ def test_same_previous_company_keeps_richer_cache_entry():
         "method": "fec_api",
         "source_date": "2020-01-01",
     }
-    cache = FakeCache({"RETIRED, JANE|NY": original.copy()})
+    cache = FakeCache({"donor:D1": original.copy()})
 
     step_cross_record(rows, cache)
 
-    assert cache["RETIRED, JANE|NY"] == original
+    assert cache["donor:D1"] == original
+
+
+def test_legacy_previous_employer_cache_skips_ambiguous_names():
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "D1",
+            "contributor_name": "COHEN, MARTIN", "contributor_state": "CA",
+            "contributor_employer": "RETIRED",
+            "contribution_receipt_date": "2025-01-01",
+        },
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "D2",
+            "contributor_name": "COHEN, MARTIN", "contributor_state": "CA",
+            "contributor_employer": "RETIRED",
+            "contribution_receipt_date": "2025-02-01",
+        },
+    ])
+    cache = FakeCache({
+        "COHEN, MARTIN|CA": {"employer": "WRONG COMPANY"},
+    })
+
+    assert migrate_previous_employer_cache(rows, cache) == (0, 1, 0)
+    assert cache == {}
 
 
 def test_loader_does_not_guess_an_employer_alias():

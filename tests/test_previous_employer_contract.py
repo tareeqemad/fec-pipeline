@@ -152,6 +152,7 @@ def _resolved_retiree(
 
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL"],
+        "donor_key": ["D1"],
         "contributor_name": [contributor_name],
         "contributor_employer": ["RETIRED"],
         "contributor_occupation": ["RETIRED"],
@@ -163,7 +164,7 @@ def _resolved_retiree(
         "previous_employer": [previous_employer],
     })
     prev_cache = {
-        f"{contributor_name}|CA": {
+        "donor:D1": {
             "employer": cached_employer,
             "employer_normalized": cached_employer,
             "employer_source": employer_source,

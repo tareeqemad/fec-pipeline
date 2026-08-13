@@ -5,11 +5,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from fec.cleaning.manual_overrides import CLEAR_PREVIOUS_EMPLOYER
 from fec.cleaning.previous_employer import normalize_previous_employer_value
 from fec.config import expand_city_abbreviations
 from fec.log import get_logger
 
-from .helpers import _prev_key
+from .helpers import _prev_key, _s
 
 logger = get_logger(__name__)
 
@@ -156,24 +157,33 @@ def load_manual_previous_employers(
     with csv_path.open(encoding="utf-8", newline="") as handle:
         for override in csv.DictReader(handle):
             sub_id = (override.get("sub_id") or "").strip()
-            previous = normalize_previous_employer_value(
-                override.get("previous_employer") or "",
+            raw_previous = (override.get("previous_employer") or "").strip()
+            clear = raw_previous.upper() == CLEAR_PREVIOUS_EMPLOYER
+            previous = (
+                "" if clear
+                else normalize_previous_employer_value(raw_previous)
             )
-            if not sub_id or not previous or sub_id not in rows.index:
+            if (
+                not sub_id
+                or (not clear and not previous)
+                or sub_id not in rows.index
+            ):
                 continue
             source = rows.loc[sub_id]
             if isinstance(source, pd.DataFrame):
                 source = source.iloc[0]
-            name = str(source.get("contributor_name") or "").strip()
-            state = str(source.get("contributor_state") or "").strip().upper()
-            if not name:
+            donor_key = _s(source.get("donor_key")).strip()
+            state = _s(source.get("contributor_state")).strip().upper()
+            if not donor_key:
                 continue
-            entries[_prev_key(name, state)] = {
+            entry = {
                 "employer": previous,
-                "employer_normalized": previous.upper(),
                 "state": state,
-                "method": "manual_override",
+                "method": "manual_clear" if clear else "manual_override",
             }
+            if previous:
+                entry["employer_normalized"] = previous.upper()
+            entries[_prev_key(donor_key)] = entry
 
     added = updated = 0
     for key, entry in entries.items():

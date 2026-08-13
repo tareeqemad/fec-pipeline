@@ -22,14 +22,27 @@ def _norm_blk(s: str) -> str:
     return " ".join(str(s).upper().split())
 
 
+def _has_location(row: dict) -> bool:
+    """Return whether a do-not-merge row identifies two locations."""
+    fields = ("city_a", "state_a", "city_b", "state_b")
+    return all((row.get(field) or "").strip() for field in fields)
+
+
+def _identity(name: str, city: str, state: str) -> str:
+    """Build the normalized identity used by location-specific blocks."""
+    return "|".join((_norm_blk(name), _norm_blk(city), _norm_blk(state)))
+
+
 def _load_do_not_merge() -> set:
-    """Read curated 'not the same person' name pairs from data/database/donor_no_merge.csv."""
+    """Read curated name pairs that must never merge."""
     path = DATA_DIR / "database" / "donor_no_merge.csv"
     if not path.exists():
         return set()
     pairs: set = set()
     with open(path, "r", encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
+            if _has_location(row):
+                continue
             a, b = _norm_blk(row.get("name_a") or ""), _norm_blk(row.get("name_b") or "")
             if a and b:
                 pairs.add(frozenset((a, b)))
@@ -37,6 +50,25 @@ def _load_do_not_merge() -> set:
 
 
 _DNM_SET = _load_do_not_merge()
+
+
+def _load_identity_do_not_merge() -> set:
+    """Read same-name blocks scoped to exact city/state pairs."""
+    path = DATA_DIR / "database" / "donor_no_merge.csv"
+    if not path.exists():
+        return set()
+    pairs: set = set()
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            if not _has_location(row):
+                continue
+            a = _identity(row["name_a"], row["city_a"], row["state_a"])
+            b = _identity(row["name_b"], row["city_b"], row["state_b"])
+            pairs.add(frozenset((a, b)))
+    return pairs
+
+
+_DNM_IDENTITY_SET = _load_identity_do_not_merge()
 
 
 def _donor_overrides_path() -> Path:
@@ -83,6 +115,17 @@ FORCE_MERGE_GROUPS = _load_force_merge_groups()
 def _is_blocked_merge(name1: str, name2: str) -> bool:
     """Check if two names are in the do-not-merge list (case/space-normalized)."""
     return frozenset((_norm_blk(name1), _norm_blk(name2))) in _DNM_SET
+
+
+def _is_blocked_identity(person1: dict, person2: dict) -> bool:
+    """Check both name-only and location-specific separation rules."""
+    if _is_blocked_merge(person1["name"], person2["name"]):
+        return True
+    pair = frozenset((
+        _identity(person1["name"], person1["city"], person1["state"]),
+        _identity(person2["name"], person2["city"], person2["state"]),
+    ))
+    return pair in _DNM_IDENTITY_SET
 
 
 # Scoring weights - ALL of them, in one place. compute_score adds up evidence

@@ -247,7 +247,7 @@ def test_lookup_collection_skips_self_employed_work_history():
         "contributor_occupation": "RETIRED",
     }])
     previous_employers = _Cache({
-        "ONE, DONOR|NY": {
+        "donor:D1": {
             "employer": "SELF-EMPLOYED",
             "employer_normalized": "SELF-EMPLOYED",
             "method": "manual_override",

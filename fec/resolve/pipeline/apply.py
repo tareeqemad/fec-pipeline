@@ -171,7 +171,7 @@ def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache) -> dict:
         return _result("active", method="pending")
 
     if status == "retired":
-        prev_key = _prev_key(row.get("contributor_name", ""), state)
+        prev_key = _prev_key(row.get("donor_key", ""))
         prev_entry = prev_cache.get(prev_key)
         prev_name, address_keys = _previous_employer_identity(prev_entry)
         if not prev_name:

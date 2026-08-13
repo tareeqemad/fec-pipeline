@@ -21,7 +21,7 @@ human merge/block decisions.
 
 from .matcher import match_donors
 from .keys import (
-    apply_donor_key, merge_split_name_donors,
+    apply_donor_key, merge_split_name_donors, validate_do_not_merge,
     apply_donor_dedup_merges, build_donor_dedup_review,
 )
 from .canonicalize import (
@@ -36,6 +36,7 @@ __all__ = [
     "match_donors",
     "apply_donor_key",
     "merge_split_name_donors",
+    "validate_do_not_merge",
     "apply_donor_dedup_merges",
     "canonicalize_donor_names",
     "canonicalize_donor_employers",

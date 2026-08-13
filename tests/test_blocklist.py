@@ -1,8 +1,10 @@
 """_is_blocked_merge must block a flagged name pair regardless of case/spacing."""
 import pandas as pd
+import pytest
 
 from fec.donor_match import constants as C
 from fec.donor_match import keys as K
+from fec.donor_match.matcher import match_donors
 
 
 def test_norm_blk_collapses_case_and_space():
@@ -28,6 +30,79 @@ def test_loader_returns_set_of_frozensets():
     result = C._load_do_not_merge()
     assert isinstance(result, set)
     assert all(isinstance(p, frozenset) for p in result)
+
+
+def test_same_name_block_is_scoped_to_two_locations(monkeypatch):
+    blocked = frozenset({
+        C._identity("LEVY, HAROLD", "FAIRFIELD", "CT"),
+        C._identity("LEVY, HAROLD", "BOCA RATON", "FL"),
+    })
+    monkeypatch.setattr(C, "_DNM_SET", set())
+    monkeypatch.setattr(C, "_DNM_IDENTITY_SET", {blocked})
+
+    fairfield = {
+        "name": "LEVY, HAROLD", "city": "FAIRFIELD", "state": "CT",
+    }
+    boca = {
+        "name": "LEVY, HAROLD", "city": "BOCA RATON", "state": "FL",
+    }
+    westport = {
+        "name": "LEVY, HAROLD", "city": "WESTPORT", "state": "CT",
+    }
+
+    assert C._is_blocked_identity(fairfield, boca) is True
+    assert C._is_blocked_identity(fairfield, westport) is False
+
+
+def test_location_block_prevents_a_high_scoring_match(monkeypatch):
+    blocked = frozenset({
+        C._identity("LEVY, HAROLD", "FAIRFIELD", "CT"),
+        C._identity("LEVY, HAROLD", "BOCA RATON", "FL"),
+    })
+    monkeypatch.setattr(C, "_DNM_SET", set())
+    monkeypatch.setattr(C, "_DNM_IDENTITY_SET", {blocked})
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL", "contributor_name": "LEVY, HAROLD",
+            "contributor_city": "FAIRFIELD", "contributor_state": "CT",
+            "contributor_zip": "06824", "contributor_street_1": "ONE ST",
+            "contributor_employer": "ACME", "occupation_category": "FINANCE",
+        },
+        {
+            "entity_type": "INDIVIDUAL", "contributor_name": "LEVY, HAROLD",
+            "contributor_city": "BOCA RATON", "contributor_state": "FL",
+            "contributor_zip": "33432", "contributor_street_1": "TWO ST",
+            "contributor_employer": "ACME", "occupation_category": "FINANCE",
+        },
+    ])
+
+    keys, audit = match_donors(rows, verbose=False)
+
+    assert len(set(keys.values())) == 2
+    assert "BLOCKED(do_not_merge)" in audit[0]["signals"]
+
+
+def test_final_guard_rejects_an_indirect_blocked_merge(monkeypatch):
+    monkeypatch.setattr(
+        K,
+        "_is_blocked_identity",
+        lambda a, b: {a["city"], b["city"]} == {"FAIRFIELD", "BOCA RATON"},
+    )
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "wrong",
+            "contributor_name": "LEVY, HAROLD",
+            "contributor_city": "FAIRFIELD", "contributor_state": "CT",
+        },
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "wrong",
+            "contributor_name": "LEVY, HAROLD",
+            "contributor_city": "BOCA RATON", "contributor_state": "FL",
+        },
+    ])
+
+    with pytest.raises(ValueError, match="do-not-merge pair"):
+        K.validate_do_not_merge(rows)
 
 
 def _person(key, name, first):

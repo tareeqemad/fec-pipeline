@@ -17,8 +17,13 @@ def _s(val, default: str = "") -> str:
     return str(val)
 
 
-def _prev_key(name, state) -> str:
-    """Build stable cache key for previous-employer lookup: NAME|STATE."""
+def _prev_key(donor_key) -> str:
+    """Build a previous-employer key for one donor identity."""
+    return f"donor:{_s(donor_key).strip()}"
+
+
+def _legacy_prev_key(name, state) -> str:
+    """Build the retired NAME|STATE key used by old caches."""
     return f"{_s(name).strip()}|{_s(state).strip()}"
 
 

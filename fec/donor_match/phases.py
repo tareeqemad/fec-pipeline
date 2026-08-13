@@ -5,7 +5,11 @@ from collections import defaultdict
 
 from fec.log import get_logger
 
-from .constants import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, _is_blocked_merge
+from .constants import (
+    MERGE_THRESHOLD,
+    SCORE_CROSS_NAME_BONUS,
+    _is_blocked_identity,
+)
 from .scoring import compute_score, _are_cross_group_candidates, _is_surname_variant
 
 logger = get_logger(__name__)
@@ -24,7 +28,7 @@ def _merge_and_audit(
     merged = False
     skipped = False
     if score >= MERGE_THRESHOLD:
-        if _is_blocked_merge(p1["name"], p2["name"]):
+        if _is_blocked_identity(p1, p2):
             skipped = True
             signals.append("BLOCKED(do_not_merge)")
         elif uf.union(rid_a, rid_b):

@@ -71,7 +71,6 @@ d6da1512f883,32e04f676996,"SHAMAH, ALAN","SHAMAH, ALAN",BROOKLYN,11230,emp+agent
 0aa682e17f3d,91ee54a9e12f,"FEINSTEIN, LEONARD","FEINSTEIN, LEONARD",SPRINGFIELD,07081,emp+agent,220900.0
 0aa682e17f3d,f4b38b37bf96,"FEINSTEIN, LEONARD","FEINSTEIN, LEONARD",SPRINGFIELD,07081,emp+agent,220900.0
 662340efefc6,cb608e3c3da3,"VIOLIN, GEORGE","VIOLIN, GEORGE",WELLINGTON,33414,emp+agent,216994.44
-4d00d69c001e,6797c1ba70fe,"LEVY, HAROLD","LEVY, HAROLD",FAIRFIELD,06824,emp+agent,164000.0
 f27b3149345b,9050f0a571f7,"COHEN, DAVID","COHEN, DAVID",NEW YORK,10002,emp+agent,1586.0
 8ad394b512b0,3fcc63dd1db2,"BENEDICT, DANIEL","BENEDICT, DANIEL",GARDEN CITY,11530,emp+agent,158400.0
 71d2787a006a,1f1a0d76b42f,"HELLER, DAVID","HELLER, DAVID",BOCA RATON,33432,emp+agent,129300.0
@@ -79,7 +78,7 @@ a44997ddb647,5b3d50645353,"HELLER, DAVID","HELLER, DAVID",NEW YORK,10023,emp+age
 af6e0f8fc633,1edc36a76ce7,"WOLF, DAVID","WOLF, DAVID",BLUE ASH,45242,emp+agent,41000.0
 b55b215f7856,b27bf2a6fd85,"MARGOLIS, LARRY","MARGOLIS, LARRY",BASALT,81621,emp+agent,121600.0
 7134cabe2b48,e6ca9200496a,"JACOBSON, MARINA","JACOBSON, MARINA",PALM BEACH,33480,emp+agent,116517.0
-6986eaff6d2e,8b4a7264bfe6,"GOODMAN, RICHARD","GOODMAN, RICHARD",NEWPORT BEACH,92660,emp+agent,103374.95
+6986eaff6d2e,8b4a7264bfe6,"GOODMAN, RICHARD","GOODMAN, RICHARD",OAKLAND,94611,"verified Richard Arthur Goodman: Goodman & Levine attorney in Oakland, later retired in Walnut Creek; Newport Beach is explicitly blocked",113999.95
 2864ae9ab37a,7d6243e918d8,"RUBIN, MARK","RUBIN, MARK",PALM BEACH GARDENS,33410,"web: Maric Inc founder, Boston-to-PBG retirement handoff",569040.0
 2864ae9ab37a,da13f0ae04f9,"RUBIN, MARK","RUBIN, MARK",PALM BEACH GARDENS,33410,"web: Maric Inc founder, Boston-to-PBG retirement handoff",569040.0
 2d95d71c8d4d,aac86304513c,"PRICE, STEVEN","PRICE, STEVEN",NEW YORK,10010,"emp: TOWNSQUARE vs TOWNSQUARE MEDIA, same person",458900.0
@@ -164,3 +163,7 @@ fd3fbf222d3d,341df1c66a5f,"BERNEY, JEFFREY","BERNEY, JEFFERY",PIKESVILLE,21208,"
 64c0d1537a30,a05633ed605f,"KIRSCH, ERIC","KIRSCH, ERIC",BOCA RATON,33496,"official FEC history identifies the Holmdel donor as AFLAC investments; Aflac records document the Boca retirement address",3500.0
 1258a13e9197,5aefe14ee0e7,"KELLOGG, SARAH","HEALTH, GOOD",BALDWIN PARK,91706,"filer swapped name/employer on two rows (name field held the company GOOD HEALTH); same street 410 Cloverleaf Dr + zip as her named filing",5625.0
 7c213d49cba0,d5da4d84b481,"RICHEIMER, ALAN","RICH, ALAN",LOS ANGELES,90035,"same street 9430 Kirkside Rd + same company Y MEADOWS + same CEO title; Alan Rich is the professional short form of Alan Richeimer",86150.0
+b3de92c0da24,7875f5642cac,"LIEBERMAN, STEPHEN","LIEBERMAN, STEPHEN",BLOOMINGTON,55431,"official Lieberman Companies pages identify Stephen Lieberman as chairman and 9361 Penn Ave S as company headquarters; the Edina record reports the same company",5500.0
+6193998004e7,ee8618559262,"WEINBERG, BARBARA ANNE","WEINBERG, BARBARA ANNE",BEVERLY HILLS,90210,"California business records connect Barbara Anne Weinberg to 10940 Wilshire Blvd while property records connect her to 409 Drury Ln",23000.0
+b56a7825ef81,e8fad88e174a,"WEINBERG, DEBRA","WEINBERG, DEBRA",OWINGS MILLS,21117,"public nonprofit records connect Debra Weinberg to 2 Huntersworth Ct and professional reporting identifies the same Debra S Weinberg as Jewish Grandparents Network executive director",52900.0
+d151d4f2210e,4f2c84e6d52b,"LEVY, PAUL","LEVY, PAUL",PALM BEACH,33480,"official FEC filing identifies Paul S Levy at 225 Tangier Ave as JLL Partners; the New York record reports the same name, firm, and managing-director role",1006600.0

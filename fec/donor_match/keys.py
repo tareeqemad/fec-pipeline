@@ -10,7 +10,7 @@ import pandas as pd
 from fec.env import DATA_DIR
 from fec.log import get_logger
 
-from .constants import NICKNAME_MAP, _is_blocked_merge
+from .constants import NICKNAME_MAP, _is_blocked_identity, _is_blocked_merge
 from .scoring import normalize_committee_name
 
 logger = get_logger(__name__)
@@ -127,6 +127,31 @@ def apply_donor_dedup_merges(df: pd.DataFrame) -> int:
     if n:
         df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(_final)
     return n
+
+
+def validate_do_not_merge(df: pd.DataFrame) -> None:
+    """Fail if any final donor contains a curated separation pair."""
+    columns = [
+        "donor_key", "contributor_name", "contributor_city",
+        "contributor_state", "entity_type",
+    ]
+    profiles = df.loc[df["entity_type"].eq("INDIVIDUAL"), columns].drop_duplicates()
+
+    for donor_key, group in profiles.groupby("donor_key"):
+        people = [
+            {
+                "name": row.contributor_name,
+                "city": row.contributor_city,
+                "state": row.contributor_state,
+            }
+            for row in group.itertuples(index=False)
+        ]
+        for person_a, person_b in combinations(people, 2):
+            if _is_blocked_identity(person_a, person_b):
+                raise ValueError(
+                    "Donor identity rules joined a do-not-merge pair under "
+                    f"{donor_key}: {person_a} / {person_b}"
+                )
 
 
 def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:

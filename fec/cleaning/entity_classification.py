@@ -58,18 +58,17 @@ _NAME_CORRECTIONS = {
     "CHENEY, D AVID": "CHENEY, DAVID",
     "MEYERS, STUART SARA": "MEYERS, STUART",
     "MEYERS, SARA STUART": "MEYERS, SARA",
-    # Filer swapped name/employer at source: the name field held the company
-    # (GOOD HEALTH) and the employer field held the donor (SARAH KELLOGG).
-    # Employer/occupation for the two rows are pinned in
-    # data/manual_employer_overrides.csv; the identity join with her named
-    # filing lives in data/database/donor_dedup_merges.csv.
-    "HEALTH, GOOD": "KELLOGG, SARAH",
     # Hand-verified org names the LAST, FIRST parse flipped (auto-unflipping comma'd
     # org names is unsafe); keys must stay in sync with data/database/entity_overrides.csv.
     "BANK, FIRST CENTRAL": "FIRST CENTRAL SAVINGS BANK",
     "CAPITAL, WHITE": "WHITE LAKE REAL ESTATE CAPITAL LLC",
     "KAHAN TRUST, DAVID": "DAVID KAHAN TRUST",
     "LEHMAN TRUST, LISA": "LISA LEHMAN TRUST",
+}
+
+_ROW_NAME_CORRECTIONS = {
+    "4011420231698186281": "KELLOGG, SARAH",
+    "4011420231698184106": "KELLOGG, SARAH",
 }
 
 # Known credentials only, so real two-letter last names are not mistaken for one.
@@ -210,19 +209,20 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
 
 def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Apply manual name corrections."""
-    n_fixed = 0
-    for old, new in _NAME_CORRECTIONS.items():
-        mask = df['contributor_name'] == old
-        count = mask.sum()
-        if count:
-            df.loc[mask, 'contributor_name'] = new
-            individual = mask & df['entity_type'].eq('INDIVIDUAL')
-            if individual.any() and ',' in new:
-                last, first = (part.strip() for part in new.split(',', 1))
-                df.loc[individual, 'contributor_first_name'] = first
-                df.loc[individual, 'contributor_last_name'] = last
-            n_fixed += count
-    return df, n_fixed
+    corrected = df['contributor_name'].map(_NAME_CORRECTIONS)
+    if 'sub_id' in df.columns:
+        by_row = df['sub_id'].astype(str).map(_ROW_NAME_CORRECTIONS)
+        corrected = by_row.combine_first(corrected)
+
+    changed = corrected.notna() & corrected.ne(df['contributor_name'])
+    for index, new_name in corrected[changed].items():
+        df.at[index, 'contributor_name'] = new_name
+        if df.at[index, 'entity_type'] == 'INDIVIDUAL' and ',' in new_name:
+            last, first = (part.strip() for part in new_name.split(',', 1))
+            df.at[index, 'contributor_first_name'] = first
+            df.at[index, 'contributor_last_name'] = last
+
+    return df, int(changed.sum())
 
 
 def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
