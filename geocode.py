@@ -57,6 +57,10 @@ def main():
     parser.add_argument("input", nargs="?", default=None)
     parser.add_argument("--employer-only", action="store_true",
                         help="Only geocode employer addresses (needs resolve.py --apply first)")
+    parser.add_argument(
+        "--cache-only", action="store_true",
+        help="Apply saved coordinates without external requests",
+    )
     parser.add_argument("--stats", action="store_true")
     args = parser.parse_args()
 
@@ -89,7 +93,8 @@ def main():
 
     if not args.employer_only:
         logger.info("\n-- Contributor Addresses --")
-        geocode_addresses(df, cache)
+        if not args.cache_only:
+            geocode_addresses(df, cache)
         df = apply_to_dataframe(df, cache)
         changed = True
 
@@ -109,7 +114,8 @@ def main():
         else:
             logger.info("\n-- Employer Addresses --")
             addresses = _all_employer_addresses(df, data_dir)
-            geocode_employer_addresses(addresses, cache)
+            if not args.cache_only:
+                geocode_employer_addresses(addresses, cache)
             df = apply_employer_to_dataframe(df, cache)
             changed = True
 

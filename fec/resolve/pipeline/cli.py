@@ -34,7 +34,11 @@ from .steps.ai_employer import (
     EmployerLookup, _parse_ai_json, build_employer_prompt, step_ai_lookup,
 )
 from .steps.committee_address import step_committees_own_address
-from .steps.previous_employer import step_cross_record, step_fec_api
+from .steps.previous_employer import (
+    migrate_previous_employer_cache,
+    step_cross_record,
+    step_fec_api,
+)
 
 logger = get_logger(__name__)
 
@@ -162,6 +166,8 @@ def main() -> None:
     if args.stats:
         show_stats(df, prev_cache, addr_cache, comm_cache, donor_totals)
         return
+
+    migrate_previous_employer_cache(df, prev_cache)
 
     logger.info(f"\n{'=' * 60}")
     logger.info("  FEC Resolve - Employer & Committee Addresses")

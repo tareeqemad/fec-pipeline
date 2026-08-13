@@ -47,14 +47,12 @@ SYNONYMS = {
     'OSTWALD LAW': 'OSTWALD LAW OFFICES',
     'ENT GROUP OF LA': 'ENT GROUP OF LOS ANGELES',
     # HIGH-confidence cluster merges: longer/more-complete name wins
-    # (exception: JLL is the real company name)
     'STEWARD': 'STEWARD PARTNERS',
     'NOBLE': 'NOBLE PROPERTIES',
     'PORTAGE': 'PORTAGE PARTNERS',
     'COOPER': 'COOPER MANAGEMENT',
     'REGENT': 'REGENT PROPERTIES',
     'MCR': 'MCR LLC',
-    'JLL PARTNERS': 'JLL',
     'EDISON': 'EDISON PROPERTIES',
     'METROPOLITAN': 'METROPOLITAN MANAGEMENT',
     'IBM': 'IBM CORP',

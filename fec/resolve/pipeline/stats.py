@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from fec.cleaning.previous_employer import classify_employer_statuses
 from fec.log import get_logger
 
 from .constants import TIERS
@@ -19,6 +20,10 @@ def show_stats(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
         donor_totals[["donor_key", "donor_total", "tier"]],
         on="donor_key", how="left",
     )
+    if "employer_status" not in latest:
+        latest["employer_status"] = classify_employer_statuses(latest)
+    if "employer_address" not in latest:
+        latest["employer_address"] = ""
 
     logger.info("\n  -- Cache Sizes --")
     logger.info(f"    Previous employer:  {len(prev_cache):>7,}")

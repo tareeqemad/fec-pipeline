@@ -1,4 +1,4 @@
-name_a,name_b,note
+name_a,name_b,note,city_a,state_a,city_b,state_b
 "COLLOFF, EDNA","COLLOFF, ED","Separate spouses Edwin and Edna at the same address; verified in the 2026-08-09 merge audit"
 "MEYERS, STUART","MEYERS, SARA","Separate spouses at the same address; joint-name filings must not bridge their donor clusters"
 "MOSCH, MARK","MOSS, MARK","Different addresses and employers; verified separate in the 2026-08-05 merge audit"
@@ -19,3 +19,6 @@ name_a,name_b,note
 "ZELDIN, STANFORD","ZELDIN, STANFORD/JOYCE","Stanford and Joyce are separate spouses; keep the joint-name filing distinct"
 "GROSS, SUSAN","GROSS, SUSANJONATHAN","Susan and Jonathan are separate spouses; keep the joint-name filing distinct"
 "BLECHER, LEE","BLECHER, LEEMIA","Lee and Mia are separate spouses; keep the joint-name filing distinct"
+"GOODMAN, RICHARD","GOODMAN, RICHARD","Richard C Goodman is the Newport Beach attorney; Richard Arthur Goodman is the Oakland attorney",NEWPORT BEACH,CA,OAKLAND,CA
+"GOODMAN, RICHARD","GOODMAN, RICHARD","Richard C Goodman is the Newport Beach attorney; Richard Arthur Goodman also filed from Walnut Creek",NEWPORT BEACH,CA,WALNUT CREEK,CA
+"LEVY, HAROLD","LEVY, HAROLD","Boca Raton is verified as the Iridian founder; the Fairfield filing has no direct identity bridge",BOCA RATON,FL,FAIRFIELD,CT

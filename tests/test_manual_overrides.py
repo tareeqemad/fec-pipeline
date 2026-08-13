@@ -102,6 +102,20 @@ def test_final_pass_can_preserve_previous_self_employment(override_file):
     assert df.loc[1, "previous_employer"] == "SELF-EMPLOYED"
 
 
+def test_previous_employer_can_be_explicitly_cleared(override_file):
+    override_file([{
+        "sub_id": "2",
+        "previous_employer": "[CLEAR]",
+    }], cols=("sub_id", "note", "previous_employer"))
+    df = _frame()
+    df["previous_employer"] = ["", "WRONG COMPANY", ""]
+
+    assert mo.apply_manual_employer_overrides(
+        df, company_names_only=True,
+    ) == 1
+    assert df.loc[1, "previous_employer"] == ""
+
+
 def test_legacy_file_without_the_occupation_column_still_loads(override_file):
     override_file([{"sub_id": "2", "contributor_employer": "NEW EMPLOYER"}],
                   cols=("sub_id", "contributor_employer", "note"))

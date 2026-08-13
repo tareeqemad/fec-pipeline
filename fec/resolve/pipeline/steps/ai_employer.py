@@ -147,8 +147,7 @@ def collect_employer_lookups(
     )
     retired_rows = individuals.loc[retired_mask].drop_duplicates("donor_key")
     for _, row in retired_rows.iterrows():
-        state = _s(row.get("contributor_state")).strip()
-        previous = prev_cache.get(_prev_key(row.get("contributor_name"), state))
+        previous = prev_cache.get(_prev_key(row.get("donor_key")))
         employer, address_keys = _previous_employer_identity(previous)
         if employer == SELF_EMPLOYED:
             continue

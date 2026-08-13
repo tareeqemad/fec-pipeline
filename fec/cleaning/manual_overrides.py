@@ -10,6 +10,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 OVERRIDES_CSV = PROJECT_ROOT / "data" / "manual_employer_overrides.csv"
+CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
 
 
 def apply_manual_employer_overrides(
@@ -26,16 +27,24 @@ def apply_manual_employer_overrides(
             fields = {
                 col: (row.get(col) or "").strip()
                 for col in ("contributor_employer", "contributor_occupation",
-                            "contributor_city", "previous_employer")
+                            "contributor_city")
                 if (row.get(col) or "").strip()
             }
+            previous = (row.get("previous_employer") or "").strip()
+            if previous:
+                fields["previous_employer"] = (
+                    "" if previous.upper() == CLEAR_PREVIOUS_EMPLOYER
+                    else previous
+                )
             if company_names_only:
+                has_employer = "contributor_employer" in fields
+                has_previous = "previous_employer" in fields
                 employer = fields.get("contributor_employer", "")
                 previous = fields.get("previous_employer", "")
                 fields = {}
-                if employer.upper() not in NOT_REAL_EMPLOYER:
+                if has_employer and employer.upper() not in NOT_REAL_EMPLOYER:
                     fields["contributor_employer"] = employer
-                if previous:
+                if has_previous:
                     fields["previous_employer"] = previous
             if sid and fields:
                 overrides[sid] = fields

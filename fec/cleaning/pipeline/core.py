@@ -232,7 +232,7 @@ def identify_donors(df_clean: pd.DataFrame, out_dir: str | None = None,
     logger.info("\n-- Donor identity --")
     from fec.donor_match import (
         match_donors, apply_donor_key, merge_split_name_donors,
-        apply_donor_dedup_merges,
+        apply_donor_dedup_merges, validate_do_not_merge,
     )
 
     rid_to_key, match_audit = match_donors(df_clean, verbose=False)
@@ -241,6 +241,7 @@ def identify_donors(df_clean: pd.DataFrame, out_dir: str | None = None,
 
     repointed = merge_split_name_donors(df_clean)
     repointed += apply_donor_dedup_merges(df_clean)
+    validate_do_not_merge(df_clean)
 
     profiles = len(rid_to_key)
     donors = df_clean.loc[

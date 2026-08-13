@@ -94754,7 +94754,6 @@ sub_id,row_index,field,before,after,step,reason,evidence
 4021220241824545609,182135,contributor_employer,ATALAN CAPITAL PARTNERS,ATALAN CAPITAL,enh_employer_synonyms,verified_same_company,
 4021220241824545343,182142,contributor_employer,JFCS,JEWISH FAMILY AND CHILDREN'S SERVICES OF SAN FRANCISCO,enh_employer_synonyms,verified_same_company,
 4021220241824545573,182156,contributor_employer,NATIONAL DISTRIBUTION CO,NATIONAL DISTRIBUTING COMPANY,enh_employer_synonyms,verified_same_company,
-4021220241824545487,182171,contributor_employer,JLL PARTNERS,JLL,enh_employer_synonyms,verified_same_company,
 4021220241824545592,182197,contributor_employer,MAVEN VENTURES,MAVEN,enh_employer_synonyms,verified_same_company,
 4021220241824545572,182202,contributor_employer,ROSENBERG AUTOMOTIVE HOLDINGS,DSR MOTOR GROUP,enh_employer_synonyms,verified_same_company,
 4021220241824545495,182208,contributor_employer,MGS,MGS PARTNERS,enh_employer_synonyms,verified_same_company,

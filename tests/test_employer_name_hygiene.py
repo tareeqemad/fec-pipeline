@@ -86,6 +86,11 @@ def test_display_name_converges_on_synonyms():
     assert normalize_employer_display_name('IBM') == 'IBM CORP'
 
 
+def test_jll_partners_is_not_jones_lang_lasalle():
+    assert normalize_employer_display_name('JONES LANG LASALLE') == 'JLL'
+    assert normalize_employer_display_name('JLL PARTNERS') == 'JLL PARTNERS'
+
+
 def test_display_name_retired_prefix():
     assert normalize_employer_display_name('RETIRED - ORTHOCAROLINA') == 'ORTHOCAROLINA'
     assert normalize_employer_display_name('RETIRED US ARMY') == 'US ARMY'
