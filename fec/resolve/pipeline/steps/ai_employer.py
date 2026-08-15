@@ -4,8 +4,10 @@ import json
 import re
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import partial
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -34,12 +36,15 @@ from ..helpers import _prev_key, _previous_employer_identity, _s
 logger = get_logger(__name__)
 
 WEB_SEARCH_WORKERS = 5
+AI_LOOKUP_BATCH_SIZE = 200
 _CONTEXT_LIMIT = 3
-_ADDRESS_TYPES = frozenset({
-    "HEADQUARTERS",
-    "PRINCIPAL_US_OFFICE",
-    "PRIMARY_LOCATION",
-})
+_ADDRESS_TYPES = frozenset(
+    {
+        "HEADQUARTERS",
+        "PRINCIPAL_US_OFFICE",
+        "PRIMARY_LOCATION",
+    }
+)
 _OFFICE_TYPES = frozenset({"OFFICE"})
 _CONFIDENCE_LEVELS = frozenset({"HIGH", "MEDIUM"})
 _ZIP_RE = re.compile(r"^\d{5}$")
@@ -71,34 +76,40 @@ def _has_usable_address(entry: dict | None) -> bool:
 
 
 def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
-    """Retry misses after a resolver/prompt upgrade and any incomplete AI row."""
-    if isinstance(entry, dict) and entry.get("method") == "manual_review":
-        return True
-    if _has_usable_address(entry):
-        return False
+    """Retry legacy, stale, missing, and incomplete AI entries."""
     if not isinstance(entry, dict):
         return True
-    if entry.get("method") in {"manual_override", "manual_invalid"}:
+    method = entry.get("method", "")
+    if method in {"manual_override", "manual_invalid"}:
         return False
-    if entry.get("method") != "ai_not_found":
+    if method == "manual_review":
         return True
 
     previous_resolver = entry.get("resolver") or entry.get("provider")
-    return (
-        previous_resolver != resolver_tag
-        or entry.get("prompt_version") != EMPLOYER_PROMPT_VERSION
+    current_version = (
+        previous_resolver == resolver_tag
+        and entry.get("prompt_version") == EMPLOYER_PROMPT_VERSION
     )
+    if method.endswith("_search") and _has_usable_address(entry):
+        return not current_version
+    if method != "ai_not_found":
+        return True
+
+    return not current_version
 
 
 def _remember_context(
     lookup_names: dict[str, str],
     locations: dict[str, Counter],
     occupations: dict[str, Counter],
+    priorities: dict[str, float],
     employer: str,
     row: pd.Series,
+    donor_total: float,
 ) -> None:
     key = employer.upper()
     lookup_names.setdefault(key, employer)
+    priorities[key] = max(priorities.get(key, 0), donor_total)
 
     city = _s(row.get("contributor_city")).strip()
     state = _s(row.get("contributor_state")).strip().upper()
@@ -127,23 +138,35 @@ def collect_employer_lookups(
     """Return current cache misses using cleaned employer names and limited context."""
     tier_keys = set(donor_totals["donor_key"])
     individuals = df[
-        (df["entity_type"] == "INDIVIDUAL")
-        & df["donor_key"].isin(tier_keys)
+        (df["entity_type"] == "INDIVIDUAL") & df["donor_key"].isin(tier_keys)
     ]
 
     names: dict[str, str] = {}
     locations: dict[str, Counter] = defaultdict(Counter)
     occupations: dict[str, Counter] = defaultdict(Counter)
+    priorities: dict[str, float] = {}
+    totals = (
+        donor_totals.set_index("donor_key")["donor_total"].to_dict()
+        if "donor_total" in donor_totals
+        else {}
+    )
 
     active = classify_employer_statuses(individuals).eq("active")
     for _, row in individuals.loc[active].iterrows():
         employer = _s(row.get("contributor_employer")).strip()
         if _needs_ai(addr_cache.get(employer.upper()), resolver_tag):
-            _remember_context(names, locations, occupations, employer, row)
+            _remember_context(
+                names,
+                locations,
+                occupations,
+                priorities,
+                employer,
+                row,
+                totals.get(row.get("donor_key"), 0),
+            )
 
     retired_mask = (
-        individuals["contributor_employer"].map(_s).str.strip().str.upper()
-        == RETIRED
+        individuals["contributor_employer"].map(_s).str.strip().str.upper() == RETIRED
     )
     retired_rows = individuals.loc[retired_mask].drop_duplicates("donor_key")
     for _, row in retired_rows.iterrows():
@@ -152,10 +175,17 @@ def collect_employer_lookups(
         if employer == SELF_EMPLOYED:
             continue
         if employer and all(
-            _needs_ai(addr_cache.get(key), resolver_tag)
-            for key in address_keys
+            _needs_ai(addr_cache.get(key), resolver_tag) for key in address_keys
         ):
-            _remember_context(names, locations, occupations, employer, row)
+            _remember_context(
+                names,
+                locations,
+                occupations,
+                priorities,
+                employer,
+                row,
+                totals.get(row.get("donor_key"), 0),
+            )
 
     return [
         EmployerLookup(
@@ -163,7 +193,7 @@ def collect_employer_lookups(
             donor_locations=_top_context(locations[key]),
             donor_occupations=_top_context(occupations[key]),
         )
-        for key in sorted(names)
+        for key in sorted(names, key=lambda value: (-priorities[value], value))
     ]
 
 
@@ -248,9 +278,15 @@ def _resolved_cache_entry(
         "matched_company_name": _s(result.get("matched_company_name")).strip(),
     }
 
-    primary_key = tuple(primary[field] for field in (
-        "employer_address", "employer_city", "employer_state", "employer_zip",
-    ))
+    primary_key = tuple(
+        primary[field]
+        for field in (
+            "employer_address",
+            "employer_city",
+            "employer_state",
+            "employer_zip",
+        )
+    )
     locations = []
     seen = {primary_key}
     for raw_location in result.get("locations", []):
@@ -259,9 +295,15 @@ def _resolved_cache_entry(
         location = _validated_location(raw_location, _OFFICE_TYPES)
         if location is None:
             continue
-        key = tuple(location[field] for field in (
-            "employer_address", "employer_city", "employer_state", "employer_zip",
-        ))
+        key = tuple(
+            location[field]
+            for field in (
+                "employer_address",
+                "employer_city",
+                "employer_state",
+                "employer_zip",
+            )
+        )
         if key in seen:
             continue
         seen.add(key)
@@ -295,21 +337,25 @@ def step_ai_lookup(
     prev_cache,
     addr_cache,
     donor_totals: pd.DataFrame,
-    dry_run: bool = False,
 ) -> int:
     """Resolve current employer cache misses with one grounded search each."""
     resolver_tag = resolver_id()
     lookups = collect_employer_lookups(
         df, prev_cache, addr_cache, donor_totals, resolver_tag
     )
+    pending = len(lookups)
+    batch = lookups[:AI_LOOKUP_BATCH_SIZE]
     logger.info(
-        f"    AI Lookup [{EMPLOYER_PROMPT_VERSION}]: {len(lookups):,} employers to resolve "
+        f"    AI Lookup [{EMPLOYER_PROMPT_VERSION}]: {pending:,} employers pending "
         f"({len(addr_cache):,} total cache entries)"
     )
+    if len(batch) < pending:
+        logger.info(
+            f"    Processing {len(batch):,} highest-priority employers this run; "
+            "rerun to continue"
+        )
 
-    if dry_run or not lookups:
-        if dry_run and lookups:
-            logger.info(f"    (dry run - ~{len(lookups)} web-search calls)")
+    if not batch:
         return 0
 
     try:
@@ -328,16 +374,14 @@ def step_ai_lookup(
         if _is_explicit_unknown(lookup, result):
             addr_cache.put(lookup.key, _not_found_entry(resolver_tag))
         else:
-            logger.warning(
-                f"      {lookup.name}: invalid AI response was not cached"
-            )
+            logger.warning(f"      {lookup.name}: invalid AI response was not cached")
         return False
 
     return run_web_search(
         client,
         model,
         AI_SYSTEM_PROMPT,
-        lookups,
+        batch,
         build_employer_prompt,
         store_result,
         addr_cache,
@@ -354,7 +398,7 @@ def _parse_ai_json(text: str) -> list | None:
         text = text[:-3]
     text = text.strip()
 
-    try:
+    with suppress(json.JSONDecodeError):
         result = json.loads(text)
         if isinstance(result, dict):
             for value in result.values():
@@ -362,77 +406,56 @@ def _parse_ai_json(text: str) -> list | None:
                     return value
             return [result]
         return result
-    except json.JSONDecodeError:
-        pass
 
     start = text.find("[")
     end = text.rfind("]")
     if start >= 0 and end > start:
-        try:
-            return json.loads(text[start:end + 1])
-        except json.JSONDecodeError:
-            pass
+        with suppress(json.JSONDecodeError):
+            return json.loads(text[start : end + 1])
 
     results = []
     for line in text.split("\n"):
         line = line.strip().rstrip(",")
         if line.startswith("{") and line.endswith("}"):
-            try:
+            with suppress(json.JSONDecodeError):
                 results.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
     if results:
         return results
 
     raise json.JSONDecodeError("Could not parse AI response", text, 0)
 
 
-def run_web_search(client, model, system_prompt, items, build_prompt,
-                   store_fn, cache, label) -> int:
-    """Resolve items concurrently, stopping immediately when credits are exhausted."""
-    if not items:
-        return 0
+def _search_item(client, model, system_prompt, build_prompt, item):
+    try:
+        text, cost = ai_web_search_call(
+            client,
+            model,
+            system_prompt,
+            build_prompt(item),
+        )
+    except Exception as error:
+        if is_ai_quota_error(error):
+            raise AIQuotaExhausted(
+                "AI provider credits are exhausted; add credits and rerun."
+            ) from error
+        raise
+    return item, text, cost
 
+
+def _store_search_result(store_fn, item, text) -> int:
+    try:
+        parsed = _parse_ai_json(text)
+    except json.JSONDecodeError:
+        parsed = []
+    result = next((entry for entry in parsed if isinstance(entry, dict)), None)
+    return int(store_fn(item, result))
+
+
+def _run_search_pool(search, store, items, cache, label, total):
     found = 0
     cost = 0.0
-    total = len(items)
-
-    def _one(item):
-        try:
-            text, call_cost = ai_web_search_call(
-                client, model, system_prompt, build_prompt(item)
-            )
-        except Exception as error:
-            if is_ai_quota_error(error):
-                raise AIQuotaExhausted(
-                    'AI provider credits are exhausted; add credits and rerun.'
-                ) from error
-            raise
-        return item, text, call_cost
-
-    def _store_response(item, text):
-        try:
-            parsed = _parse_ai_json(text)
-        except json.JSONDecodeError:
-            parsed = []
-        obj = next((entry for entry in parsed if isinstance(entry, dict)), None)
-        return store_fn(item, obj)
-
-    # One synchronous preflight prevents thousands of calls being queued when
-    # the account has no balance.
-    first, remaining = items[0], items[1:]
-    try:
-        item, text, call_cost = _one(first)
-    except AIQuotaExhausted:
-        raise
-    except Exception as error:
-        logger.error(f"      {label} web-search error - {error}")
-    else:
-        cost += call_cost
-        found += int(_store_response(item, text))
-
     pool = ThreadPoolExecutor(max_workers=WEB_SEARCH_WORKERS)
-    futures = [pool.submit(_one, item) for item in remaining]
+    futures = [pool.submit(search, item) for item in items]
     quota_error = None
     try:
         for done, future in enumerate(as_completed(futures), 2):
@@ -446,7 +469,7 @@ def run_web_search(client, model, system_prompt, items, build_prompt,
                 logger.error(f"      {label} web-search error - {error}")
                 continue
 
-            found += int(_store_response(item, text))
+            found += store(item, text)
             if done % 25 == 0:
                 cache.save()
                 logger.info(f"      {done}/{total} - {found} found - ~${cost:.2f}")
@@ -457,12 +480,63 @@ def run_web_search(client, model, system_prompt, items, build_prompt,
             pool.shutdown(wait=True, cancel_futures=True)
         else:
             pool.shutdown(wait=True)
+    return found, cost, quota_error
+
+
+def run_web_search(
+    client,
+    model,
+    system_prompt,
+    items,
+    build_prompt,
+    store_fn,
+    cache,
+    label,
+) -> int:
+    """Resolve items concurrently, stopping when credits are exhausted."""
+    if not items:
+        return 0
+
+    total = len(items)
+    search = partial(
+        _search_item,
+        client,
+        model,
+        system_prompt,
+        build_prompt,
+    )
+    store = partial(_store_search_result, store_fn)
+
+    found = 0
+    cost = 0.0
+    first, remaining = items[0], items[1:]
+    try:
+        item, text, first_cost = search(first)
+    except AIQuotaExhausted:
+        raise
+    except Exception as error:
+        logger.error(f"      {label} web-search error - {error}")
+    else:
+        cost += first_cost
+        found += store(item, text)
+
+    pool_found, pool_cost, quota_error = _run_search_pool(
+        search,
+        store,
+        remaining,
+        cache,
+        label,
+        total,
+    )
+    found += pool_found
+    cost += pool_cost
 
     if quota_error:
         cache.save()
         raise quota_error
 
     cache.save()
-    logger.info(f"    {label} (web search): found {found:,}/{total:,} "
-                f"- cost ~${cost:.2f}")
+    logger.info(
+        f"    {label} (web search): found {found:,}/{total:,} - cost ~${cost:.2f}"
+    )
     return found

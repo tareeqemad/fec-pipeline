@@ -203,8 +203,14 @@ def test_resolve_keeps_own_named_legal_company_and_is_idempotent():
         "", "JOEL REINSTEIN PLLC", "JOEL REINSTEIN, PLLC",
         "REINSTEIN, JOEL",
         {
-            "JOEL REINSTEIN": {"employer_address": "RESIDENCE"},
-            "JOEL REINSTEIN PLLC": {"employer_address": "OFFICE"},
+            "JOEL REINSTEIN": {
+                "employer_address": "RESIDENCE",
+                "method": "manual_override",
+            },
+            "JOEL REINSTEIN PLLC": {
+                "employer_address": "OFFICE",
+                "method": "manual_override",
+            },
         },
     )
     first_name = first["previous_employer"].iloc[0]

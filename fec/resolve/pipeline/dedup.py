@@ -55,79 +55,98 @@ def _score(entry: dict) -> tuple:
     return (has_address, confidence_rank, method_priority)
 
 
-def dedup_by_resolved_address(
-    addr_cache, freq: dict | None = None,
-) -> tuple[int, int]:
-    """Alias same-company entries resolved to the same complete address."""
-    freq = freq or {}
-    by_address: dict[str, list[str]] = defaultdict(list)
-    for name, entry in addr_cache.data.items():
+def _entries_by_address(data: dict) -> dict[str, list[str]]:
+    """Group eligible cache names by complete normalized address."""
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for name, entry in data.items():
         if not isinstance(entry, dict):
             continue
         if entry.get('alias_of'):
-            continue   # alias spellings mirror their canonical - already merged
+            continue
         if entry.get('method') == 'manual_override':
-            # Never merge: keyed to the exact CSV spelling; merging made Step 0
-            # re-create it every run and demoted human data to the AI canonical's.
             continue
         if entry.get('confidence') not in ('HIGH', 'MEDIUM'):
             continue
         address = _address_key(entry)
-        if not address:
-            continue
-        by_address[address].append(name)
+        if address:
+            grouped[address].append(name)
+    return grouped
 
-    mapping: dict[str, str] = {}  # variant_name -> canonical_name
+
+def _cluster_company_names(names: list[str]) -> list[list[str]]:
+    """Cluster same-company spellings while preserving cache order."""
+    clusters: list[list[str]] = []
+    for name in names:
+        for cluster in clusters:
+            if any(_same_entity(name, member) for member in cluster):
+                cluster.append(name)
+                break
+        else:
+            clusters.append([name])
+    return clusters
+
+
+def _canonical_name(cluster: list[str], frequency: dict) -> str:
+    """Prefer the common filing spelling, then longest, then alphabetical."""
+    return min(
+        cluster,
+        key=lambda name: (-frequency.get(name, 0), -len(name), name),
+    )
+
+
+def _alias_mapping(
+    grouped: dict[str, list[str]], frequency: dict,
+) -> tuple[dict[str, str], int]:
+    """Return variant-to-canonical aliases and the number of merged groups."""
+    mapping: dict[str, str] = {}
     groups = 0
-    for address, names in by_address.items():
+    for names in grouped.values():
         if len(names) < 2:
             continue
-        clusters: list[list[str]] = []
-        for name in names:
-            placed = False
-            for cluster in clusters:
-                if any(_same_entity(name, member) for member in cluster):
-                    cluster.append(name)
-                    placed = True
-                    break
-            if not placed:
-                clusters.append([name])
-
-        for cluster in clusters:
+        for cluster in _cluster_company_names(names):
             if len(cluster) < 2:
                 continue
             groups += 1
-            # Canonical = most-frequently-filed variant, then longest, then
-            # alphabetical - frequency keeps "GOLDMAN SACHS" over a rare
-            # division name that happens to share the HQ address.
-            canonical = sorted(
-                cluster,
-                key=lambda variant: (-freq.get(variant, 0), -len(variant), variant)
-            )[0]
-            for variant in cluster:
-                if variant != canonical:
-                    mapping[variant] = canonical
+            canonical = _canonical_name(cluster, frequency)
+            mapping.update(
+                {name: canonical for name in cluster if name != canonical}
+            )
+    return mapping, groups
+
+
+def _settle_canonical_entries(data: dict, mapping: dict[str, str]) -> None:
+    """Give each canonical name the strongest entry among its aliases."""
+    for variant, canonical in mapping.items():
+        if _score(data[variant]) > _score(data[canonical]):
+            data[canonical] = data[variant]
+
+
+def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
+    """Keep every spelling resolvable without triggering another lookup."""
+    for variant, canonical in mapping.items():
+        canonical_entry = data[canonical]
+        alias = {
+            key: value
+            for key, value in canonical_entry.items()
+            if key != 'alias_of'
+        }
+        alias['alias_of'] = canonical
+        data[variant] = alias
+
+
+def dedup_by_resolved_address(
+    addr_cache, freq: dict | None = None,
+) -> tuple[int, int]:
+    """Alias same-company entries resolved to the same complete address."""
+    mapping, groups = _alias_mapping(
+        _entries_by_address(addr_cache.data),
+        freq or {},
+    )
 
     if not mapping:
         return 0, 0
 
-    # Pass 1: settle each canonical with the best-scored data among its variants.
-    removed = 0
-    for variant, canonical in mapping.items():
-        variant_entry = addr_cache.data[variant]
-        if _score(variant_entry) > _score(addr_cache.data[canonical]):
-            addr_cache.data[canonical] = variant_entry
-        removed += 1
-
-    # Pass 2: keep each variant as an ALIAS of the canonical. Deleting variants
-    # caused an infinite re-resolve loop (previous_employer lookups use the
-    # variant spelling, so _needs_ai re-asked the AI every run); aliases keep
-    # every spelling resolvable and the grouping above skips them (idempotent).
-    for variant, canonical in mapping.items():
-        canonical_entry = addr_cache.data[canonical]
-        alias = {key: value for key, value in canonical_entry.items() if key != 'alias_of'}
-        alias['alias_of'] = canonical
-        addr_cache.data[variant] = alias
-
+    _settle_canonical_entries(addr_cache.data, mapping)
+    _write_aliases(addr_cache.data, mapping)
     addr_cache.save()
-    return removed, groups
+    return len(mapping), groups

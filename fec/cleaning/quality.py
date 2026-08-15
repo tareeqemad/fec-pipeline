@@ -1,18 +1,17 @@
 """Quality gates, outlier reports, and report saving."""
-import json
 from pathlib import Path
 
 import pandas as pd
 
 from fec.cleaning.occupations import _categorize_final
 from fec.cleaning.previous_employer import classify_employer_statuses
-from fec.config import VALID_CATEGORIES
 from fec.config.constants import (
     EMPLOYER_STATUS_VALUES,
     NOT_EMPLOYED_VARIANTS,
     SELF_EMPLOYED_VARIANTS,
     SLASH_BRAND_EMPLOYERS,
 )
+from fec.config.occupation_rules.categories import VALID_CATEGORIES
 
 _ZIP_PREFIX_STATES = {
     '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
@@ -303,7 +302,7 @@ def _gate_slash_previous_employer(df):
         return []
     prev_emp = df['previous_employer'].fillna('').astype(str)
     slashy = (
-        prev_emp.str.contains('/')
+        prev_emp.str.contains('/', regex=False)
         & ~prev_emp.str.upper().isin(SLASH_BRAND_EMPLOYERS)
     )
     n_slash = int(slashy.sum())
@@ -372,26 +371,10 @@ def run_quality_gates(df: pd.DataFrame) -> dict:
     return {'passed': passed, 'checks': checks, 'issues': issues}
 
 
-def build_outlier_report(df: pd.DataFrame) -> dict:
-    """Top-50 values for occupation and employer."""
-    report = {}
-    for col, key in [('contributor_occupation', 'top50_occupation'), ('contributor_employer', 'top50_employer')]:
-        if col in df.columns:
-            value_counts = df[col].dropna().value_counts().head(50)
-            report[key] = [{'value': str(value), 'count': int(count)} for value, count in value_counts.items()]
-    if 'entity_type' in df.columns and 'contributor_occupation' in df.columns:
-        report['committee_default_count'] = int(
-            ((df['entity_type'] == 'COMMITTEE/PAC') & (df['contributor_occupation'] == 'POLITICAL COMMITTEE')).sum()
-        )
-    return report
-
-
 def save_report(df: pd.DataFrame, dir_path: str, name: str) -> None:
-    """Save a DataFrame as both CSV and JSON."""
+    """Save a DataFrame as CSV."""
     if df is None or df.empty:
         return
     base = Path(dir_path) / name
     base.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(base.with_suffix('.csv'), index=False)
-    with open(base.with_suffix('.json'), 'w', encoding='utf-8') as handle:
-        json.dump(df.to_dict(orient='records'), handle, indent=2, ensure_ascii=False, default=str)

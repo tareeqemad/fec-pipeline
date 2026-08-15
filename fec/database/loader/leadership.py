@@ -169,6 +169,18 @@ def _person_identity(row) -> tuple[str, str, str, str, str]:
     )
 
 
+def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
+    """Read a required boolean."""
+    value = (row.get(field) or "").strip().lower()
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    raise ValueError(
+        f"{csv_filename}: {name!r} needs {field}=true or false"
+    )
+
+
 def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
     """Parse an optional hand-maintained coordinate, warning on bad text."""
     raw = (row.get(field) or "").strip()
@@ -225,9 +237,9 @@ def _upsert_address(
 def _load_donor_linked_csv(
     conn: Any, cur: Any, csv_filename: str, table: str, insert_row,
 ) -> None:
-    """Match donors and load their shared profile plus the requested role row."""
+    """Load curated donor links."""
     from fec.database.leadership_matcher import (
-        match_or_create_donor,
+        find_or_create_donor,
         upsert_donor_address,
         upsert_leader_employment,
     )
@@ -248,8 +260,13 @@ def _load_donor_linked_csv(
             skipped += 1
             continue
 
-        donor_id, method = match_or_create_donor(
-            cur, name, first, last, city, state
+        donor_id, method = find_or_create_donor(
+            cur,
+            (row.get("donor_key") or "").strip(),
+            _boolean(row, "create_if_missing", csv_filename, name),
+            name,
+            first,
+            last,
         )
         match_counts[method] += 1
 

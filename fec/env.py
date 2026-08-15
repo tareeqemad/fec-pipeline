@@ -55,20 +55,6 @@ def get_db_config() -> dict:
     }
 
 
-def get_db_roles() -> dict:
-    """Build role->password mapping from env: DB_ROLES list + shared DB_ROLE_PASSWORD, or individual DB_ROLE_<name> entries."""
-    shared_password = get_env("DB_ROLE_PASSWORD")
-    role_names = get_env("DB_ROLES", "").split(",")
-    role_names = [r.strip() for r in role_names if r.strip()]
-
-    roles = {}
-    for role in role_names:
-        individual_pw = get_env(f"DB_ROLE_{role}")
-        roles[role] = individual_pw or shared_password or ""
-
-    return roles
-
-
 # file paths
 RAW_CSV = PROJECT_ROOT / "data" / "contributions.csv"
 CLEANED_CSV = PROJECT_ROOT / "data" / "contributions_cleaned.csv"
@@ -76,5 +62,9 @@ SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 DATA_DIR = PROJECT_ROOT / "data"
 # single source of truth for committee identities; add a row for every new committee
 COMMITTEES_CSV = PROJECT_ROOT / "data" / "database" / "committees.csv"
-# Known employer offices, built by build_employers.py
+# Known employer offices, built by geocode.py --employer-only
 EMPLOYER_LOCATIONS_CSV = PROJECT_ROOT / "data" / "employer_locations.csv"
+# Curated employer spelling rules
+EMPLOYER_NAME_RULES_CSV = PROJECT_ROOT / "data" / "database" / "employer_name_rules.csv"
+# Curated contributor name rules
+CONTRIBUTOR_NAME_RULES_CSV = PROJECT_ROOT / "data" / "database" / "contributor_name_rules.csv"

@@ -20,7 +20,7 @@ from .engines import (
 
 logger = get_logger(__name__)
 
-_PO_BOX_RE = re.compile(r"^PO\s+BOX", re.I)
+_PO_BOX_RE = re.compile(r"^PO\s+BOX", re.IGNORECASE)
 
 # require whitespace before the keyword and a word boundary after, so short
 # abbreviations (FL, STE, RM, APT) never match inside street names like FLANDERS
@@ -274,7 +274,7 @@ def _geocode_one(street, city, state, zipcode):
         time.sleep(NOMINATIM_DELAY)
         if lat and _valid_for_state(lat, lng, state):
             return lat, lng, country_code or "US", "nominatim"
-        elif lat:
+        if lat:
             logger.debug("Nominatim result lat=%.4f lng=%.4f rejected - outside %s", lat, lng, state)
 
     lat, lng, country_code = _city_fallback(city, state, zipcode)

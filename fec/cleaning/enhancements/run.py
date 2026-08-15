@@ -1,4 +1,5 @@
 """Master sequence for the post-cleaning enhancements."""
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -14,16 +15,87 @@ from fec.cleaning.employer_synonyms import (
     expand_employer_associates, fix_occupation_as_employer, fix_normalized_mid_suffix,
     _recanonicalize_employers, restore_display_suffixes,
 )
+from fec.cleaning._helpers import _indiv_idx, _norm
+from fec.cleaning.occupations import _categorize
 from fec.cleaning.safety_nets import apply_safety_nets
-from fec.cleaning.enhancements.swaps import (fix_remaining_swapped_occ_emp,
-                                             normalize_occupation_canonical)
 from fec.cleaning.enhancements.junk import (clean_remaining_junk,
-                                            _clean_junk_status_word_employer,
-                                            _clean_self_employed_variants)
+                                             _clean_junk_status_word_employer,
+                                             _clean_self_employed_variants)
+from fec.config.occupation_rules.rules import OCCUPATION_CANONICAL, OCCUPATION_KEYWORDS
 from fec.env import RAW_CSV
 from fec.log import get_logger
 
 logger = get_logger(__name__)
+
+_CORP_IN_OCC_RE = re.compile(
+    r'\bLLC\b|\bLLP\b|\bINC\b\.?|\bCORP\b|\bLTD\b'
+    r'|\bCOMPANY\b|\bCORPORATION\b|\bHOLDINGS\b|\bGROUP\b'
+    r'|\bPARTNERS\b|\bVENTURES\b|\bCAPITAL\b|\bFUND\b'
+    r'|\bASSOCIATES\b|\bENTERPRISES\b|\bPROPERTIES\b|\bREALTY\b'
+    r'|\bADVISORS\b|\bINSURANCE\b|\bINDUSTRIES\b|\bBROTHERS\b'
+    r'|\bBANK\b|\bFINANCIAL\b|\bMEDIA\b|\bSYSTEMS\b'
+    r'|\bTECHNOLOGIES\b|\bSOLUTIONS\b|\bSERVICES\b|\bMANAGEMENT\b'
+    r'|\bTRUST\b|\bINTERNATIONAL\b|\bGLOBAL\b'
+    r'|\b\w+\s*&\s*\w+\b'
+    r'|& (?:PARTNERS|ASSOCIATES|CRUTCHER|DE LLANO|BUTLER)',
+)
+_ORG_IN_OCC_RE = re.compile(
+    r'\bHOSPITAL\b|\bUNIVERSITY\b|\bINSTITUTE\b'
+    r'|\bCOLLEGE\b|\bSCHOOL\b|\bACADEMY\b'
+    r'|\bFOUNDATION\b|\bAGENCY\b|\bBUREAU\b'
+    r'|\bDEPARTMENT\b|\bMINISTRY\b|\bAIPAC\b|\bDMFI\b',
+)
+
+
+def _swap_occ_emp(df: pd.DataFrame, indexes: pd.Index) -> None:
+    """Swap occupation and employer, then update the category."""
+    old_occupation = df.loc[indexes, 'contributor_occupation'].copy()
+    old_employer = df.loc[indexes, 'contributor_employer'].copy()
+    df.loc[indexes, 'contributor_occupation'] = old_employer
+    df.loc[indexes, 'contributor_employer'] = old_occupation
+    df.loc[indexes, 'occupation_category'] = _categorize(
+        df.loc[indexes, 'contributor_occupation']
+    )
+
+
+def fix_remaining_swapped_occ_emp(df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
+    """Fix remaining occupation/employer swaps."""
+    individuals = _indiv_idx(df)
+    occupation = _norm(df.loc[individuals, 'contributor_occupation'])
+    employer = _norm(df.loc[individuals, 'contributor_employer'])
+
+    employer_is_job = employer.isin(OCCUPATION_KEYWORDS)
+    occupation_is_company = occupation.str.contains(_CORP_IN_OCC_RE, na=False)
+    occupation_starts_corp = occupation.str.startswith('CORP ', na=False)
+    company_swaps = individuals[
+        occupation_is_company & employer_is_job & ~occupation_starts_corp
+    ]
+    if len(company_swaps):
+        _swap_occ_emp(df, company_swaps)
+
+    same = individuals[(occupation == employer) & employer_is_job]
+    if len(same):
+        df.loc[same, 'contributor_employer'] = 'SELF-EMPLOYED'
+
+    organization_swaps = individuals[
+        occupation.str.contains(_ORG_IN_OCC_RE, na=False) & employer_is_job
+    ]
+    if len(organization_swaps):
+        _swap_occ_emp(df, organization_swaps)
+
+    return df, len(company_swaps) + len(organization_swaps), len(same)
+
+
+def normalize_occupation_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Map safe occupation variants to their canonical form."""
+    individuals = _indiv_idx(df)
+    occupation = df.loc[individuals, 'contributor_occupation']
+    hits = individuals[occupation.isin(OCCUPATION_CANONICAL)]
+    if len(hits):
+        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(
+            OCCUPATION_CANONICAL
+        )
+    return df, len(hits)
 
 
 @dataclass(frozen=True)
@@ -94,7 +166,7 @@ def run_enhancements(
     df: pd.DataFrame, verbose: bool = True,
 ) -> tuple[pd.DataFrame, list[dict]]:
     """Run all post-cleaning enhancements and return the data plus its audit."""
-    log = logger.info if verbose else lambda msg: None
+    log = logger.info if verbose else lambda _: None
     audit_records: list[dict] = []
 
     df['is_individual'] = (df['entity_type'] == 'INDIVIDUAL')

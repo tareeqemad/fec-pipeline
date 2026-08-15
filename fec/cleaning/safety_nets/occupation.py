@@ -8,17 +8,21 @@ import pandas as pd
 
 from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.config.constants import NOT_EMPLOYED_VARIANTS, SKIP_EMPLOYERS, STATUS_WORDS
-from fec.config.occupation_rules import (
+from fec.config.occupation_rules.rules import (
     WEB_ARTIFACT_OCCUPATIONS,
 )
 
 # a company name (legal suffix) alone in the occupation field; a leading
 # role word ("PRESIDENT, X INC") is a real title, so it's excluded
 _OCC_IS_COMPANY_RE = re.compile(
-    r'\b(?:LLC|L\.L\.C|INC|CORP|CORPORATION|LLP|LP|PC|P\.C|PLLC|LTD|COMPANY)\.?$', re.I)
+    r'\b(?:LLC|L\.L\.C|INC|CORP|CORPORATION|LLP|LP|PC|P\.C|PLLC|LTD|COMPANY)\.?$',
+    re.IGNORECASE,
+)
 _OCC_ROLE_PREFIX_RE = re.compile(
     r'^(?:PRESIDENT|VP|VICE PRESIDENT|CEO|CFO|COO|CTO|OWNER|PARTNER|DIRECTOR|'
-    r'MANAGER|FOUNDER|PRINCIPAL|CHAIRMAN|EXECUTIVE|MD|DR)\b', re.I)
+    r'MANAGER|FOUNDER|PRINCIPAL|CHAIRMAN|EXECUTIVE|MD|DR)\b',
+    re.IGNORECASE,
+)
 
 
 
@@ -168,7 +172,7 @@ def _null_junk_occupation(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')
 
-    is_email = occ.str.contains('@', na=False)
+    is_email = occ.str.contains('@', na=False, regex=False)
     is_company = (occ.str.contains(_OCC_IS_COMPANY_RE, na=False)
                   & ~occ.str.contains(_OCC_ROLE_PREFIX_RE, na=False))
 
@@ -277,7 +281,11 @@ def _fix_slash_occupation(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('')
     categories = df['occupation_category'].fillna('')
 
-    has_slash = is_indiv & occ.str.contains('/', na=False) & categories.isin({'OTHER', ''})
+    has_slash = (
+        is_indiv
+        & occ.str.contains('/', na=False, regex=False)
+        & categories.isin({'OTHER', ''})
+    )
     n_candidates = int(has_slash.sum())
     if not n_candidates:
         return 0

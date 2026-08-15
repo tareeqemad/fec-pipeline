@@ -3,26 +3,25 @@
 The flow (clean.py -> identify_donors -> here):
 
     matcher.match_donors
-        build_profiles (matcher)      one profile per NAME|CITY|STATE record
+        build_profiles (matcher)      one profile per name/location/suffix
         five pair phases (phases)     candidate pairs -> compute_score (scoring)
         chains + force merges (matcher)
         -> donor_key per cluster
-    keys.apply_donor_key + key-level merges + curated dedup merges
+    keys.apply_donor_key + verified identity rules
     canonicalize.*                    one official name/employer/street per donor
     keys.build_donor_dedup_review     detect-only report for human triage
 
     after geocoding (called from geocode.py):
     canonicalize.canonicalize_donor_addresses_geo
 
-constants.py holds every weight (documented), the nickname map, and the
-look-alike trap pairs; the curated CSVs under data/database/ carry the
-human merge/block decisions.
+constants.py holds matching weights and nickname rules. Every human identity
+decision lives in data/database/donor_identity_rules.csv.
 """
 
 from .matcher import match_donors
 from .keys import (
-    apply_donor_key, merge_split_name_donors, validate_do_not_merge,
-    apply_donor_dedup_merges, build_donor_dedup_review,
+    apply_donor_key, merge_split_name_donors, validate_separations,
+    apply_curated_key_merges, build_donor_dedup_review,
 )
 from .canonicalize import (
     canonicalize_donor_names, canonicalize_donor_employers,
@@ -36,8 +35,8 @@ __all__ = [
     "match_donors",
     "apply_donor_key",
     "merge_split_name_donors",
-    "validate_do_not_merge",
-    "apply_donor_dedup_merges",
+    "validate_separations",
+    "apply_curated_key_merges",
     "canonicalize_donor_names",
     "canonicalize_donor_employers",
     "canonicalize_donor_addresses",

@@ -13,6 +13,7 @@ except ImportError:
 
 from fec.env import EMPLOYER_LOCATIONS_CSV
 from fec.log import get_logger
+from fec.resolve.pipeline.locations import PUBLISHABLE_ADDRESS_TRUST
 
 from ._base import _count, to_float_or_none, to_native
 
@@ -33,6 +34,8 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
     for row in frame.to_dict("records"):
         if not row.get("employer_address"):
             continue
+        if row.get("address_trust") not in PUBLISHABLE_ADDRESS_TRUST:
+            continue
         locations.append({
             "employer_name": row["employer_name"],
             "employer_address": row.get("employer_address"),
@@ -43,6 +46,13 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
             "employer_longitude": row.get("employer_longitude"),
             "is_primary": str(row.get("is_primary")).lower() == "true",
         })
+
+    grouped: dict[str, list[dict]] = {}
+    for location in locations:
+        grouped.setdefault(location["employer_name"], []).append(location)
+    for employer_locations in grouped.values():
+        if not any(location["is_primary"] for location in employer_locations):
+            employer_locations[0]["is_primary"] = True
     return locations
 
 

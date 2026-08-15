@@ -148,7 +148,7 @@ _ABBR_FULL = {'ST': ('SAINT', 'Saint'), 'STE': ('SAINTE', 'Sainte'),
               'MT': ('MOUNT', 'Mount'), 'FT': ('FORT', 'Fort')}
 # Standalone token followed by a space, anywhere in the name. STE before ST
 # plus \b stops false hits like STERLING / STATEN.
-_ABBR_RE = re.compile(r'\b(STE|ST|MT|FT)\.?(?=\s)', re.I)
+_ABBR_RE = re.compile(r'\b(STE|ST|MT|FT)\.?(?=\s)', re.IGNORECASE)
 
 
 def expand_city_abbreviations(value):

@@ -1,0 +1,37 @@
+import csv
+import re
+
+from fec.env import DATA_DIR
+
+
+def _rows(filename):
+    path = DATA_DIR / "database" / filename
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _identity(last, first):
+    return "".join(f"{last},{first}".upper().split())
+
+
+def test_editorial_rows_have_explicit_keys():
+    for filename in ("leaders.csv", "key_accomplices.csv"):
+        rows = _rows(filename)
+        assert rows
+        assert all(re.fullmatch(r"[0-9a-f]{12}", row["donor_key"]) for row in rows)
+        assert all(row["create_if_missing"] in {"true", "false"} for row in rows)
+
+
+def test_people_shared_by_editorial_files_share_one_key():
+    leaders = {}
+    for row in _rows("leaders.csv"):
+        last, first = row["leader_name"].split(",", 1)
+        leaders[_identity(last, first)] = row["donor_key"]
+
+    for row in _rows("key_accomplices.csv"):
+        identity = _identity(
+            row["accomplice_last_name"],
+            row["accomplice_first_name"],
+        )
+        if identity in leaders:
+            assert row["donor_key"] == leaders[identity], row["accomplice_name"]

@@ -160,3 +160,16 @@ def test_swapped_name_correction_is_limited_to_known_rows():
         'KELLOGG, SARAH',
         'HEALTH, GOOD',
     ]
+
+
+def test_laryl_kupor_uses_verified_lary_spelling():
+    df = _make_df([{
+        'contributor_name': 'KUPOR, LARYL',
+        'contributor_first_name': 'LARYL',
+        'contributor_last_name': 'KUPOR',
+    }])
+
+    _clean_names(df)
+
+    assert df.loc[0, 'contributor_name'] == 'KUPOR, LARY'
+    assert df.loc[0, 'contributor_first_name'] == 'LARY'

@@ -11,7 +11,7 @@ from fec.config.constants import (
     JUNK_EMPLOYER_RE, REFUSAL_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
     ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER,
 )
-from fec.config.occupation_rules import (
+from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_CATEGORY,
     FINAL_EMPLOYER_FROM_OCCUPATION,
     FINAL_NULL_EMPLOYERS,
@@ -129,7 +129,7 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
         return 0
 
     n_fixed = 0
-    for dk, grp in null_emp.groupby('donor_key'):
+    for dk in null_emp['donor_key'].unique():
         all_recs = df[(df['donor_key'] == dk) & (df['entity_type'] == 'INDIVIDUAL')]
         real_recs = all_recs[all_recs['contributor_employer'].notna()
                              & ~all_recs['contributor_employer'].isin(SKIP_EMPLOYERS)]
@@ -219,7 +219,7 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
         real_u = real.str.upper()
         # same structural-junk patterns the cleaner uses (emails, dates, masked
         # digits, admin notes) so junk blanked upstream is not re-recovered
-        real = real[~real.str.contains('@', na=False)
+        real = real[~real.str.contains('@', na=False, regex=False)
                     & ~real_u.str.match(_JUNK_RE, na=False)
                     & ~real_u.str.match(_ADMIN_NOTE_RE, na=False)]
         if len(real) > 0:

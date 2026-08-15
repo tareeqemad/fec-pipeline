@@ -16,7 +16,10 @@ from .entity import (
     _clear_nonindividual_employer_field,
     _reenforce_entity_consistency,
 )
-from .names_addresses import _recover_missing_streets, _truncated_house_numbers
+from fec.cleaning.pipeline.address_fixes.recovery import (
+    _recover_missing_streets,
+    _truncated_house_numbers,
+)
 from .occupation import (
     _fill_occupation_from_donor,
     _not_applicable_individual_sweep,

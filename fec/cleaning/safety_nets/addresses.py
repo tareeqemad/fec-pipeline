@@ -56,7 +56,7 @@ def _fix_garbage_city_names(df: pd.DataFrame) -> int:
     """AG. Garbage city names ('WHITE, NOT OF HISPANIC ORIGIN', 'JERUSALEM, ISRAEL') -> NaN."""
     city = df['contributor_city'].fillna('')
     # a city is a single name and should never contain a comma
-    has_comma = city.str.contains(',', na=False)
+    has_comma = city.str.contains(',', na=False, regex=False)
     has_ethnicity = city.str.contains(_ETHNICITY_RE, na=False)
     mask = has_comma | has_ethnicity
     n_fixed = int(mask.sum())

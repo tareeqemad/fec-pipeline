@@ -9,15 +9,23 @@ from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.log import get_logger
 
 from .constants import (
-    MERGE_THRESHOLD, FORCE_MERGE_NAMES, FORCE_MERGE_GROUPS,
+    MERGE_THRESHOLD,
     GENERIC_OCC_CATEGORIES,
 )
+from .keys import individual_record_id
+from .rules import NAME_MERGES
 from .scoring import (
-    compute_score, normalize_name, extract_middle, normalize_employer,
+    compute_score,
+    normalize_name,
+    extract_middle,
+    normalize_employer,
 )
 from .phases import (
-    _score_within_groups, _score_cross_groups,
-    _score_surname_variants, _score_name_variants,
+    MatchContext,
+    _score_within_groups,
+    _score_cross_groups,
+    _score_surname_variants,
+    _score_name_variants,
     _score_surname_superset_variants,
 )
 
@@ -67,15 +75,15 @@ def _s(val) -> str:
 def _has_signal(row: dict, prefix: str) -> bool:
     """Return whether an audit row contains a scoring signal with this prefix."""
     return any(
-        signal.strip().startswith(prefix)
-        for signal in row["signals"].split(";")
+        signal.strip().startswith(prefix) for signal in row["signals"].split(";")
     )
 
 
 def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
     """Fail if a final automatic merge bypassed an identity safety rule."""
     final_merges = [
-        row for row in audit_log
+        row
+        for row in audit_log
         if row["merged"]
         and rid_to_key.get(row["rid_a"]) == rid_to_key.get(row["rid_b"])
     ]
@@ -87,9 +95,14 @@ def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
         employer = _has_signal(row, "employer=")
         signals = row["signals"]
 
-        if any(block in signals for block in (
-            "HARD_BLOCK", "BLOCKED(", "CROSS_NAME_NO_ANCHOR",
-        )):
+        if any(
+            block in signals
+            for block in (
+                "HARD_BLOCK",
+                "BLOCKED(",
+                "CROSS_NAME_NO_ANCHOR",
+            )
+        ):
             violations.append(row)
         elif _has_signal(row, "cross_name(") and not (street or zip5 or employer):
             violations.append(row)
@@ -122,14 +135,16 @@ def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
 
 
 def build_profiles(indiv: pd.DataFrame) -> dict:
-    """Build a per-record_id (NAME|CITY|STATE) profile: streets, employers and occupation categories aggregate across the rid's filings; zip5 is the FIRST filing's ZIP only."""
+    """Build profiles by cleaned name, location, and generation suffix."""
     profiles = {}
 
     for _, row in indiv.iterrows():
-        rid = (
-            _s(row["contributor_name"]) + "|" +
-            _s(row["contributor_city"]) + "|" +
-            _s(row["contributor_state"])
+        suffix = _s(row.get("_generational_suffix")).upper()
+        rid = individual_record_id(
+            _s(row["contributor_name"]),
+            _s(row["contributor_city"]),
+            _s(row["contributor_state"]),
+            suffix,
         )
 
         if rid not in profiles:
@@ -145,6 +160,7 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
                 "occ_categories": set(),
                 "retired": False,
                 "record_count": 0,
+                "suffix": suffix,
             }
 
         p = profiles[rid]
@@ -167,125 +183,159 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
     return profiles
 
 
-def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:
-    """Score-based donor matching; returns (rid_to_key, audit_log)."""
-    indiv = df[df["entity_type"] == "INDIVIDUAL"].copy()
+def _build_name_groups(profiles: dict) -> dict:
+    last_to_names = defaultdict(set)
+    first_to_names = defaultdict(set)
+    for profile in profiles.values():
+        last, _, first = profile["norm_name"].partition("|")
+        last_to_names[last].add(profile["norm_name"])
+        first_to_names[first].add(profile["norm_name"])
 
+    name_groups = defaultdict(list)
+    for rid, profile in profiles.items():
+        last, _, first = profile["norm_name"].partition("|")
+        profile["last_freq"] = len(last_to_names[last])
+        profile["first_freq"] = len(first_to_names[first])
+        name_groups[profile["norm_name"]].append(rid)
+    return name_groups
+
+
+def _run_matching_phases(
+    context: MatchContext,
+) -> list[tuple[int, int]]:
+    phases = (
+        _score_within_groups,
+        _score_cross_groups,
+        _score_surname_variants,
+        _score_name_variants,
+        _score_surname_superset_variants,
+    )
+    return [phase(context) for phase in phases]
+
+
+def _donor_keys(components: dict) -> dict:
+    rid_to_key = {}
+    for root, members in components.items():
+        key = hashlib.sha256(root.encode()).hexdigest()[:12]
+        for rid in members:
+            rid_to_key[rid] = key
+    return rid_to_key
+
+
+def _log_score_distribution(score_dist: dict) -> None:
+    logger.info("\n  -- Score Distribution --")
+    for bucket in sorted(score_dist):
+        scale = max(1, max(score_dist.values()) // 50)
+        bar = "#" * min(50, score_dist[bucket] // scale)
+        marker = " <- THRESHOLD" if bucket <= MERGE_THRESHOLD < bucket + 10 else ""
+        logger.info(
+            f"    {bucket:>4}-{bucket + 9:<4}: {score_dist[bucket]:>5,}  {bar}{marker}"
+        )
+
+
+def _log_near_threshold(audit_log: list) -> None:
+    near = [
+        row
+        for row in audit_log
+        if MERGE_THRESHOLD - 15 <= row["score"] <= MERGE_THRESHOLD + 15
+    ]
+    near.sort(key=lambda row: -row["score"])
+    if not near:
+        return
+
+    logger.info(f"\n  -- Near Threshold (+/-15) - {len(near)} pairs --")
+    for row in near[:15]:
+        status = "MERGE" if row["merged"] else "SKIP "
+        rid_a = row["rid_a"]
+        rid_b = row["rid_b"]
+        name = rid_a.split("|")[0] if "|" in rid_a else rid_a[:30]
+        city_a = rid_a.split("|")[1] if "|" in rid_a else ""
+        city_b = rid_b.split("|")[1] if "|" in rid_b else ""
+        logger.info(f"    [{row['score']:>3}] {status}  {name}: {city_a} <-> {city_b}")
+        logger.info(f"                    {row['signals']}")
+
+
+def _log_match_results(
+    profiles: dict,
+    components: dict,
+    phase_counts: list[tuple[int, int]],
+    identity_gate: dict,
+    score_dist: dict,
+    audit_log: list,
+) -> None:
+    merged = sum(counts[0] for counts in phase_counts)
+    skipped = sum(counts[1] for counts in phase_counts)
+    before = len(profiles)
+    after = len(components)
+    logger.info(
+        "  Identity gate: "
+        f"{identity_gate['checked']:,} final merge edges valid; "
+        f"{identity_gate['cross_name_zip_only']:,} cross-name ZIP-only"
+    )
+    logger.info("\n  -- Results --")
+    logger.info(f"  Pairs scored:   {merged + skipped:>7,}")
+    logger.info(f"  Merged (>={MERGE_THRESHOLD}):  {merged:>7,}")
+    logger.info(f"  Skipped (<{MERGE_THRESHOLD}): {skipped:>7,}")
+    logger.info("  -----------------------------")
+    logger.info(f"  Before: {before:>6,} unique records")
+    logger.info(f"  After:  {after:>6,} unique donors")
+    logger.info(
+        f"  Merged: {before - after:>6,} (-{(before - after) / before * 100:.1f}%)"
+    )
+    _log_score_distribution(score_dist)
+    _log_near_threshold(audit_log)
+
+
+def match_donors(df: pd.DataFrame, verbose: bool = True) -> tuple[dict, list]:
+    """Score-based donor matching; returns keys and an audit log."""
+    individuals = df[df["entity_type"] == "INDIVIDUAL"].copy()
     if verbose:
         logger.info("\n  -- Building profiles --")
-
-    profiles = build_profiles(indiv)
-
+    profiles = build_profiles(individuals)
     if verbose:
         logger.info(f"  {len(profiles):,} unique record profiles")
 
-    # Name frequencies support scoring but never replace shared evidence.
-    last_to_names = defaultdict(set)
-    first_to_names = defaultdict(set)
-    for p in profiles.values():
-        last, _, first = p["norm_name"].partition("|")
-        last_to_names[last].add(p["norm_name"])
-        first_to_names[first].add(p["norm_name"])
-
-    name_groups = defaultdict(list)
-    for rid, p in profiles.items():
-        last, _, first = p["norm_name"].partition("|")
-        p["last_freq"] = len(last_to_names[last])
-        p["first_freq"] = len(first_to_names[first])
-        name_groups[p["norm_name"]].append(rid)
-
+    name_groups = _build_name_groups(profiles)
     uf = UnionFind()
     for rid in profiles:
         uf.find(rid)
 
     audit_log = []
     score_dist = defaultdict(int)
-
-    # Phase 1: score within-group pairs
-    merge_count, skip_count = _score_within_groups(
-        name_groups, profiles, uf, audit_log, score_dist, verbose
+    context = MatchContext(
+        name_groups=name_groups,
+        profiles=profiles,
+        union_find=uf,
+        audit_log=audit_log,
+        score_dist=score_dist,
+        verbose=verbose,
+        component_suffixes={
+            rid: ({profile["suffix"]} if profile["suffix"] else set())
+            for rid, profile in profiles.items()
+        },
     )
-
-    # Phase 2: cross-group matching (nicknames + typos)
-    cross_merge, cross_skip = _score_cross_groups(
-        name_groups, profiles, uf, audit_log, score_dist, verbose
-    )
-
-    # Phase 2.5: surname-variant matching (typos/space forms across surnames)
-    sv_merge, sv_skip = _score_surname_variants(
-        name_groups, profiles, uf, audit_log, score_dist, verbose
-    )
-
-    # Phase 2.6: name-format variants (first/last swap, missing comma, middle initial)
-    nv_merge, nv_skip = _score_name_variants(
-        name_groups, profiles, uf, audit_log, score_dist, verbose
-    )
-
-    # Phase 2.7: maiden/married (one name's tokens a subset of the other + same street)
-    ss_merge, ss_skip = _score_surname_superset_variants(
-        name_groups, profiles, uf, audit_log, score_dist, verbose
-    )
-
-    # Phase 3: chain validation
-    components = _build_and_validate_chains(
-        uf, profiles, name_groups, verbose
-    )
-
-    # Phase 4: force-merge verified pairs
+    phase_counts = _run_matching_phases(context)
+    components = _build_and_validate_chains(uf, profiles, name_groups, verbose)
     _apply_force_merges(components, profiles, verbose)
-
-    rid_to_key = {}
-    for root, members in components.items():
-        # same recipe as keys.individual_donor_key (sha256 of a rid, first 12
-        # hex) -- they must stay in sync: a singleton cluster's key here must
-        # equal the fallback key apply_donor_key computes for the same record
-        key = hashlib.sha256(root.encode()).hexdigest()[:12]
-        for rid in members:
-            rid_to_key[rid] = key
-
+    rid_to_key = _donor_keys(components)
     identity_gate = _validate_merge_audit(rid_to_key, audit_log)
-
-    unique_before = len(profiles)
-    unique_after = len(components)
-
     if verbose:
-        logger.info(
-            "  Identity gate: "
-            f"{identity_gate['checked']:,} final merge edges valid; "
-            f"{identity_gate['cross_name_zip_only']:,} cross-name ZIP-only"
+        _log_match_results(
+            profiles,
+            components,
+            phase_counts,
+            identity_gate,
+            score_dist,
+            audit_log,
         )
-        logger.info("\n  -- Results --")
-        logger.info(f"  Pairs scored:   {merge_count + skip_count + cross_merge + cross_skip + sv_merge + sv_skip + nv_merge + nv_skip + ss_merge + ss_skip:>7,}")
-        logger.info(f"  Merged (>={MERGE_THRESHOLD}):  {merge_count + cross_merge + sv_merge + nv_merge + ss_merge:>7,}")
-        logger.info(f"  Skipped (<{MERGE_THRESHOLD}): {skip_count + cross_skip + sv_skip + nv_skip + ss_skip:>7,}")
-        logger.info("  -----------------------------")
-        logger.info(f"  Before: {unique_before:>6,} unique records")
-        logger.info(f"  After:  {unique_after:>6,} unique donors")
-        logger.info(f"  Merged: {unique_before - unique_after:>6,} (-{(unique_before - unique_after) / unique_before * 100:.1f}%)")
-
-        logger.info("\n  -- Score Distribution --")
-        for bucket in sorted(score_dist):
-            bar = "#" * min(50, score_dist[bucket] // max(1, max(score_dist.values()) // 50))
-            marker = " <- THRESHOLD" if bucket <= MERGE_THRESHOLD < bucket + 10 else ""
-            logger.info(f"    {bucket:>4}-{bucket+9:<4}: {score_dist[bucket]:>5,}  {bar}{marker}")
-
-        near = [a for a in audit_log if MERGE_THRESHOLD - 15 <= a["score"] <= MERGE_THRESHOLD + 15]
-        near.sort(key=lambda x: -x["score"])
-        if near:
-            logger.info(f"\n  -- Near Threshold (+/-15) - {len(near)} pairs --")
-            for a in near[:15]:
-                status = "MERGE" if a["merged"] else "SKIP "
-                name_a = a["rid_a"].split("|")[0] if "|" in a["rid_a"] else a["rid_a"][:30]
-                city_a = a["rid_a"].split("|")[1] if "|" in a["rid_a"] else ""
-                city_b = a["rid_b"].split("|")[1] if "|" in a["rid_b"] else ""
-                logger.info(f"    [{a['score']:>3}] {status}  {name_a}: {city_a} <-> {city_b}")
-                logger.info(f"                    {a['signals']}")
-
     return rid_to_key, audit_log
 
 
 def _build_and_validate_chains(
-    uf: UnionFind, profiles: dict, name_groups: dict, verbose: bool,
+    uf: UnionFind,
+    profiles: dict,
+    name_groups: dict,
+    verbose: bool,
 ) -> dict:
     """Build components from union-find, then eject weakly-chained members of large clusters."""
     components = defaultdict(set)
@@ -328,7 +378,9 @@ def _build_and_validate_chains(
 
     if verbose and n_chain_broken:
         logger.info("\n  -- Chain validation --")
-        logger.info(f"  Ejected {n_chain_broken} transitively-chained members from large clusters")
+        logger.info(
+            f"  Ejected {n_chain_broken} transitively-chained members from large clusters"
+        )
 
     return components
 
@@ -354,29 +406,12 @@ def _merge_roots_of(components: dict, rids: list) -> int:
 
 
 def _apply_force_merges(components: dict, profiles: dict, verbose: bool) -> None:
-    """Force-merge human-verified same-person records from donor_overrides.csv: FORCE_MERGE_NAMES pairs plus FORCE_MERGE_GROUPS cross-surname spellings."""
-    n_force = 0
-    for (force_last, force_first) in FORCE_MERGE_NAMES:
-        prefix = f"{force_last}, {force_first}"
-        rids = [
-            rid for rid, p in profiles.items()
-            if p["name"].startswith(prefix)
-        ]
+    """Apply verified name merges."""
+    merged = 0
+    for prefixes in NAME_MERGES.values():
+        rids = [rid for rid, p in profiles.items() if p["name"].startswith(prefixes)]
         if len(rids) >= 2:
-            n_force += _merge_roots_of(components, rids)
+            merged += _merge_roots_of(components, rids)
 
-    n_group = 0
-    for identities in FORCE_MERGE_GROUPS.values():
-        prefixes = tuple(f"{last}, {first}" for (last, first) in identities)
-        rids = [
-            rid for rid, p in profiles.items()
-            if p["name"].startswith(prefixes)
-        ]
-        if len(rids) >= 2:
-            n_group += _merge_roots_of(components, rids)
-
-    if verbose and (n_force or n_group):
-        logger.info(
-            f"  Force-merged {n_force} multi-state pair(s) + "
-            f"{n_group} cross-surname group(s)"
-        )
+    if verbose and merged:
+        logger.info("  Applied %s curated name merge(s)", f"{merged:,}")

@@ -1,4 +1,5 @@
 """Load cleaned FEC data."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,6 +10,7 @@ import pandas as pd
 
 from fec.cleaning.previous_employer import referenced_employers
 from fec.cleaning.quality import run_quality_gates
+from fec.config.data import FINAL_OUTPUT_COLUMNS
 from fec.env import (
     CLEANED_CSV,
     COMMITTEES_CSV,
@@ -17,8 +19,9 @@ from fec.env import (
 )
 from fec.io import read_pipeline_csv
 from fec.log import get_logger
+from fec.resolve.pipeline.locations import ADDRESS_TRUST_VALUES
 
-from ._base import PG, _count, _quote_identifier, connect, init_roles
+from ._base import PG, _count, _quote_identifier, connect
 from .addresses import (
     link_employer_locations,
     load_address_dimension,
@@ -28,55 +31,62 @@ from .addresses import (
 from .contributions import load_contributions
 from .donors import load_donors
 from .employers import (
-    _make_employer_resolver, link_previous_employers, load_employers, load_employments,
+    _make_employer_resolver,
+    link_previous_employers,
+    load_employers,
+    load_employments,
 )
 from .leadership import load_key_accomplices, load_leadership
 from .reference import load_lookups, load_reference_tables
-from .schema_create import MAT_VIEWS, TABLES, VIEWS, create_schema
+from .schema_create import MAT_VIEWS, TABLES, VIEWS, create_schema, verify_extensions
 from .schema_reset import reset_schema
 
 logger = get_logger(__name__)
 
 __all__ = ["main", "connect"]
 
-_REQUIRED_COLUMNS = {
-    "sub_id", "transaction_id", "two_year_transaction_period",
-    "recipient_committee", "entity_type", "contributor_name",
-    "contributor_first_name", "contributor_last_name",
-    "contributor_street_1", "contributor_street_2", "contributor_city",
-    "contributor_state", "contributor_zip", "contributor_employer",
-    "contributor_occupation", "occupation_category",
-    "contribution_receipt_date", "contribution_receipt_amount",
-    "previous_employer", "donor_key", "latitude", "longitude",
-    "employer_status",
+_REQUIRED_COLUMNS = set(FINAL_OUTPUT_COLUMNS)
+_LOCATION_COLUMNS = {
+    "employer_name",
+    "employer_address",
+    "employer_city",
+    "employer_state",
+    "employer_zip",
+    "employer_latitude",
+    "employer_longitude",
+    "is_primary",
+    "address_source",
+    "address_trust",
 }
 
 
-def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
-    """Reject unfinished pipeline output."""
+def _validate_cleaned_data(df: pd.DataFrame) -> None:
     missing = sorted(_REQUIRED_COLUMNS - set(df.columns))
     if missing:
         raise ValueError(f"{CLEANED_CSV.name}: missing columns: {', '.join(missing)}")
 
     quality = run_quality_gates(df)
     if not quality["passed"]:
-        raise ValueError("cleaned data failed quality gates: " + "; ".join(quality["issues"]))
+        raise ValueError(
+            "cleaned data failed quality gates: " + "; ".join(quality["issues"])
+        )
 
-    required_locations = {
-        "employer_name", "employer_address", "employer_city",
-        "employer_state", "employer_zip", "employer_latitude",
-        "employer_longitude", "is_primary", "address_source",
-        "address_trust",
-    }
-    if not required_locations.issubset(locations.columns):
-        raise ValueError("employer_locations.csv is invalid; run build_employers.py")
+
+def _validate_employer_locations(
+    df: pd.DataFrame,
+    locations: pd.DataFrame,
+) -> None:
+    if not _LOCATION_COLUMNS.issubset(locations.columns):
+        raise ValueError(
+            "employer_locations.csv is invalid; run geocode.py --employer-only"
+        )
 
     expected = referenced_employers(df)
     actual = set(locations["employer_name"].dropna().astype(str).str.strip())
     if locations["employer_name"].isna().any() or expected != actual:
         raise ValueError(
             "employer_locations.csv does not match cleaned employers; "
-            "run build_employers.py"
+            "run geocode.py --employer-only"
         )
 
     primary = locations["is_primary"].astype(str).str.lower().eq("true")
@@ -84,10 +94,19 @@ def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
     if not primary_counts.eq(1).all():
         raise ValueError("each employer must have exactly one primary location row")
 
-    valid_primary = locations["is_primary"].astype(str).str.lower().isin({"true", "false"})
+    valid_primary = (
+        locations["is_primary"].astype(str).str.lower().isin({"true", "false"})
+    )
     if not valid_primary.all():
         raise ValueError("employer_locations.csv contains an invalid is_primary value")
 
+    trust = locations["address_trust"].fillna("").astype(str).str.strip()
+    has_address = locations["employer_address"].fillna("").astype(str).str.strip().ne("")
+    if (has_address & ~trust.isin(ADDRESS_TRUST_VALUES)).any():
+        raise ValueError("employer_locations.csv contains an invalid address_trust value")
+
+
+def _validate_contribution_fields(df: pd.DataFrame) -> None:
     donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
     if donor_keys.eq("").any():
         raise ValueError("donor_key contains blank values")
@@ -104,15 +123,24 @@ def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
     if cycles.isna().any():
         raise ValueError("two_year_transaction_period contains invalid values")
 
+
+def _validate_committees(df: pd.DataFrame) -> None:
     committees = pd.read_csv(COMMITTEES_CSV, dtype=str, keep_default_na=False)
     known = set(committees["committee_short"].str.strip())
     received = set(df["recipient_committee"].dropna().astype(str).str.strip())
     unknown = sorted(received - known)
     if unknown:
         raise ValueError(
-            "recipient_committee is missing from committees.csv: "
-            + ", ".join(unknown)
+            "recipient_committee is missing from committees.csv: " + ", ".join(unknown)
         )
+
+
+def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
+    """Reject unfinished pipeline output."""
+    _validate_cleaned_data(df)
+    _validate_employer_locations(df, locations)
+    _validate_contribution_fields(df)
+    _validate_committees(df)
 
 
 def _read_input() -> tuple[pd.DataFrame, list[dict]]:
@@ -120,7 +148,8 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
     if not EMPLOYER_LOCATIONS_CSV.exists():
         raise FileNotFoundError(
-            f"{EMPLOYER_LOCATIONS_CSV} not found; run build_employers.py"
+            f"{EMPLOYER_LOCATIONS_CSV} not found; "
+            "run geocode.py --employer-only"
         )
 
     df = read_pipeline_csv(CLEANED_CSV)
@@ -141,7 +170,7 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
 def show_stats(cur: Any) -> None:
     logger.info("\n  -- Database Stats --")
     logger.info(f"  {'Name':35s} {'Type':8s} {'Rows':>10s}")
-    logger.info(f"  {'-'*35} {'-'*8} {'-'*10}")
+    logger.info(f"  {'-' * 35} {'-' * 8} {'-' * 10}")
     for names, kind in ((TABLES, "table"), (VIEWS, "view"), (MAT_VIEWS, "matview")):
         for name in names:
             logger.info(f"  {name:35s} {kind:8s} {_count(cur, name):>10,}")
@@ -157,7 +186,9 @@ def load_all(
     cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
     occ_cat_map = {row[1]: row[0] for row in cur.fetchall()}
 
-    cur.execute("SELECT committee_id, committee_short FROM committees WHERE committee_short IS NOT NULL")
+    cur.execute(
+        "SELECT committee_id, committee_short FROM committees WHERE committee_short IS NOT NULL"
+    )
     committee_map = {row[1]: row[0] for row in cur.fetchall()}
 
     donor_key_to_id = load_donors(conn, cur, df)
@@ -167,14 +198,34 @@ def load_all(
 
     addr_dim_id = load_address_dimension(conn, cur, df, employer_locations)
     addr_key_to_id = load_donor_addresses(conn, cur, df, donor_key_to_id, addr_dim_id)
-    empl_donor_emp_to_id = load_employments(conn, cur, df, donor_key_to_id, occ_cat_map,
-                                            donor_prev_employer_id, get_employer_id,
-                                            addr_dim_id, employer_locations)
-    load_contributions(conn, cur, df, donor_key_to_id, committee_map,
-                       addr_key_to_id, empl_donor_emp_to_id, get_employer_id)
+    empl_donor_emp_to_id = load_employments(
+        conn,
+        cur,
+        df,
+        donor_key_to_id,
+        occ_cat_map,
+        donor_prev_employer_id,
+        get_employer_id,
+        addr_dim_id,
+        employer_locations,
+    )
+    load_contributions(
+        conn,
+        cur,
+        df,
+        donor_key_to_id,
+        committee_map,
+        addr_key_to_id,
+        empl_donor_emp_to_id,
+        get_employer_id,
+    )
 
     link_employer_locations(
-        conn, cur, addr_dim_id, get_employer_id, employer_locations,
+        conn,
+        cur,
+        addr_dim_id,
+        get_employer_id,
+        employer_locations,
     )
 
 
@@ -186,7 +237,9 @@ def refresh_materialized_views(conn: Any, cur: Any) -> None:
     cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
     conn.commit()
     cur.execute("ANALYZE mv_donor_profile")
-    logger.info(f"  mv_donor_profile: {_count(cur, 'mv_donor_profile'):,} rows ({time.time()-start:.1f}s)")
+    logger.info(
+        f"  mv_donor_profile: {_count(cur, 'mv_donor_profile'):,} rows ({time.time() - start:.1f}s)"
+    )
 
 
 def _check_reader(cur: Any) -> None:
@@ -240,33 +293,33 @@ def grant_read_access(conn: Any, cur: Any) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load FEC data into normalized PostgreSQL")
-    parser.add_argument("--first-run", action="store_true",
-                        help="First time on a machine: create roles + database + extensions, then load (needs POSTGRES_PASSWORD)")
-    parser.add_argument("--reset", action="store_true", help="Drop all objects & reload")
+    parser = argparse.ArgumentParser(
+        description="Load FEC data into normalized PostgreSQL"
+    )
+    parser.add_argument(
+        "--reset", action="store_true", help="Drop all objects & reload"
+    )
     args = parser.parse_args()
 
-    if args.first_run == args.reset:
-        parser.error("choose exactly one of --first-run / --reset")
+    if not args.reset:
+        parser.error("use --reset to reload the database")
 
     try:
         df, employer_locations = _read_input()
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(f"ERROR: {error}") from error
 
-    if args.first_run:
-        init_roles()
-
     conn = connect()
     conn.autocommit = False
     cur = conn.cursor()
 
-    logger.info(f"\n{'='*60}")
+    logger.info(f"\n{'=' * 60}")
     logger.info("  FEC Database v1.2 -- Normalized Schema")
     logger.info(f"  Database: {PG['dbname']}")
-    logger.info(f"{'='*60}")
+    logger.info(f"{'=' * 60}")
 
     _check_reader(cur)
+    verify_extensions(cur)
 
     total_start = time.time()
 
@@ -298,10 +351,10 @@ def main() -> None:
     elapsed = time.time() - total_start
     minutes, seconds = divmod(int(elapsed), 60)
 
-    logger.info(f"\n{'='*60}")
+    logger.info(f"\n{'=' * 60}")
     show_stats(cur)
     logger.info(f"\n  Total time: {minutes}m {seconds}s")
-    logger.info(f"{'='*60}")
+    logger.info(f"{'=' * 60}")
 
     conn.close()
 

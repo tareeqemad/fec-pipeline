@@ -4,6 +4,8 @@ import pandas as pd
 from fec.cleaning.pipeline import identify_donors, standardize_donors
 from fec.cleaning.entity_classification import apply_name_corrections
 from fec.donor_match import canonicalize_donor_names
+from fec.donor_match.scoring import extract_generational_suffix
+from fec.config.data import INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS
 
 
 def _row(sub_id, name, first, last, city, state, zip5, street,
@@ -171,3 +173,100 @@ def test_joint_spouse_name_stays_separate():
 
     assert corrected.loc[1, 'contributor_name'] == 'BLECHER, LEEMIA'
     assert keys['701'] != keys['702']
+
+
+def _with_suffix(row, suffix):
+    row['_generational_suffix'] = suffix
+    return row
+
+
+def test_generation_suffix_is_read_from_both_name_positions():
+    assert extract_generational_suffix('LEVY JR, EDWARD') == 'JR'
+    assert extract_generational_suffix('LEVY, EDWARD JR.') == 'JR'
+    assert extract_generational_suffix('LEVY, EDWARD C, , SR.') == 'SR'
+    assert extract_generational_suffix('LEVY, EDWARD') == ''
+
+
+def test_generation_suffix_survives_until_identity_matching():
+    assert '_generational_suffix' in OUTPUT_COLUMNS
+    assert '_generational_suffix' in INTERNAL_OUTPUT_COLUMNS
+
+
+def test_jr_and_sr_never_merge_even_at_same_address():
+    rows = [
+        _with_suffix(_row(
+            '801', 'LEVY, EDWARD', 'EDWARD', 'LEVY',
+            'BIRMINGHAM', 'MI', '48009', '970 SHIRLEY RD',
+            employer='EDWARD C LEVY CO', occupation='CHAIRMAN',
+        ), 'JR'),
+        _with_suffix(_row(
+            '802', 'LEVY, EDWARD', 'EDWARD', 'LEVY',
+            'BIRMINGHAM', 'MI', '48009', '970 SHIRLEY RD',
+            employer='EDWARD C LEVY CO', occupation='CHAIRMAN',
+        ), 'SR'),
+        _with_suffix(_row(
+            '803', 'LEVY, EDWARD', 'EDWARD', 'LEVY',
+            'BIRMINGHAM', 'MI', '48009', '970 SHIRLEY RD',
+            employer='EDWARD C LEVY CO', occupation='CHAIRMAN',
+        ), ''),
+    ]
+
+    keys = _keys(_identify(rows))
+
+    assert keys['801'] != keys['802']
+    assert len(set(keys.values())) == 2
+
+
+def test_missing_suffix_needs_same_street_to_join_jr():
+    rows = [
+        _with_suffix(_row(
+            '811', 'DOE, JOHN', 'JOHN', 'DOE',
+            'BOSTON', 'MA', '02108', '1 MAIN ST',
+        ), 'JR'),
+        _with_suffix(_row(
+            '812', 'DOE, JOHN', 'JOHN', 'DOE',
+            'BOSTON', 'MA', '02108', '2 MAIN ST',
+        ), ''),
+    ]
+
+    keys = _keys(_identify(rows))
+
+    assert keys['811'] != keys['812']
+
+
+def test_missing_suffix_joins_jr_on_same_street():
+    rows = [
+        _with_suffix(_row(
+            '821', 'DOE, JOHN', 'JOHN', 'DOE',
+            'BOSTON', 'MA', '02108', '1 MAIN ST',
+        ), 'JR'),
+        _with_suffix(_row(
+            '822', 'DOE, JOHN', 'JOHN', 'DOE',
+            'BOSTON', 'MA', '02108', '1 MAIN ST',
+        ), ''),
+    ]
+
+    keys = _keys(_identify(rows))
+
+    assert keys['821'] == keys['822']
+
+
+def test_verified_barnett_helzberg_profiles_stay_together():
+    rows = [
+        _with_suffix(_row(
+            '831', 'HELZBERG, BARNETT C', 'BARNETT C', 'HELZBERG',
+            'KANSAS CITY', 'MO', '64111', '4520 MAIN ST',
+            employer='HELZBERG FOUNDATION', occupation='RETIRED',
+        ), 'JR'),
+        _with_suffix(_row(
+            '832', 'HELZBERG, BARNETT C', 'BARNETT C', 'HELZBERG',
+            'MISSION HILLS', 'KS', '66208', '5805 MISSION DR',
+            employer='RETIRED', occupation='RETIRED',
+        ), 'JR'),
+    ]
+    for row in rows:
+        row['occupation_category'] = 'RETIRED'
+
+    keys = _keys(_identify(rows))
+
+    assert keys['831'] == keys['832']

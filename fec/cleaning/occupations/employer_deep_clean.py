@@ -4,11 +4,11 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.config import MISSING_VALUES
+from fec.config.data import MISSING_VALUES
 from fec.config.constants import (
     OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS,
 )
-from fec.config.occupation_rules import (
+from fec.config.occupation_rules.rules import (
     EMPLOYER_TYPO_FIXES,
     HOMEMAKER_EMPLOYER_VALUES,
 )
@@ -17,7 +17,7 @@ _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
     r'CHAIRMAN|CHAIRPERSON|CHAIR|FOUNDER|CO-FOUNDER|PARTNER|PRINCIPAL|OWNER|'
     r'MANAGING DIRECTOR|EXECUTIVE DIRECTOR|DIRECTOR|MANAGER)\s*,\s*(?=\S)',
-    re.I,
+    re.IGNORECASE,
 )
 
 def _deep_clean_employer(df: pd.DataFrame) -> int:
@@ -45,7 +45,7 @@ def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> int:
         n_changed += int(numeric.sum())
         df.loc[numeric, 'contributor_employer'] = np.nan
 
-    email = emp.str.contains('@', na=False)
+    email = emp.str.contains('@', na=False, regex=False)
     if email.any():
         dun = email & emp.str.contains('DUN.*BRADSTREET', na=False, case=False)
         pure_email = email & ~dun

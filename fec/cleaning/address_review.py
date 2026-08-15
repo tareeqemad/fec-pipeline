@@ -1,4 +1,5 @@
 """Address hygiene beside clean_streets: safe mechanical text fixes are applied; anything needing a guess goes to the review reports."""
+
 import re
 from difflib import SequenceMatcher
 from itertools import combinations
@@ -14,17 +15,39 @@ CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
 
 # Bare trailing number -> unit. Excludes HWY/RTE so route numbers
 # ("HWY 9", "RTE 1") aren't mistaken for unit numbers.
-_SPLIT_TYPES = ("AVE", "BLVD", "ST", "RD", "DR", "LN", "CT", "WAY", "PL",
-                "TER", "CIR", "PKWY", "SQ", "TRL", "PLZ", "LOOP", "BROADWAY")
+_SPLIT_TYPES = (
+    "AVE",
+    "BLVD",
+    "ST",
+    "RD",
+    "DR",
+    "LN",
+    "CT",
+    "WAY",
+    "PL",
+    "TER",
+    "CIR",
+    "PKWY",
+    "SQ",
+    "TRL",
+    "PLZ",
+    "LOOP",
+    "BROADWAY",
+)
 _ORD_FLOOR_RE = re.compile(r"^(.+?)\s+(\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL))$")
-_TYPE_NUM_RE = re.compile(r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+(\d{1,5}[A-Z]?)$")
+_TYPE_NUM_RE = re.compile(
+    r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+(\d{1,5}[A-Z]?)$"
+)
 
 # "C/O <name>" forwarding prefix; the real street follows it
-_CO_RE = re.compile(r"^C\s*/\s*O\b\.?\s*", re.I)
+_CO_RE = re.compile(r"^C\s*/\s*O\b\.?\s*", re.IGNORECASE)
 
 # PO BOX / PMB: valid mail addresses with no precise physical point
-_PO_BOX_RE = re.compile(r"^P\.?\s*O\.?\s*BOX|^POST OFFICE BOX", re.I)
-_PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.I)
+_PO_BOX_RE = re.compile(
+    r"^P\.?\s*O\.?\s*BOX|^POST OFFICE BOX",
+    re.IGNORECASE,
+)
+_PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.IGNORECASE)
 
 # Street-type tokens: a street_1 with none of these (and no leading house number
 # or PO BOX) is likely an entity name, not a street. Deliberately BROADER than
@@ -40,11 +63,29 @@ _STREET_TYPES = (
 _STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(_STREET_TYPES) + r")\b")
 
 # street_2 that is a unit keyword with no number: incomplete (drop + flag)
-_UNIT_NO_NUM = re.compile(r"^(?:STE|SUITE|UNIT|APT|APARTMENT|FL|FLR|FLOOR|PH|RM|ROOM|BLDG|OFFICE|OFF|DEPT|#)\.?$", re.I)
+_UNIT_NO_NUM = re.compile(
+    r"^(?:STE|SUITE|UNIT|APT|APARTMENT|FL|FLR|FLOOR|PH|RM|ROOM|BLDG|OFFICE|OFF|DEPT|#)\.?$",
+    re.IGNORECASE,
+)
 
 # partial / truncated city tokens that are normally part of a longer name
-_PARTIAL_CITY = {"SANTA", "SAN", "LAKE", "FORT", "MOUNT", "MT", "NEW", "PORT",
-                 "LOS", "LAS", "EL", "WEST", "EAST", "NORTH", "SOUTH"}
+_PARTIAL_CITY = {
+    "SANTA",
+    "SAN",
+    "LAKE",
+    "FORT",
+    "MOUNT",
+    "MT",
+    "NEW",
+    "PORT",
+    "LOS",
+    "LAS",
+    "EL",
+    "WEST",
+    "EAST",
+    "NORTH",
+    "SOUTH",
+}
 
 
 def _fix_house_number(s):
@@ -77,7 +118,9 @@ def _strip_care_of(s):
     if not _CO_RE.match(text):
         return text
     rest = _CO_RE.sub("", text).strip()
-    match = re.search(r"(\d+\s+\S.*)$", rest)   # real address = from the first house number
+    match = re.search(
+        r"(\d+\s+\S.*)$", rest
+    )  # real address = from the first house number
     return match.group(1).strip() if match else text
 
 
@@ -96,15 +139,22 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     # trailing comma / whitespace on any field (city/state can carry a stray "TEMPLE,")
     for column in (S1, CITY, STATE):
         mask = df[column].notna() & (df[column].astype(str).str.strip() != "")
-        df.loc[mask, column] = df.loc[mask, column].astype(str).str.replace(r"[,\s]+$", "", regex=True).str.strip()
+        df.loc[mask, column] = (
+            df.loc[mask, column]
+            .astype(str)
+            .str.replace(r"[,\s]+$", "", regex=True)
+            .str.strip()
+        )
     counts["house_number"] = int((before.fillna("") != df[S1].fillna("")).sum())
 
     # split a trailing floor / bare unit-number into an empty street_2
-    df[S2] = df[S2].astype(object)  # an all-NaN column is float64, which rejects strings
+    df[S2] = df[S2].astype(
+        object
+    )  # an all-NaN column is float64, which rejects strings
     s1 = df[S1].fillna("").astype(str)
     s2_blank = df[S2].isna() | (df[S2].astype(str).str.strip() == "")
-    floor = s1.str.extract(_ORD_FLOOR_RE)   # "... 28TH FLOOR" -> unit kept as-is
-    num = s1.str.extract(_TYPE_NUM_RE)      # "... DR 601"     -> unit prefixed "#"
+    floor = s1.str.extract(_ORD_FLOOR_RE)  # "... 28TH FLOOR" -> unit kept as-is
+    num = s1.str.extract(_TYPE_NUM_RE)  # "... DR 601"     -> unit prefixed "#"
     is_floor = floor[0].notna()
     base = floor[0].where(is_floor, num[0])
     unit = floor[1].where(is_floor, "# " + num[1].fillna(""))
@@ -118,9 +168,20 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
-    keep = [column for column in (
-        "sub_id", "donor_key", "contributor_name", S1, S2, CITY, STATE, ZIP,
-    ) if column in df.columns]
+    keep = [
+        column
+        for column in (
+            "sub_id",
+            "donor_key",
+            "contributor_name",
+            S1,
+            S2,
+            CITY,
+            STATE,
+            ZIP,
+        )
+        if column in df.columns
+    ]
     out = df.loc[mask, keep].copy()
     out.insert(0, "review_reason", reason)
     return out
@@ -172,93 +233,114 @@ def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def build_address_reports(df: pd.DataFrame, out_dir: str | None) -> tuple[pd.DataFrame, dict]:
-    """Detection-only pass (except that a clearly-bad street_2 is emptied); writes address_manual_review.csv and address_regeocode_suspects.csv, returns (df, counts)."""
-    counts = {"manual_review": 0, "regeocode": 0, "street2_emptied": 0}
+def _append_report(reports, df, mask, reason) -> None:
+    if mask.any():
+        reports.append(_df_subset(df, mask, reason))
 
+
+def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
+    reports = []
+    s2_upper = s2.str.strip().str.upper()
+    incomplete = s2_upper.str.match(_UNIT_NO_NUM)
+    tokens = s2_upper.str.split()
+    is_state_abbrev = (
+        tokens.str.len().eq(2)
+        & tokens.str[1].isin(US_STATES)
+        & ~s2_upper.str.contains(r"\d")
+    )
+    bad2 = incomplete | is_state_abbrev
+    _append_report(reports, df, incomplete, "street_2 unit keyword without a number")
+    _append_report(
+        reports,
+        df,
+        is_state_abbrev,
+        "street_2 looks like a state/city abbreviation",
+    )
+    if bad2.any():
+        df.loc[bad2, S2] = np.nan
+    return reports, int(bad2.sum())
+
+
+def _review_street1(
+    df: pd.DataFrame,
+    s1: pd.Series,
+    city: pd.Series,
+    state: pd.Series,
+    zips: pd.Series,
+) -> tuple[list, list]:
+    review, regeocode = [], []
+    empty1 = s1.str.strip() == ""
+    has1 = ~empty1
+    starts_num = s1.str.match(r"^\d")
+    is_pobox = s1.str.match(_PO_BOX_RE)
+    is_pmb = s1.str.match(_PMB_RE)
+    has_type = s1.str.contains(_STREET_TYPE_RE)
+
+    descriptive = (
+        s1.str.contains(r"\(")
+        | s1.str.contains(r"\bAND\b")
+        | s1.str.contains("FORMERLY", regex=False)
+    )
+    care_of = s1.str.match(_CO_RE)
+    entity = (
+        has1 & ~starts_num & ~is_pobox & ~is_pmb & ~has_type & ~descriptive & ~care_of
+    )
+    bad_state = has1 & (~state.str.upper().isin(US_STATES))
+    empty_zip = (zips.str.strip() == "") & has1
+    partial = has1 & city.str.upper().str.strip().isin(_PARTIAL_CITY)
+
+    _append_report(regeocode, df, empty1, "missing street_1 (incomplete record)")
+    _append_report(regeocode, df, is_pobox, "PO Box (no precise physical point)")
+    _append_report(
+        regeocode, df, is_pmb, "PMB private mailbox (no precise physical point)"
+    )
+    _append_report(regeocode, df, empty_zip, "missing ZIP (re-extract later)")
+    _append_report(regeocode, df, partial, "partial / truncated city")
+
+    _append_report(review, df, descriptive, "descriptive / intersection address")
+    _append_report(review, df, care_of, "care-of name (no street to recover)")
+    _append_report(review, df, entity, "entity / non-address in street_1")
+    _append_report(review, df, bad_state, "missing / non-US state (out of schema)")
+    return review, regeocode
+
+
+def _combine_reports(reports: list) -> pd.DataFrame:
+    return pd.concat(reports, ignore_index=True) if reports else pd.DataFrame()
+
+
+def build_address_reports(
+    df: pd.DataFrame, out_dir: str | None
+) -> tuple[pd.DataFrame, dict]:
+    """Flag questionable addresses and empty clearly bad street_2 values."""
     s1 = df[S1].fillna("").astype(str)
     s2 = df[S2].fillna("").astype(str)
     city = df[CITY].fillna("").astype(str)
     state = df[STATE].fillna("").astype(str)
     zips = df[ZIP].fillna("").astype(str)
 
-    review, regeocode = [], []
-
+    review = []
     spelling_variants = _near_street_variant_review(df)
     if not spelling_variants.empty:
         review.append(spelling_variants)
 
-    # a street_2 that is a bare unit keyword ("STE") or a state/city
-    # abbreviation ("POTO MD") is certainly wrong: empty it and flag the row
-    s2_upper = s2.str.strip().str.upper()
-    incomplete = s2_upper.str.match(_UNIT_NO_NUM)
-    tokens = s2_upper.str.split()
-    is_state_abbrev = (tokens.str.len().eq(2)
-                       & tokens.str[1].isin(US_STATES)
-                       & ~s2_upper.str.contains(r"\d"))
-    bad2 = incomplete | is_state_abbrev
-    if bad2.any():
-        review.append(_df_subset(df, incomplete, "street_2 unit keyword without a number"))
-        review.append(_df_subset(df, is_state_abbrev, "street_2 looks like a state/city abbreviation"))
-        df.loc[bad2, S2] = np.nan
-        counts["street2_emptied"] = int(bad2.sum())
+    street2_review, street2_emptied = _review_street2(df, s2)
+    street1_review, regeocode = _review_street1(df, s1, city, state, zips)
+    review.extend(street2_review)
+    review.extend(street1_review)
 
-    # empty street_1: incomplete record
-    empty1 = (s1.str.strip() == "")
-    if empty1.any():
-        regeocode.append(_df_subset(df, empty1, "missing street_1 (incomplete record)"))
-
-    has1 = ~empty1
-    starts_num = s1.str.match(r"^\d")
-    is_pobox = s1.str.match(_PO_BOX_RE)
-    # PMB with no street in front behaves like a PO box: valid mail address, ZIP-level geocode only
-    is_pmb = s1.str.match(_PMB_RE)
-    has_type = s1.str.contains(_STREET_TYPE_RE)
-
-    # PO BOX / PMB are valid but have no precise point: regeocode, not manual review
-    if is_pobox.any():
-        regeocode.append(_df_subset(df, is_pobox, "PO Box (no precise physical point)"))
-    if is_pmb.any():
-        regeocode.append(_df_subset(df, is_pmb, "PMB private mailbox (no precise physical point)"))
-
-    # descriptive / intersection addresses (parens, ' AND ', FORMERLY)
-    descriptive = s1.str.contains(r"\(") | s1.str.contains(r"\bAND\b") | s1.str.contains(r"FORMERLY")
-    if descriptive.any():
-        review.append(_df_subset(df, descriptive, "descriptive / intersection address"))
-
-    # care-of name with no street to recover (C/O lines that had an address were recovered upstream)
-    care_of = s1.str.match(_CO_RE)
-    if care_of.any():
-        review.append(_df_subset(df, care_of, "care-of name (no street to recover)"))
-
-    # entity name instead of a street address
-    entity = has1 & ~starts_num & ~is_pobox & ~is_pmb & ~has_type & ~descriptive & ~care_of
-    if entity.any():
-        review.append(_df_subset(df, entity, "entity / non-address in street_1"))
-
-    # out-of-schema: no US state
-    bad_state = has1 & (~state.str.upper().isin(US_STATES))
-    if bad_state.any():
-        review.append(_df_subset(df, bad_state, "missing / non-US state (out of schema)"))
-
-    # empty ZIP, re-extract later (coords come from the later geocode step)
-    empty_zip = (zips.str.strip() == "") & has1
-    if empty_zip.any():
-        regeocode.append(_df_subset(df, empty_zip, "missing ZIP (re-extract later)"))
-
-    # partial / truncated city (e.g. lone 'SANTA')
-    partial = has1 & city.str.upper().str.strip().isin(_PARTIAL_CITY)
-    if partial.any():
-        regeocode.append(_df_subset(df, partial, "partial / truncated city"))
-
-    review_df = pd.concat(review, ignore_index=True) if review else pd.DataFrame()
-    regeocode_df = pd.concat(regeocode, ignore_index=True) if regeocode else pd.DataFrame()
-    counts["manual_review"] = len(review_df)
-    counts["regeocode"] = len(regeocode_df)
+    review_df = _combine_reports(review)
+    regeocode_df = _combine_reports(regeocode)
+    counts = {
+        "manual_review": len(review_df),
+        "regeocode": len(regeocode_df),
+        "street2_emptied": street2_emptied,
+    }
 
     if out_dir:
         out_path = Path(out_dir)
         review_df.to_csv(out_path / "address_manual_review.csv", index=False, na_rep="")
-        regeocode_df.to_csv(out_path / "address_regeocode_suspects.csv", index=False, na_rep="")
+        regeocode_df.to_csv(
+            out_path / "address_regeocode_suspects.csv", index=False, na_rep=""
+        )
 
     return df, counts

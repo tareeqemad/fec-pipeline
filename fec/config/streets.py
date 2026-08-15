@@ -5,7 +5,10 @@ from fec.config.geography import US_STATES
 
 
 # PO Box in any format
-POBOX_RE = re.compile(r'\bP\.?\s*O\.?\s*BOX\b|\bPOST\s+OFFICE\s+BOX\b', re.I)
+POBOX_RE = re.compile(
+    r'\bP\.?\s*O\.?\s*BOX\b|\bPOST\s+OFFICE\s+BOX\b',
+    re.IGNORECASE,
+)
 
 # Unit info at end of street_1 (APT 5, STE 200, UNIT B, ...)
 UNIT_EXTRACT = re.compile(
@@ -15,7 +18,7 @@ UNIT_EXTRACT = re.compile(
     r'\.?\s+[\w\-\/\.]+\s*'
     r'|(?:FL|FLR)\.?\s+\d{1,2}\s*'  # FL/FLR only with 1-2 digit floor (avoids FL=Florida+ZIP)
     r')$',
-    re.I,
+    re.IGNORECASE,
 )
 
 # Hash units at end of street_1 (#5A, # 200, BLVD#300, ...)
@@ -31,8 +34,8 @@ STATE_IN_CITY = re.compile(r'\s*,?\s+(' + '|'.join(sorted(US_STATES)) + r')\s*$'
 def _direction_rule(word: str, abbr: str, prefix: bool = True) -> tuple:
     """Build a (regex, replacement) pair for direction abbreviation."""
     if prefix:
-        return (re.compile(rf'^{word}\b\s+', re.I), f'{abbr} ')
-    return (re.compile(rf'\s+{word}\s*$', re.I), f' {abbr}')
+        return (re.compile(rf'^{word}\b\s+', re.IGNORECASE), f'{abbr} ')
+    return (re.compile(rf'\s+{word}\s*$', re.IGNORECASE), f' {abbr}')
 
 
 _DIRECTIONS = [
@@ -43,7 +46,7 @@ _DIRECTIONS = [
 
 # Direction words after a house number ("123 NORTH MAIN ST")
 DIR_MID = [
-    (re.compile(rf'(\d\s+){word}\b', re.I), rf'\g<1>{abbr}')
+    (re.compile(rf'(\d\s+){word}\b', re.IGNORECASE), rf'\g<1>{abbr}')
     for word, abbr in _DIRECTIONS
 ]
 
@@ -59,7 +62,7 @@ DIR_SUFFIX = [
 # street type abbreviations
 
 STREET_TYPES = [
-    (re.compile(rf'\b{full}\b', re.I), abbr)
+    (re.compile(rf'\b{full}\b', re.IGNORECASE), abbr)
     for full, abbr in [
         ('STREET', 'ST'), ('AVENUE', 'AVE'), ('ROAD', 'RD'),
         ('BOULEVARD', 'BLVD'), ('DRIVE', 'DR'), ('LANE', 'LN'),
@@ -75,7 +78,7 @@ STREET_TYPES = [
 # unit abbreviations
 
 UNIT_RULES = [
-    (re.compile(rf'^{pattern}', re.I), abbr)
+    (re.compile(rf'^{pattern}', re.IGNORECASE), abbr)
     for pattern, abbr in [
         (r'SUITE\b', 'STE'), (r'STE\.\s*', 'STE '),
         (r'APARTMENT\b', 'APT'), (r'APT\.\s*', 'APT '),
@@ -91,5 +94,5 @@ UNIT_RULES = [
 # Human-verified FEC street typos. These are exact word replacements, not
 # fuzzy matching: a near-looking street can still be a real different place.
 STREET_TYPO_RULES = [
-    (re.compile(r'\bOLYMIC\b', re.I), 'OLYMPIC'),
+    (re.compile(r'\bOLYMIC\b', re.IGNORECASE), 'OLYMPIC'),
 ]

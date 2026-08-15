@@ -120,7 +120,10 @@ _SLASH_SECTOR_ONLY = frozenset({
     'REAL ESTATE AGENT', 'DEVELOPER R E', 'RETIRED LAWYER',
 })
 
-_SLASH_ADMIN_PREFIX_RE = re.compile(r'^(LETTER SENT|REQUESTED)\b', re.I)
+_SLASH_ADMIN_PREFIX_RE = re.compile(
+    r'^(LETTER SENT|REQUESTED)\b',
+    re.IGNORECASE,
+)
 
 _JUNK_EMPLOYER_RE = re.compile(JUNK_EMPLOYER_RE)
 _WS_RE = re.compile(r'\s+')

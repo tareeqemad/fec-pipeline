@@ -1,13 +1,16 @@
 """Employer geocoding covers every published location."""
 
 import json
+import sys
 
 import pandas as pd
 
+import build_employers
 import geocode
+from fec import io
 from fec.geocoding import GeoCache
-from fec.geocoding.engines import NominatimUnavailable
 from fec.geocoding import pipeline as geocoding_pipeline
+from fec.geocoding.engines import NominatimUnavailable
 
 
 def test_unassigned_office_is_included(tmp_path):
@@ -76,6 +79,27 @@ def test_employer_geocode_can_be_applied_twice(tmp_path):
 
     assert result.loc[0, "employer_latitude"] == 40.1
     assert result.loc[0, "employer_geocode_level"] == "nominatim"
+
+
+def test_employer_mode_builds_location_file(tmp_path, monkeypatch):
+    csv_path = tmp_path / "contributions_cleaned.csv"
+    rows = pd.DataFrame([{"employer_address": "1 MAIN ST"}])
+    calls = []
+
+    monkeypatch.setattr(sys, "argv", ["geocode.py", "--employer-only"])
+    monkeypatch.setattr(geocode, "_find_csv", lambda: str(csv_path))
+    monkeypatch.setattr(io, "read_pipeline_csv", lambda _path: rows)
+    monkeypatch.setattr(
+        geocode,
+        "_geocode_employers",
+        lambda df, _cache, _data_dir: (df, True),
+    )
+    monkeypatch.setattr(geocode, "_write_output", lambda *_args: calls.append("write"))
+    monkeypatch.setattr(build_employers, "build", lambda: calls.append("build"))
+
+    geocode.main()
+
+    assert calls == ["write", "build"]
 
 
 def test_manual_coordinate_survives_rerun(tmp_path, monkeypatch):

@@ -86,9 +86,25 @@ def test_display_name_converges_on_synonyms():
     assert normalize_employer_display_name('IBM') == 'IBM CORP'
 
 
+def test_new_employer_variants_use_known_companies():
+    expected = {
+        'CHIEFTAIN CAPITAL MANAGEMENT INC': 'CHIEFTAIN CAPITAL MANAGEMENT',
+        'ELLIOTT INVESTMENT MANAGEMENT': 'ELLIOTT INVESTMENT MANAGEMENT LP',
+        'PIERPOINT CAPITAL MANAGEMENT': 'PIERPOINT',
+        'FISHMAN, BLOCK, DIAMOND, BY CERITY PAR':
+            'FISHMAN BLOCK + DIAMOND BY CERITY PARTNERS',
+    }
+    for variant, canonical in expected.items():
+        assert normalize_employer_display_name(variant) == canonical
+
+
 def test_jll_partners_is_not_jones_lang_lasalle():
     assert normalize_employer_display_name('JONES LANG LASALLE') == 'JLL'
     assert normalize_employer_display_name('JLL PARTNERS') == 'JLL PARTNERS'
+
+
+def test_maven_ventures_is_not_collapsed_to_maven():
+    assert normalize_employer_display_name('MAVEN VENTURES') == 'MAVEN VENTURES'
 
 
 def test_display_name_retired_prefix():

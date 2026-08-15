@@ -85,7 +85,7 @@ def _fix_numeric_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 def _fix_email_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """R. Final pass: email in employer -> NaN."""
     emp = df['contributor_employer'].fillna('')
-    mask = is_indiv & emp.str.contains('@', na=False)
+    mask = is_indiv & emp.str.contains('@', na=False, regex=False)
     return _null_employer_where(df, mask)
 
 
@@ -177,3 +177,14 @@ def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
             orig_null = mask & df['contributor_employer_original'].isna()
             df.loc[orig_null, 'contributor_employer_original'] = emp_col[orig_null]
     return n_fixed
+
+
+def _fix_choose_prefix(df: pd.DataFrame) -> int:
+    """Remove the web-form --CHOOSE-- prefix from employer names."""
+    employer = df['contributor_employer'].fillna('')
+    mask = employer.str.startswith('--CHOOSE--')
+    changed = int(mask.sum())
+    if changed:
+        cleaned = employer[mask].str.removeprefix('--CHOOSE--').str.strip()
+        df.loc[mask, 'contributor_employer'] = cleaned.replace({'': np.nan})
+    return changed

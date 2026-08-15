@@ -1,5 +1,5 @@
 {
-  "rows": 214428,
+  "rows": 214574,
   "employer_abbreviations": {
     "distinct_employers_flagged": 0,
     "by_token": {}
@@ -78,11 +78,11 @@
   },
   "uncategorized_occupations": {
     "distinct": 322,
-    "rows": 350,
+    "rows": 349,
     "examples": [
       {
         "value": "TRUSTEE",
-        "rows": 7
+        "rows": 6
       },
       {
         "value": "STRATEGY",

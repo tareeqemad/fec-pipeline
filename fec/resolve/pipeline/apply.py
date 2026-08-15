@@ -1,5 +1,7 @@
 """Apply resolved addresses to DataFrame columns."""
 
+from dataclasses import dataclass
+
 import pandas as pd
 
 from fec.cleaning.employer_synonyms import canonical_key
@@ -16,29 +18,43 @@ from .quality_fixes import (
 )
 
 
+@dataclass(frozen=True)
+class ResolveContext:
+    previous_cache: object
+    address_lookup: dict
+    committee_cache: object
+
+
 def _address_aliases(addr_cache) -> dict:
-    """Build exact and canonical cache aliases."""
+    """Build aliases from publishable cache entries."""
     entries = getattr(addr_cache, "data", addr_cache)
-    return address_cache_lookup(entries)
+    return address_cache_lookup(entries, publishable_only=True)
 
 
-def apply_results(df: pd.DataFrame, prev_cache, addr_cache,
-                  comm_cache) -> pd.DataFrame:
+def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache) -> pd.DataFrame:
     """Write resolved addresses to DataFrame columns."""
     prior_previous = df.get("previous_employer")
     if prior_previous is not None:
         prior_previous = prior_previous.copy()
 
     cols = {
-        "employer_address": [], "employer_city": [],
-        "employer_state": [], "employer_zip": [],
-        "resolve_method": [], "resolve_confidence": [],
-        "employer_status": [], "previous_employer": [],
+        "employer_address": [],
+        "employer_city": [],
+        "employer_state": [],
+        "employer_zip": [],
+        "resolve_method": [],
+        "resolve_confidence": [],
+        "employer_status": [],
+        "previous_employer": [],
     }
 
-    address_lookup = _address_aliases(addr_cache)
+    context = ResolveContext(
+        previous_cache=prev_cache,
+        address_lookup=_address_aliases(addr_cache),
+        committee_cache=comm_cache,
+    )
     for _, row in df.iterrows():
-        result = _resolve_row(row, prev_cache, address_lookup, comm_cache)
+        result = _resolve_row(row, context)
         for column in cols:
             cols[column].append(result.get(column, ""))
 
@@ -54,7 +70,8 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache,
 
 
 def _preserve_previous_employer_display(
-    df: pd.DataFrame, prior_previous: pd.Series | None,
+    df: pd.DataFrame,
+    prior_previous: pd.Series | None,
 ) -> None:
     """Keep build_employers' spelling when resolve found the same company.
 
@@ -73,9 +90,16 @@ def _preserve_previous_employer_display(
 
 
 def _result(
-    status: str, entry: dict | None = None, *, method: str = "skip",
-    confidence: str = "NONE", address: str = "", city: str = "",
-    state: str = "", zip_code: str = "", previous: str = "",
+    status: str,
+    entry: dict | None = None,
+    *,
+    method: str = "skip",
+    confidence: str = "NONE",
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+    previous: str = "",
     method_prefix: str = "",
 ) -> dict:
     """Return the complete, shared result shape."""
@@ -93,15 +117,23 @@ def _result(
 
 
 def _own_address(
-    row: pd.Series, state: str, status: str, method: str, confidence: str,
+    row: pd.Series,
+    state: str,
+    status: str,
+    method: str,
+    confidence: str,
 ) -> dict | None:
     """Return the donor/entity address in employer-result form, when present."""
     street = _s(row.get("contributor_street_1"))
     if not street:
         return None
     return _result(
-        status, method=method, confidence=confidence, address=street,
-        city=_s(row.get("contributor_city")), state=state,
+        status,
+        method=method,
+        confidence=confidence,
+        address=street,
+        city=_s(row.get("contributor_city")),
+        state=state,
         zip_code=_s(row.get("contributor_zip")),
     )
 
@@ -129,101 +161,110 @@ def _cached_address(
     return None
 
 
-def _resolve_row(row: pd.Series, prev_cache, addr_cache, comm_cache) -> dict:
+def _resolve_committee(
+    row: pd.Series, context: ResolveContext, state: str
+) -> dict:
+    name = str(row.get("contributor_name", ""))
+    cached = context.committee_cache.get(f"{name}|{state}")
+    if cached and cached.get("employer_address"):
+        return _result("committee", cached, method="fec_api", state=state)
+    return _own_address(
+        row, state, "committee", "committee_own_address", "LOW"
+    ) or _result("committee")
+
+
+def _resolve_active(
+    employer: str,
+    state: str,
+    zip_code: str,
+    context: ResolveContext,
+) -> dict:
+    cached = _cached_address(
+        context.address_lookup,
+        (employer.upper(),),
+        zip_code,
+        state,
+    )
+    if not cached:
+        return _result("active", method="pending")
+    prefix = "" if cached.get("is_primary") else "nearest_"
+    return _result("active", cached, method="ai_openai", method_prefix=prefix)
+
+
+def _display_previous_employer(
+    prev_name: str, prev_entry: dict, donor_name: str
+) -> str:
+    sources = (
+        prev_entry.get("employer_source", ""),
+        prev_entry.get("employer", ""),
+        prev_entry.get("employer_normalized", ""),
+    )
+    for source in sources:
+        displayed = preserve_own_named_legal_employer(prev_name, source, donor_name)
+        if displayed:
+            return displayed
+    return prev_name
+
+
+def _resolve_retired(
+    row: pd.Series,
+    context: ResolveContext,
+    state: str,
+    zip_code: str,
+) -> dict:
+    prev_entry = context.previous_cache.get(_prev_key(row.get("donor_key", "")))
+    prev_name, address_keys = _previous_employer_identity(prev_entry)
+    if not prev_name:
+        return _result("retired")
+
+    prev_name = _display_previous_employer(
+        prev_name,
+        prev_entry,
+        row.get("contributor_name", ""),
+    )
+    legal_key = prev_name.strip().upper()
+    address_keys = (legal_key, *(key for key in address_keys if key != legal_key))
+    cached = _cached_address(context.address_lookup, address_keys, zip_code, state)
+    if not cached:
+        return _result("retired", method="pending_address", previous=prev_name)
+
+    location_prefix = "" if cached.get("is_primary") else "nearest_"
+    method_prefix = f"{prev_entry.get('method', 'cross_record')}+{location_prefix}"
+    return _result(
+        "retired",
+        cached,
+        method="ai_openai",
+        method_prefix=method_prefix,
+        previous=prev_name,
+    )
+
+
+def _resolve_row(row: pd.Series, context: ResolveContext) -> dict:
     """Resolve one row."""
     entity = row.get("entity_type", "")
-    emp = _s(row.get("contributor_employer")).strip()
-    emp_upper = emp.upper()
     state = _s(row.get("contributor_state")).strip()
-    zip_code = _s(row.get("contributor_zip")).strip()
-
     if entity == "COMMITTEE/PAC":
-        name = str(row.get("contributor_name", ""))
-        cached = comm_cache.get(f"{name}|{state}")
-        if cached and cached.get("employer_address"):
-            return _result("committee", cached, method="fec_api", state=state)
-        return (
-            _own_address(
-                row, state, "committee", "committee_own_address", "LOW",
-            )
-            or _result("committee")
-        )
-
-    # An org IS the entity (its address is the donor address) - no employer lookup.
+        return _resolve_committee(row, context, state)
     if entity == "ORGANIZATION":
         return _result("organization")
 
+    employer = _s(row.get("contributor_employer")).strip()
+    zip_code = _s(row.get("contributor_zip")).strip()
     status = classify_employer_status(
-        emp,
+        employer,
         row.get("contributor_occupation"),
         row.get("occupation_category"),
     )
-
     if status == "active":
-        cached = _cached_address(
-            addr_cache, (emp_upper,), zip_code, state,
-        )
-        if cached:
-            prefix = "" if cached.get("is_primary") else "nearest_"
-            return _result(
-                "active", cached, method="ai_openai", method_prefix=prefix,
-            )
-        return _result("active", method="pending")
-
+        return _resolve_active(employer, state, zip_code, context)
     if status == "retired":
-        prev_key = _prev_key(row.get("donor_key", ""))
-        prev_entry = prev_cache.get(prev_key)
-        prev_name, address_keys = _previous_employer_identity(prev_entry)
-        if not prev_name:
-            return _result("retired")
-
-        # Normal matching strips legal suffixes. For an own-named practice,
-        # the source suffix is what proves this is a company, not the donor.
-        donor_name = row.get("contributor_name", "")
-        for source in (
-            prev_entry.get("employer_source", ""),
-            prev_entry.get("employer", ""),
-            prev_entry.get("employer_normalized", ""),
-        ):
-            displayed = preserve_own_named_legal_employer(
-                prev_name, source, donor_name,
-            )
-            if displayed:
-                prev_name = displayed
-                break
-
-        # An own-named legal company must prefer its suffix-bearing cache key.
-        # The bare personal-name key may point to a residence or legacy guess.
-        legal_key = prev_name.strip().upper()
-        address_keys = (
-            legal_key,
-            *(key for key in address_keys if key != legal_key),
-        )
-
-        cached = _cached_address(
-            addr_cache, address_keys, zip_code, state,
-        )
-        if cached:
-            location_prefix = "" if cached.get("is_primary") else "nearest_"
-            return _result(
-                "retired", cached, method="ai_openai",
-                method_prefix=(
-                    f"{prev_entry.get('method', 'cross_record')}+"
-                    f"{location_prefix}"
-                ),
-                previous=prev_name,
-            )
-        return _result(
-            "retired", method="pending_address", previous=prev_name,
-        )
-
+        return _resolve_retired(row, context, state, zip_code)
     if status == "self_employed":
-        return (
-            _own_address(
-                row, state, "self_employed",
-                "self_employed_own_address", "HIGH",
-            )
-            or _result("self_employed")
-        )
-
+        return _own_address(
+            row,
+            state,
+            "self_employed",
+            "self_employed_own_address",
+            "HIGH",
+        ) or _result("self_employed")
     return _result(status)

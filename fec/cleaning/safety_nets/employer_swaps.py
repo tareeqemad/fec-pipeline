@@ -11,7 +11,7 @@ from fec.config.constants import (
     SKIP_EMPLOYERS, SKIP_OCCUPATIONS, OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER,
     JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE,
 )
-from fec.config.occupation_rules import (
+from fec.config.occupation_rules.rules import (
     KNOWN_COMPANY_OCCUPATIONS,
     OCCUPATION_CANONICAL,
 )

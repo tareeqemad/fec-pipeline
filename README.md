@@ -16,13 +16,12 @@ for the column-level data contract.
 ```bash
 # Stage by stage — order matters (employer geocoding needs
 # resolve --apply to have written the employer_* columns first)
-python pull.py                 # 1. Pull new FEC data (3 tracked committees)
+python pull.py C00797670       # 1. Pull one committee's current-period updates
 python clean.py                # 2. Clean + de-duplicate + canonicalize
 python geocode.py              # 3. Geocode donor addresses
 python resolve.py --apply      # 4. Resolve employer locations (AI-assisted)
-python geocode.py --employer-only   # 5. Geocode all known employer locations
-python build_employers.py      # 6. Build employer_locations.csv
-python loader.py --reset       # 7. Load into PostgreSQL
+python geocode.py --employer-only   # 5. Geocode and build employer locations
+python loader.py --reset       # 6. Load into PostgreSQL
 ```
 
 Employer resolution and geocoding cache their external lookups. Cleaning always
@@ -49,6 +48,24 @@ rebuilds the complete output so every row uses the same rules.
 | C00710848 | DMFI (Democratic Majority for Israel) | PAC |
 | C00799031 | UDP (United Democracy Project) | Super PAC |
 
+### Pulling FEC data
+
+Add the committee to `data/database/committees.csv` before pulling it. Every
+command accepts exactly one registered committee ID:
+
+```bash
+python pull.py C00797670                    # Update the current period
+python pull.py C00797670 --period 2024      # Update a selected period
+python pull.py C00797670 --period 2024 --full  # Recheck the complete period
+```
+
+The normal pull finds the latest contribution date for that committee and
+period, requests from the same date again, and skips existing `sub_id` values.
+Starting from the same date catches additional filings reported on that day.
+If the committee has no rows for the selected period, the complete period is
+pulled automatically. Use `--full` only to recheck an existing period from its
+beginning; existing filings are still skipped by `sub_id`.
+
 ## Project structure
 
 ```
@@ -57,7 +74,7 @@ fec-pipeline/
 ├── clean.py                     # Cleaning + donor matching + canonicalization
 ├── geocode.py                   # Lat/lng geocoding
 ├── resolve.py                   # Employer address resolution (--apply writes the CSV)
-├── build_employers.py           # Build employer_locations.csv
+├── build_employers.py           # Employer-location builder used by geocode.py
 ├── loader.py                    # PostgreSQL loader
 │
 ├── fec/
@@ -71,8 +88,8 @@ fec-pipeline/
 │   │   ├── employer_synonyms/   # Name mappings + abbreviation expansion
 │   │   ├── address_review.py    # Safe address fixes
 │   │   ├── address_reports.py   # Manual-review + regeocode-suspect reports
-│   │   ├── quality_scan/        # Proactive issue scanner
-│   │   └── quality/ + audit.py
+│   │   ├── quality_scan.py       # Proactive issue scanner
+│   │   └── quality.py + audit.py
 │   ├── database/
 │   │   ├── schema.sql           # Schema v1.2 (15 tables, 10 views, 1 MV)
 │   │   ├── loader/              # Loader + schema-integrity verification
@@ -83,7 +100,7 @@ fec-pipeline/
 │   └── io.py                    # CSV I/O that preserves the literal "NULL" surname
 │
 ├── DATA_DICTIONARY.md           # The column-level data contract
-├── tests/                       # Unit + live-DB tests, CI configs
+├── tests/                       # Unit tests
 └── data/                        # Input/output CSVs, caches, reports, overrides
 ```
 
@@ -94,12 +111,17 @@ fec-pipeline/
 1. `clean_records()` classifies entities and normalizes names, addresses,
    employers, and occupations.
 2. `identify_donors()` matches identities, assigns `donor_key`, and applies
-   curated merge and no-merge rules.
+   reviewed identity rules.
 3. `standardize_donors()` repairs fields from each donor's history and chooses
    canonical names, employers, occupations, and addresses.
 
 No contribution rows are aggregated or removed by donor matching. Each FEC
 filing remains one output row.
+
+Generational suffixes are identity evidence even though they are omitted from
+the cleaned display name. Two explicit suffixes such as `JR` and `SR` never
+merge. A suffixed filing may join an otherwise identical filing with no suffix
+only when both report the same street; ZIP or employer alone is not enough.
 
 ### Donor matching
 
@@ -115,10 +137,21 @@ Signals are scored per candidate pair; pairs at or above threshold 50 merge:
 | Middle-name conflict | −30 |
 | Common name (>10) | −15 |
 
-A bad merge is vetoed by adding the pair to
-`data/database/donor_no_merge.csv`, which the matcher reads as a hard
-do-not-merge blocklist on the next run. Curated same-person pairs live in
-`data/database/donor_dedup_merges.csv`.
+Every reviewed identity decision lives in
+`data/database/donor_identity_rules.csv`:
+
+| Action | Meaning |
+|--------|---------|
+| `merge_keys` | Keep `donor_key_a` and merge `donor_key_b` into it |
+| `merge_names` | Force all names in the same `group` into one identity |
+| `separate` | Never merge the two names or location-scoped identities |
+
+Every row also records `review_status`, `reviewed_at`, and `source`.
+Only `verified_fec` and `verified_web` decisions belong here. Uncertain pairs
+stay in `data/donor_dedup_review.csv` until they are verified.
+
+This is the only manual input for donor matching. Candidate reports remain
+detect-only until a reviewed decision is added to this file.
 
 ### Canonicalization
 
@@ -135,8 +168,9 @@ One canonical spelling per company: legal suffixes stripped (`INC`, `LLC`,
 `CORP`); `&` kept for real brands (`AT&T`, `K&L GATES`) while ordinary firms
 keep `AND`; abbreviations expanded (`MGMT → MANAGEMENT`, `INTL →
 INTERNATIONAL`); `ASSOC` disambiguated to ASSOCIATES or ASSOCIATION from
-context; synonym chains flattened, with `data/manual_typo_overrides.json` for
-stubborn real-world cases.
+context; synonym chains flattened. Reviewed spellings live in
+`data/database/employer_name_rules.csv` with their source. Contributor name
+repairs live in `data/database/contributor_name_rules.csv`.
 
 ### Employer locations and geocoding
 
@@ -153,7 +187,7 @@ address matched through the [US Census Geocoder](https://www.census.gov/programs
 
 ## Quality and integrity
 
-- Quality scanner (`fec/cleaning/quality_scan/`) sweeps the cleaned output
+- Quality scanner (`fec/cleaning/quality_scan.py`) sweeps the cleaned output
   for suspicious patterns the rules might have missed — surviving
   abbreviations, near-duplicate company names, name drift, address variants —
   and writes `data/quality_scan.json`.
@@ -180,6 +214,9 @@ fact, no denormalized pointers, views composed from small sub-views.
 
 Reference and dashboard tables: `us_states`, `zcta_state_rel`,
 `zip_centroids`, `key_accomplices`, `leaders`, `leader_committees`.
+The two editorial person CSVs carry an explicit `donor_key`. A missing FEC
+donor is created only when that row has `create_if_missing=true`; the loader
+never guesses identity from a name.
 
 Views: `v_donor_current_*` / `v_donor_newest_*` (DISTINCT ON sub-views),
 `v_donor_stats` (aggregate), `v_donor_profile`, `v_contributions_cleaned`,
@@ -193,32 +230,85 @@ reference tables are not FK-bound because the lookup data is not exhaustive.
 ## Commands
 
 ```bash
+# Pull one committee registered in committees.csv
+python pull.py C00797670               # Current period
+python pull.py C00797670 --period 2024 # Selected period
+python pull.py C00797670 --period 2024 --full # Recheck full period
+
 # Cleaning
 python clean.py                      # Full clean + match + canonicalize
-python clean.py --no-audit           # Skip audit trail
 
 # Employer resolution
-python resolve.py --stats            # Show progress
-python resolve.py --apply            # Resolve and write results to the CSV
-python resolve.py --dry-run          # Count without API calls
-python resolve.py --test-ai          # Verify the provider with one grounded search
+python resolve.py --apply            # Resolve up to 200 employers and write the CSV
 
 # Geocoding
 python geocode.py                    # Donor addresses
-python geocode.py --employer-only    # All known employer locations
-python geocode.py --stats            # Cache progress
+python geocode.py --employer-only    # Geocode and build employer locations
 
 # Database
-python loader.py --first-run         # First time on a machine: roles + database + load
-python loader.py --reset             # Normal path: drop objects, reload
+python loader.py --reset             # Drop project objects and reload
 python -m fec.database.healthcheck   # 80 read-only checks
 ```
 
-`--first-run` owns database/schema/default privilege policy. Normal `--reset`
-only refreshes project objects, restores `fec_app` table reads, and intentionally
-removes sequence access because read-only queries do not need it. Server admins
-grant developer access through role membership, without adding people to this
-repository:
+### First database setup
+
+The loader never creates roles, databases, or extensions. Do this once as the
+PostgreSQL administrator. `\password` asks securely for each password:
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE ROLE fec_owner LOGIN;
+\password fec_owner
+
+CREATE ROLE fec_app LOGIN;
+\password fec_app
+
+CREATE DATABASE fec_db OWNER fec_owner;
+\connect fec_db
+
+CREATE EXTENSION pg_trgm;
+CREATE EXTENSION cube;
+CREATE EXTENSION earthdistance;
+
+REVOKE ALL PRIVILEGES ON DATABASE fec_db FROM PUBLIC;
+GRANT CONNECT ON DATABASE fec_db TO fec_owner, fec_app;
+
+REVOKE ALL PRIVILEGES ON SCHEMA public FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON SCHEMA public FROM fec_app;
+GRANT ALL PRIVILEGES ON SCHEMA public TO fec_owner;
+GRANT USAGE ON SCHEMA public TO fec_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public
+    REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public
+    GRANT SELECT ON TABLES TO fec_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public
+    REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public
+    REVOKE ALL PRIVILEGES ON SEQUENCES FROM fec_app;
+
+\quit
+```
+
+Set `.env` to the owner account, then load:
+
+```env
+PG_HOST=localhost
+PG_PORT=5432
+PG_DBNAME=fec_db
+PG_USER=fec_owner
+PG_PASSWORD=owner_password
+```
+
+```bash
+python loader.py --reset
+```
+
+The dashboard connects as `fec_app`, never `fec_owner`. Server admins grant
+developer access through role membership without adding people to this repository:
 
 ```sql
 GRANT fec_app TO developer_login;
@@ -232,22 +322,12 @@ Every returned location needs its own complete US address and source URL. The
 same-state location is preferred and ZIP only breaks ties within that state;
 this is not proof of the person's exact workplace.
 
-## Testing and CI
+## Testing
 
 ```bash
-python -m pytest -m "not db"         # Unit tests (no Docker needed)
-python -m pytest                     # Everything, incl. throwaway-Postgres schema tests
-python -m pytest -m live -v          # Query-correctness checks vs the real fec_db
+python -m pytest                     # Unit tests
+python -m fec.database.healthcheck   # Read-only checks against fec_db
 ```
-
-| Marker | Covers |
-|--------|--------|
-| (unit) | Cleaning, canonicalization, donor identity, quality scan |
-| `db` | Schema, constraints, and view logic against a throwaway `postgres:18` (testcontainers) |
-| `live` | Query correctness against the loaded `fec_db`; skips cleanly when no DB is reachable |
-
-GitLab CI (`.gitlab-ci.yml`) runs a fast unit job plus a DB job backed by a
-`postgres:18` service.
 
 ## Environment
 
@@ -255,12 +335,8 @@ GitLab CI (`.gitlab-ci.yml`) runs a fast unit job plus a DB job backed by a
 PG_HOST=localhost
 PG_PORT=5432
 PG_DBNAME=fec_db
-PG_USER=fec_app
+PG_USER=fec_owner
 PG_PASSWORD=
-
-POSTGRES_PASSWORD=            # For loader.py --first-run
-DB_ROLES=fec_owner,fec_app
-DB_ROLE_PASSWORD=
 
 FEC_API_KEY=                  # Free: https://api.open.fec.gov/developers/
 FEC_RPM=15                    # FEC requests per minute
@@ -269,8 +345,9 @@ OPENAI_API_KEY=               # Employer-resolution AI lookup (AI_PROVIDER=opena
 XAI_API_KEY=                  # Same, when AI_PROVIDER=xai
 ```
 
-PostgreSQL extensions (installed by `schema.sql`): `pg_trgm`, `cube`,
-`earthdistance`.
+Required PostgreSQL extensions: `pg_trgm`, `cube`, `earthdistance`. Install
+them once during the database setup above; the loader validates them before
+resetting any tables.
 
 ## Data notes
 

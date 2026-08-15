@@ -7,7 +7,7 @@ import pandas as pd
 from fec.cleaning._helpers import _norm, _indiv_idx, _set_missing
 from fec.cleaning.occupations import _categorize
 from fec.config.constants import JUNK_EMPLOYER_RE
-from fec.config.occupation_rules import (
+from fec.config.occupation_rules.rules import (
     FINAL_JUNK_EMPLOYERS,
     FINAL_NULL_EMPLOYERS,
     FINAL_SHORT_OCCUPATIONS,
@@ -166,9 +166,9 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
             original = emp_raw.at[idx].strip().upper()
             company = _SELF_COMPANY_OVERRIDES.get(original)
             clean_tail = tail.strip('() ').strip()
-            if not company and clean_tail not in _GENERIC_SELF_TAILS:
-                if _SELF_COMPANY_TAIL_RE.search(clean_tail):
-                    company = clean_tail
+            if (not company and clean_tail not in _GENERIC_SELF_TAILS
+                    and _SELF_COMPANY_TAIL_RE.search(clean_tail)):
+                company = clean_tail
             df.at[idx, 'contributor_employer'] = company or 'SELF-EMPLOYED'
             n_fixed += 1
 

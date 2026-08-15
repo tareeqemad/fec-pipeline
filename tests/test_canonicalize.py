@@ -1,9 +1,11 @@
 """Per-donor canonicalization: same entity unifies, different entities stay apart."""
+
 import pandas as pd
 
 from fec.donor_match.canonicalize import (
     canonicalize_donor_names,
     canonicalize_donor_employers,
+    canonicalize_donor_pobox_typos,
 )
 from fec.donor_match.canonicalize import canonicalize_donor_addresses
 from fec.donor_match.canonicalize import canonicalize_donor_addresses_geo
@@ -18,10 +20,21 @@ def test_names_unify_and_regenerate_composite():
         [
             ["INDIVIDUAL", "X", "HARBERG, FRANKLIN J", "FRANKLIN J.", "HARBERG"],
             ["INDIVIDUAL", "X", "HARBERG, FRANKLIN", "FRANKLIN", "HARBERG"],
-            ["INDIVIDUAL", "X", "HARBERG JR, FRANKLIN J. JAY JR.", "FRANKLIN J. JAY", "HARBERG JR"],
+            [
+                "INDIVIDUAL",
+                "X",
+                "HARBERG JR, FRANKLIN J. JAY JR.",
+                "FRANKLIN J. JAY",
+                "HARBERG JR",
+            ],
         ],
-        ["entity_type", "donor_key", "contributor_name",
-         "contributor_first_name", "contributor_last_name"],
+        [
+            "entity_type",
+            "donor_key",
+            "contributor_name",
+            "contributor_first_name",
+            "contributor_last_name",
+        ],
     )
     n = canonicalize_donor_names(df)
     assert n == 3
@@ -39,8 +52,13 @@ def test_names_preserve_literal_null_surname():
             ["INDIVIDUAL", "N", "NULL, JAMES", "JAMES", "NULL"],
             ["INDIVIDUAL", "N", "NULL, JAMES", "JAMES", "NULL"],
         ],
-        ["entity_type", "donor_key", "contributor_name",
-         "contributor_first_name", "contributor_last_name"],
+        [
+            "entity_type",
+            "donor_key",
+            "contributor_name",
+            "contributor_first_name",
+            "contributor_last_name",
+        ],
     )
     canonicalize_donor_names(df)
     assert df["contributor_last_name"].unique().tolist() == ["NULL"]
@@ -53,10 +71,21 @@ def test_names_reversed_filing_does_not_wipe_first_name():
         [
             ["INDIVIDUAL", "G", "HOFFMAN, GARY", "GARY", "HOFFMAN"],
             ["INDIVIDUAL", "G", "HOFFMAN, GARY", "GARY", "HOFFMAN"],
-            ["INDIVIDUAL", "G", "GARY, HOFFMAN", "HOFFMAN", "GARY"],  # reversed mis-parse
+            [
+                "INDIVIDUAL",
+                "G",
+                "GARY, HOFFMAN",
+                "HOFFMAN",
+                "GARY",
+            ],  # reversed mis-parse
         ],
-        ["entity_type", "donor_key", "contributor_name",
-         "contributor_first_name", "contributor_last_name"],
+        [
+            "entity_type",
+            "donor_key",
+            "contributor_name",
+            "contributor_first_name",
+            "contributor_last_name",
+        ],
     )
     canonicalize_donor_names(df)
     assert df["contributor_last_name"].unique().tolist() == ["HOFFMAN"]
@@ -71,8 +100,13 @@ def test_names_surname_in_first_field_still_collapses_when_no_real_first():
             ["INDIVIDUAL", "C", "COHEN, COHEN", "COHEN", "COHEN"],
             ["INDIVIDUAL", "C", "COHEN, COHEN", "COHEN", "COHEN"],
         ],
-        ["entity_type", "donor_key", "contributor_name",
-         "contributor_first_name", "contributor_last_name"],
+        [
+            "entity_type",
+            "donor_key",
+            "contributor_name",
+            "contributor_first_name",
+            "contributor_last_name",
+        ],
     )
     canonicalize_donor_names(df)
     assert df["contributor_last_name"].unique().tolist() == ["COHEN"]
@@ -147,15 +181,56 @@ def test_addresses_different_zip_stays_separate():
     assert set(df["contributor_zip"]) == {"10001", "90001"}  # zips untouched
 
 
-_GEO_COLS = ["entity_type", "donor_key", "contributor_street_1",
-             "latitude", "longitude", "geocode_level"]
+def test_pobox_unifies_rare_inserted_digit_only():
+    df = _df(
+        [
+            ["A", "PO BOX 123", "10001"],
+            ["A", "PO BOX 123", "10001"],
+            ["A", "PO BOX 123", "10001"],
+            ["A", "PO BOX 1233", "10001"],
+            ["B", "PO BOX 1233", "10001"],
+        ],
+        ["donor_key", "contributor_street_1", "contributor_zip"],
+    )
+
+    assert canonicalize_donor_pobox_typos(df) == 1
+    assert set(df.loc[df["donor_key"] == "A", "contributor_street_1"]) == {"PO BOX 123"}
+    assert df.loc[df["donor_key"] == "B", "contributor_street_1"].item() == (
+        "PO BOX 1233"
+    )
+
+
+def test_pobox_keeps_same_length_numbers_separate():
+    df = _df(
+        [["A", "PO BOX 123", "10001"], ["A", "PO BOX 124", "10001"]],
+        ["donor_key", "contributor_street_1", "contributor_zip"],
+    )
+
+    assert canonicalize_donor_pobox_typos(df) == 0
+
+
+_GEO_COLS = [
+    "entity_type",
+    "donor_key",
+    "contributor_street_1",
+    "latitude",
+    "longitude",
+    "geocode_level",
+]
 
 
 def test_geo_unifies_same_spot_and_keeps_far_apart():
     df = _df(
         [
             ["INDIVIDUAL", "A", "123 MAIN ST", 40.71280, -74.00600, "nominatim"],
-            ["INDIVIDUAL", "A", "123 MAIN STREET STE 5", 40.71285, -74.00604, "nominatim"],
+            [
+                "INDIVIDUAL",
+                "A",
+                "123 MAIN STREET STE 5",
+                40.71285,
+                -74.00604,
+                "nominatim",
+            ],
             ["INDIVIDUAL", "A", "9 FAR AWAY RD", 41.50000, -72.00000, "nominatim"],
         ],
         _GEO_COLS,
