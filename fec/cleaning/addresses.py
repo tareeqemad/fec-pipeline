@@ -1,13 +1,20 @@
-"""Street normalization: junk removal, PO boxes, direction/type abbreviation, unit extraction."""
+"""Contributor street, city, and ZIP normalization."""
+import difflib
+import json
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from fec.config import (
+from fec.config.cities import CITY_NORMALIZE, expand_city_abbreviations
+from fec.config.streets import (
     POBOX_RE, DIR_PREFIX, DIR_SUFFIX, DIR_MID, STREET_TYPES,
     UNIT_RULES, UNIT_EXTRACT, HASH_EXTRACT, STREET_TYPO_RULES,
+    STATE_IN_CITY,
 )
+
+# Street cleaning
 
 # placeholder values that mean "no address"
 _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
@@ -24,7 +31,7 @@ def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Normalize street_1/street_2 and extract embedded units; returns (df, counts)."""
     # email mistakenly in street_1: promote street_2 if it looks like an address, else null
     s1 = df['contributor_street_1'].astype('string')
-    email_mask = s1.str.contains(r'@', na=False)
+    email_mask = s1.str.contains('@', na=False, regex=False)
     df['_street_email_in_s1'] = email_mask
 
     s2 = df['contributor_street_2'].astype('string')
@@ -210,3 +217,126 @@ def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, p
         )
 
     return s1.replace({'': np.nan}), s2.replace({'': np.nan}), n_extracted
+
+
+# City cleaning
+
+# real-city lookalikes that must never be "corrected" into each other
+_PROTECTED_CITIES = {
+    'MEDFORD', 'BEDFORD',
+    'WEST WINDSOR', 'EAST WINDSOR',
+    'SANTA CLARA', 'SANTA CLARITA',
+    'HOPKINSVILLE', 'TOMPKINSVILLE',
+    'WEST BLOOMFIELD TOWNSHIP', 'BLOOMFIELD TOWNSHIP',
+    'ST. LOUIS PARK', 'ST LOUIS PARK',
+    'NORTH CAMBRIDGE', 'CAMBRIDGE',
+}
+
+
+def clean_cities(df: pd.DataFrame, fuzzy: bool = True, report_dir: str | None = None) -> tuple[pd.DataFrame, dict]:
+    """Clean city names; report_dir writes auto_city_fixes.json for review. Returns (df, counts)."""
+    counts = {'known_fixes': 0, 'fuzzy_fixes': 0, 'punctuation_cleaned': 0}
+
+    cities = df['contributor_city'].astype(str).str.strip().str.upper()
+
+    cities = cities.str.lstrip('`~')
+
+    # embedded ZIPs and state/city combos ("BETHESDA, MARYLAND 20817", "CHARLOTTE, NC 28226")
+    cities = cities.str.replace(r',?\s*\d{5}(-\d{4})?\s*$', '', regex=True)
+    cities = cities.str.replace(r',?\s+[A-Z]{2}\s+\d{5}\s*$', '', regex=True)
+    cities = cities.str.replace(r',?\s+(MARYLAND|CALIFORNIA|TEXAS)\s*\d*$', '', regex=True)
+    cities = cities.str.replace(r',?\s+D\.C\.,?\s*(USA)?\s*\d*$', '', regex=True)
+    cities = cities.str.replace(r',?\s+PA\.?\s*\d*$', '', regex=True)
+    cities = cities.str.replace(r'/[A-Z]+$', '', regex=True)
+
+    # a unit string is not a city
+    cities = cities.where(~cities.str.match(r'^APT\s|^STE\s|^UNIT\s|^#\d', case=False, na=False), other=np.nan)
+
+    before = cities.copy()
+    cities = cities.str.rstrip('.,;:')
+    counts['punctuation_cleaned'] = int((before != cities).sum())
+
+    # state codes stuck at end of city
+    before = cities.copy()
+    cities = cities.str.replace(STATE_IN_CITY, '', regex=True).str.strip()
+    counts['punctuation_cleaned'] += int((before != cities).sum())
+
+    cities = cities.str.replace(r'\s{2,}', ' ', regex=True)
+
+    before = cities.copy()
+    cities = cities.replace(CITY_NORMALIZE)
+    counts['known_fixes'] = int((before != cities).sum())
+    df['contributor_city'] = cities
+
+    if fuzzy:
+        auto_fixes = _auto_detect_city_typos(df)
+        if auto_fixes:
+            before = df['contributor_city'].copy()
+            df['contributor_city'] = df['contributor_city'].replace(auto_fixes)
+            counts['fuzzy_fixes'] = int((before != df['contributor_city']).sum())
+
+            if report_dir:
+                report_path = Path(report_dir) / 'auto_city_fixes.json'
+                with open(report_path, 'w', encoding='utf-8') as handle:
+                    json.dump(auto_fixes, handle, indent=2, ensure_ascii=False)
+
+    # expand ST./MT./FT. abbreviations LAST so the fuzzy pass above still
+    # matches its "ST."-form protected list
+    df['contributor_city'] = df['contributor_city'].map(expand_city_abbreviations)
+
+    return df, counts
+
+
+def _auto_detect_city_typos(df: pd.DataFrame, cutoff: float = 0.88, min_common: int = 10, max_rare: int = 3) -> dict:
+    """Fuzzy-match rare city names against common ones in the same state; returns {typo: fix}."""
+    city_counts = (
+        df.groupby(['contributor_state', 'contributor_city'])
+        .size()
+        .reset_index(name='n')
+    )
+
+    fixes = {}
+    for _, state_cities in city_counts.groupby('contributor_state', sort=False):
+        common_names = state_cities[state_cities['n'] >= min_common]['contributor_city'].tolist()
+        rare_cities = state_cities[state_cities['n'] <= max_rare]
+
+        for _, row in rare_cities.iterrows():
+            city = row['contributor_city']
+            if city in _PROTECTED_CITIES or city in CITY_NORMALIZE:
+                continue
+
+            matches = difflib.get_close_matches(city, common_names, n=1, cutoff=cutoff)
+            if matches and matches[0] != city:
+                fixes[city] = matches[0]
+
+    return fixes
+
+
+# ZIP cleaning
+
+def clean_zips(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Extract and normalize 5-digit ZIP codes; returns (df, counts)."""
+    # FEC sends 5- or 9-digit; keep the 5-digit form under the same column name
+    df['contributor_zip'], n_invalid = _clean_zip_raw(df['contributor_zip'])
+    return df, {
+        'cleaned': int(df['contributor_zip'].notna().sum()),
+        'invalid_nulled': n_invalid,
+    }
+
+
+def _clean_zip_raw(raw: pd.Series) -> tuple[pd.Series, int]:
+    """Clean raw ZIP strings to 5 digits; returns (series, n_invalid_nulled)."""
+    raw = raw.astype(str).str.strip().str.replace(r'[^\d]', '', regex=True)
+
+    result = raw.str.zfill(5).str[:5].where(
+        raw.str.len() <= 5, raw.str.zfill(9).str[:5]
+    )
+
+    # lowest USPS-assigned ZIP is 00501; below is unassigned (catches digit-drop
+    # typos like "00034"). nulling is safe: the per-donor same-street fill
+    # downstream restores the ZIP from the donor's own other filings.
+    invalid = ~result.str.match(r'^\d{5}$', na=False) | (result < '00501')
+    n_invalid = int(invalid.sum())
+    result[invalid] = np.nan
+
+    return result, n_invalid

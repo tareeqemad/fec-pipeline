@@ -9,6 +9,8 @@ from .committee import (
     _classify_committee_types,
     _fix_committee_employer,
     _fix_individual_committee_type,
+    _fix_misclassified_foundation,
+    _fix_title_as_first_name,
 )
 from .occupation import (
     _fix_emp_occ_category_consistency,
@@ -35,6 +37,7 @@ from .employer import (
     _fix_retired_typos,
     _null_sector_as_employer,
     _fix_truncated_employer_38,
+    _fix_choose_prefix,
     _null_short_employer_junk,
 )
 from .employer_swaps import (
@@ -47,11 +50,6 @@ from .employer_swaps import (
     _fix_company_name_as_occupation,
     _fix_own_name_as_employer,
     _fix_self_employed_consistency,
-)
-from .names import (
-    _fix_choose_prefix,
-    _fix_misclassified_foundation,
-    _fix_title_as_first_name,
 )
 from .addresses import (
     _fill_null_city_from_zip,
@@ -129,7 +127,7 @@ _SAFETY_NETS = [
 
 def apply_safety_nets(df: pd.DataFrame, verbose: bool = True) -> int:
     """Run every net in _SAFETY_NETS in order; returns total fixes applied."""
-    log = logger.info if verbose else lambda msg: None
+    log = logger.info if verbose else lambda _: None
 
     # computed once: no net mutates entity_type / is_individual
     is_indiv: pd.Series = df['is_individual'].astype(bool)

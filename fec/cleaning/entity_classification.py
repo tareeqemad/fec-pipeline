@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
-from fec.config import COMM_PATTERNS
+from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
+from fec.config.data import COMM_PATTERNS
 from fec.config.constants import LEGAL_SUFFIX_RE, STATUS_CATEGORIES
 
 _COMMITTEE_IN_NAME_RE = re.compile(
@@ -43,33 +44,6 @@ _GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
     'FUNDRAISING CONSULTANT', 'INSURANCE AGENT', 'NON-PROFIT VOLUNTEER',
     'BUSINESS',
 })
-
-_NAME_CORRECTIONS = {
-    "CHALME'', RAYMOND": "CHALME, RAYMOND",
-    # Human-verified donor spellings. These run again after donor
-    # canonicalization so a longer malformed filing cannot become the winner.
-    "JACOBSON, JON": "JACOBSON, JONATHON",
-    "GOLDHABER, MARKTHE WALL TILE": "GOLDHABER, MARK",
-    "OVES, LYNNOVES": "OVES, LYNN",
-    "BORENSTEIN, JON": "BORENSTEIN, JONATHAN",
-    "LUTTWAK, JON": "LUTTWAK, JONATHAN",
-    "WEINBACH, JONATHAN": "WEINBACH, JON",
-    "KARP, ROBERTRKARP": "KARP, ROBERT",
-    "CHENEY, D AVID": "CHENEY, DAVID",
-    "MEYERS, STUART SARA": "MEYERS, STUART",
-    "MEYERS, SARA STUART": "MEYERS, SARA",
-    # Hand-verified org names the LAST, FIRST parse flipped (auto-unflipping comma'd
-    # org names is unsafe); keys must stay in sync with data/database/entity_overrides.csv.
-    "BANK, FIRST CENTRAL": "FIRST CENTRAL SAVINGS BANK",
-    "CAPITAL, WHITE": "WHITE LAKE REAL ESTATE CAPITAL LLC",
-    "KAHAN TRUST, DAVID": "DAVID KAHAN TRUST",
-    "LEHMAN TRUST, LISA": "LISA LEHMAN TRUST",
-}
-
-_ROW_NAME_CORRECTIONS = {
-    "4011420231698186281": "KELLOGG, SARAH",
-    "4011420231698184106": "KELLOGG, SARAH",
-}
 
 # Known credentials only, so real two-letter last names are not mistaken for one.
 _CREDENTIAL_RE = re.compile(
@@ -144,7 +118,7 @@ def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame,
 
     has_suffix = names.str.contains(_BUSINESS_SUFFIX_RE.pattern, na=False, regex=True)
 
-    no_comma = ~names.str.contains(',', na=False)
+    no_comma = ~names.str.contains(',', na=False, regex=False)
     no_first = (first_names == '') | (first_names.str.upper() == 'NAN')
     empty_emp = emp.isin({'', 'NAN', 'NONE'})
     looks_like_org = no_comma & no_first & empty_emp
@@ -209,9 +183,9 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
 
 def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Apply manual name corrections."""
-    corrected = df['contributor_name'].map(_NAME_CORRECTIONS)
+    corrected = df['contributor_name'].map(EXACT_NAME_CORRECTIONS)
     if 'sub_id' in df.columns:
-        by_row = df['sub_id'].astype(str).map(_ROW_NAME_CORRECTIONS)
+        by_row = df['sub_id'].astype(str).map(ROW_NAME_CORRECTIONS)
         corrected = by_row.combine_first(corrected)
 
     changed = corrected.notna() & corrected.ne(df['contributor_name'])
@@ -231,7 +205,7 @@ def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     for col in ['contributor_name', 'contributor_first_name', 'contributor_last_name']:
         if col in df.columns:
             vals = df[col].fillna('')
-            has_double = vals.str.contains("''", na=False)
+            has_double = vals.str.contains("''", na=False, regex=False)
             if has_double.any():
                 df.loc[has_double, col] = vals[has_double].str.replace("''", "'", regex=False)
                 if col == 'contributor_name':
@@ -303,7 +277,11 @@ def fix_fullname_in_both_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     first_names = df.loc[indiv_idx, 'contributor_first_name'].fillna('').str.strip()
     last_names = df.loc[indiv_idx, 'contributor_last_name'].fillna('').str.strip()
 
-    mask = (first_names.str.upper() == last_names.str.upper()) & (first_names != '') & first_names.str.contains(' ')
+    mask = (
+        (first_names.str.upper() == last_names.str.upper())
+        & (first_names != '')
+        & first_names.str.contains(' ', regex=False)
+    )
     hits = indiv_idx[mask]
     n_fixed = len(hits)
 

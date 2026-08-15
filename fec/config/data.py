@@ -28,11 +28,14 @@ MISSING_VALUES = frozenset({
 
 # committee classification, first match wins
 COMM_PATTERNS = [
-    ('CONGRESSIONAL CAMPAIGN', re.compile(r'FOR CONGRESS|REP\.', re.I)),
-    ('SENATE CAMPAIGN', re.compile(r'FOR SENATE|SEN\.', re.I)),
-    ('POLITICAL ACTION COMMITTEE', re.compile(r'\bPAC\b', re.I)),
-    ('PARTY ORGANIZATION', re.compile(r'PARTY|NRSC|NRCC|DCCC|DSCC|DNC|RNC', re.I)),
-    ('POLITICAL COMMITTEE', re.compile(r'COMMITTEE', re.I)),
+    ('CONGRESSIONAL CAMPAIGN', re.compile(r'FOR CONGRESS|REP\.', re.IGNORECASE)),
+    ('SENATE CAMPAIGN', re.compile(r'FOR SENATE|SEN\.', re.IGNORECASE)),
+    ('POLITICAL ACTION COMMITTEE', re.compile(r'\bPAC\b', re.IGNORECASE)),
+    (
+        'PARTY ORGANIZATION',
+        re.compile(r'PARTY|NRSC|NRCC|DCCC|DSCC|DNC|RNC', re.IGNORECASE),
+    ),
+    ('POLITICAL COMMITTEE', re.compile(r'COMMITTEE', re.IGNORECASE)),
 ]
 
 # Titles stripped from first names (DR. JOHN -> JOHN)
@@ -44,7 +47,7 @@ TITLE_RE = re.compile(
     r'SGT\.?|CAPT\.?|COL\.?|MAJ\.?|GEN\.?|LT\.?|'
     r'CAPTAIN|COLONEL|MAJOR|GENERAL|LIEUTENANT|SERGEANT|'
     r'AMBASSADOR|AMB\.?|COMMISSIONER|MAYOR)\s+',
-    re.I,
+    re.IGNORECASE,
 )
 
 # Title -> occupation when occupation is empty; only titles that strongly imply one.
@@ -71,10 +74,16 @@ TITLE_TO_OCCUPATION = {
 
 # Suffixes stripped from last names (SMITH JR. -> SMITH). V/IV need the comma
 # prefix so names like RAVIV or ones ending in IV survive.
-SUFFIX_RE = re.compile(r',?\s+(JR\.?|SR\.?|III|II|ESQ\.?)\s*$|,\s*(IV|V)\s*$', re.I)
+SUFFIX_RE = re.compile(
+    r',?\s+(JR\.?|SR\.?|III|II|ESQ\.?)\s*$|,\s*(IV|V)\s*$',
+    re.IGNORECASE,
+)
 
 # Professional suffixes in last name (MILLER MD -> MILLER); handled separately.
-PRO_SUFFIX_RE = re.compile(r'\s+(MD|M\.D\.?|DDS|D\.D\.S\.?|PHD|PH\.D\.?|DO|D\.O\.?|FACS|FAAOS)\s*$', re.I)
+PRO_SUFFIX_RE = re.compile(
+    r'\s+(MD|M\.D\.?|DDS|D\.D\.S\.?|PHD|PH\.D\.?|DO|D\.O\.?|FACS|FAAOS)\s*$',
+    re.IGNORECASE,
+)
 
 # Keywords that indicate an organization, not an individual; every token has a
 # proven hit on the real raw names (per-token census, 2026-07)
@@ -89,7 +98,7 @@ ORG_KEYWORDS = re.compile(
     r'| SERVICES| MEDIA| PROPERTY| PROPERTIES| TRADES| GROUP| VENTURES'
     r'|DEMOCRATIC |REPUBLICAN '
     r'| BROTHERS| EQUITIES| STEEL| LENDING| CONGREGATION',
-    re.I,
+    re.IGNORECASE,
 )
 
 # Individual names: "LASTNAME, F..." (FEC standard). Spaces/parens allowed in
@@ -101,18 +110,7 @@ INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 # not a legal suffix (", INC"). 30-char cap covers "FIRST MIDDLE LAST TITLE".
 COMM_TAIL_RE = re.compile(r',\s+(?!INC|LLC|LLP|CORP|JR|SR|PA\s*$)[A-Z][A-Z.\s]{0,30}$')
 
-# Exact-name corrections for committees that arrive mangled in raw FEC data.
-# Applied after tail-stripping; add a row as more mangled names surface.
-COMMITTEE_NAME_FIXES = {
-    'BELLFORMISSOURI': 'BELL FOR MISSOURI',
-    # jewelry firm mis-filed as a committee — keyed on raw and post-suffix-strip forms
-    'SOLOW AND CO': 'SOLOW & CO.',
-    'SOLOW AND CO INC': 'SOLOW & CO.',
-    # same FEC committee C00502575; some filings drop the registered "DR"
-    'RAUL RUIZ FOR CONGRESS': 'DR RAUL RUIZ FOR CONGRESS',
-}
-
-RETIRE_RE = re.compile(r'RETIRE', re.I)
+RETIRE_RE = re.compile(r'RETIRE', re.IGNORECASE)
 
 # Output column order. recipient_committee is the PAC that RECEIVED the money,
 # resolved from the FEC committee_id via data/database/committees.csv.
@@ -131,7 +129,7 @@ OUTPUT_COLUMNS = [
     'contributor_employer',
     'contributor_occupation', 'occupation_category',
     # internal working fields read by later safety nets; dropped at save
-    'occupation_status', 'committee_type',
+    'occupation_status', 'committee_type', '_generational_suffix',
     # contribution; contributor_year deliberately absent (DB derives it), as
     # are is_refund / is_zero_amount (amount alone suffices; refunds < 0).
     # Refund rows are almost all COMMITTEE/PAC, but the rare INDIVIDUAL refund
@@ -148,43 +146,21 @@ INTERNAL_OUTPUT_COLUMNS = [
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
     'committee_type',  # overloaded with non-committee sentinels
     'occupation_status',  # ~99% derivable; not in DB
+    '_generational_suffix',  # identity evidence from the raw contributor name
     'resolve_method',  # how the employer address was resolved
     'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived
     'employer_geocode_level',  # how the employer coordinate was derived
 ]
 
-# Garbled first names, each verified: the wrong form appears at exactly one
-# address with one last name where the correct spelling dominates 3x+.
-# Real names (MORTY, CHERIE, SIG, MILT, RODDY, GABRIELE...) are excluded.
-FIRST_NAME_FIXES = {
-    'JEFREY': 'JEFFREY',
-    'ROBERTB': 'ROBERT',
-    'PETGER': 'PETER',
-    'DORUS': 'DORIS',
-    'RICHAR': 'RICHARD',
-    'RUSELL': 'RUSSELL',
-    'MARRISSA': 'MARISSA',
-    'STWART': 'STEWART',
-    'MQRY': 'MARY',
-    'RHONDS': 'RHONDA',
-    'YEHDUI': 'YEHUDI',
-    'ARLEBE': 'ARLENE',
-    'ERVI': 'ERVIN',
-    'BRIA': 'BRIAN',
-    'CECIIA': 'CECILIA',
-    'WILIAM': 'WILLIAM',
-    'MATTHWE': 'MATTHEW',
-    'MATTHW': 'MATTHEW',
-    'DWNNIS': 'DENNIS',
-    'CAROLL': 'CAROL',
-    'ERR': 'ERRAN',
-    'AURI': 'AURIEL',
-    'JOIN': 'JON',
-    'ISSAC': 'ISAAC',
-    'JONAATHAN': 'JONATHAN',
-    'JILLIN': 'JILLIAN',
-    'LARYL': 'LARRY',
-    'JUDITY': 'JUDITH',
-    'PHILIP.': 'PHILIP',
-}
+# Final cleaned CSV contract.
+FINAL_OUTPUT_COLUMNS = [
+    column for column in OUTPUT_COLUMNS
+    if column not in INTERNAL_OUTPUT_COLUMNS
+] + [
+    'previous_employer',
+    'donor_key',
+    'latitude',
+    'longitude',
+    'employer_status',
+]

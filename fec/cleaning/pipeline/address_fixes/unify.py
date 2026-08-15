@@ -70,7 +70,7 @@ def _unify_street_spacing(df: pd.DataFrame) -> int:
 # (the addresses dimension keys on the full street_1 + street_2)
 _UNIT_DESIGNATOR_RE = re.compile(
     r'#|\b(?:APARTMENT|APT|UNIT|STE|SUITE|NUMBER|NO|RM|ROOM|FL|FLOOR|BLDG|BUILDING)\b\.?',
-    re.I,
+    re.IGNORECASE,
 )
 
 

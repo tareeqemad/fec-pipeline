@@ -1,16 +1,9 @@
-"""Audit trail of cleaning changes: audit_changes.csv, audit_changes.jsonl, audit_report.html, amount_flags.csv."""
+"""Write the cleaning audit CSV files."""
 import gc
-import html as html_lib
-import json
 import os
-from collections import defaultdict
 
 import numpy as np
 import pandas as pd
-
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 
 def _collect_reclassifications(before, after, add_change):
@@ -112,26 +105,17 @@ def write_audit(df_before, df_after, orig_map, out_dir, enh_audit=None):
     _collect_garbled_names(after, add_change)
     _append_enhancements(records, enh_audit, row_index)
 
-    _write_csv_jsonl(records, out_dir)
+    _write_changes(records, out_dir)
     _write_amount_flags(after, row_index, out_dir)
-    try:
-        _write_html(records, out_dir)
-    except OSError as error:
-        logger.warning("Audit HTML skipped: %s", error)
 
     records = before = after = None
     gc.collect()
 
 
-def _write_csv_jsonl(records, out_dir):
+def _write_changes(records, out_dir):
     cols = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'evidence']
     pd.DataFrame.from_records(records, columns=cols).to_csv(
         os.path.join(out_dir, 'audit_changes.csv'), index=False)
-
-    with open(os.path.join(out_dir, 'audit_changes.jsonl'), 'w', encoding='utf-8') as handle:
-        for record in records:
-            handle.write(json.dumps(record, ensure_ascii=False) + '\n')
-
 
 def _write_amount_flags(df, row_idx, out_dir):
     """Flag negative/zero amounts (informational only; does not change data)."""
@@ -156,62 +140,3 @@ def _write_amount_flags(df, row_idx, out_dir):
         'evidence': np.where(amounts[mask].lt(0), 'negative_amount', 'zero_amount'),
     })
     flags.to_csv(path, index=False)
-
-
-def _write_html(records, out_dir):
-    path = os.path.join(out_dir, 'audit_report.html')
-
-    if not records:
-        with open(path, 'w') as handle:
-            handle.write('<!DOCTYPE html><html><body><h1>Audit Report</h1>'
-                         '<p>No changes recorded.</p></body></html>')
-        return
-
-    by_id = defaultdict(list)
-    step_counts = defaultdict(int)
-    for record in records:
-        by_id[record['sub_id']].append(record)
-        step_counts[record['step']] += 1
-
-    def escape(s):
-        if s is None or (isinstance(s, float) and pd.isna(s)):
-            return ''
-        return html_lib.escape(str(s))
-
-    css = ('<style>'
-           'body{font-family:system-ui,sans-serif;background:#f8f9fa;padding:1rem 2rem;color:#212529}'
-           'h1{font-size:1.5rem}.meta{color:#6c757d;margin-bottom:1.5rem}'
-           '.summary,.record{background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1rem}'
-           '.record h2{font-size:1rem;margin:0 0 .5rem;color:#495057}'
-           'table{width:100%;border-collapse:collapse;font-size:.9rem}'
-           'th,td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid #dee2e6}'
-           'th{background:#f8f9fa;font-weight:600}.before{background:#fff5f5}.after{background:#f0fff0}'
-           '.reason{font-size:.85rem;color:#6c757d}.evidence{font-size:.8rem;color:#0d6efd}'
-           '</style>')
-
-    parts = [f'<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Audit Report</title>{css}</head><body>',
-             '<h1>Audit Report — Record Changes</h1>',
-             '<div class="meta">Each record shows before &rarr; after with the reason.</div>',
-             f'<div class="summary"><p><strong>Total changes:</strong> {len(records)}</p>',
-             f'<p><strong>Records affected:</strong> {len(by_id)}</p>',
-             f'<p><strong>By step:</strong> {escape(", ".join(f"{step}: {count}" for step,count in sorted(step_counts.items())))}</p></div>']
-
-    sorted_ids = sorted(by_id, key=lambda sub_id: (by_id[sub_id][0].get('row_index') is None,
-                                                by_id[sub_id][0].get('row_index') or 0))
-    for sid in sorted_ids:
-        sid_records = by_id[sid]
-        row_index = sid_records[0].get('row_index')
-        label = f' (row {row_index})' if row_index is not None else ''
-        parts.append(f'<div class="record"><h2>Record: {escape(sid)}{label}</h2>')
-        parts.append('<table><thead><tr><th>Field</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>')
-        for record in sid_records:
-            evidence_html = f' <span class="evidence">[{escape(record.get("evidence",""))}]</span>' if record.get('evidence') else ''
-            parts.append(
-                f'<tr><td>{escape(record["field"])}</td><td class="before">{escape(record["before"])}</td>'
-                f'<td class="after">{escape(record["after"])}</td>'
-                f'<td class="reason">{escape(record["step"])}: {escape(record.get("reason",""))}{evidence_html}</td></tr>')
-        parts.append('</tbody></table></div>')
-
-    parts.append('</body></html>')
-    with open(path, 'w', encoding='utf-8') as handle:
-        handle.write('\n'.join(parts))

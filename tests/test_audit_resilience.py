@@ -3,7 +3,7 @@ import pandas as pd
 import fec.cleaning.audit as audit
 
 
-def test_locked_html_report_does_not_fail_the_clean_run(tmp_path, monkeypatch):
+def test_audit_writes_only_csv_reports(tmp_path):
     before = pd.DataFrame({
         'sub_id': ['1'],
         'contributor_name': ['RAW NAME'],
@@ -16,10 +16,6 @@ def test_locked_html_report_does_not_fail_the_clean_run(tmp_path, monkeypatch):
     })
     original_rows = pd.DataFrame({'sub_id': ['1'], 'row_index': [0]})
 
-    def locked_report(*_args, **_kwargs):
-        raise OSError('report is open in a browser')
-
-    monkeypatch.setattr(audit, '_write_html', locked_report)
     audit.write_audit(
         before,
         after,
@@ -30,3 +26,6 @@ def test_locked_html_report_does_not_fail_the_clean_run(tmp_path, monkeypatch):
                     'step': 'test', 'reason': 'test'}],
     )
     assert (tmp_path / 'audit_changes.csv').exists()
+    assert (tmp_path / 'amount_flags.csv').exists()
+    assert not (tmp_path / 'audit_changes.jsonl').exists()
+    assert not (tmp_path / 'audit_report.html').exists()

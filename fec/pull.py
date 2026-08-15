@@ -24,14 +24,23 @@ RATE_LIMIT_MAX_WAIT = 65 * 60
 TRANSIENT_STATUSES = {500, 502, 503, 504}
 
 FIELDS = [
-    "sub_id", "transaction_id", "two_year_transaction_period",
+    "sub_id",
+    "transaction_id",
+    "two_year_transaction_period",
     "committee_id",
-    "contributor_name", "contributor_first_name", "contributor_last_name",
-    "contributor_street_1", "contributor_street_2",
-    "contributor_city", "contributor_state", "contributor_zip",
-    "contributor_employer", "contributor_occupation",
+    "contributor_name",
+    "contributor_first_name",
+    "contributor_last_name",
+    "contributor_street_1",
+    "contributor_street_2",
+    "contributor_city",
+    "contributor_state",
+    "contributor_zip",
+    "contributor_employer",
+    "contributor_occupation",
     "is_individual",
-    "contribution_receipt_date", "contribution_receipt_amount",
+    "contribution_receipt_date",
+    "contribution_receipt_amount",
 ]
 
 # contributor_year preserves the existing raw CSV contract.
@@ -65,10 +74,12 @@ def required_env(name: str) -> str:
 
 def build_session() -> requests.Session:
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": "fec-pull/1.0",
-        "Accept-Encoding": "gzip, deflate",
-    })
+    session.headers.update(
+        {
+            "User-Agent": "fec-pull/1.0",
+            "Accept-Encoding": "gzip, deflate",
+        }
+    )
     return session
 
 
@@ -83,6 +94,54 @@ def _retry_delay(attempt: int, response=None, cap: float = 60.0) -> float:
         return fallback
 
 
+def _retry_connection(error: Exception, attempt: int) -> None:
+    if attempt == MAX_ATTEMPTS:
+        raise PullError(f"FEC API unavailable after {attempt} attempts") from error
+    delay = _retry_delay(attempt)
+    log.warning("%s; retrying in %.1fs", type(error).__name__, delay)
+    sleep(delay)
+
+
+def _wait_for_rate_limit(response, attempt: int, waited: float) -> float:
+    delay = max(1.0, _retry_delay(attempt, response, cap=120.0))
+    if waited + delay > RATE_LIMIT_MAX_WAIT:
+        raise PullError(f"FEC rate limit did not clear after {waited / 60:.0f} minutes")
+    waited += delay
+    log.warning(
+        "FEC rate limit; retrying in %.1fs (waited %.1f min)",
+        delay,
+        waited / 60,
+    )
+    sleep(delay)
+    return waited
+
+
+def _retry_server_error(response, attempt: int) -> None:
+    if attempt == MAX_ATTEMPTS:
+        raise PullError(
+            f"FEC API returned HTTP {response.status_code} after {attempt} attempts"
+        )
+    delay = _retry_delay(attempt, response)
+    log.warning("HTTP %s; retrying in %.1fs", response.status_code, delay)
+    sleep(delay)
+
+
+def _response_data(response, params: dict) -> dict:
+    if response.status_code == 403:
+        raise PullError("FEC API key is invalid or expired")
+    if response.status_code == 404:
+        raise PullError("FEC endpoint or committee was not found")
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as error:
+        message = str(error).replace(params.get("api_key", ""), "***")
+        raise PullError(message) from error
+    try:
+        return response.json()
+    except requests.exceptions.JSONDecodeError as error:
+        raise PullError("FEC API returned invalid JSON") from error
+
+
 def fetch_page(session, params: dict, limiter: RateLimiter) -> dict:
     """Fetch one page, waiting through an hourly FEC rate-limit window."""
     transient_attempts = 0
@@ -95,59 +154,25 @@ def fetch_page(session, params: dict, limiter: RateLimiter) -> dict:
             response = session.get(BASE_URL, params=params, timeout=(10, 180))
         except (ReadTimeout, ConnectTimeout, ConnectionError) as error:
             transient_attempts += 1
-            if transient_attempts == MAX_ATTEMPTS:
-                raise PullError(
-                    f"FEC API unavailable after {transient_attempts} attempts"
-                ) from error
-            delay = _retry_delay(transient_attempts)
-            log.warning("%s; retrying in %.1fs", type(error).__name__, delay)
-            sleep(delay)
+            _retry_connection(error, transient_attempts)
             continue
 
         over_limit = response.status_code == 429 or "OVER_RATE_LIMIT" in response.text
         if over_limit:
             rate_limit_attempts += 1
-            delay = max(1.0, _retry_delay(rate_limit_attempts, response, cap=120.0))
-            if rate_limit_waited + delay > RATE_LIMIT_MAX_WAIT:
-                raise PullError(
-                    f"FEC rate limit did not clear after {rate_limit_waited / 60:.0f} minutes"
-                )
-            rate_limit_waited += delay
-            log.warning(
-                "FEC rate limit; retrying in %.1fs (waited %.1f min)",
-                delay,
-                rate_limit_waited / 60,
+            rate_limit_waited = _wait_for_rate_limit(
+                response,
+                rate_limit_attempts,
+                rate_limit_waited,
             )
-            sleep(delay)
             continue
 
         if response.status_code in TRANSIENT_STATUSES:
             transient_attempts += 1
-            if transient_attempts == MAX_ATTEMPTS:
-                raise PullError(
-                    f"FEC API returned HTTP {response.status_code} "
-                    f"after {transient_attempts} attempts"
-                )
-            delay = _retry_delay(transient_attempts, response)
-            log.warning("HTTP %s; retrying in %.1fs", response.status_code, delay)
-            sleep(delay)
+            _retry_server_error(response, transient_attempts)
             continue
 
-        if response.status_code == 403:
-            raise PullError("FEC API key is invalid or expired")
-        if response.status_code == 404:
-            raise PullError("FEC endpoint or committee was not found")
-
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as error:
-            message = str(error).replace(params.get("api_key", ""), "***")
-            raise PullError(message) from error
-
-        try:
-            return response.json()
-        except requests.exceptions.JSONDecodeError as error:
-            raise PullError("FEC API returned invalid JSON") from error
+        return _response_data(response, params)
 
 
 def _number(value) -> Decimal:
@@ -168,8 +193,12 @@ def _year(date_value: str | None) -> int | None:
         return None
 
 
-def read_committee_state(csv_path: Path, committee_id: str) -> tuple[set[str], str | None]:
-    """Return existing sub_ids and latest date for one committee."""
+def read_committee_state(
+    csv_path: Path,
+    committee_id: str,
+    period: int,
+) -> tuple[set[str], str | None]:
+    """Return existing IDs and latest date for one committee period."""
     sub_ids: set[str] = set()
     latest_date = None
     if not csv_path.exists():
@@ -177,7 +206,10 @@ def read_committee_state(csv_path: Path, committee_id: str) -> tuple[set[str], s
 
     with open(csv_path, newline="", encoding="utf-8-sig") as handle:
         for row in csv.DictReader(handle):
-            if row.get("committee_id") != committee_id:
+            if (
+                row.get("committee_id") != committee_id
+                or row.get("two_year_transaction_period") != str(period)
+            ):
                 continue
             if row.get("sub_id"):
                 sub_ids.add(row["sub_id"])
@@ -222,21 +254,32 @@ def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
         params["last_index"] = indexes.get("last_index")
 
 
-def run(committee_id: str, period: int, full: bool = False) -> None:
-    """Append one committee's new Schedule A filings to contributions.csv."""
-    api_key = required_env("FEC_API_KEY")
-    RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
-    csv_path = RAW_CSV
-    existing_ids, latest_date = read_committee_state(csv_path, committee_id)
-
+def _log_pull_mode(
+    full: bool,
+    period: int,
+    latest_date: str | None,
+    existing_count: int,
+) -> None:
     if full:
-        log.info("[FULL] re-pulling period %s; deduping by sub_id", period)
+        log.info("[FULL] rechecking period %s; deduping by sub_id", period)
     elif latest_date:
-        log.info("[REFRESH] %s existing rows; starting at %s", f"{len(existing_ids):,}", latest_date)
+        log.info(
+            "[REFRESH] %s existing rows; starting at %s",
+            f"{existing_count:,}",
+            latest_date,
+        )
     else:
         log.info("[REFRESH] no existing data; pulling everything")
 
-    params = {
+
+def _pull_params(
+    api_key: str,
+    committee_id: str,
+    period: int,
+    latest_date: str | None,
+    full: bool,
+) -> dict:
+    params: dict[str, Any] = {
         "api_key": api_key,
         "committee_id": committee_id,
         "two_year_transaction_period": period,
@@ -246,13 +289,20 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
     }
     if latest_date and not full:
         params["min_date"] = latest_date
+    return params
 
-    session = build_session()
-    limiter = RateLimiter(rpm=int(os.getenv("FEC_RPM", "15")))
-    new_rows = duplicates = missing_ids = pages = 0
+
+def _pull_pages(
+    csv_path: Path,
+    session,
+    params: dict,
+    limiter: RateLimiter,
+    existing_ids: set[str],
+    committee_id: str,
+    period: int,
+    stats: dict[str, int],
+) -> None:
     progress = None
-
-    log.info("[START] %s / %s -> %s", committee_id, period, csv_path)
     try:
         with open(csv_path, "a", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
@@ -269,47 +319,85 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
                             unit="pg",
                         )
 
-                pages += 1
+                stats["pages"] += 1
                 if progress:
                     progress.update(1)
 
                 for result in data.get("results", []):
                     row = build_row(result)
                     if row is None:
-                        missing_ids += 1
+                        stats["missing_ids"] += 1
                     elif str(row[0]) in existing_ids:
-                        duplicates += 1
+                        stats["duplicates"] += 1
                     else:
                         writer.writerow(row)
                         existing_ids.add(str(row[0]))
-                        new_rows += 1
+                        stats["new_rows"] += 1
                 handle.flush()
-    except KeyboardInterrupt:
-        _log_summary(
-            "STOPPED", committee_id, period, new_rows, duplicates,
-            missing_ids, pages, csv_path, log.warning,
-        )
-        raise
     finally:
         if progress:
             progress.close()
 
-    _log_summary(
-        "DONE", committee_id, period, new_rows, duplicates,
-        missing_ids, pages, csv_path, log.info,
+
+def run(committee_id: str, period: int, full: bool = False) -> None:
+    """Append one committee's new Schedule A filings to contributions.csv."""
+    api_key = required_env("FEC_API_KEY")
+    RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
+    csv_path = RAW_CSV
+    existing_ids, latest_date = read_committee_state(
+        csv_path,
+        committee_id,
+        period,
     )
+    _log_pull_mode(full, period, latest_date, len(existing_ids))
+
+    params = _pull_params(api_key, committee_id, period, latest_date, full)
+    session = build_session()
+    limiter = RateLimiter(rpm=int(os.getenv("FEC_RPM", "15")))
+    stats = {"new_rows": 0, "duplicates": 0, "missing_ids": 0, "pages": 0}
+
+    log.info("[START] %s / %s -> %s", committee_id, period, csv_path)
+    try:
+        _pull_pages(
+            csv_path,
+            session,
+            params,
+            limiter,
+            existing_ids,
+            committee_id,
+            period,
+            stats,
+        )
+    except KeyboardInterrupt:
+        _log_summary(
+            "STOPPED",
+            committee_id,
+            period,
+            stats,
+            csv_path,
+            log.warning,
+        )
+        raise
+
+    _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
 
 
-def _log_summary(status, committee_id, period, new_rows, duplicates,
-                 missing_ids, pages, csv_path, writer) -> None:
+def _log_summary(
+    status,
+    committee_id,
+    period,
+    stats,
+    csv_path,
+    writer,
+) -> None:
     writer(
         "[%s] %s / %s: new=%s skipped=%s no_sub_id=%s pages=%s file=%s",
         status,
         committee_id,
         period,
-        f"{new_rows:,}",
-        f"{duplicates:,}",
-        f"{missing_ids:,}",
-        pages,
+        f"{stats['new_rows']:,}",
+        f"{stats['duplicates']:,}",
+        f"{stats['missing_ids']:,}",
+        stats["pages"],
         csv_path,
     )

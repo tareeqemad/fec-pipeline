@@ -15,6 +15,18 @@ ADDRESS_FIELDS = (
     "employer_state",
     "employer_zip",
 )
+ADDRESS_TRUST_VALUES = frozenset({
+    "verified",
+    "grounded",
+    "corroborated",
+    "uncorroborated",
+})
+PUBLISHABLE_ADDRESS_TRUST = frozenset({"verified", "grounded"})
+_CACHE_BLOCK_METHODS = frozenset({
+    "ai_not_found",
+    "manual_invalid",
+    "manual_review",
+})
 
 
 def _text(value) -> str:
@@ -30,6 +42,14 @@ def _usable(location: dict | None) -> bool:
             and _text(location.get("employer_state"))
         )
     ))
+
+
+def is_publishable_location(location: dict | None) -> bool:
+    """Return whether an address has auditable evidence."""
+    if not _usable(location):
+        return False
+    method = _text(location.get("method"))
+    return method == "manual_override" or method.endswith("_search")
 
 
 def _signature(location: dict) -> tuple[str, ...]:
@@ -63,6 +83,44 @@ def location_candidates(entry: dict | None) -> list[dict]:
     for location in candidates:
         unique.setdefault(_signature(location), location)
     return list(unique.values())
+
+
+def _publishable_entry(entry: dict | None) -> dict | None:
+    """Keep blockers or return only publishable locations."""
+    if not isinstance(entry, dict):
+        return None
+    if entry.get("method") in _CACHE_BLOCK_METHODS:
+        return entry
+
+    candidates = [
+        location
+        for location in location_candidates(entry)
+        if is_publishable_location(location)
+    ]
+    if not candidates:
+        return None
+
+    primary = next(
+        (location for location in candidates if location.get("is_primary")),
+        candidates[0],
+    )
+    result = {
+        key: value
+        for key, value in primary.items()
+        if key not in {"is_primary", "locations"}
+    }
+    extras = [
+        {
+            key: value
+            for key, value in location.items()
+            if key != "is_primary"
+        }
+        for location in candidates
+        if location is not primary
+    ]
+    if extras:
+        result["locations"] = extras
+    return result
 
 
 def _preferred_entry(
@@ -101,8 +159,18 @@ def _preferred_entry(
     return None
 
 
-def address_cache_lookup(entries: dict) -> dict[str, dict]:
+def address_cache_lookup(
+    entries: dict,
+    *,
+    publishable_only: bool = False,
+) -> dict[str, dict]:
     """Index safe cache matches."""
+    if publishable_only:
+        entries = {
+            name: trusted
+            for name, entry in entries.items()
+            if (trusted := _publishable_entry(entry)) is not None
+        }
     exact = {
         str(name).strip().upper(): entry
         for name, entry in entries.items()

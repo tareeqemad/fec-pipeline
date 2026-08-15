@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Build employer_locations.csv and slim the contributions file."""
+"""Build employer locations after employer geocoding."""
 
 import json
 from collections import defaultdict
@@ -7,9 +6,9 @@ from collections import defaultdict
 import pandas as pd
 
 from fec.cleaning.previous_employer import referenced_employers
-from fec.config import INTERNAL_OUTPUT_COLUMNS
+from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
-from fec.log import get_logger, setup_logging
+from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
     ADDRESS_FIELDS,
@@ -156,7 +155,7 @@ def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
                               for name in missing])
         frame = pd.concat([frame, empty], ignore_index=True)
 
-    for _employer, indexes in frame.groupby("employer_name").groups.items():
+    for indexes in frame.groupby("employer_name").groups.values():
         primary = [index for index in indexes if frame.at[index, "is_primary"]]
         chosen = primary[0] if primary else min(indexes)
         frame.loc[indexes, "is_primary"] = False
@@ -182,7 +181,7 @@ def build() -> tuple[int, int]:
     missing = sorted(required - set(df.columns))
     if missing:
         raise ValueError(
-            "run resolve.py --apply before build_employers.py; "
+            "run resolve.py --apply before geocode.py --employer-only; "
             f"missing columns: {', '.join(missing)}"
         )
     employers = referenced_employers(df)
@@ -205,13 +204,3 @@ def build() -> tuple[int, int]:
     slim.to_csv(CLEANED_CSV, index=False, na_rep="")
     logger.info(f"  contributions_cleaned.csv: {len(slim.columns)} columns")
     return len(locations), len(slim.columns)
-
-
-def main():
-    setup_logging()
-    logger.info("-- Building employer locations --")
-    build()
-
-
-if __name__ == "__main__":
-    main()

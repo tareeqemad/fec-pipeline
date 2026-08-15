@@ -86,21 +86,26 @@ def _same_fec_donor(person: dict, record: dict) -> bool:
 def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return all individuals and the latest row for every retired donor."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
-    retired_keys = set(individuals.loc[
-        individuals["contributor_employer"] == RETIRED, "donor_key"
-    ].unique())
-    latest = (individuals[individuals["donor_key"].isin(retired_keys)]
-              .sort_values("contribution_receipt_date", ascending=False)
-              .drop_duplicates("donor_key", keep="first"))
+    retired_keys = set(
+        individuals.loc[
+            individuals["contributor_employer"] == RETIRED, "donor_key"
+        ].unique()
+    )
+    latest = (
+        individuals[individuals["donor_key"].isin(retired_keys)]
+        .sort_values("contribution_receipt_date", ascending=False)
+        .drop_duplicates("donor_key", keep="first")
+    )
     return individuals, latest
 
 
-def migrate_previous_employer_cache(df: pd.DataFrame, prev_cache) -> tuple[int, int, int]:
+def migrate_previous_employer_cache(
+    df: pd.DataFrame, prev_cache
+) -> tuple[int, int, int]:
     """Move legacy NAME|STATE entries to donor-keyed cache entries."""
     entries = getattr(prev_cache, "data", prev_cache)
     legacy_keys = [
-        key for key in list(entries)
-        if "|" in key and not key.startswith("donor:")
+        key for key in list(entries) if "|" in key and not key.startswith("donor:")
     ]
     if not legacy_keys:
         return 0, 0, 0
@@ -109,7 +114,8 @@ def migrate_previous_employer_cache(df: pd.DataFrame, prev_cache) -> tuple[int, 
     donors_by_legacy_key: dict[str, set[str]] = {}
     for _, row in latest_retired.iterrows():
         legacy_key = _legacy_prev_key(
-            row.get("contributor_name"), row.get("contributor_state"),
+            row.get("contributor_name"),
+            row.get("contributor_state"),
         )
         donors_by_legacy_key.setdefault(legacy_key, set()).add(
             _s(row.get("donor_key")).strip(),
@@ -145,8 +151,14 @@ def _clean_employer(value) -> str:
 
 
 def _cache_entry(
-    raw_employer, *, state, method, source_date="", source_name="",
-    source_city="", source_zip="",
+    raw_employer,
+    *,
+    state,
+    method,
+    source_date="",
+    source_name="",
+    source_city="",
+    source_zip="",
 ) -> dict:
     """Build one clean cache entry while retaining raw spelling as provenance."""
     raw_name = _s(raw_employer).strip()
@@ -172,9 +184,7 @@ def _cache_entry(
     return entry
 
 
-def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
-    """Cache each retired donor's latest real employer from the loaded CSV."""
-    individuals, latest_retired = _retired_donors(df)
+def _eligible_retired_donors(latest_retired: pd.DataFrame, prev_cache):
     donor_to_cache_key = {
         row["donor_key"]: _prev_key(row["donor_key"])
         for _, row in latest_retired.iterrows()
@@ -188,11 +198,17 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
             protected += 1
         else:
             eligible.add(donor_key)
+    return donor_to_cache_key, eligible, protected
 
+
+def _cross_record_candidates(individuals: pd.DataFrame, eligible: set):
     statuses = classify_employer_statuses(individuals)
-    worked = statuses.isin({
-        "active", "self_employed",
-    })
+    worked = statuses.isin(
+        {
+            "active",
+            "self_employed",
+        }
+    )
     clean_employers = individuals["contributor_employer"].map(_clean_employer)
     work_rows = individuals.loc[worked & clean_employers.ne("")].assign(
         _candidate_employer=individuals["contributor_employer"],
@@ -200,7 +216,8 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         _candidate_priority=1,
     )
     previous = individuals.get(
-        "previous_employer", pd.Series("", index=individuals.index),
+        "previous_employer",
+        pd.Series("", index=individuals.index),
     )
     clean_previous = previous.map(_clean_employer)
     previous_rows = individuals.loc[clean_previous.ne("")].assign(
@@ -213,11 +230,17 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         ascending=[True, False],
     )
     rows_by_donor = {
-        key: group for key, group in real_rows.groupby("donor_key")
-        if key in eligible
+        key: group for key, group in real_rows.groupby("donor_key") if key in eligible
     }
+    return rows_by_donor, clean_employers, statuses
 
-    found = refreshed = unchanged = cleared = 0
+
+def _refresh_cross_record_cache(
+    rows_by_donor: dict,
+    donor_to_cache_key: dict,
+    prev_cache,
+) -> tuple[int, int, int]:
+    found = refreshed = unchanged = 0
     for donor_key, group in rows_by_donor.items():
         cache_key = donor_to_cache_key[donor_key]
         latest = group.iloc[0]
@@ -229,10 +252,8 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         )
         cached = prev_cache.get(cache_key)
         cached_name, _ = _previous_employer_identity(cached)
-        if (
-            cached_name
-            and canonical_key(cached_name)
-            == canonical_key(entry.get("employer", ""))
+        if cached_name and canonical_key(cached_name) == canonical_key(
+            entry.get("employer", "")
         ):
             unchanged += 1
             continue
@@ -244,10 +265,22 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
             found += 1
         else:
             refreshed += 1
+    return found, refreshed, unchanged
 
+
+def _clear_invalid_cross_records(
+    individuals: pd.DataFrame,
+    statuses,
+    clean_employers,
+    eligible: set,
+    rows_by_donor: dict,
+    donor_to_cache_key: dict,
+    prev_cache,
+) -> int:
     invalid_rows = individuals.loc[
         statuses.eq("not_employed") & clean_employers.ne("")
     ].assign(_clean_employer=clean_employers)
+    cleared = 0
     for donor_key, group in invalid_rows.groupby("donor_key"):
         if donor_key not in eligible or donor_key in rows_by_donor:
             continue
@@ -261,6 +294,34 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         ):
             prev_cache.discard(cache_key)
             cleared += 1
+    return cleared
+
+
+def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
+    """Cache each retired donor's latest real employer from the loaded CSV."""
+    individuals, latest_retired = _retired_donors(df)
+    donor_to_cache_key, eligible, protected = _eligible_retired_donors(
+        latest_retired,
+        prev_cache,
+    )
+    rows_by_donor, clean_employers, statuses = _cross_record_candidates(
+        individuals,
+        eligible,
+    )
+    found, refreshed, unchanged = _refresh_cross_record_cache(
+        rows_by_donor,
+        donor_to_cache_key,
+        prev_cache,
+    )
+    cleared = _clear_invalid_cross_records(
+        individuals,
+        statuses,
+        clean_employers,
+        eligible,
+        rows_by_donor,
+        donor_to_cache_key,
+        prev_cache,
+    )
 
     changed = found + refreshed + cleared
     if changed:
@@ -276,7 +337,9 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
 
 
 def _pending_fec_searches(
-    df: pd.DataFrame, prev_cache, donor_totals: pd.DataFrame,
+    df: pd.DataFrame,
+    prev_cache,
+    donor_totals: pd.DataFrame,
 ) -> list[dict]:
     """Return unresolved retired donors, largest donors first."""
     _, latest_retired = _retired_donors(df)
@@ -304,10 +367,7 @@ def _pending_fec_searches(
             todo_cache_keys.add(cache_key)
 
     totals = donor_totals.set_index("donor_key")["donor_total"].to_dict()
-    searches = [
-        {**donor_info[key], "total": totals.get(key, 0)}
-        for key in todo_donors
-    ]
+    searches = [{**donor_info[key], "total": totals.get(key, 0)} for key in todo_donors]
     searches.sort(key=lambda entry: -entry["total"])
     return searches
 
@@ -336,10 +396,13 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
         for record in response.json().get("results", []):
             if not _same_fec_donor(person, record):
                 continue
-            if classify_employer_status(
-                record.get("contributor_employer", ""),
-                record.get("contributor_occupation", ""),
-            ) != "active":
+            if (
+                classify_employer_status(
+                    record.get("contributor_employer", ""),
+                    record.get("contributor_occupation", ""),
+                )
+                != "active"
+            ):
                 continue
             entry = _cache_entry(
                 record.get("contributor_employer", ""),
@@ -365,7 +428,6 @@ def step_fec_api(
     df: pd.DataFrame,
     prev_cache,
     donor_totals: pd.DataFrame,
-    dry_run: bool = False,
 ) -> int:
     """Find remaining retired donors' latest real employer through the FEC API."""
     import requests
@@ -383,16 +445,10 @@ def step_fec_api(
         return 0
 
     logger.info(f"    FEC API: {len(searches):,} retired donors to search")
-    if dry_run:
-        logger.info(f"    (dry run - would make {len(searches):,} API calls)")
-        return 0
-
     found = 0
     with ThreadPoolExecutor(max_workers=5) as pool:
         futures = [
-            pool.submit(
-                _fetch_fec_previous_employer, person, fec_key, requests.get
-            )
+            pool.submit(_fetch_fec_previous_employer, person, fec_key, requests.get)
             for person in searches
         ]
         for done, future in enumerate(as_completed(futures), 1):
@@ -403,9 +459,7 @@ def step_fec_api(
                     found += 1
             if done % 50 == 0:
                 prev_cache.save()
-                logger.info(
-                    f"      ... {done}/{len(searches)} ({found:,} found)"
-                )
+                logger.info(f"      ... {done}/{len(searches)} ({found:,} found)")
 
     prev_cache.save()
     logger.info(f"    FEC API: found {found:,} previous employers")

@@ -11,14 +11,31 @@ from fec.config.constants import EMPLOYER_STATUS_VALUES
 from .matcher import UnionFind
 
 # legal suffixes/connectors carry no identity when comparing employer names
-_EMP_DROP_TOKENS = frozenset({
-    "LLP", "LLC", "INC", "PC", "CO", "CORP", "CORPORATION", "COMPANY", "LP",
-    "LTD", "PLLC", "PA", "APC", "CHARTERED", "THE", "AND", "OF",
-})
+_EMP_DROP_TOKENS = frozenset(
+    {
+        "LLP",
+        "LLC",
+        "INC",
+        "PC",
+        "CO",
+        "CORP",
+        "CORPORATION",
+        "COMPANY",
+        "LP",
+        "LTD",
+        "PLLC",
+        "PA",
+        "APC",
+        "CHARTERED",
+        "THE",
+        "AND",
+        "OF",
+    }
+)
 _EMP_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
-_POBOX_RE = re.compile(r'\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)')
+_POBOX_RE = re.compile(r"\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)")
 
 
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
@@ -32,7 +49,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     ln_col = "contributor_last_name"
     cn_col = "contributor_name"
 
-    for _, idx in df[ind].groupby("donor_key").groups.items():
+    for idx in df[ind].groupby("donor_key").groups.values():
         rows = df.loc[idx]
         lasts = rows["contributor_last_name"].dropna().map(str).str.strip()
         lasts = lasts[lasts != ""]
@@ -44,7 +61,9 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
         last_words = set(canon_last.upper().split())
         # candidates must carry a non-surname token: a reversed filing's
         # surname-as-first could otherwise win, then strip to nothing
-        fcands = [f for f in firsts if any(w.upper() not in last_words for w in f.split())]
+        fcands = [
+            f for f in firsts if any(w.upper() not in last_words for w in f.split())
+        ]
         canon_first = max(fcands, key=len) if fcands else None
         if canon_first:
             kept = [w for w in canon_first.split() if w.upper() not in last_words]
@@ -73,55 +92,61 @@ def _emp_core_tokens(name: str) -> frozenset:
     return frozenset(t for t in toks if t not in _EMP_DROP_TOKENS and len(t) > 1)
 
 
+def _employer_variant_map(names: list[str]) -> dict[str, str]:
+    cores = {name: _emp_core_tokens(name) for name in names}
+    union = UnionFind()
+    for left_index in range(len(names)):
+        for right_index in range(left_index + 1, len(names)):
+            left = names[left_index]
+            right = names[right_index]
+            left_core = cores[left]
+            right_core = cores[right]
+            if len(left_core & right_core) >= 2 and (
+                left_core <= right_core or right_core <= left_core
+            ):
+                union.union(left, right)
+
+    clusters = defaultdict(list)
+    for name in names:
+        clusters[union.find(name)].append(name)
+
+    remap = {}
+    for members in clusters.values():
+        if len(members) < 2:
+            continue
+        canonical = max(members, key=lambda name: (len(cores[name]), len(name)))
+        remap.update({name: canonical for name in members if name != canonical})
+    return remap
+
+
+def _apply_employer_variants(df: pd.DataFrame, indexes, remap: dict) -> int:
+    changed = 0
+    for index in indexes:
+        current = df.at[index, "contributor_employer"]
+        if isinstance(current, str) and current.strip() in remap:
+            df.at[index, "contributor_employer"] = remap[current.strip()]
+            changed += 1
+    return changed
+
+
 def canonicalize_donor_employers(df: pd.DataFrame) -> int:
-    """Collapse per-donor employer variants of the same firm (token subset + >=2 shared tokens) to the most complete form; returns rows rewritten."""
-    ind = df["entity_type"] == "INDIVIDUAL"
-    if not ind.any():
+    """Unify clear employer variants within each donor's history."""
+    individuals = df["entity_type"] == "INDIVIDUAL"
+    if not individuals.any():
         return 0
 
-    emp_col = "contributor_employer"
     changed = 0
-
-    for _, idx in df[ind].groupby("donor_key").groups.items():
-        sub = df.loc[idx, "contributor_employer"].dropna().map(str).str.strip()
+    for indexes in df[individuals].groupby("donor_key").groups.values():
+        values = df.loc[indexes, "contributor_employer"].dropna().map(str).str.strip()
         names = [
-            name for name in sub.unique()
+            name
+            for name in values.unique()
             if name and name.upper() not in EMPLOYER_STATUS_VALUES
         ]
-        if len(names) < 2:
-            continue
-        cores = {n: _emp_core_tokens(n) for n in names}
-
-        # union-find over this donor's employer names by the same-firm rule
-        uf = UnionFind()
-
-        for a_i in range(len(names)):
-            for b_i in range(a_i + 1, len(names)):
-                a, b = names[a_i], names[b_i]
-                ca, cb = cores[a], cores[b]
-                if len(ca & cb) >= 2 and (ca <= cb or cb <= ca):
-                    uf.union(a, b)
-
-        clusters: dict[str, list] = defaultdict(list)
-        for n in names:
-            clusters[uf.find(n)].append(n)
-
-        remap = {}
-        for members in clusters.values():
-            if len(members) < 2:
-                continue
-            canon = max(members, key=lambda n: (len(cores[n]), len(n)))
-            for n in members:
-                if n != canon:
-                    remap[n] = canon
-        if not remap:
-            continue
-
-        for i in idx:
-            cur = df.at[i, emp_col]
-            if isinstance(cur, str) and cur.strip() in remap:
-                df.at[i, emp_col] = remap[cur.strip()]
-                changed += 1
+        if len(names) >= 2:
+            remap = _employer_variant_map(names)
+            if remap:
+                changed += _apply_employer_variants(df, indexes, remap)
     return changed
 
 
@@ -136,19 +161,23 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
     if emp.empty:
         return 0
     by_key: dict[str, str] = {}
-    for name in emp.value_counts().index:            # value_counts: most common first
+    for name in emp.value_counts().index:  # value_counts: most common first
         k = canonical_key(name)
         if k and k not in by_key:
             by_key[k] = name
 
     def _forms(n: str):
         out = [n]
-        if "," in n:                                  # "CAPITAL, WHITE" -> "WHITE CAPITAL"
+        if "," in n:  # "CAPITAL, WHITE" -> "WHITE CAPITAL"
             a, b = n.split(",", 1)
             out.append(f"{b.strip()} {a.strip()}")
         return out
 
-    org_names = df.loc[df["entity_type"] == "ORGANIZATION", "contributor_name"].dropna().unique()
+    org_names = (
+        df.loc[df["entity_type"] == "ORGANIZATION", "contributor_name"]
+        .dropna()
+        .unique()
+    )
     remap: dict[str, str] = {}
     for nm in org_names:
         for form in _forms(str(nm)):
@@ -181,7 +210,7 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
     zip_col = "contributor_zip"
     changed = 0
 
-    for _, idx in df[ind].groupby("donor_key").groups.items():
+    for idx in df[ind].groupby("donor_key").groups.values():
         # bucket this donor's rows by (zip, anchored-fingerprint)
         buckets: dict[tuple, list] = defaultdict(list)
         for i in idx:
@@ -194,7 +223,7 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
             if fp:
                 buckets[(z, fp)].append(i)
 
-        for (_z, _fp), rows in buckets.items():
+        for rows in buckets.values():
             forms = [df.at[i, st_col].strip() for i in rows]
             distinct = set(forms)
             if len(distinct) < 2:
@@ -220,7 +249,7 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
     zip_col = "contributor_zip"
     changed = 0
 
-    for _, idx in df[ind].groupby("donor_key").groups.items():
+    for idx in df[ind].groupby("donor_key").groups.values():
         buckets: dict[tuple, list] = defaultdict(list)
         for i in idx:
             s2 = df.at[i, st2_col]
@@ -235,7 +264,7 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
             z = z if isinstance(z, str) else ""
             buckets[(s1, z, core)].append(i)
 
-        for _k, rows in buckets.items():
+        for rows in buckets.values():
             forms = [df.at[i, st2_col].strip() for i in rows]
             if len(set(forms)) < 2:
                 continue
@@ -250,7 +279,7 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
 def _pobox_num(street: str) -> str:
     """Extract the box number from a PO-box street, else ''."""
     m = _POBOX_RE.search(street.upper())
-    return m.group(1) if m else ''
+    return m.group(1) if m else ""
 
 
 def _is_insertion_typo(a: str, b: str) -> bool:
@@ -265,52 +294,62 @@ def _is_insertion_typo(a: str, b: str) -> bool:
     return i == len(short)
 
 
-def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
-    """Collapse per-donor same-ZIP PO-box numbers that differ by one inserted digit to the most frequent box (all entity types; same-length boxes never merge); returns rows rewritten."""
-    st_col = "contributor_street_1"
-    zip_col = "contributor_zip"
+def _pobox_rows_by_zip(df: pd.DataFrame, indexes) -> dict[str, list]:
+    by_zip = defaultdict(list)
+    for index in indexes:
+        street = df.at[index, "contributor_street_1"]
+        box = _pobox_num(street) if isinstance(street, str) else ""
+        if not box:
+            continue
+        zip_code = df.at[index, "contributor_zip"]
+        zip_code = zip_code if isinstance(zip_code, str) else ""
+        by_zip[zip_code].append((index, street.strip(), box))
+    return by_zip
+
+
+def _pobox_clusters(numbers: list[str]) -> list[list[str]]:
+    union = UnionFind()
+    for left in numbers:
+        for right in numbers:
+            if left < right and _is_insertion_typo(left, right):
+                union.union(left, right)
+
+    clusters = defaultdict(list)
+    for number in numbers:
+        clusters[union.find(number)].append(number)
+    return list(clusters.values())
+
+
+def _apply_pobox_cluster(df: pd.DataFrame, rows: list, members: list[str]) -> int:
+    frequencies = defaultdict(int)
+    for _, _, box in rows:
+        frequencies[box] += 1
+    canonical_box = max(
+        members,
+        key=lambda box: (frequencies[box], -len(box)),
+    )
+    canonical_forms = [street for _, street, box in rows if box == canonical_box]
+    canonical = max(set(canonical_forms), key=canonical_forms.count)
+
     changed = 0
+    for index, street, box in rows:
+        if box in members and street != canonical:
+            df.at[index, "contributor_street_1"] = canonical
+            changed += 1
+    return changed
 
-    for _, idx in df.groupby("donor_key").groups.items():
-        by_zip: dict[str, list] = defaultdict(list)
-        for i in idx:
-            s = df.at[i, st_col]
-            bn = _pobox_num(s) if isinstance(s, str) else ""
-            if not bn:
+
+def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
+    """Unify one-digit insertion typos in a donor's same-ZIP PO boxes."""
+    changed = 0
+    for indexes in df.groupby("donor_key").groups.values():
+        for rows in _pobox_rows_by_zip(df, indexes).values():
+            numbers = sorted({box for _, _, box in rows})
+            if len(numbers) < 2:
                 continue
-            z = df.at[i, zip_col]
-            z = z if isinstance(z, str) else ""
-            by_zip[z].append((i, s.strip(), bn))
-
-        for _z, rows in by_zip.items():
-            nums = sorted({bn for _, _, bn in rows})
-            if len(nums) < 2:
-                continue
-            # union typo-related box numbers into clusters
-            uf = UnionFind()
-            for a in nums:
-                for b in nums:
-                    if a < b and _is_insertion_typo(a, b):
-                        uf.union(a, b)
-            clusters: dict[str, list] = defaultdict(list)
-            for n in nums:
-                clusters[uf.find(n)].append(n)
-
-            freq: dict[str, int] = defaultdict(int)
-            for _, _, bn in rows:
-                freq[bn] += 1
-            for members in clusters.values():
-                if len(members) < 2:
-                    continue
-                # tie on frequency: prefer the SHORTER box -- the insertion-
-                # typo variant is by construction the longer one
-                canon_box = max(members, key=lambda n: (freq[n], -len(n)))
-                canon_forms = [f for _, f, bn in rows if bn == canon_box]
-                canon_full = max(set(canon_forms), key=canon_forms.count)
-                for i, f, bn in rows:
-                    if bn in members and f != canon_full:
-                        df.at[i, st_col] = canon_full
-                        changed += 1
+            for members in _pobox_clusters(numbers):
+                if len(members) >= 2:
+                    changed += _apply_pobox_cluster(df, rows, members)
     return changed
 
 
@@ -330,63 +369,85 @@ def _haversine_m(lat1, lon1, lat2, lon2) -> float:
     return 2 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
 
 
+def _precise_address_points(df: pd.DataFrame, indexes) -> list[tuple]:
+    points = []
+    for index in indexes:
+        street = df.at[index, "contributor_street_1"]
+        if not (isinstance(street, str) and street.strip()):
+            continue
+        level = str(df.at[index, "geocode_level"]).lower()
+        if any(token in level for token in _COARSE_LEVEL_TOKENS):
+            continue
+        try:
+            latitude = float(df.at[index, "latitude"])
+            longitude = float(df.at[index, "longitude"])
+        except (TypeError, ValueError):
+            continue
+        if math.isnan(latitude) or math.isnan(longitude):
+            continue
+        points.append((index, street.strip(), latitude, longitude))
+    return points
+
+
+def _nearby_point_clusters(points: list[tuple], radius_m: float) -> list[list[int]]:
+    union = UnionFind()
+    for left in range(len(points)):
+        for right in range(left + 1, len(points)):
+            distance = _haversine_m(
+                points[left][2],
+                points[left][3],
+                points[right][2],
+                points[right][3],
+            )
+            if distance <= radius_m:
+                union.union(left, right)
+
+    clusters = defaultdict(list)
+    for index in range(len(points)):
+        clusters[union.find(index)].append(index)
+    return list(clusters.values())
+
+
+def _apply_point_cluster(
+    df: pd.DataFrame, points: list[tuple], members: list[int]
+) -> int:
+    forms = [points[member][1] for member in members]
+    if len(set(forms)) < 2:
+        return 0
+
+    canonical = max(sorted(set(forms)), key=forms.count)
+    representative = next(
+        member for member in members if points[member][1] == canonical
+    )
+    latitude = points[representative][2]
+    longitude = points[representative][3]
+    changed = 0
+    for member in members:
+        if points[member][1] == canonical:
+            continue
+        row_index = points[member][0]
+        df.at[row_index, "contributor_street_1"] = canonical
+        df.at[row_index, "latitude"] = latitude
+        df.at[row_index, "longitude"] = longitude
+        changed += 1
+    return changed
+
+
 def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -> int:
-    """Collapse per-donor street_1 forms whose precise geocodes sit within radius_m to the most common form (coords aligned; coarse geocode levels skipped); returns rows rewritten."""
+    """Unify precise same-place address forms within each donor."""
     needed = {"latitude", "longitude", "donor_key", "contributor_street_1"}
     if not needed <= set(df.columns):
         return 0
-    ind = df["entity_type"] == "INDIVIDUAL"
-    if not ind.any():
+    individuals = df["entity_type"] == "INDIVIDUAL"
+    if not individuals.any():
         return 0
 
-    st_col = "contributor_street_1"
-    lat_col = "latitude"
-    lng_col = "longitude"
-    level_col = "geocode_level"
     changed = 0
-
-    for _, idx in df[ind].groupby("donor_key").groups.items():
-        pts = []  # (row_i, street, lat, lng)
-        for i in idx:
-            s = df.at[i, st_col]
-            if not (isinstance(s, str) and s.strip()):
-                continue
-            lvl = str(df.at[i, level_col]).lower()
-            if any(t in lvl for t in _COARSE_LEVEL_TOKENS):
-                continue
-            try:
-                lat, lng = float(df.at[i, lat_col]), float(df.at[i, lng_col])
-            except (TypeError, ValueError):
-                continue
-            if math.isnan(lat) or math.isnan(lng):
-                continue
-            pts.append((i, s.strip(), lat, lng))
-        if len(pts) < 2:
+    groups = df[individuals].groupby("donor_key").groups.values()
+    for indexes in groups:
+        points = _precise_address_points(df, indexes)
+        if len(points) < 2:
             continue
-
-        uf = UnionFind()
-
-        for a in range(len(pts)):
-            for b in range(a + 1, len(pts)):
-                if _haversine_m(pts[a][2], pts[a][3], pts[b][2], pts[b][3]) <= radius_m:
-                    uf.union(a, b)
-
-        clusters = defaultdict(list)
-        for k in range(len(pts)):
-            clusters[uf.find(k)].append(k)
-
-        for members in clusters.values():
-            forms = [pts[m][1] for m in members]
-            if len(set(forms)) < 2:
-                continue
-            canon = max(sorted(set(forms)), key=forms.count)
-            rep = next(m for m in members if pts[m][1] == canon)
-            rlat, rlng = pts[rep][2], pts[rep][3]
-            for m in members:
-                if pts[m][1] != canon:
-                    i = pts[m][0]
-                    df.at[i, st_col] = canon
-                    df.at[i, lat_col] = rlat
-                    df.at[i, lng_col] = rlng
-                    changed += 1
+        for members in _nearby_point_clusters(points, radius_m):
+            changed += _apply_point_cluster(df, points, members)
     return changed

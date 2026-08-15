@@ -8,7 +8,8 @@ from datetime import date
 
 from fec.committees import committee_id_to_name
 from fec.log import get_logger
-from fec.pull import PullError, required_env, run as pull_run
+from fec.pull import PullError
+from fec.pull import run as pull_run
 
 logger = get_logger(__name__)
 
@@ -24,60 +25,59 @@ CURRENT_PERIOD = _current_period(date.today().year)
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Pull FEC data for one or more committees.")
-    ap.add_argument("committee_ids", nargs="*",
-                    help="Committee IDs. Default: all committees in committees.csv.")
+    ap = argparse.ArgumentParser(description="Pull FEC data for one committee.")
+    ap.add_argument("committee_id", help="Committee ID from committees.csv.")
     ap.add_argument("--period", type=int, default=CURRENT_PERIOD,
                     help="Two-year transaction period (even year, default %(default)s).")
-    ap.add_argument("--full", action="store_true",
-                    help="Pull everything, not just records newer than what we have.")
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="Recheck the complete period instead of starting at the latest date.",
+    )
     args = ap.parse_args(argv)
 
     from fec import env
     env.load_env()
 
-    tracked = list(committee_id_to_name())
-    requested = args.committee_ids or tracked
-    ids = [c.strip().upper() for c in requested if c.strip()]
-    if not ids:
-        if args.committee_ids:
-            ap.error("committee ids cannot be blank")
-        ap.error("no committees configured in data/database/committees.csv")
-    bad = [c for c in ids if not _COMMITTEE_RE.match(c)]
-    if bad:
-        ap.error(f"invalid committee id(s): {', '.join(bad)} (expected C + 8 digits)")
-
-    try:
-        required_env("FEC_API_KEY")
-    except PullError as error:
-        logger.error("%s", error)
-        return 2
+    committee_id = args.committee_id.strip().upper()
+    if not _COMMITTEE_RE.match(committee_id):
+        ap.error("invalid committee id (expected C + 8 digits)")
+    committees = committee_id_to_name()
+    if committee_id not in committees:
+        ap.error(
+            f"{committee_id} is not configured in data/database/committees.csv"
+        )
 
     period = _current_period(args.period)
 
     logger.info("=" * 60)
     logger.info(
-        "  FEC pull - %s committee(s), period %s, %s",
-        len(ids), period, "FULL" if args.full else "NEW records only",
+        "  FEC pull - %s, period %s, %s",
+        committee_id,
+        period,
+        "full period" if args.full else "new records",
     )
-    logger.info("  %s", ", ".join(ids))
     logger.info("=" * 60)
 
-    failed = []
-    for i, cid in enumerate(ids, 1):
-        logger.info("\n--- [%s/%s] %s ---", i, len(ids), cid)
-        try:
-            pull_run(committee_id=cid, period=period, full=args.full)
-        except Exception as error:
-            logger.error(
-                "  %s failed: %s: %s", cid, type(error).__name__, error,
-            )
-            failed.append(cid)
+    try:
+        pull_run(
+            committee_id=committee_id,
+            period=period,
+            full=args.full,
+        )
+    except PullError as error:
+        logger.error("  %s", error)
+        return 2
+    except Exception as error:
+        logger.error(
+            "  %s failed: %s: %s",
+            committee_id,
+            type(error).__name__,
+            error,
+        )
+        return 1
 
     logger.info("\n" + "=" * 60)
-    if failed:
-        logger.info("  Done with errors - failed: %s", ", ".join(failed))
-        return 1
     logger.info("  Done. Run clean.py next to process the new data.")
     return 0
 

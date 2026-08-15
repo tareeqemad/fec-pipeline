@@ -1,4 +1,5 @@
 """Recover a donor's missing or unusable address fields from their own other filings."""
+
 from __future__ import annotations
 
 import re
@@ -10,23 +11,24 @@ import pandas as pd
 # this runs on POST-normalized streets (types already abbreviated) and unit
 # keywords (APT/STE) don't make a street usable. never merge the two lists.
 _STREET_TYPE_RE = re.compile(
-    r'\b(?:ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|PLAZA|'
-    r'ROW|LOOP|BROADWAY|PARK|BLDG|TPKE|EXPY|HTS|RIDGE|XING|PIKE|RTE|ALY|PATH|'
-    r'RUN|PT|PASS|WALK|BEND|MALL)\b'
+    r"\b(?:ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|PLAZA|"
+    r"ROW|LOOP|BROADWAY|PARK|BLDG|TPKE|EXPY|HTS|RIDGE|XING|PIKE|RTE|ALY|PATH|"
+    r"RUN|PT|PASS|WALK|BEND|MALL)\b"
 )
 
 
 def _recover_null_streets(df: pd.DataFrame) -> int:
     """Fill NULL streets (e.g. nulled emails) from other records of the same (name, city, state)."""
-    null_street = df['contributor_street_1'].isna()
+    null_street = df["contributor_street_1"].isna()
     if not null_street.any():
         return 0
 
-    has_street = df['contributor_street_1'].notna()
+    has_street = df["contributor_street_1"].notna()
     street_lookup = (
         df.loc[has_street]
-        .groupby(['contributor_name', 'contributor_city', 'contributor_state'])
-        ['contributor_street_1']
+        .groupby(["contributor_name", "contributor_city", "contributor_state"])[
+            "contributor_street_1"
+        ]
         .agg(lambda values: values.value_counts().index[0])
         .to_dict()
     )
@@ -34,13 +36,13 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
     n_recovered = 0
     for idx in df[null_street].index:
         key = (
-            df.at[idx, 'contributor_name'],
-            df.at[idx, 'contributor_city'],
-            df.at[idx, 'contributor_state'],
+            df.at[idx, "contributor_name"],
+            df.at[idx, "contributor_city"],
+            df.at[idx, "contributor_state"],
         )
         street = street_lookup.get(key)
         if street:
-            df.at[idx, 'contributor_street_1'] = street
+            df.at[idx, "contributor_street_1"] = street
             n_recovered += 1
 
     return n_recovered
@@ -48,10 +50,10 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
 
 def _is_usable_street(s: pd.Series) -> pd.Series:
     """Vectorised: True where street_1 looks geocodable."""
-    upper = s.fillna('').astype(str).str.upper()
+    upper = s.fillna("").astype(str).str.upper()
     return (
-        upper.str.startswith('PO BOX')
-        | upper.str.match(r'^\d')
+        upper.str.startswith("PO BOX")
+        | upper.str.match(r"^\d")
         | upper.str.contains(_STREET_TYPE_RE)
     )
 
@@ -59,24 +61,25 @@ def _is_usable_street(s: pd.Series) -> pd.Series:
 def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     """Replace a non-usable street_1 (place-name / fragment) with the same donor's real street."""
     # individuals only; only a non-usable value is overwritten, a good street never
-    usable = _is_usable_street(df['contributor_street_1'])
+    usable = _is_usable_street(df["contributor_street_1"])
     target = (
-        (df['entity_type'] == 'INDIVIDUAL')
-        & df['contributor_street_1'].notna()
-        & (df['contributor_street_1'].astype(str).str.strip() != '')
+        (df["entity_type"] == "INDIVIDUAL")
+        & df["contributor_street_1"].notna()
+        & (df["contributor_street_1"].astype(str).str.strip() != "")
         & ~usable
     )
     if not target.any():
         return 0
 
     # lookup uses ONLY usable streets - never recover one fragment with another
-    clean = df.loc[usable & df['contributor_street_1'].notna()]
+    clean = df.loc[usable & df["contributor_street_1"].notna()]
     if clean.empty:
         return 0
     # primary key: name + city + state, so the street matches the row's place
     by_place = (
-        clean.groupby(['contributor_name', 'contributor_city', 'contributor_state'])
-        ['contributor_street_1']
+        clean.groupby(["contributor_name", "contributor_city", "contributor_state"])[
+            "contributor_street_1"
+        ]
         .agg(lambda values: values.value_counts().index[0])
         .to_dict()
     )
@@ -86,18 +89,21 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     state_streets: dict[tuple, set] = {}
     for (name, _city, state), street in by_place.items():
         state_streets.setdefault((name, state), set()).add(street)
-    by_state_single = {key: next(iter(streets)) for key, streets in state_streets.items() if len(streets) == 1}
+    by_state_single = {
+        key: next(iter(streets))
+        for key, streets in state_streets.items()
+        if len(streets) == 1
+    }
 
     n_recovered = 0
     for idx in df[target].index:
-        name = df.at[idx, 'contributor_name']
-        state = df.at[idx, 'contributor_state']
-        street = (
-            by_place.get((name, df.at[idx, 'contributor_city'], state))
-            or by_state_single.get((name, state))
-        )
+        name = df.at[idx, "contributor_name"]
+        state = df.at[idx, "contributor_state"]
+        street = by_place.get(
+            (name, df.at[idx, "contributor_city"], state)
+        ) or by_state_single.get((name, state))
         if street:
-            df.at[idx, 'contributor_street_1'] = street
+            df.at[idx, "contributor_street_1"] = street
             n_recovered += 1
 
     return n_recovered
@@ -108,11 +114,17 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     # a typed-but-unnumbered street ("FAIRWAY DR") passes _is_usable_street yet
     # only geocodes to a centroid. conservative: the number-stripped street must
     # match EXACTLY, key is name+state, only the dominant numbered form is used.
-    streets = df['contributor_street_1'].fillna('').astype(str).str.upper().str.strip()
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
+    streets = df["contributor_street_1"].fillna("").astype(str).str.upper().str.strip()
+    is_indiv = df["entity_type"] == "INDIVIDUAL"
     has_type = streets.str.contains(_STREET_TYPE_RE)
-    starts_num = streets.str.match(r'^\d')
-    no_number = is_indiv & has_type & ~starts_num & ~streets.str.startswith('PO BOX') & (streets != '')
+    starts_num = streets.str.match(r"^\d")
+    no_number = (
+        is_indiv
+        & has_type
+        & ~starts_num
+        & ~streets.str.startswith("PO BOX")
+        & (streets != "")
+    )
     if not no_number.any():
         return 0
 
@@ -121,22 +133,33 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
         return 0
 
     def _strip_num(x: str) -> str:
-        return re.sub(r'^\d+\s+', '', str(x).upper().strip())
+        return re.sub(r"^\d+\s+", "", str(x).upper().strip())
 
-    numbered_streets = numbered[['contributor_name', 'contributor_state', 'contributor_street_1']].copy()
-    numbered_streets['_stripped'] = numbered_streets['contributor_street_1'].map(_strip_num)
+    numbered_streets = numbered[
+        ["contributor_name", "contributor_state", "contributor_street_1"]
+    ].copy()
+    numbered_streets["_stripped"] = numbered_streets["contributor_street_1"].map(
+        _strip_num
+    )
     key_full = (
-        numbered_streets.groupby(['contributor_name', 'contributor_state', '_stripped'])
-        ['contributor_street_1'].agg(lambda values: values.value_counts().index[0]).to_dict()
+        numbered_streets.groupby(
+            ["contributor_name", "contributor_state", "_stripped"]
+        )["contributor_street_1"]
+        .agg(lambda values: values.value_counts().index[0])
+        .to_dict()
     )
 
     n_filled = 0
     for idx in df[no_number].index:
         full = key_full.get(
-            (df.at[idx, 'contributor_name'], df.at[idx, 'contributor_state'], streets.at[idx])
+            (
+                df.at[idx, "contributor_name"],
+                df.at[idx, "contributor_state"],
+                streets.at[idx],
+            )
         )
         if full and str(full).upper().strip() != streets.at[idx]:
-            df.at[idx, 'contributor_street_1'] = full
+            df.at[idx, "contributor_street_1"] = full
             n_filled += 1
     return n_filled
 
@@ -146,26 +169,30 @@ def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     # the street is the physical anchor: same donor + same exact street = same
     # home, so those rows must agree. a genuine MOVE is a DIFFERENT street and
     # its own group, so it is never forced onto the old address.
-    name = df['contributor_name'].fillna('')
-    eligible_base = (df['entity_type'] == 'INDIVIDUAL') & (name != '')
+    name = df["contributor_name"].fillna("")
+    eligible_base = (df["entity_type"] == "INDIVIDUAL") & (name != "")
 
     def _unify(col: str, key: pd.Series, eligible: pd.Series) -> int:
         """Within each key group, fill blanks / fix minority values in col to the dominant non-empty value."""
-        vals = df[col].fillna('')
-        non_empty = eligible & (vals != '')
+        vals = df[col].fillna("")
+        non_empty = eligible & (vals != "")
         counts = (
-            pd.DataFrame({'k': key[non_empty], 'v': vals[non_empty]})
-            .groupby(['k', 'v']).size().rename('cnt').reset_index()
+            pd.DataFrame({"k": key[non_empty], "v": vals[non_empty]})
+            .groupby(["k", "v"])
+            .size()
+            .rename("cnt")
+            .reset_index()
         )
         if counts.empty:
             return 0
-        dominant = counts.loc[counts.groupby('k')['cnt'].idxmax()].set_index('k')
-        dominant_value = key.map(dominant['v'])
-        dominant_count = key.map(dominant['cnt'])
+        dominant = counts.loc[counts.groupby("k")["cnt"].idxmax()].set_index("k")
+        dominant_value = key.map(dominant["v"])
+        dominant_count = key.map(dominant["cnt"])
         row_count = pd.Series(
-            pd.DataFrame({'k': key, 'v': vals})
-              .merge(counts, on=['k', 'v'], how='left')['cnt']
-              .fillna(0).to_numpy(),
+            pd.DataFrame({"k": key, "v": vals})
+            .merge(counts, on=["k", "v"], how="left")["cnt"]
+            .fillna(0)
+            .to_numpy(),
             index=df.index,
         )
         # only when the dominant strictly outnumbers the row's value (ties left alone)
@@ -173,31 +200,106 @@ def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
             eligible
             & dominant_value.notna()
             & (vals != dominant_value)
-            & ((vals == '') | (row_count < dominant_count))
+            & ((vals == "") | (row_count < dominant_count))
         )
         n_fixed = int(fix.sum())
         if n_fixed:
             df.loc[fix, col] = dominant_value[fix]
         return n_fixed
 
-    out = {'zip': 0, 'city': 0, 'state': 0}
+    out = {"zip": 0, "city": 0, "state": 0}
 
     # pass 1: anchor on the exact street (the physical home)
-    street = df['contributor_street_1'].fillna('')
-    eligible_street = eligible_base & (street != '')
+    street = df["contributor_street_1"].fillna("")
+    eligible_street = eligible_base & (street != "")
     if eligible_street.any():
-        street_key = name.str.cat(street, sep='\x00')
-        out['zip']   = _unify('contributor_zip', street_key, eligible_street)
-        out['city']  = _unify('contributor_city', street_key, eligible_street)
-        out['state'] = _unify('contributor_state', street_key, eligible_street)
+        street_key = name.str.cat(street, sep="\x00")
+        out["zip"] = _unify("contributor_zip", street_key, eligible_street)
+        out["city"] = _unify("contributor_city", street_key, eligible_street)
+        out["state"] = _unify("contributor_state", street_key, eligible_street)
 
     # pass 2: city by (name, ZIP). an appended apartment number splits the
     # street group, so a truncated city on the unit row ("NEW" for "NEW YORK")
     # is recovered from the donor's dominant city at that same ZIP instead.
-    zips = df['contributor_zip'].fillna('')
-    eligible_zip = eligible_base & (zips != '')
+    zips = df["contributor_zip"].fillna("")
+    eligible_zip = eligible_base & (zips != "")
     if eligible_zip.any():
-        zip_key = name.str.cat(zips, sep='\x00')
-        out['city'] += _unify('contributor_city', zip_key, eligible_zip)
+        zip_key = name.str.cat(zips, sep="\x00")
+        out["city"] += _unify("contributor_city", zip_key, eligible_zip)
 
     return out
+
+
+def _recover_missing_streets(df: pd.DataFrame) -> int:
+    """Fill a blank street from the donor's only street in the same place."""
+    keys = ["donor_key", "contributor_city", "contributor_state", "contributor_zip"]
+    street = df["contributor_street_1"].fillna("").astype(str).str.strip()
+    is_individual = df["entity_type"] == "INDIVIDUAL"
+    context = df[keys].fillna("").astype(str).apply(lambda column: column.str.strip())
+    has_context = context.ne("").all(axis=1)
+
+    sources = df.loc[is_individual & has_context & street.ne(""), keys].copy()
+    sources["contributor_street_1"] = street[sources.index]
+    if sources.empty:
+        return 0
+
+    candidates = (
+        sources.groupby(keys)["contributor_street_1"]
+        .agg(lambda values: values.iloc[0] if values.nunique() == 1 else None)
+        .dropna()
+        .to_dict()
+    )
+    recovered = 0
+    targets = is_individual & has_context & street.eq("")
+    for index in df.index[targets]:
+        key = tuple(df.at[index, column] for column in keys)
+        value = candidates.get(key)
+        if value:
+            df.at[index, "contributor_street_1"] = value
+            recovered += 1
+    return recovered
+
+
+def _house_number_replacement(first, second, counts) -> tuple | None:
+    first_parts = str(first).split(" ", 1)
+    second_parts = str(second).split(" ", 1)
+    if len(first_parts) < 2 or len(second_parts) < 2:
+        return None
+    if first_parts[1] != second_parts[1]:
+        return None
+
+    first_number, second_number = first_parts[0], second_parts[0]
+    if not first_number.isdigit() or not second_number.isdigit():
+        return None
+    if not (
+        first_number.startswith(second_number) or second_number.startswith(first_number)
+    ):
+        return None
+
+    if counts[first] <= 2 and counts[second] >= 5:
+        return first, second
+    if counts[second] <= 2 and counts[first] >= 5:
+        return second, first
+    return None
+
+
+def _truncated_house_numbers(df: pd.DataFrame) -> int:
+    """Replace a rare truncated house number with the donor's common form."""
+    individuals = df[df["entity_type"] == "INDIVIDUAL"]
+    changed = 0
+    for donor_key, group in individuals.groupby("donor_key"):
+        streets = group["contributor_street_1"].dropna().value_counts()
+        for first in streets.index:
+            for second in streets.index:
+                if first >= second:
+                    continue
+                replacement = _house_number_replacement(first, second, streets)
+                if replacement is None:
+                    continue
+                old, new = replacement
+                mask = (df["donor_key"] == donor_key) & (
+                    df["contributor_street_1"] == old
+                )
+                df.loc[mask, "contributor_street_1"] = new
+                changed += int(mask.sum())
+    return changed

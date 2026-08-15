@@ -46,7 +46,7 @@ Everything is driven from CLI scripts.
 ```
 
 The full pipeline is **clean → geocode → resolve --apply → geocode
---employer-only → build_employers** (see the Quick start in README.md). Each
+--employer-only** (the last command also builds employer locations). Each
 stage **caches** its work and resumes if interrupted, so re-running is cheap
 and idempotent.
 
@@ -56,11 +56,11 @@ and idempotent.
 
 | Script | Role | Notes |
 |--------|------|-------|
-| `pull.py` | Pull from the FEC API — the 3 tracked committees, or any id(s) | `python pull.py [Cxxxxxxxx ...] [--full]` |
+| `pull.py` | Pull one registered committee from the FEC API | `python pull.py Cxxxxxxxx [--period YYYY] [--full]` |
 | `clean.py` | **Clean records + identify donors + standardize donors** | writes `contributions_cleaned.csv` with `donor_key` |
 | `geocode.py` | Lat/lng for donor + employer addresses | cached in `data/geocode_cache.json` |
 | `resolve.py` | Employer location resolution (cross-record + FEC API + AI) | cached in `data/resolve_*.json` |
-| `build_employers.py` | Build `employer_locations.csv` | last file-writing stage |
+| `build_employers.py` | Internal employer-location builder | called by `geocode.py --employer-only` |
 | `loader.py` | Load the cleaned CSV into PostgreSQL | thin wrapper for `fec.database.loader` |
 
 > Root scripts marked **wrapper/thin** just call into the `fec/` package — the
@@ -84,7 +84,7 @@ fec/
 │   └── streets.py          # street standardization
 │
 ├── cleaning/       # the cleaning pipeline (CPU-only, no network)
-│   ├── pipeline/               # 12-step orchestrator package (clean() + names/reclassify/address_fixes/reports)
+│   ├── pipeline/               # clean records -> identify donors -> standardize history
 │   ├── entity_classification.py# INDIVIDUAL vs COMMITTEE vs ORG vs …
 │   ├── occupations/            # employer + occupation cleaning/categorization (logic)
 │   ├── addresses/              # address normalization
@@ -137,6 +137,9 @@ Normalized 3NF PostgreSQL (PG 18), **schema v1.2**, all defined in one file:
   `employers`, `donor_addresses`, `donor_employments`, `occupation_categories`,
   reference tables (`us_states`, `zcta_state_rel`, `zip_centroids`), and the
   dashboard tables (`key_accomplices`, `leaders`, `leader_committees`).
+- **Editorial identity** — `leaders.csv` and `key_accomplices.csv` link by an
+  explicit `donor_key`. `create_if_missing=true` is required for an
+  editorial-only person; the loader does not match names.
 - **Views** (no LATERAL, composed from small sub-views): `v_donor_stats`,
   `v_donor_current_*` / `v_donor_newest_*`, `v_donor_profile`,
   `v_contributions_cleaned`, `v_company`, `v_key_accomplices`, `v_leaders`.
@@ -191,8 +194,8 @@ names / addresses); `apply_safety_nets()` runs them in order.
   `fec/cleaning/safety_nets/`, call it from `apply_safety_nets()`, add a test.
 - **Add/alter a view:** edit `fec/database/schema.sql`, add it to `loader.VIEWS`,
   add a correctness check to `fec/database/query_checks.py`.
-- **Verify the DB is correct:** `pytest -m live` — the shared `query_checks`
-  registry cross-validates every view against the base tables.
+- **Verify the DB is correct:** `python -m fec.database.healthcheck` — the shared
+  `query_checks` registry cross-validates every view against the base tables.
 
 ---
 
@@ -201,8 +204,5 @@ names / addresses); `apply_safety_nets()` runs them in order.
 | Layer | Where | Runs against |
 |-------|-------|--------------|
 | Unit | `tests/test_*` (no marker) | cleaning / canonicalize / employer logic |
-| Schema | `tests/test_db_schema.py` (`db`) | throwaway `postgres:18` (testcontainers) |
-| **Live** | `tests/test_db_live.py` (`live`) | the **real `fec_db`** (skips if absent) |
 
-`pytest -m "not db"` runs everything that needs no Docker (incl. live checks when
-the DB is reachable). GitLab CI runs the automated test suite.
+Use `python -m fec.database.healthcheck` after loading to validate the real database.

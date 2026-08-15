@@ -1,7 +1,7 @@
 """AD0 swaps employer/occupation only when other donors already use that occupation string as an employer."""
 import pandas as pd
 
-from fec.cleaning.occupations.crossfill import _fix_swapped_occ_emp
+from fec.cleaning.occupations.clean import _fix_swapped_occ_emp
 from fec.cleaning.pipeline.reclassify import _restore_reclassified_committees
 from fec.cleaning.safety_nets.employer_swaps import (
     _fix_company_name_as_occupation,

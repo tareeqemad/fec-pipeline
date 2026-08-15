@@ -1,7 +1,7 @@
 """An entity word in the surname slot does not by itself prove the row is an organisation."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.names import _fix_misclassified_foundation
+from fec.cleaning.safety_nets.committee import _fix_misclassified_foundation
 
 
 def _frame(rows):

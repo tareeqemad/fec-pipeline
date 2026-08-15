@@ -2,15 +2,13 @@
 import numpy as np
 import pandas as pd
 
-from fec.config import (
+from fec.config.data import COMM_PATTERNS, MISSING_VALUES, RETIRE_RE
+from fec.config.occupation_rules.categories import (
     CATEGORY_OVERRIDES,
     CATEGORY_PATTERNS,
-    COMM_PATTERNS,
-    MISSING_VALUES,
-    OCCUPATION_FIXES,
     RECLASSIFY_CATEGORY_RULES,
-    RETIRE_RE,
 )
+from fec.config.occupation_rules.rules import OCCUPATION_FIXES
 
 # junk value -> NaN, one batch replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
@@ -63,7 +61,7 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     cleaned = cleaned.replace(_JUNK_TO_NAN)
 
     if collapse_retire:
-        # the bare pattern string drops RETIRE_RE's re.I; cleaned is uppercased above,
+        # The bare pattern drops IGNORECASE; cleaned is already uppercase.
         # so this match is (and always was) effectively case-insensitive
         cleaned.loc[cleaned.str.contains(RETIRE_RE.pattern, na=False, regex=True)] = 'RETIRED'
 
@@ -116,7 +114,7 @@ def _classify_committee_names(names: pd.Series) -> pd.Series:
     filled = names.fillna('').astype(str)
 
     for label, pattern in COMM_PATTERNS:
-        # COMM_PATTERNS are compiled with re.I but this call site has always
+        # COMM_PATTERNS use IGNORECASE, but this call site has always
         # matched case-sensitively: pass the pattern string, not the object
         matches = filled.str.contains(pattern.pattern, na=False, regex=True) & (result == 'POLITICAL COMMITTEE')
         result[matches] = label

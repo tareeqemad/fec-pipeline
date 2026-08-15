@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from fec.resolve.pipeline.apply import apply_results, _resolve_row
+from fec.resolve.pipeline.apply import ResolveContext, apply_results, _resolve_row
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
@@ -68,6 +68,15 @@ def _locations():
     return FakeCache({"BIG FIRM": {**PRIMARY, "locations": [SF_OFFICE]}})
 
 
+def _resolve(row):
+    context = ResolveContext(
+        previous_cache=FakeCache(),
+        address_lookup=_locations(),
+        committee_cache=FakeCache(),
+    )
+    return _resolve_row(row, context)
+
+
 def test_curated_previous_employer_is_protected(tmp_path):
     path = tmp_path / "manual_employer_overrides.csv"
     path.write_text(
@@ -115,7 +124,7 @@ def test_curated_previous_employer_can_be_cleared(tmp_path):
 
 
 def test_same_state_office_wins():
-    result = _resolve_row(_row(), FakeCache(), _locations(), FakeCache())
+    result = _resolve(_row())
 
     assert result["employer_address"] == "555 California St"
     assert result["employer_state"] == "CA"
@@ -124,7 +133,7 @@ def test_same_state_office_wins():
 
 def test_primary_wins_when_it_is_closest():
     row = _row(state="NY", zip_code="10036")
-    result = _resolve_row(row, FakeCache(), _locations(), FakeCache())
+    result = _resolve(row)
 
     assert result["employer_address"] == "1585 Broadway"
     assert result["resolve_method"] == "manual_override"
@@ -132,14 +141,14 @@ def test_primary_wins_when_it_is_closest():
 
 def test_primary_is_the_fallback_without_a_matching_zip():
     row = _row(state="TX", zip_code="")
-    result = _resolve_row(row, FakeCache(), _locations(), FakeCache())
+    result = _resolve(row)
 
     assert result["employer_address"] == "1585 Broadway"
 
 
 def test_out_of_state_office_does_not_replace_primary():
     row = _row(state="NV", zip_code="89101")
-    result = _resolve_row(row, FakeCache(), _locations(), FakeCache())
+    result = _resolve(row)
 
     assert result["employer_address"] == "1585 Broadway"
     assert result["resolve_method"] == "manual_override"
@@ -180,6 +189,37 @@ def test_manual_alias_beats_an_old_exact_ai_address():
     assert result.loc[0, "employer_address"] == "2227 S State Route 157"
 
 
+def test_legacy_ai_address_is_not_applied():
+    cache = FakeCache({"BIG FIRM": {
+        **PRIMARY,
+        "method": "ai_openai",
+    }})
+
+    result = apply_results(
+        pd.DataFrame([_row()]), FakeCache(), cache, FakeCache()
+    )
+
+    assert result.loc[0, "employer_address"] == ""
+    assert result.loc[0, "resolve_method"] == "pending"
+
+
+def test_grounded_search_address_is_applied():
+    cache = FakeCache({"BIG FIRM": {
+        **PRIMARY,
+        "method": "ai_openai_search",
+    }})
+
+    result = apply_results(
+        pd.DataFrame([_row(state="NY", zip_code="10036")]),
+        FakeCache(),
+        cache,
+        FakeCache(),
+    )
+
+    assert result.loc[0, "employer_address"] == "1585 Broadway"
+    assert result.loc[0, "resolve_method"] == "ai_openai_search"
+
+
 def test_resolve_never_rewrites_employer_names():
     rows = pd.DataFrame([
         _row("BIG FIRM"),
@@ -198,7 +238,7 @@ def test_student_school_is_not_a_workplace():
     row["contributor_occupation"] = "STUDENT"
     row["occupation_category"] = "STUDENT"
 
-    result = _resolve_row(row, FakeCache(), _locations(), FakeCache())
+    result = _resolve(row)
 
     assert result["employer_status"] == "not_employed"
     assert result["employer_address"] == ""
@@ -209,7 +249,7 @@ def test_self_employed_company_uses_donor_address():
     row["contributor_occupation"] = "SELF-EMPLOYED"
     row["occupation_category"] = "SELF-EMPLOYED"
 
-    result = _resolve_row(row, FakeCache(), _locations(), FakeCache())
+    result = _resolve(row)
 
     assert result["employer_status"] == "self_employed"
     assert result["employer_address"] == "1 HOME ST"
@@ -220,7 +260,7 @@ def test_not_employed_company_is_kept_but_not_linked():
     row["contributor_occupation"] = "NOT EMPLOYED"
     row["occupation_category"] = "NOT EMPLOYED"
 
-    result = _resolve_row(row, FakeCache(), _locations(), FakeCache())
+    result = _resolve(row)
 
     assert result["employer_status"] == "not_employed"
     assert result["employer_address"] == ""

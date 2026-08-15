@@ -150,10 +150,14 @@ def test_shipped_override_file_is_wellformed():
 
 def test_no_override_reinstates_a_known_truncation():
     """Overrides run last, so an override whose value is a known truncation silently undoes the repair."""
-    import json
+    from fec.env import EMPLOYER_NAME_RULES_CSV
 
-    with open("data/manual_typo_overrides.json", encoding="utf-8") as f:
-        truncations = {k.strip().upper() for k in json.load(f)}
+    with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8", newline="") as handle:
+        truncations = {
+            row["variant"].strip().upper()
+            for row in csv.DictReader(handle)
+            if row["source"] == "manual"
+        }
     with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 

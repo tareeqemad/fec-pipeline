@@ -6,10 +6,11 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.config import (
-    TITLE_TO_OCCUPATION, COMM_TAIL_RE, COMMITTEE_NAME_FIXES,
-    TITLE_RE, SUFFIX_RE, PRO_SUFFIX_RE, FIRST_NAME_FIXES,
+from fec.config.data import (
+    TITLE_TO_OCCUPATION, COMM_TAIL_RE,
+    TITLE_RE, SUFFIX_RE, PRO_SUFFIX_RE,
 )
+from fec.cleaning.name_rules import COMMITTEE_NAME_FIXES, FIRST_NAME_FIXES
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -19,7 +20,7 @@ _NAME_TITLE_RE = re.compile(
     r',\s*(DR\.?|RABBI|CANTOR|PASTOR|DEACON|BISHOP|FATHER|SISTER|'
     r'IMAM|REV\.?|REVEREND|JUDGE|HON\.?|HONORABLE|'
     r'PROF\.?|PROFESSOR|AMB\.?|AMBASSADOR)\s',
-    re.I,
+    re.IGNORECASE,
 )
 
 _EMPTY_OCC = {np.nan, None, '', 'NOT DISCLOSED', 'NOT EMPLOYED'}
@@ -129,7 +130,7 @@ def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     needs_split = is_individual & df['contributor_first_name'].isna()
     if needs_split.any():
         names = df.loc[needs_split, 'contributor_name'].astype(str)
-        has_comma = names.str.contains(',', na=False)
+        has_comma = names.str.contains(',', na=False, regex=False)
         comma_rows = needs_split & has_comma.reindex(needs_split.index, fill_value=False)
 
         if comma_rows.any():
@@ -140,7 +141,7 @@ def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     missing_last = (
         is_individual
         & df['contributor_last_name'].isna()
-        & df['contributor_name'].str.contains(',', na=False)
+        & df['contributor_name'].str.contains(',', na=False, regex=False)
     )
     if missing_last.any():
         split2 = df.loc[missing_last, 'contributor_name'].str.split(',', n=1, expand=True)

@@ -1,7 +1,8 @@
-"""38-char FEC truncation repairs: a full name must extend the stored truncated prefix."""
-import json
+"""38-char FEC truncation repairs."""
+import csv
 
 from fec.cleaning.employer_synonyms import EMPLOYER_SYNONYMS
+from fec.env import EMPLOYER_NAME_RULES_CSV
 
 # 38-char truncations repaired from external sources.
 REPAIRED = {
@@ -36,17 +37,23 @@ def test_every_repair_extends_the_truncated_string():
         )
 
 
-def test_override_file_stays_consistent_with_this_list():
-    """The JSON file is the source of truth; this test fails if it drifts."""
-    with open("data/manual_typo_overrides.json", encoding="utf-8") as f:
-        overrides = json.load(f)
+def test_rules_file_stays_consistent_with_this_list():
+    """The CSV is authoritative."""
+    with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8", newline="") as handle:
+        overrides = {
+            row["variant"]: row["canonical"]
+            for row in csv.DictReader(handle)
+        }
     for truncated, full in REPAIRED.items():
         assert overrides.get(truncated) == full, truncated
 
 
 def test_no_override_maps_a_name_to_itself():
     """A self-mapping entry is dead weight and hides a misunderstanding."""
-    with open("data/manual_typo_overrides.json", encoding="utf-8") as f:
-        overrides = json.load(f)
+    with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8", newline="") as handle:
+        overrides = {
+            row["variant"]: row["canonical"]
+            for row in csv.DictReader(handle)
+        }
     selfmaps = [k for k, v in overrides.items() if k.strip().upper() == str(v).strip().upper()]
     assert not selfmaps, f"override maps these to themselves: {selfmaps}"

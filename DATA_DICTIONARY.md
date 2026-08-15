@@ -12,8 +12,8 @@ contributions_cleaned.csv ──┬── recipient_committee ──▶ committe
 
 | File | Grain | Rows |
 |------|-------|------|
-| `data/contributions_cleaned.csv` | one row per FEC contribution filing | ~208,300 |
-| `data/employer_locations.csv` | one row per known company location | ~10,400+ |
+| `data/contributions_cleaned.csv` | one row per FEC contribution filing | 214,428 |
+| `data/employer_locations.csv` | one row per known company location | 10,780 |
 | `data/database/committees.csv` | one row per tracked recipient committee | 5 |
 
 All files are UTF-8, comma-separated, with a header row. Empty cells mean
@@ -110,11 +110,10 @@ grades on evidence the pipeline actually holds:
 | `corroborated` | Closed-book answer, but at least one donor of this company files from the address's state. |
 | `uncorroborated` | Closed-book answer with no donor in that state, or a manual row explicitly marked `MEDIUM`, `LIKELY`, `UNCERTAIN`, or `VERIFY`. Treat it as a review item, not a fact. |
 
-> ⚠️ **Reliability:** filter on `address_trust`. `verified` and `grounded` are
-> safe to show as the company's address. `corroborated` is plausible.
-> `uncorroborated` should not be presented as fact — it is a queue of known
-> suspects, and one `resolve.py` run with API credit clears it, because a
-> web-search answer always overwrites a closed-book one.
+> ⚠️ **Reliability:** `verified` and `grounded` are safe to publish. The loader
+> accepts only these two grades. `corroborated` and `uncorroborated` stay in the
+> CSV as review items until a grounded lookup or verified manual correction
+> replaces them.
 
 `address_trust` is **deliberately CSV-only**. It is a curation aid — it tells
 whoever works on the data which addresses to re-check — not a published field.

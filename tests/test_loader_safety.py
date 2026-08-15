@@ -3,8 +3,9 @@ import pandas as pd
 import pytest
 
 import fec.database.loader as loader
-from fec.database.loader import _base, grant_read_access
-from fec.database.loader._base import _first_run_access_statements
+from fec.database.loader import grant_read_access
+from fec.database.loader.addresses import load_employer_locations
+from fec.database.loader.schema_create import verify_extensions
 from fec.database.loader.schema_reset import reset_schema
 from fec.env import DATABASE_OWNER, DATABASE_READER
 
@@ -89,6 +90,18 @@ class PermissionCursor:
         return self.row
 
 
+class ExtensionCursor:
+    def __init__(self, extensions):
+        self.extensions = extensions
+        self.queries = []
+
+    def execute(self, query):
+        self.queries.append(" ".join(query.split()))
+
+    def fetchall(self):
+        return [(extension,) for extension in self.extensions]
+
+
 def test_reset_rejects_wrong_user_before_drop():
     conn = Connection()
     cur = ResetCursor(user=DATABASE_READER)
@@ -167,49 +180,21 @@ def test_reader_cannot_inherit_roles():
     assert conn.commits == 0
 
 
-def test_first_run_owns_database_access_policy():
-    sql = "\n".join(_first_run_access_statements("fec_db"))
+def test_required_extensions_are_read_only_preflight():
+    cur = ExtensionCursor({"pg_trgm", "cube", "earthdistance"})
 
-    assert 'REVOKE ALL PRIVILEGES ON DATABASE "fec_db" FROM PUBLIC' in sql
-    assert f'GRANT CONNECT ON DATABASE "fec_db" TO "{DATABASE_READER}"' in sql
-    assert "REVOKE ALL PRIVILEGES ON SCHEMA public FROM PUBLIC" in sql
-    assert f'GRANT USAGE ON SCHEMA public TO "{DATABASE_READER}"' in sql
-    assert "ALTER DEFAULT PRIVILEGES" in sql
+    verify_extensions(cur)
+
+    assert cur.queries == ["SELECT extname FROM pg_extension"]
 
 
-def test_postgres_connection_falls_back_to_local_socket(monkeypatch):
-    calls = []
+def test_missing_extension_stops_without_installing_it():
+    cur = ExtensionCursor({"pg_trgm"})
 
-    def fake_connect(**options):
-        calls.append(options)
-        if "host" in options:
-            raise _base.psycopg2.OperationalError("TCP blocked")
-        return "socket connection"
+    with pytest.raises(RuntimeError, match="cube.*earthdistance"):
+        verify_extensions(cur)
 
-    monkeypatch.setattr(_base, "PG", {"host": "localhost", "port": "5432"})
-    monkeypatch.setattr(_base.psycopg2, "connect", fake_connect)
-
-    result = _base._connect_as_postgres("postgres", "secret")
-
-    assert result == "socket connection"
-    assert calls[0]["host"] == "localhost"
-    assert "host" not in calls[1]
-
-
-def test_postgres_connection_does_not_fallback_for_remote_host(monkeypatch):
-    calls = []
-
-    def fake_connect(**options):
-        calls.append(options)
-        raise _base.psycopg2.OperationalError("TCP blocked")
-
-    monkeypatch.setattr(_base, "PG", {"host": "db.example.com", "port": "5432"})
-    monkeypatch.setattr(_base.psycopg2, "connect", fake_connect)
-
-    with pytest.raises(_base.psycopg2.OperationalError, match="TCP blocked"):
-        _base._connect_as_postgres("postgres", "secret")
-
-    assert len(calls) == 1
+    assert cur.queries == ["SELECT extname FROM pg_extension"]
 
 
 def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
@@ -242,6 +227,51 @@ def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
 
     loader._validate_input(df, locations)
 
+    invalid_trust = locations.copy()
+    invalid_trust.loc[0, "address_trust"] = "legacy"
+    with pytest.raises(ValueError, match="invalid address_trust"):
+        loader._validate_input(df, invalid_trust)
+
     locations.loc[0, "employer_name"] = "ACME, INC."
     with pytest.raises(ValueError, match="does not match cleaned employers"):
         loader._validate_input(df, locations)
+
+
+def test_loader_publishes_only_verified_or_grounded_locations():
+    frame = pd.DataFrame([
+        {
+            "employer_name": "ACME",
+            "employer_address": "1 OLD ST",
+            "employer_city": "NEW YORK",
+            "employer_state": "NY",
+            "employer_zip": "10001",
+            "is_primary": "true",
+            "address_trust": "uncorroborated",
+        },
+        {
+            "employer_name": "ACME",
+            "employer_address": "2 VERIFIED OFFICE",
+            "employer_city": "BOSTON",
+            "employer_state": "MA",
+            "employer_zip": "02108",
+            "is_primary": "false",
+            "address_trust": "grounded",
+        },
+        {
+            "employer_name": "GOOD CO",
+            "employer_address": "3 MANUAL ST",
+            "employer_city": "CHICAGO",
+            "employer_state": "IL",
+            "employer_zip": "60601",
+            "is_primary": "true",
+            "address_trust": "verified",
+        },
+    ])
+
+    locations = load_employer_locations(frame)
+
+    assert [location["employer_name"] for location in locations] == [
+        "ACME", "GOOD CO",
+    ]
+    assert locations[0]["employer_address"] == "2 VERIFIED OFFICE"
+    assert locations[0]["is_primary"] is True

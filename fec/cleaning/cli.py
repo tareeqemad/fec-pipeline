@@ -1,5 +1,4 @@
-"""The clean command: python clean.py [input] [-o out]."""
-import argparse
+"""Clean the configured FEC contributions file."""
 import json
 import os
 
@@ -7,7 +6,8 @@ import pandas as pd
 
 from fec.cleaning.audit import write_audit
 from fec.cleaning.pipeline import clean_pipeline
-from fec.cleaning.quality import build_outlier_report, run_quality_gates, save_report
+from fec.cleaning.quality import run_quality_gates, save_report
+from fec.env import CLEANED_CSV, RAW_CSV
 from fec.io import read_pipeline_csv
 from fec.log import get_logger, setup_logging
 
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 def _drop_internal_cols(df):
     """Remove working columns."""
-    from fec.config import INTERNAL_OUTPUT_COLUMNS
+    from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 
     internal = [column for column in df.columns if column.startswith('_')]
     internal += [column for column in INTERNAL_OUTPUT_COLUMNS if column in df.columns]
@@ -85,23 +85,6 @@ def _ensure_zip_format(df):
     df['contributor_zip'] = cleaned
 
 
-def _parse_args():
-    parser = argparse.ArgumentParser(description='FEC Contributions Cleaner')
-    parser.add_argument('input', nargs='?', default='data/contributions.csv')
-    parser.add_argument('-o', '--output', default='data/contributions_cleaned.csv')
-    parser.add_argument(
-        '--no-fuzzy-city',
-        action='store_true',
-        help='Skip fuzzy city typo fixes',
-    )
-    parser.add_argument(
-        '--no-audit',
-        action='store_true',
-        help='Skip audit trail files',
-    )
-    return parser.parse_args()
-
-
 def _print_summary(df, quality, output):
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
     committees = int(df['entity_type'].eq('COMMITTEE/PAC').sum())
@@ -136,19 +119,19 @@ def main():
     from fec import env
 
     env.load_env()
-    args = _parse_args()
     setup_logging()
-    audit_enabled = not args.no_audit
 
-    out_dir = os.path.dirname(args.output) or '.'
+    input_path = str(RAW_CSV)
+    output_path = str(CLEANED_CSV)
+    out_dir = os.path.dirname(output_path) or '.'
     os.makedirs(out_dir, exist_ok=True)
 
     logger.info('=' * 55)
     logger.info('  FEC Contributions Cleaner')
     logger.info('=' * 55)
-    logger.info("\n  Reading: %s", args.input)
+    logger.info("\n  Reading: %s", input_path)
 
-    df = read_pipeline_csv(args.input)
+    df = read_pipeline_csv(input_path)
     logger.info("  %s rows, %d columns", f"{len(df):,}", len(df.columns))
     logger.info("\n-- Cleaning records --")
 
@@ -157,24 +140,23 @@ def main():
 
     cleaned, missing, enhancement_audit = clean_pipeline(
         df,
-        fuzzy_city=not args.no_fuzzy_city,
+        fuzzy_city=True,
         out_dir=out_dir,
-        audit=audit_enabled,
+        audit=True,
     )
     output = _drop_internal_cols(cleaned).copy()
 
     _assert_known_committees(output)
     _ensure_zip_format(output)
-    output.to_csv(args.output, index=False)
+    output.to_csv(output_path, index=False)
 
-    if audit_enabled:
-        write_audit(
-            df,
-            cleaned,
-            original_rows,
-            out_dir,
-            enh_audit=enhancement_audit,
-        )
+    write_audit(
+        df,
+        cleaned,
+        original_rows,
+        out_dir,
+        enh_audit=enhancement_audit,
+    )
 
     save_report(missing, out_dir, 'missing_report')
 
@@ -182,11 +164,7 @@ def main():
     with open(os.path.join(out_dir, 'quality_gates.json'), 'w') as handle:
         json.dump(quality, handle, indent=2)
 
-    outlier = build_outlier_report(output)
-    with open(os.path.join(out_dir, 'outlier_report.json'), 'w') as handle:
-        json.dump(outlier, handle, indent=2)
-
-    scan = _write_quality_scan(args.output, out_dir)
+    scan = _write_quality_scan(output_path, out_dir)
     logger.info(
         "  Quality scan: %s employer abbreviations, %s near-duplicate groups, "
         "%s name-drift rows, %s address-variant groups",
@@ -196,4 +174,4 @@ def main():
         f"{scan['address_order_variants']['groups']:,}",
     )
 
-    _print_summary(output, quality, args.output)
+    _print_summary(output, quality, output_path)

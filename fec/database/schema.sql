@@ -52,13 +52,7 @@
 -- ============================================================
 
 
--- ----------------------------------------------------------
---  0. Extensions (fec/database/loader/schema_create.py ensures these; needs superuser)
--- ----------------------------------------------------------
--- CREATE EXTENSION IF NOT EXISTS pg_trgm;
--- CREATE EXTENSION IF NOT EXISTS cube;
--- CREATE EXTENSION IF NOT EXISTS earthdistance;
-
+-- Requires pg_trgm, cube, and earthdistance; loader validates them before reset.
 
 -- ----------------------------------------------------------
 --  1. Lookup tables

@@ -1,35 +1,38 @@
-"""EMPLOYER_SYNONYMS assembly: merge fragments, load overrides, expand aliases, flatten chains."""
-import json
+"""Load and prepare employer spelling rules."""
+import csv
 import re
-from pathlib import Path
 
 from fec.config.constants import LEGAL_SUFFIX_RE
+from fec.env import EMPLOYER_NAME_RULES_CSV
 from fec.log import get_logger
-
-from fec.cleaning.employer_synonyms.synonyms_table_1 import SYNONYMS as _TABLE_1
-from fec.cleaning.employer_synonyms.synonyms_table_2 import SYNONYMS as _TABLE_2
 
 logger = get_logger(__name__)
 
-# Built from donor-overlap analysis; only safe merges where the same donors
-# used both spellings. Fragment order preserves the original insertion order.
-EMPLOYER_SYNONYMS = {**_TABLE_1, **_TABLE_2}
+
+def _load_rules() -> dict[str, str]:
+    """Read the single rules file."""
+    if not EMPLOYER_NAME_RULES_CSV.exists():
+        raise FileNotFoundError(
+            f"Missing employer rules: {EMPLOYER_NAME_RULES_CSV}"
+        )
+
+    rules = {}
+    with EMPLOYER_NAME_RULES_CSV.open(
+        encoding="utf-8-sig", newline=""
+    ) as handle:
+        for number, row in enumerate(csv.DictReader(handle), start=2):
+            variant = (row.get("variant") or "").strip().upper()
+            canonical = (row.get("canonical") or "").strip()
+            source = (row.get("source") or "").strip()
+            if not variant or not canonical or not source:
+                raise ValueError(
+                    f"Invalid employer rule on row {number}"
+                )
+            rules[variant] = canonical
+    return rules
 
 
-def _load_manual_overrides():
-    """Merge human-reviewed mappings from data/manual_typo_overrides.json into EMPLOYER_SYNONYMS."""
-    path = Path(__file__).resolve().parents[3] / 'data' / 'manual_typo_overrides.json'
-    if not path.exists():
-        return 0
-    # a corrupt curated file must fail loudly, not silently drop every override
-    with open(path, encoding='utf-8') as handle:
-        overrides = json.load(handle)
-    count = 0
-    for key, value in overrides.items():
-        if isinstance(key, str) and isinstance(value, str):
-            EMPLOYER_SYNONYMS[key.strip().upper()] = value.strip()
-            count += 1
-    return count
+EMPLOYER_SYNONYMS = _load_rules()
 
 
 def _flatten_synonym_chains() -> int:
@@ -67,7 +70,7 @@ def _expand_synonym_keys() -> int:
         target = EMPLOYER_SYNONYMS[key]
         norm_key = _canonicalize_for_match(key)
         # skip identity and self-maps: that form is already canonical
-        if not norm_key or norm_key == key or norm_key == target:
+        if not norm_key or norm_key in (key, target):
             continue
         existing = EMPLOYER_SYNONYMS.get(norm_key)
         if existing is not None:
@@ -83,10 +86,9 @@ def _expand_synonym_keys() -> int:
 
 # Runs at import time so the rest of the pipeline sees the merged dict
 # transparently; DEBUG because it precedes the run's user-facing output.
-_n_manual = _load_manual_overrides()
 _n_alias = _expand_synonym_keys()
 _n_flat = _flatten_synonym_chains()
 logger.debug(
-    "employer synonyms ready: %s manual overrides, %s key aliases, %s chains flattened",
-    f"{_n_manual:,}", _n_alias, _n_flat,
+    "employer synonyms ready: %s rules, %s aliases, %s chains flattened",
+    f"{len(EMPLOYER_SYNONYMS):,}", _n_alias, _n_flat,
 )

@@ -30,6 +30,23 @@ _COMM_SUFFIXES_RE = re.compile(
     re.IGNORECASE,
 )
 
+_GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
+_NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
+
+
+def extract_generational_suffix(name: str) -> str:
+    """Return a JR/SR/roman suffix from either side of the comma."""
+    text = str(name or "").strip().upper()
+    last, comma, first = text.partition(",")
+    parts = (last, first) if comma else (text,)
+    found = {
+        tokens[-1]
+        for part in parts
+        if (tokens := _NAME_TOKEN_RE.findall(part))
+        and tokens[-1] in _GENERATION_SUFFIXES
+    }
+    return next(iter(found)) if len(found) == 1 else ""
+
 
 def normalize_name(name: str) -> str:
     """Normalize to LAST|FIRST (drop middle, suffixes, punctuation)."""

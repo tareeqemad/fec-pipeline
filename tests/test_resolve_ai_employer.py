@@ -71,12 +71,67 @@ def test_address_aliases_require_the_complete_address():
     assert (aliases, groups) == (0, 0)
 
 
-def test_retry_policy_preserves_good_cache_and_retries_stale_misses():
+def test_address_aliases_prefer_frequency_but_keep_best_evidence():
+    common = _address("NEW YORK")
+    common["method"] = "ai_openai"
+    common["confidence"] = "MEDIUM"
+    searched = _address("NEW YORK")
+    cache = _Cache({"ACME": common, "ACME LLC": searched})
+
+    aliases, groups = dedup_by_resolved_address(
+        cache, freq={"ACME": 20, "ACME LLC": 1}
+    )
+
+    assert (aliases, groups) == (1, 1)
+    assert cache.data["ACME"]["method"] == "ai_openai_search"
+    assert cache.data["ACME LLC"]["alias_of"] == "ACME"
+
+
+def test_address_aliases_skip_manual_low_confidence_and_existing_aliases():
+    manual = _address("NEW YORK")
+    manual["method"] = "manual_override"
+    low = _address("NEW YORK")
+    low["confidence"] = "LOW"
+    alias = _address("NEW YORK")
+    alias["alias_of"] = "ACME"
+    cache = _Cache({
+        "ACME": _address("NEW YORK"),
+        "ACME LLC": manual,
+        "ACME CORP": low,
+        "ACME COMPANY": alias,
+    })
+
+    assert dedup_by_resolved_address(cache) == (0, 0)
+    assert cache.saves == 0
+
+
+def test_address_aliases_are_idempotent():
+    cache = _Cache({"ACME": _address("NEW YORK"), "ACME LLC": _address("NEW YORK")})
+
+    assert dedup_by_resolved_address(cache) == (1, 1)
+    snapshot = {key: value.copy() for key, value in cache.data.items()}
+    assert dedup_by_resolved_address(cache) == (0, 0)
+
+    assert cache.data == snapshot
+    assert cache.saves == 1
+
+
+def test_retry_policy_retries_legacy_and_stale_cache_entries():
     resolver = "openai+search"
 
-    assert not _needs_ai({
+    assert _needs_ai({
         "employer_address": "1 Main St",
         "method": "ai_openai",
+    }, resolver)
+    assert _needs_ai({
+        "employer_address": "1 Main St",
+        "method": "ai_openai_search",
+    }, resolver)
+    assert not _needs_ai({
+        "employer_address": "1 Main St",
+        "method": "ai_openai_search",
+        "resolver": resolver,
+        "prompt_version": EMPLOYER_PROMPT_VERSION,
     }, resolver)
     assert not _needs_ai({
         "employer_address": "",
@@ -236,6 +291,33 @@ def test_lookup_collection_aggregates_limited_public_context():
     ]
 
 
+def test_lookup_collection_prioritizes_high_value_donors():
+    df = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL",
+            "donor_key": "D1",
+            "contributor_employer": "SMALL CO",
+            "contributor_occupation": "OWNER",
+        },
+        {
+            "entity_type": "INDIVIDUAL",
+            "donor_key": "D2",
+            "contributor_employer": "BIG CO",
+            "contributor_occupation": "OWNER",
+        },
+    ])
+    donor_totals = pd.DataFrame({
+        "donor_key": ["D1", "D2"],
+        "donor_total": [1_000, 500_000],
+    })
+
+    lookups = collect_employer_lookups(
+        df, _Cache(), _Cache(), donor_totals, "openai+search"
+    )
+
+    assert [lookup.name for lookup in lookups] == ["BIG CO", "SMALL CO"]
+
+
 def test_lookup_collection_skips_self_employed_work_history():
     df = pd.DataFrame([{
         "entity_type": "INDIVIDUAL",
@@ -322,5 +404,32 @@ def test_invalid_model_response_is_not_cached(monkeypatch):
 
     assert found == 0
     assert address_cache.data == {}
+
+
+def test_ai_lookup_uses_safe_batch(monkeypatch):
+    lookups = [EmployerLookup(str(number)) for number in range(201)]
+    searched = []
+
+    monkeypatch.setattr(
+        "fec.resolve.pipeline.steps.ai_employer.collect_employer_lookups",
+        lambda *args: lookups,
+    )
+    monkeypatch.setattr(
+        "fec.resolve.pipeline.steps.ai_employer.get_ai_client",
+        lambda: (object(), "model", "openai"),
+    )
+
+    def fake_search(*args):
+        searched.extend(args[3])
+        return 0
+
+    monkeypatch.setattr(
+        "fec.resolve.pipeline.steps.ai_employer.run_web_search",
+        fake_search,
+    )
+
+    step_ai_lookup(pd.DataFrame(), _Cache(), _Cache(), pd.DataFrame())
+
+    assert searched == lookups[:200]
 
 
