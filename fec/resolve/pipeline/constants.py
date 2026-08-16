@@ -16,7 +16,6 @@ SELF_EMPLOYED = "SELF-EMPLOYED"
 
 EMPLOYER_ADDR_CACHE = "resolve_employer_addr.json"
 PREV_EMPLOYER_CACHE = "resolve_prev_employer.json"
-COMMITTEE_CACHE     = "resolve_committee.json"
 
 EMPLOYER_PROMPT_VERSION = "us-employer-locations-v3"
 

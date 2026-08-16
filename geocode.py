@@ -78,14 +78,6 @@ def _geocode_contributors(
         f"\n  Contributor coords: {has_coordinates.sum():,} / {len(df):,} "
         f"({has_coordinates.mean() * 100:.1f}%)"
     )
-
-    from fec.donor_match.canonicalize import canonicalize_donor_addresses_geo
-
-    unified = canonicalize_donor_addresses_geo(df)
-    if unified:
-        logger.info(
-            f"  Geo-dedup: {unified:,} rows unified to a per-donor same-place address"
-        )
     return df
 
 

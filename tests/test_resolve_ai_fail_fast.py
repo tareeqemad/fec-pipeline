@@ -130,9 +130,6 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     monkeypatch.setattr(
         resolve_cli, "load_manual_previous_employers", lambda *args: None
     )
-    monkeypatch.setattr(
-        resolve_cli, "load_manual_committee_overrides", lambda *args: None
-    )
     monkeypatch.setattr(resolve_cli, "step_cross_record", lambda *args: 0)
     monkeypatch.setattr(resolve_cli, "step_fec_api", lambda *args, **kwargs: 0)
     monkeypatch.setattr(
@@ -146,7 +143,6 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     monkeypatch.setattr(
         resolve_cli, "dedup_by_resolved_address", lambda *args, **kwargs: (0, 0)
     )
-    monkeypatch.setattr(resolve_cli, "step_committees_own_address", lambda *args: 0)
     monkeypatch.setattr(resolve_cli, "show_stats", lambda *args: None)
 
     def apply_cached(df, *_caches):

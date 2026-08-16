@@ -1,101 +1,95 @@
-"""Master sequence for the post-cleaning enhancements."""
-import re
+"""Run record-level cleaning rules in one declared order."""
 from collections.abc import Callable
 from dataclasses import dataclass
 
 import pandas as pd
 
 from fec.cleaning.entity_classification import (
-    fix_remaining_misclassified, fix_misclassified_business_entities, normalize_business_names,
-    apply_name_corrections, fix_double_apostrophes, normalize_name_periods,
-    fix_credential_in_name, fix_fullname_in_both_fields, fix_employer_equals_occupation,
+    apply_name_corrections,
+    fix_credential_in_name,
+    fix_double_apostrophes,
+    fix_employer_equals_occupation,
+    fix_fullname_in_both_fields,
+    fix_misclassified_business_entities,
+    fix_remaining_misclassified,
+    normalize_business_names,
+    normalize_name_periods,
 )
 from fec.cleaning.employer_synonyms import (
-    normalize_employer_canonical, apply_employer_synonyms, expand_employer_abbreviations,
-    expand_employer_associates, fix_occupation_as_employer, fix_normalized_mid_suffix,
-    _recanonicalize_employers, restore_display_suffixes,
+    _recanonicalize_employers,
+    apply_employer_synonyms,
+    expand_employer_abbreviations,
+    expand_employer_associates,
+    fix_normalized_mid_suffix,
+    fix_occupation_as_employer,
+    normalize_employer_canonical,
+    restore_display_suffixes,
 )
-from fec.cleaning._helpers import _indiv_idx, _norm
-from fec.cleaning.occupations import _categorize
-from fec.cleaning.safety_nets import apply_safety_nets
-from fec.cleaning.enhancements.junk import (clean_remaining_junk,
-                                             _clean_junk_status_word_employer,
-                                             _clean_self_employed_variants)
-from fec.config.occupation_rules.rules import OCCUPATION_CANONICAL, OCCUPATION_KEYWORDS
+from fec.cleaning.occupations.clean import (
+    fix_remaining_swapped_occ_emp,
+    normalize_occupation_canonical,
+)
+from fec.cleaning.record_junk import (
+    _clean_junk_status_word_employer,
+    _clean_self_employed_variants,
+    clean_remaining_junk,
+)
+from fec.cleaning.safety_nets.addresses import (
+    _fill_null_city_from_zip,
+    _fix_foreign_addresses,
+    _fix_garbage_city_names,
+    _fix_pr_zip_wrong_state,
+)
+from fec.cleaning.safety_nets.committee import (
+    _classify_committee_types,
+    _fix_committee_employer,
+    _fix_individual_committee_type,
+    _fix_misclassified_foundation,
+    _fix_title_as_first_name,
+)
+from fec.cleaning.safety_nets.employer import (
+    _clear_admin_note_employers,
+    _clear_orphan_normalized,
+    _clear_refusal_employers,
+    _fix_choose_prefix,
+    _fix_email_employer_final,
+    _fix_junk_employer_patterns,
+    _fix_numeric_employer_final,
+    _fix_retired_typos,
+    _fix_truncated_employer_38,
+    _null_sector_as_employer,
+    _null_short_employer_junk,
+)
+from fec.cleaning.safety_nets.employer_swaps import (
+    _fix_company_name_as_occupation,
+    _fix_employer_equals_occupation,
+    _fix_employer_is_occupation_word,
+    _fix_occ_emp_both_swapped,
+    _fix_own_name_as_employer,
+    _fix_role_as_employer,
+    _fix_self_employed_consistency,
+    _fix_swapped_emp_occ_company,
+    _swap_role_employer_with_known_company,
+)
+from fec.cleaning.safety_nets.occupation import (
+    _fill_null_occupation_category,
+    _fix_bitton_edge_case,
+    _fix_disclosed_no_employer,
+    _fix_emp_occ_category_consistency,
+    _fix_employed_as_occupation,
+    _fix_employed_no_category,
+    _fix_not_disclosed_in_other,
+    _fix_not_disclosed_with_real_occ,
+    _fix_slash_occupation,
+    _fix_status_word_in_occupation,
+    _fix_web_artifact_occupation,
+    _null_junk_occupation,
+    _reclassify_other_category,
+)
 from fec.env import RAW_CSV
 from fec.log import get_logger
 
 logger = get_logger(__name__)
-
-_CORP_IN_OCC_RE = re.compile(
-    r'\bLLC\b|\bLLP\b|\bINC\b\.?|\bCORP\b|\bLTD\b'
-    r'|\bCOMPANY\b|\bCORPORATION\b|\bHOLDINGS\b|\bGROUP\b'
-    r'|\bPARTNERS\b|\bVENTURES\b|\bCAPITAL\b|\bFUND\b'
-    r'|\bASSOCIATES\b|\bENTERPRISES\b|\bPROPERTIES\b|\bREALTY\b'
-    r'|\bADVISORS\b|\bINSURANCE\b|\bINDUSTRIES\b|\bBROTHERS\b'
-    r'|\bBANK\b|\bFINANCIAL\b|\bMEDIA\b|\bSYSTEMS\b'
-    r'|\bTECHNOLOGIES\b|\bSOLUTIONS\b|\bSERVICES\b|\bMANAGEMENT\b'
-    r'|\bTRUST\b|\bINTERNATIONAL\b|\bGLOBAL\b'
-    r'|\b\w+\s*&\s*\w+\b'
-    r'|& (?:PARTNERS|ASSOCIATES|CRUTCHER|DE LLANO|BUTLER)',
-)
-_ORG_IN_OCC_RE = re.compile(
-    r'\bHOSPITAL\b|\bUNIVERSITY\b|\bINSTITUTE\b'
-    r'|\bCOLLEGE\b|\bSCHOOL\b|\bACADEMY\b'
-    r'|\bFOUNDATION\b|\bAGENCY\b|\bBUREAU\b'
-    r'|\bDEPARTMENT\b|\bMINISTRY\b|\bAIPAC\b|\bDMFI\b',
-)
-
-
-def _swap_occ_emp(df: pd.DataFrame, indexes: pd.Index) -> None:
-    """Swap occupation and employer, then update the category."""
-    old_occupation = df.loc[indexes, 'contributor_occupation'].copy()
-    old_employer = df.loc[indexes, 'contributor_employer'].copy()
-    df.loc[indexes, 'contributor_occupation'] = old_employer
-    df.loc[indexes, 'contributor_employer'] = old_occupation
-    df.loc[indexes, 'occupation_category'] = _categorize(
-        df.loc[indexes, 'contributor_occupation']
-    )
-
-
-def fix_remaining_swapped_occ_emp(df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
-    """Fix remaining occupation/employer swaps."""
-    individuals = _indiv_idx(df)
-    occupation = _norm(df.loc[individuals, 'contributor_occupation'])
-    employer = _norm(df.loc[individuals, 'contributor_employer'])
-
-    employer_is_job = employer.isin(OCCUPATION_KEYWORDS)
-    occupation_is_company = occupation.str.contains(_CORP_IN_OCC_RE, na=False)
-    occupation_starts_corp = occupation.str.startswith('CORP ', na=False)
-    company_swaps = individuals[
-        occupation_is_company & employer_is_job & ~occupation_starts_corp
-    ]
-    if len(company_swaps):
-        _swap_occ_emp(df, company_swaps)
-
-    same = individuals[(occupation == employer) & employer_is_job]
-    if len(same):
-        df.loc[same, 'contributor_employer'] = 'SELF-EMPLOYED'
-
-    organization_swaps = individuals[
-        occupation.str.contains(_ORG_IN_OCC_RE, na=False) & employer_is_job
-    ]
-    if len(organization_swaps):
-        _swap_occ_emp(df, organization_swaps)
-
-    return df, len(company_swaps) + len(organization_swaps), len(same)
-
-
-def normalize_occupation_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Map safe occupation variants to their canonical form."""
-    individuals = _indiv_idx(df)
-    occupation = df.loc[individuals, 'contributor_occupation']
-    hits = individuals[occupation.isin(OCCUPATION_CANONICAL)]
-    if len(hits):
-        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(
-            OCCUPATION_CANONICAL
-        )
-    return df, len(hits)
 
 
 @dataclass(frozen=True)
@@ -125,7 +119,7 @@ _EMPLOYER_ONLY = ('contributor_employer',)
 _NORMALIZED_EMPLOYER_ONLY = ('employer_name_normalized',)
 
 # Field-level rules in execution order. The order is part of the data contract.
-_AUDITED_STEPS = (
+_AUDITED_RULES = (
     _Step(fix_remaining_misclassified, _CLASSIFICATION_FIELDS,
           'enh_reclassify_committee', 'committee_name_pattern'),
     _Step(fix_misclassified_business_entities, _BUSINESS_CLASSIFICATION_FIELDS,
@@ -162,22 +156,72 @@ _AUDITED_STEPS = (
 )
 
 
-def run_enhancements(
-    df: pd.DataFrame, verbose: bool = True,
-) -> tuple[pd.DataFrame, list[dict]]:
-    """Run all post-cleaning enhancements and return the data plus its audit."""
-    log = logger.info if verbose else lambda _: None
+ALL_ROWS = "all"
+INDIVIDUALS = "individuals"
+NON_INDIVIDUALS = "non_individuals"
+
+# Residual rules run after the audited record rules above.
+SAFETY_RULES = (
+    (_fix_committee_employer, NON_INDIVIDUALS),
+    (_fix_individual_committee_type, INDIVIDUALS),
+    (_classify_committee_types, NON_INDIVIDUALS),
+    (_fix_disclosed_no_employer, ALL_ROWS),
+    (_fix_employed_no_category, ALL_ROWS),
+    (_fix_status_word_in_occupation, INDIVIDUALS),
+    (_fix_not_disclosed_with_real_occ, INDIVIDUALS),
+    (_fill_null_occupation_category, INDIVIDUALS),
+    (_fill_null_city_from_zip, ALL_ROWS),
+    (_fix_bitton_edge_case, INDIVIDUALS),
+    (_clear_refusal_employers, INDIVIDUALS),
+    (_clear_admin_note_employers, INDIVIDUALS),
+    (_clear_orphan_normalized, ALL_ROWS),
+    (_null_short_employer_junk, INDIVIDUALS),
+    (_fix_numeric_employer_final, INDIVIDUALS),
+    (_fix_email_employer_final, INDIVIDUALS),
+    (_fix_junk_employer_patterns, INDIVIDUALS),
+    (_fix_retired_typos, INDIVIDUALS),
+    (_fix_employer_equals_occupation, INDIVIDUALS),
+    (_fix_employer_is_occupation_word, INDIVIDUALS),
+    (_fix_misclassified_foundation, ALL_ROWS),
+    (_fix_title_as_first_name, ALL_ROWS),
+    (_fix_choose_prefix, ALL_ROWS),
+    # Preserve the real company before a bare role becomes SELF-EMPLOYED.
+    (_swap_role_employer_with_known_company, ALL_ROWS),
+    (_fix_role_as_employer, ALL_ROWS),
+    (_null_sector_as_employer, ALL_ROWS),
+    (_fix_self_employed_consistency, ALL_ROWS),
+    (_fix_own_name_as_employer, ALL_ROWS),
+    (_fix_foreign_addresses, ALL_ROWS),
+    (_fix_garbage_city_names, ALL_ROWS),
+    (_fix_pr_zip_wrong_state, ALL_ROWS),
+    (_fix_truncated_employer_38, ALL_ROWS),
+    (_fix_company_name_as_occupation, ALL_ROWS),
+    (_fix_swapped_emp_occ_company, ALL_ROWS),
+    (_fix_not_disclosed_in_other, ALL_ROWS),
+    (_fix_occ_emp_both_swapped, ALL_ROWS),
+    (_fix_web_artifact_occupation, ALL_ROWS),
+    (_null_junk_occupation, ALL_ROWS),
+    (_fix_employed_as_occupation, ALL_ROWS),
+    (_fix_emp_occ_category_consistency, ALL_ROWS),
+    (_fix_slash_occupation, ALL_ROWS),
+    (_reclassify_other_category, ALL_ROWS),
+)
+
+
+def apply_record_rules(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
+    """Apply all record-level rules and return their audit."""
+    log = logger.info
     audit_records: list[dict] = []
 
     df['is_individual'] = (df['entity_type'] == 'INDIVIDUAL')
 
-    for step in _AUDITED_STEPS:
+    for step in _AUDITED_RULES:
         df = _apply_step(df, audit_records, log, step)
 
-    apply_safety_nets(df, verbose=verbose)
+    _apply_safety_rules(df, log)
     n_recanon = _recanonicalize_employers(df)
     if n_recanon:
-        log(f"Re-canonicalized {n_recanon:,} employer variants (post-enhancement)")
+        log(f"Re-canonicalized {n_recanon:,} employer variants")
     n_restored = restore_display_suffixes(df, RAW_CSV)
     if n_restored:
         log(f"Restored display suffixes for {n_restored:,} rows (HOUSING -> HOUSING INC etc.)")
@@ -210,8 +254,26 @@ def run_enhancements(
         log(f"Nulled {n_null_emp:,} refusal/placeholder employers (N/A, PRIVATE, etc.)")
     df.drop(columns=['employer_name_normalized'], inplace=True)
     log("  -> Dropped employer_name_normalized (merged into contributor_employer)")
-    log(f"  -> Enhancement audit: {len(audit_records):,} field changes tracked")
+    log(f"  -> Record audit: {len(audit_records):,} field changes tracked")
     return df, audit_records
+
+
+def _apply_safety_rules(df: pd.DataFrame, log: Callable[[str], None]) -> int:
+    individuals = df['is_individual'].astype(bool)
+    non_individuals = ~individuals
+    fixed = 0
+
+    for rule, scope in SAFETY_RULES:
+        if scope == ALL_ROWS:
+            fixed += rule(df)
+        elif scope == INDIVIDUALS:
+            fixed += rule(df, individuals)
+        else:
+            fixed += rule(df, non_individuals)
+
+    if fixed:
+        log(f"Safety rules: fixed {fixed:,} remaining inconsistencies")
+    return fixed
 
 
 def _apply_step(

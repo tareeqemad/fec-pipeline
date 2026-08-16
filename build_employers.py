@@ -12,6 +12,7 @@ from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
     ADDRESS_FIELDS,
+    PUBLISHABLE_ADDRESS_TRUST,
     address_cache_lookup,
     location_candidates,
     resolve_cache_entry,
@@ -194,10 +195,14 @@ def build() -> tuple[int, int]:
     locations = _deduplicate(cache_rows + preserved, employers)
 
     locations.to_csv(EMPLOYER_LOCATIONS_CSV, index=False, na_rep="")
-    resolved = locations["employer_address"].fillna("").ne("").sum()
+    has_address = locations["employer_address"].fillna("").ne("")
+    publishable = (
+        has_address
+        & locations["address_trust"].isin(PUBLISHABLE_ADDRESS_TRUST)
+    ).sum()
     logger.info(
         f"  employer_locations.csv: {len(locations):,} locations, "
-        f"{len(employers):,} companies, {resolved:,} resolved"
+        f"{len(employers):,} companies, {publishable:,} publishable"
     )
 
     slim = df.drop(columns=[column for column in ADDRESS_COLUMNS if column in df.columns])

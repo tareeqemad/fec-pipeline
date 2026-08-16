@@ -1,4 +1,4 @@
-"""resolve.pipeline - resolve employer/committee addresses (cross-record, FEC API, AI lookup)."""
+"""Resolve previous employers and employer addresses."""
 
 from .cli import main
 

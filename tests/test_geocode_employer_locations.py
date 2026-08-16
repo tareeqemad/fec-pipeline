@@ -13,6 +13,43 @@ from fec.geocoding import pipeline as geocoding_pipeline
 from fec.geocoding.engines import NominatimUnavailable
 
 
+def test_contributor_geocode_keeps_cleaned_address(tmp_path):
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    cache.put("1 MAIN ST|NEW YORK|NY|10001", 40.7500, -73.9900, "nominatim")
+    cache.put("1 MAIN STREET|NEW YORK|NY|10001", 40.7501, -73.9901, "nominatim")
+    rows = pd.DataFrame([
+        {
+            "donor_key": "same-donor",
+            "contributor_street_1": "1 MAIN ST",
+            "contributor_street_2": "",
+            "contributor_city": "NEW YORK",
+            "contributor_state": "NY",
+            "contributor_zip": "10001",
+        },
+        {
+            "donor_key": "same-donor",
+            "contributor_street_1": "1 MAIN STREET",
+            "contributor_street_2": "",
+            "contributor_city": "NEW YORK",
+            "contributor_state": "NY",
+            "contributor_zip": "10001",
+        },
+    ])
+    address_columns = [
+        "contributor_street_1",
+        "contributor_street_2",
+        "contributor_city",
+        "contributor_state",
+        "contributor_zip",
+    ]
+    expected = rows[address_columns].copy()
+
+    result = geocode._geocode_contributors(rows, cache)
+
+    pd.testing.assert_frame_equal(result[address_columns], expected)
+    assert result["latitude"].notna().all()
+
+
 def test_unassigned_office_is_included(tmp_path):
     rows = pd.DataFrame([{
         "entity_type": "INDIVIDUAL",
@@ -141,3 +178,68 @@ def test_city_fallback_retries_without_zip(monkeypatch):
 
     assert calls == ["23218", ""]
     assert result == (37.54, -77.43, "US", "nominatim_city")
+
+
+def test_census_is_preferred_for_us_street(monkeypatch):
+    monkeypatch.setattr(
+        geocoding_pipeline,
+        "census",
+        lambda *_args: (40.749146, -73.991886, "US"),
+    )
+    monkeypatch.setattr(
+        geocoding_pipeline,
+        "nominatim",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("not needed")),
+    )
+
+    result = geocoding_pipeline._geocode_one(
+        "7 PENN PLZ", "NEW YORK", "NY", "10001",
+    )
+
+    assert result == (40.749146, -73.991886, "US", "census")
+
+
+def test_far_legacy_coordinate_is_rechecked_once(tmp_path):
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    key = "7 PENN PLZ|NEW YORK|NY|10001"
+    cache.put(key, 43.131885, -77.440208, "nominatim")
+
+    assert geocoding_pipeline._needs_lookup(key, cache)
+
+    cache.put(key, 40.749146, -73.991886, "census", validated=True)
+    assert not geocoding_pipeline._needs_lookup(key, cache)
+
+
+def test_old_not_found_gets_one_census_retry(tmp_path):
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    key = "822 KUMHO DR|FAIRLAWN|OH|44333"
+    cache.put_failed(key)
+
+    assert geocoding_pipeline._needs_lookup(key, cache)
+
+    cache.put_failed(key, validated=True)
+    assert not geocoding_pipeline._needs_lookup(key, cache)
+
+
+def test_street_city_fallback_rejects_zip_conflict(monkeypatch):
+    monkeypatch.setattr(geocoding_pipeline, "census", lambda *_args: (None, None, None))
+    monkeypatch.setattr(geocoding_pipeline, "nominatim", lambda *_args: (None, None, None))
+    monkeypatch.setattr(
+        geocoding_pipeline, "city_level",
+        lambda *_args: (41.3582, -73.7052, "US"),
+    )
+    monkeypatch.setattr(
+        geocoding_pipeline, "nominatim_international",
+        lambda *_args: (None, None, None),
+    )
+    monkeypatch.setattr(
+        geocoding_pipeline, "_zip_centroids",
+        lambda: {"11963": (40.9979, -72.2926)},
+    )
+    monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
+
+    result = geocoding_pipeline._geocode_one(
+        "268 CHESTNUT ST", "ENGLEWOOD", "NY", "11963",
+    )
+
+    assert result == (None, None, None, "not_found")

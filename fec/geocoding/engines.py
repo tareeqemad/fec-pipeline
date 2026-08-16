@@ -13,10 +13,52 @@ NOMINATIM_HEADERS = {"User-Agent": "FEC-Geocoder/1.0 (research project)"}
 NOMINATIM_DELAY = 1.05  # seconds; policy is max 1 req/sec
 NOMINATIM_RETRIES = 2  # retry on 429/timeout
 NOMINATIM_TIMEOUT = 10  # seconds
+CENSUS_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
+CENSUS_TIMEOUT = 10
+CENSUS_RETRIES = 2
 
 
 class NominatimUnavailable(RuntimeError):
     """Nominatim could not be reached."""
+
+
+class CensusUnavailable(RuntimeError):
+    """Census Geocoder could not be reached."""
+
+
+def census(street: str, city: str, state: str, zipcode: str) -> tuple:
+    """Geocode a US street with the official Census address ranges."""
+    address = f"{street}, {city}, {state} {zipcode}, USA"
+    params = {
+        "address": address,
+        "benchmark": "Public_AR_Current",
+        "format": "json",
+    }
+    last_error = "temporary Census Geocoder failure"
+
+    for attempt in range(1 + CENSUS_RETRIES):
+        try:
+            response = requests.get(CENSUS_URL, params=params, timeout=CENSUS_TIMEOUT)
+            if response.status_code == 429 or response.status_code >= 500:
+                last_error = f"Census HTTP {response.status_code}"
+                time.sleep(2 ** attempt)
+                continue
+            if not response.ok:
+                return None, None, None
+
+            matches = response.json().get("result", {}).get("addressMatches", [])
+            if not matches:
+                return None, None, None
+            coordinates = matches[0]["coordinates"]
+            return float(coordinates["y"]), float(coordinates["x"]), "US"
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
+            last_error = str(error)
+            time.sleep(2 ** attempt)
+        except (KeyError, TypeError, ValueError) as error:
+            raise CensusUnavailable(str(error)) from error
+
+    raise CensusUnavailable(last_error)
 
 
 def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:

@@ -54,8 +54,8 @@ def _collect_garbled_names(after, add_change):
             )
 
 
-def _append_enhancements(records, enhancements, row_index):
-    for record in enhancements or ():
+def _append_rule_changes(records, changes, row_index):
+    for record in changes or ():
         sub_id = record.get('sub_id', '')
         value = row_index.get(sub_id)
         record['row_index'] = int(value) if pd.notna(value) else None
@@ -63,7 +63,7 @@ def _append_enhancements(records, enhancements, row_index):
         records.append(record)
 
 
-def write_audit(df_before, df_after, orig_map, out_dir, enh_audit=None):
+def write_audit(df_before, df_after, orig_map, out_dir, rule_audit=None):
     """Compare before/after and write every cleaning audit artifact."""
     if 'sub_id' not in df_before.columns or 'sub_id' not in df_after.columns:
         return
@@ -103,7 +103,7 @@ def write_audit(df_before, df_after, orig_map, out_dir, enh_audit=None):
     _collect_reclassifications(before, after, add_change)
     _collect_street_changes(before, after, add_change)
     _collect_garbled_names(after, add_change)
-    _append_enhancements(records, enh_audit, row_index)
+    _append_rule_changes(records, rule_audit, row_index)
 
     _write_changes(records, out_dir)
     _write_amount_flags(after, row_index, out_dir)

@@ -34,7 +34,7 @@ MJ HOLDING,7852 S Sayre Ave,Bridgeview,IL,60455,true,Official company contact/ad
 HLM CAPITAL,"1849 Green Bay Road, Suite 200",Highland Park,IL,60035,true,Likely investment adviser address; verify exact HLM entity.
 BASIC RESOURCES,"1411 Broadway, 2nd Floor",New York,NY,10018,true,Official company contact/address.
 TRANCEKA CAPITAL LLC,"1420 Fifth Avenue, Suite 2000",Seattle,WA,98101,true,SEC/IAPD adviser profile address.
-KICORP,373 A Second Ave,Kotzebue,AK,99752,true,Assuming KICORP refers to Kikiktagruk Iñupiat Corporation; there are other Ki Corp/KICorp names.
+KICORP,,,,,true,"INVALID: Linda Mirels chairs KI Corporation, not Kikiktagruk Inupiat Corporation; confirmed by New York Senate resolution J2367 and FCC ownership filing; reviewed 2026-08-16"
 FIT FOR LIFE,"10 West 33rd St, Suite 802",New York,NY,10001,true,Likely consumer products company; name has multiple possible matches.
 SKYBOX CAPITAL,"1 N Wacker Drive, Suite 2402",Chicago,IL,60606,true,Likely Skybox Capital in Chicago; verify against exact legal entity.
 "LAVIN & GEDVILLE, PC","1849 Green Bay Road, Suite 440",Highland Park,IL,60035,true,Law firm address from firm site/business profiles.
@@ -907,3 +907,4 @@ VOICE EXPRESS CORP,"606 Post Road East, STE3-706",Westport,CT,06880,true,HIGH (V
 WOLFE LAW LLC,"1201 W Peachtree St NW, Suite 2300",Atlanta,GA,30309,true,HIGH (VERIFIED) - official firm website; Elie Wolfe is the donor
 WORLDBRIDGE PARTNERS TOLEDO INC,33 N Huron St,Toledo,OH,43604,true,HIGH (VERIFIED) - current BBB record identifies Gary Fruchtman as president
 COHEN & STEERS,"1166 Avenue of the Americas, 30th Floor",New York,NY,10036,true,HIGH (VERIFIED) - Cohen & Steers 2025 SEC Form 4; Martin Cohen is chairman and cofounder
+BLB&G LLP,1251 Avenue of the Americas,New York,NY,10020,true,HIGH (VERIFIED) - official firm contact page https://www.blbglaw.com/contact; reviewed 2026-08-16

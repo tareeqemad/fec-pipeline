@@ -17,7 +17,6 @@ from fec.log import get_logger
 
 from ..constants import RETIRED
 from ..helpers import (
-    _legacy_prev_key,
     _prev_key,
     _previous_employer_identity,
     _s,
@@ -97,51 +96,6 @@ def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         .drop_duplicates("donor_key", keep="first")
     )
     return individuals, latest
-
-
-def migrate_previous_employer_cache(
-    df: pd.DataFrame, prev_cache
-) -> tuple[int, int, int]:
-    """Move legacy NAME|STATE entries to donor-keyed cache entries."""
-    entries = getattr(prev_cache, "data", prev_cache)
-    legacy_keys = [
-        key for key in list(entries) if "|" in key and not key.startswith("donor:")
-    ]
-    if not legacy_keys:
-        return 0, 0, 0
-
-    _, latest_retired = _retired_donors(df)
-    donors_by_legacy_key: dict[str, set[str]] = {}
-    for _, row in latest_retired.iterrows():
-        legacy_key = _legacy_prev_key(
-            row.get("contributor_name"),
-            row.get("contributor_state"),
-        )
-        donors_by_legacy_key.setdefault(legacy_key, set()).add(
-            _s(row.get("donor_key")).strip(),
-        )
-
-    migrated = ambiguous = obsolete = 0
-    for legacy_key in legacy_keys:
-        donor_keys = donors_by_legacy_key.get(legacy_key, set())
-        if len(donor_keys) == 1:
-            cache_key = _prev_key(next(iter(donor_keys)))
-            if prev_cache.get(cache_key) is None:
-                prev_cache.put(cache_key, entries[legacy_key])
-                migrated += 1
-        elif len(donor_keys) > 1:
-            ambiguous += 1
-        else:
-            obsolete += 1
-        prev_cache.discard(legacy_key)
-
-    prev_cache.save()
-    logger.info(
-        "    Previous-employer cache: "
-        f"{migrated:,} migrated, {ambiguous:,} ambiguous skipped, "
-        f"{obsolete:,} obsolete removed"
-    )
-    return migrated, ambiguous, obsolete
 
 
 def _clean_employer(value) -> str:

@@ -22,11 +22,6 @@ def _prev_key(donor_key) -> str:
     return f"donor:{_s(donor_key).strip()}"
 
 
-def _legacy_prev_key(name, state) -> str:
-    """Build the retired NAME|STATE key used by old caches."""
-    return f"{_s(name).strip()}|{_s(state).strip()}"
-
-
 def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...]]:
     """Return the clean company name and compatible address-cache keys.
 

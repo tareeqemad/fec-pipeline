@@ -7,7 +7,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fec.config.cities import CITY_NORMALIZE, expand_city_abbreviations
+from fec.config.cities import (
+    CITY_NORMALIZE,
+    CITY_STATE_NORMALIZE,
+    expand_city_abbreviations,
+)
 from fec.config.streets import (
     POBOX_RE, DIR_PREFIX, DIR_SUFFIX, DIR_MID, STREET_TYPES,
     UNIT_RULES, UNIT_EXTRACT, HASH_EXTRACT, STREET_TYPO_RULES,
@@ -128,16 +132,16 @@ def _normalize_street(s: str) -> str:
     for pattern, replacement in STREET_TYPO_RULES:
         s = pattern.sub(replacement, s)
 
-    # missing space between house number and street name
-    s = re.sub(r'^(\d+)([A-Z])', r'\1 \2', s)
+    # A direction stuck to the house number is not a house suffix.
+    s = re.sub(r'^(\d+)([NSEW])\s+', r'\1 \2 ', s)
+
+    # Missing space between house number and street name. A single other
+    # letter followed by whitespace is part of the house number (14A, 704C).
+    s = re.sub(r'^(\d+)([A-Z])(?=[A-Z])', r'\1 \2', s)
 
     for rules in (DIR_PREFIX, DIR_MID, STREET_TYPES, DIR_SUFFIX):
         for pattern, replacement in rules:
             s = pattern.sub(replacement, s)
-
-    # trailing direction moved after the house number (USPS prefix form),
-    # so "101 WESTON LN S" and "S WESTON LN 101" both match "101 S WESTON LN"
-    s = re.sub(r'^(\d+)\s+(.+?)\s+(N|S|E|W|NE|NW|SE|SW)\s*$', r'\1 \3 \2', s)
 
     s = s.replace(',', ' ').strip()
     s = re.sub(r'\s+', ' ', s)
@@ -265,6 +269,11 @@ def clean_cities(df: pd.DataFrame, fuzzy: bool = True, report_dir: str | None = 
 
     before = cities.copy()
     cities = cities.replace(CITY_NORMALIZE)
+    states = df['contributor_state'].fillna('').astype(str).str.strip().str.upper()
+    state_fixes = pd.Series(
+        list(zip(cities, states)), index=df.index
+    ).map(CITY_STATE_NORMALIZE)
+    cities = state_fixes.fillna(cities)
     counts['known_fixes'] = int((before != cities).sum())
     df['contributor_city'] = cities
 

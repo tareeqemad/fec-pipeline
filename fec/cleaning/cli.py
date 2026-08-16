@@ -138,11 +138,9 @@ def main():
     original_rows = df[['sub_id']].copy()
     original_rows['row_index'] = original_rows.index.astype(int)
 
-    cleaned, missing, enhancement_audit = clean_pipeline(
+    cleaned, missing, rule_audit = clean_pipeline(
         df,
-        fuzzy_city=True,
         out_dir=out_dir,
-        audit=True,
     )
     output = _drop_internal_cols(cleaned).copy()
 
@@ -155,7 +153,7 @@ def main():
         cleaned,
         original_rows,
         out_dir,
-        enh_audit=enhancement_audit,
+        rule_audit=rule_audit,
     )
 
     save_report(missing, out_dir, 'missing_report')

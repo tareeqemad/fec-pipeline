@@ -7,7 +7,11 @@ import time
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.address_review import apply_safe_fixes, build_address_reports
+from fec.cleaning.address_review import (
+    apply_safe_fixes,
+    apply_verified_address_fixes,
+    build_address_reports,
+)
 from fec.cleaning.addresses import clean_cities, clean_streets, clean_zips
 from fec.cleaning.occupations import clean_employer_occupation
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
@@ -139,8 +143,8 @@ def _recover_streets(df: pd.DataFrame, out_dir, log) -> None:
         log(f"Streets: recovered {fec_rows:,} from FEC.gov (other committees, cached)")
 
 
-def _clean_city_zip(df: pd.DataFrame, fuzzy_city: bool, out_dir, log) -> pd.DataFrame:
-    df, city_counts = clean_cities(df, fuzzy=fuzzy_city, report_dir=out_dir)
+def _clean_city_zip(df: pd.DataFrame, out_dir, log) -> pd.DataFrame:
+    df, city_counts = clean_cities(df, fuzzy=True, report_dir=out_dir)
     log(
         f"Cities: {city_counts['known_fixes']:,} known fixes, "
         f"{city_counts['fuzzy_fixes']:,} fuzzy fixes, "
@@ -204,15 +208,18 @@ def _report_address_issues(df: pd.DataFrame, out_dir, log) -> pd.DataFrame:
     return df
 
 
-def _clean_addresses(df: pd.DataFrame, fuzzy_city: bool, out_dir, log) -> pd.DataFrame:
+def _clean_addresses(df: pd.DataFrame, out_dir, log) -> pd.DataFrame:
     df = _clean_street_text(df, log)
     _recover_streets(df, out_dir, log)
-    df = _clean_city_zip(df, fuzzy_city, out_dir, log)
+    df = _clean_city_zip(df, out_dir, log)
+    verified = apply_verified_address_fixes(df)
+    if verified:
+        log(f"Streets: applied {verified:,} verified postal corrections")
     _align_address_parts(df, log)
     return _report_address_issues(df, out_dir, log)
 
 
-def _finish_records(df: pd.DataFrame, audit: bool, log):
+def _finish_records(df: pd.DataFrame, log):
     from fec.committees import committee_id_to_name
 
     names = committee_id_to_name()
@@ -231,33 +238,29 @@ def _finish_records(df: pd.DataFrame, audit: bool, log):
     missing = _build_missing_report(df)
 
     columns = [column for column in OUTPUT_COLUMNS if column in df.columns]
-    if audit:
-        internal_cols = [
-            "_reclass_reason",
-            "_street_email_in_s1",
-            "_street_swapped_from_s2",
-            "_street_nulled_email",
-            "_garbled_before",
-        ]
-        columns += [column for column in internal_cols if column in df.columns]
+    internal_cols = [
+        "_reclass_reason",
+        "_street_email_in_s1",
+        "_street_swapped_from_s2",
+        "_street_nulled_email",
+        "_garbled_before",
+    ]
+    columns += [column for column in internal_cols if column in df.columns]
     return df[columns], missing
 
 
 def _clean_fields(
     df: pd.DataFrame,
-    verbose: bool = True,
-    fuzzy_city: bool = True,
     out_dir: str | None = None,
-    audit: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Clean contribution fields before donor matching."""
     start = time.time()
-    log = logger.info if verbose else lambda _message: None
+    log = logger.info
 
     df = _prepare_records(df, log)
     df = _clean_people(df, log)
-    df = _clean_addresses(df, fuzzy_city, out_dir, log)
-    df, missing = _finish_records(df, audit, log)
+    df = _clean_addresses(df, out_dir, log)
+    df, missing = _finish_records(df, log)
     elapsed = time.time() - start
     log(f"Done: {len(df):,} rows in {elapsed:.1f}s")
     return df, missing
@@ -276,22 +279,18 @@ def _validate_generational_suffixes(df: pd.DataFrame) -> None:
 
 def clean_records(
     df: pd.DataFrame,
-    fuzzy_city: bool = True,
     out_dir: str | None = None,
-    audit: bool = False,
 ):
     """Clean every contribution record."""
     df_clean, missing = _clean_fields(
         df,
-        fuzzy_city=fuzzy_city,
         out_dir=out_dir,
-        audit=audit,
     )
 
-    logger.info("\n-- Enhancements --")
-    from fec.cleaning.enhancements import run_enhancements
+    logger.info("\n-- Record rules --")
+    from fec.cleaning.record_rules import apply_record_rules
 
-    df_clean, enh_audit = run_enhancements(df_clean)
+    df_clean, rule_audit = apply_record_rules(df_clean)
 
     # Reapply curated overrides.
     from fec.cleaning.manual_overrides import apply_manual_employer_overrides
@@ -300,7 +299,7 @@ def clean_records(
     if n_overrides:
         logger.info(f"  Manual employer overrides applied: {n_overrides:,} rows")
 
-    return df_clean, missing, enh_audit
+    return df_clean, missing, rule_audit
 
 
 def identify_donors(
@@ -430,17 +429,13 @@ def standardize_donors(
 
 def clean_pipeline(
     df: pd.DataFrame,
-    fuzzy_city: bool = True,
     out_dir: str | None = None,
-    audit: bool = False,
 ):
     """Run the complete cleaning pipeline."""
-    df_clean, missing, enh_audit = clean_records(
+    df_clean, missing, rule_audit = clean_records(
         df,
-        fuzzy_city=fuzzy_city,
         out_dir=out_dir,
-        audit=audit,
     )
     df_clean = identify_donors(df_clean, out_dir=out_dir)
     df_clean = standardize_donors(df_clean, out_dir=out_dir)
-    return df_clean, missing, enh_audit
+    return df_clean, missing, rule_audit

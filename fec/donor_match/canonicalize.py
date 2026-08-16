@@ -1,6 +1,5 @@
-"""Per-donor canonicalization after matching: person/employer/org names, streets, unit designators, PO-box typos - plus the post-geocode pass that collapses street forms mapping to one physical point."""
+"""Per-donor name, employer, street, unit, and PO-box canonicalization."""
 
-import math
 import re
 from collections import defaultdict
 
@@ -84,7 +83,6 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
                 df.at[i, cn_col] = canon_name
                 changed += 1
     return changed
-
 
 def _emp_core_tokens(name: str) -> frozenset:
     """Significant tokens of an employer name (legal suffixes/connectors removed)."""
@@ -350,104 +348,4 @@ def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
             for members in _pobox_clusters(numbers):
                 if len(members) >= 2:
                     changed += _apply_pobox_cluster(df, rows, members)
-    return changed
-
-
-# -- post-geocode pass: runs from geocode.py, after coordinates exist --------
-
-_EARTH_RADIUS_M = 6371000.0
-
-# geocode_level substrings meaning the point is not address-precise
-_COARSE_LEVEL_TOKENS = ("city", "zip", "centroid", "state")
-
-
-def _haversine_m(lat1, lon1, lat2, lon2) -> float:
-    """Great-circle distance in meters."""
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
-
-
-def _precise_address_points(df: pd.DataFrame, indexes) -> list[tuple]:
-    points = []
-    for index in indexes:
-        street = df.at[index, "contributor_street_1"]
-        if not (isinstance(street, str) and street.strip()):
-            continue
-        level = str(df.at[index, "geocode_level"]).lower()
-        if any(token in level for token in _COARSE_LEVEL_TOKENS):
-            continue
-        try:
-            latitude = float(df.at[index, "latitude"])
-            longitude = float(df.at[index, "longitude"])
-        except (TypeError, ValueError):
-            continue
-        if math.isnan(latitude) or math.isnan(longitude):
-            continue
-        points.append((index, street.strip(), latitude, longitude))
-    return points
-
-
-def _nearby_point_clusters(points: list[tuple], radius_m: float) -> list[list[int]]:
-    union = UnionFind()
-    for left in range(len(points)):
-        for right in range(left + 1, len(points)):
-            distance = _haversine_m(
-                points[left][2],
-                points[left][3],
-                points[right][2],
-                points[right][3],
-            )
-            if distance <= radius_m:
-                union.union(left, right)
-
-    clusters = defaultdict(list)
-    for index in range(len(points)):
-        clusters[union.find(index)].append(index)
-    return list(clusters.values())
-
-
-def _apply_point_cluster(
-    df: pd.DataFrame, points: list[tuple], members: list[int]
-) -> int:
-    forms = [points[member][1] for member in members]
-    if len(set(forms)) < 2:
-        return 0
-
-    canonical = max(sorted(set(forms)), key=forms.count)
-    representative = next(
-        member for member in members if points[member][1] == canonical
-    )
-    latitude = points[representative][2]
-    longitude = points[representative][3]
-    changed = 0
-    for member in members:
-        if points[member][1] == canonical:
-            continue
-        row_index = points[member][0]
-        df.at[row_index, "contributor_street_1"] = canonical
-        df.at[row_index, "latitude"] = latitude
-        df.at[row_index, "longitude"] = longitude
-        changed += 1
-    return changed
-
-
-def canonicalize_donor_addresses_geo(df: pd.DataFrame, radius_m: float = 50.0) -> int:
-    """Unify precise same-place address forms within each donor."""
-    needed = {"latitude", "longitude", "donor_key", "contributor_street_1"}
-    if not needed <= set(df.columns):
-        return 0
-    individuals = df["entity_type"] == "INDIVIDUAL"
-    if not individuals.any():
-        return 0
-
-    changed = 0
-    groups = df[individuals].groupby("donor_key").groups.values()
-    for indexes in groups:
-        points = _precise_address_points(df, indexes)
-        if len(points) < 2:
-            continue
-        for members in _nearby_point_clusters(points, radius_m):
-            changed += _apply_point_cluster(df, points, members)
     return changed

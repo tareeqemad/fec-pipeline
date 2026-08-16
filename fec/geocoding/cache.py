@@ -34,13 +34,32 @@ class GeoCache:
             return True
         return entry.get("source") == "transient_fail"
 
-    def put(self, key: str, lat: float, lng: float, source: str, country: str = "US"):
+    def put(
+        self,
+        key: str,
+        lat: float,
+        lng: float,
+        source: str,
+        country: str = "US",
+        validated: bool = False,
+    ):
         """Store a hit; country is ISO-2, old entries without it read as 'US'."""
-        self.data[key] = {"lat": lat, "lng": lng, "source": source, "country": country}
+        self.data[key] = {
+            "lat": lat,
+            "lng": lng,
+            "source": source,
+            "country": country,
+            "validated": validated,
+        }
 
-    def put_failed(self, key: str):
+    def put_failed(self, key: str, validated: bool = False):
         """Mark an address as genuinely not geocodable (never retried)."""
-        self.data[key] = {"lat": None, "lng": None, "source": "not_found"}
+        self.data[key] = {
+            "lat": None,
+            "lng": None,
+            "source": "not_found",
+            "validated": validated,
+        }
 
     def put_transient(self, key: str):
         """Keep a temporary failure retryable."""

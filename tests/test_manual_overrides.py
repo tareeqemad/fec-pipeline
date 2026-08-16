@@ -1,4 +1,4 @@
-"""Per-sub_id hand-curated corrections to employer and/or occupation."""
+"""Per-sub_id hand-curated record corrections."""
 import csv
 
 import pandas as pd
@@ -59,6 +59,31 @@ def test_occupation_only(override_file):
     assert mo.apply_manual_employer_overrides(df) == 1
     assert df.loc[2, "contributor_occupation"] == "SOFTWARE ENGINEER"
     assert df.loc[2, "contributor_employer"] == "UNTOUCHED"
+
+
+def test_address_fields_can_be_overridden(override_file):
+    columns = (
+        "sub_id", "contributor_street_1", "contributor_street_2",
+        "contributor_city", "contributor_zip", "note",
+    )
+    override_file([{
+        "sub_id": "1",
+        "contributor_street_1": "833 CENTRAL AVE",
+        "contributor_street_2": "APT 1G",
+        "contributor_city": "FAR ROCKAWAY",
+        "contributor_zip": "11691",
+    }], cols=columns)
+    df = _frame()
+    df["contributor_street_1"] = ["83 CENTRAL3NY", "", ""]
+    df["contributor_street_2"] = ""
+    df["contributor_city"] = "NEW YORK"
+    df["contributor_zip"] = "11691"
+
+    assert mo.apply_manual_employer_overrides(df) == 1
+    assert df.loc[0, "contributor_street_1"] == "833 CENTRAL AVE"
+    assert df.loc[0, "contributor_street_2"] == "APT 1G"
+    assert df.loc[0, "contributor_city"] == "FAR ROCKAWAY"
+    assert df.loc[0, "contributor_zip"] == "11691"
 
 
 def test_final_company_pass_does_not_restore_status_or_occupation(override_file):
@@ -145,6 +170,9 @@ def test_shipped_override_file_is_wellformed():
         assert ((r.get("contributor_employer") or "").strip()
                 or (r.get("contributor_occupation") or "").strip()
                 or (r.get("contributor_city") or "").strip()
+                or (r.get("contributor_street_1") or "").strip()
+                or (r.get("contributor_street_2") or "").strip()
+                or (r.get("contributor_zip") or "").strip()
                 or (r.get("previous_employer") or "").strip()), r
 
 
@@ -185,3 +213,14 @@ def test_robert_namoff_student_filing_is_repaired():
     row = rows["4062420241962022446"]
     assert row["contributor_employer"] == "ALLIED UNIVERSAL CORP"
     assert row["contributor_occupation"] == "CHAIRMAN"
+
+
+def test_harry_greenspan_address_has_sources():
+    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+        rows = {row["sub_id"]: row for row in csv.DictReader(f)}
+
+    row = rows["4072420241978922446"]
+    assert row["contributor_street_1"] == "833 CENTRAL AVE"
+    assert row["contributor_street_2"] == "APT 1G"
+    assert "fec.gov" in row["source"]
+    assert "census.gov" in row["source"]

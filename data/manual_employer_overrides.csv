@@ -1,4 +1,4 @@
-sub_id,contributor_employer,contributor_occupation,contributor_city,note,previous_employer
+sub_id,contributor_employer,contributor_occupation,contributor_city,note,previous_employer,contributor_street_1,contributor_street_2,contributor_zip,source
 4032520241885655422,JEWISH FEDERATION OF GREATER HOUSTON,,,"OLEARY, MARI (Houston TX) — local federation, disambiguated from generic JEWISH FEDERATION"
 4072420241978924963,JEWISH FEDERATION OF GREATER FAIRFIELD COUNTY,,,"SAVEL, CARIN (Fairfield CT) — local federation [full name — the 38-char FEC truncation is repaired in manual_typo_overrides.json]"
 4072420241978924966,JEWISH FEDERATION OF GREATER FAIRFIELD COUNTY,,,"SAVEL, CARIN (Fairfield CT) — local federation [full name — the 38-char FEC truncation is repaired in manual_typo_overrides.json]"
@@ -158,3 +158,4 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4022620261359401262,,,,"LEVY, HAROLD (FAIRFIELD CT) - separate from the verified Iridian founder in Boca Raton; no documented previous employer",[CLEAR]
 4071420261533989113,,COUNCILMEMBER,,"LITT, RACHELLE - official Palm Beach Gardens profile identifies her as a city councilmember/former mayor: https://www.pbgfl.gov/247/Rachelle-Litt",
 4081320261580918837,,COUNCILMEMBER,,"LITT, RACHELLE - official Palm Beach Gardens profile identifies her as a city councilmember/former mayor: https://www.pbgfl.gov/247/Rachelle-Litt",
+4072420241978922446,,,FAR ROCKAWAY,"GREENSPAN, HARRY - three other FEC filings report the same address; Census confirms the postal address",,833 CENTRAL AVE,APT 1G,11691,"https://www.fec.gov/data/receipts/individual-contributions/?contributor_name=HARRY%20GREENSPAN&contributor_state=NY | https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=833%20Central%20Ave%20Apt%201G%2C%20Far%20Rockaway%2C%20NY%2011691&benchmark=Public_AR_Current&format=json"

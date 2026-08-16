@@ -1,7 +1,6 @@
 """Load curated addresses, keeping uncertain research reviewable."""
 
 import csv
-from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -15,13 +14,6 @@ from .helpers import _prev_key, _s
 
 logger = get_logger(__name__)
 
-_CHANGE_FIELDS = (
-    "employer_address",
-    "employer_city",
-    "employer_state",
-    "employer_zip",
-    "method",
-)
 _REVIEW_MARKERS = ("MEDIUM", "LIKELY", "UNCERTAIN", "VERIFY")
 
 
@@ -54,42 +46,6 @@ def _address_entry(row: dict) -> dict | None:
             "NONE" if suppressed else "LOW" if method == "manual_review" else "HIGH"
         ),
     }
-
-
-def _load_overrides(
-    csv_path: Path, cache, key_fn: Callable[[dict], str], label: str
-) -> tuple[int, int]:
-    """Inject manual overrides from a CSV into a cache; key_fn(row) builds the key (falsy skips the row). Returns (n_added, n_updated)."""
-    if not csv_path.exists():
-        logger.info(f"    {label}: {csv_path.name} not found - skipping")
-        return 0, 0
-
-    n_added = n_updated = 0
-    with open(csv_path, encoding="utf-8", newline="") as handle:
-        for row in csv.DictReader(handle):
-            key = key_fn(row)
-            if not key:
-                continue
-            entry = _address_entry(row)
-            if entry is None:
-                continue
-            existing = cache.get(key)
-            if existing is None:
-                n_added += 1
-            elif any(
-                existing.get(field, "") != entry[field] for field in _CHANGE_FIELDS
-            ):
-                n_updated += 1
-            else:
-                continue  # identical entry already present - no noisy diff
-            cache.put(key, entry)
-
-    if n_added or n_updated:
-        cache.save()
-    logger.info(
-        f"    {label}: {n_added:,} added, {n_updated:,} updated from {csv_path.name}"
-    )
-    return n_added, n_updated
 
 
 def _read_location_groups(csv_path: Path) -> dict:
@@ -224,18 +180,3 @@ def load_manual_previous_employers(
         f"from {csv_path.name}"
     )
     return added, updated
-
-
-def load_manual_committee_overrides(csv_path: Path, comm_cache) -> tuple[int, int]:
-    """Manual overrides for the COMMITTEE/PAC bucket (incl. the LLCs it lumps in), keyed NAME|STATE - the exact key the committee steps use."""
-
-    def _key(row):
-        name = (row.get("committee_name") or "").strip()
-        if not name:
-            return None
-        state = (row.get("contributor_state") or "").strip()
-        return f"{name}|{state}"
-
-    return _load_overrides(
-        csv_path, comm_cache, key_fn=_key, label="manual committee overrides"
-    )

@@ -1,7 +1,7 @@
 """Entity reclassification (committee detection) and employer synonyms."""
 import pandas as pd
 
-from test_enhancements import _make_df
+from test_record_rules import _make_df
 from fec.cleaning.pipeline.names import _clean_names
 from fec.cleaning.pipeline.reclassify import _reclassify_entities
 from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
