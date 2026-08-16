@@ -144,6 +144,8 @@ GRANT fec_app TO developer_login;
 - `recipient_committee` is the receiver of the contribution.
 - Negative amounts are refunds or redesignations.
 - Occupations stay as filed; `occupation_category` groups them.
+- Verified contributor address corrections live in
+  `data/database/address_rules.csv`; generic address normalization stays in code.
 - Geocode only adds coordinates; it never edits a cleaned address. US streets
   use the Census Geocoder first, then Nominatim. A street-level failure cannot
   fall back to a city that conflicts with the ZIP.
