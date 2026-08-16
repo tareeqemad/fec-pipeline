@@ -68,3 +68,5 @@ EMPLOYER_LOCATIONS_CSV = PROJECT_ROOT / "data" / "employer_locations.csv"
 EMPLOYER_NAME_RULES_CSV = PROJECT_ROOT / "data" / "database" / "employer_name_rules.csv"
 # Curated contributor name rules
 CONTRIBUTOR_NAME_RULES_CSV = PROJECT_ROOT / "data" / "database" / "contributor_name_rules.csv"
+# Curated contributor address corrections
+ADDRESS_RULES_CSV = PROJECT_ROOT / "data" / "database" / "address_rules.csv"
