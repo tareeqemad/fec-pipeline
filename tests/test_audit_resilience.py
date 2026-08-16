@@ -21,7 +21,7 @@ def test_audit_writes_only_csv_reports(tmp_path):
         after,
         original_rows,
         tmp_path,
-        enh_audit=[{'sub_id': '1', 'field': 'contributor_name',
+        rule_audit=[{'sub_id': '1', 'field': 'contributor_name',
                     'before': 'RAW NAME', 'after': 'CLEAN NAME',
                     'step': 'test', 'reason': 'test'}],
     )

@@ -5,12 +5,15 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
+from fec.cleaning._helpers import _indiv_idx, _norm
 from fec.config.constants import CANONICAL_EMPLOYER_SKIP_VALUES
 from fec.config.employers import EMPLOYER_NORMALIZE
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_OCCUPATION,
+    OCCUPATION_CANONICAL,
     OCCUPATION_FIXES,
     OCCUPATION_FROM_EMPLOYER,
+    OCCUPATION_KEYWORDS,
     OCCUPATION_NORMALIZE,
     OCCUPATION_REFUSAL_INPUTS,
     SWAP_JOB_TITLES,
@@ -39,6 +42,78 @@ _PA_PC_PROTECT_RE = re.compile(
     r'\b(CPA|DPA|RPA|EPA|SEPA|SHERPA)\s+(PA|PC)\s*$',
     re.IGNORECASE,
 )
+
+_COMPANY_IN_OCCUPATION_RE = re.compile(
+    r'\bLLC\b|\bLLP\b|\bINC\b\.?|\bCORP\b|\bLTD\b'
+    r'|\bCOMPANY\b|\bCORPORATION\b|\bHOLDINGS\b|\bGROUP\b'
+    r'|\bPARTNERS\b|\bVENTURES\b|\bCAPITAL\b|\bFUND\b'
+    r'|\bASSOCIATES\b|\bENTERPRISES\b|\bPROPERTIES\b|\bREALTY\b'
+    r'|\bADVISORS\b|\bINSURANCE\b|\bINDUSTRIES\b|\bBROTHERS\b'
+    r'|\bBANK\b|\bFINANCIAL\b|\bMEDIA\b|\bSYSTEMS\b'
+    r'|\bTECHNOLOGIES\b|\bSOLUTIONS\b|\bSERVICES\b|\bMANAGEMENT\b'
+    r'|\bTRUST\b|\bINTERNATIONAL\b|\bGLOBAL\b'
+    r'|\b\w+\s*&\s*\w+\b'
+    r'|& (?:PARTNERS|ASSOCIATES|CRUTCHER|DE LLANO|BUTLER)',
+)
+_ORGANIZATION_IN_OCCUPATION_RE = re.compile(
+    r'\bHOSPITAL\b|\bUNIVERSITY\b|\bINSTITUTE\b'
+    r'|\bCOLLEGE\b|\bSCHOOL\b|\bACADEMY\b'
+    r'|\bFOUNDATION\b|\bAGENCY\b|\bBUREAU\b'
+    r'|\bDEPARTMENT\b|\bMINISTRY\b|\bAIPAC\b|\bDMFI\b',
+)
+
+
+def _swap_fields(df: pd.DataFrame, indexes: pd.Index) -> None:
+    occupation = df.loc[indexes, 'contributor_occupation'].copy()
+    employer = df.loc[indexes, 'contributor_employer'].copy()
+    df.loc[indexes, 'contributor_occupation'] = employer
+    df.loc[indexes, 'contributor_employer'] = occupation
+    df.loc[indexes, 'occupation_category'] = _categorize(employer)
+
+
+def fix_remaining_swapped_occ_emp(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, int, int]:
+    """Fix swaps exposed by earlier cleaning."""
+    individuals = _indiv_idx(df)
+    occupation = _norm(df.loc[individuals, 'contributor_occupation'])
+    employer = _norm(df.loc[individuals, 'contributor_employer'])
+
+    employer_is_job = employer.isin(OCCUPATION_KEYWORDS)
+    company = occupation.str.contains(_COMPANY_IN_OCCUPATION_RE, na=False)
+    company &= ~occupation.str.startswith('CORP ', na=False)
+    company_swaps = individuals[company & employer_is_job]
+    if len(company_swaps):
+        _swap_fields(df, company_swaps)
+
+    same = individuals[(occupation == employer) & employer_is_job]
+    if len(same):
+        df.loc[same, 'contributor_employer'] = 'SELF-EMPLOYED'
+
+    organization = occupation.str.contains(
+        _ORGANIZATION_IN_OCCUPATION_RE,
+        na=False,
+    )
+    organization_swaps = individuals[organization & employer_is_job]
+    if len(organization_swaps):
+        _swap_fields(df, organization_swaps)
+
+    swaps = len(company_swaps) + len(organization_swaps)
+    return df, swaps, len(same)
+
+
+def normalize_occupation_canonical(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, int]:
+    """Map safe occupation variants."""
+    individuals = _indiv_idx(df)
+    occupation = df.loc[individuals, 'contributor_occupation']
+    hits = individuals[occupation.isin(OCCUPATION_CANONICAL)]
+    if len(hits):
+        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(
+            OCCUPATION_CANONICAL
+        )
+    return df, len(hits)
 
 
 def _cross_fill(df: pd.DataFrame) -> None:

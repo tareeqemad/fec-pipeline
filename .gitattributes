@@ -1,3 +1,0 @@
-# Shell scripts must keep LF endings so they run on Linux servers
-# (a CRLF in the shebang line breaks `#!/usr/bin/env bash`).
-*.sh text eol=lf

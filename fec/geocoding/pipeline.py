@@ -1,7 +1,10 @@
 """Address geocoding: the single-address engine chain plus the contributor and employer dataframe passes."""
 
+import math
 import re
 import time
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,14 +14,19 @@ from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
 
 from .cache import GeoCache
 from .engines import (
+    CensusUnavailable,
     NOMINATIM_DELAY,
     NominatimUnavailable,
+    census,
     city_level,
     nominatim,
     nominatim_international,
 )
 
 logger = get_logger(__name__)
+
+_ZIP_CENTROIDS = Path(__file__).resolve().parents[2] / "data" / "database" / "zip_centroids.csv"
+_ZIP_OUTLIER_KM = 50
 
 _PO_BOX_RE = re.compile(r"^PO\s+BOX", re.IGNORECASE)
 
@@ -75,13 +83,64 @@ def _employer_keys(frame: pd.DataFrame) -> pd.Series:
             cols['employer_zip'].str.strip().str.upper())
 
 
+@lru_cache(maxsize=1)
+def _zip_centroids() -> dict[str, tuple[float, float]]:
+    if not _ZIP_CENTROIDS.exists():
+        return {}
+    rows = pd.read_csv(_ZIP_CENTROIDS, dtype={"zip": str})
+    return {
+        str(row.zip).zfill(5): (float(row.lat), float(row.lng))
+        for row in rows.itertuples()
+    }
+
+
+def _distance_km(first: tuple[float, float], second: tuple[float, float]) -> float:
+    lat1, lng1 = map(math.radians, first)
+    lat2, lng2 = map(math.radians, second)
+    dlat, dlng = lat2 - lat1, lng2 - lng1
+    value = math.sin(dlat / 2) ** 2
+    value += math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(value))
+
+
+def _far_from_zip(lat: float, lng: float, zipcode: str) -> bool:
+    if not re.fullmatch(r"\d{5}", zipcode):
+        return False
+    centroid = _zip_centroids().get(zipcode)
+    return bool(centroid and _distance_km((lat, lng), centroid) > _ZIP_OUTLIER_KM)
+
+
+def _needs_lookup(key: str, cache: GeoCache) -> bool:
+    if cache.needs_retry(key):
+        return True
+
+    entry = cache.get(key) or {}
+    source = entry.get("source")
+    if source in {"census", "manual_census"}:
+        return False
+    if source == "not_found":
+        return not entry.get("validated")
+    if entry.get("country", "US") != "US" or entry.get("lat") is None:
+        return False
+
+    street, _city, state, zipcode = key.split("|")
+    if state not in _STATE_BOUNDS:
+        return False
+    far_from_zip = _far_from_zip(float(entry["lat"]), float(entry["lng"]), zipcode)
+    if entry.get("validated"):
+        return source == "nominatim_city" and not is_po_box(street) and far_from_zip
+    if not far_from_zip:
+        return False
+    return True
+
+
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
                       batch_size: int = 50):
     """Geocode every unique address in df, skipping cached keys and saving the cache every batch_size lookups."""
     keys_series = _contributor_keys(df)
     all_keys = set(keys_series[keys_series != '|||'].unique())
 
-    todo = [key for key in all_keys if cache.needs_retry(key)]
+    todo = [key for key in all_keys if _needs_lookup(key, cache)]
 
     logger.info(f"\n  Unique addresses:  {len(all_keys):,}")
     logger.info(f"  Already cached:    {len(all_keys) - len(todo):,}")
@@ -133,7 +192,7 @@ def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
     keys = _employer_keys(df.loc[mask])
     all_keys = set(keys[keys != '|||'].unique())
 
-    todo = [key for key in all_keys if cache.needs_retry(key)]
+    todo = [key for key in all_keys if _needs_lookup(key, cache)]
 
     logger.info(f"\n  Employer addresses:  {len(all_keys):,}")
     logger.info(f"  Already cached:      {len(all_keys) - len(todo):,}")
@@ -209,12 +268,12 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
             continue
 
         if lat is not None:
-            cache.put(key, lat, lng, source, country)
+            cache.put(key, lat, lng, source, country, validated=True)
             stats["found"] += 1
             if source == "nominatim_city":
                 stats["city"] += 1
         else:
-            cache.put_failed(key)
+            cache.put_failed(key, validated=True)
             stats["failed"] += 1
 
         if done % batch_size == 0 or done == len(todo):
@@ -240,7 +299,8 @@ def _clean_street_for_geocoding(street: str) -> str:
     return cleaned.strip().rstrip(',')
 
 
-def _city_fallback(city: str, state: str, zipcode: str) -> tuple:
+def _city_fallback(city: str, state: str, zipcode: str,
+                   require_zip_match: bool = False) -> tuple:
     """Retry city without ZIP."""
     zip_codes = [zipcode]
     if zipcode:
@@ -249,8 +309,11 @@ def _city_fallback(city: str, state: str, zipcode: str) -> tuple:
     for zip_code in zip_codes:
         lat, lng, country = city_level(city, state, zip_code)
         time.sleep(NOMINATIM_DELAY)
-        if lat and _valid_for_state(lat, lng, state):
-            return lat, lng, country
+        if not lat or not _valid_for_state(lat, lng, state):
+            continue
+        if require_zip_match and _far_from_zip(lat, lng, zipcode):
+            continue
+        return lat, lng, country
 
     return None, None, None
 
@@ -269,6 +332,15 @@ def _geocode_one(street, city, state, zipcode):
     if street:
         street = _clean_street_for_geocoding(street)
 
+    if street and state in _STATE_BOUNDS:
+        try:
+            lat, lng, country_code = census(street, city, state, zipcode)
+        except CensusUnavailable as error:
+            logger.debug("Census Geocoder unavailable for %s: %s", street, error)
+        else:
+            if lat and _valid_for_state(lat, lng, state):
+                return lat, lng, country_code or "US", "census"
+
     if street:
         lat, lng, country_code = nominatim(street, city, state, zipcode)
         time.sleep(NOMINATIM_DELAY)
@@ -277,7 +349,9 @@ def _geocode_one(street, city, state, zipcode):
         if lat:
             logger.debug("Nominatim result lat=%.4f lng=%.4f rejected - outside %s", lat, lng, state)
 
-    lat, lng, country_code = _city_fallback(city, state, zipcode)
+    lat, lng, country_code = _city_fallback(
+        city, state, zipcode, require_zip_match=True,
+    )
     if lat:
         return lat, lng, country_code or "US", "nominatim_city"
 

@@ -8,7 +8,6 @@ from fec.donor_match.canonicalize import (
     canonicalize_donor_pobox_typos,
 )
 from fec.donor_match.canonicalize import canonicalize_donor_addresses
-from fec.donor_match.canonicalize import canonicalize_donor_addresses_geo
 
 
 def _df(rows, cols):
@@ -207,53 +206,3 @@ def test_pobox_keeps_same_length_numbers_separate():
     )
 
     assert canonicalize_donor_pobox_typos(df) == 0
-
-
-_GEO_COLS = [
-    "entity_type",
-    "donor_key",
-    "contributor_street_1",
-    "latitude",
-    "longitude",
-    "geocode_level",
-]
-
-
-def test_geo_unifies_same_spot_and_keeps_far_apart():
-    df = _df(
-        [
-            ["INDIVIDUAL", "A", "123 MAIN ST", 40.71280, -74.00600, "nominatim"],
-            [
-                "INDIVIDUAL",
-                "A",
-                "123 MAIN STREET STE 5",
-                40.71285,
-                -74.00604,
-                "nominatim",
-            ],
-            ["INDIVIDUAL", "A", "9 FAR AWAY RD", 41.50000, -72.00000, "nominatim"],
-        ],
-        _GEO_COLS,
-    )
-    n = canonicalize_donor_addresses_geo(df, radius_m=50)
-    assert n == 1
-    assert set(df["contributor_street_1"]) == {"123 MAIN ST", "9 FAR AWAY RD"}
-
-
-def test_geo_skips_city_level_geocodes():
-    df = _df(
-        [
-            ["INDIVIDUAL", "C", "1 A ST", 40.70, -74.00, "nominatim_city"],
-            ["INDIVIDUAL", "C", "2 B ST", 40.7001, -74.0001, "nominatim_city"],
-        ],
-        _GEO_COLS,
-    )
-    assert canonicalize_donor_addresses_geo(df) == 0
-
-
-def test_geo_noop_without_coords():
-    df = _df(
-        [["INDIVIDUAL", "D", "1 MAIN ST"]],
-        ["entity_type", "donor_key", "contributor_street_1"],
-    )
-    assert canonicalize_donor_addresses_geo(df) == 0

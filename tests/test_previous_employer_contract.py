@@ -171,7 +171,7 @@ def _resolved_retiree(
             "method": "cross_record",
         }
     }
-    return apply_results(df, prev_cache, address_cache or {}, {})
+    return apply_results(df, prev_cache, address_cache or {})
 
 
 def test_resolve_keeps_build_owned_display_for_the_same_company():

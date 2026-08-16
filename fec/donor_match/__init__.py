@@ -11,9 +11,6 @@ The flow (clean.py -> identify_donors -> here):
     canonicalize.*                    one official name/employer/street per donor
     keys.build_donor_dedup_review     detect-only report for human triage
 
-    after geocoding (called from geocode.py):
-    canonicalize.canonicalize_donor_addresses_geo
-
 constants.py holds matching weights and nickname rules. Every human identity
 decision lives in data/database/donor_identity_rules.csv.
 """

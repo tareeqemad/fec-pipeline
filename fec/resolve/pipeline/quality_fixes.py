@@ -201,8 +201,7 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
         df.loc[foreign, "resolve_method"] = "non_us_cleared"
         df.loc[foreign, "resolve_confidence"] = "NONE"
 
-    # 2. PO Box is wrong for a corporate HQ but is the FEC-registered address
-    # of most campaign committees - only clear non-committee rows.
+    # 2. PO Box is wrong for a corporate HQ.
     emp_addr = df["employer_address"].fillna("")
     is_po_box = emp_addr.str.contains(POBOX_RE, na=False)
     # Closed-book AI only - a web-search-grounded (_search) PO box is the
@@ -211,8 +210,7 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
     is_ai = method_col.str.contains(_AI_METHOD_RE, na=False) & ~method_col.str.contains(
         "_search", na=False, regex=False
     )
-    not_committee = df["entity_type"].fillna("") != "COMMITTEE/PAC"
-    ai_po_box = is_po_box & is_ai & not_committee
+    ai_po_box = is_po_box & is_ai
     if ai_po_box.any():
         df.loc[ai_po_box, "employer_address"] = ""
         df.loc[ai_po_box, "employer_city"] = ""
@@ -251,18 +249,6 @@ def _street_number(value) -> str:
     return match.group(1) if match else ""
 
 
-def _committee_placeholders(df: pd.DataFrame, ai: pd.Series) -> pd.Series:
-    ai_committee = ai & df["entity_type"].eq("COMMITTEE/PAC")
-    if not ai_committee.any():
-        return pd.Series(False, index=df.index)
-
-    shared = (
-        df.loc[ai_committee].groupby("employer_address")["contributor_name"].nunique()
-    )
-    shared_addresses = set(shared[shared >= 2].index) - {"", None}
-    return ai_committee & df["employer_address"].isin(shared_addresses)
-
-
 def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
     """Clear AI-fabricated employer_address rows in-place (method 'ai_hallucination_cleared')."""
     if "resolve_method" not in df.columns or "employer_address" not in df.columns:
@@ -298,13 +284,11 @@ def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
         df.get("previous_employer", pd.Series("", index=df.index)).fillna("").eq("")
     )
     status_no_prev = employer_col.isin(EMPLOYER_STATUS_VALUES) & prev_empty
-    committee_placeholder = _committee_placeholders(df, ai)
     unambiguous_fake_num = street_number.isin(_AI_UNAMBIGUOUS_FAKE_NUMBERS)
 
     hallucinated = ai & (
         (placeholder_num & word_overlap)
         | status_no_prev
-        | committee_placeholder
         | unambiguous_fake_num
     )
     n_cleared = int(hallucinated.sum())

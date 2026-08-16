@@ -1,4 +1,4 @@
-"""Hand-curated per-row employer/occupation/city corrections (record-specific fixes a global rule can't express safely), read from data/manual_employer_overrides.csv keyed by sub_id and applied as the LAST step so they survive every re-clean."""
+"""Hand-curated per-row corrections keyed by FEC sub_id."""
 
 from __future__ import annotations
 
@@ -16,6 +16,9 @@ _ROW_FIELDS = (
     "contributor_employer",
     "contributor_occupation",
     "contributor_city",
+    "contributor_street_1",
+    "contributor_street_2",
+    "contributor_zip",
 )
 
 

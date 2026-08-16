@@ -98,10 +98,7 @@ CITY_NORMALIZE = {
     # would silently misfix other donors in future pulls
 
     # variant spellings — target is the official form (verified by state/ZIP)
-    'FAIRLAWN': 'FAIR LAWN',
     'MC LEAN': 'MCLEAN',
-    'EASTHAMPTON': 'EAST HAMPTON',
-    'DELMAR': 'DEL MAR',
     'WATERMILL': 'WATER MILL',
 
     # typos missed by fuzzy matching
@@ -138,6 +135,14 @@ CITY_NORMALIZE = {
     'W BLOOMFIELD': 'WEST BLOOMFIELD',
     'LIS ANGELES': 'LOS ANGELES',
     'N. HOLLYWOOD': 'NORTH HOLLYWOOD',
+}
+
+
+# These spellings name different real cities in different states.
+CITY_STATE_NORMALIZE = {
+    ('FAIRLAWN', 'NJ'): 'FAIR LAWN',
+    ('EASTHAMPTON', 'NY'): 'EAST HAMPTON',
+    ('DELMAR', 'CA'): 'DEL MAR',
 }
 
 

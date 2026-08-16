@@ -10,8 +10,12 @@ from .constants import TIERS
 logger = get_logger(__name__)
 
 
-def show_stats(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
-               donor_totals: pd.Series) -> None:
+def show_stats(
+    df: pd.DataFrame,
+    prev_cache,
+    addr_cache,
+    donor_totals: pd.Series,
+) -> None:
     """Show resolution status."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     latest = (individuals.sort_values("contribution_receipt_date")
@@ -28,7 +32,6 @@ def show_stats(df: pd.DataFrame, prev_cache, addr_cache, comm_cache,
     logger.info("\n  -- Cache Sizes --")
     logger.info(f"    Previous employer:  {len(prev_cache):>7,}")
     logger.info(f"    Employer addresses: {len(addr_cache):>7,}")
-    logger.info(f"    Committee:          {len(comm_cache):>7,}")
 
     logger.info("\n  -- Resolution by Tier --")
     logger.info(

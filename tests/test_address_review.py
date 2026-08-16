@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.address_review import (
-    apply_safe_fixes, _fix_house_number, _collapse_dup_words,
+    apply_safe_fixes, apply_verified_address_fixes,
+    _fix_house_number, _collapse_dup_words,
     build_address_reports,
 )
+from fec.cleaning.addresses import clean_streets
 
 
 def test_house_number_leading_symbol_and_zeros():
@@ -39,6 +41,84 @@ def test_trailing_unit_split_into_street2():
     assert df.loc[1, "contributor_street_1"] == "40 W 57TH ST"
     assert df.loc[1, "contributor_street_2"] == "28TH FLOOR"
     assert df.loc[2, "contributor_street_1"] == "9208 NE HWY 9"     # route number kept
+
+
+def test_directional_unit_and_repeated_address_tail():
+    df = pd.DataFrame([
+        {"contributor_street_1": "5500 ISLAND ESTATES DR 705 N",
+         "contributor_street_2": np.nan, "contributor_city": "AVENTURA",
+         "contributor_state": "FL"},
+        {"contributor_street_1": "4400 W 87TH TER 4400 W",
+         "contributor_street_2": np.nan, "contributor_city": "PRAIRIE VILLAGE",
+         "contributor_state": "KS"},
+        {"contributor_street_1": "159 W 159 W",
+         "contributor_street_2": np.nan, "contributor_city": "NEW YORK",
+         "contributor_state": "NY"},
+    ])
+
+    df, _ = apply_safe_fixes(df)
+
+    assert df.loc[0, "contributor_street_1"] == "5500 ISLAND ESTATES DR"
+    assert df.loc[0, "contributor_street_2"] == "# 705 N"
+    assert df.loc[1, "contributor_street_1"] == "4400 W 87TH TER"
+    assert pd.isna(df.loc[1, "contributor_street_2"])
+    assert df.loc[2, "contributor_street_1"] == "159 W 159 W"
+
+
+def test_sute_typo_becomes_suite_and_is_extracted():
+    df = pd.DataFrame([{
+        "contributor_street_1": "14200 EAST MONCRIEFF SUTE E",
+        "contributor_street_2": np.nan,
+        "contributor_first_name": "MICHAEL",
+        "contributor_last_name": "GELLER",
+    }])
+
+    df, _ = clean_streets(df)
+
+    assert df.loc[0, "contributor_street_1"] == "14200 E MONCRIEFF"
+    assert df.loc[0, "contributor_street_2"] == "STE E"
+
+
+def test_verified_postal_corrections_are_exact():
+    df = pd.DataFrame([
+        {"contributor_street_1": "3750 LAS VEGAS BLVD S",
+         "contributor_street_2": np.nan, "contributor_state": "NV",
+         "contributor_zip": "89158"},
+        {"contributor_street_1": "704C 13TH ST E",
+         "contributor_street_2": np.nan, "contributor_state": "MT",
+         "contributor_zip": "59937"},
+        {"contributor_street_1": "3750 LAS VEGAS BLVD S",
+         "contributor_street_2": np.nan, "contributor_state": "NV",
+         "contributor_zip": "99999"},
+        {"contributor_street_1": "42 W E 48TH ST",
+         "contributor_street_2": np.nan, "contributor_state": "NY",
+         "contributor_zip": "10017"},
+        {"contributor_street_1": "159 W 159 W",
+         "contributor_street_2": np.nan, "contributor_state": "NY",
+         "contributor_zip": "10023"},
+        {"contributor_street_1": "1101 IVEAN PEARSON RD",
+         "contributor_street_2": "STE G101", "contributor_city": "LAGO VISTA",
+         "contributor_state": "CA", "contributor_zip": "90292"},
+        {"contributor_street_1": "268 CHESTNUT ST",
+         "contributor_street_2": np.nan, "contributor_city": "ENGLEWOOD",
+         "contributor_state": "NY", "contributor_zip": "11963"},
+    ])
+
+    assert apply_verified_address_fixes(df) == 6
+    assert df.loc[0, "contributor_street_1"] == "3750 S LAS VEGAS BLVD"
+    assert df.loc[1, "contributor_street_1"] == "704C E 13TH ST"
+    assert df.loc[1, "contributor_street_2"] == "STE 260"
+    assert df.loc[2, "contributor_street_1"] == "3750 LAS VEGAS BLVD S"
+    assert df.loc[3, "contributor_street_1"] == "42 W 48TH ST"
+    assert df.loc[3, "contributor_street_2"] == "STE 706-707"
+    assert df.loc[3, "contributor_zip"] == "10036"
+    assert df.loc[4, "contributor_street_1"] == "159 W 74TH ST"
+    assert df.loc[4, "contributor_street_2"] == "APT GR"
+    assert df.loc[5, "contributor_state"] == "TX"
+    assert df.loc[5, "contributor_zip"] == "78645"
+    assert df.loc[5, "contributor_street_2"] == "STE G101"
+    assert df.loc[6, "contributor_state"] == "NJ"
+    assert df.loc[6, "contributor_zip"] == "07631"
 
 
 def test_care_of_prefix_recovered_or_flagged(tmp_path):

@@ -139,8 +139,8 @@ def test_committees_are_skipped():
 
 def test_runs_before_the_role_net_in_the_registry():
     """AD would otherwise strand the company."""
-    from fec.cleaning.safety_nets import _SAFETY_NETS
+    from fec.cleaning.record_rules import SAFETY_RULES
     from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
 
-    names = [fn for fn, _ in _SAFETY_NETS]
+    names = [fn for fn, _ in SAFETY_RULES]
     assert names.index(_swap_role_employer_with_known_company) < names.index(_fix_role_as_employer)

@@ -1,4 +1,4 @@
-"""Final junk cleanup for values that slipped through the main pipeline."""
+"""Clean junk occupation and employer values."""
 import re
 
 import numpy as np

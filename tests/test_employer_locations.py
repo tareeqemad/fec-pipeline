@@ -8,10 +8,7 @@ from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
 )
-from fec.resolve.pipeline.steps.previous_employer import (
-    migrate_previous_employer_cache,
-    step_cross_record,
-)
+from fec.resolve.pipeline.steps.previous_employer import step_cross_record
 from fec.database.loader.employers import (
     _employment_address_id,
     _latest_employment_rows,
@@ -72,7 +69,6 @@ def _resolve(row):
     context = ResolveContext(
         previous_cache=FakeCache(),
         address_lookup=_locations(),
-        committee_cache=FakeCache(),
     )
     return _resolve_row(row, context)
 
@@ -158,7 +154,7 @@ def test_legal_suffix_alias_keeps_all_locations():
     df = pd.DataFrame([_row(employer="BIG FIRM PC")])
     cache = FakeCache({"BIG FIRM, P.C.": {**PRIMARY, "locations": [SF_OFFICE]}})
 
-    result = apply_results(df, FakeCache(), cache, FakeCache())
+    result = apply_results(df, FakeCache(), cache)
 
     assert result.loc[0, "employer_address"] == "555 California St"
 
@@ -183,7 +179,7 @@ def test_manual_alias_beats_an_old_exact_ai_address():
         },
     })
 
-    result = apply_results(pd.DataFrame([row]), FakeCache(), cache, FakeCache())
+    result = apply_results(pd.DataFrame([row]), FakeCache(), cache)
 
     assert result.loc[0, "employer_state"] == "IL"
     assert result.loc[0, "employer_address"] == "2227 S State Route 157"
@@ -195,9 +191,7 @@ def test_legacy_ai_address_is_not_applied():
         "method": "ai_openai",
     }})
 
-    result = apply_results(
-        pd.DataFrame([_row()]), FakeCache(), cache, FakeCache()
-    )
+    result = apply_results(pd.DataFrame([_row()]), FakeCache(), cache)
 
     assert result.loc[0, "employer_address"] == ""
     assert result.loc[0, "resolve_method"] == "pending"
@@ -213,7 +207,6 @@ def test_grounded_search_address_is_applied():
         pd.DataFrame([_row(state="NY", zip_code="10036")]),
         FakeCache(),
         cache,
-        FakeCache(),
     )
 
     assert result.loc[0, "employer_address"] == "1585 Broadway"
@@ -228,9 +221,21 @@ def test_resolve_never_rewrites_employer_names():
     ])
     original = rows["contributor_employer"].copy()
 
-    result = apply_results(rows, FakeCache(), _locations(), FakeCache())
+    result = apply_results(rows, FakeCache(), _locations())
 
     pd.testing.assert_series_equal(result["contributor_employer"], original)
+
+
+def test_committee_keeps_only_its_contributor_address():
+    row = _row("")
+    row["entity_type"] = "COMMITTEE/PAC"
+
+    result = apply_results(pd.DataFrame([row]), FakeCache(), FakeCache())
+
+    assert result.loc[0, "contributor_street_1"] == "1 HOME ST"
+    assert result.loc[0, "employer_status"] == "committee"
+    assert pd.isna(result.loc[0, "employer_address"])
+    assert result.loc[0, "resolve_method"] == "skip"
 
 
 def test_student_school_is_not_a_workplace():
@@ -276,7 +281,6 @@ def test_resolve_reports_a_clean_owned_employer_contradiction():
         pd.DataFrame([row]),
         FakeCache(),
         _locations(),
-        FakeCache(),
     )
 
     assert result.loc[0, "contributor_employer"] == "BIG FIRM"
@@ -431,29 +435,6 @@ def test_same_previous_company_keeps_richer_cache_entry():
     assert cache["donor:D1"] == original
 
 
-def test_legacy_previous_employer_cache_skips_ambiguous_names():
-    rows = pd.DataFrame([
-        {
-            "entity_type": "INDIVIDUAL", "donor_key": "D1",
-            "contributor_name": "COHEN, MARTIN", "contributor_state": "CA",
-            "contributor_employer": "RETIRED",
-            "contribution_receipt_date": "2025-01-01",
-        },
-        {
-            "entity_type": "INDIVIDUAL", "donor_key": "D2",
-            "contributor_name": "COHEN, MARTIN", "contributor_state": "CA",
-            "contributor_employer": "RETIRED",
-            "contribution_receipt_date": "2025-02-01",
-        },
-    ])
-    cache = FakeCache({
-        "COHEN, MARTIN|CA": {"employer": "WRONG COMPANY"},
-    })
-
-    assert migrate_previous_employer_cache(rows, cache) == (0, 1, 0)
-    assert cache == {}
-
-
 def test_loader_does_not_guess_an_employer_alias():
     resolve = _make_employer_resolver({"ACME, INC.": 7})
 
@@ -565,7 +546,7 @@ def test_explicit_not_found_is_not_replaced_by_an_alias():
         "CRESSON MANAGEMENT VIRGIN ISLANDS, LLC": PRIMARY,
     })
 
-    result = apply_results(df, FakeCache(), cache, FakeCache())
+    result = apply_results(df, FakeCache(), cache)
 
     assert result.loc[0, "employer_address"] == ""
     assert result.loc[0, "resolve_method"] == "pending"

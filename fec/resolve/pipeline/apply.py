@@ -22,7 +22,6 @@ from .quality_fixes import (
 class ResolveContext:
     previous_cache: object
     address_lookup: dict
-    committee_cache: object
 
 
 def _address_aliases(addr_cache) -> dict:
@@ -31,7 +30,7 @@ def _address_aliases(addr_cache) -> dict:
     return address_cache_lookup(entries, publishable_only=True)
 
 
-def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache) -> pd.DataFrame:
+def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
     """Write resolved addresses to DataFrame columns."""
     prior_previous = df.get("previous_employer")
     if prior_previous is not None:
@@ -51,7 +50,6 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, comm_cache) -> pd.Da
     context = ResolveContext(
         previous_cache=prev_cache,
         address_lookup=_address_aliases(addr_cache),
-        committee_cache=comm_cache,
     )
     for _, row in df.iterrows():
         result = _resolve_row(row, context)
@@ -161,18 +159,6 @@ def _cached_address(
     return None
 
 
-def _resolve_committee(
-    row: pd.Series, context: ResolveContext, state: str
-) -> dict:
-    name = str(row.get("contributor_name", ""))
-    cached = context.committee_cache.get(f"{name}|{state}")
-    if cached and cached.get("employer_address"):
-        return _result("committee", cached, method="fec_api", state=state)
-    return _own_address(
-        row, state, "committee", "committee_own_address", "LOW"
-    ) or _result("committee")
-
-
 def _resolve_active(
     employer: str,
     state: str,
@@ -244,7 +230,7 @@ def _resolve_row(row: pd.Series, context: ResolveContext) -> dict:
     entity = row.get("entity_type", "")
     state = _s(row.get("contributor_state")).strip()
     if entity == "COMMITTEE/PAC":
-        return _resolve_committee(row, context, state)
+        return _result("committee")
     if entity == "ORGANIZATION":
         return _result("organization")
 

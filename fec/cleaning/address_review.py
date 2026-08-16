@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from fec.config.geography import US_STATES
+from fec.config.streets import VERIFIED_ADDRESS_FIXES
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
@@ -37,6 +38,14 @@ _SPLIT_TYPES = (
 _ORD_FLOOR_RE = re.compile(r"^(.+?)\s+(\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL))$")
 _TYPE_NUM_RE = re.compile(
     r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+(\d{1,5}[A-Z]?)$"
+)
+_TYPE_NUM_DIR_RE = re.compile(
+    r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+"
+    r"(\d{1,5}\s+(?:NE|NW|SE|SW|N|S|E|W))$"
+)
+_REPEATED_ADDRESS_START_RE = re.compile(
+    r"^(?P<start>\d+[A-Z]?(?:\s+(?:NE|NW|SE|SW|N|S|E|W))?)\s+"
+    r"(?P<body>.+\b(?:" + "|".join(_SPLIT_TYPES) + r")\b)\s+(?P=start)$"
 )
 
 # "C/O <name>" forwarding prefix; the real street follows it
@@ -110,6 +119,16 @@ def _collapse_dup_words(s):
     return " ".join(out)
 
 
+def _drop_repeated_address_start(s):
+    """Drop a repeated house-number prefix from the end."""
+    if pd.isna(s):
+        return s
+    match = _REPEATED_ADDRESS_START_RE.match(str(s))
+    if not match:
+        return s
+    return f'{match.group("start")} {match.group("body")}'
+
+
 def _strip_care_of(s):
     """Recover the street after a 'C/O' prefix; a name-only C/O with no house number is left for the report."""
     if pd.isna(s):
@@ -133,6 +152,7 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df[S1] = df[S1].map(_strip_care_of)
     df[S1] = df[S1].map(_fix_house_number)
     df[S1] = df[S1].map(_collapse_dup_words)
+    df[S1] = df[S1].map(_drop_repeated_address_start)
     still_care_of = df[S1].fillna("").astype(str).str.match(_CO_RE)
     counts["care_of"] = int((was_care_of & ~still_care_of).sum())
 
@@ -155,9 +175,17 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     s2_blank = df[S2].isna() | (df[S2].astype(str).str.strip() == "")
     floor = s1.str.extract(_ORD_FLOOR_RE)  # "... 28TH FLOOR" -> unit kept as-is
     num = s1.str.extract(_TYPE_NUM_RE)  # "... DR 601"     -> unit prefixed "#"
+    num_dir = s1.str.extract(_TYPE_NUM_DIR_RE)  # "... DR 601 N" -> "# 601 N"
     is_floor = floor[0].notna()
-    base = floor[0].where(is_floor, num[0])
-    unit = floor[1].where(is_floor, "# " + num[1].fillna(""))
+    is_num = num[0].notna()
+    base = floor[0].where(is_floor, num[0].where(is_num, num_dir[0]))
+    unit = floor[1].where(
+        is_floor,
+        ("# " + num[1].fillna("")).where(
+            is_num,
+            "# " + num_dir[1].fillna(""),
+        ),
+    )
     apply_mask = s2_blank & base.notna()
     if apply_mask.any():
         df.loc[apply_mask, S1] = base[apply_mask].str.strip()
@@ -165,6 +193,39 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         counts["unit_split"] = int(apply_mask.sum())
 
     return df, counts
+
+
+def apply_verified_address_fixes(df: pd.DataFrame) -> int:
+    """Apply exact, externally verified address corrections."""
+    changed = 0
+    df[S2] = df[S2].astype(object)
+    for (street, state, zipcode), fixed in (
+        VERIFIED_ADDRESS_FIXES.items()
+    ):
+        fixed_street, fixed_unit, fixed_city, fixed_state, fixed_zip = fixed
+        mask = (
+            df[S1].fillna("").eq(street)
+            & df[STATE].fillna("").eq(state)
+            & df[ZIP].fillna("").eq(zipcode)
+        )
+        if not mask.any():
+            continue
+        row_changed = mask & df[S1].fillna("").ne(fixed_street)
+        df.loc[mask, S1] = fixed_street
+        if fixed_unit is not None:
+            row_changed |= mask & df[S2].fillna("").ne(fixed_unit)
+            df.loc[mask, S2] = fixed_unit
+        if fixed_city is not None:
+            row_changed |= mask & df[CITY].fillna("").ne(fixed_city)
+            df.loc[mask, CITY] = fixed_city
+        if fixed_state is not None:
+            row_changed |= mask & df[STATE].fillna("").ne(fixed_state)
+            df.loc[mask, STATE] = fixed_state
+        if fixed_zip is not None:
+            row_changed |= mask & df[ZIP].fillna("").ne(fixed_zip)
+            df.loc[mask, ZIP] = fixed_zip
+        changed += int(row_changed.sum())
+    return changed
 
 
 def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:

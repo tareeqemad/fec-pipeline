@@ -405,7 +405,7 @@ OCCUPATION_NORMALIZE = {
 }
 
 
-# Variant spellings of the same job title, applied by enhancements.
+# Safe spellings applied by the record rules.
 OCCUPATION_CANONICAL = {
     # medical
     'ORTHOPAEDIC SURGEON': 'ORTHOPEDIC SURGEON',
@@ -582,7 +582,7 @@ OCCUPATION_FIXES = {
     'INS': ('INSURANCE', 'INSURANCE'),
     'BOSS': ('BUSINESS OWNER', 'BUSINESS / ENTREPRENEUR'),
 
-    # education; NIST is context-dependent, handled in enhancements.py
+    # education; NIST is context-dependent, handled in record_junk.py
     'TCHR': ('TEACHER', 'EDUCATION'),
     'PROF': ('PROFESSOR', 'EDUCATION'),
 
