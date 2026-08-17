@@ -4,11 +4,13 @@ import csv
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.address_review import (
-    apply_safe_fixes, apply_verified_address_fixes,
-    _fix_house_number, _collapse_dup_words,
-    build_address_reports,
+from fec.cleaning.address_review import build_address_reports
+from fec.cleaning.pipeline.address_fixes.safe_text import (
+    _collapse_dup_words,
+    _fix_house_number,
+    apply_safe_fixes,
 )
+from fec.cleaning.pipeline.address_fixes.verified import apply_verified_address_fixes
 from fec.cleaning.addresses import clean_streets
 
 

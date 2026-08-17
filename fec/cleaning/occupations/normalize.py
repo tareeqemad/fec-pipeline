@@ -120,3 +120,17 @@ def _classify_committee_names(names: pd.Series) -> pd.Series:
         result[matches] = label
 
     return result
+
+
+def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
+    """Apply OCCUPATION_FIXES; return original changed values."""
+    original = df.loc[rows, 'contributor_occupation']
+    original = original[original.isin(OCCUPATION_FIXES)]
+    if not original.empty:
+        df.loc[original.index, 'contributor_occupation'] = original.map(
+            {key: value[0] for key, value in OCCUPATION_FIXES.items()}
+        )
+        df.loc[original.index, 'occupation_category'] = original.map(
+            {key: value[1] for key, value in OCCUPATION_FIXES.items()}
+        )
+    return original

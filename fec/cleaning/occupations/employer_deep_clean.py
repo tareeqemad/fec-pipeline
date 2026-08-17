@@ -20,18 +20,16 @@ _TITLE_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
-def _deep_clean_employer(df: pd.DataFrame) -> int:
+def _deep_clean_employer(df: pd.DataFrame, trail) -> int:
     """Employer-specific cleaning beyond text normalization; returns number of values changed."""
+    from fec.cleaning.audit_trail import WORK_FIELDS
+
     n_changed = 0
-    n_changed += _deep_clean_emp_numeric_email(df)
-    n_changed += _deep_clean_emp_short_junk(df)
-    n_changed += _deep_clean_emp_semicolons(df)
-    n_changed += _deep_clean_emp_title_prefix(df)
-    n_changed += _deep_clean_emp_retired_variants(df)
-    n_changed += _deep_clean_emp_self_employed_typos(df)
-    n_changed += _deep_clean_emp_homemaker_sync(df)
-    n_changed += _deep_clean_emp_typo_patterns(df)
-    n_changed += _deep_clean_emp_truncated(df)
+    for pass_fn, reason in DEEP_CLEAN_PASSES:
+        n_changed += trail.run(
+            df, pass_fn, f'occ_deep_clean_{pass_fn.__name__.removeprefix("_deep_clean_emp_")}',
+            reason, WORK_FIELDS,
+        )
     return n_changed
 
 
@@ -218,3 +216,17 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> int:
         df.loc[short_occ, 'contributor_occupation'] = np.nan
 
     return n_changed
+
+
+# (pass, audit reason)
+DEEP_CLEAN_PASSES = (
+    (_deep_clean_emp_numeric_email, 'numeric_or_email_employer_nulled'),
+    (_deep_clean_emp_short_junk, 'short_placeholder_employer_nulled'),
+    (_deep_clean_emp_semicolons, 'first_of_semicolon_list_kept'),
+    (_deep_clean_emp_title_prefix, 'leading_job_title_stripped'),
+    (_deep_clean_emp_retired_variants, 'retired_or_self_employed_variant_normalized'),
+    (_deep_clean_emp_self_employed_typos, 'self_employed_typo_fixed'),
+    (_deep_clean_emp_homemaker_sync, 'homemaker_employer_is_not_employed'),
+    (_deep_clean_emp_typo_patterns, 'employer_typo_pattern_fixed'),
+    (_deep_clean_emp_truncated, 'truncated_two_char_value_nulled'),
+)

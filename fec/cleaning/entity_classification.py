@@ -73,6 +73,17 @@ _CREDENTIAL_RE = re.compile(
 _THREE_PART_NAME_RE = re.compile(r'^([^,]+),\s*([^,]+),\s*(.+)$')
 
 
+def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
+    df.loc[hits, 'entity_type'] = 'COMMITTEE/PAC'
+    df.loc[hits, 'is_individual'] = False
+    df.loc[hits, 'contributor_first_name'] = np.nan
+    df.loc[hits, 'contributor_last_name'] = np.nan
+    df.loc[hits, 'occupation_category'] = category
+    df.loc[hits, 'occupation_status'] = 'NOT_APPLICABLE'
+    df.loc[hits, 'contributor_occupation'] = np.nan
+    df.loc[hits, 'contributor_employer'] = np.nan
+
+
 def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Reclassify individuals whose name matches committee patterns as COMMITTEE/PAC."""
     indiv_idx = _indiv_idx(df)
@@ -86,15 +97,7 @@ def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     n_fixed = len(hits)
 
     if n_fixed:
-        df.loc[hits, 'entity_type'] = 'COMMITTEE/PAC'
-        df.loc[hits, 'is_individual'] = False
-        df.loc[hits, 'contributor_first_name'] = np.nan
-        df.loc[hits, 'contributor_last_name'] = np.nan
-        df.loc[hits, 'occupation_category'] = 'POLITICAL COMMITTEE'
-        df.loc[hits, 'occupation_status'] = 'NOT_APPLICABLE'
-        df.loc[hits, 'contributor_occupation'] = np.nan
-        df.loc[hits, 'contributor_employer'] = np.nan
-
+        _mark_as_committee(df, hits, 'POLITICAL COMMITTEE')
         for idx in hits:
             name = str(df.at[idx, 'contributor_name'])
             matched = False
@@ -127,15 +130,7 @@ def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame,
     n_fixed = len(hits)
 
     if n_fixed:
-        df.loc[hits, 'entity_type'] = 'COMMITTEE/PAC'
-        df.loc[hits, 'is_individual'] = False
-        df.loc[hits, 'contributor_first_name'] = np.nan
-        df.loc[hits, 'contributor_last_name'] = np.nan
-        df.loc[hits, 'occupation_category'] = 'ORGANIZATION'
-        df.loc[hits, 'occupation_status'] = 'NOT_APPLICABLE'
-        df.loc[hits, 'contributor_occupation'] = np.nan
-        df.loc[hits, 'contributor_employer'] = np.nan
-
+        _mark_as_committee(df, hits, 'ORGANIZATION')
     return df, n_fixed
 
 

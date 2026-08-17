@@ -132,9 +132,7 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     )
     monkeypatch.setattr(resolve_cli, "step_cross_record", lambda *args: 0)
     monkeypatch.setattr(resolve_cli, "step_fec_api", lambda *args, **kwargs: 0)
-    monkeypatch.setattr(
-        resolve_cli, "get_ai_provider_model", lambda: ("openai", "model")
-    )
+    monkeypatch.setattr(resolve_cli, "get_ai_model", lambda: "model")
     monkeypatch.setattr(
         resolve_cli,
         "step_ai_lookup",

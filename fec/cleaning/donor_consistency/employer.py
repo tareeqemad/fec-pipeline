@@ -17,7 +17,7 @@ from fec.config.occupation_rules.rules import (
     FINAL_NULL_EMPLOYERS,
 )
 from fec.env import RAW_CSV
-from fec.log import get_logger
+from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
 
@@ -27,18 +27,21 @@ _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
 
 
-def _employer_typos(df: pd.DataFrame) -> int:
-    """AB. Unify near-identical employer spellings within the same donor - the dominant form wins."""
+def _donor_employer_groups(df: pd.DataFrame):
+    """Yield (donor_key, real employers, counts) per donor."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
-    n_fixed = 0
-
     for dk, grp in indiv.groupby('donor_key'):
         emps = grp['contributor_employer'].dropna().unique()
         real = [e for e in emps if e not in SKIP_EMPLOYERS]
         if len(real) < 2:
             continue
+        yield dk, real, grp['contributor_employer'].value_counts()
 
-        counts = grp['contributor_employer'].value_counts()
+
+def _employer_typos(df: pd.DataFrame) -> int:
+    """Same donor: near-identical employer spellings converge."""
+    n_fixed = 0
+    for dk, real, counts in _donor_employer_groups(df):
         canonical = max(real, key=lambda e: counts[e])
         cc = counts[canonical]
 
@@ -61,17 +64,9 @@ def _employer_typos(df: pd.DataFrame) -> int:
 
 
 def _employer_substring_variants(df: pd.DataFrame) -> int:
-    """AG. Same-donor employer substring variants - the >=3x more frequent spelling wins."""
-    indiv = df[df['entity_type'] == 'INDIVIDUAL']
+    """Same donor: substring employer variants, 3x wins."""
     n_fixed = 0
-
-    for dk, grp in indiv.groupby('donor_key'):
-        emps = grp['contributor_employer'].dropna().unique()
-        real = [e for e in emps if e not in SKIP_EMPLOYERS]
-        if len(real) < 2:
-            continue
-
-        counts = grp['contributor_employer'].value_counts()
+    for dk, real, counts in _donor_employer_groups(df):
         fixed_in_group = set()
 
         for i, a in enumerate(real):
@@ -242,6 +237,5 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
             df.at[idx, 'occupation_status'] = 'DERIVED'   # recovered from donor's raw filings
             n += 1
 
-    if n:
-        logger.info("  %-38s %s", "recover employers from raw", f"{n:,}")
+    log_count(logger, "recover employers from raw", n)
     return n

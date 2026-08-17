@@ -1,121 +1,55 @@
-"""Write the cleaning audit CSV files."""
+"""Write the audit files."""
 import gc
+import json
 import os
 
 import numpy as np
 import pandas as pd
 
+from fec.cleaning.audit_trail import AUDITED_FIELDS, SEMANTIC, AuditTrail, summarize
 
-def _collect_reclassifications(before, after, add_change):
-    if '_reclass_reason' not in after.columns:
+CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'evidence']
+
+
+def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
+    """Write every cleaning audit artifact."""
+    if 'sub_id' not in df_after.columns:
         return
 
-    reasons = after['_reclass_reason'].astype('string')
-    for sub_id in after.index[reasons.notna()]:
-        reason = str(reasons.loc[sub_id])
-        for field in ('is_individual', 'entity_type'):
-            if field in before.columns and field in after.columns:
-                add_change(sub_id, field, 'reclassify', reason)
-
-
-def _collect_street_changes(before, after, add_change):
-    if '_street_email_in_s1' not in after.columns:
-        return
-
-    flagged = after['_street_email_in_s1'].fillna(False).astype(bool)
-    swapped = after['_street_swapped_from_s2'].fillna(False).astype(bool)
-    nulled = after['_street_nulled_email'].fillna(False).astype(bool)
-
-    for sub_id in after.index[flagged]:
-        if bool(swapped.loc[sub_id]):
-            reason = 'street_swap_due_to_email_in_street1'
-        elif bool(nulled.loc[sub_id]):
-            reason = 'street_nulled_due_to_email_in_street1'
-        else:
-            reason = 'street_email_in_street1'
-
-        for field in ('contributor_street_1', 'contributor_street_2'):
-            if field in before.columns and field in after.columns:
-                add_change(sub_id, field, 'clean_streets', reason)
-
-
-def _collect_garbled_names(after, add_change):
-    if '_garbled_before' not in after.columns:
-        return
-
-    garbled = after['_garbled_before'].astype('string')
-    changed = garbled.notna() & (garbled != '<NA>')
-    for sub_id in after.index[changed]:
-        evidence = f'was: {garbled.loc[sub_id]}'
-        for field in ('contributor_first_name', 'contributor_name'):
-            add_change(
-                sub_id, field, 'garbled_name_fix',
-                'keyboard_error', evidence,
-            )
-
-
-def _append_rule_changes(records, changes, row_index):
-    for record in changes or ():
-        sub_id = record.get('sub_id', '')
-        value = row_index.get(sub_id)
-        record['row_index'] = int(value) if pd.notna(value) else None
-        record.setdefault('evidence', None)
-        records.append(record)
-
-
-def write_audit(df_before, df_after, orig_map, out_dir, rule_audit=None):
-    """Compare before/after and write every cleaning audit artifact."""
-    if 'sub_id' not in df_before.columns or 'sub_id' not in df_after.columns:
-        return
-
-    before = df_before.drop_duplicates('sub_id', keep='first').set_index('sub_id')
     after = df_after.drop_duplicates('sub_id', keep='first').set_index('sub_id')
     row_index = (
         orig_map.drop_duplicates('sub_id', keep='first')
         .set_index('sub_id')['row_index']
     )
-    records = []
+    row_index.index = row_index.index.astype(str)
 
-    def value(frame, field, sub_id):
-        if field not in frame.columns or sub_id not in frame.index:
-            return ''
-        cell = frame.at[sub_id, field]
-        return '' if pd.isna(cell) else str(cell)
-
-    def add_change(sub_id, field, step, reason, evidence=None):
-        before_value = value(before, field, sub_id)
-        after_value = value(after, field, sub_id)
-        if before_value == after_value:
-            return
-
-        row_number = row_index.get(sub_id)
-        records.append({
-            'sub_id': str(sub_id),
-            'row_index': int(row_number) if pd.notna(row_number) else None,
-            'field': field,
-            'before': before_value,
-            'after': after_value,
-            'step': step,
-            'reason': reason,
-            'evidence': evidence,
-        })
-
-    _collect_reclassifications(before, after, add_change)
-    _collect_street_changes(before, after, add_change)
-    _collect_garbled_names(after, add_change)
-    _append_rule_changes(records, rule_audit, row_index)
-
-    _write_changes(records, out_dir)
+    net = trail.net_records()
+    semantic = _frame([r for r in net if r['kind'] == SEMANTIC], row_index)
+    fmt = _frame([r for r in net if r['kind'] != SEMANTIC], row_index)
+    semantic.to_csv(os.path.join(out_dir, 'audit_changes.csv'), index=False)
+    fmt.to_csv(os.path.join(out_dir, 'audit_format_changes.csv'), index=False)
+    summary = {
+        'semantic_changes': int(len(semantic)),
+        'format_changes': int(len(fmt)),
+        'untracked_changes': int(trail.untracked_count()),
+        'steps': summarize(net),
+    }
+    with open(os.path.join(out_dir, 'audit_summary.json'), 'w', encoding='utf-8') as handle:
+        json.dump(summary, handle, indent=2, ensure_ascii=False)
     _write_amount_flags(after, row_index, out_dir)
 
-    records = before = after = None
+    after = semantic = fmt = net = None
     gc.collect()
+    return summary
 
 
-def _write_changes(records, out_dir):
-    cols = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'evidence']
-    pd.DataFrame.from_records(records, columns=cols).to_csv(
-        os.path.join(out_dir, 'audit_changes.csv'), index=False)
+def _frame(records, row_index):
+    frame = pd.DataFrame.from_records(records, columns=CHANGE_COLUMNS + ['kind'])
+    frame = frame[frame['field'].isin(AUDITED_FIELDS)]
+    frame['row_index'] = row_index.reindex(frame['sub_id']).to_numpy()
+    frame['row_index'] = frame['row_index'].astype('Int64')
+    return frame[CHANGE_COLUMNS]
+
 
 def _write_amount_flags(df, row_idx, out_dir):
     """Flag negative/zero amounts (informational only; does not change data)."""

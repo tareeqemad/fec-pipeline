@@ -1,4 +1,4 @@
-"""Contributor-name cleaning: parse, tidy, and keep contributor_name in sync with first/last."""
+"""Contributor name cleaning."""
 from __future__ import annotations
 
 import re
@@ -40,24 +40,8 @@ _PURE_TITLE = {'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.', 'DR', 'DR.',
 _NAN_REPLACE = {'nan': np.nan, 'None': np.nan, '': np.nan}
 
 
-def _clean_names(df: pd.DataFrame) -> None:
-    """Clean contributor names in-place: punctuation, titles, LAST/FIRST splits, committee tails, garbled fixes, then rebuild contributor_name."""
-    for col in ['contributor_first_name', 'contributor_last_name']:
-        df[col] = df[col].astype('object')
-
-    is_individual = df['entity_type'] == 'INDIVIDUAL'
-    is_committee = df['entity_type'] == 'COMMITTEE/PAC'
-
-    _preclean_name_punctuation(df)
-    _extract_title_to_occupation(df, is_individual)
-    _handle_multi_comma_names(df, is_individual)
-    _split_missing_names(df, is_individual)
-    _clean_committee_names(df, is_committee)
-    _strip_individual_titles_suffixes(df, is_individual)
-    _fix_garbled_first_names(df, is_individual)
-    _fix_title_as_first_name(df, is_individual)
-    _fix_compound_last_names(df, is_individual)
-    _rebuild_contributor_name(df, is_individual)
+def _garbled_evidence(df):
+    return 'was: ' + df['_garbled_before'].astype('string')
 
 
 def _preclean_name_punctuation(df: pd.DataFrame) -> None:
@@ -278,3 +262,39 @@ def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> Non
         if n_rebuilt:
             df.loc[changed_mask[changed_mask].index, 'contributor_name'] = rebuilt[changed_mask]
             logger.info("Rebuilt %d contributor_name values from clean first/last", n_rebuilt)
+
+
+# (function, scope, step, reason)
+NAME_STEPS = (
+    (_preclean_name_punctuation, None, 'names_preclean_punctuation', 'name_punctuation_cleaned'),
+    (_extract_title_to_occupation, 'individual', 'names_title_to_occupation',
+     'title_removed_from_name_or_occupation_enriched_from_it'),
+    (_handle_multi_comma_names, 'individual', 'names_multi_comma',
+     'embedded_credential_removed_and_name_split'),
+    (_split_missing_names, 'individual', 'names_split_missing', 'first_last_split_from_composite_name'),
+    (_clean_committee_names, 'committee', 'names_committee', 'committee_name_tail_stripped_or_curated_fix'),
+    (_strip_individual_titles_suffixes, 'individual', 'names_titles_suffixes',
+     'title_or_suffix_stripped_or_surname_from_email'),
+    (_fix_garbled_first_names, 'individual', 'names_garbled_first', 'keyboard_error'),
+    (_fix_title_as_first_name, 'individual', 'names_title_as_first', 'title_as_first_name_cleared'),
+    (_fix_compound_last_names, 'individual', 'names_compound_last', 'compound_last_name_split'),
+    (_rebuild_contributor_name, 'individual', 'names_rebuild', 'contributor_name_rebuilt_from_first_last'),
+)
+
+
+def _clean_names(df: pd.DataFrame, trail=None) -> None:
+    """Clean names in place, rebuild contributor_name."""
+    from fec.cleaning.audit_trail import NAME_FIELDS, WORK_FIELDS, AuditTrail
+
+    trail = trail or AuditTrail()
+    for col in ['contributor_first_name', 'contributor_last_name']:
+        df[col] = df[col].astype('object')
+
+    masks = {
+        'individual': df['entity_type'] == 'INDIVIDUAL',
+        'committee': df['entity_type'] == 'COMMITTEE/PAC',
+    }
+    for fn, scope, step, reason in NAME_STEPS:
+        transform = fn if scope is None else (lambda d, fn=fn, mask=masks[scope]: fn(d, mask))
+        evidence = _garbled_evidence if fn is _fix_garbled_first_names else None
+        trail.run(df, transform, step, reason, NAME_FIELDS + WORK_FIELDS, evidence=evidence)

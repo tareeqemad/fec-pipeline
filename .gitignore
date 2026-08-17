@@ -45,3 +45,6 @@ CLAUDE.md
 data/address_manual_review.csv
 data/address_regeocode_suspects.csv
 
+# Spelling-only audit changes (regenerated each clean run; audit_changes.csv keeps the semantic ones)
+data/audit_format_changes.csv
+
