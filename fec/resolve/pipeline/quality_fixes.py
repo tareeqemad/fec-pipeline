@@ -11,8 +11,7 @@ from fec.config.streets import POBOX_RE
 
 _US_ZIP_RE = re.compile(r"^\d{5}(-\d{4})?$")
 
-# Closed-book AI resolve methods. The ai_*_search variants were verified
-# against live sources, so every filter below exempts them.
+# ai_xai: legacy tags still in the cache
 _AI_METHOD_RE = re.compile(r"ai_(?:openai|xai)")
 
 _AI_PLACEHOLDER_NUMBERS = frozenset(

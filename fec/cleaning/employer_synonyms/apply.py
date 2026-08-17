@@ -104,20 +104,25 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
-def finalize_employer_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame, int]:
     """Reapply employer rules after donor-history repairs."""
-    total = 0
-    for fix in (
-        apply_employer_synonyms,
-        expand_employer_abbreviations,
-        expand_employer_associates,
-    ):
-        df, changed = fix(df)
-        total += changed
+    from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
 
     from .canonical import _recanonicalize_employers
 
-    total += _recanonicalize_employers(df)
+    trail = trail or AuditTrail()
+    total = 0
+    for fix, step, reason in (
+        (apply_employer_synonyms, 'final_employer_synonyms', 'verified_same_company'),
+        (expand_employer_abbreviations, 'final_employer_abbreviations', 'employer_abbreviation_expanded'),
+        (expand_employer_associates, 'final_employer_assoc', 'employer_assoc_expanded'),
+    ):
+        df, changed = trail.run(df, fix, step, reason, ('contributor_employer',))
+        total += changed
+    total += trail.run(
+        df, _recanonicalize_employers, 'final_employer_recanonicalize',
+        'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,
+    )
     return df, total
 
 

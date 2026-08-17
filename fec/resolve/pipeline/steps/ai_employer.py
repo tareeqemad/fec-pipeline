@@ -253,7 +253,6 @@ def _validated_location(result: dict, address_types: frozenset[str]) -> dict | N
 def _resolved_cache_entry(
     lookup: EmployerLookup,
     result: dict | None,
-    provider: str,
     resolver_tag: str,
 ) -> dict | None:
     """Validate an AI result before it can become a trusted search entry."""
@@ -267,7 +266,7 @@ def _resolved_cache_entry(
         return None
 
     shared = {
-        "method": ai_method(provider),
+        "method": ai_method(),
         "resolver": resolver_tag,
         "prompt_version": EMPLOYER_PROMPT_VERSION,
         "resolved_on": datetime.now(timezone.utc).date().isoformat(),
@@ -359,7 +358,7 @@ def step_ai_lookup(
         return 0
 
     try:
-        client, model, provider = get_ai_client()
+        client, model = get_ai_client()
     except ImportError:
         logger.info("    openai package not installed - run: pip install openai")
         return 0
@@ -367,7 +366,7 @@ def step_ai_lookup(
         return 0
 
     def store_result(lookup: EmployerLookup, result: dict | None) -> bool:
-        entry = _resolved_cache_entry(lookup, result, provider, resolver_tag)
+        entry = _resolved_cache_entry(lookup, result, resolver_tag)
         if entry:
             addr_cache.put(lookup.key, entry)
             return True

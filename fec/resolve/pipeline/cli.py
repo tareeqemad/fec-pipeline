@@ -11,7 +11,7 @@ import pandas as pd
 from fec.env import CLEANED_CSV, load_env
 from fec.log import get_logger
 
-from .ai_client import AIQuotaExhausted, get_ai_provider_model
+from .ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
 from .apply import apply_results
 from .cache import Cache
 from .constants import EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE
@@ -85,8 +85,7 @@ def _run_steps(
     logger.info("\n-- Step 2: FEC previous employers --")
     step_fec_api(df, prev_cache, donor_totals)
 
-    provider, model = get_ai_provider_model()
-    logger.info(f"\n-- Step 3: Employer locations ({provider} {model}) --")
+    logger.info(f"\n-- Step 3: Employer locations ({PROVIDER} {get_ai_model()}) --")
     ai_incomplete = False
     try:
         step_ai_lookup(

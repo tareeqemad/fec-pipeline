@@ -138,7 +138,7 @@ def main():
     original_rows = df[['sub_id']].copy()
     original_rows['row_index'] = original_rows.index.astype(int)
 
-    cleaned, missing, rule_audit = clean_pipeline(
+    cleaned, missing, trail = clean_pipeline(
         df,
         out_dir=out_dir,
     )
@@ -148,12 +148,12 @@ def main():
     _ensure_zip_format(output)
     output.to_csv(output_path, index=False)
 
-    write_audit(
-        df,
-        cleaned,
-        original_rows,
-        out_dir,
-        rule_audit=rule_audit,
+    audit = write_audit(cleaned, original_rows, out_dir, trail)
+    logger.info(
+        "  Audit: %s semantic changes, %s format changes, %s untracked",
+        f"{audit['semantic_changes']:,}",
+        f"{audit['format_changes']:,}",
+        f"{audit['untracked_changes']:,}",
     )
 
     save_report(missing, out_dir, 'missing_report')

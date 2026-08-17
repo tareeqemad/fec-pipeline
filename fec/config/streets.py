@@ -38,7 +38,7 @@ def _direction_rule(word: str, abbr: str, prefix: bool = True) -> tuple:
     return (re.compile(rf'\s+{word}\s*$', re.IGNORECASE), f' {abbr}')
 
 
-_DIRECTIONS = [
+DIRECTION_ABBREVIATIONS = [
     ('NORTHWEST', 'NW'), ('NORTHEAST', 'NE'),
     ('SOUTHWEST', 'SW'), ('SOUTHEAST', 'SE'),
     ('NORTH', 'N'), ('SOUTH', 'S'), ('EAST', 'E'), ('WEST', 'W'),
@@ -47,31 +47,33 @@ _DIRECTIONS = [
 # Direction words after a house number ("123 NORTH MAIN ST")
 DIR_MID = [
     (re.compile(rf'(\d\s+){word}\b', re.IGNORECASE), rf'\g<1>{abbr}')
-    for word, abbr in _DIRECTIONS
+    for word, abbr in DIRECTION_ABBREVIATIONS
 ]
 
 DIR_PREFIX = [
-    _direction_rule(word, abbr) for word, abbr in _DIRECTIONS
+    _direction_rule(word, abbr) for word, abbr in DIRECTION_ABBREVIATIONS
 ]
 
 DIR_SUFFIX = [
-    _direction_rule(word, abbr, False) for word, abbr in _DIRECTIONS
+    _direction_rule(word, abbr, False) for word, abbr in DIRECTION_ABBREVIATIONS
 ]
 
 
 # street type abbreviations
 
+STREET_TYPE_ABBREVIATIONS = [
+    ('STREET', 'ST'), ('AVENUE', 'AVE'), ('ROAD', 'RD'),
+    ('BOULEVARD', 'BLVD'), ('DRIVE', 'DR'), ('LANE', 'LN'),
+    ('COURT', 'CT'), ('CIRCLE', 'CIR'), ('PLACE', 'PL'),
+    ('PARKWAY', 'PKWY'), ('HIGHWAY', 'HWY'), ('TERRACE', 'TER'),
+    ('TURNPIKE', 'TPKE'), ('EXPRESSWAY', 'EXPY'), ('SQUARE', 'SQ'),
+    ('TRAIL', 'TRL'), ('CROSSING', 'XING'),
+    ('JUNCTION', 'JCT'), ('MOUNT', 'MT'),
+]
+
 STREET_TYPES = [
     (re.compile(rf'\b{full}\b', re.IGNORECASE), abbr)
-    for full, abbr in [
-        ('STREET', 'ST'), ('AVENUE', 'AVE'), ('ROAD', 'RD'),
-        ('BOULEVARD', 'BLVD'), ('DRIVE', 'DR'), ('LANE', 'LN'),
-        ('COURT', 'CT'), ('CIRCLE', 'CIR'), ('PLACE', 'PL'),
-        ('PARKWAY', 'PKWY'), ('HIGHWAY', 'HWY'), ('TERRACE', 'TER'),
-        ('TURNPIKE', 'TPKE'), ('EXPRESSWAY', 'EXPY'), ('SQUARE', 'SQ'),
-        ('TRAIL', 'TRL'), ('CROSSING', 'XING'),
-        ('JUNCTION', 'JCT'), ('MOUNT', 'MT'),
-    ]
+    for full, abbr in STREET_TYPE_ABBREVIATIONS
 ]
 
 

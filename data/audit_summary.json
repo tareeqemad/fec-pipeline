@@ -1,0 +1,821 @@
+{
+  "semantic_changes": 141272,
+  "format_changes": 715524,
+  "untracked_changes": 0,
+  "steps": {
+    "occ_normalize_text": {
+      "semantic": 2943,
+      "format": 13152,
+      "reasons": {
+        "text_normalized_or_missing_placeholder_nulled": 2943
+      }
+    },
+    "occ_swap_fields": {
+      "semantic": 175,
+      "format": 0,
+      "reasons": {
+        "occupation_and_employer_swapped": 175
+      }
+    },
+    "occ_deep_clean_numeric_email": {
+      "semantic": 97,
+      "format": 0,
+      "reasons": {
+        "numeric_or_email_employer_nulled": 97
+      }
+    },
+    "occ_deep_clean_short_junk": {
+      "semantic": 7,
+      "format": 1,
+      "reasons": {
+        "short_placeholder_employer_nulled": 7
+      }
+    },
+    "occ_deep_clean_semicolons": {
+      "semantic": 1,
+      "format": 0,
+      "reasons": {
+        "first_of_semicolon_list_kept": 1
+      }
+    },
+    "occ_deep_clean_title_prefix": {
+      "semantic": 3,
+      "format": 0,
+      "reasons": {
+        "leading_job_title_stripped": 3
+      }
+    },
+    "occ_deep_clean_retired_variants": {
+      "semantic": 14,
+      "format": 0,
+      "reasons": {
+        "retired_or_self_employed_variant_normalized": 14
+      }
+    },
+    "occ_deep_clean_self_employed_typos": {
+      "semantic": 0,
+      "format": 12,
+      "reasons": {}
+    },
+    "occ_deep_clean_homemaker_sync": {
+      "semantic": 31,
+      "format": 0,
+      "reasons": {
+        "homemaker_employer_is_not_employed": 31
+      }
+    },
+    "occ_deep_clean_typo_patterns": {
+      "semantic": 44,
+      "format": 0,
+      "reasons": {
+        "employer_typo_pattern_fixed": 44
+      }
+    },
+    "occ_deep_clean_truncated": {
+      "semantic": 323,
+      "format": 2,
+      "reasons": {
+        "truncated_two_char_value_nulled": 323
+      }
+    },
+    "occ_canonicalize_employers": {
+      "semantic": 350,
+      "format": 2569,
+      "reasons": {
+        "employer_variant_unified_by_group_key": 350
+      }
+    },
+    "occ_derive_status_category": {
+      "semantic": 0,
+      "format": 114040,
+      "reasons": {}
+    },
+    "occ_known_fixes": {
+      "semantic": 3920,
+      "format": 38,
+      "reasons": {
+        "known_occupation_typo_fixed_or_junk_nulled": 3920
+      }
+    },
+    "occ_committee_rows": {
+      "semantic": 2056,
+      "format": 99491,
+      "reasons": {
+        "committee_has_no_occupation": 2056
+      }
+    },
+    "occ_cross_fill": {
+      "semantic": 451,
+      "format": 39,
+      "reasons": {
+        "filled_from_paired_field": 451
+      }
+    },
+    "reclassify": {
+      "semantic": 74300,
+      "format": 20625,
+      "reasons": {
+        "committee_to_individual_last_first": 74040,
+        "individual_to_committee_org_keywords": 174,
+        "individual_to_committee_no_name_org_pattern": 15,
+        "individual_to_committee_no_identity": 19,
+        "entity_type_from_business_or_committee_signal": 52
+      }
+    },
+    "reclassify_restore_work_fields": {
+      "semantic": 167,
+      "format": 0,
+      "reasons": {
+        "raw_work_fields_restored_for_reclassified_committee": 167
+      }
+    },
+    "reclassify_clear_residue": {
+      "semantic": 121,
+      "format": 2,
+      "reasons": {
+        "short_junk_value_nulled_for_individual": 121
+      }
+    },
+    "names_preclean_punctuation": {
+      "semantic": 2,
+      "format": 12,
+      "reasons": {
+        "name_punctuation_cleaned": 2
+      }
+    },
+    "names_title_to_occupation": {
+      "semantic": 23,
+      "format": 20,
+      "reasons": {
+        "title_removed_from_name_or_occupation_enriched_from_it": 23
+      }
+    },
+    "names_multi_comma": {
+      "semantic": 7,
+      "format": 49,
+      "reasons": {
+        "embedded_credential_removed_and_name_split": 7
+      }
+    },
+    "names_committee": {
+      "semantic": 5522,
+      "format": 276259,
+      "reasons": {
+        "committee_name_tail_stripped_or_curated_fix": 5522
+      }
+    },
+    "names_titles_suffixes": {
+      "semantic": 36,
+      "format": 104,
+      "reasons": {
+        "title_or_suffix_stripped_or_surname_from_email": 36
+      }
+    },
+    "names_garbled_first": {
+      "semantic": 122,
+      "format": 2,
+      "reasons": {
+        "keyboard_error": 122
+      }
+    },
+    "names_title_as_first": {
+      "semantic": 0,
+      "format": 4,
+      "reasons": {}
+    },
+    "names_compound_last": {
+      "semantic": 2,
+      "format": 1,
+      "reasons": {
+        "compound_last_name_split": 2
+      }
+    },
+    "names_rebuild": {
+      "semantic": 536,
+      "format": 148,
+      "reasons": {
+        "contributor_name_rebuilt_from_first_last": 536
+      }
+    },
+    "streets_normalize": {
+      "semantic": 257,
+      "format": 51622,
+      "reasons": {
+        "street_nulled_due_to_email_in_street1": 62,
+        "street_text_normalized_or_placeholder_nulled": 195
+      }
+    },
+    "streets_safe_fixes": {
+      "semantic": 629,
+      "format": 614,
+      "reasons": {
+        "care_of_house_number_or_trailing_unit_fixed": 629
+      }
+    },
+    "streets_recover_null": {
+      "semantic": 105,
+      "format": 0,
+      "reasons": {
+        "street_filled_from_donor_same_city": 105
+      }
+    },
+    "streets_recover_nonstreet": {
+      "semantic": 34,
+      "format": 0,
+      "reasons": {
+        "nonstreet_replaced_from_donor_history": 34
+      }
+    },
+    "streets_recover_house_number": {
+      "semantic": 231,
+      "format": 0,
+      "reasons": {
+        "house_number_backfilled_from_donor_history": 231
+      }
+    },
+    "streets_recover_fec_api": {
+      "semantic": 38,
+      "format": 1,
+      "reasons": {
+        "address_recovered_from_fec_api_other_committees": 38
+      }
+    },
+    "cities_normalize": {
+      "semantic": 2316,
+      "format": 3037,
+      "reasons": {
+        "city_alias_typo_or_punctuation_normalized": 2316
+      }
+    },
+    "zips_normalize": {
+      "semantic": 1,
+      "format": 114547,
+      "reasons": {
+        "zip_reduced_to_five_digits_or_invalid_nulled": 1
+      }
+    },
+    "address_verified_rules": {
+      "semantic": 19,
+      "format": 54,
+      "reasons": {
+        "verified_postal_correction": 19
+      }
+    },
+    "address_city_state_conflict": {
+      "semantic": 28,
+      "format": 0,
+      "reasons": {
+        "state_fixed_from_person_history_same_city": 28
+      }
+    },
+    "address_zip_state_conflict": {
+      "semantic": 60,
+      "format": 0,
+      "reasons": {
+        "state_fixed_or_zip_nulled_by_city_witness": 60
+      }
+    },
+    "streets_unify_spelling": {
+      "semantic": 0,
+      "format": 16,
+      "reasons": {}
+    },
+    "streets_unify_spacing": {
+      "semantic": 77,
+      "format": 0,
+      "reasons": {
+        "street_spacing_unified_to_donor_dominant": 77
+      }
+    },
+    "address_same_street_align": {
+      "semantic": 871,
+      "format": 0,
+      "reasons": {
+        "aligned_to_donor_dominant_at_same_street": 871
+      }
+    },
+    "streets_unify_units": {
+      "semantic": 26,
+      "format": 400,
+      "reasons": {
+        "unit_designator_unified_to_donor_dominant": 26
+      }
+    },
+    "address_review": {
+      "semantic": 146,
+      "format": 71,
+      "reasons": {
+        "street_2_nulled_unit_keyword_or_state_only": 146
+      }
+    },
+    "enh_normalize_business_names": {
+      "semantic": 0,
+      "format": 5753,
+      "reasons": {}
+    },
+    "enh_normalize_name_periods": {
+      "semantic": 0,
+      "format": 825,
+      "reasons": {}
+    },
+    "enh_fix_credential_in_name": {
+      "semantic": 3,
+      "format": 0,
+      "reasons": {
+        "strip_credential_between_last_first": 3
+      }
+    },
+    "enh_name_corrections": {
+      "semantic": 61,
+      "format": 0,
+      "reasons": {
+        "manual_correction": 61
+      }
+    },
+    "enh_fix_apostrophes": {
+      "semantic": 0,
+      "format": 27,
+      "reasons": {}
+    },
+    "enh_swap_occ_emp": {
+      "semantic": 426,
+      "format": 0,
+      "reasons": {
+        "occ_emp_swap_or_same_value": 426
+      }
+    },
+    "enh_normalize_occupation": {
+      "semantic": 352,
+      "format": 0,
+      "reasons": {
+        "canonical_variant": 352
+      }
+    },
+    "enh_clean_junk": {
+      "semantic": 139,
+      "format": 2,
+      "reasons": {
+        "junk_cleanup": 139
+      }
+    },
+    "enh_normalize_employer": {
+      "semantic": 22,
+      "format": 1364,
+      "reasons": {
+        "strip_suffix_normalize_and": 22
+      }
+    },
+    "enh_fix_fullname_both": {
+      "semantic": 26,
+      "format": 13,
+      "reasons": {
+        "fullname_copied_to_both_fields": 26
+      }
+    },
+    "enh_fix_emp_eq_occ": {
+      "semantic": 55,
+      "format": 4,
+      "reasons": {
+        "employer_equals_occupation": 55
+      }
+    },
+    "enh_fix_norm_mid_suffix": {
+      "semantic": 54,
+      "format": 54,
+      "reasons": {
+        "strip_mid_string_llc_inc": 54
+      }
+    },
+    "enh_employer_synonyms": {
+      "semantic": 5542,
+      "format": 313,
+      "reasons": {
+        "verified_same_company": 5542
+      }
+    },
+    "enh_fix_occ_as_employer": {
+      "semantic": 13,
+      "format": 0,
+      "reasons": {
+        "occupation_word_in_employer": 13
+      }
+    },
+    "safety_fix_committee_employer": {
+      "semantic": 4,
+      "format": 0,
+      "reasons": {
+        "committee_employer_cleared": 4
+      }
+    },
+    "safety_fill_null_occupation_category": {
+      "semantic": 0,
+      "format": 701,
+      "reasons": {}
+    },
+    "safety_clear_refusal_employers": {
+      "semantic": 72,
+      "format": 1,
+      "reasons": {
+        "refusal_placeholder_employer_nulled": 72
+      }
+    },
+    "safety_fix_email_employer_final": {
+      "semantic": 3,
+      "format": 0,
+      "reasons": {
+        "email_in_employer_nulled": 3
+      }
+    },
+    "safety_fix_retired_typos": {
+      "semantic": 7,
+      "format": 8,
+      "reasons": {
+        "retired_variant_normalized_or_tail_split_to_previous_employer": 7
+      }
+    },
+    "safety_fix_employer_equals_occupation": {
+      "semantic": 14,
+      "format": 0,
+      "reasons": {
+        "employer_equals_occupation_self_employed": 14
+      }
+    },
+    "safety_fix_employer_is_occupation_word": {
+      "semantic": 9,
+      "format": 0,
+      "reasons": {
+        "occupation_word_in_employer_resolved": 9
+      }
+    },
+    "safety_fix_misclassified_foundation": {
+      "semantic": 3,
+      "format": 2,
+      "reasons": {
+        "org_parsed_as_person_reclassified": 3
+      }
+    },
+    "safety_fix_choose_prefix": {
+      "semantic": 13,
+      "format": 0,
+      "reasons": {
+        "choose_prefix_stripped": 13
+      }
+    },
+    "safety_swap_role_employer_with_known_company": {
+      "semantic": 220,
+      "format": 0,
+      "reasons": {
+        "role_employer_swapped_with_known_company": 220
+      }
+    },
+    "safety_fix_role_as_employer": {
+      "semantic": 63,
+      "format": 0,
+      "reasons": {
+        "role_as_employer_swapped_or_self_employed": 63
+      }
+    },
+    "safety_null_sector_as_employer": {
+      "semantic": 128,
+      "format": 0,
+      "reasons": {
+        "sector_word_employer_nulled": 128
+      }
+    },
+    "safety_fix_self_employed_consistency": {
+      "semantic": 149,
+      "format": 0,
+      "reasons": {
+        "self_employed_row_employer_normalized": 149
+      }
+    },
+    "safety_fix_own_name_as_employer": {
+      "semantic": 164,
+      "format": 0,
+      "reasons": {
+        "own_name_employer_self_employed": 164
+      }
+    },
+    "safety_fix_foreign_addresses": {
+      "semantic": 6,
+      "format": 0,
+      "reasons": {
+        "foreign_city_us_state_mismatch_nulled": 6
+      }
+    },
+    "safety_fix_garbage_city_names": {
+      "semantic": 2,
+      "format": 0,
+      "reasons": {
+        "garbage_city_name_nulled": 2
+      }
+    },
+    "safety_fix_pr_zip_wrong_state": {
+      "semantic": 2,
+      "format": 0,
+      "reasons": {
+        "state_corrected_from_pr_vi_zip": 2
+      }
+    },
+    "safety_fix_company_name_as_occupation": {
+      "semantic": 48,
+      "format": 0,
+      "reasons": {
+        "company_in_occupation_moved_to_employer_occupation_imputed": 48
+      }
+    },
+    "safety_fix_occ_emp_both_swapped": {
+      "semantic": 9,
+      "format": 0,
+      "reasons": {
+        "curated_company_in_occupation_swapped": 9
+      }
+    },
+    "safety_fix_web_artifact_occupation": {
+      "semantic": 15,
+      "format": 0,
+      "reasons": {
+        "web_artifact_occupation_nulled": 15
+      }
+    },
+    "safety_null_junk_occupation": {
+      "semantic": 30,
+      "format": 0,
+      "reasons": {
+        "email_or_company_in_occupation_moved_or_nulled": 30
+      }
+    },
+    "safety_fix_emp_occ_category_consistency": {
+      "semantic": 91,
+      "format": 0,
+      "reasons": {
+        "employer_occupation_category_consistency_fixed": 91
+      }
+    },
+    "safety_reclassify_other_category": {
+      "semantic": 19,
+      "format": 0,
+      "reasons": {
+        "other_category_reclassified": 19
+      }
+    },
+    "employer_recanonicalize": {
+      "semantic": 250,
+      "format": 100,
+      "reasons": {
+        "employer_variant_unified_by_canonical_key": 250
+      }
+    },
+    "employer_restore_suffixes": {
+      "semantic": 117,
+      "format": 1506,
+      "reasons": {
+        "employer_display_form_restored_from_raw": 117
+      }
+    },
+    "enh_employer_synonyms_final": {
+      "semantic": 480,
+      "format": 4288,
+      "reasons": {
+        "verified_same_company": 480
+      }
+    },
+    "employer_expand_abbreviations": {
+      "semantic": 0,
+      "format": 234,
+      "reasons": {}
+    },
+    "employer_expand_assoc": {
+      "semantic": 0,
+      "format": 37,
+      "reasons": {}
+    },
+    "self_employed_variants": {
+      "semantic": 0,
+      "format": 2961,
+      "reasons": {}
+    },
+    "late_placeholder_employers": {
+      "semantic": 17,
+      "format": 0,
+      "reasons": {
+        "refusal_placeholder_employer_nulled": 17
+      }
+    },
+    "manual_overrides": {
+      "semantic": 139,
+      "format": 0,
+      "reasons": {
+        "curated_row_override": 139
+      }
+    },
+    "donor_canonical_names": {
+      "semantic": 13361,
+      "format": 355,
+      "reasons": {
+        "donor_name_unified_to_modal_last_and_longest_first": 13361
+      }
+    },
+    "donor_canonical_employers": {
+      "semantic": 1395,
+      "format": 13,
+      "reasons": {
+        "donor_employer_variant_merged_to_fullest_name": 1395
+      }
+    },
+    "donor_align_org_names": {
+      "semantic": 14,
+      "format": 7,
+      "reasons": {
+        "organization_name_aligned_to_employer_spelling": 14
+      }
+    },
+    "donor_canonical_units": {
+      "semantic": 5,
+      "format": 7,
+      "reasons": {
+        "donor_unit_designator_unified": 5
+      }
+    },
+    "donor_pobox_typos": {
+      "semantic": 1271,
+      "format": 0,
+      "reasons": {
+        "donor_pobox_digit_typo_fixed_to_majority": 1271
+      }
+    },
+    "curated_name_corrections": {
+      "semantic": 2,
+      "format": 1,
+      "reasons": {
+        "manual_correction": 2
+      }
+    },
+    "donor_recover_missing_streets": {
+      "semantic": 4,
+      "format": 0,
+      "reasons": {
+        "street_filled_from_donor_only_street_same_place": 4
+      }
+    },
+    "donor_repair_house_numbers": {
+      "semantic": 9,
+      "format": 0,
+      "reasons": {
+        "truncated_house_number_repaired_from_donor_common_form": 9
+      }
+    },
+    "donor_recover_active_employers": {
+      "semantic": 1575,
+      "format": 0,
+      "reasons": {
+        "retired_overwritten_donor_still_active_later": 1575
+      }
+    },
+    "donor_employer_typos": {
+      "semantic": 176,
+      "format": 0,
+      "reasons": {
+        "employer_spelling_converged_to_donor_dominant": 176
+      }
+    },
+    "donor_repair_retired_self_employment": {
+      "semantic": 234,
+      "format": 0,
+      "reasons": {
+        "self_employed_collapsed_donor_mostly_retired": 234
+      }
+    },
+    "donor_employer_substring_variants": {
+      "semantic": 239,
+      "format": 0,
+      "reasons": {
+        "employer_substring_merged_to_donor_dominant": 239
+      }
+    },
+    "donor_repair_swapped_retired_fields": {
+      "semantic": 8,
+      "format": 0,
+      "reasons": {
+        "stray_employer_collapsed_donor_retired": 8
+      }
+    },
+    "donor_fill_employer_from_donor": {
+      "semantic": 857,
+      "format": 0,
+      "reasons": {
+        "employer_filled_from_donor_latest_filing": 857
+      }
+    },
+    "donor_fill_occupation_from_donor": {
+      "semantic": 643,
+      "format": 0,
+      "reasons": {
+        "occupation_derived_from_donor_same_employer": 643
+      }
+    },
+    "donor_fill_employer_from_occupation": {
+      "semantic": 341,
+      "format": 0,
+      "reasons": {
+        "employer_derived_from_occupation_category_or_raw_filings": 341
+      }
+    },
+    "donor_recover_previous_employer": {
+      "semantic": 3078,
+      "format": 0,
+      "reasons": {
+        "previous_employer_from_donor_most_common_real_employer": 3078
+      }
+    },
+    "donor_settle_retirement_after_fills": {
+      "semantic": 12526,
+      "format": 0,
+      "reasons": {
+        "retired_donor_status_unified": 12526
+      }
+    },
+    "donor_propagate_previous_employer": {
+      "semantic": 21,
+      "format": 0,
+      "reasons": {
+        "previous_employer_propagated_within_donor": 21
+      }
+    },
+    "donor_clear_refusal_employers": {
+      "semantic": 2,
+      "format": 0,
+      "reasons": {
+        "refusal_placeholder_employer_nulled": 2
+      }
+    },
+    "donor_enforce_entity_consistency": {
+      "semantic": 8,
+      "format": 0,
+      "reasons": {
+        "entity_type_unified_by_name": 8
+      }
+    },
+    "donor_apply_entity_overrides": {
+      "semantic": 37,
+      "format": 0,
+      "reasons": {
+        "curated_entity_type_override": 37
+      }
+    },
+    "donor_sync_employer_and_occupation": {
+      "semantic": 199,
+      "format": 0,
+      "reasons": {
+        "employer_occupation_category_consistency_fixed": 199
+      }
+    },
+    "donor_rebuild_occupation_category": {
+      "semantic": 69,
+      "format": 0,
+      "reasons": {
+        "occupation_category_rederived_from_final_occupation": 69
+      }
+    },
+    "donor_settle_retired_employer": {
+      "semantic": 301,
+      "format": 0,
+      "reasons": {
+        "retired_recovered_company_demoted_to_previous": 301
+      }
+    },
+    "donor_settle_retirement_after_status": {
+      "semantic": 62,
+      "format": 0,
+      "reasons": {
+        "retired_donor_status_unified": 62
+      }
+    },
+    "donor_repropagate_previous_employer": {
+      "semantic": 26,
+      "format": 0,
+      "reasons": {
+        "previous_employer_propagated_within_donor": 26
+      }
+    },
+    "donor_normalize_previous_employers": {
+      "semantic": 3,
+      "format": 8,
+      "reasons": {
+        "previous_employer_contract_normalized": 3
+      }
+    },
+    "final_employer_synonyms": {
+      "semantic": 2,
+      "format": 0,
+      "reasons": {
+        "verified_same_company": 2
+      }
+    },
+    "non_individual_names": {
+      "semantic": 0,
+      "format": 8,
+      "reasons": {}
+    }
+  }
+}

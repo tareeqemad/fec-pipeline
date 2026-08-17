@@ -1,14 +1,12 @@
-"""AI provider abstraction - xAI (Grok, OpenAI-SDK-compatible) by default; AI_PROVIDER/AI_MODEL/XAI_*/OPENAI_API_KEY env vars are read after fec.env.load_env()."""
+"""OpenAI client for employer lookups; reads OPENAI_API_KEY and AI_MODEL."""
 import os
 
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-_PROVIDERS = {
-    "xai":    {"model": "grok-4.3",   "base_url": "https://api.x.ai/v1", "key_env": "XAI_API_KEY"},
-    "openai": {"model": "gpt-5-mini", "base_url": None,                  "key_env": "OPENAI_API_KEY"},
-}
+PROVIDER = "openai"
+DEFAULT_MODEL = "gpt-5-mini"
 
 _CREDIT_ERROR_MARKERS = (
     'credit_balance_exhausted',
@@ -42,47 +40,30 @@ def is_ai_quota_error(error: Exception) -> bool:
     return any(marker in text for marker in _CREDIT_ERROR_MARKERS)
 
 
-def get_ai_provider() -> str:
-    """Active provider from AI_PROVIDER env (default xai)."""
-    provider = os.environ.get("AI_PROVIDER", "xai").strip().lower()
-    return provider if provider in _PROVIDERS else "xai"
-
-
-def get_ai_provider_model() -> tuple:
-    """Return (provider, model) without building a client - for logging."""
-    provider = get_ai_provider()
-    model = os.environ.get("AI_MODEL", "").strip() or _PROVIDERS[provider]["model"]
-    return provider, model
+def get_ai_model() -> str:
+    return os.environ.get("AI_MODEL", "").strip() or DEFAULT_MODEL
 
 
 def get_ai_client():
-    """Build the AI client, returning (client, model, provider) - client is None when the API key is missing, which callers treat as skip-the-AI-step."""
+    """(client, model); client is None without OPENAI_API_KEY."""
     from openai import OpenAI
 
-    provider, model = get_ai_provider_model()
-    config = _PROVIDERS[provider]
-    key = os.environ.get(config["key_env"], "").strip()
-    base_url = os.environ.get("XAI_BASE_URL", "").strip() or config["base_url"]
-
+    model = get_ai_model()
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
-        logger.info(f"    {config['key_env']} not set - AI step skipped "
-                    f"(provider={provider})")
-        return None, model, provider
-
-    kwargs = {"api_key": key}
-    if base_url:
-        kwargs["base_url"] = base_url
-    return OpenAI(**kwargs), model, provider
+        logger.info("    OPENAI_API_KEY not set - AI step skipped")
+        return None, model
+    return OpenAI(api_key=key), model
 
 
-def ai_method(provider: str) -> str:
-    """Cache method tag: every lookup is web-search-grounded, so the tag is 'ai_<provider>_search' - the trusted tier for dedup ranking and the quality-filter exemption."""
-    return f"ai_{provider}_search"
+def ai_method() -> str:
+    """Cache tag of a web-search-grounded lookup."""
+    return f"ai_{PROVIDER}_search"
 
 
 def resolver_id() -> str:
-    """Identity tag on not-found cache entries; always '<provider>+search', so a miss recorded by the retired closed-book path retries once under search."""
-    return f"{get_ai_provider()}+search"
+    """Identity tag on not-found cache entries."""
+    return f"{PROVIDER}+search"
 
 
 def ai_web_search_call(client, model: str, system_prompt: str,

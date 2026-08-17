@@ -204,9 +204,7 @@ def test_cache_entry_requires_complete_us_address_and_source():
         }],
     }
 
-    entry = _resolved_cache_entry(
-        lookup, result, provider="openai", resolver_tag="openai+search"
-    )
+    entry = _resolved_cache_entry(lookup, result, resolver_tag="openai+search")
 
     assert entry["employer_state"] == "NY"
     assert entry["employer_zip"] == "10001"
@@ -221,10 +219,7 @@ def test_cache_entry_requires_complete_us_address_and_source():
         ("address_type", "BRANCH"),
     ):
         invalid = {**result, field: invalid_value}
-        assert _resolved_cache_entry(
-            lookup, invalid, provider="openai",
-            resolver_tag="openai+search",
-        ) is None
+        assert _resolved_cache_entry(lookup, invalid, resolver_tag="openai+search") is None
 
 
 def test_only_an_explicit_matching_unknown_is_cacheable_as_not_found():
@@ -391,7 +386,7 @@ def test_invalid_model_response_is_not_cached(monkeypatch):
 
     monkeypatch.setattr(
         "fec.resolve.pipeline.steps.ai_employer.get_ai_client",
-        lambda: (object(), "model", "openai"),
+        lambda: (object(), "model"),
     )
     monkeypatch.setattr(
         "fec.resolve.pipeline.steps.ai_employer.ai_web_search_call",
@@ -416,7 +411,7 @@ def test_ai_lookup_uses_safe_batch(monkeypatch):
     )
     monkeypatch.setattr(
         "fec.resolve.pipeline.steps.ai_employer.get_ai_client",
-        lambda: (object(), "model", "openai"),
+        lambda: (object(), "model"),
     )
 
     def fake_search(*args):
