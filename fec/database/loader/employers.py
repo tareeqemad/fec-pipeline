@@ -12,7 +12,11 @@ except ImportError:
     raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
 from fec.config.constants import NOT_REAL_EMPLOYER
-from fec.cleaning.previous_employer import current_employer_name, is_real_employer
+from fec.cleaning.previous_employer import (
+    current_employer_name,
+    is_real_employer,
+    referenced_employers,
+)
 from fec.log import get_logger
 from fec.resolve.pipeline.locations import select_location
 
@@ -144,14 +148,7 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     logger.info("\n-- 2/8 Loading employers --")
     start = time.time()
 
-    individuals = df[df['entity_type'] == 'INDIVIDUAL']
-    employers = {
-        current_employer_name(status, employer)
-        for status, employer in individuals[[
-            'employer_status', 'contributor_employer',
-        ]].itertuples(index=False)
-    }
-    employer_rows = [(name,) for name in sorted(employers - {""})]
+    employer_rows = [(name,) for name in sorted(referenced_employers(df))]
 
     execute_values(cur,
         "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",

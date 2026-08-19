@@ -150,9 +150,9 @@ def main():
 
     audit = write_audit(cleaned, original_rows, out_dir, trail)
     logger.info(
-        "  Audit: %s semantic changes, %s format changes, %s untracked",
-        f"{audit['semantic_changes']:,}",
-        f"{audit['format_changes']:,}",
+        "  Audit: %s changes in %s cells, %s untracked",
+        f"{audit['changes']:,}",
+        f"{audit['changed_cells']:,}",
         f"{audit['untracked_changes']:,}",
     )
 

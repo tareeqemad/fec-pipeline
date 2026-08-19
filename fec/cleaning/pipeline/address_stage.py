@@ -40,7 +40,7 @@ def _street_reason(df: pd.DataFrame) -> pd.Series:
     return reasons
 
 
-def _address_rule_evidence(df: pd.DataFrame) -> pd.Series:
+def _address_rule_source(df: pd.DataFrame) -> pd.Series:
     if "_address_rule" not in df.columns:
         return pd.Series(pd.NA, index=df.index, dtype="object")
     return df["_address_rule"]
@@ -196,7 +196,7 @@ def clean_addresses(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.Dat
     df = _clean_city_zip(df, trail, out_dir, log)
     verified = trail.run(
         df, apply_verified_address_fixes, "address_verified_rules",
-        "verified_postal_correction", ADDRESS_FIELDS, evidence=_address_rule_evidence,
+        "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
     )
     if verified:
         log(f"Streets: applied {verified:,} verified postal corrections")

@@ -2,13 +2,123 @@
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.audit_trail import NAME_FIELDS, STREET_FIELDS, AuditTrail
+from fec.cleaning.audit_trail import (
+    NAME_FIELDS,
+    PEOPLE_FIELDS,
+    STREET_FIELDS,
+    AuditTrail,
+)
 from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
+
+_NETWORK_NAME_RE = re.compile(
+    r"^(?:POLITICAL NETWORK,\s*(?P<region>.+)|(?P<leading>.+?)\s+POLITICAL NETWORK)$",
+    re.IGNORECASE,
+)
+_IDENTITY_FIELDS = (
+    "contributor_street_1",
+    "contributor_street_2",
+    "contributor_city",
+    "contributor_state",
+    "contributor_zip",
+    "contributor_employer",
+    "contributor_occupation",
+)
+
+
+def _identity_signatures(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    parts = pd.DataFrame(index=df.index)
+    for field in _IDENTITY_FIELDS:
+        parts[field] = (
+            df[field]
+            .fillna("")
+            .astype(str)
+            .str.upper()
+            .str.replace(r"[^A-Z0-9]", "", regex=True)
+        )
+
+    required = [field for field in _IDENTITY_FIELDS if field != "contributor_street_2"]
+    complete = parts[required].ne("").all(axis=1)
+    return parts.agg("|".join, axis=1), complete
+
+
+def _recover_network_donors(df: pd.DataFrame) -> tuple[int, int]:
+    """Join network-labeled rows to one exact known identity."""
+    required = {"entity_type", "contributor_name", "donor_key", *_IDENTITY_FIELDS}
+    if not required.issubset(df.columns):
+        return 0, 0
+
+    people = df["entity_type"].eq("INDIVIDUAL")
+    placeholders = df["contributor_name"].fillna("").str.match(_NETWORK_NAME_RE)
+    signatures, complete = _identity_signatures(df)
+
+    candidates = people & ~placeholders & complete & df["donor_key"].notna()
+    known = pd.DataFrame(
+        {
+            "signature": signatures[candidates],
+            "donor_key": df.loc[candidates, "donor_key"],
+        }
+    )
+    by_signature = known.groupby("signature")["donor_key"].agg(
+        lambda values: frozenset(values)
+    )
+
+    changed = 0
+    targets = df.index[people & placeholders & complete]
+    for index in targets:
+        matches = by_signature.get(signatures.at[index], frozenset())
+        if len(matches) != 1:
+            continue
+        donor_key = next(iter(matches))
+        if df.at[index, "donor_key"] != donor_key:
+            df.at[index, "donor_key"] = donor_key
+            df.loc[
+                index,
+                [
+                    "contributor_name",
+                    "contributor_first_name",
+                    "contributor_last_name",
+                ],
+            ] = pd.NA
+            changed += 1
+
+    return changed, len(targets) - changed
+
+
+def _classify_network_organizations(df: pd.DataFrame) -> int:
+    """Keep unresolved network names as organizations, not people."""
+    from fec.donor_match.keys import non_individual_donor_key
+
+    names = df["contributor_name"].fillna("").astype(str)
+    matches = names.str.extract(_NETWORK_NAME_RE)
+    targets = df["entity_type"].eq("INDIVIDUAL") & matches.notna().any(axis=1)
+    if not targets.any():
+        return 0
+
+    regions = matches["region"].fillna(matches["leading"]).str.strip().str.upper()
+    organization_names = regions[targets] + " POLITICAL NETWORK"
+
+    df.loc[targets, "entity_type"] = "ORGANIZATION"
+    if "is_individual" in df.columns:
+        df.loc[targets, "is_individual"] = False
+    df.loc[targets, "contributor_name"] = organization_names
+    df.loc[targets, ["contributor_first_name", "contributor_last_name"]] = pd.NA
+    df.loc[targets, ["contributor_employer", "contributor_occupation"]] = pd.NA
+    df.loc[targets, "occupation_category"] = "ORGANIZATION"
+    if "previous_employer" in df.columns:
+        df.loc[targets, "previous_employer"] = pd.NA
+    if "occupation_status" in df.columns:
+        df.loc[targets, "occupation_status"] = "NOT_APPLICABLE"
+    if "committee_type" in df.columns:
+        df.loc[targets, "committee_type"] = "ORGANIZATION"
+    df.loc[targets, "donor_key"] = organization_names.map(non_individual_donor_key)
+    return int(targets.sum())
 
 
 def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
@@ -80,11 +190,34 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     from fec.cleaning.manual_overrides import apply_manual_employer_overrides
     from fec.donor_match import build_donor_dedup_review
 
+    recovered, remaining = trail.run(
+        df,
+        _recover_network_donors,
+        "network_identity_recovery",
+        "unique_address_employer_occupation_match",
+        ("donor_key",) + NAME_FIELDS,
+        source="dataset_identity_history",
+    )
+    organizations = trail.run(
+        df,
+        _classify_network_organizations,
+        "network_organization_classification",
+        "unresolved_network_name_is_not_a_person",
+        PEOPLE_FIELDS + ("donor_key",),
+        source="FEC_network_name_pattern",
+    )
+    if recovered or remaining:
+        logger.info(
+            "  Political-network identities: %s people recovered, %s organizations",
+            f"{recovered:,}",
+            f"{organizations:,}",
+        )
+
     canonical_updates = _canonicalize(df, trail)
 
     df, manual_updates = trail.run(
         df, apply_name_corrections, "curated_name_corrections", "manual_correction", NAME_FIELDS,
-        evidence="fec/cleaning/name_rules.py",
+        source="data/database/contributor_name_rules.csv",
     )
     log_count(logger, "curated name corrections", manual_updates)
 
@@ -96,7 +229,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     protected = trail.run(
         df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
         "curated_employer_names", "curated_row_override", ("contributor_employer", "previous_employer"),
-        evidence="data/manual_employer_overrides.csv",
+        source="data/manual_employer_overrides.csv",
     )
     log_count(logger, "curated employer names", protected)
     canonical_updates += protected

@@ -94,6 +94,16 @@ def test_self_employed_status_is_not_treated_as_a_company_name():
     assert df.loc[0, "contributor_occupation"] == "SELF-EMPLOYED"
 
 
+def test_self_employed_advocate_stays_an_occupation():
+    df = _frame([("SELF-EMPLOYED", "ADVOCATE")])
+    frequent = _frame([("ADVOCATE", "ATTORNEY")] * 10)
+    df = pd.concat([df, frequent], ignore_index=True)
+
+    assert _fix_company_name_as_occupation(df) == 0
+    assert df.loc[0, "contributor_employer"] == "SELF-EMPLOYED"
+    assert df.loc[0, "contributor_occupation"] == "ADVOCATE"
+
+
 def test_no_swap_without_corroboration():
     """Without corroboration the row is left for AD to resolve as SELF-EMPLOYED."""
     df = _frame([("CHAIRMAN", "SOME UNVERIFIABLE THING")])

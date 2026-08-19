@@ -3,17 +3,19 @@
 import pandas as pd
 import pytest
 
+import fec.database.loader.employers as employer_loader
 from fec.resolve.pipeline.apply import ResolveContext, apply_results, _resolve_row
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
 )
-from fec.resolve.pipeline.steps.previous_employer import step_cross_record
+from fec.resolve.pipeline.steps.previous_employer import _cache_entry, step_cross_record
 from fec.database.loader.employers import (
     _employment_address_id,
     _latest_employment_rows,
     _make_employer_resolver,
     _previous_employer_id,
+    load_employers,
 )
 from fec.cleaning.quality import run_quality_gates
 from fec.cleaning.previous_employer import current_employer_name
@@ -273,6 +275,58 @@ def test_not_employed_company_is_kept_but_not_linked():
     assert current_employer_name("self_employed", "BIG FIRM") == "BIG FIRM"
 
 
+def test_loader_creates_every_referenced_previous_employer(monkeypatch):
+    inserted = []
+
+    class Connection:
+        def commit(self):
+            pass
+
+    class Cursor:
+        def execute(self, query):
+            pass
+
+        def fetchall(self):
+            return [(index, name) for index, (name,) in enumerate(inserted, 1)]
+
+    def capture_values(_cur, _query, rows, **_kwargs):
+        inserted.extend(rows)
+
+    monkeypatch.setattr(employer_loader, "execute_values", capture_values)
+    monkeypatch.setattr(employer_loader, "_count", lambda *_args: len(inserted))
+
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL",
+            "employer_status": "active",
+            "contributor_employer": "CURRENT CO",
+            "previous_employer": "",
+        },
+        {
+            "entity_type": "INDIVIDUAL",
+            "employer_status": "retired",
+            "contributor_employer": "RETIRED",
+            "previous_employer": "OLDER CO",
+        },
+        {
+            "entity_type": "INDIVIDUAL",
+            "employer_status": "retired",
+            "contributor_employer": "RETIRED",
+            "previous_employer": "NEWER CO",
+        },
+        {
+            "entity_type": "ORGANIZATION",
+            "employer_status": "organization",
+            "contributor_employer": "WRONG ORG EMPLOYER",
+            "previous_employer": "",
+        },
+    ])
+
+    result = load_employers(Connection(), Cursor(), rows)
+
+    assert set(result) == {"CURRENT CO", "OLDER CO", "NEWER CO"}
+
+
 def test_resolve_reports_a_clean_owned_employer_contradiction():
     row = _row("BIG FIRM")
     row["contributor_occupation"] = "RETIRED"
@@ -395,6 +449,80 @@ def test_student_school_is_removed_from_previous_employer_cache():
     assert "donor:D1" not in cache
 
 
+def test_stale_cleaned_previous_employer_is_removed():
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "D1",
+            "contributor_name": "OVES, LYNN", "contributor_state": "GA",
+            "contributor_employer": "SELF-EMPLOYED",
+            "contributor_occupation": "ADVOCATE",
+            "occupation_category": "OTHER", "previous_employer": "",
+            "contribution_receipt_date": "2024-01-01",
+        },
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "D1",
+            "contributor_name": "OVES, LYNN", "contributor_state": "GA",
+            "contributor_employer": "RETIRED",
+            "contributor_occupation": "RETIRED",
+            "occupation_category": "RETIRED", "previous_employer": "",
+            "contribution_receipt_date": "2025-01-01",
+        },
+    ])
+    cache = FakeCache({
+        "donor:D1": {"employer": "ADVOCATE", "method": "cleaned_previous"},
+    })
+
+    step_cross_record(rows, cache)
+
+    assert "donor:D1" not in cache
+
+
+def test_fec_cache_rejects_a_bare_donor_name():
+    entry = _cache_entry(
+        "ALISA ABECASSIS",
+        state="FL",
+        method="fec_api",
+        source_name="ABECASSIS, ALISA",
+    )
+
+    assert entry == {"employer": "", "method": "fec_api_not_found"}
+
+
+def test_fec_cache_keeps_an_own_named_legal_company():
+    entry = _cache_entry(
+        "JOEL REINSTEIN, PLLC",
+        state="NY",
+        method="fec_api",
+        source_name="REINSTEIN, JOEL",
+    )
+
+    assert entry["employer"] == "JOEL REINSTEIN PLLC"
+
+
+def test_fec_cache_rejects_job_titles_as_employers():
+    for title in ("ATTORNEY", "PRESIDENT CEO", "INVESTMENT ADVISOR"):
+        entry = _cache_entry(
+            title,
+            state="NY",
+            method="fec_api",
+            source_name="DOE, JANE",
+        )
+
+        assert entry == {"employer": "", "method": "fec_api_not_found"}
+
+
+def test_fec_cache_keeps_explicit_self_employment():
+    for value in ("SELF", "SELF EMPLOYED", "SELF-EMPLOYED", "SELF: CONSULTING"):
+        entry = _cache_entry(
+            value,
+            state="NY",
+            method="fec_api",
+            source_name="DOE, JANE",
+        )
+
+        assert entry["employer"] == "SELF-EMPLOYED"
+
+
 def test_cleaned_previous_employer_refreshes_a_failed_cache_entry():
     rows = pd.DataFrame([{
         "entity_type": "INDIVIDUAL", "donor_key": "D1",
@@ -459,6 +587,22 @@ def test_manual_csv_builds_one_location_entry(tmp_path):
     assert cache["BIG FIRM"]["locations"][0]["employer_city"] == "San Francisco"
 
 
+def test_manual_location_keeps_its_evidence(tmp_path):
+    path = tmp_path / "manual_employer_addresses.csv"
+    path.write_text(
+        "name,address,city,state,zip,is_primary,note,source_name,source_url\n"
+        "ACCESS FUND,44 Montgomery St,San Francisco,CA,94104,true,"
+        "HIGH (VERIFIED),SEC Form D,https://www.sec.gov/example\n",
+        encoding="utf-8",
+    )
+    cache = FakeCache()
+
+    load_manual_locations(path, cache)
+
+    assert cache["ACCESS FUND"]["source_name"] == "SEC Form D"
+    assert cache["ACCESS FUND"]["source_url"] == "https://www.sec.gov/example"
+
+
 def test_uncertain_manual_address_stays_in_review(tmp_path):
     from fec.resolve.pipeline.steps.ai_employer import _needs_ai
 
@@ -516,6 +660,29 @@ def test_manual_locations_replace_stale_manual_entries(tmp_path):
     assert len(locations) == 2
     assert locations[0]["method"] == "ai_openai_search"
     assert locations[1]["employer_city"] == "Saint Louis"
+
+
+def test_deleted_manual_locations_leave_the_cache(tmp_path):
+    path = tmp_path / "manual_employer_addresses.csv"
+    path.write_text(
+        "name,address,city,state,zip,is_primary,note\n"
+        "OTHER FIRM,1 Main St,Boston,MA,02108,true,Verified\n",
+        encoding="utf-8",
+    )
+    cache = FakeCache({
+        "OLD FIRM": {**PRIMARY, "method": "manual_override"},
+        "AI FIRM": {
+            **PRIMARY,
+            "method": "ai_openai_search",
+            "locations": [{**SF_OFFICE, "method": "manual_override"}],
+        },
+    })
+
+    load_manual_locations(path, cache)
+
+    assert "OLD FIRM" not in cache
+    assert "locations" not in cache["AI FIRM"]
+    assert cache["AI FIRM"]["method"] == "ai_openai_search"
 
 
 def test_invalid_manual_address_stays_blank(tmp_path):

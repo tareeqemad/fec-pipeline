@@ -77,8 +77,8 @@
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 322,
-    "rows": 349,
+    "distinct": 324,
+    "rows": 351,
     "examples": [
       {
         "value": "TRUSTEE",
@@ -109,7 +109,7 @@
         "rows": 2
       },
       {
-        "value": "CAMPAIGN COMMITTEE",
+        "value": "ADVOCATE",
         "rows": 2
       },
       {

@@ -5,12 +5,7 @@ import pandas as pd
 
 from fec.cleaning.occupations import _categorize_final
 from fec.cleaning.previous_employer import classify_employer_statuses
-from fec.config.constants import (
-    EMPLOYER_STATUS_VALUES,
-    NOT_EMPLOYED_VARIANTS,
-    SELF_EMPLOYED_VARIANTS,
-    SLASH_BRAND_EMPLOYERS,
-)
+from fec.config.constants import SLASH_BRAND_EMPLOYERS
 from fec.config.occupation_rules.categories import VALID_CATEGORIES
 
 _ZIP_PREFIX_STATES = {
@@ -139,26 +134,17 @@ def _gate_not_employed_status(df):
     }, issue)]
 
 
-def _gate_previous_employer_consistency(df):
-    """One retired donor must resolve to one previous employer."""
-    required = {'entity_type', 'donor_key', 'employer_status', 'previous_employer'}
-    not_run = _resolve_only_gate('previous_employer_consistency', df, required)
+def _gate_previous_employer_scope(df):
+    """Previous employment belongs only to retired rows."""
+    required = {'employer_status', 'previous_employer'}
+    not_run = _resolve_only_gate('previous_employer_scope', df, required)
     if not_run:
         return not_run
 
-    retired = df[
-        df['entity_type'].eq('INDIVIDUAL')
-        & df['employer_status'].eq('retired')
-    ]
-    previous = retired['previous_employer'].fillna('').astype(str).str.strip()
-    counts = (
-        retired.assign(_previous=previous.mask(previous.eq('')))
-        .groupby('donor_key')['_previous']
-        .nunique(dropna=True)
-    )
-    bad = int(counts.gt(1).sum())
-    issue = f"Retired donors with multiple previous employers: {bad}" if bad else None
-    return [('previous_employer_consistency', {
+    previous = df['previous_employer'].fillna('').astype(str).str.strip()
+    bad = int((previous.ne('') & ~df['employer_status'].eq('retired')).sum())
+    issue = f"Previous employer on non-retired rows: {bad}" if bad else None
+    return [('previous_employer_scope', {
         'passed': bad == 0,
         'count': bad,
     }, issue)]
@@ -234,30 +220,6 @@ def _gate_special_chars_names(df):
             n_special_chars += int(df[col].fillna('').str.contains(r'[`;\[\]@]', regex=True).sum())
     issue = f"Special characters in names: {n_special_chars}" if n_special_chars else None
     return [('no_special_chars_in_names', {'passed': n_special_chars == 0, 'count': n_special_chars}, issue)]
-
-
-def _gate_retired_donor_consistency(df):
-    # a once-retired donor with no real employer should not carry NOT EMPLOYED / SELF-EMPLOYED
-    # Donor consistency settles these filings.
-    if not {'entity_type', 'donor_key', 'contributor_employer'}.issubset(df.columns):
-        return []
-    emp_upper = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    status_nonret = NOT_EMPLOYED_VARIANTS | SELF_EMPLOYED_VARIANTS
-    flags = pd.DataFrame({
-        'donor_key': df.loc[is_indiv, 'donor_key'],
-        'retired':  emp_upper[is_indiv].eq('RETIRED'),
-        'nonret':   emp_upper[is_indiv].isin(status_nonret),
-        'real':     ~emp_upper[is_indiv].isin(EMPLOYER_STATUS_VALUES),
-    }).groupby('donor_key').agg('any')
-    bad_donors = flags.index[flags['retired'] & ~flags['real'] & flags['nonret']]
-    n_bad_rows = int((is_indiv & df['donor_key'].isin(bad_donors) &
-                      emp_upper.isin(status_nonret)).sum())
-    issue = (
-        f"Retired donors with NOT EMPLOYED/SELF-EMPLOYED: {n_bad_rows} rows "
-        "— run _once_retired_always_retired sweep"
-    ) if n_bad_rows else None
-    return [('retired_donor_consistency', {'passed': n_bad_rows == 0, 'count': n_bad_rows}, issue)]
 
 
 def _gate_retired_active_sync(df):
@@ -337,7 +299,7 @@ _QUALITY_GATES = [
     _gate_occupation_category_consistency,
     _gate_self_employed_status,
     _gate_not_employed_status,
-    _gate_previous_employer_consistency,
+    _gate_previous_employer_scope,
     _gate_zip_coverage,
     _gate_dup_sub_id,
     _gate_dup_transaction_id,
@@ -346,7 +308,6 @@ _QUALITY_GATES = [
     _gate_zip_state,
     _gate_email_as_address,
     _gate_special_chars_names,
-    _gate_retired_donor_consistency,
     _gate_retired_active_sync,
     _gate_retired_employer_marker,
     _gate_slash_previous_employer,

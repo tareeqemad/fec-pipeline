@@ -13,7 +13,6 @@ contributor_name,entity_type,note
 "JPMORGAN CHASE BANK, N.A.",ORGANIZATION,"bank misparsed as INDIVIDUAL (N.A. became first_name)"
 "FIRST CENTRAL SAVINGS BANK",ORGANIZATION,"First Central Savings Bank (FDIC) misparsed as INDIVIDUAL — filed as 'BANK, FIRST CENTRAL' (surname=BANK), renamed by _NAME_CORRECTIONS; verified 70 Glen St, Glen Cove NY 11542"
 "WHITE LAKE REAL ESTATE CAPITAL LLC",ORGANIZATION,"White Lake Real Estate Capital LLC misparsed as INDIVIDUAL — filed as 'CAPITAL, WHITE' (surname=CAPITAL), renamed by _NAME_CORRECTIONS; verified Greenwich CT (founder Billy Jacobs)"
-"HAAS, CANDICE J",INDIVIDUAL,"person (Candice Haas) mistyped as COMMITTEE/PAC; filed as 'HAAS, .CANDICE' — the stray dot is stripped by _preclean_name_punctuation"
 "WALDMAN",INDIVIDUAL,"bare-surname individual mistyped as COMMITTEE/PAC"
 "NOT EMPLOYED",INDIVIDUAL,"filer put the employment status in the NAME field — a $500 Atlanta GA donor with occupation=employer=NOT EMPLOYED. The name is unrecoverable, but it is plainly a person, not a committee; leaving it COMMITTEE/PAC pollutes committee totals"
 "FERRNCZ",INDIVIDUAL,"bare-surname individual mistyped as COMMITTEE/PAC"

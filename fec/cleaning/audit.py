@@ -6,9 +6,9 @@ import os
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.audit_trail import AUDITED_FIELDS, SEMANTIC, AuditTrail, summarize
+from fec.cleaning.audit_trail import AUDITED_FIELDS, UNTRACKED_STEP, AuditTrail, summarize
 
-CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'evidence']
+CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'source']
 
 
 def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
@@ -24,27 +24,25 @@ def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
     row_index.index = row_index.index.astype(str)
 
     net = trail.net_records()
-    semantic = _frame([r for r in net if r['kind'] == SEMANTIC], row_index)
-    fmt = _frame([r for r in net if r['kind'] != SEMANTIC], row_index)
-    semantic.to_csv(os.path.join(out_dir, 'audit_changes.csv'), index=False)
-    fmt.to_csv(os.path.join(out_dir, 'audit_format_changes.csv'), index=False)
+    changes = _frame(net, row_index)
+    changes.to_csv(os.path.join(out_dir, 'audit_changes.csv'), index=False)
     summary = {
-        'semantic_changes': int(len(semantic)),
-        'format_changes': int(len(fmt)),
-        'untracked_changes': int(trail.untracked_count()),
+        'changes': int(len(changes)),
+        'changed_cells': int(changes[['sub_id', 'field']].drop_duplicates().shape[0]),
+        'untracked_changes': sum(record['step'] == UNTRACKED_STEP for record in net),
         'steps': summarize(net),
     }
     with open(os.path.join(out_dir, 'audit_summary.json'), 'w', encoding='utf-8') as handle:
         json.dump(summary, handle, indent=2, ensure_ascii=False)
     _write_amount_flags(after, row_index, out_dir)
 
-    after = semantic = fmt = net = None
+    after = changes = net = None
     gc.collect()
     return summary
 
 
 def _frame(records, row_index):
-    frame = pd.DataFrame.from_records(records, columns=CHANGE_COLUMNS + ['kind'])
+    frame = pd.DataFrame.from_records(records, columns=CHANGE_COLUMNS)
     frame = frame[frame['field'].isin(AUDITED_FIELDS)]
     frame['row_index'] = row_index.reindex(frame['sub_id']).to_numpy()
     frame['row_index'] = frame['row_index'].astype('Int64')

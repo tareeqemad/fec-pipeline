@@ -2,6 +2,10 @@
 import pandas as pd
 
 from fec.cleaning.pipeline import identify_donors, standardize_donors
+from fec.cleaning.pipeline.donor_stage import (
+    _classify_network_organizations,
+    _recover_network_donors,
+)
 from fec.cleaning.entity_classification import apply_name_corrections
 from fec.donor_match import canonicalize_donor_names
 from fec.donor_match.scoring import extract_generational_suffix
@@ -105,6 +109,47 @@ def test_standardize_donors_resets_filtered_index(tmp_path):
     result = standardize_donors(rows, out_dir=str(tmp_path))
 
     assert result.index.tolist() == [0]
+
+
+def test_network_name_joins_one_exact_known_identity():
+    known = _row(
+        '411', 'COMANOR, WILLIAM', 'WILLIAM', 'COMANOR',
+        'SHERMAN OAKS', 'CA', '91403', '14701 VALLEY VISTA BLVD',
+        employer='UCLA', occupation='PROFESSOR',
+    )
+    network = _row(
+        '412', 'POLITICAL NETWORK, LA VALLEY', 'LA VALLEY', 'POLITICAL NETWORK',
+        'SHERMAN OAKS', 'CA', '91403', '14701 VALLEY VISTA BLVD',
+        employer='UCLA', occupation='PROFESSOR',
+    )
+    rows = pd.DataFrame([known, network])
+    rows['donor_key'] = ['known', 'network']
+
+    assert _recover_network_donors(rows) == (1, 0)
+    assert rows['donor_key'].tolist() == ['known', 'known']
+    assert pd.isna(rows.loc[1, 'contributor_name'])
+
+
+def test_unmatched_network_name_becomes_an_organization():
+    rows = pd.DataFrame([
+        _row('421', 'DOE, JANE', 'JANE', 'DOE', 'SEATTLE', 'WA', '98127',
+             'PO BOX 17678', employer='ACME LLP', occupation='ATTORNEY'),
+        _row('422', 'ROE, JANE', 'JANE', 'ROE', 'SEATTLE', 'WA', '98127',
+             'PO BOX 17678', employer='ACME LLP', occupation='ATTORNEY'),
+        _row('423', 'POLITICAL NETWORK, SEATTLE', 'SEATTLE', 'POLITICAL NETWORK',
+             'SEATTLE', 'WA', '98127', 'PO BOX 17678',
+             employer='ACME LLP', occupation='ATTORNEY'),
+    ])
+    rows['donor_key'] = ['doe', 'roe', 'network']
+
+    assert _recover_network_donors(rows) == (0, 1)
+    assert _classify_network_organizations(rows) == 1
+    assert rows.loc[2, 'entity_type'] == 'ORGANIZATION'
+    assert rows.loc[2, 'contributor_name'] == 'SEATTLE POLITICAL NETWORK'
+    assert pd.isna(rows.loc[2, 'contributor_first_name'])
+    assert pd.isna(rows.loc[2, 'contributor_last_name'])
+    assert pd.isna(rows.loc[2, 'contributor_employer'])
+    assert pd.isna(rows.loc[2, 'contributor_occupation'])
 
 
 def test_same_name_retirees_need_real_shared_evidence():

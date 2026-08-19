@@ -39,6 +39,13 @@ _COMPANY_SUFFIX_RE = re.compile(
 )
 
 _SKIP_OCC = SKIP_OCCUPATIONS | {'OWNER', 'CEO', 'PRESIDENT'}
+_KNOWN_OCCUPATIONS = (
+    OCCUPATION_AS_EMPLOYER
+    | ROLE_AS_EMPLOYER
+    | JOB_TITLE_AS_EMPLOYER
+    | SELF_EMPLOYED_OCC_AS_EMP
+    | {"ADVOCATE"}
+)
 
 def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> None:
     """Swap contributor_employer <-> contributor_occupation where mask is True, optionally setting occupation_status."""
@@ -256,6 +263,7 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
         & (emp == 'SELF-EMPLOYED')
         & (occ != '')
         & ~occ.isin(SKIP_OCCUPATIONS)
+        & ~occ.isin(_KNOWN_OCCUPATIONS)
     )
 
     emp_counts = df.loc[is_indiv, 'contributor_employer'].value_counts()

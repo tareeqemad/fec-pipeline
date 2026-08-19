@@ -401,6 +401,89 @@ VIEW_CHECKS += [
         """),
         "orphan junction row(s)",
     ),
+    _zero(
+        "v_curated_people: one row per donor",
+        _sql("""
+            SELECT COUNT(*)
+            FROM (
+                SELECT donor_id
+                FROM v_curated_people
+                GROUP BY donor_id
+                HAVING COUNT(*) > 1
+            ) AS duplicates
+        """),
+        "duplicate donor(s)",
+    ),
+    _zero(
+        "v_curated_people: leader-only roles",
+        _sql("""
+            SELECT COUNT(*)
+            FROM v_curated_people AS curated
+            JOIN v_leaders AS leader
+              ON leader.donor_id = curated.donor_id
+            LEFT JOIN v_key_accomplices AS accomplice
+              ON accomplice.donor_id = curated.donor_id
+            WHERE accomplice.donor_id IS NULL
+              AND curated.roles IS DISTINCT FROM ARRAY['leader']::text[]
+        """),
+        "leader-only row(s) with wrong roles",
+    ),
+    _zero(
+        "v_curated_people: accomplice-only roles",
+        _sql("""
+            SELECT COUNT(*)
+            FROM v_curated_people AS curated
+            JOIN v_key_accomplices AS accomplice
+              ON accomplice.donor_id = curated.donor_id
+            LEFT JOIN v_leaders AS leader
+              ON leader.donor_id = curated.donor_id
+            WHERE leader.donor_id IS NULL
+              AND curated.roles IS DISTINCT FROM ARRAY['key_accomplice']::text[]
+        """),
+        "accomplice-only row(s) with wrong roles",
+    ),
+    _zero(
+        "v_curated_people: dual-role roles",
+        _sql("""
+            SELECT COUNT(*)
+            FROM v_curated_people AS curated
+            JOIN v_leaders AS leader
+              ON leader.donor_id = curated.donor_id
+            JOIN v_key_accomplices AS accomplice
+              ON accomplice.donor_id = curated.donor_id
+            WHERE curated.roles IS DISTINCT FROM
+                  ARRAY['leader', 'key_accomplice']::text[]
+        """),
+        "dual-role row(s) with wrong roles",
+    ),
+    _zero(
+        "v_curated_people: profile fields match",
+        _sql("""
+            SELECT COUNT(*)
+            FROM v_curated_people AS curated
+            JOIN mv_donor_profile AS profile
+              ON profile.donor_id = curated.donor_id
+            WHERE curated.current_employer IS DISTINCT FROM profile.current_employer
+               OR curated.current_occupation IS DISTINCT FROM profile.current_occupation
+               OR curated.total_amount IS DISTINCT FROM profile.total_amount
+        """),
+        "row(s) with wrong profile fields",
+    ),
+    _zero(
+        "v_curated_people: card fields match key accomplices",
+        _sql("""
+            SELECT COUNT(*)
+            FROM v_curated_people AS curated
+            LEFT JOIN v_key_accomplices AS accomplice
+              ON accomplice.donor_id = curated.donor_id
+            WHERE curated.subtitle IS DISTINCT FROM accomplice.subtitle
+               OR curated.body_text IS DISTINCT FROM accomplice.body_text
+               OR curated.committee_name IS DISTINCT FROM accomplice.committee_name
+               OR curated.committee_short IS DISTINCT FROM accomplice.committee_short
+               OR curated.display_order IS DISTINCT FROM accomplice.display_order
+        """),
+        "row(s) with wrong card fields",
+    ),
 ]
 
 
