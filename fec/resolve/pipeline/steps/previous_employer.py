@@ -12,6 +12,7 @@ from fec.cleaning.previous_employer import (
     classify_employer_statuses,
     is_real_employer,
     normalize_previous_employer_value,
+    preserve_own_named_legal_employer,
 )
 from fec.log import get_logger
 
@@ -104,6 +105,17 @@ def _clean_employer(value) -> str:
     return cleaned if is_real_employer(cleaned) else ""
 
 
+def _explicit_self_employment(value) -> bool:
+    """True only when the filer explicitly reported self-employment."""
+    upper = _s(value).strip().upper()
+    compact = re.sub(r"[^A-Z]", "", upper)
+    return (
+        upper == "SELF"
+        or upper.startswith(("SELF:", "SELF (", "SELF /"))
+        or compact.startswith("SELFEMPLOYED")
+    )
+
+
 def _cache_entry(
     raw_employer,
     *,
@@ -116,7 +128,15 @@ def _cache_entry(
 ) -> dict:
     """Build one clean cache entry while retaining raw spelling as provenance."""
     raw_name = _s(raw_employer).strip()
-    employer = _clean_employer(raw_name)
+    employer = normalize_previous_employer_value(raw_name)
+    if employer == "SELF-EMPLOYED" and not _explicit_self_employment(raw_name):
+        employer = ""
+    if source_name:
+        employer = preserve_own_named_legal_employer(
+            employer,
+            raw_name,
+            source_name,
+        )
     if not employer:
         return {"employer": "", "method": f"{method}_not_found"}
 
@@ -231,21 +251,39 @@ def _clear_invalid_cross_records(
     donor_to_cache_key: dict,
     prev_cache,
 ) -> int:
-    invalid_rows = individuals.loc[
+    invalid_employers = individuals.loc[
         statuses.eq("not_employed") & clean_employers.ne("")
-    ].assign(_clean_employer=clean_employers)
+    ].assign(_invalid_name=clean_employers)
+    self_occupations = individuals["contributor_occupation"].map(_clean_employer)
+    invalid_occupations = individuals.loc[
+        statuses.eq("self_employed") & self_occupations.ne("")
+    ].assign(_invalid_name=self_occupations)
+
+    invalid_by_donor = {
+        donor_key: set(group["_invalid_name"])
+        for donor_key, group in invalid_employers.groupby("donor_key")
+    }
+    self_by_donor = {
+        donor_key: set(group["_invalid_name"])
+        for donor_key, group in invalid_occupations.groupby("donor_key")
+    }
+
     cleared = 0
-    for donor_key, group in invalid_rows.groupby("donor_key"):
-        if donor_key not in eligible or donor_key in rows_by_donor:
-            continue
+    for donor_key in eligible - rows_by_donor.keys():
         cache_key = donor_to_cache_key[donor_key]
         cached = prev_cache.get(cache_key)
-        invalid_names = set(group["_clean_employer"])
-        if (
-            cached
-            and cached.get("method") == "cross_record"
-            and _clean_employer(cached.get("employer")) in invalid_names
-        ):
+        if not cached:
+            continue
+        cached_name = _clean_employer(cached.get("employer"))
+        invalid_cross_record = (
+            cached.get("method") == "cross_record"
+            and cached_name in invalid_by_donor.get(donor_key, set())
+        )
+        invalid_self_occupation = (
+            cached.get("method") == "cleaned_previous"
+            and cached_name in self_by_donor.get(donor_key, set())
+        )
+        if invalid_cross_record or invalid_self_occupation:
             prev_cache.discard(cache_key)
             cleared += 1
     return cleared

@@ -30,7 +30,6 @@ def test_audit_writes_only_csv_reports(tmp_path):
     audit.write_audit(after, original_rows, tmp_path, trail)
 
     assert (tmp_path / 'audit_changes.csv').exists()
-    assert (tmp_path / 'audit_format_changes.csv').exists()
     assert (tmp_path / 'audit_summary.json').exists()
     assert (tmp_path / 'amount_flags.csv').exists()
     assert not (tmp_path / 'audit_changes.jsonl').exists()
@@ -40,15 +39,12 @@ def test_audit_writes_only_csv_reports(tmp_path):
     assert changes.columns.tolist() == audit.CHANGE_COLUMNS
     assert changes[['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason']].values.tolist() == [
         ['1', '0', 'contributor_name', 'RAW NAME', 'CLEAN NAME', 'test', 'test_reason'],
-    ]
-    fmt = pd.read_csv(tmp_path / 'audit_format_changes.csv', dtype=str, keep_default_na=False)
-    assert fmt[['sub_id', 'field', 'before', 'after']].values.tolist() == [
-        ['1', 'contributor_employer', 'SELF', 'SELF-EMPLOYED'],
+        ['1', '0', 'contributor_employer', 'SELF', 'SELF-EMPLOYED', 'test', 'test_reason'],
     ]
     summary = json.loads((tmp_path / 'audit_summary.json').read_text(encoding='utf-8'))
-    assert summary['semantic_changes'] == 1
-    assert summary['format_changes'] == 1
+    assert summary['changes'] == 2
+    assert summary['changed_cells'] == 2
     assert summary['untracked_changes'] == 0
-    assert summary['steps']['test'] == {'semantic': 1, 'format': 1, 'reasons': {'test_reason': 1}}
+    assert summary['steps']['test'] == {'changes': 2, 'reasons': {'test_reason': 2}}
     flags = pd.read_csv(tmp_path / 'amount_flags.csv', dtype=str)
     assert flags['sub_id'].tolist() == ['2']

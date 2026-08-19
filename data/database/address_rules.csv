@@ -20,3 +20,7 @@ match_street,match_state,match_zip,street,unit,city,state,zip,source
 928 BROADWAY AVE,NY,10010,928 BROADWAY,,,,,census
 1101 IVEAN PEARSON RD,CA,90292,1101 IVEAN PEARSON RD,,LAGO VISTA,TX,78645,census
 268 CHESTNUT ST,NY,11963,268 CHESTNUT ST,,ENGLEWOOD,NJ,07631,https://docquery.fec.gov/pdf/754/202604159862333754/202604159862333754.pdf
+APT 10 F 363 E 76TH ST,NY,10021,363 E 76TH ST,APT 10F,NEW YORK,NY,10021,https://nonprofitlocator.org/organizations/ny/new-york/650350361-stuart-s-and-byrdie-gould-foundation
+363 E 76 ST APT 10 F,NY,10021,363 E 76TH ST,APT 10F,NEW YORK,NY,10021,https://nonprofitlocator.org/organizations/ny/new-york/650350361-stuart-s-and-byrdie-gould-foundation
+3397 STONERIDGE LANDE,CA,90077,3397 STONE RIDGE LN,,LOS ANGELES,CA,90077,https://www.bizprofile.net/ca/los-angeles/jjbe-123-llc
+E-4111 ANDOVER RD,MI,48302,E-4111 ANDOVER RD,STE 100,BLOOMFIELD HILLS,MI,48302,https://www.ajmpack.com/contact-us/

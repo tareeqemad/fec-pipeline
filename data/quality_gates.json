@@ -32,7 +32,7 @@
       ],
       "reason": "run after resolve --apply"
     },
-    "previous_employer_consistency": {
+    "previous_employer_scope": {
       "passed": null,
       "count": null,
       "not_run": true,
@@ -67,10 +67,6 @@
       "count": 0
     },
     "no_special_chars_in_names": {
-      "passed": true,
-      "count": 0
-    },
-    "retired_donor_consistency": {
       "passed": true,
       "count": 0
     },

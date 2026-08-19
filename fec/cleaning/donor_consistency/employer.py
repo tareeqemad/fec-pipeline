@@ -9,7 +9,7 @@ from fec.cleaning._helpers import levenshtein
 from fec.config.constants import (
     SKIP_EMPLOYERS, RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP,
     JUNK_EMPLOYER_RE, REFUSAL_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
-    ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER,
+    ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER, STATUS_WORDS,
 )
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_CATEGORY,
@@ -119,12 +119,16 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     second, less reliable inference.
     """
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
-    null_emp = indiv[indiv['contributor_employer'].isna()]
+    explicit_status = (
+        indiv['contributor_occupation'].fillna('').str.upper().isin(STATUS_WORDS)
+        | indiv['occupation_category'].fillna('').str.upper().isin(STATUS_WORDS)
+    )
+    null_emp = indiv[indiv['contributor_employer'].isna() & ~explicit_status]
     if null_emp.empty:
         return 0
 
     n_fixed = 0
-    for dk in null_emp['donor_key'].unique():
+    for dk, missing in null_emp.groupby('donor_key'):
         all_recs = df[(df['donor_key'] == dk) & (df['entity_type'] == 'INDIVIDUAL')]
         real_recs = all_recs[all_recs['contributor_employer'].notna()
                              & ~all_recs['contributor_employer'].isin(SKIP_EMPLOYERS)]
@@ -135,10 +139,9 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
         main_emp = real_recs.sort_values(
             'contribution_receipt_date', na_position='first'
         )['contributor_employer'].iloc[-1]
-        mask = (df['donor_key'] == dk) & df['contributor_employer'].isna()
-        df.loc[mask, 'contributor_employer'] = main_emp
-        df.loc[mask, 'occupation_status'] = 'DERIVED'   # employer filled from donor history
-        n_fixed += int(mask.sum())
+        df.loc[missing.index, 'contributor_employer'] = main_emp
+        df.loc[missing.index, 'occupation_status'] = 'DERIVED'
+        n_fixed += len(missing)
 
     return n_fixed
 

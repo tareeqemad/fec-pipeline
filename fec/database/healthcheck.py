@@ -15,7 +15,7 @@ REQUIRED_VIEWS = [
     "v_contributions_cleaned", "v_donor_profile", "v_donor_stats",
     "v_donor_current_address", "v_donor_newest_address",
     "v_donor_current_employment", "v_donor_newest_employment",
-    "v_key_accomplices", "v_leaders",
+    "v_leaders", "v_key_accomplices", "v_curated_people",
 ]
 REQUIRED_MATVIEWS = ["mv_donor_profile"]
 

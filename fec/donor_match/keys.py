@@ -34,13 +34,18 @@ def individual_donor_key(name, city, state, suffix="") -> str:
     return hashlib.sha256(rid.encode()).hexdigest()[:12]
 
 
+def non_individual_donor_key(name) -> str:
+    """Build the shared key used by organizations and committees."""
+    normalized = normalize_committee_name(name)
+    return hashlib.sha256(normalized.encode()).hexdigest()[:12]
+
+
 def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     """Apply scored donor_key: individuals take their cluster key from rid_to_key, silently falling back to a hash of their own rid when absent; non-individuals hash their normalized committee name instead."""
 
     def _get_key(row):
         if row["entity_type"] != "INDIVIDUAL":
-            norm = normalize_committee_name(row.get("contributor_name"))
-            return hashlib.sha256(norm.encode()).hexdigest()[:12]
+            return non_individual_donor_key(row.get("contributor_name"))
         rid = individual_record_id(
             row["contributor_name"],
             row["contributor_city"],

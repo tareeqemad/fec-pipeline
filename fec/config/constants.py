@@ -38,10 +38,6 @@ EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | frozenset({
     'SELF EMPLOYED', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN',
 })
 
-RETIRED_PREVIOUS_EMPLOYER_PLACEHOLDERS = (
-    EMPLOYER_STATUS_VALUES & {'NONE', 'N/A', 'NA', 'NAN', ''}
-) | {'NOT SPECIFIED', 'MR AND MRS'}
-
 # Real brand names that actually contain a slash; the slash-resolver keeps
 # them verbatim and the quality gate asserts they survived.
 SLASH_BRAND_EMPLOYERS = frozenset({
@@ -196,7 +192,8 @@ OCCUPATION_AS_EMPLOYER = frozenset({
 # cross-record swap net) recognises titles listed here and recovers the
 # company, and AD falls back to SELF-EMPLOYED when none can be corroborated.
 ROLE_AS_EMPLOYER = frozenset({
-    'OWNER', 'CEO', 'PRESIDENT', 'VICE PRESIDENT', 'VP', 'FOUNDER', 'PRINCIPAL',
+    'OWNER', 'CEO', 'PRESIDENT', 'PRESIDENT CEO', 'VICE PRESIDENT', 'VP',
+    'FOUNDER', 'PRINCIPAL',
     'SENIOR DIRECTOR', 'MANAGING DIRECTOR', 'MANAGING PARTNER',
     'PARTNER',
     # self-employment descriptors — genuinely mean "works for themselves"
@@ -213,7 +210,7 @@ ROLE_AS_EMPLOYER = frozenset({
     'STUDENT CUSTODIAN', 'FOUNDER AND MANAGING PRINCIPAL', 'DEPUTY CEO',
     'INTERIOR ARCHITECT', 'BUSINESS DEVELOPMENT', 'FOUNDING ATTORNEY',
     'MORTGAGE LOAN ORIGINATOR', 'MANAGING MEMBER & CO-FOUNDER',
-    'INSURANCE BROKER', 'FINANCIAL ADVISOR',
+    'INSURANCE BROKER', 'FINANCIAL ADVISOR', 'INVESTMENT ADVISOR',
     # "SELF" with the trade in parentheses - the parenthetical is the occupation,
     # so the whole string means self-employed, not a company called SELF
     'SELF (LANDSCAPE DESIGNER)',
@@ -286,6 +283,7 @@ NOT_REAL_EMPLOYER = frozenset({
     "SELF",
     "SELF EMPL.", "SELF EMPL", "SELF-EMP", "SELF EMP",
     "UNKNOWN",
+    "MR AND MRS", "MR. AND MRS.", "DR AND MS", "DR. AND MS", "DR. AND MS.",
     "INFORMATION REQUESTED", "INFORMATION REQUESTED PER BEST EFFORTS",
     "DISABLED",
     # status / housewife variants

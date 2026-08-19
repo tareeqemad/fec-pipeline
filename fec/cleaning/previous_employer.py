@@ -139,15 +139,13 @@ def _resolve_slash(s: str) -> str:
     if _SLASH_ADMIN_PREFIX_RE.match(value_upper):
         return ''
 
-    parts = [part.strip() for part in s.split('/', 1)]
-    if len(parts) != 2:
+    parts = [part.strip() for part in s.split('/')]
+    if len(parts) < 2:
         return s
-    left, right = parts
-    left_upper = left.upper()
-    right_upper = right.upper()
+    upper_parts = [part.upper() for part in parts]
 
     # SELF/* -> '' (self-employed, no previous company)
-    if left_upper in _SLASH_SELF_WORDS or right_upper in _SLASH_SELF_WORDS:
+    if any(part in _SLASH_SELF_WORDS for part in upper_parts):
         return ''
 
     def _junk(u: str) -> bool:
@@ -157,15 +155,13 @@ def _resolve_slash(s: str) -> str:
             or len(u) <= 2
         )
 
-    left_junk = _junk(left_upper)
-    right_junk = _junk(right_upper)
-
-    if left_junk and right_junk:
+    useful = [
+        part for part, upper in zip(parts, upper_parts)
+        if not _junk(upper)
+    ]
+    if not useful:
         return ''
-    if left_junk and not right_junk:
-        return right
-    # default COMPANY/TITLE: take left
-    return left
+    return useful[0]
 
 
 # MISSING_VALUES is the SAME FEC-junk / admin-note set clean.py nulls out of
@@ -180,21 +176,33 @@ _SE_PREV = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER
 # whitespace-stripped forms so spacing-mangled statuses ("NOTEMPLOYED",
 # "HOME MAKER") from the FEC API are still recognised and cleared
 _NULL_PREV_NOSPACE = {_WS_RE.sub('', value) for value in _NULL_PREV}
+_CANONICAL_SYNONYM_NAMES = frozenset(
+    str(value).strip().upper() for value in EMPLOYER_SYNONYMS.values()
+)
+
+
+def _is_null_previous(upper: str) -> bool:
+    upper_nospace = _WS_RE.sub('', upper)
+    return (
+        '@' in upper
+        or upper in _NULL_PREV
+        or upper.endswith(' VOLUNTEER')
+        or upper_nospace in _NULL_PREV_NOSPACE
+        or bool(_JUNK_EMPLOYER_RE.match(upper))
+    )
 
 
 def normalize_previous_employer_value(v) -> str:
     """Contract for ONE value ('' clears it); self-employment is recognised FIRST because the display-name normalizer would clear 'SELF-EMPLOYED', a fact we keep."""
-    text = str(v)
-    upper = text.strip().upper()
+    text = _WS_RE.sub(' ', str(v)).strip()
+    upper = text.upper()
     # explicit self-employment markers
     if (upper.startswith('SELF:') or upper.startswith('SELF EMPLOYED')
             or upper.startswith('SELF-EMPLOYED') or upper == 'SELF'):
         return 'SELF-EMPLOYED'
     # not a real prior company: email, industry word, status/volunteer, junk
     # (upper_nospace collapses whitespace so spacing variants match their canonical form)
-    upper_nospace = _WS_RE.sub('', upper)
-    if ('@' in upper or upper in _NULL_PREV or upper_nospace in _NULL_PREV_NOSPACE
-            or _JUNK_EMPLOYER_RE.match(upper)):
+    if _is_null_previous(upper):
         return ''
     # a bare job title / role -> worked for themselves in that profession
     if upper in _SE_PREV:
@@ -205,13 +213,37 @@ def normalize_previous_employer_value(v) -> str:
         return ''
     # same synonym map as contributor_employer so a company collapses to ONE name
     mapped = EMPLOYER_SYNONYMS.get(upper)
+    mapped_from_alias = bool(mapped)
     if mapped:
         text = mapped
+        upper = text.upper()
+        if _is_null_previous(upper):
+            return ''
     if '/' in text:
         text = _resolve_slash(text)
         if not text:
             return ''
-    return normalize_employer_display_name(text) or ''
+    if not mapped_from_alias and text.upper() in _CANONICAL_SYNONYM_NAMES:
+        return text
+    normalized = text
+    for _ in range(3):
+        next_value = normalize_employer_display_name(normalized) or ''
+        if next_value == normalized:
+            break
+        normalized = next_value
+        if not normalized:
+            return ''
+        if normalized.upper() in _CANONICAL_SYNONYM_NAMES:
+            break
+
+    upper = normalized.upper()
+    if upper.startswith('SELF EMPLOYED') or upper.startswith('SELF-EMPLOYED'):
+        return 'SELF-EMPLOYED'
+    if _is_null_previous(upper):
+        return ''
+    if upper in _SE_PREV:
+        return 'SELF-EMPLOYED'
+    return normalized if is_real_employer(normalized) else ''
 
 
 def _name_words(value) -> frozenset[str]:

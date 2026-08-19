@@ -51,6 +51,7 @@ VIEWS = [
     # Dashboard views.
     "v_leaders",
     "v_key_accomplices",
+    "v_curated_people",
     # Company identities.
     "v_company",
 ]

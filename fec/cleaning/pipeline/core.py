@@ -18,7 +18,7 @@ from fec.config.geography import US_STATES
 from fec.log import get_logger
 
 from .address_stage import clean_addresses
-from .names import _clean_names
+from .names import _clean_names, _preclean_name_punctuation
 from .reclassify import _reclassify_entities
 from .reclassify_restore import _clear_individual_residue, _restore_reclassified_committees
 from .reports import _build_missing_report, _sanity_check
@@ -75,6 +75,14 @@ def _reclassify_reason(df: pd.DataFrame) -> pd.Series:
 
 
 def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
+    trail.run(
+        df,
+        _preclean_name_punctuation,
+        "names_preclean_punctuation",
+        "name_punctuation_cleaned",
+        NAME_FIELDS,
+    )
+
     # Reclassification restores raw work fields.
     raw_occupations = df["contributor_occupation"].copy()
     raw_employers = df["contributor_employer"].copy()
@@ -179,7 +187,7 @@ def clean_records(
         df_clean, apply_manual_employer_overrides, "manual_overrides",
         "curated_row_override", WORK_FIELDS + ("previous_employer",
         "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
-        evidence="data/manual_employer_overrides.csv",
+        source="data/manual_employer_overrides.csv",
     )
     if n_overrides:
         logger.info(f"  Manual employer overrides applied: {n_overrides:,} rows")

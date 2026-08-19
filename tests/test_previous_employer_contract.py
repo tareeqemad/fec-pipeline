@@ -35,13 +35,15 @@ def test_self_employed_is_kept_not_cleared():
     assert V("SELF EMPLOYED") == "SELF-EMPLOYED"
     assert V("SELF") == "SELF-EMPLOYED"
     assert V("SELF: CONSULTING") == "SELF-EMPLOYED"
-    # a bare job title means the same thing
+    # The shared normalizer preserves the legacy title contract. FEC cache
+    # ingestion separately requires an explicit self-employment marker.
     assert V("ATTORNEY") == "SELF-EMPLOYED"
 
 
 def test_non_companies_are_cleared():
     for junk in ("RETIRED", "HOMEMAKER", "NOT EMPLOYED", "NOTEMPLOYED",
-                 "STUDENT", "VOLUNTEER", "N/A", "REAL ESTATE", "HEALTHCARE",
+                 "STUDENT", "VOLUNTEER", "NON-PROFIT VOLUNTEER", "N/A",
+                 "REAL ESTATE", "HEALTHCARE",
                  "someone@example.com", "XXN"):
         assert V(junk) == "", junk
 
@@ -72,6 +74,8 @@ def test_slash_composites_are_collapsed():
     # Quirk kept: the slash branch treats a SELF side as no prior company and clears before the marker applies.
     assert V("SELF") == "SELF-EMPLOYED"
     assert V("SELF/CONSULTANT") == ""
+    assert V("N/A/HOMEMAKER") == ""
+    assert V("RETIRED/RETIRED/RETIRED") == ""
 
 
 def test_slash_result_still_passes_through_the_synonym_map():
@@ -139,6 +143,19 @@ def test_idempotent():
     assert df["previous_employer"].tolist() == settled
 
 
+def test_value_normalizer_is_idempotent_for_multi_slash_junk():
+    for value in (
+        "N/A/HOMEMAKER",
+        "N/A/RETIRED",
+        "RETIRED/RETIRED/RETIRED",
+        "SELF  EMPLOYED",
+        "I AM RETIRED.",
+        "51 RAILROAD LLC",
+        "DR,",
+    ):
+        assert V(V(value)) == V(value)
+
+
 def test_missing_column_is_not_an_error():
     assert _normalize_previous_employer(pd.DataFrame({"contributor_employer": ["ACME"]})) == 0
 
@@ -181,6 +198,51 @@ def test_resolve_keeps_build_owned_display_for_the_same_company():
 
     second = _resolved_retiree(first["previous_employer"].iloc[0], "APPLE INC")
     assert second["previous_employer"].iloc[0] == "APPLE INC"
+
+
+def test_resolve_uses_current_canonical_employer_spelling():
+    """A prior company must not create a case-only duplicate employer."""
+    from fec.resolve.pipeline.apply import apply_results
+
+    df = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL",
+            "donor_key": "CURRENT",
+            "contributor_name": "DOE, JOHN",
+            "contributor_employer": "EDISON PROPERTIES",
+            "contributor_occupation": "MANAGER",
+            "occupation_category": "MANAGEMENT",
+            "contributor_state": "NJ",
+            "contributor_street_1": "",
+            "contributor_city": "NEWARK",
+            "contributor_zip": "07102",
+            "previous_employer": "",
+        },
+        {
+            "entity_type": "INDIVIDUAL",
+            "donor_key": "RETIRED",
+            "contributor_name": "DOE, JANE",
+            "contributor_employer": "RETIRED",
+            "contributor_occupation": "RETIRED",
+            "occupation_category": "RETIRED",
+            "contributor_state": "NJ",
+            "contributor_street_1": "",
+            "contributor_city": "NEWARK",
+            "contributor_zip": "07102",
+            "previous_employer": "Edison Properties",
+        },
+    ])
+    cache = {
+        "donor:RETIRED": {
+            "employer": "Edison Properties",
+            "employer_normalized": "EDISON PROPERTIES",
+            "method": "manual_override",
+        }
+    }
+
+    resolved = apply_results(df, cache, {})
+
+    assert resolved["previous_employer"].iloc[1] == "EDISON PROPERTIES"
 
 
 def test_resolve_still_applies_a_real_previous_employer_correction():

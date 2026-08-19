@@ -82,13 +82,20 @@ date are included. Existing rows are skipped by `sub_id`.
 - `data/employer_locations.csv`: resolved employer locations.
 - `data/database/committees.csv`: committee identities and display names.
 - `data/*.json`: persistent lookup caches and quality reports.
-- `data/audit_changes.csv`: every semantic change clean made to a filed value,
-  one row per cell, with the step and the reason. `data/audit_summary.json`
-  counts them per step. `data/audit_format_changes.csv` holds spelling-only
-  changes and is regenerated each run, outside Git.
+- `data/audit_changes.csv`: every net cleaning change with its step, reason,
+  and source. It is regenerated each run outside Git.
+- `data/audit_summary.json`: change counts per cleaning step.
 
 Manual rules, overrides, and caches under `data/` are real project inputs. Keep
 them in Git and do not replace them with an older snapshot after a pipeline run.
+
+## Database views
+
+`fec/database/schema.sql` is the source of truth for the public database schema.
+`v_leaders` and `v_key_accomplices` keep their focused dashboard contracts.
+`v_curated_people` exposes their canonical union, including each person's roles,
+profile totals, employment fields, and key-accomplice card fields. It intentionally
+has no donation threshold; downstream products apply their own eligibility rules.
 
 ## First database setup
 
@@ -145,18 +152,13 @@ GRANT fec_app TO developer_login;
 
 - `NULL` is a real surname; use the CSV helpers in `fec/io.py`.
 - Every cleaning step that changes a filed value runs through the audit trail
-  (`fec/cleaning/audit_trail.py`) with a named reason. A change is semantic
-  when the value now means something else (a different address, employer,
-  name or category, a filled blank, a nulled value) and format when only the
-  spelling changed; `fec/cleaning/audit_keys.py` draws that line. Semantic
-  changes go to `data/audit_changes.csv`; a change undone by a later step
-  is not written. A value changed outside a tracked step is written there as
-  step `untracked`; the count must stay zero.
-- Donor history may override a filed work status: a donor filed as
-  `NOT EMPLOYED` or `SELF-EMPLOYED` who is otherwise `RETIRED` becomes
-  `RETIRED`, and a filed employer can be replaced by the donor's majority
-  employer. Each such row is in `data/audit_changes.csv` under a `donor_*`
-  step.
+  (`fec/cleaning/audit_trail.py`). The audit records the old value, new value,
+  step, reason, and source. Changes undone later are omitted. A value changed
+  outside a tracked step is recorded as `untracked`; its count must stay zero.
+- Work status is historical per filing. A later job never replaces an earlier
+  `RETIRED`, `NOT EMPLOYED`, `SELF-EMPLOYED`, `STUDENT`, or `HOMEMAKER` value.
+  A retiree's `previous_employer` may come only from an earlier filing for the
+  same `donor_key`; otherwise resolve leaves it for verified lookup.
 - ZIP codes are zero-padded text, never integers.
 - `recipient_committee` is the receiver of the contribution.
 - Negative amounts are refunds or redesignations.

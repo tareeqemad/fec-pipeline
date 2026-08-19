@@ -18,7 +18,10 @@ from fec.cleaning.donor_consistency.occupation import (
     _fill_occupation_from_donor,
     _rederive_occupation_category,
 )
-from fec.cleaning.donor_consistency.retired import _settle_retired_employer
+from fec.cleaning.donor_consistency.retired import (
+    _fill_prev_employer_from_donor,
+    _settle_retired_employer,
+)
 
 
 def test_retire_truncation_is_a_retired_status():
@@ -50,7 +53,7 @@ def test_explicit_retired_occupation_wins_over_not_employed_marker():
 def test_recovered_company_becomes_previous_employer_for_retiree():
     df = pd.DataFrame({
         'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
-        'contributor_employer': ['FIT FOR LIFE', 'MR AND MRS'],
+        'contributor_employer': ['FIT FOR LIFE', 'DR. AND MS.'],
         'contributor_occupation': ['RETIRED', 'RETIRED'],
         'occupation_category': ['RETIRED', 'RETIRED'],
         'occupation_status': ['DERIVED', 'DISCLOSED'],
@@ -158,22 +161,22 @@ def test_quality_gates_reject_not_employed_status_mismatch():
     assert run_quality_gates(df)['checks']['not_employed_status_consistency']['passed']
 
 
-def test_quality_gates_reject_multiple_previous_employers_per_donor():
+def test_quality_gates_reject_previous_employer_on_active_row():
     df = pd.DataFrame({
         'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
         'donor_key': ['same', 'same'],
         'contributor_employer': ['RETIRED', 'RETIRED'],
-        'employer_status': ['retired', 'retired'],
+        'employer_status': ['retired', 'active'],
         'previous_employer': ['COMPANY A', 'COMPANY B'],
     })
 
-    check = run_quality_gates(df)['checks']['previous_employer_consistency']
+    check = run_quality_gates(df)['checks']['previous_employer_scope']
 
     assert not check['passed']
     assert check['count'] == 1
 
     df.loc[1, 'previous_employer'] = ''
-    check = run_quality_gates(df)['checks']['previous_employer_consistency']
+    check = run_quality_gates(df)['checks']['previous_employer_scope']
     assert check['passed']
 
 
@@ -199,11 +202,11 @@ def test_resolve_only_quality_gates_are_reported_before_resolve():
             ]
         assert checks[name]['missing_columns'] == expected
 
-    previous = checks['previous_employer_consistency']
+    previous = checks['previous_employer_scope']
     assert previous['not_run']
     assert previous['passed'] is None
     assert previous['missing_columns'] == [
-        'donor_key', 'employer_status', 'previous_employer',
+        'employer_status', 'previous_employer',
     ]
 
 
@@ -224,6 +227,73 @@ def test_employer_fill_does_not_replace_existing_occupation_category():
     assert df.loc[0, 'occupation_category'] == 'LEGAL'
     assert pd.isna(df.loc[1, 'contributor_occupation'])
     assert df.loc[1, 'occupation_category'] == 'OTHER'
+
+
+def test_employer_fill_respects_reported_life_status():
+    df = pd.DataFrame({
+        'donor_key': ['same'] * 4,
+        'entity_type': ['INDIVIDUAL'] * 4,
+        'contributor_employer': [pd.NA, pd.NA, pd.NA, 'ACME'],
+        'contributor_occupation': ['RETIRED', 'NOT EMPLOYED', 'ATTORNEY', 'CEO'],
+        'occupation_category': [
+            'RETIRED', 'NOT EMPLOYED', 'LEGAL', 'EXECUTIVE / C-SUITE',
+        ],
+        'occupation_status': [
+            'NOT_APPLICABLE', 'NOT_APPLICABLE', 'EMPLOYER_MISSING', 'DISCLOSED',
+        ],
+        'contribution_receipt_date': [
+            '2022-01-01', '2023-01-01', '2023-06-01', '2024-01-01',
+        ],
+    })
+
+    assert _fill_employer_from_donor(df) == 1
+    assert df['contributor_employer'].isna().tolist() == [True, True, False, False]
+    assert df.loc[2, 'contributor_employer'] == 'ACME'
+
+
+def test_previous_employer_uses_only_an_earlier_filing():
+    df = pd.DataFrame({
+        'donor_key': ['same'] * 3,
+        'entity_type': ['INDIVIDUAL'] * 3,
+        'contributor_employer': ['OLD COMPANY', 'RETIRED', 'FUTURE COMPANY'],
+        'contributor_occupation': ['MANAGER', 'RETIRED', 'CEO'],
+        'occupation_category': ['MANAGEMENT', 'RETIRED', 'EXECUTIVE / C-SUITE'],
+        'contribution_receipt_date': ['2021-01-01', '2022-01-01', '2025-01-01'],
+        'previous_employer': ['', '', ''],
+    })
+
+    assert _fill_prev_employer_from_donor(df) == 1
+    assert df.loc[1, 'previous_employer'] == 'OLD COMPANY'
+
+
+def test_future_employer_does_not_become_previous_employer():
+    df = pd.DataFrame({
+        'donor_key': ['same', 'same'],
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_employer': ['RETIRED', 'FUTURE COMPANY'],
+        'contributor_occupation': ['RETIRED', 'CEO'],
+        'occupation_category': ['RETIRED', 'EXECUTIVE / C-SUITE'],
+        'contribution_receipt_date': ['2022-01-01', '2025-01-01'],
+        'previous_employer': ['', ''],
+    })
+
+    assert _fill_prev_employer_from_donor(df) == 0
+    assert df.loc[0, 'previous_employer'] == ''
+
+
+def test_retired_row_is_not_previous_employer_evidence():
+    df = pd.DataFrame({
+        'donor_key': ['same', 'same'],
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_employer': ['DR. AND MS.', 'RETIRED'],
+        'contributor_occupation': ['RETIRED', 'RETIRED'],
+        'occupation_category': ['RETIRED', 'RETIRED'],
+        'contribution_receipt_date': ['2021-01-01', '2022-01-01'],
+        'previous_employer': ['', ''],
+    })
+
+    assert _fill_prev_employer_from_donor(df) == 0
+    assert df.loc[1, 'previous_employer'] == ''
 
 
 def test_occupation_fill_uses_same_employer_only():

@@ -36,7 +36,7 @@ def _address_entry(row: dict) -> dict | None:
     if not address and not (city and state) and not suppressed:
         return None
     method = "manual_invalid" if suppressed else _manual_method(note)
-    return {
+    entry = {
         "employer_address": address,
         "employer_city": city,
         "employer_state": state,
@@ -46,6 +46,11 @@ def _address_entry(row: dict) -> dict | None:
             "NONE" if suppressed else "LOW" if method == "manual_review" else "HIGH"
         ),
     }
+    for field in ("source_name", "source_url"):
+        value = (row.get(field) or "").strip()
+        if value:
+            entry[field] = value
+    return entry
 
 
 def _read_location_groups(csv_path: Path) -> dict:
@@ -87,6 +92,40 @@ def _merge_manual_locations(existing: dict, manual: dict) -> dict:
     return replacement
 
 
+def _remove_deleted_locations(addr_cache, current_names: set[str]) -> int:
+    entries = getattr(addr_cache, "data", addr_cache)
+    removed = 0
+
+    for name, existing in list(entries.items()):
+        if name in current_names:
+            continue
+
+        method = str(existing.get("method", ""))
+        if method.startswith("manual_"):
+            addr_cache.discard(name)
+            removed += 1
+            continue
+
+        locations = existing.get("locations", [])
+        kept = [
+            location
+            for location in locations
+            if not str(location.get("method", "")).startswith("manual_")
+        ]
+        if kept == locations:
+            continue
+
+        replacement = dict(existing)
+        if kept:
+            replacement["locations"] = kept
+        else:
+            replacement.pop("locations", None)
+        addr_cache.put(name, replacement)
+        removed += len(locations) - len(kept)
+
+    return removed
+
+
 def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
     """Load primary and additional employer locations into one cache entry."""
     if not csv_path.exists():
@@ -94,6 +133,7 @@ def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
         return 0, 0
 
     rows_by_name = _read_location_groups(csv_path)
+    removed = _remove_deleted_locations(addr_cache, set(rows_by_name))
     added = updated = 0
     for name, manual in rows_by_name.items():
         existing = dict(addr_cache.get(name) or {})
@@ -106,11 +146,11 @@ def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
             added += 1
         addr_cache.put(name, replacement)
 
-    if added or updated:
+    if added or updated or removed:
         addr_cache.save()
     logger.info(
         f"    manual locations: {added:,} added, {updated:,} updated "
-        f"from {csv_path.name}"
+        f"and {removed:,} removed from {csv_path.name}"
     )
     return added, updated
 

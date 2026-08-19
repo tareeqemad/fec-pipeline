@@ -728,6 +728,40 @@ LEFT JOIN v_donor_newest_employment e  ON e.donor_id = d.donor_id
 LEFT JOIN donor_images di              ON di.donor_id = d.donor_id;
 
 
+CREATE OR REPLACE VIEW v_curated_people AS
+SELECT
+    COALESCE(l.donor_id, k.donor_id) AS donor_id,
+    COALESCE(l.donor_key, k.donor_key) AS donor_key,
+    COALESCE(l.full_name, k.full_name) AS full_name,
+    COALESCE(l.city, k.city) AS city,
+    COALESCE(l.state_code, k.state_code) AS state_code,
+    COALESCE(l.zip_code, k.zip_code) AS zip_code,
+    p.current_employer,
+    p.current_occupation,
+    p.total_amount,
+    array_remove(
+        ARRAY[
+            CASE
+                WHEN l.leader_id IS NOT NULL THEN 'leader'
+            END,
+            CASE
+                WHEN k.accomplice_id IS NOT NULL THEN 'key_accomplice'
+            END
+        ],
+        NULL
+    ) AS roles,
+    k.subtitle,
+    k.body_text,
+    k.committee_name,
+    k.committee_short,
+    k.display_order
+FROM v_leaders l
+FULL OUTER JOIN v_key_accomplices k
+    ON k.donor_id = l.donor_id
+JOIN mv_donor_profile p
+    ON p.donor_id = COALESCE(l.donor_id, k.donor_id);
+
+
 -- --- Unified company view - a firm's employees AND its own donation, one row ---
 -- A real company can show up two ways: as an EMPLOYER (people who work there and
 -- donated) and - if the firm itself gave - as an ORGANIZATION donor. The cleaning

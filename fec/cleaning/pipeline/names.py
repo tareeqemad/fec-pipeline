@@ -40,10 +40,6 @@ _PURE_TITLE = {'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.', 'DR', 'DR.',
 _NAN_REPLACE = {'nan': np.nan, 'None': np.nan, '': np.nan}
 
 
-def _garbled_evidence(df):
-    return 'was: ' + df['_garbled_before'].astype('string')
-
-
 def _preclean_name_punctuation(df: pd.DataFrame) -> None:
     """Remove backticks, semicolons, stray dots, collapse double commas."""
     df['contributor_name'] = (
@@ -62,6 +58,14 @@ def _preclean_name_punctuation(df: pd.DataFrame) -> None:
         .str.replace(r'\b([A-Z])\.([A-Z]{2,})', r'\1 \2', regex=True)
         .str.strip()
         .str.replace(r'\s+', ' ', regex=True)
+    )
+    df['contributor_first_name'] = (
+        df['contributor_first_name'].astype('string')
+        .str.replace('`', '', regex=False)
+        .str.replace(';', '', regex=False)
+        .str.replace(r'^\.+\s*', '', regex=True)
+        .str.strip()
+        .replace('', pd.NA)
     )
 
 
@@ -266,7 +270,6 @@ def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> Non
 
 # (function, scope, step, reason)
 NAME_STEPS = (
-    (_preclean_name_punctuation, None, 'names_preclean_punctuation', 'name_punctuation_cleaned'),
     (_extract_title_to_occupation, 'individual', 'names_title_to_occupation',
      'title_removed_from_name_or_occupation_enriched_from_it'),
     (_handle_multi_comma_names, 'individual', 'names_multi_comma',
@@ -296,5 +299,4 @@ def _clean_names(df: pd.DataFrame, trail=None) -> None:
     }
     for fn, scope, step, reason in NAME_STEPS:
         transform = fn if scope is None else (lambda d, fn=fn, mask=masks[scope]: fn(d, mask))
-        evidence = _garbled_evidence if fn is _fix_garbled_first_names else None
-        trail.run(df, transform, step, reason, NAME_FIELDS + WORK_FIELDS, evidence=evidence)
+        trail.run(df, transform, step, reason, NAME_FIELDS + WORK_FIELDS)

@@ -2,6 +2,8 @@
 import pandas as pd
 
 from test_record_rules import _make_df
+from fec.cleaning.audit_trail import AuditTrail
+from fec.cleaning.pipeline.core import _clean_people
 from fec.cleaning.pipeline.names import _clean_names
 from fec.cleaning.pipeline.reclassify import _reclassify_entities
 from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
@@ -104,6 +106,26 @@ def test_person_names_survive_false_committee_filing():
     assert df['contributor_name'].tolist() == ['FERRNCZ, ROBERT', 'WALDMAN, GARY']
     assert df['contributor_first_name'].tolist() == ['ROBERT', 'GARY']
     assert df['contributor_last_name'].tolist() == ['FERRNCZ', 'WALDMAN']
+
+
+def test_name_punctuation_is_cleaned_before_entity_detection():
+    df = _make_df([{
+        'is_individual': False,
+        'entity_type': 'COMMITTEE/PAC',
+        'contributor_name': 'HAAS, .CANDICE',
+        'contributor_first_name': '.CANDICE',
+        'contributor_last_name': 'HAAS',
+        'contributor_employer': 'NOT EMPLOYED',
+        'contributor_occupation': 'NOT EMPLOYED',
+        'committee_type': 'POLITICAL COMMITTEE',
+    }])
+
+    _clean_people(df, AuditTrail(), lambda message: None)
+
+    assert df.loc[0, 'entity_type'] == 'INDIVIDUAL'
+    assert df.loc[0, 'contributor_name'] == 'HAAS, CANDICE'
+    assert df.loc[0, 'contributor_first_name'] == 'CANDICE'
+    assert df.loc[0, 'contributor_last_name'] == 'HAAS'
 
 
 def test_status_employer_fills_empty_occupation_idempotently():
