@@ -215,3 +215,21 @@ def test_review_writes_related_names_with_totals(monkeypatch, tmp_path):
     report = pd.read_csv(tmp_path / "donor_dedup_review.csv")
     assert report.loc[0, "reason"] == "initial/prefix ALEX->ALEXANDER"
     assert report.loc[0, "combined_amount"] == 350
+
+
+def test_resolve_donor_key_follows_chains_and_stops_on_cycles(monkeypatch):
+    monkeypatch.setattr(R, "KEY_MERGES", {"a": "b", "b": "c", "x": "y", "y": "x"})
+
+    assert R.resolve_donor_key("a") == "c"
+    assert R.resolve_donor_key("c") == "c"
+    assert R.resolve_donor_key("x") in {"x", "y"}
+
+
+def test_curated_key_merges_repoint_rows_to_the_final_key(monkeypatch):
+    merges = {"a": "b", "b": "c"}
+    monkeypatch.setattr(R, "KEY_MERGES", merges)
+    monkeypatch.setattr(K, "KEY_MERGES", merges)
+    rows = pd.DataFrame({"donor_key": ["a", "b", "c", "z"]})
+
+    assert K.apply_curated_key_merges(rows) == 2
+    assert list(rows["donor_key"]) == ["c", "c", "c", "z"]

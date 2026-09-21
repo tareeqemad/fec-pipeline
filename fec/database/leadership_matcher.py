@@ -7,6 +7,7 @@ from fec.cleaning.previous_employer import (
     classify_employer_status,
     is_real_employer,
 )
+from fec.donor_match.rules import resolve_donor_key
 
 
 def find_or_create_donor(
@@ -17,15 +18,20 @@ def find_or_create_donor(
     first: str,
     last: str,
 ) -> tuple[int, str]:
-    """Use the curated donor key."""
+    """Use the curated donor key, after the identity merges the cleaning applied."""
     donor_key = donor_key.strip()
     if not donor_key:
         raise ValueError(f"Missing donor_key for {name!r}")
 
-    cur.execute("SELECT donor_id FROM donors WHERE donor_key = %s", (donor_key,))
+    # Cleaning moved a merged-away key's contributions to the surviving key, so a
+    # roster still naming the old key must follow them instead of creating a twin.
+    resolved_key = resolve_donor_key(donor_key)
+    method = "donor_key_exact" if resolved_key == donor_key else "donor_key_merged"
+
+    cur.execute("SELECT donor_id FROM donors WHERE donor_key = %s", (resolved_key,))
     row = cur.fetchone()
     if row:
-        return row[0], "donor_key_exact"
+        return row[0], method
 
     if not create_if_missing:
         raise ValueError(
@@ -39,7 +45,7 @@ def find_or_create_donor(
         VALUES (%s, 'INDIVIDUAL', %s, %s)
         RETURNING donor_id
         """,
-        (donor_key, (first or "").strip().upper() or None, (last or "").strip().upper() or None),
+        (resolved_key, (first or "").strip().upper() or None, (last or "").strip().upper() or None),
     )
     new_id = cur.fetchone()[0]
     return new_id, "created"

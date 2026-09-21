@@ -13,6 +13,7 @@ from .rules import (
     KEY_MERGES,
     identities_must_stay_separate,
     names_must_stay_separate,
+    resolve_donor_key,
 )
 from .scoring import normalize_committee_name
 
@@ -128,17 +129,10 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     if "donor_key" not in df.columns or not KEY_MERGES:
         return 0
 
-    def _final(k):
-        seen = set()
-        while k in KEY_MERGES and k not in seen:
-            seen.add(k)
-            k = KEY_MERGES[k]
-        return k
-
     mask = df["donor_key"].isin(KEY_MERGES)
     n = int(mask.sum())
     if n:
-        df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(_final)
+        df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(resolve_donor_key)
     return n
 
 

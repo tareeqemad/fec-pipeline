@@ -124,3 +124,12 @@ def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
         _identity(person_b["name"], person_b["city"], person_b["state"]),
     ))
     return pair in SEPARATE_IDENTITIES
+
+
+def resolve_donor_key(key: str) -> str:
+    """Follow verified merge_keys rules, including chains, to the key that survives."""
+    seen = set()
+    while key in KEY_MERGES and key not in seen:
+        seen.add(key)
+        key = KEY_MERGES[key]
+    return key
