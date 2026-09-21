@@ -2,6 +2,7 @@ import pytest
 
 from fec.database.leadership_matcher import find_or_create_donor
 from fec.database.loader.leadership import _boolean
+from fec.donor_match import rules as R
 
 
 class Cursor:
@@ -26,6 +27,19 @@ def test_editorial_donor_uses_exact_key():
     assert (donor_id, method) == (42, "donor_key_exact")
     assert len(cur.queries) == 1
     assert cur.queries[0][1] == ("abc123",)
+
+
+def test_merged_away_key_links_to_the_surviving_donor(monkeypatch):
+    monkeypatch.setattr(R, "KEY_MERGES", {"dropped": "kept"})
+    cur = Cursor([(42,)])
+
+    donor_id, method = find_or_create_donor(
+        cur, "dropped", True, "WULIGER, TIM", "TIM", "WULIGER"
+    )
+
+    assert (donor_id, method) == (42, "donor_key_merged")
+    assert len(cur.queries) == 1
+    assert cur.queries[0][1] == ("kept",)
 
 
 def test_unknown_fec_donor_fails():
