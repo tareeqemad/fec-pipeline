@@ -33,7 +33,7 @@
 --
 --  History (structural changes folded into the current v1.2 schema):
 --      - DROPPED `contributions_cleaned` (redundant with the normalized
---        tables); replaced with the `v_contributions_cleaned` view
+--        tables); read the normalized tables directly
 --      - DROPPED `donors.current_*` denormalized pointers; replaced with
 --        `v_donor_current_address` / `v_donor_current_employment`
 --      - MOVED per-employment status (employer_status / previous_employer)
@@ -47,7 +47,10 @@
 --        on `donor_employments`
 --      - ADDED `UNIQUE` on us_states.code; range CHECKs on addresses /
 --        zip_centroids lat-lng; `raised/spent >= 0` CHECKs on committees
---    Per-view tweaks carry their own inline notes (e.g. v_contributions_cleaned).
+--      - REMOVED views no product read (v_company, v_contributions_cleaned,
+--        v_leaders, v_key_accomplices, v_curated_people, v_donor_newest_*);
+--        the dashboard queries the tables and mv_donor_profile directly
+--    Per-view tweaks carry their own inline notes.
 --
 -- ============================================================
 
@@ -205,10 +208,8 @@ CREATE TABLE contributions (
 -- several known offices; the loader stores the selected one per employment.
 
 
--- NOTE: `contributions_cleaned` table dropped. The same
--- flat layout is now available via the VIEW `v_contributions_cleaned`
--- defined below, which reads from the normalized tables. No storage
--- duplication, no sync burden.
+-- NOTE: `contributions_cleaned` table dropped; the normalized tables are the
+-- only copy. No storage duplication, no sync burden.
 
 
 -- ----------------------------------------------------------
@@ -342,6 +343,7 @@ SELECT
 
     -- Current address (from v_donor_current_address)
     a.street_1      AS current_street,
+    a.street_2      AS current_street_2,
     a.city          AS current_city,
     a.state_code    AS current_state,
     a.zip_code      AS current_zip,
@@ -366,69 +368,6 @@ LEFT JOIN occupation_categories      oc   ON oc.occupation_category_id = e.occup
 LEFT JOIN employers                  prev ON prev.employer_id          = e.previous_employer_id;
 
 
--- Flat per-contribution view - one row per FEC filing with the donor,
--- committee, address, employer and occupation all denormalized onto it.
--- Consumed by the healthcheck's flat-view checks (fec/database/query_checks.py);
--- the web app queries the normalized tables directly. Zero storage - pure
--- read layer over the normalized tables.
-CREATE OR REPLACE VIEW v_contributions_cleaned AS
-SELECT
-    c.sub_id,
-    c.transaction_id,
-    c.election_cycle                        AS two_year_transaction_period,
-    d.donor_key,
-    EXTRACT(YEAR FROM c.receipt_date)::INT  AS contributor_year,
-    cm.committee_short                      AS recipient_committee,
-    d.entity_type,
-    d.first_name                            AS contributor_first_name,
-    d.last_name                             AS contributor_last_name,
-    CASE
-        WHEN d.entity_type = 'INDIVIDUAL'
-         AND d.first_name IS NOT NULL
-         AND d.last_name  IS NOT NULL
-        THEN d.last_name || ', ' || d.first_name
-        ELSE d.last_name
-    END                                     AS contributor_name,
-    ca.street_1                             AS contributor_street_1,
-    ca.street_2                             AS contributor_street_2,
-    ca.city                                 AS contributor_city,
-    ca.state_code                           AS contributor_state,
-    ca.zip_code                             AS contributor_zip,
-    ca.latitude,
-    ca.longitude,
-    -- real company name only - NULL for retired/not-employed (status lives in employer_status)
-    emp.name                                AS contributor_employer,
-    de.occupation                           AS contributor_occupation,
-    oc.name                                 AS occupation_category,
-    de.employer_status,
-    prev_emp.name                           AS previous_employer,
-    c.amount                                AS contribution_receipt_amount,
-    c.receipt_date                          AS contribution_receipt_date,
-    ea.street_1                             AS employer_address,
-    ea.city                                 AS employer_city,
-    ea.state_code                           AS employer_state,
-    ea.zip_code                             AS employer_zip,
-    ea.latitude                             AS employer_latitude,
-    ea.longitude                            AS employer_longitude
-FROM contributions c
-JOIN donors                     d        ON d.donor_id                = c.donor_id
-JOIN committees                 cm       ON cm.committee_id           = c.committee_id
-LEFT JOIN donor_addresses       a        ON a.donor_address_id        = c.donor_address_id
-LEFT JOIN addresses             ca       ON ca.address_id             = a.address_id
-LEFT JOIN donor_employments     de       ON de.donor_employment_id    = c.donor_employment_id
-LEFT JOIN employers             emp      ON emp.employer_id           = de.employer_id
-LEFT JOIN employers             prev_emp ON prev_emp.employer_id      = de.previous_employer_id
-LEFT JOIN addresses             ea       ON ea.address_id = COALESCE(
-                                                    de.address_id,
-                                                    emp.address_id,
-                                                    CASE
-                                                        WHEN de.employer_status = 'retired'
-                                                        THEN prev_emp.address_id
-                                                    END
-                                                )
-LEFT JOIN occupation_categories oc       ON oc.occupation_category_id = de.occupation_category_id;
-
-
 -- ----------------------------------------------------------
 --  9. Materialized views - pre-computed for dashboard speed
 -- ----------------------------------------------------------
@@ -447,11 +386,13 @@ CREATE INDEX idx_mvdp_total         ON mv_donor_profile (total_amount DESC NULLS
 CREATE INDEX idx_mvdp_state         ON mv_donor_profile (current_state);        -- state filter
 CREATE INDEX idx_mvdp_state_total   ON mv_donor_profile (current_state, total_amount DESC NULLS LAST);  -- "Top donors in NY"
 CREATE INDEX idx_mvdp_name_trgm     ON mv_donor_profile USING gin (last_name gin_trgm_ops);  -- fuzzy name search
+CREATE INDEX idx_mvdp_first_name_trgm ON mv_donor_profile USING gin (first_name gin_trgm_ops);  -- fuzzy first-name search
 CREATE INDEX idx_mvdp_employer      ON mv_donor_profile (current_employer);     -- "everyone at Google"
 CREATE INDEX idx_mvdp_prev_employer ON mv_donor_profile (previous_employer);    -- "everyone who USED to work at Google" (retirees' last job)
 CREATE INDEX idx_mvdp_occ           ON mv_donor_profile (current_occ_category); -- occupation filter
 CREATE INDEX idx_mvdp_geo           ON mv_donor_profile (current_lat, current_lng)
     WHERE current_lat IS NOT NULL;                                              -- map bounding-box
+CREATE INDEX idx_mvdp_earth         ON mv_donor_profile USING gist (ll_to_earth(current_lat, current_lng));  -- map radius search (earth_box)
 
 
 -- The refresh runs at the end of every loader run from Python
@@ -532,117 +473,6 @@ CREATE INDEX idx_key_accomplices_sign  ON key_accomplices (sign) WHERE sign IS N
 CREATE INDEX idx_key_accomplices_order ON key_accomplices (display_order);
 
 
--- Helper view: one row per donor - newest address from donor_addresses.
--- Different from v_donor_current_address: doesn't require a contribution,
--- so it covers leaders who never donated.
-CREATE OR REPLACE VIEW v_donor_newest_address AS
-SELECT DISTINCT ON (da.donor_id)
-    da.donor_id,
-    addr.street_1,
-    addr.street_2,
-    addr.city,
-    addr.state_code,
-    addr.zip_code,
-    addr.latitude,
-    addr.longitude
-FROM donor_addresses da
-JOIN addresses addr ON addr.address_id = da.address_id
--- Newest = the address used in the donor's latest contribution, derived from
--- contributions (no stored date). NULL for leaders who never donated -> the
--- id tiebreaker picks their single address.
-LEFT JOIN (
-    SELECT donor_address_id, MAX(receipt_date) AS last_seen
-    FROM contributions
-    GROUP BY donor_address_id
-) cd ON cd.donor_address_id = da.donor_address_id
-ORDER BY
-    da.donor_id,
-    cd.last_seen DESC NULLS LAST,
-    da.donor_address_id DESC;       -- tiebreaker (covers non-donors)
-
-
--- Helper view: one row per donor - newest employment from donor_employments.
--- Like v_donor_newest_address, this reads the table DIRECTLY (no contribution
--- needed), so it covers leaders who never donated to FEC but whose employer
--- came from leaders.csv. v_leaders reads employment from here.
-CREATE OR REPLACE VIEW v_donor_newest_employment AS
-SELECT DISTINCT ON (e.donor_id)
-    e.donor_id,
-    emp.name        AS current_employer,     -- name resolved here, once
-    e.occupation    AS current_occupation,
-    e.employer_status,
-    prev.name       AS previous_employer,     -- for "Retired - Previously at X"
-    e.employer_id,
-    e.occupation_category_id,
-    e.previous_employer_id
-FROM donor_employments e
-LEFT JOIN employers emp  ON emp.employer_id  = e.employer_id
-LEFT JOIN employers prev ON prev.employer_id = e.previous_employer_id
--- Newest = the employment in the donor's latest contribution, derived from
--- contributions (no stored date). NULL for leaders who never donated -> the
--- id tiebreaker picks their single employment.
-LEFT JOIN (
-    SELECT donor_employment_id, MAX(receipt_date) AS last_seen
-    FROM contributions
-    GROUP BY donor_employment_id
-) ce ON ce.donor_employment_id = e.donor_employment_id
-ORDER BY
-    e.donor_id,
-    ce.last_seen DESC NULLS LAST,
-    e.donor_employment_id DESC;     -- tiebreaker (covers non-donors)
-
-
--- One row per "key accomplice" - used by the dashboard cards.
--- Brings together: donor identity + newest address + card content + linked committee.
--- No ORDER BY here - the API orders by display_order (the curator's card order).
---
--- PERF NOTE (measured 2026-06-06, ~200k contributions): v_donor_newest_address
--- has no per-donor filter, so it materializes "newest address for EVERY donor"
--- and only then joins down to the ~80 accomplices - a full Seq Scan of
--- contributions per call (~60ms), and it does NOT push a `WHERE donor_key = ...`
--- filter down. Fine at this size; if contributions grows large, promote
--- v_key_accomplices and v_leaders to MATERIALIZED VIEWs refreshed by the
--- loader's refresh step (fec/database/loader/__init__.py
--- refresh_materialized_views) alongside mv_donor_profile.
-CREATE OR REPLACE VIEW v_key_accomplices AS
-SELECT
-    -- Identity
-    k.accomplice_id,
-    d.donor_id,
-    d.donor_key,
-    d.first_name,
-    d.last_name,
-    -- "First Last" (CONCAT_WS skips a missing piece automatically)
-    CONCAT_WS(' ', d.first_name, d.last_name) AS full_name,
-
-    -- Newest address (from v_donor_newest_address - works for non-donors too)
-    addr.street_1,
-    addr.street_2,
-    addr.city,
-    addr.state_code,
-    addr.zip_code,
-    addr.latitude,
-    addr.longitude,
-
-    -- Card content fields
-    k.sign,
-    k.subtitle,
-    k.body_text,
-    di.image_path,
-    k.display_order,
-
-    -- The committee this person is linked to (logo, name, etc.)
-    k.committee_id,
-    cm.committee_name,
-    cm.committee_short,
-    cm.logo_path AS committee_logo
-FROM key_accomplices k
-JOIN donors d                         ON d.donor_id = k.donor_id
-LEFT JOIN committees cm               ON cm.committee_id = k.committee_id
-LEFT JOIN v_donor_newest_address addr ON addr.donor_id = d.donor_id
-LEFT JOIN donor_images di             ON di.donor_id = d.donor_id;
-
-
 -- Leadership - AIPAC / DMFI / etc. leadership roster.
 --
 -- Identity is normalized - one source of truth for each person:
@@ -682,136 +512,6 @@ CREATE TABLE leader_committees (
 );
 -- Reverse lookup: "which leaders sit on committee X".
 CREATE INDEX idx_lc_committee ON leader_committees (committee_id);
-
-
--- One row per "leader" - used by AIPAC / DMFI / etc. dashboard pages.
--- Flat read: identity from donors + address + employment from their helper
--- views (which already pick the newest row and resolve the employer name).
--- Committee membership is M:N (a leader can sit on several committees) and is
--- NOT carried here - the per-committee page filters the junction directly:
---   JOIN leader_committees lc ON lc.leader_id = v.leader_id
---   WHERE lc.committee_id = :committee_id
--- No ORDER BY here - sorting is the query's job (the API orders by name);
--- a view's ORDER BY isn't guaranteed once it's wrapped or joined anyway.
-CREATE OR REPLACE VIEW v_leaders AS
-SELECT
-    l.leader_id,
-    d.donor_id,
-    d.donor_key,
-    d.first_name,
-    d.last_name,
-    CONCAT_WS(' ', d.first_name, d.last_name) AS full_name,
-
-    -- Newest address (works for non-donor leaders too)
-    a.street_1,
-    a.street_2,
-    a.city,
-    a.state_code,
-    a.zip_code,
-    a.latitude,
-    a.longitude,
-
-    -- Current job. employer is NULL for RETIRED / NOT EMPLOYED - the UI then
-    -- falls back to occupation / employer_status. previous_employer powers
-    -- "Retired - Previously at AIPAC".
-    e.current_employer,
-    e.current_occupation,
-    e.employer_status,
-    e.previous_employer,
-
-    -- Personal portrait (NULL/'' -> silhouette in the UI)
-    di.image_path
-FROM leaders l
-JOIN donors d                          ON d.donor_id = l.donor_id
-LEFT JOIN v_donor_newest_address a     ON a.donor_id = d.donor_id
-LEFT JOIN v_donor_newest_employment e  ON e.donor_id = d.donor_id
-LEFT JOIN donor_images di              ON di.donor_id = d.donor_id;
-
-
-CREATE OR REPLACE VIEW v_curated_people AS
-SELECT
-    COALESCE(l.donor_id, k.donor_id) AS donor_id,
-    COALESCE(l.donor_key, k.donor_key) AS donor_key,
-    COALESCE(l.full_name, k.full_name) AS full_name,
-    COALESCE(l.city, k.city) AS city,
-    COALESCE(l.state_code, k.state_code) AS state_code,
-    COALESCE(l.zip_code, k.zip_code) AS zip_code,
-    p.current_employer,
-    p.current_occupation,
-    p.total_amount,
-    array_remove(
-        ARRAY[
-            CASE
-                WHEN l.leader_id IS NOT NULL THEN 'leader'
-            END,
-            CASE
-                WHEN k.accomplice_id IS NOT NULL THEN 'key_accomplice'
-            END
-        ],
-        NULL
-    ) AS roles,
-    k.subtitle,
-    k.body_text,
-    k.committee_name,
-    k.committee_short,
-    k.display_order
-FROM v_leaders l
-FULL OUTER JOIN v_key_accomplices k
-    ON k.donor_id = l.donor_id
-JOIN mv_donor_profile p
-    ON p.donor_id = COALESCE(l.donor_id, k.donor_id);
-
-
--- --- Unified company view - a firm's employees AND its own donation, one row ---
--- A real company can show up two ways: as an EMPLOYER (people who work there and
--- donated) and - if the firm itself gave - as an ORGANIZATION donor. The cleaning
--- step align_org_donor_company_names() rewrites the org-donor's name to the
--- employer firm's canonical spelling (reusing canonical_key), so the two join by
--- a PLAIN name match here - no second normalization, no extra column. One row per
--- employer firm: its employee-donors, and whether/how much the firm itself gave.
--- (A firm that ONLY donated and employs no one stays a plain ORGANIZATION donor.)
-CREATE OR REPLACE VIEW v_company AS
-WITH emp_agg AS (
-    SELECT de.employer_id,
-           COUNT(DISTINCT de.donor_id)   AS employee_donor_count,
-           COALESCE(SUM(c.amount), 0)    AS employee_total
-    FROM donor_employments de
-    LEFT JOIN contributions c ON c.donor_employment_id = de.donor_employment_id
-    GROUP BY de.employer_id
-),
-org_self AS (   -- a firm that itself donated, keyed by the now-aligned name
-    SELECT d.last_name     AS name,
-           SUM(c.amount)   AS firm_donation_total,
-           COUNT(*)        AS firm_donation_count
-    FROM donors d
-    JOIN contributions c ON c.donor_id = d.donor_id
-    WHERE d.entity_type = 'ORGANIZATION'
-    GROUP BY d.last_name
-),
-org_addr AS (   -- the firm's own filing address (org-donor addresses are 100%
-                -- complete) - a fallback when the employer lookup was empty.
-                -- Kept SEPARATE from org_self so a firm with >1 address never
-                -- multiplies its donation sum.
-    SELECT d.last_name AS name, MAX(da.address_id) AS org_address_id
-    FROM donors d
-    JOIN donor_addresses da ON da.donor_id = d.donor_id
-    WHERE d.entity_type = 'ORGANIZATION'
-    GROUP BY d.last_name
-)
-SELECT
-    e.employer_id,
-    e.name                                AS company_name,
-    COALESCE(ea.employee_donor_count, 0)  AS employee_donor_count,
-    COALESCE(ea.employee_total, 0)        AS employee_total,
-    (os.name IS NOT NULL)                 AS firm_also_donated,
-    COALESCE(os.firm_donation_total, 0)   AS firm_donation_total,
-    -- Default company location, then the firm's own filing address.
-    a.street_1, a.city, a.state_code, a.zip_code, a.latitude, a.longitude
-FROM employers e
-LEFT JOIN emp_agg  ea  ON ea.employer_id = e.employer_id
-LEFT JOIN org_self os  ON os.name = e.name
-LEFT JOIN org_addr oad ON oad.name = e.name
-LEFT JOIN addresses a  ON a.address_id = COALESCE(e.address_id, oad.org_address_id);
 
 
 -- ----------------------------------------------------------
