@@ -8,6 +8,7 @@ import pandas as pd
 from fec.cleaning.previous_employer import referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
+from fec.geocoding.pipeline import numbered_street
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
@@ -50,8 +51,8 @@ def _read_json(path) -> dict:
 
 
 def _address_key(values) -> tuple[str, ...]:
-    return tuple(str(values.get(field) or "").strip().upper()
-                 for field in ADDRESS_FIELDS)
+    street, *rest = (str(values.get(field) or "").strip().upper() for field in ADDRESS_FIELDS)
+    return (numbered_street(street), *rest)  # the street form geocode cache keys use
 
 
 def _donor_states(df: pd.DataFrame) -> dict[str, set[str]]:
