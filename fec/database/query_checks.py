@@ -76,116 +76,8 @@ def _at_most(name, query, maximum, label, severity=CRIT):
     return Check(name, severity, fn)
 
 
-# Flat contributions view
-VIEW_CHECKS: list[Check] = [
-    _equal(
-        "v_contributions_cleaned: 1:1 with contributions",
-        "SELECT COUNT(*) FROM v_contributions_cleaned",
-        "SELECT COUNT(*) FROM contributions",
-        "rows",
-    ),
-    _zero(
-        "v_contributions_cleaned: no duplicate sub_id",
-        _sql("""
-            SELECT COUNT(*)
-            FROM (
-                SELECT sub_id
-                FROM v_contributions_cleaned
-                GROUP BY sub_id
-                HAVING COUNT(*) > 1
-            ) AS duplicates
-        """),
-        "duplicate sub_id(s)",
-    ),
-    _zero(
-        "v_contributions_cleaned: no missing sub_id",
-        _sql("""
-            SELECT COUNT(*)
-            FROM contributions AS contribution
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM v_contributions_cleaned AS cleaned
-                WHERE cleaned.sub_id = contribution.sub_id
-            )
-        """),
-        "missing sub_id(s)",
-    ),
-    _zero(
-        "v_contributions_cleaned: amount matches fact",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_contributions_cleaned AS cleaned
-            JOIN contributions AS contribution
-              ON contribution.sub_id = cleaned.sub_id
-            WHERE cleaned.contribution_receipt_amount IS DISTINCT FROM contribution.amount
-        """),
-        "row(s) with wrong amount",
-    ),
-    _zero(
-        "v_contributions_cleaned: year = year(date)",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_contributions_cleaned AS cleaned
-            JOIN contributions AS contribution
-              ON contribution.sub_id = cleaned.sub_id
-            WHERE cleaned.contributor_year
-                  <> EXTRACT(YEAR FROM contribution.receipt_date)::int
-        """),
-        "row(s) with wrong year",
-    ),
-    _zero(
-        "v_contributions_cleaned: individual name = 'LAST, FIRST'",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_contributions_cleaned
-            WHERE entity_type = 'INDIVIDUAL'
-              AND contributor_first_name IS NOT NULL
-              AND contributor_last_name IS NOT NULL
-              AND contributor_name
-                  <> contributor_last_name || ', ' || contributor_first_name
-        """),
-        "malformed individual name(s)",
-    ),
-    _zero(
-        "v_contributions_cleaned: literal 'NULL' surname preserved",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_contributions_cleaned
-            WHERE contributor_last_name = 'NULL'
-              AND contributor_name NOT LIKE 'NULL%'
-        """),
-        "lost NULL surname(s)",
-    ),
-    _zero(
-        "v_contributions_cleaned: recipient_committee resolves",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_contributions_cleaned AS cleaned
-            WHERE cleaned.recipient_committee IS NOT NULL
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM committees AS committee
-                  WHERE committee.committee_short = cleaned.recipient_committee
-              )
-        """),
-        "row(s) with unknown committee",
-    ),
-    _zero(
-        "v_contributions_cleaned: entity_type matches donor",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_contributions_cleaned AS cleaned
-            JOIN donors AS donor
-              ON donor.donor_key = cleaned.donor_key
-            WHERE cleaned.entity_type <> donor.entity_type
-        """),
-        "row(s) with mismatched entity_type",
-    ),
-]
-
-
 # Composed donor profile
-VIEW_CHECKS += [
+VIEW_CHECKS: list[Check] = [
     _equal(
         "v_donor_profile: one row per donor",
         "SELECT COUNT(*) FROM v_donor_profile",
@@ -330,58 +222,21 @@ VIEW_CHECKS += [
         """),
         "donor(s) not on newest address",
     ),
-    _zero(
-        "v_donor_newest_address: one row per donor",
-        _sql("""
-            SELECT COUNT(*)
-            FROM (
-                SELECT donor_id
-                FROM v_donor_newest_address
-                GROUP BY donor_id
-                HAVING COUNT(*) > 1
-            ) AS duplicates
-        """),
-        "donor(s) with >1 row",
-    ),
-    _zero(
-        "v_donor_newest_address: row belongs to the donor",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_donor_newest_address AS newest_address
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM donor_addresses AS donor_address
-                JOIN addresses AS address
-                  ON address.address_id = donor_address.address_id
-                WHERE donor_address.donor_id = newest_address.donor_id
-                  AND address.street_1 IS NOT DISTINCT FROM newest_address.street_1
-                  AND address.city IS NOT DISTINCT FROM newest_address.city
-                  AND address.zip_code IS NOT DISTINCT FROM newest_address.zip_code
-            )
-        """),
-        "row(s) not owned by donor",
-    ),
 ]
 
 
-# Dashboard views
+# Leadership and key accomplice rosters, read straight from the tables
 VIEW_CHECKS += [
-    _equal(
-        "v_key_accomplices: 1:1 with key_accomplices",
-        "SELECT COUNT(*) FROM v_key_accomplices",
-        "SELECT COUNT(*) FROM key_accomplices",
-        "rows",
-    ),
     _zero(
-        "v_key_accomplices: every row named",
-        "SELECT COUNT(*) FROM v_key_accomplices WHERE COALESCE(full_name, '') = ''",
+        "key_accomplices: every row named",
+        _sql("""
+            SELECT COUNT(*)
+            FROM key_accomplices AS accomplice
+            JOIN donors AS donor
+              ON donor.donor_id = accomplice.donor_id
+            WHERE CONCAT_WS(' ', donor.first_name, donor.last_name) = ''
+        """),
         "unnamed row(s)",
-    ),
-    _equal(
-        "v_leaders: 1:1 with leaders",
-        "SELECT COUNT(*) FROM v_leaders",
-        "SELECT COUNT(*) FROM leaders",
-        "rows",
     ),
     _positive(
         "leader_committees: membership is populated",
@@ -395,94 +250,13 @@ VIEW_CHECKS += [
             FROM leader_committees AS membership
             WHERE NOT EXISTS (
                 SELECT 1
-                FROM v_leaders AS leader
+                FROM leaders AS leader
+                JOIN donors AS donor
+                  ON donor.donor_id = leader.donor_id
                 WHERE leader.leader_id = membership.leader_id
             )
         """),
         "orphan junction row(s)",
-    ),
-    _zero(
-        "v_curated_people: one row per donor",
-        _sql("""
-            SELECT COUNT(*)
-            FROM (
-                SELECT donor_id
-                FROM v_curated_people
-                GROUP BY donor_id
-                HAVING COUNT(*) > 1
-            ) AS duplicates
-        """),
-        "duplicate donor(s)",
-    ),
-    _zero(
-        "v_curated_people: leader-only roles",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_curated_people AS curated
-            JOIN v_leaders AS leader
-              ON leader.donor_id = curated.donor_id
-            LEFT JOIN v_key_accomplices AS accomplice
-              ON accomplice.donor_id = curated.donor_id
-            WHERE accomplice.donor_id IS NULL
-              AND curated.roles IS DISTINCT FROM ARRAY['leader']::text[]
-        """),
-        "leader-only row(s) with wrong roles",
-    ),
-    _zero(
-        "v_curated_people: accomplice-only roles",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_curated_people AS curated
-            JOIN v_key_accomplices AS accomplice
-              ON accomplice.donor_id = curated.donor_id
-            LEFT JOIN v_leaders AS leader
-              ON leader.donor_id = curated.donor_id
-            WHERE leader.donor_id IS NULL
-              AND curated.roles IS DISTINCT FROM ARRAY['key_accomplice']::text[]
-        """),
-        "accomplice-only row(s) with wrong roles",
-    ),
-    _zero(
-        "v_curated_people: dual-role roles",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_curated_people AS curated
-            JOIN v_leaders AS leader
-              ON leader.donor_id = curated.donor_id
-            JOIN v_key_accomplices AS accomplice
-              ON accomplice.donor_id = curated.donor_id
-            WHERE curated.roles IS DISTINCT FROM
-                  ARRAY['leader', 'key_accomplice']::text[]
-        """),
-        "dual-role row(s) with wrong roles",
-    ),
-    _zero(
-        "v_curated_people: profile fields match",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_curated_people AS curated
-            JOIN mv_donor_profile AS profile
-              ON profile.donor_id = curated.donor_id
-            WHERE curated.current_employer IS DISTINCT FROM profile.current_employer
-               OR curated.current_occupation IS DISTINCT FROM profile.current_occupation
-               OR curated.total_amount IS DISTINCT FROM profile.total_amount
-        """),
-        "row(s) with wrong profile fields",
-    ),
-    _zero(
-        "v_curated_people: card fields match key accomplices",
-        _sql("""
-            SELECT COUNT(*)
-            FROM v_curated_people AS curated
-            LEFT JOIN v_key_accomplices AS accomplice
-              ON accomplice.donor_id = curated.donor_id
-            WHERE curated.subtitle IS DISTINCT FROM accomplice.subtitle
-               OR curated.body_text IS DISTINCT FROM accomplice.body_text
-               OR curated.committee_name IS DISTINCT FROM accomplice.committee_name
-               OR curated.committee_short IS DISTINCT FROM accomplice.committee_short
-               OR curated.display_order IS DISTINCT FROM accomplice.display_order
-        """),
-        "row(s) with wrong card fields",
     ),
 ]
 
@@ -554,15 +328,9 @@ def _money_conserved(cur):
     stats = _scalar(
         cur, "SELECT COALESCE(SUM(total_amount), 0) FROM v_donor_stats"
     )
-    cleaned = _scalar(
-        cur,
-        "SELECT COALESCE(SUM(contribution_receipt_amount), 0) "
-        "FROM v_contributions_cleaned",
-    )
-    values_match = contributions == stats == cleaned
-    if values_match:
+    if contributions == stats:
         return True, f"${contributions:,.0f} conserved"
-    return False, f"base={contributions} stats={stats} flat={cleaned}"
+    return False, f"base={contributions} stats={stats}"
 
 
 def _build() -> list[Check]:
@@ -639,7 +407,7 @@ def _build() -> list[Check]:
 
     # Money and aggregates
     checks += [
-        Check("money conserved (contributions = stats = flat)", CRIT, _money_conserved),
+        Check("money conserved (contributions = stats)", CRIT, _money_conserved),
         _zero(
             "v_donor_stats = direct aggregate",
             _sql("""

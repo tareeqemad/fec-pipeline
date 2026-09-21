@@ -92,10 +92,9 @@ them in Git and do not replace them with an older snapshot after a pipeline run.
 ## Database views
 
 `fec/database/schema.sql` is the source of truth for the public database schema.
-`v_leaders` and `v_key_accomplices` keep their focused dashboard contracts.
-`v_curated_people` exposes their canonical union, including each person's roles,
-profile totals, employment fields, and key-accomplice card fields. It intentionally
-has no donation threshold; downstream products apply their own eligibility rules.
+The dashboard reads the normalized tables and the `mv_donor_profile` materialized
+view directly. The remaining views (`v_donor_stats`, `v_donor_current_address`,
+`v_donor_current_employment`, `v_donor_profile`) exist to build `mv_donor_profile`.
 
 ## First database setup
 

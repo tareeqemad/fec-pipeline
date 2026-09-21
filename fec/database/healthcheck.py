@@ -10,12 +10,10 @@ from fec.database.query_checks import CRIT as QC_CRIT
 
 CRIT, WARN, OK = "FAIL", "WARN", "ok"
 
-# views/matview the web app depends on
+# views that build mv_donor_profile, the matview the web app reads
 REQUIRED_VIEWS = [
-    "v_contributions_cleaned", "v_donor_profile", "v_donor_stats",
-    "v_donor_current_address", "v_donor_newest_address",
-    "v_donor_current_employment", "v_donor_newest_employment",
-    "v_leaders", "v_key_accomplices", "v_curated_people",
+    "v_donor_profile", "v_donor_stats",
+    "v_donor_current_address", "v_donor_current_employment",
 ]
 REQUIRED_MATVIEWS = ["mv_donor_profile"]
 

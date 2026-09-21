@@ -40,20 +40,10 @@ VIEWS = [
     # Donor profile helpers.
     "v_donor_current_address",
     "v_donor_current_employment",
-    "v_donor_newest_address",  # Leader addresses.
-    "v_donor_newest_employment",  # Leader employment.
     # Donor aggregates.
     "v_donor_stats",
     # Donor profile source.
     "v_donor_profile",
-    # Contribution history.
-    "v_contributions_cleaned",
-    # Dashboard views.
-    "v_leaders",
-    "v_key_accomplices",
-    "v_curated_people",
-    # Company identities.
-    "v_company",
 ]
 
 

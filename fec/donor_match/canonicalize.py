@@ -68,7 +68,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
             kept = [w for w in canon_first.split() if w.upper() not in last_words]
             canon_first = " ".join(kept) or None
 
-        # composite rebuilt from the canonical pair (matches the v_contributions_cleaned CASE)
+        # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
         canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
 
         for i in idx:
