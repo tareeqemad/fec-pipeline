@@ -113,7 +113,7 @@
   },
   "uncategorized_occupations": {
     "distinct": 332,
-    "rows": 373,
+    "rows": 379,
     "examples": [
       {
         "value": "TRUSTEE",
@@ -122,6 +122,10 @@
       {
         "value": "GM",
         "rows": 6
+      },
+      {
+        "value": "EQUESTRIAN",
+        "rows": 5
       },
       {
         "value": "STRATEGY",
@@ -133,6 +137,10 @@
       },
       {
         "value": "STRATEGY ASSOCIATE",
+        "rows": 3
+      },
+      {
+        "value": "BIG SCREEN STORES",
         "rows": 3
       },
       {
@@ -206,14 +214,6 @@
       {
         "value": "GLOBAL BROADCAST TALENT",
         "rows": 2
-      },
-      {
-        "value": "LEARNING AND DEVELOPMENT",
-        "rows": 1
-      },
-      {
-        "value": "SR. MARKET REP ASSOCIATE",
-        "rows": 1
       }
     ]
   }

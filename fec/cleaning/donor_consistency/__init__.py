@@ -14,6 +14,8 @@ from fec.log import get_logger, log_count
 
 from .employer import (
     _employer_substring_variants,
+    _employer_acronym_variants,
+    _own_firm_absorbs_self_employed,
     _employer_typos,
     _fill_employer_from_donor,
     _fill_employer_from_occupation,
@@ -30,6 +32,7 @@ from fec.cleaning.pipeline.address_fixes.recovery import (
 )
 from .occupation import (
     _fill_occupation_from_donor,
+    _fill_self_employed_occupation_from_donor,
     _not_applicable_individual_sweep,
     _rederive_occupation_category,
     _rederive_occupation_status,
@@ -56,11 +59,17 @@ CONSISTENCY_FIXES = (
     ("employer typos", _employer_typos, WORK_FIELDS,
      "employer_spelling_converged_to_donor_dominant", None),
     ("employer substring variants", _employer_substring_variants, WORK_FIELDS,
-     "employer_substring_merged_to_donor_dominant", None),
+     "employer_short_form_merged_into_full_name_same_donor", None),
+    ("employer acronym variants", _employer_acronym_variants, WORK_FIELDS,
+     "employer_acronym_expanded_same_donor", None),
+    ("own firm absorbs self-employed", _own_firm_absorbs_self_employed, WORK_FIELDS,
+     "self_employed_rows_moved_to_donors_own_firm", None),
     ("fill employer from donor", _fill_employer_from_donor, WORK_FIELDS,
      "employer_filled_from_donor_latest_filing", None),
     ("fill occupation from donor", _fill_occupation_from_donor, WORK_FIELDS,
      "occupation_derived_from_donor_same_employer", None),
+    ("fill self-employed occupation from donor", _fill_self_employed_occupation_from_donor, WORK_FIELDS,
+     "self_employed_occupation_replaced_by_donors_real_one", None),
     ("fill employer from occupation", _fill_employer_from_occupation, WORK_FIELDS,
      "employer_derived_from_occupation_category_or_raw_filings", None),
     ("clear not-applicable people", _not_applicable_individual_sweep, WORK_FIELDS,
