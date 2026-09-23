@@ -200,3 +200,29 @@ def _converge_occupation_within_employer(df: pd.DataFrame) -> int:
             df.loc[rows, 'contributor_occupation'] = dominant
             n_fixed += len(rows)
     return n_fixed
+
+
+def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
+    """AW. 'SELF-EMPLOYED' filed as the OCCUPATION says nothing about the job; when the same donor
+    filed a real occupation elsewhere (at the same employer first, otherwise anywhere), that one is used."""
+    indiv = df[df['entity_type'] == 'INDIVIDUAL']
+    occ = indiv['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
+    vague = occ == 'SELF-EMPLOYED'
+    if not vague.any():
+        return 0
+    real = indiv[(occ != '') & ~occ.isin(SKIP_OCCUPATIONS)]
+    by_job = real.groupby(['donor_key', 'contributor_employer'])['contributor_occupation'].agg(lambda s: s.value_counts().index[0])
+    by_donor = real.groupby('donor_key')['contributor_occupation'].agg(lambda s: s.value_counts().index[0])
+    n_fixed = 0
+    for idx in indiv.index[vague]:
+        dk = df.at[idx, 'donor_key']
+        emp = df.at[idx, 'contributor_employer']
+        new = by_job.get((dk, emp)) if pd.notna(emp) else None
+        if new is None:
+            new = by_donor.get(dk)
+        if new is None or new == 'SELF-EMPLOYED':
+            continue
+        df.at[idx, 'contributor_occupation'] = new
+        df.at[idx, 'occupation_category'] = _categorize_final(pd.Series([new])).iloc[0]
+        n_fixed += 1
+    return n_fixed
