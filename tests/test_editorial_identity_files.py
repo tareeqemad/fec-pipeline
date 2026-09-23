@@ -35,3 +35,20 @@ def test_people_shared_by_editorial_files_share_one_key():
         )
         if identity in leaders:
             assert row["donor_key"] == leaders[identity], row["accomplice_name"]
+
+
+def test_roster_addresses_are_uppercase_like_the_fec_data():
+    # the dashboard matches cities exactly against uppercase FEC values
+    for filename, prefix in (("leaders.csv", "leader"), ("key_accomplices.csv", "accomplice")):
+        for row in _rows(filename):
+            for field in ("street_1", "street_2", "city", "state"):
+                value = row.get(f"{prefix}_{field}", "")
+                assert value == value.upper(), (filename, row["donor_key"], field, value)
+
+
+def test_a_person_in_both_rosters_has_one_address_spelling():
+    fields = ("street_1", "street_2", "city", "state", "zip")
+    leaders = {r["donor_key"]: tuple(r[f"leader_{f}"] for f in fields) for r in _rows("leaders.csv")}
+    for row in _rows("key_accomplices.csv"):
+        if row["donor_key"] in leaders:
+            assert tuple(row[f"accomplice_{f}"] for f in fields) == leaders[row["donor_key"]], row["accomplice_name"]
