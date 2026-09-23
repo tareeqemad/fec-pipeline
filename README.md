@@ -199,3 +199,4 @@ python -m fec.database.healthcheck
 - `data/` contains inputs, outputs, caches, and reviewed rules.
 - `tests/` protects cleaning, matching, resolving, and loading behavior.
 - `docs/CODE_MAP.md` lists every module, the exact order the cleaning rules run in, and which code reads each reference CSV.
+- `tools/audits/` holds the raw-vs-cleaned audits (addresses, names, self-employed) and the final verification; run them after every pipeline run.
