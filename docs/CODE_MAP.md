@@ -11,7 +11,7 @@ How the pipeline is laid out and in which order every rule runs. Read this top t
 | `resolve.py --apply` | `fec/resolve/` | cleaned CSV, `data/manual_employer_addresses.csv`, `data/manual_employer_overrides.csv` | employer address/previous-employer columns in the cleaned CSV, `data/resolve_*.json` caches |
 | `geocode.py` | `fec/geocoding/` | cleaned CSV, `data/geocode_cache.json`, `data/database/zip_centroids.csv` | contributor `latitude`/`longitude` |
 | `geocode.py --employer-only` | `fec/geocoding/` + `build_employers.py` | employer address cache | `data/employer_locations.csv` |
-| `sync_rosters.py` | `fec/database/roster_sync.py` | cleaned CSV | `data/database/leaders.csv`, `data/database/key_accomplices.csv` (FEC-linked rows only) |
+| `sync_rosters.py` | `fec/database/roster_sync.py` | cleaned CSV | `data/database/leaders.csv`, `data/database/key_accomplices.csv`: FEC-linked rows take the newest filing; editorial-only US streets are put through the cleaning's own street normaliser |
 | `loader.py --reset` | `fec/database/loader/` | everything above | PostgreSQL `fec_db` |
 | `python -m fec.database.healthcheck` | `fec/database/query_checks.py` | the database | report only |
 
@@ -21,8 +21,8 @@ How the pipeline is laid out and in which order every rule runs. Read this top t
 - `fec/cleaning/` — everything `clean.py` does. Orchestration in `pipeline/core.py`; field cleaners in `pipeline/names.py`, `pipeline/address_stage.py`, `occupations/`; row rules in `record_rules.py`; guard rules in `safety_nets/`; per-donor rules in `donor_consistency/` and `pipeline/donor_stage.py`; employer-name unification in `employer_synonyms/`; quality gates in `quality.py`.
 - `fec/donor_match/` — assigns one `donor_key` per person (`matcher.py`, `phases.py`, `scoring.py`) and applies the verified merge/separate rules from `data/database/donor_identity_rules.csv` (`rules.py`).
 - `fec/resolve/` — fills `previous_employer` (cross-record, then FEC API) and employer addresses (manual file, then AI web lookup), see `pipeline/cli.py` for the step order.
-- `fec/geocoding/` — Census, then Nominatim, then city-level fallback; foreign filings are never geocoded.
-- `fec/database/` — schema (`schema.sql`), loader steps (`loader/`), roster linking (`leadership_matcher.py`, `loader/leadership.py`), roster sync (`roster_sync.py`), read-only checks (`query_checks.py`, `healthcheck.py`).
+- `fec/geocoding/` — Census, then Nominatim, then a ZIP-centroid fallback (a city pin only when no ZIP centroid fits); foreign filings are never geocoded. A street match outside the filed ZIP is accepted only if the same street is found inside the ZIP, or Census and Nominatim agree within 1 km inside the filed city; otherwise the ZIP centroid is used. Hand-checked ZIP typos live in `reviewed_points.py`. Foreign employer offices go only to the international engine and are kept only if the result is outside the US. `build_employers.py` writes US employer addresses in the same uppercase USPS style as donor addresses, so one building is one address row.
+- `fec/database/` — schema (`schema.sql`), loader steps (`loader/`), roster linking (`leadership_matcher.py`, `loader/leadership.py`), roster sync (`roster_sync.py`), read-only checks (`query_checks.py`, `healthcheck.py`). One employment row per (donor, employer, occupation, employer_status), so each filing keeps the status it reported; a retired donor previously self-employed is stored as `previous_self_employed` and shown as `SELF-EMPLOYED` by `v_donor_profile.previous_employer`. Roster employments take their employer's workplace address like FEC ones.
 
 ## Execution order inside `clean.py`
 
@@ -56,7 +56,7 @@ Every step below is an `AuditTrail` step; its change count appears under the sam
 | `address_rules.csv` | `cleaning/pipeline/address_fixes/verified.py` | verified address corrections |
 | `zip_centroids.csv`, `zcta_state_rel.csv`, `us_states.csv` | geocoding, resolve, address fixes, loader | ZIP geography |
 | `committees.csv` | `fec/committees.py`, loader | tracked committees |
-| `leaders.csv`, `key_accomplices.csv` | `database/loader/leadership.py`, `database/roster_sync.py` | editorial rosters keyed by `donor_key`; FEC-linked rows are synced by `sync_rosters.py` |
+| `leaders.csv`, `key_accomplices.csv` | `database/loader/leadership.py`, `database/roster_sync.py` | editorial rosters keyed by `donor_key`; FEC-linked rows are synced by `sync_rosters.py`. Committees are referenced by `committee_short` (`{AIPAC,DMFI}`, `ZOA`), never by id; the loader resolves them through the committees table and stops on an unknown name |
 
 Columns kept for humans only (no code reads them): `source` in the name/employer rules, `zip_a/zip_b/evidence/combined_amount/note` in the identity rules, `note` in entity overrides, `source/fetched_at` in ZIP centroids, `accomplice_role`, `accomplice_country`.
 
@@ -66,3 +66,12 @@ Columns kept for humans only (no code reads them): `source` in the name/employer
 - `apply_employer_synonyms` runs three times (record rules, employer finalisation, donor stage); the donor-stage abbreviation/ASSOC companions change nothing on current data.
 - `safety_nets/occupation.py::_reclassify_other_category` is a subset of `donor_consistency/occupation.py::_rederive_occupation_category`, which runs later on every row.
 - Several safety-net guards change nothing on the current data; they stay as insurance because the audit only records surviving changes.
+
+## Rules added after the 2026-09-23 database audit
+
+- **Employer text:** digits that belong to a company name are kept (GENESIS10, ROC360, CENTURY21 KING REALTY; only a status word with stray digits such as SELF EMPLOYED47 loses them, `occupations/normalize.py`). Loose or doubled slashes between two employers become " / " (`employer_synonyms/apply.py::tidy_slash_spacing`). A whitespace-only spelling difference keeps the word breaks the same filers use in the company's full name (TWIN CITY FAN, ATRIUM HEALTH; `occupations/employer_groups.py`).
+- **Street text:** OFFICE followed by a place word is part of the street (5 GREENWICH OFFICE PARK, 1 POST OFFICE SQ; `config/streets.py::UNIT_EXTRACT`); a street_1 that is only a floor (3RD FLOOR) is a unit; placeholder street_2 values ('.', NONE, HOME) are NULL (`addresses.py`).
+- **Foreign filings:** extra foreign and ambiguous cities and single reviewed sub_ids live in `foreign_addresses.py` (`_MORE_FOREIGN_CITIES`, `_MORE_AMBIGUOUS_CITIES`, `REVIEWED_FOREIGN_SUB_IDS`).
+- **Previous employer:** a RETIRED marker around a company is stripped (GOLDMAN SACHS-RETIRED -> GOLDMAN SACHS); bare job titles are not employers (`config/constants.py::OCCUPATION_TITLE_EMPLOYERS`); canonical names are uppercase.
+- **Categories:** COUNSEL is LEGAL only as a word (school counselors -> EDUCATION, mental-health counselors -> MEDICAL / HEALTHCARE); INVESTIGATOR is not FINANCE; C-suite titles match only as whole words (COORDINATOR is not COO); elected and diplomatic titles go to GOVERNMENT / MILITARY.
+- **Display names** (`donor_match/canonicalize.py`, after donor keys are assigned, so keys never change): the majority clean spelling wins over decorated variants ("JOHN.", "KENNETH (ELLEN)"); a leading middle initial stuck to the surname moves to the first name; ties are not broken alphabetically.

@@ -66,7 +66,7 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
 
     raw = pd.read_csv(
         raw_csv_path,
-        usecols=["contributor_employer"],
+        usecols=lambda column: column in ("contributor_employer", "contributor_name"),
         dtype=str,
         keep_default_na=False,
         low_memory=False,
@@ -92,6 +92,7 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     most_common_form = (
         raw.groupby("key")["emp"].agg(lambda values: values.mode().iloc[0]).to_dict()
     )
+    _prefer_attested_spacing_forms(raw, most_common_form)
 
     indiv_idx = _indiv_idx(df)
     current = _norm(df.loc[indiv_idx, "contributor_employer"])
@@ -109,6 +110,41 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     if n_changed:
         df.loc[target[changed_mask], "contributor_employer"] = new_values[changed_mask]
     return n_changed
+
+
+def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) -> None:
+    """Keep the display form's word breaks consistent with occ_canonicalize_employers: a raw mode 'TWINCITY FAN' yields to 'TWIN CITY FAN' when the same filers write 'TWIN CITY FAN COMPANIES LTD'."""
+    if "contributor_name" not in raw.columns:
+        return
+    # imported here: the occupations package imports this one at load time
+    from fec.cleaning.occupations.employer_groups import (
+        _employer_group_key,
+        employer_filers,
+        employer_group_words,
+        prefer_attested_spacing,
+        spacing_index,
+    )
+
+    candidates = {}
+    for key, forms in raw.groupby("key")["emp"].unique().items():
+        if len(forms) < 2:
+            continue
+        # only the mode's strict spacing variants compete, never a different
+        # name that merely shares the looser canonical_key
+        strict = _employer_group_key(most_common_form[key])
+        siblings = [form for form in forms if _employer_group_key(form) == strict]
+        if len({employer_group_words(form) for form in siblings}) > 1:
+            candidates[key] = siblings
+    if not candidates:
+        return
+
+    counts = raw["emp"].value_counts()
+    filers = employer_filers(raw["emp"], raw["contributor_name"])
+    index = spacing_index(counts.index)
+    for key, siblings in candidates.items():
+        most_common_form[key] = prefer_attested_spacing(
+            most_common_form[key], siblings, counts, filers, index,
+        )
 
 
 def _employer_counts(df: pd.DataFrame, indiv_idx, columns: list[str]):

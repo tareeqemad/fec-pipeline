@@ -25,6 +25,29 @@ from .addresses import load_employer_locations, _akey
 
 logger = get_logger(__name__)
 
+# The previous_employer contract (fec/cleaning/previous_employer.py) keeps this
+# literal because it is real information, but it is not a company: it gets no
+# employers row and is stored as donor_employments.previous_self_employed.
+PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
+
+# One donor_employments row per filing identity.  employer_status is part of
+# it because RETIRED / SELF-EMPLOYED / NOT EMPLOYED / blank all resolve to
+# employer_id NULL: without the status a donor's SELF-EMPLOYED ATTORNEY and
+# RETIRED ATTORNEY filings would share one row and one status.  Must match the
+# UNIQUE NULLS NOT DISTINCT constraint in schema.sql.
+EMPLOYMENT_KEY_COLUMNS = ("donor_id", "employer_id", "occupation", "employer_status")
+
+
+def employment_key(donor_id, employer_id, occupation, employer_status) -> tuple:
+    """The identity of an employment; NaN becomes None so NULL equals NULL, like the constraint."""
+    employer_id = to_native(employer_id)
+    return (
+        int(donor_id),
+        None if employer_id is None else int(employer_id),
+        to_native(occupation),
+        to_native(employer_status),
+    )
+
 
 def _location_index(
     employer_locations: list[dict] | None = None,
@@ -107,12 +130,16 @@ def _employment_address_id(
 
 
 def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
-    """Keep the latest complete filing."""
+    """Keep the latest complete filing per raw employment and status."""
     keys = [
         "donor_key",
         "contributor_employer",
         "contributor_occupation",
     ]
+    # A status is part of the employment identity, so a filing whose status
+    # differs from a newer one with the same raw text keeps its own candidate.
+    if "employer_status" in individuals.columns:
+        keys.append("employer_status")
     return (
         individuals.sort_values(
             "contribution_receipt_date",
@@ -161,31 +188,70 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     return emp_name_to_id
 
 
+def _latest_previous_employers(df: pd.DataFrame) -> pd.DataFrame:
+    """Each donor's newest retired filing that names a previous employer."""
+    if 'previous_employer' not in df.columns:
+        return df.iloc[0:0]
+    prev_emp = df[
+        df['previous_employer'].notna()
+        & df['employer_status'].eq('retired')
+    ]
+    return (prev_emp.sort_values('contribution_receipt_date', ascending=False)
+            .drop_duplicates('donor_key', keep='first'))
+
+
+def _is_previous_self_employed(name) -> bool:
+    return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
+
+
+def previous_self_employed_donors(df: pd.DataFrame) -> set[str]:
+    """Donors whose newest previous employer is the contract's 'SELF-EMPLOYED'.
+
+    Same donor-level selection as link_previous_employers, so a donor gets
+    either a previous company or this flag, never both.
+    """
+    latest = _latest_previous_employers(df)
+    if len(latest) == 0:
+        return set()
+    flagged = latest['previous_employer'].map(_is_previous_self_employed)
+    donors = set(latest.loc[flagged, 'donor_key'])
+    if donors:
+        logger.info(f"  previous_employer: {len(donors):,} donors previously self-employed")
+    return donors
+
+
+def _previous_self_employed(status, donor_key, donors: set[str]) -> bool:
+    """Like previous_employer_id, the flag belongs only to retired rows."""
+    return status == "retired" and donor_key in donors
+
+
 def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
                             emp_name_to_id: dict) -> dict[str, int]:
     """Step 3: link exact previous-employer names."""
     logger.info("\n-- 3/8 Linking previous employers --")
 
     donor_prev_employer_id: dict[str, int] = {}
-    if 'previous_employer' not in df.columns:
+    prev_latest = _latest_previous_employers(df)
+    if len(prev_latest) == 0:
         return donor_prev_employer_id
-    prev_emp = df[
-        df['previous_employer'].notna()
-        & df['employer_status'].eq('retired')
-    ]
-    if len(prev_emp) == 0:
-        return donor_prev_employer_id
-
-    prev_latest = (prev_emp.sort_values('contribution_receipt_date', ascending=False)
-                   .drop_duplicates('donor_key', keep='first'))
 
     prev_names = set()
+    dropped: set[str] = set()
     for name in prev_latest['previous_employer']:
         employer_name = str(name).strip()
         if not is_real_employer(employer_name):
+            # SELF-EMPLOYED is stored as previous_self_employed; anything
+            # else breaks the previous_employer contract and is not stored.
+            if not _is_previous_self_employed(employer_name):
+                dropped.add(employer_name)
             continue
         if employer_name not in emp_name_to_id:
             prev_names.add(employer_name)
+    if dropped:
+        logger.warning(
+            "  previous_employer: %d non-company value(s) not stored: %s",
+            len(dropped), ", ".join(repr(name) for name in sorted(dropped)[:10]),
+        )
     if prev_names:
         execute_values(cur,
             "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
@@ -209,8 +275,14 @@ def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
 def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                      occ_cat_map: dict, donor_prev_employer_id: dict,
                      get_employer_id, addr_dim_id: dict | None = None,
-                     employer_locations: list[dict] | None = None) -> dict:
-    """Step 6: donor_employments rows; returns (donor_id, employer_id, occupation) -> donor_employment_id."""
+                     employer_locations: list[dict] | None = None,
+                     previous_self_employed: set[str] | None = None) -> dict:
+    """Step 6: donor_employments rows; returns employment_key(...) -> donor_employment_id.
+
+    The key is (donor_id, employer_id, occupation, employer_status), so every
+    filing keeps the status it reported (and a retired filing its previous
+    employer) even when several statuses share employer_id NULL.
+    """
     logger.info("\n-- 6/8 Loading donor employments --")
     start = time.time()
 
@@ -245,7 +317,7 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
                 f"cleaned employer has no exact database match: {employer_name!r}"
             )
 
-        dedup_key = (donor_id, emp_id, occ or '')
+        dedup_key = employment_key(donor_id, emp_id, occ, emp_status)
         if dedup_key in seen_empl:
             continue
         seen_empl.add(dedup_key)
@@ -258,6 +330,16 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
             donor_key,
             donor_prev_employer_id,
         )
+        prev_self_employed = _previous_self_employed(
+            emp_status,
+            donor_key,
+            previous_self_employed or set(),
+        )
+        if prev_self_employed and prev_emp_id is not None:
+            raise RuntimeError(
+                "previous employer is both a company and SELF-EMPLOYED: "
+                f"donor_key={donor_key}"
+            )
 
         if emp_id:
             location_employer = employer_name
@@ -275,21 +357,25 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
 
         empl_rows.append((
             donor_id, emp_id, occ, occ_cat_id,
-            emp_status, prev_emp_id, location_address_id,
+            emp_status, prev_emp_id, prev_self_employed, location_address_id,
         ))
 
     execute_values(cur,
         """INSERT INTO donor_employments
            (donor_id, employer_id, occupation, occupation_category_id,
-            employer_status, previous_employer_id, address_id)
+            employer_status, previous_employer_id, previous_self_employed,
+            address_id)
            VALUES %s ON CONFLICT DO NOTHING""",
         empl_rows, page_size=5000)
     conn.commit()
 
     # Build employment lookup.
-    cur.execute("SELECT donor_employment_id, donor_id, employer_id, occupation FROM donor_employments")
+    cur.execute(
+        "SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS)
+        + " FROM donor_employments"
+    )
     empl_donor_emp_to_id = {}
     for row in cur.fetchall():
-        empl_donor_emp_to_id[(row[1], row[2], row[3])] = row[0]
+        empl_donor_emp_to_id[employment_key(*row[1:])] = row[0]
     logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
     return empl_donor_emp_to_id

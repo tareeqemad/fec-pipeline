@@ -14,10 +14,23 @@ POBOX_RE = re.compile(
 UNIT_EXTRACT = re.compile(
     r'(?:\s+|,\s*)'
     r'((?:APT|APARTMENT|UNIT|STE|SUITE|BLDG|BUILDING|DEPT|DEPARTMENT'
-    r'|OFF|OFFICE|FLOOR|RM|ROOM|PH|PENTHOUSE)'
+    # OFFICE followed by a place word is part of the street's name ("5 GREENWICH
+    # OFFICE PARK", "1 POST OFFICE SQ"), not a unit
+    r'|(?:OFF|OFFICE)(?!\.?\s+(?:PARK|PLAZA|PLZ|CENTER|CENTRE|CTR|PKWY|PARKWAY|SQ|SQUARE'
+    r'|CAMPUS|COMPLEX|TOWER|TWR|DR|DRIVE|BLVD|WAY|CT|COURT|PL|PLACE|RD|ROAD|ST|STREET'
+    r'|AVE|AVENUE|LN|LANE|CIR|TER|BLDG|BUILDING)\b)'
+    r'|FLOOR|RM|ROOM|PH|PENTHOUSE)'
     r'\.?\s+[\w\-\/\.]+\s*'
     r'|(?:FL|FLR)\.?\s+\d{1,2}\s*'  # FL/FLR only with 1-2 digit floor (avoids FL=Florida+ZIP)
     r')$',
+    re.IGNORECASE,
+)
+
+# A street_1 that is ONLY a floor ("3RD FLOOR", "FLOOR 3", "12 FL"): a unit, not
+# a street; the house-number cap (3 digits) keeps "FL 33480" (state + ZIP) out
+FLOOR_ONLY_RE = re.compile(
+    r'^(?:\d{1,3}(?:ST|ND|RD|TH)?\s+(?:FLOOR|FLR|FL)'
+    r'|(?:FLOOR|FLR|FL)\s+\d{1,3}(?:ST|ND|RD|TH)?)\.?$',
     re.IGNORECASE,
 )
 

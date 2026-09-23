@@ -112,6 +112,8 @@ SELF_EMPLOYED_TYPOS = frozenset({
 RETIRED_TYPO_EMPLOYERS = frozenset({
     'TETIRED', 'RETURED', 'RETIERD', 'RETIED', 'REITRED', 'RETIREE',
     'RETIREED', 'RERTIRED', 'RETIRD', 'REIRED', 'REITERED', 'RETITED',
+    # seen as a previous employer copied from an older FEC filing
+    'RETIREF',
 })
 
 # Raw FEC status words -> normalized. The raw-recovery step (post-merge AL)
@@ -244,6 +246,10 @@ SECTOR_AS_EMPLOYER = frozenset({
     'COLLEGE', 'A BANK', 'CDN PROVIDER', 'STARTUP', 'STEALTH STARTUP',
     # government: names the sector, not the agency
     'STATE EMPLOYEE', 'FEDERAL EMPLOYEE', 'LOCAL GOVERNMENT',
+    # a kind of workplace / line of work, like HEDGE FUND and LAW OFFICE:
+    # OFFICE (occ MANAGER), FAMILY OFFICE (occ INVESTOR / PORTFOLIO MANAGER /
+    # ASSOCIATE), REAL ESTATE SALES (occ REALTOR)
+    'OFFICE', 'FAMILY OFFICE', 'REAL ESTATE SALES',
 })
 
 # Job titles that appear as employer (swap candidates).
@@ -257,6 +263,9 @@ JOB_TITLE_AS_EMPLOYER = frozenset({
 SELF_EMPLOYED_OCC_AS_EMP = frozenset({
     'DESIGNER', 'CATER', 'CATERER', 'WRITER', 'ARTIST', 'SALES',
     'REAL ESTATE', 'PERSONAL', 'BUSINESS', 'FARMING', 'TRADER',
+    # filed both ways by one donor (SELF EMPLOYED / TRUST DEED INVESTMENTS and
+    # TRUST DEED INVESTMENTS / SELF-EMPLOYED): a line of work, not a firm
+    'TRUST DEED INVESTMENTS',
 })
 
 # Legal suffixes (LLC, INC, CORP, LTD...) stripped from employer names for matching.
@@ -269,6 +278,43 @@ LEGAL_SUFFIX_RE = re.compile(
     r'\s*\.?\s*$',
     re.IGNORECASE,
 )
+
+# Bare professions / job titles / lines of business written in an employer
+# box. Each was found as a previous_employer (copied verbatim from a donor's
+# older filing) and checked: none names a company. They are NOT added to
+# OCCUPATION_AS_EMPLOYER / ROLE_AS_EMPLOYER / SECTOR_AS_EMPLOYER because those
+# sets also drive the current-employer swap nets (ADMINISTRATOR and
+# INVESTMENT MANAGEMENT are swapped back against a company in the occupation
+# box, and nulling them first would lose that company). Listing them in
+# NOT_REAL_EMPLOYER only answers "is this a company?" - no.
+OCCUPATION_TITLE_EMPLOYERS = frozenset({
+    # professions
+    'MEDICAL DOCTOR', 'CHIROPRACTOR', 'OPHTHALMOLOGIST', 'PERIODONTIST',
+    'PSYCHOTHERAPIST', 'SPEECH PATHOLOGIST', 'SCIENTIST', 'WRITER',
+    'ARTIST', 'PRODUCER', 'OPERA SINGER', 'PHOTOGRAPHER',
+    'INTERIOR DESIGNER', 'PERSONAL TRAINER', 'BOOKKEEPER', 'FARMER',
+    'CONTRACTOR', 'BUILDER', 'LAND DEVELOPER', 'REAL ESTATE BROKER',
+    'PROPERTY OWNER', 'FUNDRAISER', 'MANAGEMENT CONSULTANT',
+    'FINANCIAL CONSULTANT',
+    # professions cached from a retiree's older FEC filing (each is the whole
+    # cached employer; no filer ever used one as a current employer)
+    'BUILDING CONSULTANT', 'PLANNING CONSULTANT', 'COMPUTER CONSULTANT',
+    'MUSEUM EDUCATION CONSULTANT', 'BOND BROKER', 'SOFTWARE DESIGNER',
+    'SCRAP DEALER', 'ANTIQUE DEALER', 'RESIDENTIAL REAL ESTATE APPRAISER',
+    'BROADCASTER', 'COMMUNITY ACTIVIST', 'COMMUNITY VOLUNTEER LEADER',
+    'MUSEUM FOUNDER', 'ORTHOPAEDIC SURGEON', 'ORTHOPEDIC SURGEON',
+    # the profession left after a RETIRED marker in the filed text
+    # ("RETIRED JUDGE", "RETIRED ORAL SURGEON", ...): the donor's old job
+    'JUDGE', 'JUDGE MEDIATOR', 'FAMILY PHYSICIAN', 'ORAL SURGEON',
+    'GENERAL CONTRACTOR', 'ASSISTANT DEAN', 'JEWISH EDUCATOR (DIRECTOR)',
+    'MILITARY AND BUSINESS OWNER',
+    # job titles
+    'ADMINISTRATOR', 'EXECUTIVE DIRECTOR', 'SENIOR MANAGING DIRECTOR',
+    'BUSINESS EXECUTIVE', 'BOARD OF DIRECTORS', 'ADMIN',
+    # lines of business, not a firm (like FINANCIAL SERVICES below)
+    'INVESTMENTS', 'INVESTMENT MANAGEMENT', 'PARTNERSHIPS',
+    'SEMICONDUCTOR SECTOR', 'IT SERVICES',
+})
 
 # The shared answer to "is this string a company?" — resolve skips AI lookup
 # for these, the loader keeps them out of the employers table, and the
@@ -289,7 +335,7 @@ NOT_REAL_EMPLOYER = frozenset({
     "BUSINESSMAN", "BUSINESSWOMAN", "ENTREPRENEUR", "PHILANTHROPIST", "EXECUTIVE",
     # industries / sectors written instead of an employer
     "REAL ESTATE", "HEALTHCARE", "HEALTH CARE", "FINANCE", "FINANCIAL SERVICES",
-}) | SKIP_EMPLOYERS | REFUSAL_EMPLOYERS
+}) | SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | RETIRED_TYPO_EMPLOYERS | OCCUPATION_TITLE_EMPLOYERS
 
 # Checked against state to avoid false positives (London OH, etc.)
 FOREIGN_CITIES_NO_US_STATE = frozenset({

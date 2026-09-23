@@ -15,7 +15,9 @@ Rules
 - The address is replaced only by a sourced public work address (office_kind
   other than none_public, confidence not low). Rows with no public work
   address keep their existing address untouched and are listed for review.
-  Home addresses are never researched.
+  Home addresses are never researched. A US office street is written in the
+  pipeline's own style (clean_streets via roster_sync.pipeline_streets: AVE,
+  BLVD, suite in street_2); a foreign office is kept exactly as sourced.
 - Every change is written to data/_review/roster_editorial_verification.csv
   (old value, new value, sources, confidence) so any row can be reverted.
 
@@ -35,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fec.cleaning.employer_synonyms import canonical_key  # noqa: E402
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS  # noqa: E402
-from fec.database.roster_sync import read_roster, write_roster  # noqa: E402
+from fec.database.roster_sync import pipeline_streets, read_roster, write_roster  # noqa: E402
 from fec.env import CLEANED_CSV, PROJECT_ROOT  # noqa: E402
 from fec.geocoding import engines  # noqa: E402
 
@@ -62,6 +64,14 @@ def canonical_employer(name: str, vocab: dict[str, str]) -> str:
         return ""
     name = EMPLOYER_SYNONYMS.get(name, name)
     return vocab.get(canonical_key(name), name)
+
+
+def office_streets(office: dict) -> tuple[str, str]:
+    """A US office in the pipeline's own street style (clean_streets); a foreign one exactly as sourced."""
+    street_1, street_2 = office["street_1"], office.get("street_2", "") or ""
+    if (office.get("country") or "US") != "US":
+        return street_1, street_2
+    return pipeline_streets(street_1, street_2)
 
 
 def geocode(office: dict) -> tuple[str, str]:
@@ -126,10 +136,9 @@ def main(results_path: str, dry_run: bool) -> int:
                     row[f"{p}_employer"] = employer or row.get(f"{p}_employer", "")
                     row[f"{p}_occupation"] = occupation or row.get(f"{p}_occupation", "")
                 if use_office and status != "deceased":
-                    row[f"{p}_street_1"] = office["street_1"]
-                    row[f"{p}_street_2"] = office.get("street_2", "")
-                    row[f"{p}_city"] = office["city"]
-                    row[f"{p}_state"] = office.get("state", "")
+                    row[f"{p}_street_1"], row[f"{p}_street_2"] = office_streets(office)
+                    row[f"{p}_city"] = office["city"].strip().upper()
+                    row[f"{p}_state"] = (office.get("state") or "").strip().upper()
                     row[f"{p}_zip"] = office.get("zip", "")
                     if f"{p}_country" in row:
                         country = office.get("country") or "US"

@@ -1,14 +1,21 @@
 """Build employer locations after employer geocoding."""
 
 import json
+import re
 from collections import defaultdict
 
 import pandas as pd
 
+from fec.cleaning.addresses import _normalize_street, _normalize_unit, clean_cities
 from fec.cleaning.previous_employer import referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
+from fec.config.streets import UNIT_EXTRACT
 from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
-from fec.geocoding.pipeline import numbered_street
+from fec.geocoding.pipeline import (
+    accepted_coordinates,
+    is_foreign_address,
+    numbered_street,
+)
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
@@ -41,6 +48,11 @@ TRUST_RANK = {
     "uncorroborated": 1,
     "": 0,
 }
+# a researcher's note inside the street text: "200 Liberty Street, 6th Floor (Brookfield Place)"
+_EDITORIAL_NOTE_RE = re.compile(r"\s*\([^()]*\)")
+_ZIP_PLUS_FOUR_RE = re.compile(r"^(\d{5})-?\d{4}$")
+# a unit number: a single letter, or a code with at least one digit (700, 2A, E-100, 12/B)
+_UNIT_CODE_RE = re.compile(r"[A-Z]|(?=[A-Z0-9\-/.]*\d)[A-Z0-9][A-Z0-9\-/.]*", re.IGNORECASE)
 
 
 def _read_json(path) -> dict:
@@ -81,13 +93,79 @@ def _trust(method: str, state: str, donor_states: set[str]) -> tuple[str, str]:
 
 
 def _geocodes() -> dict[tuple[str, ...], tuple[object, object]]:
+    """Cached coordinates the key's own address accepts (a foreign office never takes a US match)."""
     cache = _read_json(DATA_DIR / "geocode_cache.json")
     coordinates = {}
     for key, result in cache.items():
         parts = tuple(part.strip().upper() for part in key.split("|"))
-        if len(parts) == 4 and result.get("lat") is not None:
-            coordinates[parts] = (result["lat"], result["lng"])
+        if len(parts) != 4:
+            continue
+        latitude, longitude, _level = accepted_coordinates("|".join(parts), result)
+        if latitude is not None:
+            coordinates[parts] = (latitude, longitude)
     return coordinates
+
+
+def normalize_us_streets(streets: pd.Series) -> pd.Series:
+    """Employer street text in the donor-address form: notes in parentheses dropped, then the donor street normaliser (uppercase, USPS street types and directions). The suite/floor stays on the line: employer addresses have no street_2, and the donor unit split would drop a 'BUILDING 600' in front of the suite."""
+    text = streets.fillna("").astype(str).str.replace(_EDITORIAL_NOTE_RE, " ", regex=True)
+    text = text.str.split().str.join(" ")
+    normalized = text.map(_normalize_street)
+    # a text the street normaliser reads as junk (a bare number) is kept, uppercased
+    keep = normalized.notna() & normalized.astype(str).ne("")
+    streets = normalized.where(keep, text.str.upper()).astype(str).str.strip()
+    return streets.map(_abbreviate_trailing_unit)
+
+
+def _abbreviate_trailing_unit(street: str) -> str:
+    """'... SUITE 700' -> '... STE 700' with the donor unit normaliser; only the last unit, so nothing before it is lost.
+
+    Only a real unit code counts: digits, a single letter, or letters and digits
+    (700, C, 2A, E-100, PH1). '700 OFFICE PKWY', '1 POST OFFICE SQ' and 'RAYBURN HOUSE
+    OFFICE BUILDING' end in a street or building name, not a unit, and stay as they are.
+    """
+    match = UNIT_EXTRACT.search(street)
+    if not match:
+        return street
+    unit_text = match.group(1).strip()
+    if not _UNIT_CODE_RE.fullmatch(unit_text.split()[-1]):
+        return street
+    unit = _normalize_unit(unit_text)
+    if not isinstance(unit, str) or not unit:
+        return street
+    return f"{street[:match.start()].rstrip(' ,')} {unit}".strip()
+
+
+def normalize_us_cities(cities: pd.Series, states: pd.Series) -> pd.Series:
+    """Employer city in the donor-address form (uppercase, FOXBOROUGH -> FOXBORO, ST. LOUIS -> SAINT LOUIS)."""
+    frame = pd.DataFrame({
+        "contributor_city": cities.fillna("").astype(str).str.strip(),
+        "contributor_state": states.fillna("").astype(str).str.strip().str.upper(),
+    })
+    cleaned, _counts = clean_cities(frame, fuzzy=False)
+    return cleaned["contributor_city"].fillna("").astype(str)
+
+
+def normalize_location_addresses(frame: pd.DataFrame) -> pd.DataFrame:
+    """US employer addresses in the uppercase USPS form donor addresses use; foreign ones stay exactly as given."""
+    frame = frame.copy()
+    for field in ADDRESS_FIELDS:
+        frame[field] = frame[field].fillna("").astype(str).str.strip()
+    foreign = pd.Series(
+        [is_foreign_address(state, zipcode)
+         for state, zipcode in zip(frame["employer_state"], frame["employer_zip"])],
+        index=frame.index, dtype=bool,
+    )
+    has_place = frame[list(ADDRESS_FIELDS)].ne("").any(axis=1)
+    us = ~foreign & has_place
+    if not us.any():
+        return frame
+    rows = frame.loc[us]
+    frame.loc[us, "employer_address"] = normalize_us_streets(rows["employer_address"])
+    frame.loc[us, "employer_city"] = normalize_us_cities(rows["employer_city"], rows["employer_state"])
+    frame.loc[us, "employer_state"] = rows["employer_state"].str.upper()
+    frame.loc[us, "employer_zip"] = rows["employer_zip"].str.replace(_ZIP_PLUS_FOUR_RE, r"\1", regex=True)
+    return frame
 
 
 def _cache_rows(
@@ -107,6 +185,7 @@ def _cache_rows(
             continue
         managed.add(employer)
         for location in location_candidates(entry):
+            # the geocode cache is keyed on the text as resolved, before normalising
             key = _address_key(location)
             latitude, longitude = coordinates.get(key, (None, None))
             source, trust = _trust(
@@ -141,6 +220,8 @@ def _existing_rows(employers: set[str]) -> list[dict]:
 
 def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
     frame = pd.DataFrame(rows, columns=OUTPUT_COLUMNS)
+    # one spelling per building, so variants of one address collapse below
+    frame = normalize_location_addresses(frame)
     frame["is_primary"] = frame["is_primary"].map(
         lambda value: value is True or str(value).strip().lower() == "true"
     )

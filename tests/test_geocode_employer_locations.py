@@ -104,7 +104,8 @@ def test_network_failure_stays_retryable(tmp_path, monkeypatch):
 def test_employer_geocode_can_be_applied_twice(tmp_path):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     key = "1 MAIN ST|NEW YORK|NY|10001"
-    cache.put(key, 40.1, -73.9, "nominatim")
+    # inside ZIP 10001 (a point 70 km away would be rejected as a wrong-town match)
+    cache.put(key, 40.7506, -73.9971, "nominatim")
     rows = pd.DataFrame([{
         "employer_address": "1 MAIN ST",
         "employer_city": "NEW YORK",
@@ -114,7 +115,7 @@ def test_employer_geocode_can_be_applied_twice(tmp_path):
 
     result = geocoding_pipeline.apply_employer_to_dataframe(rows, cache)
 
-    assert result.loc[0, "employer_latitude"] == 40.1
+    assert result.loc[0, "employer_latitude"] == 40.7506
     assert result.loc[0, "employer_geocode_level"] == "nominatim"
 
 

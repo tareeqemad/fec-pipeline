@@ -80,7 +80,9 @@ def _preserve_previous_employer_display(
     if prior_previous is None or "previous_employer" not in df.columns:
         return
 
-    prior = prior_previous.fillna("").astype(str).str.strip()
+    # Employer names are uppercase: a tail rerun must not bring back a
+    # mixed-case spelling (the old "WhatsApp LLC") that the contract fixed.
+    prior = prior_previous.fillna("").astype(str).str.strip().str.upper()
     current = df["previous_employer"].fillna("").astype(str).str.strip()
     prior_key = prior.map(canonical_key)
     same_company = prior_key.ne("") & current.map(canonical_key).eq(prior_key)

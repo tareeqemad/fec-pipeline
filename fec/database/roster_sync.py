@@ -9,8 +9,13 @@ becomes a phantom address with no contributions behind it.
 
 `sync_rosters()` rewrites those rows from the donor's latest filing (latest
 contribution_receipt_date, then highest sub_id) and leaves every other column
-and every unlinked row exactly as the editors wrote it. `--check` only reports
-the drift and fails, so it can run as a quality check.
+as the editors wrote it. An unlinked (editorial-only) row keeps its address,
+but its street_1/street_2 are run through the cleaning step's own street
+normaliser (fec/cleaning/addresses.clean_streets), so the loader stores one
+spelling per place ('1211 AVE OF THE AMERICAS', suite in street_2) whether the
+address came from an FEC filing or an editor. Foreign rows (a country, or a
+foreign address by fec/cleaning/foreign_addresses) are kept exactly as written.
+`--check` only reports the drift and fails, so it can run as a quality check.
 """
 from __future__ import annotations
 
@@ -20,6 +25,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from fec.cleaning.addresses import clean_streets
+from fec.cleaning.foreign_addresses import foreign_address_mask
 from fec.donor_match.rules import resolve_donor_key
 from fec.env import CLEANED_CSV, PROJECT_ROOT
 
@@ -78,6 +85,60 @@ def _coordinate(value: str) -> str:
         return value
 
 
+def _cell(value) -> str:
+    return "" if pd.isna(value) else str(value)
+
+
+def pipeline_streets(street_1: str, street_2: str, first: str = "", last: str = "") -> tuple[str, str]:
+    """Run one street through clean_streets, the step every FEC filing goes through.
+
+    `first`/`last` feed its "street is the donor's own name" check. Returns
+    (street_1, street_2) with '' for empty.
+    """
+    frame = pd.DataFrame([{
+        "contributor_street_1": (street_1 or "").strip() or None,
+        "contributor_street_2": (street_2 or "").strip() or None,
+        "contributor_first_name": (first or "").strip().upper(),
+        "contributor_last_name": (last or "").strip().upper(),
+    }])
+    frame, _ = clean_streets(frame)
+    return _cell(frame.at[0, "contributor_street_1"]), _cell(frame.at[0, "contributor_street_2"])
+
+
+def _person_names(row: dict, prefix: str) -> tuple[str, str]:
+    """(first, last) from the roster's own columns, else from 'LAST, FIRST'."""
+    first = (row.get(f"{prefix}_first_name") or "").strip()
+    last = (row.get(f"{prefix}_last_name") or "").strip()
+    name = (row.get(f"{prefix}_name") or "").strip()
+    if (not first or not last) and "," in name:
+        last_part, _, first_part = name.partition(",")
+        first, last = first or first_part.strip(), last or last_part.strip()
+    return first, last
+
+
+def is_foreign_row(row: dict, prefix: str) -> bool:
+    """A roster address outside the US: a country other than US, or the cleaning's own foreign test."""
+    country = (row.get(f"{prefix}_country") or "").strip().upper()
+    if country and country not in {"US", "USA"}:
+        return True
+    return bool(foreign_address_mask(pd.DataFrame([{
+        "contributor_street_1": row.get(f"{prefix}_street_1") or "",
+        "contributor_street_2": row.get(f"{prefix}_street_2") or "",
+        "contributor_city": row.get(f"{prefix}_city") or "",
+        "contributor_state": row.get(f"{prefix}_state") or "",
+    }])).iloc[0])
+
+
+def editorial_street_changes(row: dict, prefix: str) -> dict[str, str]:
+    """{column: pipeline-style value} for the street cells clean_streets would rewrite."""
+    if is_foreign_row(row, prefix):
+        return {}
+    columns = (f"{prefix}_street_1", f"{prefix}_street_2")
+    old = tuple((row.get(column) or "").strip() for column in columns)
+    new = pipeline_streets(*old, *_person_names(row, prefix))
+    return {column: value for column, before, value in zip(columns, old, new) if before != value}
+
+
 def _ensure_columns(rows: list[dict], fieldnames: list[str], prefix: str) -> list[str]:
     """Add `<prefix>_occupation` right after `<prefix>_employer` when the roster predates it."""
     occupation = f"{prefix}_occupation"
@@ -90,13 +151,17 @@ def _ensure_columns(rows: list[dict], fieldnames: list[str], prefix: str) -> lis
 
 def sync_rows(rows: list[dict], fieldnames: list[str], prefix: str,
               latest: pd.DataFrame, filename: str = "") -> SyncResult:
-    """Return the rows with every FEC-linked row set to its donor's newest filing."""
+    """Return the rows with every FEC-linked row set to its donor's newest filing
+    and every editorial-only US street in the pipeline's street style."""
     result = SyncResult(filename, rows, _ensure_columns(rows, list(fieldnames), prefix))
     for row in rows:
         name = (row.get(f"{prefix}_name") or "").strip()
         key = resolve_donor_key((row.get("donor_key") or "").strip())
         if key not in latest.index:
             result.unlinked.append(name)
+            for column, new in editorial_street_changes(row, prefix).items():
+                result.changes.append((name, column, (row.get(column) or "").strip(), new))
+                row[column] = new
             continue
         filing = latest.loc[key]
         targets = {f"{prefix}_{suffix}": col for suffix, col in SYNCED_FIELDS.items()}
@@ -161,6 +226,6 @@ def report(results: list[SyncResult], check: bool) -> int:
         for name, column, old, new in r.changes:
             print(f"  {name}: {column}: {old!r} -> {new!r}")
         if r.unlinked:
-            print(f"  not in FEC data (kept as written): {', '.join(r.unlinked)}")
+            print(f"  not in FEC data (address kept, street in pipeline style): {', '.join(r.unlinked)}")
         drifted |= bool(r.changes)
     return 1 if (check and drifted) else 0

@@ -147,6 +147,24 @@ VIEW_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong current_employer",
     ),
+    _zero(
+        "v_donor_profile: previous_employer matches employment view",
+        _sql("""
+            SELECT COUNT(*)
+            FROM v_donor_profile AS profile
+            LEFT JOIN v_donor_current_employment AS employment
+              ON employment.donor_id = profile.donor_id
+            LEFT JOIN employers AS previous
+              ON previous.employer_id = employment.previous_employer_id
+            WHERE profile.previous_employer IS DISTINCT FROM (
+                CASE
+                    WHEN previous.name IS NOT NULL THEN previous.name
+                    WHEN employment.previous_self_employed THEN 'SELF-EMPLOYED'
+                END
+            )
+        """),
+        "donor(s) with wrong previous_employer",
+    ),
 ]
 
 
@@ -385,17 +403,38 @@ def _build() -> list[Check]:
             "duplicate committee_number(s)",
         ),
         _zero(
-            "dedup: donor_employments (donor,employer,occupation)",
+            "dedup: donor_employments (donor,employer,occupation,status)",
             _sql("""
                 SELECT COUNT(*)
                 FROM (
-                    SELECT donor_id, employer_id, occupation
+                    SELECT donor_id, employer_id, occupation, employer_status
                     FROM donor_employments
-                    GROUP BY donor_id, employer_id, occupation
+                    GROUP BY donor_id, employer_id, occupation, employer_status
                     HAVING COUNT(*) > 1
                 ) AS duplicates
             """),
             "duplicate employment group(s)",
+        ),
+        _zero(
+            "previous employer only on retired rows",
+            _sql("""
+                SELECT COUNT(*)
+                FROM donor_employments
+                WHERE employer_status IS DISTINCT FROM 'retired'
+                  AND (previous_employer_id IS NOT NULL
+                       OR previous_self_employed)
+            """),
+            "non-retired row(s) with a previous employer",
+        ),
+        _zero(
+            "previous employer is a company or SELF-EMPLOYED, not both",
+            _sql("""
+                SELECT COUNT(*)
+                FROM donor_employments
+                WHERE previous_self_employed
+                  AND previous_employer_id IS NOT NULL
+            """),
+            "row(s) with both kinds of previous employer",
         ),
         _at_most(
             "sub_id fits BIGINT",

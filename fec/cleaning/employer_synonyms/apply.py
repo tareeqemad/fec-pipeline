@@ -107,6 +107,29 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
+_LOOSE_SLASH_RE = re.compile(r'\s/|/\s|//')
+
+
+def tidy_employer_slashes(name):
+    """One style for two employers joined by a slash: 'SUMMIT HEALTH/ VILLAGEMD', 'EMERALD//ARS'
+    -> 'SUMMIT HEALTH / VILLAGEMD', 'EMERALD / ARS'. A tight slash (BRIDGESTONE/FIRESTONE, C/O)
+    is left alone; style only, it never merges two names."""
+    if not isinstance(name, str) or not _LOOSE_SLASH_RE.search(name):
+        return name
+    return re.sub(r'\s*/+\s*', ' / ', name).strip()
+
+
+def tidy_slash_spacing(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Apply tidy_employer_slashes to every individual's employer; returns (df, n_fixed)."""
+    indiv_idx = _indiv_idx(df)
+    emp = df.loc[indiv_idx, 'contributor_employer']
+    tidied = emp.map(tidy_employer_slashes)
+    changed = emp.notna() & (tidied != emp)
+    if changed.any():
+        df.loc[changed[changed].index, 'contributor_employer'] = tidied[changed]
+    return df, int(changed.sum())
+
+
 def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame, int]:
     """Reapply employer rules after donor-history repairs."""
     from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
@@ -116,6 +139,7 @@ def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame,
     trail = trail or AuditTrail()
     total = 0
     for fix, step, reason in (
+        (tidy_slash_spacing, 'final_employer_slash_spacing', 'slash_spacing_unified'),
         (apply_employer_synonyms, 'final_employer_synonyms', 'verified_same_company'),
         (expand_employer_abbreviations, 'final_employer_abbreviations', 'employer_abbreviation_expanded'),
         (expand_employer_associates, 'final_employer_assoc', 'employer_assoc_expanded'),

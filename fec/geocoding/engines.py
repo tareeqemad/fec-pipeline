@@ -78,11 +78,21 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
     })
 
 
+def nominatim_within(street: str, city: str, state: str,
+                     box: tuple[float, float, float, float]) -> tuple:
+    """Search a US street in the filed city only inside box (south, west, north, east); asks whether the address exists in the filed ZIP at all."""
+    south, west, north, east = box
+    query = ", ".join(part for part in (street, city, state) if part)
+    return _nominatim_request(params={
+        "q": query,
+        "format": "json", "limit": 1, "countrycodes": "us",
+        "viewbox": f"{west},{north},{east},{south}", "bounded": 1,
+    })
+
+
 def nominatim_international(street: str, city: str, state: str, zipcode: str) -> tuple:
-    """Geocode via Nominatim with no country restriction (last resort for foreign cities)."""
-    query = f"{street}, {city}"
-    if state:
-        query += f", {state}"
+    """Geocode via Nominatim with no country restriction (foreign addresses, and the last resort for US-labelled ones)."""
+    query = ", ".join(part for part in (street, city, state) if part)
     if zipcode:
         query += f" {zipcode}"
     return _nominatim_request(params={

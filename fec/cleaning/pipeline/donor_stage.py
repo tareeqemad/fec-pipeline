@@ -123,7 +123,6 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
 
 def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
     from fec.donor_match import (
-        align_org_donor_company_names,
         canonicalize_donor_addresses,
         canonicalize_donor_employers,
         canonicalize_donor_names,
@@ -136,8 +135,6 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
          "donor_name_unified_to_modal_last_and_longest_first", NAME_FIELDS),
         (canonicalize_donor_employers, "donor_canonical_employers",
          "donor_employer_variant_merged_to_fullest_name", ("contributor_employer",)),
-        (align_org_donor_company_names, "donor_align_org_names",
-         "organization_name_aligned_to_employer_spelling", NAME_FIELDS),
         (canonicalize_donor_addresses, "donor_canonical_addresses",
          "donor_street_spelling_unified", STREET_FIELDS),
         (canonicalize_donor_units, "donor_canonical_units",
@@ -165,6 +162,33 @@ def _finalize_employers(df: pd.DataFrame, trail: AuditTrail) -> tuple[pd.DataFra
     )
     log_count(logger, "final donor employers", final_canonical)
     return df, total + final_canonical
+
+
+def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
+    """Give organization donors the final spelling of the same company.
+
+    Runs after the curated entity overrides (a law firm such as PACHULSKI
+    STANG ZIEHL & JONES only becomes an ORGANIZATION there) and after employer
+    finalisation (so the target is the spelling the employers table shows).
+    Only contributor_name changes; donor_keys were assigned earlier.
+    """
+    from fec.donor_match.canonicalize import (
+        align_org_donor_company_names,
+        unify_org_donor_suffix_variants,
+    )
+
+    steps = (
+        (align_org_donor_company_names, "donor_align_org_names",
+         "organization_name_aligned_to_employer_spelling"),
+        (unify_org_donor_suffix_variants, "donor_org_suffix_variants",
+         "organization_name_unified_to_suffix_free_spelling"),
+    )
+    total = 0
+    for fix, step, reason in steps:
+        count = trail.run(df, fix, step, reason, NAME_FIELDS)
+        total += count
+        log_count(logger, fix.__name__.replace("_", " "), count)
+    return total
 
 
 def _clear_non_individual_names(df: pd.DataFrame) -> int:
@@ -233,6 +257,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     )
     log_count(logger, "curated employer names", protected)
     canonical_updates += protected
+    canonical_updates += _align_organization_names(df, trail)
     build_donor_dedup_review(df, out_dir)
 
     cleared = trail.run(
