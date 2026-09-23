@@ -205,3 +205,71 @@ def test_near_street_spellings_are_reviewed_not_merged(tmp_path):
     assert {row["sub_id"] for row in spelling_rows} == {"1", "2"}
     assert counts["manual_review"] == 2
     pd.testing.assert_frame_equal(df, original)
+
+
+def test_state_zip_and_city_fragments_in_street2_are_emptied(tmp_path):
+    df = pd.DataFrame([
+        {"sub_id": "1", "contributor_street_1": "16 THE DRAWBRIDGE", "contributor_street_2": "# NY1179",
+         "contributor_city": "WOODBURY", "contributor_state": "NY", "contributor_zip": "11797"},
+        {"sub_id": "2", "contributor_street_1": "29 HIGHVIEW RD", "contributor_street_2": "# NJU",
+         "contributor_city": "SHORT HILLS", "contributor_state": "NJ", "contributor_zip": "07078"},
+        {"sub_id": "3", "contributor_street_1": "1 PEACHTREE ST", "contributor_street_2": "ATLA",
+         "contributor_city": "ATLANTA", "contributor_state": "GA", "contributor_zip": "30303"},
+        {"sub_id": "4", "contributor_street_1": "100 MAIN ST", "contributor_street_2": "USA",
+         "contributor_city": "DENVER", "contributor_state": "CO", "contributor_zip": "80202"},
+        {"sub_id": "5", "contributor_street_1": "320 N MAPLE DR", "contributor_street_2": "# PH3",
+         "contributor_city": "BEVERLY HILLS", "contributor_state": "CA", "contributor_zip": "90210"},
+        {"sub_id": "6", "contributor_street_1": "8877 COLLINS AVE", "contributor_street_2": "PHA",
+         "contributor_city": "BAL HARBOUR", "contributor_state": "FL", "contributor_zip": "33154"},
+        {"sub_id": "7", "contributor_street_1": "57 MAPLE HILL RD", "contributor_street_2": "# A",
+         "contributor_city": "GLENCOE", "contributor_state": "IL", "contributor_zip": "60022"},
+    ])
+    df, counts = build_address_reports(df, str(tmp_path))
+    emptied = df.set_index("sub_id")["contributor_street_2"].isna()
+    assert emptied[["1", "2", "3", "4"]].all()           # fragments of the truncated street
+    assert not emptied[["5", "6", "7"]].any()            # penthouse / unit letters are real units
+    assert counts["street2_emptied"] == 4
+
+
+def test_city_state_zip_tail_typed_into_street_is_dropped():
+    from fec.cleaning.pipeline.address_fixes.safe_text import _strip_city_state_tail as strip
+    assert strip("3841 HAYVENHURST DR ENCINO CA", "ENCINO", "CA", "91436") == "3841 HAYVENHURST DR"
+    assert strip("76 WALLACKS DR STAMFORD CT 0690", "STAMFORD", "CT", "06902") == "76 WALLACKS DR"
+    assert strip("1904 BAY DR POMPANO BEACH FL", "POMPANO BEACH", "FL", "33062") == "1904 BAY DR"
+    assert strip("16201 MEADOW RIDGE WAY ENCINO", "ENCINO", "CA", "91436") == "16201 MEADOW RIDGE WAY"
+    assert strip("7 DANIEL CT", "WESTPORT", "CT", "06880") == "7 DANIEL CT"            # Court, not Connecticut
+    assert strip("16A IDAR CT", "GREENWICH", "CT", "06830") == "16A IDAR CT"
+    assert strip("5000 PKWY CALABASAS", "CALABASAS", "CA", "91302") == "5000 PKWY CALABASAS"  # Parkway Calabasas is the street
+    assert strip("5 GREENWICH", "GREENWICH", "CT", "06830") == "5 GREENWICH"
+    assert strip("100 MAIN ST", "DENVER", "CO", "80202") == "100 MAIN ST"
+    assert strip("24530 TWICKENHAM DR BEACHWOOD", "BEACHWOOD", "OH", "44122") == "24530 TWICKENHAM DR"
+
+
+def test_care_of_fragment_without_a_street_is_blanked():
+    from fec.cleaning.pipeline.address_fixes.safe_text import _strip_care_of
+    assert _strip_care_of("C/O MCCARTER & ENGLISH, LLP, 100 M") is np.nan or pd.isna(_strip_care_of("C/O MCCARTER & ENGLISH, LLP, 100 M"))
+    assert _strip_care_of("C/O ARMANINO, 437 MADISON AVE") == "437 MADISON AVE"
+    assert _strip_care_of("C/O MOELIS") == "C/O MOELIS"
+
+
+def test_donor_street_with_and_without_type_unify():
+    from fec.cleaning.pipeline.address_fixes.unify import _unify_street_types
+    df = pd.DataFrame([
+        {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON AVE", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
+        {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON AVE", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
+        {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
+        {"contributor_name": "OTHER, PERSON", "contributor_street_1": "103 STANTON", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
+    ])
+    assert _unify_street_types(df) == 1
+    assert df.contributor_street_1.tolist() == ["103 STANTON AVE"] * 3 + ["103 STANTON"]
+
+
+def test_typed_street_spelling_wins_even_as_a_minority():
+    from fec.cleaning.pipeline.address_fixes.unify import _unify_street_types
+    df = pd.DataFrame([
+        {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF", "contributor_city": "AURORA", "contributor_state": "CO"},
+        {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF", "contributor_city": "AURORA", "contributor_state": "CO"},
+        {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF PL", "contributor_city": "AURORA", "contributor_state": "CO"},
+    ])
+    assert _unify_street_types(df) == 2
+    assert set(df.contributor_street_1) == {"14200 E MONCRIEFF PL"}

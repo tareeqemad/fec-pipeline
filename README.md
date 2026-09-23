@@ -42,12 +42,18 @@ python clean.py
 python geocode.py
 python resolve.py --apply
 python geocode.py --employer-only
+python sync_rosters.py
 python loader.py --reset
 python -m fec.database.healthcheck
 ```
 
 `pull.py` is needed only when new FEC data is available. The other commands
 rebuild the cleaned data, resolve work locations, and reload the database.
+
+`sync_rosters.py` rewrites the FEC-linked rows of `data/database/leaders.csv` and
+`data/database/key_accomplices.csv` from each donor's newest cleaned filing
+(address, employer, occupation); `--check` only reports drift. Editorial-only rows
+are never touched.
 
 Cleaning always processes the complete raw file. Donor matching groups filings
 under `donor_key`; it never combines or removes contribution rows.
@@ -192,3 +198,4 @@ python -m fec.database.healthcheck
 - `fec/` contains the pipeline logic.
 - `data/` contains inputs, outputs, caches, and reviewed rules.
 - `tests/` protects cleaning, matching, resolving, and loading behavior.
+- `docs/CODE_MAP.md` lists every module, the exact order the cleaning rules run in, and which code reads each reference CSV.

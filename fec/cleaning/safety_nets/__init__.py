@@ -44,6 +44,7 @@ from .employer_swaps import (
     _fix_swapped_emp_occ_company,
     _swap_role_employer_with_known_company,
 )
+from .occupation_context import _disambiguate_vague_occupation
 from .occupation import (
     _fill_null_occupation_category,
     _fix_bitton_edge_case,
@@ -147,6 +148,8 @@ SAFETY_RULES = (
      'employed_occupation_resolved'),
     (_fix_emp_occ_category_consistency, ALL_ROWS, WORK_FIELDS,
      'employer_occupation_category_consistency_fixed'),
+    (_disambiguate_vague_occupation, ALL_ROWS, WORK_FIELDS,
+     'vague_occupation_specialised_from_employer_context'),
     (_fix_slash_occupation, ALL_ROWS, WORK_FIELDS,
      'slash_occupation_recategorized'),
     (_reclassify_other_category, ALL_ROWS, WORK_FIELDS,

@@ -11,6 +11,7 @@ import pandas as pd
 
 from fec.log import get_logger
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
+from fec.cleaning.foreign_addresses import foreign_address_mask
 
 from .cache import GeoCache
 from .engines import (
@@ -186,6 +187,7 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
                       batch_size: int = 50):
     """Geocode every unique address in df, skipping cached keys and saving the cache every batch_size lookups."""
     keys_series = _contributor_keys(df)
+    keys_series = keys_series[~foreign_address_mask(df)]
     all_keys = set(keys_series[keys_series != '|||'].unique())
 
     todo = [key for key in all_keys if _needs_lookup(key, cache)]
@@ -227,6 +229,11 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     df["latitude"] = results.apply(lambda result: result[0])
     df["longitude"] = results.apply(lambda result: result[1])
     df["geocode_level"] = results.apply(lambda result: result[3])
+    # a foreign filing (REHOVOT / CA, JERUSALEM, ISRAEL / NY) has no US coordinate
+    foreign = foreign_address_mask(df)
+    if foreign.any():
+        df.loc[foreign, ["latitude", "longitude"]] = np.nan
+        df.loc[foreign, "geocode_level"] = "foreign_not_geocoded"
     # x[2] (country) was dropped from the schema; used above only to keep foreign coords
 
     return df

@@ -4,6 +4,8 @@ import re
 import numpy as np
 import pandas as pd
 
+from fec.config.geography import US_STATES
+
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
 
@@ -88,12 +90,66 @@ def _strip_care_of(s):
     match = re.search(
         r"(\d+\s+\S.*)$", rest
     )  # real address = from the first house number
-    return match.group(1).strip() if match else text
+    if not match:
+        return text
+    street = match.group(1).strip()
+    # "C/O MCCARTER & ENGLISH, LLP, 100 M": the FEC cut left only a house number and a
+    # letter; an unusable fragment is blanked so the donor's own history can refill it
+    return street if _looks_like_street(street) else np.nan
+
+
+_STREET_TYPE_WORDS = set(_SPLIT_TYPES) | {"HWY", "EXPY", "TPKE", "PATH", "RUN", "ROW", "PT", "PLZ", "PIKE", "XING", "BND", "HTS", "ALY"}
+_DIRECTION_WORDS = {"N", "S", "E", "W", "NE", "NW", "SE", "SW"}
+
+
+def _looks_like_street(street: str) -> bool:
+    """House number followed by at least one real street-name word (not only a type or direction)."""
+    tokens = str(street).upper().split()
+    if len(tokens) < 2 or not re.match(r"^\d", tokens[0]):
+        return False
+    names = [t for t in tokens[1:] if t not in _STREET_TYPE_WORDS and t not in _DIRECTION_WORDS]
+    return any(len(t) >= 2 for t in names)
+
+
+def _strip_city_state_tail(street, city, state, zip_code):
+    """Drop the row's own city / state / ZIP when the filer typed them into street_1.
+
+    "3841 HAYVENHURST DR ENCINO CA" -> "3841 HAYVENHURST DR"; "76 WALLACKS DR STAMFORD CT 0690" ->
+    "76 WALLACKS DR". Only the row's own values count as a tail, a state code is removed only when it
+    followed a city or ZIP or a street type ("7 DANIEL CT" in Connecticut is a court), and the
+    remainder must still look like a street ("5000 PKWY CALABASAS" is Parkway Calabasas, kept)."""
+    if pd.isna(street):
+        return street
+    tokens = str(street).strip().split()
+    city_tokens = str(city or "").upper().split()
+    state_code = str(state or "").upper().strip()
+    zip5 = re.sub(r"\D", "", str(zip_code or ""))[:5]
+    original = list(tokens)
+    if len(tokens) >= 3 and tokens[-1].isdigit() and 3 <= len(tokens[-1]) <= 5 and zip5.startswith(tokens[-1]):
+        tokens.pop()
+        stripped_zip = True
+    else:
+        stripped_zip = False
+    ends_with_city = len(city_tokens) >= 1 and len(city_tokens[0]) >= 4 and len(tokens) > len(city_tokens) \
+        and [t.upper() for t in tokens[-len(city_tokens):]] == city_tokens
+    if len(tokens) >= 3 and state_code and tokens[-1].upper() == state_code:
+        before = tokens[:-1]
+        before_ends_with_city = len(city_tokens) >= 1 and len(city_tokens[0]) >= 4 and len(before) > len(city_tokens) \
+            and [t.upper() for t in before[-len(city_tokens):]] == city_tokens
+        if stripped_zip or before_ends_with_city or before[-1].upper() in _STREET_TYPE_WORDS:
+            tokens = before
+            ends_with_city = before_ends_with_city
+    if ends_with_city:
+        tokens = tokens[:-len(city_tokens)]
+    if tokens == original:
+        return street
+    candidate = " ".join(tokens)
+    return candidate if _looks_like_street(candidate) else street
 
 
 def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Deterministic text fixes, applied; runs right after clean_streets so the cleaned values feed the per-donor dedup/recovery downstream."""
-    counts = {"house_number": 0, "unit_split": 0, "care_of": 0}
+    counts = {"house_number": 0, "unit_split": 0, "care_of": 0, "city_tail": 0}
 
     before = df[S1].copy()
     was_care_of = before.fillna("").astype(str).str.match(_CO_RE)
@@ -103,6 +159,15 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df[S1] = df[S1].map(_drop_repeated_address_start)
     still_care_of = df[S1].fillna("").astype(str).str.match(_CO_RE)
     counts["care_of"] = int((was_care_of & ~still_care_of).sum())
+
+    before_tail = df[S1].copy()
+    df[S1] = [
+        _strip_city_state_tail(s, c, st, z)
+        for s, c, st, z in zip(df[S1], df.get(CITY, pd.Series(index=df.index, dtype=object)),
+                               df.get(STATE, pd.Series(index=df.index, dtype=object)),
+                               df.get(ZIP, pd.Series(index=df.index, dtype=object)))
+    ]
+    counts["city_tail"] = int((before_tail.fillna("") != df[S1].fillna("")).sum())
 
     # trailing comma / whitespace on any field (city/state can carry a stray "TEMPLE,")
     for column in (S1, CITY, STATE):
@@ -141,3 +206,11 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         counts["unit_split"] = int(apply_mask.sum())
 
     return df, counts
+
+
+def is_state_zip_fragment(value: str) -> bool:
+    """'# NY1179', '# CA9213', '# NJU', 'USA': a state/ZIP/country tail that a 34-char FEC street_1 spilled into street_2."""
+    core = str(value or "").strip().upper().lstrip("#").strip()
+    if core == "USA":
+        return True
+    return len(core) >= 3 and core[:2] in US_STATES and (core[2:].isdigit() or (len(core) == 3 and core[2:].isalpha()))

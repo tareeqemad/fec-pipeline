@@ -37,12 +37,16 @@ _TRAILING_CONNECTOR_RE = re.compile(
 # ("CO,, INC." / "CO ,INC"): the comma may repeat and a trailing period is
 # stripped later in the pipeline, so both forms must still match here.
 _SUFFIX_COMMA_RE = re.compile(
-    r'\s*,[,\s]*(?=(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA'
+    r'\s*,[,\s]*(?=(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA'
     r'|L\.L\.C|L\.L\.P|L\.P|P\.C|P\.A'
     r'|INCORPORATED|CORPORATION|COMPANY|LIMITED)\.?$)')
+# "CO." keeps its period only when it is a mid-name abbreviation nobody styles
+# ("CO. INC" / "CO. LLP" / trailing "CO."): dotted initials such as R.A. or U.S. stay.
 _SUFFIX_DEDOT = [(re.compile(r'\bL\.L\.C\.?$'), 'LLC'), (re.compile(r'\bL\.L\.P\.?$'), 'LLP'),
                  (re.compile(r'\bP\.C\.?$'), 'PC'), (re.compile(r'\bP\.A\.?$'), 'PA'),
-                 (re.compile(r'\bL\.P\.?$'), 'LP')]
+                 (re.compile(r'\bL\.P\.?$'), 'LP'),
+                 (re.compile(r'\bCO\.(?=\s+(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA)\b)'), 'CO'),
+                 (re.compile(r'\bCO\.$'), 'CO')]
 
 # Brands whose official form uses `&`. Normalization turns `&` into ` AND `
 # for unknown firms; for these we keep the ampersand ("AT AND T" is

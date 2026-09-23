@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm
+from fec.cleaning.employer_synonyms.normalize import _TRAILING_PAREN_RE
 
 # COMPANY listed before CO (and INCORPORATED before INC) so iteration strips
 # the longer suffix first - otherwise "MPANY" residue would be left behind.
@@ -70,13 +71,14 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
         keep_default_na=False,
         low_memory=False,
     )
-    # uppercase, collapse whitespace and `+`, drop stray trailing dot tails
-    # so the restored display form carries no FEC keying junk
+    # uppercase, collapse whitespace and `+`, drop ticker tails "(ITCI)" and stray
+    # trailing dots so the restored display form carries no FEC keying junk
     raw["emp"] = (
         raw["contributor_employer"]
         .str.strip()
         .str.upper()
         .str.replace(r"[\s+]+", " ", regex=True)
+        .str.replace(_TRAILING_PAREN_RE, "", regex=True)
         .str.replace(r"(?:\s*\.)+\s*$", "", regex=True)
         .str.strip()
     )

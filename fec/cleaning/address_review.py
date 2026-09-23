@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.pipeline.address_fixes.safe_text import _CO_RE
+from fec.cleaning.pipeline.address_fixes.safe_text import _CO_RE, is_state_zip_fragment
 from fec.config.geography import US_STATES
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
@@ -133,6 +133,20 @@ def _append_report(reports, df, mask, reason) -> None:
         reports.append(_df_subset(df, mask, reason))
 
 
+def _is_city_prefix(s2_upper: pd.Series, city: pd.Series) -> pd.Series:
+    """'ATLA' under ATLANTA, 'ENGL' under ENGLEWOOD: the start of the city name, cut off by the FEC field limit."""
+    core = s2_upper.str.lstrip("#").str.strip()
+    city_upper = city.fillna("").astype(str).str.strip().str.upper()
+    return (
+        core.str.len().between(3, 6)
+        & core.str.isalpha()
+        & ~core.str.match(_UNIT_NO_NUM)
+        & (city_upper != "")
+        & (core != city_upper)
+        & pd.Series([c != "" and u.startswith(c) for c, u in zip(core, city_upper)], index=s2_upper.index)
+    )
+
+
 def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
     reports = []
     s2_upper = s2.str.strip().str.upper()
@@ -143,7 +157,8 @@ def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
         & tokens.str[1].isin(US_STATES)
         & ~s2_upper.str.contains(r"\d")
     )
-    bad2 = incomplete | is_state_abbrev
+    is_fragment = s2_upper.map(is_state_zip_fragment) | _is_city_prefix(s2_upper, df["contributor_city"])
+    bad2 = incomplete | is_state_abbrev | is_fragment
     _append_report(reports, df, incomplete, "street_2 unit keyword without a number")
     _append_report(
         reports,
@@ -151,6 +166,7 @@ def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
         is_state_abbrev,
         "street_2 looks like a state/city abbreviation",
     )
+    _append_report(reports, df, is_fragment & ~is_state_abbrev, "street_2 is a state/ZIP/city fragment of the truncated street")
     if bad2.any():
         df.loc[bad2, S2] = np.nan
     return reports, int(bad2.sum())

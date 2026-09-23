@@ -258,7 +258,7 @@ def _gate_retired_employer_marker(df):
 
 
 def _gate_slash_previous_employer(df):
-    # 'COMPANY/TITLE' composites are resolved by _resolve_slash_previous_employer;
+    # 'COMPANY/TITLE' composites are resolved by resolve.py (_normalize_previous_employer_column);
     # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted
     if 'previous_employer' not in df.columns:
         return []
@@ -270,7 +270,7 @@ def _gate_slash_previous_employer(df):
     n_slash = int(slashy.sum())
     issue = (
         f"previous_employer slash leaks: {n_slash} rows "
-        "-- run _normalize_previous_employer_column in apply.py"
+        "-- run resolve.py (fec/resolve/pipeline/quality_fixes.py normalizes the column)"
     ) if n_slash else None
     return [('no_slash_in_previous_employer', {'passed': n_slash == 0, 'count': n_slash}, issue)]
 

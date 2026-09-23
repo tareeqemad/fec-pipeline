@@ -284,7 +284,8 @@ def _load_donor_linked_csv(
         upsert_leader_employment(
             cur,
             donor_id,
-            (row.get("leader_employer") or "").strip(),
+            _person_value(row, "employer"),
+            _person_value(row, "occupation"),
         )
         insert_row(cur, row, donor_id)
         inserted += 1

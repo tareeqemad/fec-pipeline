@@ -251,10 +251,26 @@ def clean_pipeline(
     out_dir: str | None = None,
 ):
     """Run the complete cleaning pipeline."""
+    from fec.cleaning.audit_trail import ADDRESS_FIELDS
+    from fec.cleaning.foreign_addresses import (
+        restore_foreign_addresses,
+        snapshot_foreign_addresses,
+    )
+
     trail = AuditTrail()
+    # foreign filings are kept exactly as filed: remember them before any repair
+    foreign = snapshot_foreign_addresses(df)
     df_clean, missing = clean_records(df, trail, out_dir=out_dir)
     df_clean = identify_donors(df_clean, out_dir=out_dir)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
+    n_foreign = trail.run(
+        df_clean, lambda frame: restore_foreign_addresses(frame, foreign),
+        "foreign_address_restore", "foreign_address_kept_as_filed", ADDRESS_FIELDS,
+    )
+    logger.info(
+        "  Foreign addresses: %s rows kept as filed (%s cells restored)",
+        f"{len(foreign):,}", f"{n_foreign:,}",
+    )
     unexplained = trail.finish(df_clean)
     if unexplained:
         logger.warning(

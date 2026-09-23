@@ -9,14 +9,17 @@ from fec.config.constants import LEGAL_SUFFIX_RE, SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
+from fec.config.constants import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 
-# occupation words used as employer: these people are self-employed
+# Occupation words filed as the employer: these people are self-employed.
+# A deliberate subset of the config lists (the full lists are applied by the safety nets later).
 _OCC_AS_EMPLOYER = frozenset({
     'ATTORNEY', 'LAWYER', 'PHYSICIAN', 'CONSULTANT', 'PROFESSOR',
     'DENTIST', 'ACCOUNTANT', 'TEACHER', 'ENGINEER', 'REALTOR',
     'INVESTOR',
 })
+assert _OCC_AS_EMPLOYER <= (OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER), 'keep _OCC_AS_EMPLOYER inside the config lists'
 
 
 def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
