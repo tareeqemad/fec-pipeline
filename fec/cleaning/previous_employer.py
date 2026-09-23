@@ -128,6 +128,32 @@ _SLASH_ADMIN_PREFIX_RE = re.compile(
 _JUNK_EMPLOYER_RE = re.compile(JUNK_EMPLOYER_RE)
 _WS_RE = re.compile(r'\s+')
 
+# A retirement marker written around the company ("GOLDMAN SACHS-RETIRED",
+# "UCLA RETIRED", "REICH AND TRUAX (SEMI RETIRED)", "SEMI RETIRED X",
+# "RETIRED FROM X"). Whole word RETIRED only, so RETIREE / RETIREMENT
+# (ERICKSON RETIREMENT COMMUNITIES, RETIREE CHAPTER) are never touched.
+_RETIRED_WORD = r'(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY)[\s-]?)?RETIRED'
+_RETIRED_PREFIX_RE = re.compile(
+    rf'^\(?{_RETIRED_WORD}\b\)?(?:\s+FROM\b)?[\s,;:/-]*'
+)
+_RETIRED_SUFFIX_RE = re.compile(rf'[\s,;:/-]*\(?\s*{_RETIRED_WORD}\s*\)?$')
+# "... ASSOCIATION OF RETIRED" (a name cut at the FEC's 38 characters) is a
+# name, not a marker
+_NAME_BEFORE_RETIRED_RE = re.compile(r'\b(?:OF|FOR|THE|AND|&)$')
+
+
+def _strip_retired_marker(upper: str) -> tuple[str, bool]:
+    """Return (value without a leading/trailing retirement marker, marker found)."""
+    stripped = _RETIRED_PREFIX_RE.sub('', upper, count=1)
+    if stripped != upper:
+        return stripped.strip(), True
+    match = _RETIRED_SUFFIX_RE.search(upper)
+    if match and match.start() > 0:
+        head = upper[:match.start()].strip()
+        if head and not _NAME_BEFORE_RETIRED_RE.search(head):
+            return head, True
+    return upper, False
+
 
 def _resolve_slash(s: str) -> str:
     """Collapse slash-format values: keep real brands, drop admin/self forms, prefer the company side; result still passes normalize_employer_display_name."""
@@ -192,13 +218,33 @@ def _is_null_previous(upper: str) -> bool:
     )
 
 
+def _is_explicit_self(upper: str) -> bool:
+    return (upper.startswith('SELF:') or upper.startswith('SELF EMPLOYED')
+            or upper.startswith('SELF-EMPLOYED') or upper == 'SELF')
+
+
 def normalize_previous_employer_value(v) -> str:
     """Contract for ONE value ('' clears it); self-employment is recognised FIRST because the display-name normalizer would clear 'SELF-EMPLOYED', a fact we keep."""
     text = _WS_RE.sub(' ', str(v)).strip()
     upper = text.upper()
+    # "GOLDMAN SACHS-RETIRED" / "SEMI RETIRED X": the marker is a status, the
+    # rest is judged on its own by this same contract. A remainder that is a
+    # listed profession (ROLE/OCCUPATION_AS_EMPLOYER, or NOT_REAL_EMPLOYER's
+    # OCCUPATION_TITLE_EMPLOYERS: "SEMI RETIRED PSYCHOLOGIST", "RETIRED
+    # JUDGE") is the donor's old occupation and clears - the same reading
+    # normalize_employer_display_name gives "RETIRED PHYSICIAN". An unlisted
+    # remainder is kept as filed; no word-level guess is made here.
+    remainder, had_marker = _strip_retired_marker(upper)
+    if had_marker:
+        if not remainder or remainder in _SE_PREV or remainder == 'MILITARY':
+            return ''
+        cleaned = normalize_previous_employer_value(remainder)
+        # "RETIRED LAWYER/EXECUTIVE", "SELF RETIRED": a marker never turns a
+        # title into SELF-EMPLOYED (FEC-cache ingestion only keeps
+        # SELF-EMPLOYED when the filer wrote it outright)
+        return '' if cleaned == 'SELF-EMPLOYED' else cleaned
     # explicit self-employment markers
-    if (upper.startswith('SELF:') or upper.startswith('SELF EMPLOYED')
-            or upper.startswith('SELF-EMPLOYED') or upper == 'SELF'):
+    if _is_explicit_self(upper):
         return 'SELF-EMPLOYED'
     # not a real prior company: email, industry word, status/volunteer, junk
     # (upper_nospace collapses whitespace so spacing variants match their canonical form)
@@ -224,7 +270,9 @@ def normalize_previous_employer_value(v) -> str:
         if not text:
             return ''
     if not mapped_from_alias and text.upper() in _CANONICAL_SYNONYM_NAMES:
-        return text
+        # canonical names are uppercase; a manual override typed
+        # "WhatsApp LLC" must not keep its own casing
+        return text.upper()
     normalized = text
     for _ in range(3):
         next_value = normalize_employer_display_name(normalized) or ''

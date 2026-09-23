@@ -112,9 +112,13 @@
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 332,
-    "rows": 379,
+    "distinct": 337,
+    "rows": 395,
     "examples": [
+      {
+        "value": "INVESTIGATOR",
+        "rows": 7
+      },
       {
         "value": "TRUSTEE",
         "rows": 6
@@ -144,6 +148,14 @@
         "rows": 3
       },
       {
+        "value": "CDOAP",
+        "rows": 3
+      },
+      {
+        "value": "COUNSELOR",
+        "rows": 3
+      },
+      {
         "value": "BUYER",
         "rows": 3
       },
@@ -165,6 +177,10 @@
       },
       {
         "value": "CLEANING SERVICE",
+        "rows": 2
+      },
+      {
+        "value": "COURT COORDINATOR",
         "rows": 2
       },
       {
@@ -197,22 +213,6 @@
       },
       {
         "value": "TAP",
-        "rows": 2
-      },
-      {
-        "value": "SERVICES",
-        "rows": 2
-      },
-      {
-        "value": "CLINICAL PSYCHOPHARMACOLOGIST",
-        "rows": 2
-      },
-      {
-        "value": "REPRESENTATIVE",
-        "rows": 2
-      },
-      {
-        "value": "GLOBAL BROADCAST TALENT",
         "rows": 2
       }
     ]

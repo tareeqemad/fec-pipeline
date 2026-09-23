@@ -43,8 +43,12 @@
 --        offices now use donor_employments.address_id
 --      - REPLACED the single `leadership.committee_id` with the `leaders`
 --        table + M:N `leader_committees` junction (FKs enforced both sides)
---      - ADDED `UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation)`
---        on `donor_employments`
+--      - ADDED `UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation,
+--        employer_status)` on `donor_employments` (employer_status joined the
+--        key so a filing's own status survives; see the table note)
+--      - ADDED `donor_employments.previous_self_employed` for retirees whose
+--        previous employer is the contract literal 'SELF-EMPLOYED' (not a
+--        company, so it has no employers row); v_donor_profile shows it
 --      - ADDED `UNIQUE` on us_states.code; range CHECKs on addresses /
 --        zip_centroids lat-lng; `raised/spent >= 0` CHECKs on committees
 --      - REMOVED views no product read (v_company, v_contributions_cleaned,
@@ -147,11 +151,12 @@ CREATE TABLE donor_addresses (
 );
 
 
--- Every distinct (donor, employer, occupation) tuple.
+-- Every distinct (donor, employer, occupation, employer_status) tuple.
 -- `employer_id` is NULL when the donor is RETIRED / NOT EMPLOYED /
 -- SELF-EMPLOYED / HOMEMAKER / STUDENT / (committee).
--- For RETIRED donors, `previous_employer_id` points at their prior
--- employer (filled by resolve.py's cache + donor consistency).
+-- For RETIRED rows, `previous_employer_id` points at their prior
+-- employer (filled by resolve.py's cache + donor consistency), or
+-- `previous_self_employed` is true when that prior job was self-employment.
 CREATE TABLE donor_employments (
     donor_employment_id     SERIAL              PRIMARY KEY,
     donor_id                INT                 NOT NULL REFERENCES donors(donor_id),
@@ -164,6 +169,11 @@ CREATE TABLE donor_employments (
                                                     'not_employed', 'committee',
                                                     'organization', 'missing')),
     previous_employer_id    INT                 REFERENCES employers(employer_id),
+    -- Retired donor whose previous employer is the pipeline's literal
+    -- 'SELF-EMPLOYED' (fec/cleaning/previous_employer.py keeps it: it is real
+    -- information). It is not a company, so it never becomes an employers row
+    -- (the "no employer is a status word" check) and lives here instead.
+    previous_self_employed  BOOLEAN             NOT NULL DEFAULT FALSE,
     -- Self-employed: the donor's reported address. Active/retired: a same-state
     -- company office, falling back to the primary company location. Not-employed:
     -- NULL. A company-office selection is an inference, not proof of workplace.
@@ -172,15 +182,28 @@ CREATE TABLE donor_employments (
     -- contributions (MIN/MAX receipt_date GROUP BY donor_employment_id). One source
     -- of truth for dates; no cached column to drift.
     --
-    -- DB-level guard: one row per distinct (donor, employer, occupation).
-    -- NULLS NOT DISTINCT (Postgres 15+) so RETIRED / SELF-EMPLOYED / NOT-EMPLOYED
-    -- rows - where employer_id and/or occupation are NULL - also collapse, instead
-    -- of slipping past a plain UNIQUE that treats every NULL as distinct. The
-    -- loader's groupby on (donor_key, employer, occupation) plus a Python seen-set
-    -- already produce deduped rows; this promotes that convention to an enforced
-    -- invariant (verified 0 violations on the live DB). Career progression
-    -- (ASSOCIATE -> PARTNER) still yields separate rows because the occupation differs.
-    UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation)
+    -- A previous employer (company or self-employment) describes a retiree:
+    -- only retired rows carry one, and never both kinds at once.
+    CONSTRAINT donor_employments_previous_only_retired CHECK (
+        employer_status = 'retired'
+        OR (previous_employer_id IS NULL AND NOT previous_self_employed)
+    ),
+    CONSTRAINT donor_employments_previous_one_kind CHECK (
+        NOT (previous_self_employed AND previous_employer_id IS NOT NULL)
+    ),
+    --
+    -- DB-level guard: one row per distinct (donor, employer, occupation, status).
+    -- NULLS NOT DISTINCT (Postgres 15+) so rows whose employer_id and/or
+    -- occupation are NULL still dedup, instead of slipping past a plain UNIQUE
+    -- that treats every NULL as distinct. employer_status is part of the key
+    -- because RETIRED / SELF-EMPLOYED / NOT EMPLOYED / blank all have
+    -- employer_id NULL: without it a donor's SELF-EMPLOYED ATTORNEY filings and
+    -- a later RETIRED ATTORNEY filing shared one row, and every filing showed
+    -- the newest status and previous employer. The loader's seen-set and the
+    -- contributions lookup use this same key (loader/employers.py
+    -- EMPLOYMENT_KEY_COLUMNS). Career progression (ASSOCIATE -> PARTNER) still
+    -- yields separate rows because the occupation differs.
+    UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation, employer_status)
 );
 
 
@@ -290,6 +313,7 @@ SELECT DISTINCT ON (c.donor_id)
     e.occupation_category_id,     -- normalized category (FK)
     e.employer_status,            -- active / retired / not_employed / ...
     e.previous_employer_id,       -- last real job before retirement
+    e.previous_self_employed,     -- retiree who used to work for themselves
     e.address_id                  -- selected workplace
 FROM contributions c
 JOIN donor_employments e ON e.donor_employment_id = c.donor_employment_id
@@ -357,8 +381,12 @@ SELECT
     e.employer_status,
 
     -- Previous employer - set when donor is now RETIRED so we still
-    -- know where they USED TO work.
-    prev.name       AS previous_employer
+    -- know where they USED TO work. Self-employment is not a company (no
+    -- employers row), so the flag is shown as the contract's literal.
+    COALESCE(
+        prev.name,
+        CASE WHEN e.previous_self_employed THEN 'SELF-EMPLOYED' END
+    )               AS previous_employer
 FROM donors d
 LEFT JOIN v_donor_stats              s    ON s.donor_id   = d.donor_id
 LEFT JOIN v_donor_current_address    a    ON a.donor_id   = d.donor_id
@@ -388,7 +416,7 @@ CREATE INDEX idx_mvdp_state_total   ON mv_donor_profile (current_state, total_am
 CREATE INDEX idx_mvdp_name_trgm     ON mv_donor_profile USING gin (last_name gin_trgm_ops);  -- fuzzy name search
 CREATE INDEX idx_mvdp_first_name_trgm ON mv_donor_profile USING gin (first_name gin_trgm_ops);  -- fuzzy first-name search
 CREATE INDEX idx_mvdp_employer      ON mv_donor_profile (current_employer);     -- "everyone at Google"
-CREATE INDEX idx_mvdp_prev_employer ON mv_donor_profile (previous_employer);    -- "everyone who USED to work at Google" (retirees' last job)
+CREATE INDEX idx_mvdp_prev_employer ON mv_donor_profile (previous_employer);    -- "everyone who USED to work at Google" (retirees' last job; 'SELF-EMPLOYED' for self-employed retirees)
 CREATE INDEX idx_mvdp_occ           ON mv_donor_profile (current_occ_category); -- occupation filter
 CREATE INDEX idx_mvdp_geo           ON mv_donor_profile (current_lat, current_lng)
     WHERE current_lat IS NOT NULL;                                              -- map bounding-box
@@ -535,7 +563,7 @@ COMMENT ON TABLE donors                IS 'Unique donors (individuals + contribu
 COMMENT ON TABLE addresses             IS 'Shared address dimension — one source of truth for donor and employer locations, geocoded once.';
 COMMENT ON TABLE employers             IS 'Unique companies. address_id is the default known location; donor_employments may select a closer office.';
 COMMENT ON TABLE donor_addresses       IS 'Link: donor ↔ address. The "when" (first/last donation here) is NOT stored — it is derived from contributions (MIN/MAX receipt_date).';
-COMMENT ON TABLE donor_employments     IS 'Link: each distinct (donor, employer, occupation). employer_id is NULL for retired / self-employed / not-employed / committee donors.';
+COMMENT ON TABLE donor_employments     IS 'Link: each distinct (donor, employer, occupation, employer_status), so every filing keeps its own status. employer_id is NULL for retired / self-employed / not-employed / committee donors.';
 COMMENT ON TABLE contributions         IS 'Fact table — one row per FEC filing. Foreign keys only, no denormalized copies. The largest table.';
 COMMENT ON TABLE key_accomplices       IS 'Curated editorial content for the dashboard cards (sign/subtitle/body/image/order). Identity comes from donor_id → donors; NOT derived from FEC data.';
 COMMENT ON TABLE leaders               IS 'Curated roster of org leadership (AIPAC / DMFI / …). Identity from donor_id → donors; committee memberships in leader_committees. NOT derived from FEC data.';
@@ -548,7 +576,8 @@ COMMENT ON TABLE zip_centroids         IS 'Reference: zip → lat/lng centroid (
 COMMENT ON COLUMN contributions.sub_id IS 'FEC''s own numeric filing id (the natural key) — kept as the PK name on purpose, NOT a surrogate "id".';
 COMMENT ON COLUMN committees.committee_id IS 'Surrogate integer PK. The real FEC identifier is committee_number.';
 COMMENT ON COLUMN donor_employments.previous_employer_id IS 'References employers.employer_id — the donor''s PRIOR employer (e.g. "Retired · previously at X"). It is an EMPLOYER, not a previous donor_employments row.';
-COMMENT ON COLUMN donor_employments.employer_status IS 'One of: active / retired / self_employed / not_employed / committee / missing.';
+COMMENT ON COLUMN donor_employments.employer_status IS 'One of: active / retired / self_employed / not_employed / committee / missing. Part of the row identity.';
+COMMENT ON COLUMN donor_employments.previous_self_employed IS 'Retired rows only: the donor''s previous employer was SELF-EMPLOYED (not a company, so no previous_employer_id). v_donor_profile.previous_employer shows ''SELF-EMPLOYED''.';
 COMMENT ON COLUMN donors.donor_key IS 'Stable identity hash from donor_match — used in public URLs (/donor/<key>) and survives DB reloads.';
 COMMENT ON COLUMN key_accomplices.sign IS 'Deck-of-cards id for the landing-page visualization (e.g. "Ace Spades", "Joker"). Nullable.';
 COMMENT ON COLUMN key_accomplices.display_order IS 'Curator-defined card ordering from the source CSV.';

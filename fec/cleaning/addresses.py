@@ -15,7 +15,7 @@ from fec.config.cities import (
 from fec.config.streets import (
     POBOX_RE, DIR_PREFIX, DIR_SUFFIX, DIR_MID, STREET_TYPES,
     UNIT_RULES, UNIT_EXTRACT, HASH_EXTRACT, STREET_TYPO_RULES,
-    STATE_IN_CITY,
+    STATE_IN_CITY, FLOOR_ONLY_RE,
 )
 
 # Street cleaning
@@ -24,6 +24,14 @@ from fec.config.streets import (
 _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
                  'UNKNOWN', 'X', 'XX', 'XXX', 'NOT PROVIDED',
                  'UNITED STATES OF AMERICA', 'USA'}
+# the same placeholders in street_2, except a bare X: "UNIT X" is written "X" there
+_JUNK_UNITS = (_JUNK_STREETS - {'X'}) | {'NULL', 'N.A', 'N.A.'}
+
+
+def _has_no_unit_text(value: str) -> bool:
+    """True for a street_2 holding no letter or digit ('.', '-', '..'); a bare '#' is kept for address_review, which reports it as a unit keyword without a number."""
+    return not any(char.isalnum() or char == '#' for char in value)
+
 
 # trailing unit word without a number
 _TRAILING_UNIT_RE = re.compile(r'\s+(?:APT|UNIT|STE|SUITE)\s*$')
@@ -69,6 +77,10 @@ def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         _TRAILING_UNIT_RE, '', regex=True
     )
 
+    # a street_1 that is only a floor ("3RD FLOOR") names no street: keep it as
+    # the unit and leave street_1 empty for the donor-history recoveries
+    n_normalized += _move_floor_only_street(df)
+
     # FEC sometimes has the donor's own name instead of the address: null it
     street = df['contributor_street_1'].fillna('')
     first_names = df['contributor_first_name'].fillna('').str.strip().str.upper()
@@ -86,6 +98,24 @@ def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
     counts = {'streets_normalized': n_normalized, 'units_extracted': n_extracted}
     return df, counts
+
+
+def _move_floor_only_street(df: pd.DataFrame) -> int:
+    """street_1 that is only a floor designation -> street_2 when that is empty; street_1 becomes NULL so the recovery steps can refill it from the donor's other filings."""
+    street1 = df['contributor_street_1']
+    floor_only = street1.fillna('').astype(str).str.match(FLOOR_ONLY_RE)
+    if not floor_only.any():
+        return 0
+    street2 = df['contributor_street_2']
+    s2_blank = street2.isna() | (street2.fillna('').astype(str).str.strip() == '')
+    move = floor_only & s2_blank
+    if move.any():
+        df['contributor_street_2'] = df['contributor_street_2'].astype(object)
+        df.loc[move, 'contributor_street_2'] = street1[move].map(_normalize_unit)
+        df.loc[move, 'contributor_street_1'] = np.nan
+    # with a unit already in street_2 the floor stays put: recovery treats a
+    # floor-only street_1 as non-usable and replaces it from the donor history
+    return int(move.sum())
 
 
 def _normalize_street(s: str) -> str:
@@ -136,8 +166,9 @@ def _normalize_street(s: str) -> str:
     s = re.sub(r'^(\d+)([NSEW])\s+', r'\1 \2 ', s)
 
     # Missing space between house number and street name. A single other
-    # letter followed by whitespace is part of the house number (14A, 704C).
-    s = re.sub(r'^(\d+)([A-Z])(?=[A-Z])', r'\1 \2', s)
+    # letter followed by whitespace is part of the house number (14A, 704C);
+    # a leading ordinal (3RD FLOOR, 21ST ST) is one word, never split.
+    s = _split_fused_house_number(s)
 
     for rules in (DIR_PREFIX, DIR_MID, STREET_TYPES, DIR_SUFFIX):
         for pattern, replacement in rules:
@@ -168,12 +199,34 @@ def _normalize_street(s: str) -> str:
     return s
 
 
+_FUSED_HOUSE_NUMBER_RE = re.compile(r'^(\d+)([A-Z])(?=[A-Z])')
+_LEADING_ORDINAL_RE = re.compile(r'^(\d+)(ST|ND|RD|TH)\b')
+
+
+def _ordinal_suffix(number: str) -> str:
+    """English ordinal suffix of a number: 1 -> ST, 3 -> RD, 12 -> TH, 23 -> RD."""
+    value = int(number)
+    if value % 100 in (11, 12, 13):
+        return 'TH'
+    return {1: 'ST', 2: 'ND', 3: 'RD'}.get(value % 10, 'TH')
+
+
+def _split_fused_house_number(s: str) -> str:
+    """'123MAIN ST' -> '123 MAIN ST', but a correct ordinal ('3RD FLOOR', '21ST ST') stays one word; '12ST JAMES PL' (12 takes TH) is still split."""
+    match = _LEADING_ORDINAL_RE.match(s)
+    if match and match.group(2) == _ordinal_suffix(match.group(1)):
+        return s
+    return _FUSED_HOUSE_NUMBER_RE.sub(r'\1 \2', s)
+
+
 def _normalize_unit(s: str) -> str:
-    """Normalize a unit/apt/suite string."""
+    """Normalize a unit/apt/suite string; placeholders ('NONE', '.', 'N/A', 'HOME') are no unit."""
     if pd.isna(s) or not str(s).strip():
         return np.nan
 
     s = str(s).strip().upper()
+    if s.strip(' .,-') in _JUNK_UNITS or _has_no_unit_text(s):
+        return np.nan
     for pattern, replacement in UNIT_RULES:
         s = pattern.sub(replacement, s)
     return s.strip()

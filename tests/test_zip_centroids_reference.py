@@ -57,8 +57,9 @@ def test_centroids_agree_with_verified_street_geocodes(centroids):
 
     points = defaultdict(list)
     for key, entry in cache.items():
-        # only street-level hits: city-level fallbacks and misses say nothing about the ZIP
-        if entry.get('lat') is None or entry.get('source') in {'nominatim_city', 'not_found'}:
+        # only street-level hits: city-level fallbacks, misses and the ZIP-centroid
+        # fallback itself (which IS the centroid) say nothing about the ZIP
+        if entry.get('lat') is None or entry.get('source') in {'nominatim_city', 'not_found', 'zip_centroid'}:
             continue
         parts = key.split('|')
         if len(parts) != 4 or not re.fullmatch(r'\d{5}', parts[3]):

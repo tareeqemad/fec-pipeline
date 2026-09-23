@@ -110,3 +110,62 @@ def test_sync_rosters_check_mode_reports_but_does_not_write(tmp_path):
     assert rows[0]["leader_street_1"] == "NEW RD" and rows[0]["leader_occupation"] == "OWNER"
     assert names[names.index("leader_employer") + 1] == "leader_occupation"
     assert sync_rosters(check=True, cleaned_csv=cleaned, roster_dir=roster_dir)[0].changes == []
+
+
+# --- editorial-only streets use the pipeline's own street normaliser -------------
+
+from fec.database.roster_sync import editorial_street_changes, pipeline_streets  # noqa: E402
+
+_ACCOMPLICE = ["donor_key", "accomplice_name", "accomplice_first_name", "accomplice_last_name",
+               "accomplice_street_1", "accomplice_street_2", "accomplice_city", "accomplice_state",
+               "accomplice_zip", "accomplice_employer", "accomplice_occupation", "address_lat",
+               "address_lng", "accomplice_country"]
+
+
+def _accomplice(key, name, street_1, street_2, city, state, zip_code, country=""):
+    first, last = name.split(" ", 1)
+    return dict(zip(_ACCOMPLICE, [key, name, first, last, street_1, street_2, city, state, zip_code,
+                                  "", "", "", "", country]))
+
+
+def test_pipeline_streets_is_the_cleaning_step():
+    assert pipeline_streets("1211 AVENUE OF THE AMERICAS", "") == ("1211 AVE OF THE AMERICAS", "")
+    assert pipeline_streets("50 BEALE ST SUITE 2300", "") == ("50 BEALE ST", "STE 2300")
+    assert pipeline_streets("2000 SOUTH OCEAN BOULEVARD, UNIT 409N", "") == ("2000 S OCEAN BLVD", "UNIT 409N")
+    assert pipeline_streets("165 East 56th Street", "") == ("165 E 56TH ST", "")
+    assert pipeline_streets("", "") == ("", "")
+
+
+def test_editorial_street_is_rewritten_in_pipeline_style_and_reported():
+    latest = latest_filings(_cleaned(
+        ("9", "k1", "2026-07-14", "1211 AVE OF THE AMERICAS", "", "NEW YORK", "NY", "10036", "FOX", "CEO", "", ""),
+    ))
+    rows = [
+        _accomplice("k1", "Lachlan Murdoch", "1211 AVE OF THE AMERICAS", "", "NEW YORK", "NY", "10036"),
+        _accomplice("zz", "Rupert Murdoch", "1211 AVENUE OF THE AMERICAS", "", "NEW YORK", "NY", "10036"),
+        _accomplice("yy", "Sheryl Sandberg", "50 BEALE ST SUITE 2300", "", "SAN FRANCISCO", "CA", "94105"),
+    ]
+    result = sync_rows(rows, _ACCOMPLICE, "accomplice", latest)
+    _, rupert, sheryl = result.rows
+    assert rupert["accomplice_street_1"] == "1211 AVE OF THE AMERICAS"          # one spelling per building
+    assert (sheryl["accomplice_street_1"], sheryl["accomplice_street_2"]) == ("50 BEALE ST", "STE 2300")
+    assert (sheryl["accomplice_city"], sheryl["accomplice_zip"]) == ("SAN FRANCISCO", "94105")  # rest kept
+    assert ("Rupert Murdoch", "accomplice_street_1", "1211 AVENUE OF THE AMERICAS",
+            "1211 AVE OF THE AMERICAS") in result.changes
+    assert result.unlinked == ["Rupert Murdoch", "Sheryl Sandberg"]
+
+
+def test_foreign_editorial_address_is_kept_exactly_as_written():
+    rows = [
+        _accomplice("aa", "Shari Redstone", "12 Abba Eban Boulevard", "", "HERZLIYA", "", "", "IL"),
+        _accomplice("bb", "Jordana Cutler", "22 ROTHSCHILD BOULEVARD", "", "TEL AVIV", "", "6688218"),
+    ]
+    assert editorial_street_changes(rows[0], "accomplice") == {}
+    assert editorial_street_changes(rows[1], "accomplice") == {}   # TEL AVIV is foreign by the cleaning's own test
+    result = sync_rows(rows, _ACCOMPLICE, "accomplice", latest_filings(_cleaned()))
+    assert result.changes == []
+
+
+def test_an_editorial_street_already_in_pipeline_style_is_not_touched():
+    row = _accomplice("zz", "Jeff Yass", "401 CITY AVE", "", "BALA CYNWYD", "PA", "19004")
+    assert editorial_street_changes(row, "accomplice") == {}

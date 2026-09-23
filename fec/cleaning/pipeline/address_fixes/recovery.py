@@ -6,6 +6,8 @@ import re
 
 import pandas as pd
 
+from fec.config.streets import FLOOR_ONLY_RE
+
 from .safe_text import is_state_zip_fragment
 
 # a street_1 is usable if a geocoder can place it: house number, PO box, or a
@@ -51,13 +53,13 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
 
 
 def _is_usable_street(s: pd.Series) -> pd.Series:
-    """Vectorised: True where street_1 looks geocodable."""
+    """Vectorised: True where street_1 looks geocodable; a floor alone ("3RD FLOOR") is a unit, not a street."""
     upper = s.fillna("").astype(str).str.upper()
     return (
         upper.str.startswith("PO BOX")
         | upper.str.match(r"^\d")
         | upper.str.contains(_STREET_TYPE_RE)
-    )
+    ) & ~upper.str.strip().str.match(FLOOR_ONLY_RE)
 
 
 def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:

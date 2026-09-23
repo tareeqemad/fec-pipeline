@@ -1,7 +1,7 @@
 """Per-donor name, employer, street, unit, and PO-box canonicalization."""
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import pandas as pd
 
@@ -36,9 +36,216 @@ _EMP_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _POBOX_RE = re.compile(r"\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)")
 
+# --- canonical person names -------------------------------------------------
+# A first-name spelling can carry filer decoration that is not part of the
+# name: a parenthetical (nickname, spouse, initials), a stray or unclosed
+# bracket, a trailing dash/comma, or a period after a whole word ("JOHN.").
+# A period after an initial or a two-letter abbreviation ("L.", "JR.") is
+# ordinary spelling and stays.
+_PAREN_GROUP_RE = re.compile(r"\([^()]*\)")
+_PAREN_OPEN_TAIL_RE = re.compile(r"\([^()]*$")
+_TRAILING_NOISE_RE = re.compile(r"[\s,\-]+$")
+_WORD_PERIOD_RE = re.compile(r"(?<=[A-Z]{3})\.+$")
+_NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
+_COMMA_SUFFIXES = frozenset(
+    {"JR", "SR", "II", "III", "IV", "V", "MD", "M.D", "PHD", "PH.D", "ESQ", "DDS", "DO"}
+)
+# "A LEVY", "W. HAHN", "B.POLLACK": a single-letter initial in front of the
+# surname. A surname filed only that way keeps a letter that can be a
+# particle with its apostrophe dropped: O (O BRIEN), D (D ANGELO, D SOUZA),
+# and L before a vowel or H (L ESPERANCE, L HEUREUX).
+_LEADING_INITIAL_RE = re.compile(r"^([A-Z])(\.\s*|\s+)([A-Z][A-Z'\-]+(?:\s.*)?)$")
+
+
+def _is_particle(letter: str, rest: str) -> bool:
+    return letter in "OD" or (letter == "L" and rest[:1] in "AEIOUH")
+
+
+def _first_core(value: str) -> str:
+    """The first-name spelling with filer decoration removed (see above)."""
+    text = value
+    if "," in text:
+        # "AM, DANIEL": a first name never carries a comma. As in the cleaner's
+        # own "LAST, X, FIRST" rule, the part after the last comma is the first
+        # name and the rest is spill-over ("HEY,AM"); a bare suffix after a
+        # comma ("JAMES, JR") is not a first name
+        parts = [part.strip() for part in text.split(",") if part.strip()]
+        named = [p for p in parts if p.upper().rstrip(".") not in _COMMA_SUFFIXES]
+        text = (named or parts or [""])[-1]
+    text = _PAREN_GROUP_RE.sub(" ", text)
+    text = _PAREN_OPEN_TAIL_RE.sub(" ", text)
+    text = " ".join(text.replace(")", " ").split())
+    text = _TRAILING_NOISE_RE.sub("", text)
+    text = _WORD_PERIOD_RE.sub("", text)
+    text = _TRAILING_NOISE_RE.sub("", text)
+    if not text:  # "(JIM)" alone: the bracket content is all there is
+        text = " ".join(re.sub(r"[(),]", " ", value).split())
+    return text
+
+
+def _only_balanced_parens(value: str) -> bool:
+    """True when the spelling's only decoration is complete (...) groups."""
+    if "(" not in value:
+        return False
+    return _first_core(value) == " ".join(_PAREN_GROUP_RE.sub(" ", value).split())
+
+
+def _name_tokens(text: str) -> tuple:
+    return tuple(_NAME_TOKEN_RE.findall(text.upper()))
+
+
+def _parenthesized_tokens(values) -> set:
+    """Tokens the donor writes inside brackets somewhere: asides, not name parts."""
+    tokens = set()
+    for value in values:
+        for inner in re.findall(r"\(([^()]*)(?:\)|$)", value):
+            tokens.update(_name_tokens(inner))
+    return tokens
+
+
+def _choose_first(candidates: list[str]) -> str | None:
+    """Fullest first name by its real letters, spelled the way the donor files it.
+
+    Decoration is ignored when measuring the name: brackets and their content
+    (a nickname, a spouse, initials), a trailing dash/comma, a period after a
+    whole word, and any later word the donor puts in brackets in another
+    filing ("LYON LENNY" next to "LYON (LENNY)"). The fullest name still wins,
+    so "MARK L." beats "MARK", and among its undecorated spellings the choice
+    is the one the old longest-name rule made. A balanced parenthetical
+    ("JAMES (JIM)") is kept only when the donor never filed the name without
+    decoration; a spelling that is only ever broken ("ANNA)", "MIRIAM.") is
+    shown without the decoration.
+    """
+    if not candidates:
+        return None
+    counts = Counter(candidates)
+    order: dict[str, int] = {}
+    for position, value in enumerate(candidates):
+        order.setdefault(value, position)
+    asides = _parenthesized_tokens(order)
+
+    def _core(value):
+        words = _first_core(value).split()
+        kept = words[:1] + [
+            word for word in words[1:]
+            if not (_name_tokens(word) and set(_name_tokens(word)) <= asides)
+        ]
+        return " ".join(kept)
+
+    cores = {value: _core(value) for value in order}
+    fullest = max((cores[value] for value in order), key=len)
+    group_key = _name_tokens(fullest)
+    group = [value for value in order if _name_tokens(cores[value]) == group_key]
+
+    clean = [value for value in group if cores[value] == value]
+    if clean:  # the old rule: longest spelling, first filed on a tie
+        return min(clean, key=lambda v: (-len(v), order[v]))
+    ranked = sorted(group, key=lambda v: (-counts[v], -len(v), order[v]))
+    for value in ranked:
+        if _only_balanced_parens(value) and _first_core(value) == cores[value]:
+            return value
+    return cores[ranked[0]]
+
+
+def _surname_parents(variants: list[str], firsts_by_last: dict) -> dict:
+    """variant -> (shorter surname of the same donor it ends with, given name or None).
+
+    "A LEVY" / "B.POLLACK" next to the donor's own "LEVY" / "POLLACK": a
+    middle initial typed into the surname field. "EVAN ROSEN" next to
+    "ROSEN, EVAN", "DIANE R. TISHKOFF" next to "TISHKOFF, DIANE", "LEITMAN
+    BAILEY" next to "BAILEY, ADAM LEITMAN": every word in front is one the
+    donor files as a given name (or an initial). When the text in front starts
+    with the donor's first name it is returned as that row's given name: such
+    a row's first-name field holds initials or a co-filer ("ER", "ROCHEL
+    GROSZ"). Any other text in front (HARMATZ SANDERS) may be a real double
+    surname and is left alone.
+    """
+    parents = {}
+    for variant in variants:
+        given_tokens, lead_tokens = set(), set()
+        for last, firsts in firsts_by_last.items():
+            if last != variant:
+                for first in firsts:
+                    tokens = _name_tokens(first)
+                    given_tokens.update(tokens)
+                    lead_tokens.update(tokens[:1])
+        for base in sorted(variants, key=len, reverse=True):
+            if base == variant or len(base) < 2 or not variant.endswith(base):
+                continue
+            head = variant[: -len(base)]
+            if not head or head[-1] not in " .":
+                continue
+            prefix = head.strip(" ")
+            tokens = _name_tokens(prefix)
+            if not tokens:
+                continue
+            if len(tokens) == 1 and len(tokens[0]) == 1:
+                parents[variant] = (base, None)
+                break
+            if any(len(t) > 1 for t in tokens) and all(
+                len(t) == 1 or t in given_tokens for t in tokens
+            ):
+                parents[variant] = (base, prefix if tokens[0] in lead_tokens else None)
+                break
+    return parents
+
+
+def _choose_last(lasts: list[str], parents: dict) -> str:
+    """Most filed surname once prefixed variants count toward the surname they end with; a tie still goes to the alphabetically first spelling (Series.mode order)."""
+
+    def _root(value):
+        seen = set()
+        while value in parents and value not in seen:
+            seen.add(value)
+            value = parents[value][0]
+        return value
+
+    counts = Counter(_root(value) for value in lasts)
+    return min(counts, key=lambda v: (-counts[v], v))
+
+
+def _canonical_person_name(lasts: list[str], firsts: list[str]):
+    """(canonical last, canonical first) for one donor from its rows' (last, first) pairs."""
+    firsts_by_last: dict[str, list[str]] = defaultdict(list)
+    for last, first in zip(lasts, firsts):
+        if last and first:
+            firsts_by_last[last].append(first)
+    named = [last for last in lasts if last]
+    variants = list(dict.fromkeys(named))
+    parents = _surname_parents(variants, firsts_by_last) if len(variants) > 1 else {}
+    canon_last = _choose_last(named, parents)
+
+    candidates = []
+    for last, first in zip(lasts, firsts):
+        given = parents.get(last, (None, None))[1]
+        if given:
+            candidates.append(given)
+        elif first:
+            candidates.append(first)
+
+    moved_initial = None
+    match = _LEADING_INITIAL_RE.match(canon_last)
+    if match and not _is_particle(match.group(1), match.group(3)):
+        # filed only as "W. HAHN": the initial is the middle initial
+        dot = "." if "." in match.group(2) else ""
+        moved_initial = match.group(1) + dot
+        canon_last = match.group(3).strip()
+
+    last_words = set(canon_last.upper().split())
+    # candidates must carry a non-surname token: a reversed filing's
+    # surname-as-first could otherwise win, then strip to nothing
+    fcands = [f for f in candidates if any(w.upper() not in last_words for w in f.split())]
+    canon_first = _choose_first(fcands)
+    if canon_first:
+        kept = [w for w in canon_first.split() if w.upper() not in last_words]
+        canon_first = " ".join(kept) or None
+    if moved_initial and moved_initial[0] not in _name_tokens(canon_first or ""):
+        canon_first = f"{canon_first} {moved_initial}" if canon_first else moved_initial
+    return canon_last, canon_first
+
 
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
-    """Write one canonical first/last (most common last, fullest first, shared surname tokens dropped) plus a rebuilt LAST, FIRST composite to every row of each donor; returns rows changed."""
+    """Write one canonical first/last (see _canonical_person_name) plus a rebuilt LAST, FIRST composite to every row of each donor; returns rows changed."""
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
@@ -50,23 +257,11 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
 
     for idx in df[ind].groupby("donor_key").groups.values():
         rows = df.loc[idx]
-        lasts = rows["contributor_last_name"].dropna().map(str).str.strip()
-        lasts = lasts[lasts != ""]
-        firsts = rows["contributor_first_name"].dropna().map(str).str.strip()
-        firsts = firsts[firsts != ""]
-        if lasts.empty:
+        lasts = [v.strip() if isinstance(v, str) else "" for v in rows[ln_col]]
+        if not any(lasts):
             continue
-        canon_last = lasts.mode().iloc[0]
-        last_words = set(canon_last.upper().split())
-        # candidates must carry a non-surname token: a reversed filing's
-        # surname-as-first could otherwise win, then strip to nothing
-        fcands = [
-            f for f in firsts if any(w.upper() not in last_words for w in f.split())
-        ]
-        canon_first = max(fcands, key=len) if fcands else None
-        if canon_first:
-            kept = [w for w in canon_first.split() if w.upper() not in last_words]
-            canon_first = " ".join(kept) or None
+        firsts = [v.strip() if isinstance(v, str) else "" for v in rows[fn_col]]
+        canon_last, canon_first = _canonical_person_name(lasts, firsts)
 
         # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
         canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
@@ -187,6 +382,34 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
         return 0
     mask = (df["entity_type"] == "ORGANIZATION") & df["contributor_name"].isin(remap)
     df.loc[mask, "contributor_name"] = df.loc[mask, "contributor_name"].map(remap)
+    return int(mask.sum())
+
+
+# trailing legal form of a company name ("EATON STEEL CORPORATION" -> "EATON STEEL")
+_ORG_LEGAL_TAIL_RE = re.compile(
+    r"(?:[\s,]+(?:CORPORATION|CORP|INCORPORATED|INC|COMPANY|CO|LLC|LLP|LTD|LP|PLLC)\.?)+$"
+)
+
+
+def unify_org_donor_suffix_variants(df: pd.DataFrame) -> int:
+    """ORGANIZATION donors whose name is another organization donor's name plus a trailing legal form (EATON STEEL CORPORATION next to EATON STEEL) take the suffix-free spelling; names only, donor_keys are untouched; returns rows renamed."""
+    org = df["entity_type"] == "ORGANIZATION"
+    if not org.any():
+        return 0
+    names = df.loc[org, "contributor_name"].dropna().astype(str).str.strip()
+    distinct = set(names[names != ""])
+    remap = {}
+    for name in distinct:
+        bare = _ORG_LEGAL_TAIL_RE.sub("", name).strip()
+        # the bare spelling must itself be filed as an organization donor:
+        # only then is it provably the same name, not a guessed short form
+        if bare and bare != name and bare in distinct:
+            remap[name] = bare
+    if not remap:
+        return 0
+    current = df["contributor_name"].where(df["contributor_name"].notna(), "").astype(str).str.strip()
+    mask = org & current.isin(remap)
+    df.loc[mask, "contributor_name"] = current[mask].map(remap)
     return int(mask.sum())
 
 

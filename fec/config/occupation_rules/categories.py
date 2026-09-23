@@ -9,9 +9,46 @@ CATEGORY_RULES = [
     ('HOMEMAKER', r'^HOMEMAKER$|^HOUSEWIFE$|^STAY.AT.HOME|^MOM$|^SAHM$'),
     ('SELF-EMPLOYED', r'^SELF-EMPLOYED$'),
 
+    # Public-office titles. They come before the professional rules because
+    # words inside them would otherwise win: SECRETARY (MANAGEMENT) in DEPUTY
+    # SECRETARY OF DEFENSE, PRESIDENT/CHIEF (EXECUTIVE), ADVISOR (CONSULTING).
+    # Bare AMBASSADOR and REPRESENTATIVE are left out on purpose: in the FEC
+    # data they are also brand ambassadors and sales/field representatives.
+    ('GOVERNMENT / MILITARY',
+     r'\bU\.?S\.? (?:SENATOR|REPRESENTATIVE|AMBASSADOR'
+     r'|CONGRESS(?:MAN|WOMAN|MEMBER))\b'
+     r'|\bSTATE (?:SENATOR|REPRESENTATIVE|ASSEMBLY(?:MAN|WOMAN|MEMBER))\b'
+     r'|\bSENATOR\b|\bLEGISLATOR\b|\bCONGRESS(?:MAN|WOMAN)\b'
+     r'|^AMBASSADOR TO\b|\bSPECIAL ENVOY\b'
+     r'|\bSECRETARY OF (?:DEFENSE|STATE|HOMELAND SECURITY|COMMERCE|ENERGY'
+     r'|LABOR|AGRICULTURE|TRANSPORTATION|VETERANS AFFAIRS'
+     r'|THE (?:ARMY|NAVY|AIR FORCE|TREASURY|INTERIOR))\b'),
+
+    # News journalists: the category the JOURNALIST fix already uses. Before
+    # EXECUTIVE so "ANCHOR AND CHIEF ... CORRESPONDENT" is not a C-suite
+    # title (CHIEF). CORRESPONDENT BANKING is a finance term, not a reporter.
+    ('ARTS / ENTERTAINMENT',
+     r'\bJOURNALIST\b|\bCORRESPONDENT\b(?! BANK)'
+     r'|^ANCHOR(?: AND\b|$)|\bNEWS ANCHOR\b|\bANCHOR(?:MAN|WOMAN)\b'),
+
+    # A COUNSELOR is not a lawyer. School, college, career and guidance
+    # counselors are education (BLS SOC 21-1012); clinical, mental-health,
+    # licensed professional, genetic and addiction counselors are health care.
+    # LICENSED ... COUNSEL also catches FEC's 38-character truncation of
+    # LICENSED PROFESSIONAL CLINICAL COUNSELOR. A bare COUNSELOR is ambiguous
+    # (counselor-at-law vs therapist vs camp counselor) and stays OTHER.
+    ('EDUCATION',
+     r'\b(?:SCHOOL|COLLEGE|CAREER|GUIDANCE|ADMISSIONS?|ACADEMIC) COUNSELOR\b'),
+    ('MEDICAL / HEALTHCARE',
+     r'\b(?:CLINICAL|MENTAL HEALTH|BEHAVIORAL|PROFESSIONAL|GENETIC|ADDICTION'
+     r'|SUBSTANCE ABUSE|REHABILITATION|GRIEF|TRAUMA|MARRIAGE|FAMILY)'
+     r' COUNSELOR\b'
+     r'|\bLICENSED\b.*\bCOUNSEL'),
+
     # professional categories — more specific before broader
     ('LEGAL',
-     r'ATTORNEY|LAWYER|JUDGE|PARALEGAL|LEGAL|COUNSEL|SOLICITOR|JURIS'
+     r'ATTORNEY|LAWYER|JUDGE|PARALEGAL|LEGAL|\bCOUNSEL\b|\bCOUNSELL?OR AT LAW\b'
+     r'|SOLICITOR|JURIS'
      r'|ESQUIRE|\bESQ\b|ARBITRATOR|MEDIATOR|LAW CLERK'),
 
     ('MEDICAL / HEALTHCARE',
@@ -30,7 +67,8 @@ CATEGORY_RULES = [
      r'|PROVIDER|PRACTITIONER'),
 
     ('FINANCE / INVESTMENT',
-     r'FINANCE|FINANCIAL|INVEST\w*|BANKER|BANKING|PORTFOLIO'
+     # INVEST but not INVESTIGATOR / INVESTIGATION / INVESTIGATIVE
+     r'FINANCE|FINANCIAL|INVEST(?!IGAT)\w*|BANKER|BANKING|PORTFOLIO'
      r'|PRIVATE EQUITY|VENTURE CAPITAL|SECURITIES|TRADER|BROKER|TREASURER'
      r'|TRADING|WEALTH MANAG|TRUST ADMIN|TRUST ADMINISTRATION'
      r'|CREDIT ANALYS|COMMODITIES|LENDING|\bLENDER\b|FIXED INCOME'
@@ -43,7 +81,9 @@ CATEGORY_RULES = [
      r'|\bBUILDER/DEVELOPER\b|\bBUILDER DEVELOPER\b'),
 
     ('EXECUTIVE / C-SUITE',
-     r'CEO|COO|CTO|CIO|CMO|CDO|CFO|\bCHROO?\b|EXECUTIVE|PRESIDENT|\bCHAIR(?:MAN|WOMAN|PERSON)?\b'
+     # whole-word C-titles: bare CEO/COO/CTO/CIO also sit inside INSTRUCTOR,
+     # COORDINATOR, CONTRACTOR, SOCIOLOGY, PRECIOUS, COOKING ...
+     r'\b(?:CEO|COO|CTO|CIO|CMO|CDO|CFO)\b|\bCHROO?\b|EXECUTIVE|PRESIDENT|\bCHAIR(?:MAN|WOMAN|PERSON)?\b'
      r'|VICE PRESIDENT|DIRECTOR|PARTNER|FOUNDER|CHIEF'
      r'|PRINCIPAL|\bSENIOR VP\b|\bCO-CHAIRMAN\b|CHAIRMAN EMERITUS'
      r'|MANAGING MEMBER|MANAGING DIRECTOR|MANAGING PARTNER'
@@ -89,10 +129,14 @@ CATEGORY_RULES = [
     ('GOVERNMENT / MILITARY',
      r'GOVERNMENT|MILITARY|ARMY|NAVY|AIR FORCE|FEDERAL'
      r'|STATE EMPLOY|CITY EMPLOY|POLITICAL|POLITICIAN|LOBBYIST|POLICY'
-     r'|INVESTIGATOR|REGULATORY|COURT RECEIVER'),
+     # INVESTIGATOR only with a public employer in the title: a bare one is
+     # as often a private, insurance or university investigator (OTHER)
+     r'|\b(?:POLICE|STATE|COUNTY|CITY|INSPECTOR GENERAL) INVESTIGATOR\b'
+     r'|REGULATORY|COURT RECEIVER'),
 
     ('ARTS / ENTERTAINMENT',
-     r'ARTIST|WRITER|AUTHOR|MUSICIAN|ACTOR|PRODUCER|DESIGNER'
+     # whole-word ACTOR: the bare letters sit inside CONTRACTOR and FACTORS
+     r'ARTIST|WRITER|AUTHOR|MUSICIAN|\bACTOR\b|PRODUCER|DESIGNER'
      r'|PHOTOGRAPHER|ENTERTAINMENT|FILMMAKER|PUBLISHER|PUBLISHING'
      r'|EDITOR|EVENT PLANNER|EVENT PRODUCTION|OPERA SINGER'
      r'|INTERIOR DESIGN|INTERIOR ARCHITECT|CREATIVE|FASHION'
@@ -171,6 +215,23 @@ CATEGORY_OVERRIDES = {
 
     # CHIROPRACTOR also caught by the EXECUTIVE regex
     "CHIROPRACTOR": "MEDICAL / HEALTHCARE",
+
+    # Titles that only reached EXECUTIVE / C-SUITE through CEO/CDO/CTO/CIO
+    # letters inside another word, before those were made whole-word.
+    # INDEPENDENT CONTRACTOR is a work arrangement like FREELANCER, not a
+    # trade; the PRIVATE MUSIC one teaches music for a park district.
+    "INDEPENDENT CONTRACTOR": "SELF-EMPLOYED",
+    "INDEPENDENT CONTRACTOR- PRIVATE MUSIC": "ARTS / ENTERTAINMENT",
+    "VOICEOVER/AUDO PRODUCTION": "ARTS / ENTERTAINMENT",
+    # AWS job code: Data Center Engineering Operations technician, level IV
+    "DCEO EOT IV": "TECHNOLOGY",
+    # virtual Chief Information Officer: a real C-level title, kept
+    "VCIO": "EXECUTIVE / C-SUITE",
+    "NURSING COORDINATOR": "MEDICAL / HEALTHCARE",
+    "CLINICAL NURSING COORDINATOR": "MEDICAL / HEALTHCARE",
+    # same bucket as CUSTOMER SERVICE / CUSTOMER SUCCESS and RECRUITER
+    "CUSTOMER ENGAGEMENT COORDINATOR": "SALES / MARKETING",
+    "RECRUITING COORDINATOR": "SALES / MARKETING",
 
     # finance
     "PRIVATE WEALTH ADVISOR": "FINANCE / INVESTMENT",
@@ -335,6 +396,9 @@ CATEGORY_OVERRIDES = {
     # medical / science
     "NUCLEAR HYDROLOGIST": "SCIENCE / RESEARCH",
     "BIOSTATISTICIAN": "SCIENCE / RESEARCH",
+    # the lead researcher on a grant or trial (NIH term); without this it
+    # falls to EXECUTIVE through PRINCIPAL now that INVEST no longer claims it
+    "PRINCIPAL INVESTIGATOR": "SCIENCE / RESEARCH",
     "PSYCHOMETRIST": "MEDICAL / HEALTHCARE",
     "LONG TERM CARE AND REHABILITATION FACI": "MEDICAL / HEALTHCARE",
     "SENIOR LIVING": "MEDICAL / HEALTHCARE",
@@ -375,6 +439,9 @@ CATEGORY_OVERRIDES = {
     "BASKETBALL COACH": "EDUCATION",
     "GRAD STUDENT": "STUDENT",
     "SENIOR FELLOW": "EDUCATION",
+    # roster title (Heritage Foundation): a think-tank fellow like SENIOR
+    # FELLOW, not a lawyer (COUNSELOR) nor a company president (PRESIDENT)
+    "SENIOR COUNSELOR TO THE PRESIDENT AND E.W. RICHARDSON FELLOW": "EDUCATION",
 
     # management
     "PRODUCT MANAGEENT": "MANAGEMENT",
@@ -517,7 +584,9 @@ RECLASSIFY_CATEGORY_RULES = [
     (r'\bRABBI\b|\bPASTOR\b|\bMINISTER\b|\bCLERGY\b|\bPRIEST\b', 'RELIGIOUS'),
     (r'\bWRITER\b|\bAUTHOR\b|\bJOURNALIST\b|\bEDITOR\b|\bREPORTER\b|\bPUBLISH', 'ARTS / ENTERTAINMENT'),
     (r'\bARCHITECT\b', 'ARTS / ENTERTAINMENT'),
-    (r'\bPSYCHOLOG\b|\bTHERAPIST\b|\bSOCIAL WORK\b|\bCOUNSELOR\b', 'MEDICAL / HEALTHCARE'),
+    # COUNSELOR is decided by its qualifier in CATEGORY_RULES (school vs
+    # clinical); a bare or unknown-kind COUNSELOR stays OTHER
+    (r'\bPSYCHOLOG\b|\bTHERAPIST\b|\bSOCIAL WORK\b', 'MEDICAL / HEALTHCARE'),
     (r'\bSALES\b|\bMARKETING\b|\bADVERTIS', 'SALES / MARKETING'),
     (r'\bEXECUTIVE\b|\bCEO\b|\bCFO\b|\bCOO\b|\bPRESIDENT\b|\bDIRECTOR\b', 'EXECUTIVE / C-SUITE'),
     (r'\bPILOT\b|\bAVIAT', 'TRANSPORTATION'),

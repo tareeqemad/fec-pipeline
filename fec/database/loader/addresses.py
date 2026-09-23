@@ -20,8 +20,16 @@ from ._base import _count, to_float_or_none, to_native
 logger = get_logger(__name__)
 
 
+def _blank_to_none(value):
+    """A missing address part is NULL, never '' (the CSV is read with keep_default_na=False)."""
+    value = to_native(value)
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
 def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
-    """Read resolved employer locations."""
+    """Read resolved employer locations; empty address parts become None."""
     if frame is None:
         if not EMPLOYER_LOCATIONS_CSV.exists():
             return []
@@ -32,16 +40,16 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
         )
     locations = []
     for row in frame.to_dict("records"):
-        if not row.get("employer_address"):
+        if _blank_to_none(row.get("employer_address")) is None:
             continue
         if row.get("address_trust") not in PUBLISHABLE_ADDRESS_TRUST:
             continue
         locations.append({
             "employer_name": row["employer_name"],
-            "employer_address": row.get("employer_address"),
-            "employer_city": row.get("employer_city"),
-            "employer_state": row.get("employer_state"),
-            "employer_zip": row.get("employer_zip"),
+            "employer_address": _blank_to_none(row.get("employer_address")),
+            "employer_city": _blank_to_none(row.get("employer_city")),
+            "employer_state": _blank_to_none(row.get("employer_state")),
+            "employer_zip": _blank_to_none(row.get("employer_zip")),
             "employer_latitude": row.get("employer_latitude"),
             "employer_longitude": row.get("employer_longitude"),
             "is_primary": str(row.get("is_primary")).lower() == "true",
@@ -54,6 +62,12 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
         if not any(location["is_primary"] for location in employer_locations):
             employer_locations[0]["is_primary"] = True
     return locations
+
+
+def _empty_to_none(value):
+    """Native value with '' stored as NULL; _akey already maps both to ''."""
+    value = to_native(value)
+    return None if value == '' else value
 
 
 def _akey(st1, st2, city, state, z):
@@ -78,8 +92,10 @@ def load_address_dimension(
         key = _akey(st1, st2, city, state, z)
         entry = addr_dim.get(key)
         if entry is None:
-            addr_dim[key] = [to_native(st1), to_native(st2), to_native(city),
-                             to_native(state), to_native(z), lat, lng]
+            # '' and NULL share one key (_akey), so store the NULL form.
+            addr_dim[key] = [_empty_to_none(st1), _empty_to_none(st2),
+                             _empty_to_none(city), _empty_to_none(state),
+                             _empty_to_none(z), lat, lng]
         elif entry[5] is None and lat is not None:  # Backfill coordinates.
             entry[5], entry[6] = lat, lng
 

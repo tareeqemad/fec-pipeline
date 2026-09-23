@@ -12,6 +12,7 @@ from fec.cleaning.previous_employer import (
     is_real_employer,
 )
 from fec.donor_match.rules import resolve_donor_key
+from fec.resolve.pipeline.locations import select_location
 
 
 def find_or_create_donor(
@@ -117,9 +118,75 @@ def upsert_donor_address(
     )
 
 
+def employment_address_id(
+    cur: Any, employer: str, locations: dict | None,
+    state: str | None = "", zip_5: str | None = "",
+) -> int | None:
+    """The employer office an active employment points at: the FEC loader's rule.
+
+    select_location picks a same-state office (nearest to the person's ZIP), else the
+    employer's default location; the address row is the one load_address_dimension
+    stored for that location (matched on the same COALESCE(col, '') tuple), inserted
+    only when the loader pruned an office no FEC employment used.
+    """
+    if not employer or not locations:
+        return None
+    location = select_location(locations.get(employer), zip_5 or "", state or "")
+    if not location:
+        return None
+
+    values = (
+        location.get("employer_address"),
+        None,
+        location.get("employer_city"),
+        location.get("employer_state"),
+        location.get("employer_zip"),
+    )
+    cur.execute(
+        """
+        SELECT address_id FROM addresses
+        WHERE COALESCE(street_1, '')   = %s
+          AND COALESCE(street_2, '')   = %s
+          AND COALESCE(city, '')       = %s
+          AND COALESCE(state_code, '') = %s
+          AND COALESCE(zip_code, '')   = %s
+        ORDER BY address_id
+        LIMIT 1
+        """,
+        tuple(value or "" for value in values),
+    )
+    row = cur.fetchone()
+    if row:
+        return row[0]
+
+    def _coordinate(value):
+        try:
+            return float(value) if str(value or "").strip() else None
+        except ValueError:
+            return None
+
+    cur.execute(
+        """
+        INSERT INTO addresses
+            (street_1, street_2, city, state_code, zip_code, latitude, longitude)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        RETURNING address_id
+        """,
+        (*values, _coordinate(location.get("employer_latitude")),
+         _coordinate(location.get("employer_longitude"))),
+    )
+    return cur.fetchone()[0]
+
+
 def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
-                             occupation: str | None = None) -> None:
-    """Add the roster's employer/occupation only for a donor with no FEC employment (FEC wins)."""
+                             occupation: str | None = None, *,
+                             state: str | None = "", zip_5: str | None = "",
+                             locations: dict | None = None) -> None:
+    """Add the roster's employer/occupation only for a donor with no FEC employment (FEC wins).
+
+    An active employment gets the same workplace address as an FEC one
+    (employment_address_id); `state`/`zip_5` are the roster person's own.
+    """
     emp = (employer or '').strip()
     occ = (occupation or '').strip() or None
     if not emp and not occ:
@@ -150,11 +217,17 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
         found = cur.fetchone()
         occ_cat_id = found[0] if found else None
 
+    address_id = (
+        employment_address_id(cur, emp, locations, state, zip_5)
+        if status == 'active' else None
+    )
+
     cur.execute(
         """
         INSERT INTO donor_employments
-            (donor_id, employer_id, occupation, occupation_category_id, employer_status)
-        VALUES (%s, %s, %s, %s, %s)
+            (donor_id, employer_id, occupation, occupation_category_id,
+             employer_status, address_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
         """,
-        (donor_id, employer_id, occ, occ_cat_id, status),
+        (donor_id, employer_id, occ, occ_cat_id, status, address_id),
     )

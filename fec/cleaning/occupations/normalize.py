@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 
+from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
 from fec.config.data import COMM_PATTERNS, MISSING_VALUES, RETIRE_RE
 from fec.config.occupation_rules.categories import (
     CATEGORY_OVERRIDES,
@@ -30,8 +31,20 @@ _CYRILLIC_TO_ASCII = str.maketrans({
 })
 
 
-def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False) -> tuple[pd.Series, int]:
-    """Strip/uppercase, fix entities and junk, optionally collapse RETIRE* to RETIRED, then apply normalize_map; returns (cleaned, n_changed)."""
+_WORD_DIGITS_RE = r'(\b[A-Z]{3,})\d+\b'
+# Employer text whose trailing digits are keying noise (SELF EMPLOYED47); every other
+# employer keeps its digits because they belong to the name (GENESIS10, ROC360).
+EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOYERS)
+
+
+def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
+                    digits_only_before: frozenset | set | None = None) -> tuple[pd.Series, int]:
+    """Strip/uppercase, fix entities and junk, optionally collapse RETIRE* to RETIRED, then apply normalize_map; returns (cleaned, n_changed).
+
+    Digits stuck to a word are keying noise in an occupation (OWNER3 -> OWNER) but part
+    of a company's name in an employer (GENESIS10, ROC360, CENTURY21 KING REALTY). With
+    `digits_only_before`, they are stripped only when what remains is one of those values
+    (SELF EMPLOYED47 -> SELF EMPLOYED); without it, always (occupations)."""
     before = series.copy()
 
     cleaned = series.astype('string').str.strip().str.upper()
@@ -50,7 +63,12 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     cleaned = cleaned.str.replace(r'[{}]', '', regex=True)
 
     # trailing digits stuck to words (OWNER3 -> OWNER)
-    cleaned = cleaned.str.replace(r'(\b[A-Z]{3,})\d+\b', r'\1', regex=True)
+    stripped = cleaned.str.replace(_WORD_DIGITS_RE, r'\1', regex=True)
+    if digits_only_before is None:
+        cleaned = stripped
+    else:
+        to_status = stripped.str.strip().isin(digits_only_before).fillna(False)
+        cleaned = cleaned.where(~to_status, stripped)
 
     # trailing punctuation
     cleaned = cleaned.str.replace(r'[\.\,\;\:\/\\]+\s*$', '', regex=True).str.strip()

@@ -60,7 +60,7 @@
     "row_count": 218683,
     "zip_state_match": {
       "passed": true,
-      "count": 4
+      "count": 8
     },
     "no_email_as_address": {
       "passed": true,

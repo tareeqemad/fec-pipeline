@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.occupations import _categorize, _normalize_text, map_occupation_fixes
+from fec.cleaning.occupations.normalize import EMPLOYER_STATUS_TEXT
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES
 from fec.config.employers import EMPLOYER_NORMALIZE
@@ -34,6 +35,7 @@ def _restore_individual_occupations(
     raw_employer, _ = _normalize_text(
         raw_employers[has_occupation],
         EMPLOYER_NORMALIZE,
+        digits_only_before=EMPLOYER_STATUS_TEXT,
     )
     swapped = raw_employer.isin(SWAP_JOB_TITLES) & (
         restored.str.contains(_ORG_BUSINESS_RE, na=False) | restored.eq("SELF-EMPLOYED")
@@ -71,6 +73,7 @@ def _restore_individual_employers(
     restored, _ = _normalize_text(
         raw_employers[restore],
         EMPLOYER_NORMALIZE,
+        digits_only_before=EMPLOYER_STATUS_TEXT,
     )
     restored = restored[restored.notna() & ~restored.isin(MISSING_VALUES)]
     if not restored.empty:

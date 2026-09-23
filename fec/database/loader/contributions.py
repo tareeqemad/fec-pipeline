@@ -16,6 +16,7 @@ from fec.log import get_logger
 from fec.cleaning.previous_employer import current_employer_name
 
 from ._base import _count, to_float_or_none, to_int_or_none
+from .employers import employment_key
 
 logger = get_logger(__name__)
 
@@ -73,21 +74,20 @@ def _map_address_ids(rows, address_ids):
 
 
 def _map_employment_ids(rows, employment_ids, get_employer_id):
-    """Match the composite key produced by load_employments."""
+    """Match the (donor, employer, occupation, status) key produced by load_employments."""
     employer_ids = [
         get_employer_id(current_employer_name(status, employer))
         for status, employer in rows[[
             "employer_status", "contributor_employer",
         ]].itertuples(index=False)
     ]
-    occupations = rows["contributor_occupation"].where(
-        rows["contributor_occupation"].notna(), None
-    )
     rows["_employment_id"] = [
-        employment_ids.get((int(donor_id), to_int_or_none(employer_id),
-                            None if pd.isna(occupation) else occupation))
-        for donor_id, employer_id, occupation in zip(
-            rows["_donor_id"], employer_ids, occupations
+        employment_ids.get(employment_key(
+            donor_id, to_int_or_none(employer_id), occupation, status,
+        ))
+        for donor_id, employer_id, occupation, status in zip(
+            rows["_donor_id"], employer_ids,
+            rows["contributor_occupation"], rows["employer_status"],
         )
     ]
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from collections import Counter
 from typing import Any
@@ -12,6 +13,7 @@ from fec.env import SCHEMA_SQL
 from fec.log import get_logger
 
 from ._base import PG
+from .employers import EMPLOYMENT_KEY_COLUMNS
 
 logger = get_logger(__name__)
 
@@ -135,6 +137,15 @@ def create_schema(conn: Any, cur: Any) -> None:
     _verify_schema_integrity(cur)
 
 
+def _is_employment_key(definition: str) -> bool:
+    """True for UNIQUE NULLS NOT DISTINCT over exactly the loader's employment key."""
+    match = re.fullmatch(r"UNIQUE NULLS NOT DISTINCT \((.*)\)", definition.strip())
+    if not match:
+        return False
+    columns = tuple(column.strip() for column in match.group(1).split(","))
+    return columns == EMPLOYMENT_KEY_COLUMNS
+
+
 def _verify_schema_integrity(cur: Any) -> None:
     """Assert v1.2 invariants: views/matviews exist, leader_committees junction, donor_employments unique key, no legacy donor pointer columns."""
     cur.execute("SELECT viewname FROM pg_views WHERE schemaname='public'")
@@ -165,17 +176,21 @@ def _verify_schema_integrity(cur: Any) -> None:
         WHERE conrelid = 'donor_employments'::regclass AND contype = 'u'
     """)
     unique_defs = [row[0] for row in cur.fetchall()]
-    if not any(
-        "NULLS NOT DISTINCT" in definition
-        and "donor_id" in definition
-        and "employer_id" in definition
-        and "occupation" in definition
-        for definition in unique_defs
-    ):
+    if not any(_is_employment_key(definition) for definition in unique_defs):
         raise RuntimeError(
             "Schema: donor_employments is missing the UNIQUE NULLS NOT DISTINCT "
-            "(donor_id, employer_id, occupation) constraint declared in "
-            f"schema.sql (found: {unique_defs or 'no UNIQUE constraints'})"
+            f"({', '.join(EMPLOYMENT_KEY_COLUMNS)}) constraint the loader "
+            f"relies on (found: {unique_defs or 'no UNIQUE constraints'})"
+        )
+
+    cur.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='donor_employments'
+          AND column_name='previous_self_employed'
+    """)
+    if not cur.fetchone():
+        raise RuntimeError(
+            "Schema: donor_employments.previous_self_employed is missing"
         )
 
     # Reject legacy columns.

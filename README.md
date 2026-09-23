@@ -54,6 +54,8 @@ rebuild the cleaned data, resolve work locations, and reload the database.
 `data/database/key_accomplices.csv` from each donor's newest cleaned filing
 (address, employer, occupation); `--check` only reports drift. Editorial-only rows
 are never touched.
+In both rosters committees are written by their short name (`{AIPAC,DMFI}`, `ZOA`),
+never by number; the loader stops on an unknown name.
 
 Cleaning always processes the complete raw file. Donor matching groups filings
 under `donor_key`; it never combines or removes contribution rows.

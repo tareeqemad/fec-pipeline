@@ -75,8 +75,52 @@ def run_checks(cur) -> list[tuple[str, str, str]]:
     # DB total vs the neighbouring cleaned CSV (the registry can't see files);
     # a mismatch means the DB is not loaded from this CSV
     out.append(_csv_total_check(cur))
+    # every filing's employment row carries the status that filing reported
+    out.append(_csv_employment_status_check(cur))
 
     return out
+
+
+def _employment_status_mismatches(csv_rows, db_status: dict[int, str | None]) -> tuple[int, int]:
+    """(missing, differing) INDIVIDUAL filings: csv_rows yields (sub_id, entity_type, employer_status) strings."""
+    missing = differing = 0
+    for sub_id, entity_type, status in csv_rows:
+        if entity_type.strip() != "INDIVIDUAL":
+            continue
+        sub_id = int(sub_id)
+        if sub_id not in db_status:
+            missing += 1
+        elif (db_status[sub_id] or "") != status.strip():
+            differing += 1
+    return missing, differing
+
+
+def _csv_employment_status_check(cur) -> tuple[str, str, str]:
+    """Each INDIVIDUAL filing's donor_employments.employer_status equals its CSV employer_status (the check the (donor, employer, occupation) key used to fail); OK-skips when the CSV is absent."""
+    name = "employment_status_vs_csv"
+    try:
+        from fec.env import CLEANED_CSV
+        if not CLEANED_CSV.exists():
+            return (OK, name, "cleaned CSV not present - skipped")
+        import pandas as pd
+        csv = pd.read_csv(CLEANED_CSV, usecols=["sub_id", "entity_type", "employer_status"],
+                          dtype=str, keep_default_na=False)
+        cur.execute("""
+            SELECT c.sub_id, e.employer_status
+            FROM contributions c
+            JOIN donor_employments e ON e.donor_employment_id = c.donor_employment_id
+        """)
+        db_status = {int(sub_id): status for sub_id, status in cur.fetchall()}
+        missing, differing = _employment_status_mismatches(
+            csv[["sub_id", "entity_type", "employer_status"]].itertuples(index=False, name=None),
+            db_status,
+        )
+        ok = missing == 0 and differing == 0
+        detail = ("every filing keeps its status" if ok else
+                  f"{differing:,} filing(s) with another status, {missing:,} without an employment")
+        return (OK if ok else CRIT, name, detail)
+    except (psycopg2.Error, OSError, KeyError, ValueError) as error:
+        return (CRIT, name, f"error: {str(error).strip()}")
 
 
 def _csv_total_check(cur) -> tuple[str, str, str]:

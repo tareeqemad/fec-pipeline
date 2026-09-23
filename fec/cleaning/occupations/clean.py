@@ -18,6 +18,7 @@ from fec.config.occupation_rules.rules import (
 from fec.log import get_logger
 
 from .normalize import _normalize_text, _categorize, _classify_committee_names, map_occupation_fixes
+from .normalize import EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT
 from .employer_deep_clean import _deep_clean_employer
 from .employer_groups import _canonicalize_employers
 
@@ -149,7 +150,7 @@ def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
 
 def _normalize_work_text(df: pd.DataFrame) -> int:
     df['contributor_employer'], n_emp = _normalize_text(
-        df['contributor_employer'], EMPLOYER_NORMALIZE
+        df['contributor_employer'], EMPLOYER_NORMALIZE, digits_only_before=_EMPLOYER_STATUS_TEXT
     )
     df['contributor_occupation'], n_occ = _normalize_text(
         df['contributor_occupation'], OCCUPATION_NORMALIZE, collapse_retire=True

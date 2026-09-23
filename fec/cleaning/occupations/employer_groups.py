@@ -19,8 +19,8 @@ _PA_PC_PROTECT_RE = re.compile(
 )
 
 
-def _employer_group_key(name: str) -> str:
-    """Build a strict key for employer spelling variants."""
+def employer_group_words(name: str) -> tuple[str, ...]:
+    """The strict group key with its word breaks kept: 'TWIN CITY FAN, LTD.' -> ('TWIN', 'CITY', 'FAN')."""
     key = re.sub(r'([A-Z]),([A-Z])', r'\1\2', name.strip().upper())
     key = re.sub(r'[,\.\s]+', ' ', key)
     key = _DOTTED_SUFFIX_RE.sub('', key).strip()
@@ -31,8 +31,75 @@ def _employer_group_key(name: str) -> str:
             r',?\s*\b(INC|LLC|LLP|LTD|CORP|CORPORATION|COMPANY|CO|PLLC|LP)\s*$',
             '', key,
         ).strip()
-    key = re.sub(r'^\s*THE\s+', '', key).replace('&', 'AND')
-    return re.sub(r'\s+', '', key)
+    key = re.sub(r'^\s*THE\s+', '', key).replace('&', ' AND ')
+    return tuple(key.split())
+
+
+def _employer_group_key(name: str) -> str:
+    """Build a strict key for employer spelling variants (spacing ignored)."""
+    return ''.join(employer_group_words(name))
+
+
+def employer_filers(employers: pd.Series, filers: pd.Series) -> dict[str, frozenset]:
+    """Employer name -> the set of filer names who wrote it (the evidence base of prefer_attested_spacing)."""
+    frame = pd.DataFrame({'employer': employers, 'filer': filers}).dropna()
+    frame = frame[(frame['employer'].astype(str).str.strip() != '')
+                  & (frame['filer'].astype(str).str.strip() != '')]
+    if frame.empty:
+        return {}
+    frame['filer'] = frame['filer'].astype(str).str.strip().str.upper()
+    return {name: frozenset(group) for name, group in frame.groupby('employer')['filer']}
+
+
+def spacing_index(names) -> dict[str, list]:
+    """First word -> [(words, name)] over every employer name, for prefix lookups."""
+    index = defaultdict(list)
+    for name in names:
+        words = employer_group_words(name)
+        if words:
+            index[words[0]].append((words, name))
+    return index
+
+
+def prefer_attested_spacing(winner: str, variants, counts, filers: dict, index: dict) -> str:
+    """Among spacing variants of one name (TWINCITY FAN / TWIN CITY FAN) keep the spacing the group's own filers use in a longer name of the same company.
+
+    Evidence is a longer employer name that starts with exactly those words and was
+    filed by one of the people who filed the group (BARRY files TWINCITY FAN, TWIN CITY FAN
+    and TWIN CITY FAN COMPANIES LTD). The frequency winner stays unless exactly one
+    spacing has such evidence, so a spacing that only an unrelated company shares
+    (BLACK ROCK COFFEE next to BLACKROCK) can never flip a group.
+    """
+    words = {variant: employer_group_words(variant) for variant in variants}
+    spacings = set(words.values())
+    if len(spacings) < 2 or not filers:
+        return winner
+    # only plain letter/digit word breaks; a break at '/' or '-' ('BANK OF
+    # AMERICA/ MERRILL') is punctuation style, which other rules own
+    if not all(word.isalnum() for spacing in spacings for word in spacing):
+        return winner
+    group_filers = frozenset().union(*(filers.get(variant, frozenset()) for variant in variants))
+    if not group_filers:
+        return winner
+    members = set(variants)
+    attested = set()
+    for spacing in spacings:
+        size = len(spacing)
+        for other_words, other in index.get(spacing[0], ()):
+            if (other not in members and len(other_words) > size
+                    and other_words[:size] == spacing
+                    and filers.get(other, frozenset()) & group_filers):
+                attested.add(spacing)
+                break
+    if len(attested) != 1:
+        return winner
+    spacing = next(iter(attested))
+    if words.get(winner) == spacing:
+        return winner
+    return max(
+        (variant for variant in variants if words[variant] == spacing),
+        key=lambda variant: (counts.get(variant, 0), variant),
+    )
 
 
 def _canonicalize_employers(df: pd.DataFrame) -> int:
@@ -69,11 +136,23 @@ def _canonicalize_employers(df: pd.DataFrame) -> int:
         if key:
             groups[key].append(name)
 
+    # spacing evidence (who filed which name) is only built when some group
+    # actually mixes word breaks; frames without filer names skip it
+    spaced = any(
+        len({employer_group_words(variant) for variant in variants}) > 1
+        for variants in groups.values() if len(variants) > 1
+    )
+    filers, index = {}, {}
+    if spaced and 'contributor_name' in df.columns:
+        filers = employer_filers(active, df.loc[active.index, 'contributor_name'])
+        index = spacing_index(counts.index)
+
     mapping = {}
     for variants in groups.values():
         if len(variants) < 2:
             continue
         canonical = max(variants, key=lambda variant: counts[variant])
+        canonical = prefer_attested_spacing(canonical, variants, counts, filers, index)
         mapping.update(
             {variant: canonical for variant in variants if variant != canonical}
         )
