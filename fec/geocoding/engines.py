@@ -1,4 +1,4 @@
-"""Nominatim geocoding requests."""
+"""Geocoding engines: Census, Nominatim (US and international) and city-level fallback."""
 
 import time
 

@@ -43,7 +43,7 @@
     },
     "zip_coverage": {
       "passed": true,
-      "pct_empty": 0.01
+      "pct_empty": 0.0
     },
     "no_duplicate_sub_id": {
       "passed": true,
@@ -57,10 +57,10 @@
       "passed": true,
       "count": 0
     },
-    "row_count": 214574,
+    "row_count": 218683,
     "zip_state_match": {
       "passed": true,
-      "count": 0
+      "count": 4
     },
     "no_email_as_address": {
       "passed": true,

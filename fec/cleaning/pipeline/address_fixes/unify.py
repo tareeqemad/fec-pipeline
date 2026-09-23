@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
-                          eligible: pd.Series) -> int:
+                          eligible: pd.Series, prefer_longest: bool = False) -> int:
     """Rewrite each group's minority spellings of col to the dominant one; returns rows rewritten."""
     vals = df[col].fillna('')
     work = pd.DataFrame({'g': grp[eligible], 's': vals[eligible]})
@@ -20,8 +20,10 @@ def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
     if counts.empty:
         return 0
 
-    # winner per group: most rows, then longest string (keeps the fuller form)
-    counts = counts.sort_values(['g', 'n', 'len'], ascending=[True, False, False])
+    # winner per group: most rows, then longest string (keeps the fuller form);
+    # prefer_longest flips that so the fuller spelling wins even as a minority
+    order = ['g', 'len', 'n'] if prefer_longest else ['g', 'n', 'len']
+    counts = counts.sort_values(order, ascending=[True, False, False])
     winner = counts.drop_duplicates('g').set_index('g')['s']
     canonical = grp.map(winner)
 
@@ -32,7 +34,7 @@ def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
     return n_fixed
 
 
-def _unify_street_variants(df: pd.DataFrame, fingerprint) -> int:
+def _unify_street_variants(df: pd.DataFrame, fingerprint, prefer_longest: bool = False) -> int:
     """Collapse fingerprint-equal spellings of one donor's street to the dominant form; returns rows rewritten."""
     # scoped to ONE donor (name + city + state): only spellings the same person
     # used at the same place merge, so fingerprint collisions across donors
@@ -48,7 +50,7 @@ def _unify_street_variants(df: pd.DataFrame, fingerprint) -> int:
     fingerprints = street.map(fingerprint)
     SEP = '\x00'
     group_key = name.str.cat([city, state, fingerprints], sep=SEP)
-    return _collapse_to_dominant(df, 'contributor_street_1', group_key, eligible)
+    return _collapse_to_dominant(df, 'contributor_street_1', group_key, eligible, prefer_longest)
 
 
 def _unify_street_spellings(df: pd.DataFrame) -> int:
@@ -108,3 +110,16 @@ def _unify_unit_designators(df: pd.DataFrame) -> int:
     SEP = '\x00'
     group_key = name.str.cat([st1, city, state, zips, core], sep=SEP)
     return _collapse_to_dominant(df, 'contributor_street_2', group_key, eligible)
+
+
+_TYPE_TOKENS = {'ST', 'AVE', 'RD', 'DR', 'BLVD', 'LN', 'CT', 'PL', 'CIR', 'TER', 'PKWY', 'HWY', 'SQ', 'WAY', 'TRL', 'PLZ', 'LOOP'}
+
+
+def _unify_street_types(df: pd.DataFrame) -> int:
+    """Merge one donor's "103 STANTON" with "103 STANTON AVE" (fingerprint: tokens without the street type)."""
+    # a person does not live at both 103 Stanton and 103 Stanton Ave; the fuller
+    # spelling (the one carrying the type) wins even when filed less often
+    def fingerprint(street: str) -> str:
+        tokens = re.findall(r'[A-Z0-9]+', street.upper())
+        return ' '.join(t for t in tokens if t not in _TYPE_TOKENS)
+    return _unify_street_variants(df, fingerprint, prefer_longest=True)

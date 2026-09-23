@@ -20,8 +20,10 @@ from .address_fixes import (
     _recover_house_number_from_donor,
     _recover_nonstreet_from_donor,
     _recover_null_streets,
+    _trim_street_to_donor_short_form,
     _unify_street_spacing,
     _unify_street_spellings,
+    _unify_street_types,
     _unify_unit_designators,
 )
 from .address_fixes.safe_text import apply_safe_fixes
@@ -83,6 +85,9 @@ def _recover_streets(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> None:
         (_recover_house_number_from_donor, "streets_recover_house_number",
          "house_number_backfilled_from_donor_history",
          "backfilled", "missing house numbers from same donor"),
+        (_trim_street_to_donor_short_form, "streets_trim_truncated",
+         "truncated_street_fragment_replaced_by_donor_short_form",
+         "trimmed", "truncated streets back to the donor's short form"),
     )
     for recovery, step, reason, action, description in recoveries:
         changed = trail.run(df, recovery, step, reason, STREET_FIELDS)
@@ -146,6 +151,13 @@ def _align_address_parts(df: pd.DataFrame, trail: AuditTrail, log) -> None:
         log(
             f"Streets: unified {n_street_spell:,} spelling variants (same donor + same address)"
         )
+    n_street_type = trail.run(
+        df, _unify_street_types, "streets_unify_types",
+        "street_type_unified_to_donor_dominant", STREET_FIELDS,
+    )
+    if n_street_type:
+        log(f"Streets: unified {n_street_type:,} with/without-type variants (same donor)")
+
     n_street_space = trail.run(
         df, _unify_street_spacing, "streets_unify_spacing",
         "street_spacing_unified_to_donor_dominant", STREET_FIELDS,

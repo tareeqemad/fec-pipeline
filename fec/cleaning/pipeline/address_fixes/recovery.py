@@ -6,6 +6,8 @@ import re
 
 import pandas as pd
 
+from .safe_text import is_state_zip_fragment
+
 # a street_1 is usable if a geocoder can place it: house number, PO box, or a
 # street-type token. deliberately NARROWER than address_review._STREET_TYPES:
 # this runs on POST-normalized streets (types already abbreviated) and unit
@@ -303,3 +305,70 @@ def _truncated_house_numbers(df: pd.DataFrame) -> int:
                 df.loc[mask, "contributor_street_1"] = new
                 changed += int(mask.sum())
     return changed
+
+
+# FEC cuts street_1 at 34 characters, so a filer who typed the whole address
+# into one box leaves "1777 REISTERSTOWN RD COMMERCE CE" or
+# "1474 BIENVENEDA AVE PACIFIC PALIS": the real street followed by a building,
+# city or state fragment. The same person's other filings at the same ZIP hold
+# the clean short form (and its unit in street_2), which is the evidence used.
+_TRUNCATION_MIN_LEN = 30
+_NOT_A_FRAGMENT_RE = re.compile(
+    r"^(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST|"
+    r"ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|EXT)$"
+)
+_REAL_UNIT_RE = re.compile(r"^(?:APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PH|PMB|LOT|SPC|BOX|TRLR|#)\s*[A-Z0-9-]+$")
+_UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG)\b|#\d")
+
+
+def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
+    """Replace a long street_1 that extends a shorter street the same donor filed at the same ZIP."""
+    name = df["contributor_name"].fillna("").astype(str)
+    street = df["contributor_street_1"].fillna("").astype(str).str.strip()
+    street_2 = df["contributor_street_2"].fillna("").astype(str).str.strip()
+    zip5 = df["contributor_zip"].fillna("").astype(str).str.strip().str[:5]
+    individual = (df["entity_type"] == "INDIVIDUAL") & (name != "") & (zip5 != "")
+
+    long_rows = individual & (street.str.len() >= _TRUNCATION_MIN_LEN)
+    if not long_rows.any():
+        return 0
+
+    # dominant short form per (name, zip): a usable, house-numbered street shorter than the cutoff
+    short_ok = individual & (street.str.len() < _TRUNCATION_MIN_LEN) & (street.str.len() >= 8) \
+        & street.str.match(r"^\d") & _is_usable_street(street)
+    if not short_ok.any():
+        return 0
+    short = pd.DataFrame({"name": name[short_ok], "zip5": zip5[short_ok],
+                          "street": street[short_ok], "street_2": street_2[short_ok]})
+    counts = short.groupby(["name", "zip5", "street"]).size().rename("cnt").reset_index()
+    dominant = counts.loc[counts.groupby(["name", "zip5"])["cnt"].idxmax()]
+    # the unit is trusted only when it is filed on at least half of the short-form rows
+    # and looks like a unit (not a "# NY1179" state/ZIP fragment left by a bad split)
+    unit_like = short["street_2"].str.match(_REAL_UNIT_RE) & ~short["street_2"].map(is_state_zip_fragment)
+    with_unit = short[(short["street_2"] != "") & unit_like]
+    unit_counts = with_unit.groupby(["name", "zip5", "street"])["street_2"].agg(lambda s: s.value_counts().iloc[0])
+    unit_value = with_unit.groupby(["name", "zip5", "street"])["street_2"].agg(lambda s: s.value_counts().index[0])
+    units = pd.DataFrame({"unit": unit_value, "unit_cnt": unit_counts}).reset_index()
+    dominant = dominant.merge(units, on=["name", "zip5", "street"], how="left")
+    dominant["unit"] = dominant["unit"].where(dominant["unit_cnt"] * 2 >= dominant["cnt"], "").fillna("")
+    lookup = dominant.set_index(["name", "zip5"])[["street", "unit"]]
+
+    n_fixed = 0
+    for idx in df.index[long_rows]:
+        key = (name.at[idx], zip5.at[idx])
+        if key not in lookup.index:
+            continue
+        short_street, unit = lookup.loc[key, "street"], lookup.loc[key, "unit"]
+        long_street = street.at[idx]
+        if not (long_street.startswith(short_street + " ") or long_street.startswith(short_street + ",")):
+            continue
+        fragment = long_street[len(short_street):].strip(" ,.")
+        if len(fragment) < 3 or _NOT_A_FRAGMENT_RE.match(fragment.split()[0]):
+            continue  # "4715 CAMBRIDGE APPROACH CIR NE": the tail is part of the street, not a fragment
+        if _UNIT_IN_FRAGMENT_RE.search(fragment) and not unit and not street_2.at[idx]:
+            continue  # the fragment carries a unit nobody else filed: keep it rather than lose it
+        df.at[idx, "contributor_street_1"] = short_street
+        if not street_2.at[idx] and unit:
+            df.at[idx, "contributor_street_2"] = unit
+        n_fixed += 1
+    return n_fixed

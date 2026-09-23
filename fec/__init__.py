@@ -1,1 +1,1 @@
-"""Employer address resolution — cross-record, FEC API, and AI lookup."""
+"""FEC contributions pipeline: pull -> clean -> resolve -> geocode -> load. See docs/CODE_MAP.md."""

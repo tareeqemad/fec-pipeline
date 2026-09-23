@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
+
+from fec.cleaning.occupations import _categorize_final
+
 from fec.cleaning.previous_employer import (
     classify_employer_status,
     is_real_employer,
@@ -113,19 +117,21 @@ def upsert_donor_address(
     )
 
 
-def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None) -> None:
-    """Add editorial work data if absent."""
+def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
+                             occupation: str | None = None) -> None:
+    """Add the roster's employer/occupation only for a donor with no FEC employment (FEC wins)."""
     emp = (employer or '').strip()
-    if not emp:
+    occ = (occupation or '').strip() or None
+    if not emp and not occ:
         return
 
     cur.execute("SELECT 1 FROM donor_employments WHERE donor_id = %s LIMIT 1", (donor_id,))
     if cur.fetchone():
         return
 
-    if not is_real_employer(emp):
+    if not emp or not is_real_employer(emp):
         employer_id = None
-        status = classify_employer_status(emp)
+        status = classify_employer_status(emp) if emp else 'missing'
         if status == 'missing':
             status = 'not_employed'
     else:
@@ -137,11 +143,18 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None) -> N
         employer_id = cur.fetchone()[0]
         status = 'active'
 
+    occ_cat_id = None
+    if occ:
+        category = _categorize_final(pd.Series([occ])).iloc[0]
+        cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
+        found = cur.fetchone()
+        occ_cat_id = found[0] if found else None
+
     cur.execute(
         """
         INSERT INTO donor_employments
-            (donor_id, employer_id, occupation, employer_status)
-        VALUES (%s, %s, NULL, %s)
+            (donor_id, employer_id, occupation, occupation_category_id, employer_status)
+        VALUES (%s, %s, %s, %s, %s)
         """,
-        (donor_id, employer_id, status),
+        (donor_id, employer_id, occ, occ_cat_id, status),
     )

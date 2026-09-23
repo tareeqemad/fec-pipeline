@@ -33,6 +33,7 @@ from .occupation import (
     _not_applicable_individual_sweep,
     _rederive_occupation_category,
     _rederive_occupation_status,
+    _converge_occupation_within_employer,
 )
 from .retired import (
     _fill_prev_employer_from_donor,
@@ -54,8 +55,6 @@ CONSISTENCY_FIXES = (
      "truncated_house_number_repaired_from_donor_common_form", None),
     ("employer typos", _employer_typos, WORK_FIELDS,
      "employer_spelling_converged_to_donor_dominant", None),
-    ("employer typo convergence", _employer_typos, WORK_FIELDS,
-     "employer_spelling_converged_to_donor_dominant", None),
     ("employer substring variants", _employer_substring_variants, WORK_FIELDS,
      "employer_substring_merged_to_donor_dominant", None),
     ("fill employer from donor", _fill_employer_from_donor, WORK_FIELDS,
@@ -76,6 +75,8 @@ CONSISTENCY_FIXES = (
      "entity_type_unified_by_name", None),
     ("apply entity overrides", _apply_entity_overrides, ENTITY_AND_WORK,
      "curated_entity_type_override", "data/database/entity_overrides.csv"),
+    ("converge occupation within employer", _converge_occupation_within_employer, WORK_FIELDS,
+     "same_job_spelling_unified_to_donor_dominant", None),
     ("sync employer and occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
      "employer_occupation_category_consistency_fixed", None),
     ("rebuild occupation status", _rederive_occupation_status, WORK_FIELDS,

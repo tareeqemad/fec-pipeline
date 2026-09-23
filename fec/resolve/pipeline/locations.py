@@ -214,7 +214,7 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
     with path.open(encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
             try:
-                centroids[row["zip"]] = (float(row["lat"]), float(row["lng"]))
+                centroids[str(row["zip"]).strip().zfill(5)] = (float(row["lat"]), float(row["lng"]))
             except (KeyError, TypeError, ValueError):
                 continue
     return centroids

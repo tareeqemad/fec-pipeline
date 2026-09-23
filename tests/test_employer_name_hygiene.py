@@ -21,6 +21,17 @@ def test_suffix_restyle_tolerates_filer_punctuation():
     assert restyle_legal_suffix('T & M BUILDING CO, INC') == 'T & M BUILDING CO INC'
 
 
+def test_co_period_before_a_suffix_is_dropped_but_initials_keep_theirs():
+    assert restyle_legal_suffix('AMERICAL MANAGEMENT CO., INC') == 'AMERICAL MANAGEMENT CO INC'
+    assert restyle_legal_suffix('AMERICAL MANAGEMENT CO. INC') == 'AMERICAL MANAGEMENT CO INC'
+    assert restyle_legal_suffix('L.M. COHEN & CO. LLP') == 'L.M. COHEN & CO LLP'
+    assert restyle_legal_suffix('CARYN GROEDEL & ASSOCIATES CO., LPA') == 'CARYN GROEDEL & ASSOCIATES CO LPA'
+    assert restyle_legal_suffix('TIFFANY & CO.') == 'TIFFANY & CO'
+    assert restyle_legal_suffix('R.A. COHEN & ASSOCIATES INC') == 'R.A. COHEN & ASSOCIATES INC'
+    assert restyle_legal_suffix('U.S. DEPARTMENT OF STATE') == 'U.S. DEPARTMENT OF STATE'
+    assert restyle_legal_suffix('CO. FOUNDERS FUND') == 'CO. FOUNDERS FUND'   # not a suffix position
+
+
 def test_suffix_dedot_ordering_and_exception():
     assert restyle_legal_suffix('KUSTOFF AND SANDERS L.L.P') == 'KUSTOFF AND SANDERS LLP'
     assert restyle_legal_suffix('GERSON & SCHWARTZ, P.A') == 'GERSON & SCHWARTZ PA'

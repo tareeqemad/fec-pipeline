@@ -1,17 +1,12 @@
 {
-  "rows": 214574,
+  "rows": 218683,
   "employer_abbreviations": {
     "distinct_employers_flagged": 0,
     "by_token": {}
   },
   "employer_near_duplicates": {
-    "groups": 1,
-    "examples": [
-      [
-        "UNIVERSITY OF WASHINGTON",
-        "WASHINGTON UNIVERSITY"
-      ]
-    ]
+    "groups": 0,
+    "examples": []
   },
   "name_composite_drift": {
     "rows": 0,
@@ -23,15 +18,23 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 6,
-    "rows": 6,
+    "distinct": 11,
+    "rows": 12,
     "examples": [
+      {
+        "value": "GLOBAL BROADCAST TALENT",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 10x POKER BROADCASTER"
+        ]
+      },
       {
         "value": "COSMETICS",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
-          "1x vs 27x BEAUTY"
+          "1x vs 28x BEAUTY"
         ]
       },
       {
@@ -43,11 +46,27 @@
         ]
       },
       {
+        "value": "STATISTICAL ENVIRONMENTALIST",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 11x HYDRO/AQUIFER CONSULTANT/INVESTOR"
+        ]
+      },
+      {
         "value": "BIG BOY",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
           "1x vs 17x REAL ESTATE/REAL ESTATE INVESTMENT & MANAGEMENT"
+        ]
+      },
+      {
+        "value": "SALED",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 14x SALES"
         ]
       },
       {
@@ -73,15 +92,35 @@
         "evidence": [
           "1x vs 9x REAL ESTATE/REAL ESTATE EXECUTIVE"
         ]
+      },
+      {
+        "value": "OFFICER AT RICHKER METALS",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 27x OFFICER/SECRETARY"
+        ]
+      },
+      {
+        "value": "FIANCE",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 67x FINANCE/FINANCIAL ANALYST"
+        ]
       }
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 324,
-    "rows": 351,
+    "distinct": 332,
+    "rows": 373,
     "examples": [
       {
         "value": "TRUSTEE",
+        "rows": 6
+      },
+      {
+        "value": "GM",
         "rows": 6
       },
       {
@@ -89,7 +128,11 @@
         "rows": 5
       },
       {
-        "value": "GM",
+        "value": "ACCOUNT MANANGER",
+        "rows": 5
+      },
+      {
+        "value": "STRATEGY ASSOCIATE",
         "rows": 3
       },
       {
@@ -97,11 +140,19 @@
         "rows": 3
       },
       {
+        "value": "LOVER",
+        "rows": 3
+      },
+      {
+        "value": "COMMUNITY LEADER",
+        "rows": 3
+      },
+      {
         "value": "HAE",
         "rows": 2
       },
       {
-        "value": "STRATEGY ASSOCIATE",
+        "value": "HOLISTIC NUTRITION",
         "rows": 2
       },
       {
@@ -145,16 +196,16 @@
         "rows": 2
       },
       {
+        "value": "CLINICAL PSYCHOPHARMACOLOGIST",
+        "rows": 2
+      },
+      {
         "value": "REPRESENTATIVE",
         "rows": 2
       },
       {
-        "value": "LOVER",
+        "value": "GLOBAL BROADCAST TALENT",
         "rows": 2
-      },
-      {
-        "value": "WRITE",
-        "rows": 1
       },
       {
         "value": "LEARNING AND DEVELOPMENT",
@@ -162,22 +213,6 @@
       },
       {
         "value": "SR. MARKET REP ASSOCIATE",
-        "rows": 1
-      },
-      {
-        "value": "ADMISTRATIVE",
-        "rows": 1
-      },
-      {
-        "value": "CLINICAL DEVELOPMENT SVP",
-        "rows": 1
-      },
-      {
-        "value": "SVP, COMPOUNDING DIVISION",
-        "rows": 1
-      },
-      {
-        "value": "BRANDED SIGNS AND PROMOTIONS",
         "rows": 1
       }
     ]

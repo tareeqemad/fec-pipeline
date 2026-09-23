@@ -29,6 +29,10 @@ from fec.cleaning.occupations.clean import (
     fix_remaining_swapped_occ_emp,
     normalize_occupation_canonical,
 )
+from fec.cleaning.occupations.style import (
+    apply_occupation_typo_fixes,
+    normalize_occupation_style_step,
+)
 from fec.cleaning.record_junk import (
     _clean_junk_status_word_employer,
     _clean_self_employed_variants,
@@ -123,6 +127,21 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
         df = _apply_step(df, trail, log, step)
 
     _apply_safety_rules(df, trail, log)
+    # style unification runs only after every swap safety net has moved company
+    # names out of the occupation column (a de-pluralized company name would no
+    # longer match the known-employer set those nets rely on)
+    df, n_style = trail.run(
+        df, normalize_occupation_style_step, 'enh_normalize_occupation_style',
+        'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY,
+    )
+    if n_style:
+        log(f"Unified occupation style for {n_style:,} rows (separators, CO-, plurals)")
+    df, n_typo = trail.run(
+        df, apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
+        'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
+    )
+    if n_typo:
+        log(f"Fixed {n_typo:,} curated occupation typos/abbreviations")
     n_recanon = trail.run(
         df, _recanonicalize_employers, 'employer_recanonicalize',
         'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,

@@ -30,7 +30,7 @@ def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
         'changes': int(len(changes)),
         'changed_cells': int(changes[['sub_id', 'field']].drop_duplicates().shape[0]),
         'untracked_changes': sum(record['step'] == UNTRACKED_STEP for record in net),
-        'steps': summarize(net),
+        'steps': summarize([record for record in net if record['field'] in AUDITED_FIELDS]),
     }
     with open(os.path.join(out_dir, 'audit_summary.json'), 'w', encoding='utf-8') as handle:
         json.dump(summary, handle, indent=2, ensure_ascii=False)
