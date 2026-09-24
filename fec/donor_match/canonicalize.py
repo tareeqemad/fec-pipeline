@@ -7,7 +7,6 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 
-from .constants import NICKNAME_MAP
 from .joint import given_tokens, joint_partners
 from .matcher import UnionFind
 from .rules import joint_name_exempt
@@ -426,35 +425,41 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
 
 
 def _join_initial_groups(groups: dict, candidates: list) -> dict:
-    """Join a group to a fuller one whose extra names its initials spell.
+    """Join a group to a fuller one whose extra names its middle initials spell.
 
-    "J" joins "JOHN" and "M STEPHEN" joins "MARVIN STEPHEN": each name the
-    group lacks has its initial there. "SHIRA" never joins "SHIRA JARED".
+    "FRANKLIN J." joins "FRANKLIN J. JAY": the one name it lacks starts with
+    its middle initial. "SHIRA" never joins "SHIRA JARED".
     """
     initials = {
-        names: {token for p in positions for token in _name_tokens(candidates[p] or "") if len(token) == 1}
-        for names, positions in groups.items()
+        key: {token for p in positions for token in _name_tokens(candidates[p] or "")[1:] if len(token) == 1}
+        for key, positions in groups.items()
     }
     joined = defaultdict(list)
-    for names, positions in groups.items():
+    for key, positions in groups.items():
+        first, names = key
         fuller = [
             other for other in groups
-            if names < other and all(name[0] in initials[names] for name in other - names)
+            if other[0] == first and names < other[1]
+            and all(name[0] in initials[key] for name in other[1] - names)
         ]
-        target = max(fuller, key=lambda other: (len(groups[other]), sorted(other))) if fuller else names
+        target = max(fuller, key=lambda other: (len(groups[other]), sorted(other[1]))) if fuller else key
         joined[target].extend(positions)
     return joined
 
 
-def _extra_given_words(first: str, own: set) -> frozenset:
-    """The whole given names a first name carries (nickname roots), the donor's own words aside.
+def _extra_given_words(first: str, own: set) -> tuple:
+    """(initial of the first name, the whole names after it), the donor's own words aside.
 
-    Initials do not count, so "P. HOWARD", "P HOWARD" and "HOWARD" carry the
-    same names, while "MARVIN" and "M STEPHEN" do not.
+    MARTY and MARTIN, P. HOWARD and P.HOWARD, M STEPHEN and MARVIN STEPHEN
+    share a key and are unified; MARVIN and M STEPHEN, SHIRA and SHIRA JARED
+    do not.
     """
-    return frozenset(
-        NICKNAME_MAP.get(token, token) for token in _name_tokens(first)
-        if len(token) > 1 and token not in own
+    tokens = _name_tokens(first)
+    if not tokens:
+        return ("", frozenset())
+    return (
+        tokens[0][0],
+        frozenset(token for token in tokens[1:] if len(token) > 1 and token not in own),
     )
 
 
