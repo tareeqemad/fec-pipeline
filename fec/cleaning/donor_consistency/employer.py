@@ -294,7 +294,9 @@ _OWN_FIRM_TOKEN_RE = re.compile(
 def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
     """AV. A donor who files both SELF-EMPLOYED and a firm carrying their own surname
     (SCOTT FANE CPA PA, SCHALL LAW FIRM, GENET PROPERTY GROUP) has one workplace: the firm.
-    The firm must read as a business, so a joint personal name (GEORGE AND LEESA WEISZ) never wins."""
+    The firm must read as a business, so a joint personal name (GEORGE AND LEESA WEISZ) never wins.
+    Only a self-employed filing in a field filed at the firm (or with no field) moves:
+    FOLDES, NADINE's SELF / SOCIAL WORKER filing is not her family's wealth firm."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     n_fixed = 0
     for dk, grp in indiv.groupby('donor_key'):
@@ -312,7 +314,10 @@ def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
         ]
         if len(firms) != 1:
             continue
-        mask = (df['donor_key'] == dk) & (df['contributor_employer'] == 'SELF-EMPLOYED')
+        firm_fields = set(grp.loc[grp['contributor_employer'] == firms[0], 'occupation_category'].dropna())
+        field = df['occupation_category']
+        same_job = field.isna() | field.eq('') | field.isin(firm_fields)
+        mask = (df['donor_key'] == dk) & (df['contributor_employer'] == 'SELF-EMPLOYED') & same_job
         n = int(mask.sum())
         if n:
             df.loc[mask, 'contributor_employer'] = firms[0]
