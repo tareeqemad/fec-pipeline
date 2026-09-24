@@ -37,13 +37,11 @@ def test_names_unify_and_regenerate_composite():
     )
     n = canonicalize_donor_names(df)
     assert n == 3
-    # initials unify; the whole name JAY stays only on the filing that has it
-    assert df["contributor_first_name"].tolist() == ["FRANKLIN J.", "FRANKLIN J.", "FRANKLIN J. JAY"]
+    # the donor files the initial J, so JAY is his own name on every filing
+    assert df["contributor_first_name"].unique().tolist() == ["FRANKLIN J. JAY"]
     assert df["contributor_last_name"].unique().tolist() == ["HARBERG"]
     # composite is rebuilt as "LAST, FIRST"
-    assert df["contributor_name"].tolist() == [
-        "HARBERG, FRANKLIN J.", "HARBERG, FRANKLIN J.", "HARBERG, FRANKLIN J. JAY",
-    ]
+    assert df["contributor_name"].unique().tolist() == ["HARBERG, FRANKLIN J. JAY"]
 
 
 def test_names_preserve_literal_null_surname():

@@ -7,6 +7,7 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 
+from .constants import NICKNAME_MAP
 from .joint import given_tokens, joint_partners
 from .matcher import UnionFind
 from .rules import joint_name_exempt
@@ -300,6 +301,7 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     groups = defaultdict(list)
     for position, first in enumerate(candidates):
         groups[_extra_given_words(first or "", own)].append(position)
+    groups = _join_initial_groups(groups, candidates)
     donor_first = pick(candidates)
     if len(groups) == 1:
         return canon_last, [donor_first] * len(candidates)
@@ -423,15 +425,38 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     return changed
 
 
+def _join_initial_groups(groups: dict, candidates: list) -> dict:
+    """Join a group to a fuller one whose extra names its initials spell.
+
+    "J" joins "JOHN" and "M STEPHEN" joins "MARVIN STEPHEN": each name the
+    group lacks has its initial there. "SHIRA" never joins "SHIRA JARED".
+    """
+    initials = {
+        names: {token for p in positions for token in _name_tokens(candidates[p] or "") if len(token) == 1}
+        for names, positions in groups.items()
+    }
+    joined = defaultdict(list)
+    for names, positions in groups.items():
+        fuller = [
+            other for other in groups
+            if names < other and all(name[0] in initials[names] for name in other - names)
+        ]
+        target = max(fuller, key=lambda other: (len(groups[other]), sorted(other))) if fuller else names
+        joined[target].extend(positions)
+    return joined
+
+
 def _extra_given_words(first: str, own: set) -> frozenset:
-    """The whole given names after the first name, the donor's own words aside."""
-    words = first.split()
-    if not words or len(_name_tokens(words[0])) != 1:
-        return frozenset()  # empty, bracketed or hyphenated first word
+    """The whole given names a first name carries (nickname roots), the donor's own words aside.
+
+    Initials do not count, so "P. HOWARD", "P HOWARD" and "HOWARD" carry the
+    same names, while "MARVIN" and "M STEPHEN" do not.
+    """
     return frozenset(
-        token for word in words[1:] for token in _name_tokens(word)
+        NICKNAME_MAP.get(token, token) for token in _name_tokens(first)
         if len(token) > 1 and token not in own
     )
+
 
 def _emp_core_tokens(name: str) -> frozenset:
     """Significant tokens of an employer name (legal suffixes/connectors removed)."""
