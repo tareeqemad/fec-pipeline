@@ -136,7 +136,11 @@ def test_spouse_or_nickname_parenthetical_does_not_win():
 
 def test_fullest_first_name_rule_still_adds_real_tokens():
     assert _name(_donor(("DOE", "MARK", 5), ("DOE", "MARK L.", 1)))[1] == "MARK L."
-    assert _name(_donor(("DOE", "FRANKLIN", 2), ("DOE", "FRANKLIN J. JAY", 1)))[1] == "FRANKLIN J. JAY"
+    assert _name(_donor(("DOE", "FRANKLIN", 1), ("DOE", "FRANKLIN J. JAY", 1)))[1] == "FRANKLIN J. JAY"
+    # a whole extra name on a minority of filings is not written onto the rest
+    assert _name(_donor(("DOE", "FRANKLIN", 2), ("DOE", "FRANKLIN J. JAY", 1)))[1] == "FRANKLIN"
+    # after an initial, the whole word is the name the donor goes by
+    assert _name(_donor(("DOE", "P", 3), ("DOE", "P RICHARD", 1)))[1] == "P RICHARD"
 
 
 def test_word_the_donor_brackets_elsewhere_is_an_aside():
@@ -268,13 +272,16 @@ def test_org_alignment_sees_entity_overrides_and_final_employer(tmp_path, monkey
     assert org_row["donor_key"] == "orgkey"
 
 
-def test_a_given_name_after_an_initial_is_kept():
-    from fec.cleaning.pipeline.names import _keep_given_name_after_initial
+def test_filed_given_names_beyond_the_first_name_field_are_kept():
+    from fec.cleaning.pipeline.names import _keep_filed_given_names
 
     df = pd.DataFrame({
-        'contributor_name': ['HARRIS, S. WOLF', 'SMITH, J', 'DOE, J JANE'],
-        'contributor_first_name': ['S.', 'J', 'K'],
-        'contributor_last_name': ['HARRIS', 'SMITH', 'DOE'],
+        'contributor_name': ['HARRIS, S. WOLF', 'MORRIS, ELLEN STUN', 'SMITH, J',
+                             'DOE, J JANE', 'ROE, JOHN MD', 'LEE, ANN', 'WINN, RANDALL RANDALL'],
+        'contributor_first_name': ['S.', 'ELLEN', 'J', 'K', 'JOHN', 'ANN', 'RANDALL'],
+        'contributor_last_name': ['HARRIS', 'MORRIS', 'SMITH', 'DOE', 'ROE', 'LEE', 'WINN'],
     })
-    _keep_given_name_after_initial(df, pd.Series(True, index=df.index))
-    assert df['contributor_first_name'].tolist() == ['S. WOLF', 'J', 'K']
+    _keep_filed_given_names(df, pd.Series(True, index=df.index))
+    assert df['contributor_first_name'].tolist() == [
+        'S. WOLF', 'ELLEN STUN', 'J', 'K', 'JOHN', 'ANN', 'RANDALL',
+    ]
