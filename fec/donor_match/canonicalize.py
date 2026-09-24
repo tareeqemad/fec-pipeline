@@ -7,6 +7,7 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 
+from .constants import NICKNAME_MAP
 from .joint import given_tokens, joint_partners
 from .matcher import UnionFind
 from .rules import joint_name_exempt
@@ -450,7 +451,7 @@ def _join_initial_groups(groups: dict, candidates: list) -> dict:
 def _extra_given_words(first: str, own: set) -> tuple:
     """(initial of the first name, the whole names after it), the donor's own words aside.
 
-    MARTY and MARTIN, P. HOWARD and P.HOWARD, M STEPHEN and MARVIN STEPHEN
+    MARTY and MARTIN, BILL and WILLIAM, P. HOWARD and P.HOWARD, M STEPHEN and MARVIN STEPHEN
     share a key and are unified; MARVIN and M STEPHEN, SHIRA and SHIRA JARED
     do not.
     """
@@ -458,7 +459,7 @@ def _extra_given_words(first: str, own: set) -> tuple:
     if not tokens:
         return ("", frozenset())
     return (
-        tokens[0][0],
+        NICKNAME_MAP.get(tokens[0], tokens[0])[0],  # BILL keys as WILLIAM
         frozenset(token for token in tokens[1:] if len(token) > 1 and token not in own),
     )
 
