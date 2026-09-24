@@ -119,7 +119,7 @@ def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) 
     return first
 
 
-def _choose_first(candidates: list[str], own_words=frozenset()) -> str | None:
+def _choose_first(candidates: list[str]) -> str | None:
     """Fullest first name by its real letters, spelled the way the donor files it.
 
     Decoration is ignored when measuring the name: brackets and their content
@@ -152,16 +152,13 @@ def _choose_first(candidates: list[str], own_words=frozenset()) -> str | None:
         return " ".join(kept)
 
     cores = {value: _core(value) for value in order}
-    supported = [
-        value for value in order if _extra_names_supported(value, cores, counts, own_words)
-    ]
     # fullness = the name's letters and word breaks, not its punctuation: the
     # period of "ISAAC S." must not outweigh the "A" of "ISAAC A"
-    fullness = {value: len(" ".join(_name_tokens(cores[value]))) for value in supported or order}
+    fullness = {value: len(" ".join(_name_tokens(cores[value]))) for value in order}
     longest = max(fullness.values())
     filings: Counter = Counter()
     first_filed: dict[tuple, int] = {}
-    for value in fullness:
+    for value in order:
         if fullness[value] == longest:
             key = _name_tokens(cores[value])
             filings[key] += counts[value]
@@ -177,33 +174,6 @@ def _choose_first(candidates: list[str], own_words=frozenset()) -> str | None:
         if _only_balanced_parens(value) and _first_core(value) == cores[value]:
             return value
     return cores[ranked[0]]
-
-
-def _extra_names_supported(value: str, cores: dict, counts: Counter, own_words) -> bool:
-    """True when at least half the filings carry this spelling's extra names.
-
-    A whole extra given name ("SHIRA JARED" next to "SHIRA") may be a co-filer,
-    so it is written onto every filing only when the donor files it at least
-    half the time. Initials ("MARK L."), a name after an initial ("P RICHARD"),
-    a hyphenated name ("DAVID-JACQUES")
-    and a word the donor also files in the surname field (LEITMAN in
-    "LEITMAN BAILEY") are the donor's own and are not held to this.
-    """
-    words = cores[value].split()
-    if words and len(_name_tokens(words[0])) == 1 and len(_name_tokens(words[0])[0]) == 1:
-        return True  # "P RICHARD": after an initial, the word is the name the donor goes by
-    extra = {
-        token
-        for word in words[1:]
-        for token in _name_tokens(word)
-        if len(token) > 1 and token not in own_words
-    }
-    if not extra:
-        return True
-    carrying = sum(
-        counts[other] for other in cores if extra <= set(_name_tokens(cores[other]))
-    )
-    return carrying * 2 >= sum(counts.values())
 
 
 def _surname_parents(variants: list[str], firsts_by_last: dict) -> dict:
@@ -264,12 +234,18 @@ def _choose_last(lasts: list[str], parents: dict) -> str:
 
 
 def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
-                           given_names: frozenset = frozenset()):
+                           given_names: frozenset = frozenset(), by_row: bool = False):
     """(canonical last, canonical first) for one donor from its rows' (last, first) pairs.
 
     is_joint(first) marks a spelling that also carries a co-filer's given name
     (joint.py). Such a spelling never becomes the donor's name while the donor
     has a solo spelling: the partner's name is not written onto solo filings.
+
+    by_row returns one first name per row instead, unified only among rows
+    that carry the same whole given names: a whole extra name may be a middle
+    name (JOSE FELIX) or a co-filer who never files alone (SHIRA JARED), and
+    the data cannot tell them apart, so a filing never gains or loses one.
+    Spelling, nicknames and initials are still unified (MARK -> MARK L.).
     """
     firsts_by_last: dict[str, list[str]] = defaultdict(list)
     for last, first in zip(lasts, firsts):
@@ -280,13 +256,8 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     parents = _surname_parents(variants, firsts_by_last) if len(variants) > 1 else {}
     canon_last = _choose_last(named, parents)
 
-    candidates = []
-    for last, first in zip(lasts, firsts):
-        given = parents.get(last, (None, None))[1]
-        if given:
-            candidates.append(given)
-        elif first:
-            candidates.append(first)
+    # one candidate per row: the given name a surname-field prefix supplies, else the first name
+    candidates = [parents.get(last, (None, None))[1] or first or None for last, first in zip(lasts, firsts)]
 
     moved_initial = None
     match = _LEADING_INITIAL_RE.match(canon_last)
@@ -299,23 +270,44 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     last_words = set(canon_last.upper().split())
     # a name field cut off by FEC's length limit can end in the start of the
     # surname ("GLENN STUART CHRYSTA" for CHRYSTAL): that piece is not a name
-    candidates = [_drop_cut_surname(first, last_words, given_names) for first in candidates]
-    # candidates must carry a non-surname token: a reversed filing's
-    # surname-as-first could otherwise win, then strip to nothing
-    fcands = [f for f in candidates if any(w.upper() not in last_words for w in f.split())]
-    if is_joint is not None:
-        solo = [f for f in fcands if not is_joint(f)]
-        if solo:
-            fcands = solo
-    # words the donor files in a surname field are their own names
-    surname_words = {word for last in named for word in _name_tokens(last)} - last_words
-    canon_first = _choose_first(fcands, frozenset(surname_words))
-    if canon_first:
-        kept = [w for w in canon_first.split() if w.upper() not in last_words]
-        canon_first = " ".join(kept) or None
-    if moved_initial and moved_initial[0] not in _name_tokens(canon_first or ""):
-        canon_first = f"{canon_first} {moved_initial}" if canon_first else moved_initial
-    return canon_last, canon_first
+    candidates = [
+        _drop_cut_surname(first, last_words, given_names) if first else None
+        for first in candidates
+    ]
+
+    def pick(group: list) -> str | None:
+        # candidates must carry a non-surname token: a reversed filing's
+        # surname-as-first could otherwise win, then strip to nothing
+        fcands = [f for f in group if f and any(w.upper() not in last_words for w in f.split())]
+        if is_joint is not None:
+            solo = [f for f in fcands if not is_joint(f)]
+            if solo:
+                fcands = solo
+        canon_first = _choose_first(fcands)
+        if canon_first:
+            kept = [w for w in canon_first.split() if w.upper() not in last_words]
+            canon_first = " ".join(kept) or None
+        if moved_initial and moved_initial[0] not in _name_tokens(canon_first or ""):
+            canon_first = f"{canon_first} {moved_initial}" if canon_first else moved_initial
+        return canon_first
+
+    if not by_row:
+        return canon_last, pick(candidates)
+
+    own = {word for last in named for word in _name_tokens(last)} | last_words
+    own |= _parenthesized_tokens({first for first in candidates if first})
+    groups = defaultdict(list)
+    for position, first in enumerate(candidates):
+        groups[_extra_given_words(first or "", own)].append(position)
+    donor_first = pick(candidates)
+    if len(groups) == 1:
+        return canon_last, [donor_first] * len(candidates)
+    by_position = [None] * len(candidates)
+    for positions in groups.values():
+        group_first = pick([candidates[p] for p in positions]) or donor_first
+        for position in positions:
+            by_position[position] = group_first
+    return canon_last, by_position
 
 
 def _text_column(df: pd.DataFrame, column: str) -> pd.Series:
@@ -371,10 +363,12 @@ def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
 
 
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
-    """Write one canonical first/last (see _canonical_person_name) plus a rebuilt LAST, FIRST composite to every row of each donor; returns rows changed.
+    """Write one canonical last name and each filing's first name, plus a rebuilt LAST, FIRST composite; returns rows changed.
 
     A spelling that carries a co-filer's name (a joint filing, see joint.py)
     is never chosen for a donor that also files alone under a solo spelling.
+    First names are unified only among filings that carry the same whole
+    given names (see _canonical_person_name).
     """
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
@@ -408,12 +402,13 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
                     ) and bool(joint_partners(given_tokens(first), own, household))
                 return verdicts[first]
 
-        canon_last, canon_first = _canonical_person_name(lasts, firsts, is_joint, given_names)
+        canon_last, firsts_by_row = _canonical_person_name(
+            lasts, firsts, is_joint, given_names, by_row=True,
+        )
 
-        # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
-        canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
-
-        for i in idx:
+        for i, canon_first in zip(idx, firsts_by_row):
+            # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
+            canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
             cur_f = df.at[i, fn_col]
             cur_l = df.at[i, ln_col]
             cf = cur_f if (isinstance(cur_f, str) and cur_f.strip()) else None
@@ -425,6 +420,17 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
                 df.at[i, cn_col] = canon_name
                 changed += 1
     return changed
+
+
+def _extra_given_words(first: str, own: set) -> frozenset:
+    """The whole given names after the first name, the donor's own words aside."""
+    words = first.split()
+    if not words or len(_name_tokens(words[0])) != 1 or len(_name_tokens(words[0])[0]) == 1:
+        return frozenset()  # empty, bracketed, or an initial: the next word is the name
+    return frozenset(
+        token for word in words[1:] for token in _name_tokens(word)
+        if len(token) > 1 and token not in own
+    )
 
 def _emp_core_tokens(name: str) -> frozenset:
     """Significant tokens of an employer name (legal suffixes/connectors removed)."""
