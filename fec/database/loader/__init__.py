@@ -270,7 +270,7 @@ def _check_reader(cur: Any) -> None:
 
 
 def grant_read_access(conn: Any, cur: Any) -> None:
-    """Give fec_app table SELECT and remove sequence access."""
+    """Give fec_app SELECT on every table, view and materialized view, nothing else."""
     logger.info("\n-- Granting permissions --")
     _check_reader(cur)
 
@@ -292,7 +292,8 @@ def grant_read_access(conn: Any, cur: Any) -> None:
         conn.rollback()
         raise RuntimeError(f"Permission update failed: {error}") from error
 
-    logger.info("  %s: table SELECT only; no sequence access", DATABASE_READER)
+    # ALL TABLES covers tables, views and materialized views
+    logger.info("  %s: SELECT on tables, views and materialized views; nothing else", DATABASE_READER)
 
 
 def _require_reset_flag() -> None:

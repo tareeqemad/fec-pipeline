@@ -148,12 +148,10 @@ Set `.env` to connect as `fec_owner`, then run:
 python loader.py --reset
 ```
 
-The dashboard connects as `fec_app`, which receives table `SELECT` access after
-each load. Give a developer that access through role membership:
-
-```sql
-GRANT fec_app TO developer_login;
-```
+The database has two logins only: `fec_owner` owns every table, view and
+materialized view (full read/write), and `fec_app` receives `SELECT` on all of
+them after each load and nothing else. The healthcheck fails if another schema
+or login role exists, or if `fec_app` can write.
 
 ## Data rules
 
