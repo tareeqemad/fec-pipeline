@@ -1,0 +1,161 @@
+employer_name,reason,employer_address,employer_city,employer_state,employer_zip,is_primary,address_source,method,donor_states,employer_donors,filers_at_address
+AMERICAN PSYCHOLOGICAL ASSOCIATION,carried_over_without_source,750 FIRST ST NE,WASHINGTON,DC,20002,True,ai,previous:uncorroborated,,,
+ASSOCIATION FOR THE BLIND AND VISUALLY IMPAIRED,carried_over_without_source,500 E PRATT ST STE 900,BALTIMORE,MD,21202,True,ai,previous:uncorroborated,,,
+BAKER & MCKENZIE,carried_over_without_source,452 FIFTH AVE,NEW YORK,NY,10018,True,ai,previous:uncorroborated,,,
+BALTIMORE JEWISH COUNCIL,carried_over_without_source,5801 SMITH AVE STE 400,BALTIMORE,MD,21209,True,ai,previous:uncorroborated,,,
+BRIDGESTONE,carried_over_without_source,200 4TH AVE S,NASHVILLE,TN,37201,True,ai,previous:uncorroborated,,,
+BTG,carried_over_without_source,900 THIRD AVE,NEW YORK,NY,10022,True,ai,previous:uncorroborated,,,
+CALIFORNIA CABLE & TELECOMMUNICATIONS ASSOCIATION,carried_over_without_source,360 22ND ST STE 750,OAKLAND,CA,94612,True,ai,previous:uncorroborated,,,
+CAPE FEAR VALLEY MEDICAL,carried_over_without_source,1638 OWEN DR,FAYETTEVILLE,NC,28304,True,ai,previous:uncorroborated,,,
+CAPSULE GROUP,carried_over_without_source,142 W 57TH ST,NEW YORK,NY,10019,True,ai,previous:uncorroborated,,,
+CARNIVAL CRUISE LINES,carried_over_without_source,3655 N LAKE SHORE DR,CHICAGO,IL,60613,True,ai,previous:uncorroborated,,,
+CESSNA AIRCRAFT,carried_over_without_source,1 CESSNA BLVD,WICHITA,KS,67215,True,ai,previous:uncorroborated,,,
+CHAPMAN AND CUTLER LLP,carried_over_without_source,111 W MONROE ST,CHICAGO,IL,60603,True,ai,previous:uncorroborated,,,
+DELTA AIRLINES,carried_over_without_source,1030 DELTA BLVD,ATLANTA,GA,30354,True,ai,previous:uncorroborated,,,
+DHS,carried_over_without_source,2703 MARTIN LUTHER KING JR AVE SE,WASHINGTON,DC,20528,True,ai,previous:uncorroborated,,,
+EIDELMAN FINGER & HARRIS,carried_over_without_source,200 CRESCENT CT STE 700,DALLAS,TX,75201,True,ai,previous:uncorroborated,,,
+FMR,carried_over_without_source,245 SUMMER ST,BOSTON,MA,02210,True,ai,previous:corroborated,,,
+FREDDIE MAC,carried_over_without_source,8200 JONES BRANCH DR,MCLEAN,VA,22102,True,ai,previous:uncorroborated,,,
+"GOOD DOMUS, ET AL",carried_over_without_source,510 EVERGREEN LN N,PLYMOUTH,MN,55441,True,manual,previous:uncorroborated,,,
+HCHC,carried_over_without_source,450 CAPITOL AVE,HARTFORD,CT,06106,True,ai,previous:uncorroborated,,,
+HEBREW HOME,carried_over_without_source,612 ALLERTON AVE,BRONX,NY,10467,True,ai,previous:uncorroborated,,,
+HUMANITY UNITED,carried_over_without_source,39 W 19TH ST,NEW YORK,NY,10011,True,ai,previous:uncorroborated,,,
+KPMG NORTHEAST,carried_over_without_source,345 PARK AVE,NEW YORK,NY,10154,True,ai,previous:uncorroborated,,,
+LAHEY HOSPITAL,carried_over_without_source,41 MALL RD,BURLINGTON,MA,01805,True,ai,previous:uncorroborated,,,
+LINCARE,carried_over_without_source,2001 BRYAN ST STE 1900,DALLAS,TX,75201,True,ai,previous:uncorroborated,,,
+LOCKWOOD GREENE,carried_over_without_source,200 BERKELEY ST,BOSTON,MA,02116,True,ai,previous:uncorroborated,,,
+MCA SOLUTIONS,carried_over_without_source,1100 N MARKET ST STE 1300,WILMINGTON,DE,19801,True,ai,previous:uncorroborated,,,
+MENDELSOHN OSERAN SPENCER,carried_over_without_source,2000 TOWN CENTER STE 1800,SOUTHFIELD,MI,48075,True,ai,previous:uncorroborated,,,
+ML FINANCIAL INC,carried_over_without_source,1201 PACIFIC AVE STE 1800,TACOMA,WA,98402,True,manual,previous:verified,,,
+NRT,carried_over_without_source,1290 AVE OF THE AMERICAS,NEW YORK,NY,10104,True,ai,previous:corroborated,,,
+NYC CRIMINAL COURT,carried_over_without_source,100 CENTRE ST,NEW YORK,NY,10013,True,ai,previous:uncorroborated,,,
+OHSU,carried_over_without_source,3181 SW SAM JACKSON PARK RD,PORTLAND,OR,97239,True,ai,previous:uncorroborated,,,
+ORTHOCAROLINA,carried_over_without_source,2001 VAIL AVE STE 200,CHARLOTTE,NC,28207,True,ai,previous:uncorroborated,,,
+PERFECT FOODS,carried_over_without_source,1020 S YALE ST,ANAHEIM,CA,92805,True,ai,previous:uncorroborated,,,
+PRA,carried_over_without_source,13 E 37TH ST,NEW YORK,NY,10016,True,ai,previous:uncorroborated,,,
+RIVERSIDE RADIOLOGY ASSOCIATES,carried_over_without_source,2050 KIEFER BLVD,SACRAMENTO,CA,95825,True,ai,previous:uncorroborated,,,
+ROCK 'N ROLL HALL OF FAME,carried_over_without_source,1100 E 9TH ST,CLEVELAND,OH,44114,True,ai,previous:uncorroborated,,,
+RPS,carried_over_without_source,311 S WACKER DR STE 4300,CHICAGO,IL,60606,True,ai,previous:uncorroborated,,,
+RSI,carried_over_without_source,2850 GOLF RD STE 300,ROLLING MEADOWS,IL,60008,True,ai,previous:uncorroborated,,,
+SIKORSKY AIRCRAFT,carried_over_without_source,6900 MAIN ST,STRATFORD,CT,06614,True,ai,previous:uncorroborated,,,
+SIROTE & PERMUTT,carried_over_without_source,2311 HIGHLAND AVE S,BIRMINGHAM,AL,35205,True,ai,previous:uncorroborated,,,
+SKG,carried_over_without_source,1668 CREST DR,ENCINITAS,CA,92024,True,manual,previous:uncorroborated,,,
+SOUTHERN WINE & SPIRITS,carried_over_without_source,6200 S ORANGE BLOSSOM TRL,ORLANDO,FL,32809,True,ai,previous:uncorroborated,,,
+THE BENIDA GROUP,carried_over_without_source,200 PARK AVE SOUTH STE 1102,NEW YORK,NY,10003,True,ai,previous:uncorroborated,,,
+THE BOEING COMPANY,carried_over_without_source,100 N RIVERSIDE,CHICAGO,IL,60606,True,ai,previous:uncorroborated,,,
+THE BUCKINGHAM RESEARCH GROUP,carried_over_without_source,1000 N WEST ST,WILMINGTON,DE,19801,True,ai,previous:uncorroborated,,,
+THIRD AVENUE FUND MANAGEMENT,carried_over_without_source,622 THIRD AVE 32ND FLOOR,NEW YORK,NY,10017,True,ai,previous:uncorroborated,,,
+WENDY'S INTERNATIONAL,carried_over_without_source,ONE DAVE THOMAS BLVD,DUBLIN,OH,43017,True,ai,previous:uncorroborated,,,
+WILLIAM MORRIS AGENCY,carried_over_without_source,9601 WILSHIRE BLVD 9TH FLOOR,BEVERLY HILLS,CA,90210,True,ai,previous:uncorroborated,,,
+BDO USA PC,grounded_alias_outside_donor_states,"330 North Wabash Avenue, Suite 3200",Chicago,IL,60611,True,,ai_openai_search,GA;OH,,
+BOULEVARD HEALTHCARE MANAGEMENT LLC,grounded_alias_outside_donor_states,"6400 Shafer Ct, Suite 600",Rosemont,IL,60018,True,,ai_openai_search,NY,,
+CUNEO GILBERT & LADUCA LLP,grounded_alias_outside_donor_states,"1001 Pennsylvania Avenue NW, Suite 1300S",Washington,DC,20004,True,,ai_openai_search,FL,,
+DEREK SMITH LAW GROUP PLLC,grounded_alias_outside_donor_states,"The Nelson Tower, 450 7th Avenue, 30th Floor",New York,NY,10123,True,,ai_openai_search,FL;PA,,
+ELEVANCE HEALTH INC,grounded_alias_outside_donor_states,220 Virginia Avenue,Indianapolis,IN,46204,True,,ai_openai_search,AZ;CA,,
+EQUIPMENTSHARE,grounded_alias_outside_donor_states,5710 Bull Run Drive,Columbia,MO,65201,True,,ai_openai_search,CA,,
+HANGLEY ARONCHICK SEGAL PUDLIN & SCHILLER PC,grounded_alias_outside_donor_states,"One Logan Square, 27th Floor",Philadelphia,PA,19103,True,,ai_openai_search,FL;MD,,
+HY-VEE INC,grounded_alias_outside_donor_states,5820 Westown Pkwy,West Des Moines,IA,50266,True,,ai_openai_search,MN,,
+LONESTAR DATA HOLDINGS INC,grounded_alias_outside_donor_states,450 8th Ave SE,St. Petersburg,FL,33701,True,,ai_openai_search,NY,,
+MAJOR BRANDS INC,grounded_alias_outside_donor_states,6701 Southwest Ave,St. Louis,MO,63143,True,,ai_openai_search,KS,,
+MEDICALLY HOME GROUP INC,grounded_alias_outside_donor_states,133 Brookline Ave,Boston,MA,02215,True,,ai_openai_search,PA,,
+METRON INC,grounded_alias_outside_donor_states,"1818 Library Street, Suite 600",Reston,VA,20190,True,,ai_openai_search,MD,,
+MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Philadelphia,PA,19103,True,,ai_openai_search,DC;MA;MD;NY;VA,,
+NATIONAL COLLECTOR''S MINT INC,grounded_alias_outside_donor_states,"2975 Westchester Ave, Suite 300",Purchase,NY,10577,True,,ai_openai_search,CT,,
+RIMON PC,grounded_alias_outside_donor_states,355 S Grand Ave Suite 2450,Los Angeles,CA,90071,True,,ai_openai_search,NY,,
+TAYLOR MORRISON NW LLC,grounded_alias_outside_donor_states,"3620 1st Ave S, Suite 300",Seattle,WA,98134,True,,ai_openai_search,OR,,
+WILLIAMS & CONNOLLY LLP,grounded_alias_outside_donor_states,"725 Twelfth Street, N.W",Washington,DC,20005,True,,ai_openai_search,MD,,
+50 EIGHTH AVENUE TENANTS CORP,home_office_street_withheld,50 8TH AVE,BROOKLYN,NY,11217,True,ai,,,1,1
+510 VENTURES LLC,home_office_street_withheld,510 GARRISON FOREST RD,OWINGS MILLS,MD,21117,True,manual,,,1,1
+757CFO LLC,home_office_street_withheld,905 ENFIELD CHASE,VIRGINIA BEACH,VA,23452,True,ai,,,1,1
+"ABBOTT LEE STILLMAN, ARTIST LLC",home_office_street_withheld,11 BIRCHALL DR,SCARSDALE,NY,10583,True,ai,,,1,1
+ACUITY CAPITAL LLC,home_office_street_withheld,12720 HANOVER ST,LOS ANGELES,CA,90049,True,ai,,,1,2
+ADVOCATE BROKERAGE CORP,home_office_street_withheld,820 SCARSDALE AVE,SCARSDALE,NY,10583,True,ai,,,2,1
+AGDS,home_office_street_withheld,13610 1ST AVE S,BURIEN,WA,98168,True,manual,,,1,1
+AGI FINANCIAL,home_office_street_withheld,930 CARMEL CT,LOS ALTOS,CA,94022,True,ai,,,1,1
+AJS STONE CONSULTING LLC,home_office_street_withheld,9715 CRESTA DR,LOS ANGELES,CA,90035,True,ai,,,1,2
+ALANA MULLER ENTERPRISES,home_office_street_withheld,8209 W 145TH ST,OVERLAND PARK,KS,66223,True,ai,,,1,2
+ALL ACCESS APPAREL,home_office_street_withheld,1515 GAGE RD,MONTEBELLO,CA,90640,True,ai,,,1,1
+ALLAN WISER INSURANCE,home_office_street_withheld,4809 SPARKS AVE,SAN DIEGO,CA,92110,True,ai,,,1,1
+ALLEN FELTMAN REAL ESTATE,home_office_street_withheld,5509 SAINT ANDREWS CT,PLANO,TX,75093,True,ai,,,1,1
+ALMEL INCORPORATED,home_office_street_withheld,368 N HAMETOWN RD,AKRON,OH,44333,True,ai,,,1,1
+ALPHA BETA PLANNING,home_office_street_withheld,75 JEFFERSON CT,YORKTOWN HEIGHTS,NY,10598,True,ai,,,1,1
+AME EQUITIES,home_office_street_withheld,2011 BRADFORD HALL PL,CHARLOTTE,NC,28270,True,ai,,,1,1
+AMERICAN FINDINGS CORP,home_office_street_withheld,10441 N SCOTTSDALE RD,SCOTTSDALE,AZ,85253,True,ai,,,1,1
+AMERICAN NITRILE,home_office_street_withheld,3500 SOUTHWEST BLVD,GROVE CITY,OH,43123,True,ai,,,1,1
+APPROVED FINANCIAL,home_office_street_withheld,1226 JASMINE CIR,WESTON,FL,33326,True,ai,,,1,1
+ARC,home_office_street_withheld,5504 ESTATE OAK CIR,FORT LAUDERDALE,FL,33312,True,ai,,,2,2
+ARDR REALTY LLC,home_office_street_withheld,318 AMETHYST AVE,NEWPORT BEACH,CA,92662,True,ai,,,2,2
+ASF WINES LLC,home_office_street_withheld,68 CLOVER DR,GREAT NECK,NY,11021,True,ai,,,1,2
+ASPHALT ANCHORS CORP,home_office_street_withheld,10 RIDGE RD,WEST ORANGE,NJ,07052,True,ai,,,1,1
+ASSESSMENT SOLUTIONS GROUP,home_office_street_withheld,215 LOCH LOMOND WAY,DANVILLE,CA,94526,True,ai,,,3,1
+ATLAS STRATEGY GROUP,home_office_street_withheld,15 LADUE LN,SAINT LOUIS,MO,63124,True,ai,,,1,1
+BACKENGINE,home_office_street_withheld,1924 BAGLEY AVE,LOS ANGELES,CA,90035,True,ai,,,1,2
+BLATT REALTY,home_office_street_withheld,241 S LINDEN DR,BEVERLY HILLS,CA,90212,True,ai,,,1,1
+BRIAN DROR CPA INC,home_office_street_withheld,5862 W 3RD ST,LOS ANGELES,CA,90036,True,ai,,,1,2
+BRISTOL ASSOCIATES,home_office_street_withheld,20 MORRIS LN,SCARSDALE,NY,10583,True,ai,,,1,1
+BYNANCY,home_office_street_withheld,5020 GLORIA AVE,ENCINO,CA,91436,True,ai,,,1,1
+CAMELOT BIOCAPITAL,home_office_street_withheld,1100 HOLLAND DR,BOCA RATON,FL,33487,True,ai,,,1,1
+CDS MECHANICAL SERVICES,home_office_street_withheld,909 WILLIAM MEADE CT,DAVIDSONVILLE,MD,21035,True,ai,,,1,1
+CHOSEN RESUMES LLC,home_office_street_withheld,1330 CORNELL DR SE,GRAND RAPIDS,MI,49506,True,manual,,,1,1
+CITRINFINANCIAL,home_office_street_withheld,3005 NE QUAYSIDE LN,MIAMI,FL,33138,True,ai,,,1,1
+CRESCENT REALTY ADVISORS,home_office_street_withheld,4840 ANDASOL AVE,ENCINO,CA,91316,True,ai,,,1,1
+CROOKED MONKEY,home_office_street_withheld,8220 RIVER QUARRY PL,BETHESDA,MD,20817,True,ai,,,1,1
+CSR PRIVACY SOLUTIONS,home_office_street_withheld,830 NE POP TILTON PL,JENSEN BEACH,FL,34957,True,manual,,,2,1
+DANALEX INC,home_office_street_withheld,85 PRISTINE GLEN ST,LAS VEGAS,NV,89135,True,ai,,,1,1
+DENALI BRANDS INC,home_office_street_withheld,4 ANDOVER COUNTRY CLUB LN,ANDOVER,MA,01810,True,ai,,,1,1
+ECO MARKETING,home_office_street_withheld,41 NACE AVE,PIEDMONT,CA,94611,True,ai,,,1,1
+EDELSTEIN PUBLIC AFFAIRS,home_office_street_withheld,6417 THORNHILL DR,OAKLAND,CA,94611,True,ai,,,1,1
+GARRISON SYSTEMS LLC,home_office_street_withheld,240 E 74TH ST,NEW YORK,NY,10021,True,manual,,,1,1
+"GARY OPPER, CPA",home_office_street_withheld,1226 JASMINE CIR,WESTON,FL,33326,True,ai,,,1,1
+GEFFEN ENTERPRISES,home_office_street_withheld,5 BRECKENRIDGE LN,SAVANNAH,GA,31411,True,ai,,,1,1
+GHB CAPITAL LLC,home_office_street_withheld,805 WILMOT RD,SCARSDALE,NY,10583,True,ai,,,1,1
+GOLD AND COMPANY,home_office_street_withheld,5601 NEWBURY ST,BALTIMORE,MD,21209,True,manual,,,3,1
+GOLDHABER POLICY SERVICES LLC,home_office_street_withheld,4112 GARDENLAKE DR,RALEIGH,NC,27612,True,manual,,,2,2
+GRANDSTONE INVESTMENT SALES,home_office_street_withheld,1385 BROOKWOOD PL,COLUMBUS,OH,43209,True,ai,,,1,1
+GREENE KARLIN REAL ESTATE LLC,home_office_street_withheld,500 NORTHLAND RIDGE CT,ATLANTA,GA,30342,True,ai,,,1,1
+GURSTEL LAW FIRM PC,home_office_street_withheld,9320 E RAINTREE DR,SCOTTSDALE,AZ,85260,True,manual,,,2,1
+HAMMERMAN CAPITAL MANAGEMENT,home_office_street_withheld,1232 ROSE LN,LAFAYETTE,CA,94549,True,ai,,,1,1
+HARDWOOD PARTNERS,home_office_street_withheld,968 HARBOR RD,SOUTHPORT,CT,06890,True,ai,,,1,1
+HMS PARTNERS,home_office_street_withheld,7370 ANDORRA PL,BOCA RATON,FL,33433,True,ai,,,1,1
+HOME EXPRESSIONS INC,home_office_street_withheld,195 RARITAN CENTER PKWY,EDISON,NJ,08837,True,ai,,,1,1
+INNOVATIONS IN EDUCATION LLC,home_office_street_withheld,10400 HARDWOOD CT,WOODSTOCK,MD,21163,True,manual,,,1,1
+J.M. EDBERG INVESTMENT MANAGEMENT,home_office_street_withheld,6206 LANDON LN,BETHESDA,MD,20817,True,ai,,,1,1
+KAWESCH LAW GROUP,home_office_street_withheld,6 GARNER ST,NEWTON CENTER,MA,02459,True,ai,,,1,2
+LAUDER PARTNERS,home_office_street_withheld,88 MERCEDES LN,ATHERTON,CA,94027,False,ai,,,2,1
+LAVITSKY COMPUTER LABORATORIES INC,home_office_street_withheld,865 SHERWOOD RD,BRIDGEWATER,NJ,08807,True,manual,,,1,1
+LEIFER CAPITAL ADVISERS LLC,home_office_street_withheld,86 CLEMENTS RD,NEWTON,MA,02458,True,ai,,,2,2
+LEVIN AND ROSENSTEIN,home_office_street_withheld,14120 CHINKAPIN DR,ROCKVILLE,MD,20850,True,ai,,,1,1
+LISI NIGRIN INTERIORS,home_office_street_withheld,13 PALADIA WAY,PIKESVILLE,MD,21208,True,ai,,,1,1
+LMR ADVISORS,home_office_street_withheld,1841 W MERCER WAY,MERCER ISLAND,WA,98040,True,ai,,,1,1
+MALLARD INVESTMENTS INC,home_office_street_withheld,20 BASSWOOD LN,CHAGRIN FALLS,OH,44022,True,ai,,,1,2
+MB DAVIS GROUP,home_office_street_withheld,3920 N HILLS DR,AUSTIN,TX,78731,True,manual,,,1,1
+MFAL CONSULTING LLC,home_office_street_withheld,2401 NE 47TH ST,LIGHTHOUSE POINT,FL,33064,True,manual,,,1,1
+MORGAN LANGUAGE SERVICES CORP,home_office_street_withheld,11515 GAUGUIN LN,POTOMAC,MD,20854,True,ai,,,2,2
+MORTON FRIDMAN MD,home_office_street_withheld,826 WINTHROP RD,TEANECK,NJ,07666,True,ai,,,1,2
+MOYAL DESIGNS LLC,home_office_street_withheld,4200 KENWYCK CT,MARIETTA,GA,30062,True,ai,,,1,1
+MSBD CAPITAL MANAGEMENT CORP,home_office_street_withheld,725 REDWOOD LN,GLENCOE,IL,60022,True,ai,,,1,1
+NATIONAL LUMBER COMPANY,home_office_street_withheld,4901 PULASKI HWY,BALTIMORE,MD,21224,True,ai,,,1,1
+PASSION GROWERS,home_office_street_withheld,7499 NW 31 ST,MIAMI,FL,33122,True,manual,,,3,2
+PHARMACY BENEFIT CONSULTANTS,home_office_street_withheld,7 ARBORVIEW WAY,MORRISTOWN,NJ,07960,True,ai,,,1,1
+PROLIFIC ELECTRONICS LLC,home_office_street_withheld,2297 WORTHING LN,LOS ANGELES,CA,90077,True,manual,,,1,1
+RED FOX CAPITAL PARTNERS,home_office_street_withheld,1960 QUEENS RD W,CHARLOTTE,NC,28207,True,ai,,,1,1
+RIEDER COMMUNITIES,home_office_street_withheld,2220 AVE J,BROOKLYN,NY,11210,True,ai,,,1,1
+RSS CAPITAL,home_office_street_withheld,1100 S NORTHLAKE DR,HOLLYWOOD,FL,33019,True,ai,,,1,2
+S JONAS ASSOCIATES LLC,home_office_street_withheld,215 W 90TH ST,NEW YORK,NY,10024,True,ai,,,1,1
+SEGAL MANAGEMENT LLC,home_office_street_withheld,2220 CAPE COD PL,MINNETONKA,MN,55305,True,ai,,,1,1
+SHP REALTY INC,home_office_street_withheld,2141 MALLARD DR,NORTHBROOK,IL,60062,True,ai,,,1,1
+SONCO,home_office_street_withheld,2050 E DEVON AVE,ELK GROVE VILLAGE,IL,60007,True,ai,,,1,1
+STEIN ADVISORS LLC,home_office_street_withheld,42 RIVER WIND RD,NEW CANAAN,CT,06840,True,manual,,,1,1
+SURRY INVESTMENT ADVISORS,home_office_street_withheld,56 SURRY DAM RD,SURRY,NH,03431,True,manual,,,2,2
+THE LIVELY FOUNDATION,home_office_street_withheld,550 MOUNTAIN VIEW AVE,MOUNTAIN VIEW,CA,94041,True,ai,,,1,1
+THE MINKOFF GROUP,home_office_street_withheld,6272 VIRGO RD,OAKLAND,CA,94611,True,ai,,,2,2
+THE ROBERTS COMPANIES,home_office_street_withheld,2886 COLORADO AVE,SANTA MONICA,CA,90404,True,ai,,,1,1
+THRIVE FP,home_office_street_withheld,809 N CUERNAVACA DR,AUSTIN,TX,78733,True,ai,,,2,2
+TIERRAMANO LLC,home_office_street_withheld,1405 W 24TH ST,MIAMI BEACH,FL,33140,True,manual,,,1,1
+TRANSFORMER LAB SERVICES,home_office_street_withheld,12 WAVERLY PL,LAWRENCE,NY,11559,True,manual,,,1,1
+TRIUMPH DEALER SERVICES,home_office_street_withheld,4574 NAUTILUS DR,MIAMI BEACH,FL,33140,True,ai,,,1,2
+TRUCK FAX INC,home_office_street_withheld,17700 S WOODLAND RD,SHAKER HEIGHTS,OH,44120,True,ai,,,1,1
+VAYIKRA CAPITAL LLC,home_office_street_withheld,1 FARMSTEAD RD,SHORT HILLS,NJ,07078,True,ai,,,1,2
+WESTMORE CAPITAL ADVISORS,home_office_street_withheld,301 21ST PL,SANTA MONICA,CA,90402,True,ai,,,1,1
+WOLMAN WEALTH MANAGEMENT,home_office_street_withheld,4208 OVERLAND AVE,CULVER CITY,CA,90230,True,manual,,,1,1
+YELLEN & ASSOCIATES,home_office_street_withheld,32119 HARBORVIEW LN,WESTLAKE VILLAGE,CA,91361,True,ai,,,1,1
