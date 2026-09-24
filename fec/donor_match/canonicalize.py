@@ -119,7 +119,7 @@ def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) 
     return first
 
 
-def _choose_first(candidates: list[str]) -> str | None:
+def _choose_first(candidates: list[str], own_words=frozenset()) -> str | None:
     """Fullest first name by its real letters, spelled the way the donor files it.
 
     Decoration is ignored when measuring the name: brackets and their content
@@ -152,13 +152,16 @@ def _choose_first(candidates: list[str]) -> str | None:
         return " ".join(kept)
 
     cores = {value: _core(value) for value in order}
+    supported = [
+        value for value in order if _extra_names_supported(value, cores, counts, own_words)
+    ]
     # fullness = the name's letters and word breaks, not its punctuation: the
     # period of "ISAAC S." must not outweigh the "A" of "ISAAC A"
-    fullness = {value: len(" ".join(_name_tokens(cores[value]))) for value in order}
+    fullness = {value: len(" ".join(_name_tokens(cores[value]))) for value in supported or order}
     longest = max(fullness.values())
     filings: Counter = Counter()
     first_filed: dict[tuple, int] = {}
-    for value in order:
+    for value in fullness:
         if fullness[value] == longest:
             key = _name_tokens(cores[value])
             filings[key] += counts[value]
@@ -174,6 +177,33 @@ def _choose_first(candidates: list[str]) -> str | None:
         if _only_balanced_parens(value) and _first_core(value) == cores[value]:
             return value
     return cores[ranked[0]]
+
+
+def _extra_names_supported(value: str, cores: dict, counts: Counter, own_words) -> bool:
+    """True when at least half the filings carry this spelling's extra names.
+
+    A whole extra given name ("SHIRA JARED" next to "SHIRA") may be a co-filer,
+    so it is written onto every filing only when the donor files it at least
+    half the time. Initials ("MARK L."), a name after an initial ("P RICHARD"),
+    a hyphenated name ("DAVID-JACQUES")
+    and a word the donor also files in the surname field (LEITMAN in
+    "LEITMAN BAILEY") are the donor's own and are not held to this.
+    """
+    words = cores[value].split()
+    if words and len(_name_tokens(words[0])) == 1 and len(_name_tokens(words[0])[0]) == 1:
+        return True  # "P RICHARD": after an initial, the word is the name the donor goes by
+    extra = {
+        token
+        for word in words[1:]
+        for token in _name_tokens(word)
+        if len(token) > 1 and token not in own_words
+    }
+    if not extra:
+        return True
+    carrying = sum(
+        counts[other] for other in cores if extra <= set(_name_tokens(cores[other]))
+    )
+    return carrying * 2 >= sum(counts.values())
 
 
 def _surname_parents(variants: list[str], firsts_by_last: dict) -> dict:
@@ -277,7 +307,9 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
         solo = [f for f in fcands if not is_joint(f)]
         if solo:
             fcands = solo
-    canon_first = _choose_first(fcands)
+    # words the donor files in a surname field are their own names
+    surname_words = {word for last in named for word in _name_tokens(last)} - last_words
+    canon_first = _choose_first(fcands, frozenset(surname_words))
     if canon_first:
         kept = [w for w in canon_first.split() if w.upper() not in last_words]
         canon_first = " ".join(kept) or None

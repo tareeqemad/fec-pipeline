@@ -244,28 +244,42 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
         logger.info("Fixed %d garbled first names (keyboard errors)", n_garbled)
 
 
-def _keep_given_name_after_initial(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Keep a filed given name the first-name field cut to an initial.
+_GIVEN_WORD_RE = re.compile(r"[A-Z][A-Z'-]+")
 
-    FEC's first-name field for "HARRIS, S. WOLF" is only "S."; rebuilding the
-    name from it would drop WOLF. When the filed name is the surname, that
-    initial and one more word, the first name takes the filed form.
+
+def _keep_filed_given_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
+    """Keep given names the filed name has beyond the first-name field.
+
+    FEC's first-name field for "HARRIS, S. WOLF" is only "S.", and for
+    "MORRIS, ELLEN STUN" only "ELLEN"; rebuilding the name from it would drop
+    WOLF and STUN (a middle name, or a co-filer). When the filed name is the
+    surname, the first-name field and more whole name words, the first name
+    takes the filed form.
     """
     first = df['contributor_first_name'].fillna('').astype(str).str.strip()
     last = df['contributor_last_name'].fillna('').astype(str).str.strip()
-    filed_last, _, filed_first = (
-        df['contributor_name'].fillna('').astype(str).str.partition(',').T.values
+    filed = df['contributor_name'].fillna('').astype(str).str.partition(',')
+    filed_last, filed_first = filed[0].str.strip(), filed[2].str.strip()
+    candidates = is_individual & (first != '') & (filed_last == last) & (filed_first != first)
+    for index in df.index[candidates]:
+        if _adds_given_names(first.at[index], filed_first.at[index]):
+            df.at[index, 'contributor_first_name'] = filed_first.at[index]
+
+
+def _adds_given_names(first: str, filed_first: str) -> bool:
+    """The filed first part is the field plus whole name words."""
+    field_words, filed_words = first.split(), filed_first.split()
+    added = filed_words[len(field_words):]
+    return (
+        bool(added)
+        and filed_words[:len(field_words)] == field_words
+        and all(
+            _GIVEN_WORD_RE.fullmatch(word)
+            and word not in _PURE_TITLE
+            and word not in field_words  # "RANDALL RANDALL" repeats, adds nothing
+            for word in added
+        )
     )
-    filed_first = pd.Series(filed_first, index=df.index).str.strip()
-    initial_only = first.str.fullmatch(r'[A-Z]\.?')
-    kept = (
-        is_individual
-        & initial_only
-        & (pd.Series(filed_last, index=df.index).str.strip() == last)
-        & filed_first.str.fullmatch(r"[A-Z]\.?\s+[A-Z][A-Z'-]+")
-        & (filed_first.str[0] == first.str[0])
-    )
-    df.loc[kept, 'contributor_first_name'] = filed_first[kept]
 
 
 def _fix_title_as_first_name(df: pd.DataFrame, is_individual: pd.Series) -> None:
@@ -326,8 +340,8 @@ NAME_STEPS = (
     (_strip_individual_titles_suffixes, 'individual', 'names_titles_suffixes',
      'title_or_suffix_stripped_or_surname_from_email'),
     (_fix_garbled_first_names, 'individual', 'names_garbled_first', 'keyboard_error'),
-    (_keep_given_name_after_initial, 'individual', 'names_given_after_initial',
-     'given_name_kept_where_first_name_field_had_only_the_initial'),
+    (_keep_filed_given_names, 'individual', 'names_keep_filed_given',
+     'given_name_kept_where_first_name_field_dropped_it'),
     (_fix_title_as_first_name, 'individual', 'names_title_as_first', 'title_as_first_name_cleared'),
     (_fix_compound_last_names, 'individual', 'names_compound_last', 'compound_last_name_split'),
     (_rebuild_contributor_name, 'individual', 'names_rebuild', 'contributor_name_rebuilt_from_first_last'),

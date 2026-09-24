@@ -161,12 +161,20 @@ def test_partners_name_is_not_stamped_on_solo_filings():
     assert set(df.loc[df.donor_key == "MARC", "contributor_first_name"]) == {"MARC"}
 
 
-def test_a_real_middle_name_is_still_the_fullest_name():
-    # no one else in the household files LOUIS: the old fullest-name rule applies
+def test_an_extra_name_on_few_filings_is_not_written_onto_the_rest():
+    # LOUIS on 2 of 28 filings may be a middle name or a co-filer: the data
+    # cannot tell, so the 26 filings without it do not gain it
     df = pd.DataFrame(_rows("J", "JOSEPH", 26, last="SHAMIE") + _rows("J", "JOSEPH LOUIS", 2, last="SHAMIE")
                       + _rows("S", "SAM", 14, last="SHAMIE", street="39 COLIN PL"), columns=COLS)
     canonicalize_donor_names(df)
-    assert set(df.loc[df.donor_key == "J", "contributor_first_name"]) == {"JOSEPH LOUIS"}
+    assert set(df.loc[df.donor_key == "J", "contributor_first_name"]) == {"JOSEPH"}
+
+
+def test_a_co_filers_name_is_not_spread_onto_solo_filings():
+    df = pd.DataFrame(_rows("B", "SHIRA", 2, last="BOSCHAN") + _rows("B", "SHIRA JARED", 1, last="BOSCHAN"),
+                      columns=COLS)
+    canonicalize_donor_names(df)
+    assert set(df.loc[df.donor_key == "B", "contributor_first_name"]) == {"SHIRA"}
 
 
 def test_a_joint_only_donor_keeps_its_joint_name():
