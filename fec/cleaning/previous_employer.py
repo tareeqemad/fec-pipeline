@@ -257,6 +257,11 @@ def normalize_previous_employer_value(v) -> str:
     # is_real_employer wraps NOT_REAL_EMPLOYER, catching spellings _NULL_PREV misses
     if not is_real_employer(upper):
         return ''
+    return _previous_company_name(text, upper)
+
+
+def _previous_company_name(text: str, upper: str) -> str:
+    """One real prior company in its canonical display form ('' if none)."""
     # same synonym map as contributor_employer so a company collapses to ONE name
     mapped = EMPLOYER_SYNONYMS.get(upper)
     mapped_from_alias = bool(mapped)

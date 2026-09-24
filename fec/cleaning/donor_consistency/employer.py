@@ -239,33 +239,9 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
 
     key_to_emp = {}
     for donor_key, emps in filed.groupby(own['donor_key']):
-        emps = emps.fillna('').str.strip()
-        emps_u = emps.str.upper()
-
-        # sector/role/title/refusal words are blanked or converted upstream on
-        # purpose - never re-recover them from raw
-        real = emps[~emps_u.isin(RAW_JUNK_EMPLOYERS)
-                    & ~emps_u.isin(RAW_STATUS_MAP.keys())
-                    & ~emps_u.isin(SECTOR_AS_EMPLOYER)
-                    & ~emps_u.isin(ROLE_AS_EMPLOYER)
-                    & ~emps_u.isin(OCCUPATION_AS_EMPLOYER)
-                    & ~emps_u.isin(REFUSAL_EMPLOYERS)
-                    & (emps.str.len() > 2)]
-        real_u = real.str.upper()
-        # same structural-junk patterns the cleaner uses (emails, dates, masked
-        # digits, admin notes) so junk blanked upstream is not re-recovered
-        real = real[~real.str.contains('@', na=False, regex=False)
-                    & ~real_u.str.match(_JUNK_RE, na=False)
-                    & ~real_u.str.match(_ADMIN_NOTE_RE, na=False)]
-        if len(real) > 0:
-            key_to_emp[donor_key] = real.value_counts().index[0]
-            continue
-
-        # Try status word
-        status = emps[emps_u.isin(RAW_STATUS_MAP.keys())]
-        if len(status) > 0:
-            raw_val = status.value_counts().index[0].upper()
-            key_to_emp[donor_key] = RAW_STATUS_MAP.get(raw_val, raw_val)
+        employer = _employer_from_raw_filings(emps.fillna('').str.strip())
+        if employer is not None:
+            key_to_emp[donor_key] = employer
 
     n = 0
     for idx in df[empty_mask].index:
@@ -277,6 +253,34 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
 
     log_count(logger, "recover employers from raw", n)
     return n
+
+
+# sector/role/title/refusal words are blanked or converted upstream on
+# purpose - never re-recover them from raw
+_NEVER_RECOVERED = frozenset().union(
+    RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP.keys(), SECTOR_AS_EMPLOYER,
+    ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER, REFUSAL_EMPLOYERS,
+)
+
+
+def _employer_from_raw_filings(emps: pd.Series):
+    """One donor's most filed real raw employer, else status word."""
+    emps_u = emps.str.upper()
+    real = emps[~emps_u.isin(_NEVER_RECOVERED) & (emps.str.len() > 2)]
+    real_u = real.str.upper()
+    # same structural-junk patterns the cleaner uses (emails, dates, masked
+    # digits, admin notes) so junk blanked upstream is not re-recovered
+    real = real[~real.str.contains('@', na=False, regex=False)
+                & ~real_u.str.match(_JUNK_RE, na=False)
+                & ~real_u.str.match(_ADMIN_NOTE_RE, na=False)]
+    if len(real) > 0:
+        return real.value_counts().index[0]
+
+    status = emps[emps_u.isin(RAW_STATUS_MAP.keys())]
+    if len(status) > 0:
+        raw_val = status.value_counts().index[0].upper()
+        return RAW_STATUS_MAP.get(raw_val, raw_val)
+    return None
 
 
 _OWN_FIRM_TOKEN_RE = re.compile(

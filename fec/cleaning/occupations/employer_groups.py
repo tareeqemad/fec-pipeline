@@ -110,6 +110,23 @@ def _canonicalize_employers(df: pd.DataFrame) -> int:
     if active.empty:
         return 0
 
+    active = _unify_employer_punctuation(df, mask, active)
+    mapping, groups = _employer_variant_mapping(df, active)
+    if not mapping:
+        return 0
+
+    to_fix = employer.isin(mapping)
+    changed = int(to_fix.sum())
+    df.loc[to_fix, 'contributor_employer'] = employer[to_fix].map(mapping)
+    logger.info(
+        "Canonicalized %d employer variants across %d groups -> %d rows updated",
+        len(mapping), sum(len(group) > 1 for group in groups.values()), changed,
+    )
+    return changed
+
+
+def _unify_employer_punctuation(df: pd.DataFrame, mask: pd.Series, active: pd.Series) -> pd.Series:
+    """Drop mid-word commas and write P.C./P.A. as PC/PA."""
     mid_comma = active.str.contains(r'[A-Z],[A-Z]', na=False, regex=True)
     if mid_comma.any():
         indexes = mid_comma[mid_comma].index
@@ -128,7 +145,11 @@ def _canonicalize_employers(df: pd.DataFrame) -> int:
             .str.strip()
         )
         active = df.loc[mask, 'contributor_employer']
+    return active
 
+
+def _employer_variant_mapping(df: pd.DataFrame, active: pd.Series) -> tuple[dict, dict]:
+    """Map each employer variant to its group's most filed spelling."""
     counts = active.value_counts()
     groups = defaultdict(list)
     for name in counts.index:
@@ -156,15 +177,4 @@ def _canonicalize_employers(df: pd.DataFrame) -> int:
         mapping.update(
             {variant: canonical for variant in variants if variant != canonical}
         )
-
-    if not mapping:
-        return 0
-
-    to_fix = employer.isin(mapping)
-    changed = int(to_fix.sum())
-    df.loc[to_fix, 'contributor_employer'] = employer[to_fix].map(mapping)
-    logger.info(
-        "Canonicalized %d employer variants across %d groups -> %d rows updated",
-        len(mapping), sum(len(group) > 1 for group in groups.values()), changed,
-    )
-    return changed
+    return mapping, groups
