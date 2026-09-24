@@ -28,7 +28,7 @@ def test_unblocked_pair_not_matched(monkeypatch):
 def test_single_rules_file_has_all_actions():
     rows = R._read_rules()
     actions = {row["action"] for row in rows}
-    assert actions == {"merge_keys", "merge_names", "separate"}
+    assert actions == {"merge_keys", "merge_names", "separate", "hold"}
     assert all(row["source"] for row in rows)
     assert all(row["reviewed_at"] for row in rows)
     assert R.KEY_MERGES
@@ -233,3 +233,23 @@ def test_curated_key_merges_repoint_rows_to_the_final_key(monkeypatch):
 
     assert K.apply_curated_key_merges(rows) == 2
     assert list(rows["donor_key"]) == ["c", "c", "c", "z"]
+
+
+def test_held_filings_leave_the_person_and_stay_together(monkeypatch):
+    monkeypatch.setattr(K, "HELD_FILINGS", {"2": "MORRIS, ELLEN STUN", "3": "MORRIS, ELLEN STUN"})
+    df = pd.DataFrame({"sub_id": ["1", "2", "3"], "donor_key": ["ellen", "ellen", "ellen"]})
+
+    assert K.hold_unproven_filings(df) == 2
+    assert df.at[0, "donor_key"] == "ellen"
+    assert df.at[1, "donor_key"] == df.at[2, "donor_key"] != "ellen"
+
+
+def test_a_hold_rule_needs_a_sub_id(monkeypatch, tmp_path):
+    path = tmp_path / "rules.csv"
+    path.write_text(
+        "action,group,sub_id,review_status,source,reviewed_at\n"
+        "hold,SOME GROUP,,verified_fec,https://www.fec.gov,2026-09-24\n"
+    )
+    monkeypatch.setattr(R, "RULES_PATH", path)
+    with pytest.raises(ValueError, match="sub_id"):
+        R._read_rules()

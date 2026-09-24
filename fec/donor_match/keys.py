@@ -11,6 +11,7 @@ from fec.log import get_logger
 from .constants import NICKNAME_MAP
 from .joint import given_tokens, joint_partners
 from .rules import (
+    HELD_FILINGS,
     KEY_MERGES,
     identities_must_stay_separate,
     names_must_stay_separate,
@@ -141,6 +142,26 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     if n:
         df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(resolve_donor_key)
     return n
+
+
+def hold_unproven_filings(df: pd.DataFrame) -> int:
+    """Give each held filing group its own key, outside every person.
+
+    A hold rule lists filings whose owner is not proven (a joint name cut to
+    one person, a second address two same-name people could share); the group
+    keeps them together and away from any person's total until evidence decides.
+    """
+    if not HELD_FILINGS or "sub_id" not in df.columns:
+        return 0
+    groups = df["sub_id"].astype(str).map(HELD_FILINGS)
+    held = groups.notna()
+    missing = len(HELD_FILINGS) - int(held.sum())
+    if missing:
+        logger.warning("  %s held filings not in the data", missing)
+    df.loc[held, "donor_key"] = groups[held].map(
+        lambda group: hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
+    )
+    return int(held.sum())
 
 
 def validate_separations(df: pd.DataFrame) -> None:

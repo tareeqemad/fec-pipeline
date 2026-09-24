@@ -18,7 +18,7 @@ decision lives in data/database/donor_identity_rules.csv.
 from .matcher import match_donors
 from .keys import (
     apply_donor_key, merge_split_name_donors, validate_separations,
-    apply_curated_key_merges, build_donor_dedup_review,
+    apply_curated_key_merges, build_donor_dedup_review, hold_unproven_filings,
 )
 from .canonicalize import (
     canonicalize_donor_names, canonicalize_donor_employers,
@@ -34,6 +34,7 @@ __all__ = [
     "merge_split_name_donors",
     "validate_separations",
     "apply_curated_key_merges",
+    "hold_unproven_filings",
     "canonicalize_donor_names",
     "canonicalize_donor_employers",
     "canonicalize_donor_addresses",
