@@ -39,13 +39,12 @@ def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
     else:
         log("Duplicates: none")
 
-    df["contributor_state"] = (
-        df["contributor_state"].astype(str).str.strip().str.upper()
-    )
-    before = len(df)
-    df = df[df["contributor_state"].isin(US_STATES)].copy()
-    dropped = before - len(df)
-    log(f"State filter: {before:,} -> {len(df):,} (dropped {dropped:,})")
+    state = df["contributor_state"].astype("string").str.strip().str.upper()
+    df["contributor_state"] = state.where(state.fillna("") != "", pd.NA).astype(object)
+    # a filing is never dropped for its state: a Canadian 'ON' is a foreign
+    # address the foreign step keeps as filed, and every donation counts
+    unknown = int((~df["contributor_state"].isin(US_STATES)).sum())
+    log(f"States: {unknown:,} filing(s) with a state outside the US list, kept as filed")
 
     # record missing occupation/employer before later steps fill them
     def _mark_missing(field):
