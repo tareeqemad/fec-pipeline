@@ -289,3 +289,43 @@ def test_typed_street_spelling_wins_even_as_a_minority():
     ])
     assert _unify_street_types(df) == 2
     assert set(df.contributor_street_1) == {"14200 E MONCRIEFF PL"}
+
+
+def test_two_different_street_types_are_both_kept():
+    # MAIN ST and MAIN AVE disagree: nothing proves which one is the typo
+    from fec.cleaning.pipeline.address_fixes.unify import _unify_street_types
+    rows = [("100 MAIN ST",), ("100 MAIN ST",), ("100 MAIN AVE",), ("100 MAIN",)]
+    df = pd.DataFrame([
+        {"contributor_name": "DOE, JANE", "contributor_street_1": street, "contributor_city": "AUSTIN",
+         "contributor_state": "TX"} for (street,) in rows
+    ])
+    assert _unify_street_types(df) == 0
+    assert df.contributor_street_1.tolist() == ["100 MAIN ST", "100 MAIN ST", "100 MAIN AVE", "100 MAIN"]
+
+
+def _units(values):
+    return pd.DataFrame([
+        {"entity_type": "INDIVIDUAL", "contributor_name": "DOE, JANE", "contributor_street_1": "1 MAIN ST",
+         "contributor_street_2": value, "contributor_city": "AUSTIN", "contributor_state": "TX",
+         "contributor_zip": "78701"} for value in values
+    ])
+
+
+def test_a_floor_is_not_an_apartment():
+    from fec.cleaning.pipeline.address_fixes.unify import _unify_unit_designators
+    df = _units(["APT 9", "APT 9", "FL 9"])
+    assert _unify_unit_designators(df) == 0
+    assert df.contributor_street_2.tolist() == ["APT 9", "APT 9", "FL 9"]
+
+
+def test_building_and_suite_numbers_stay_apart():
+    from fec.cleaning.pipeline.address_fixes.unify import _unify_unit_designators
+    df = _units(["BLDG 1 STE 23", "BLDG 1 STE 23", "BLDG 12 STE 3"])
+    assert _unify_unit_designators(df) == 0
+
+
+def test_the_same_unit_written_two_ways_still_unifies():
+    from fec.cleaning.pipeline.address_fixes.unify import _unify_unit_designators
+    df = _units(["APT 15-03", "APT 15-03", "# 1503", "UNIT 15-03"])
+    assert _unify_unit_designators(df) == 2
+    assert set(df.contributor_street_2) == {"APT 15-03"}
