@@ -292,11 +292,6 @@ def _load_donor_linked_csv(
     validate_rows=None,
 ) -> None:
     """Load curated donor links."""
-    from fec.database.leadership_matcher import (
-        find_or_create_donor,
-        upsert_donor_address,
-        upsert_leader_employment,
-    )
     from .employers import _location_index
 
     csv_path = PROJECT_ROOT / "data" / "database" / csv_filename
@@ -315,42 +310,11 @@ def _load_donor_linked_csv(
     inserted = skipped = 0
 
     for _, row in rows.iterrows():
-        name, first, last, city, state = _person_identity(row)
-        if not name:
+        method = _load_person(cur, row, csv_filename, locations, insert_row)
+        if method is None:
             skipped += 1
             continue
-
-        donor_id, method = find_or_create_donor(
-            cur,
-            (row.get("donor_key") or "").strip(),
-            _boolean(row, "create_if_missing", csv_filename, name),
-            name,
-            first,
-            last,
-        )
         match_counts[method] += 1
-
-        _upsert_image(cur, row, donor_id)
-        _upsert_address(
-            cur,
-            row,
-            donor_id,
-            csv_filename,
-            name,
-            city,
-            state,
-            upsert_donor_address,
-        )
-        upsert_leader_employment(
-            cur,
-            donor_id,
-            _person_value(row, "employer"),
-            _person_value(row, "occupation"),
-            state=state,
-            zip_5=_person_value(row, "zip"),
-            locations=locations,
-        )
-        insert_row(cur, row, donor_id)
         inserted += 1
 
     conn.commit()
@@ -359,3 +323,48 @@ def _load_donor_linked_csv(
         f"  {table}: {inserted} rows ({skipped} skipped), "
         f"match methods: {dict(match_counts)} ({time.time() - start:.1f}s)"
     )
+
+
+def _load_person(cur, row, csv_filename: str, locations, insert_row):
+    """Link one roster row to its donor; return the match method."""
+    from fec.database.leadership_matcher import (
+        find_or_create_donor,
+        upsert_donor_address,
+        upsert_leader_employment,
+    )
+
+    name, first, last, city, state = _person_identity(row)
+    if not name:
+        return None
+
+    donor_id, method = find_or_create_donor(
+        cur,
+        (row.get("donor_key") or "").strip(),
+        _boolean(row, "create_if_missing", csv_filename, name),
+        name,
+        first,
+        last,
+    )
+
+    _upsert_image(cur, row, donor_id)
+    _upsert_address(
+        cur,
+        row,
+        donor_id,
+        csv_filename,
+        name,
+        city,
+        state,
+        upsert_donor_address,
+    )
+    upsert_leader_employment(
+        cur,
+        donor_id,
+        _person_value(row, "employer"),
+        _person_value(row, "occupation"),
+        state=state,
+        zip_5=_person_value(row, "zip"),
+        locations=locations,
+    )
+    insert_row(cur, row, donor_id)
+    return method

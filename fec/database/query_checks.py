@@ -351,10 +351,9 @@ def _money_conserved(cur):
     return False, f"base={contributions} stats={stats}"
 
 
-def _build() -> list[Check]:
+def _integrity_checks() -> list[Check]:
+    """Row counts, orphans and unique keys."""
     checks: list[Check] = []
-
-    # Referential integrity
     for table in ("donors", "contributions", "committees", "addresses", "employers"):
         checks.append(
             _positive(f"rows: {table}", f"SELECT COUNT(*) FROM {table}", "row(s)")
@@ -443,8 +442,12 @@ def _build() -> list[Check]:
             "max",
         ),
     ]
+    return checks
 
-    # Money and aggregates
+
+def _money_checks() -> list[Check]:
+    """Money is conserved across tables and aggregates."""
+    checks: list[Check] = []
     checks += [
         Check("money conserved (contributions = stats)", CRIT, _money_conserved),
         _zero(
@@ -505,8 +508,12 @@ def _build() -> list[Check]:
     ]
 
     checks += VIEW_CHECKS
+    return checks
 
-    # Cleaning correctness
+
+def _cleaning_checks() -> list[Check]:
+    """Cleaned values follow the cleaning contract."""
+    checks: list[Check] = []
     status_words = ",".join(
         f"'{word}'" for word in sorted(SKIP_EMPLOYERS) if word
     )
@@ -570,8 +577,12 @@ def _build() -> list[Check]:
             WARN,
         ),
     ]
+    return checks
 
-    # Value sanity
+
+def _value_checks() -> list[Check]:
+    """Stored values fall in sane ranges."""
+    checks: list[Check] = []
     checks += [
         _zero(
             "no future receipt dates",
@@ -662,8 +673,11 @@ def _build() -> list[Check]:
             WARN,
         ),
     ]
-
     return checks
+
+
+def _build() -> list[Check]:
+    return _integrity_checks() + _money_checks() + _cleaning_checks() + _value_checks()
 
 
 CHECKS = _build()
