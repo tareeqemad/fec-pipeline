@@ -4,9 +4,12 @@ import os
 
 import pandas as pd
 
+from fec import env
 from fec.cleaning.audit import write_audit
 from fec.cleaning.pipeline import clean_pipeline
 from fec.cleaning.quality import run_quality_gates, save_report
+from fec.cleaning.quality_scan import scan
+from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.env import CLEANED_CSV, RAW_CSV
 from fec.io import read_pipeline_csv
 from fec.log import get_logger
@@ -16,8 +19,6 @@ logger = get_logger(__name__)
 
 def _drop_internal_cols(df):
     """Remove working columns."""
-    from fec.config.data import INTERNAL_OUTPUT_COLUMNS
-
     internal = [column for column in df.columns if column.startswith('_')]
     internal += [column for column in INTERNAL_OUTPUT_COLUMNS if column in df.columns]
     return df.drop(columns=internal)
@@ -25,8 +26,6 @@ def _drop_internal_cols(df):
 
 def _write_quality_scan(output_path, out_dir):
     """Write the quality scan."""
-    from fec.cleaning.quality_scan import scan
-
     df = pd.read_csv(
         output_path,
         dtype=str,
@@ -128,8 +127,6 @@ def _print_summary(df, quality, output):
 
 
 def main():
-    from fec import env
-
     env.load_env()
 
     input_path = str(RAW_CSV)
@@ -158,6 +155,13 @@ def main():
     _assert_known_committees(output)
     _ensure_zip_format(output)
 
+    quality = _save_if_gates_pass(output, out_dir, output_path)
+    _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path)
+    _print_summary(output, quality, output_path)
+
+
+def _save_if_gates_pass(output, out_dir, output_path) -> dict:
+    """Save the cleaned CSV only when every quality gate passes."""
     # the gates check the output before it replaces the last good file
     # (the gates that need employer_status read not_run here; resolve.py
     # --apply reruns every gate and overwrites quality_gates.json)
@@ -170,7 +174,11 @@ def main():
             logger.error("    %s", issue)
         raise SystemExit(1)
     output.to_csv(output_path, index=False)
+    return quality
 
+
+def _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path) -> None:
+    """Write the audit, missing-field report and quality scan."""
     audit = write_audit(cleaned, original_rows, out_dir, trail)
     logger.info(
         "  Audit: %s changes in %s cells, %s untracked",
@@ -181,14 +189,12 @@ def main():
 
     save_report(missing, out_dir, 'missing_report')
 
-    scan = _write_quality_scan(output_path, out_dir)
+    scan_report = _write_quality_scan(output_path, out_dir)
     logger.info(
         "  Quality scan: %s employer abbreviations, %s near-duplicate groups, "
         "%s name-drift rows, %s address-variant groups",
-        f"{scan['employer_abbreviations']['distinct_employers_flagged']:,}",
-        f"{scan['employer_near_duplicates']['groups']:,}",
-        f"{scan['name_composite_drift']['rows']:,}",
-        f"{scan['address_order_variants']['groups']:,}",
+        f"{scan_report['employer_abbreviations']['distinct_employers_flagged']:,}",
+        f"{scan_report['employer_near_duplicates']['groups']:,}",
+        f"{scan_report['name_composite_drift']['rows']:,}",
+        f"{scan_report['address_order_variants']['groups']:,}",
     )
-
-    _print_summary(output, quality, output_path)

@@ -111,6 +111,50 @@ _AUDITED_RULES = (
 )
 
 
+def _restore_suffixes_from_raw(df: pd.DataFrame) -> int:
+    """Restore employer display suffixes from the raw filings."""
+    return restore_display_suffixes(df, RAW_CSV)
+
+
+# Late passes, in order: (transform, audit step, reason, fields, log line)
+_LATE_STEPS = (
+    # style unification runs only after every swap safety net has moved company
+    # names out of the occupation column (a de-pluralized company name would no
+    # longer match the known-employer set those nets rely on)
+    (normalize_occupation_style_step, 'enh_normalize_occupation_style',
+     'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY,
+     "Unified occupation style for {n:,} rows (separators, CO-, plurals)"),
+    (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
+     'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
+     "Fixed {n:,} curated occupation typos/abbreviations"),
+    (_recanonicalize_employers, 'employer_recanonicalize',
+     'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,
+     "Re-canonicalized {n:,} employer variants"),
+    (_restore_suffixes_from_raw, 'employer_restore_suffixes',
+     'employer_display_form_restored_from_raw', WORK_FIELDS,
+     "Restored display suffixes for {n:,} rows (HOUSING -> HOUSING INC etc.)"),
+    # re-assert curated synonyms: the two passes above can revert one to a raw form
+    (apply_employer_synonyms, 'enh_employer_synonyms_final',
+     'verified_same_company', _EMPLOYER_ONLY,
+     "Re-applied {n:,} employer synonyms (final pass)"),
+    # abbreviation expansion AFTER synonyms, so forms a synonym target reintroduces also collapse
+    (expand_employer_abbreviations, 'employer_expand_abbreviations',
+     'employer_abbreviation_expanded', _EMPLOYER_ONLY,
+     "Expanded {n:,} employer abbreviations (MGMT->MANAGEMENT, ...)"),
+    # ASSOC is contextual: real associations -> ASSOCIATION, the rest -> ASSOCIATES
+    (expand_employer_associates, 'employer_expand_assoc',
+     'employer_assoc_expanded', _EMPLOYER_ONLY,
+     "Normalized {n:,} ASSOC employers (-> ASSOCIATES / ASSOCIATION)"),
+    (_clean_self_employed_variants, 'self_employed_variants',
+     'self_employed_variant_unified', WORK_FIELDS,
+     "Unified {n:,} self-employed variants -> SELF-EMPLOYED"),
+    # final sweep: refusals/placeholders that only became skip-words after the normalization above
+    (_clean_junk_status_word_employer, 'late_placeholder_employers',
+     'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY,
+     "Nulled {n:,} refusal/placeholder employers (N/A, PRIVATE, etc.)"),
+)
+
+
 def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Apply all record-level rules."""
     log = logger.info
@@ -125,70 +169,9 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
         df = _apply_step(df, trail, log, step)
 
     _apply_safety_rules(df, trail, log)
-    # style unification runs only after every swap safety net has moved company
-    # names out of the occupation column (a de-pluralized company name would no
-    # longer match the known-employer set those nets rely on)
-    df, n_style = trail.run(
-        df, normalize_occupation_style_step, 'enh_normalize_occupation_style',
-        'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY,
-    )
-    if n_style:
-        log(f"Unified occupation style for {n_style:,} rows (separators, CO-, plurals)")
-    df, n_typo = trail.run(
-        df, apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
-        'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
-    )
-    if n_typo:
-        log(f"Fixed {n_typo:,} curated occupation typos/abbreviations")
-    n_recanon = trail.run(
-        df, _recanonicalize_employers, 'employer_recanonicalize',
-        'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,
-    )
-    if n_recanon:
-        log(f"Re-canonicalized {n_recanon:,} employer variants")
-    n_restored = trail.run(
-        df, lambda frame: restore_display_suffixes(frame, RAW_CSV), 'employer_restore_suffixes',
-        'employer_display_form_restored_from_raw', WORK_FIELDS,
-    )
-    if n_restored:
-        log(f"Restored display suffixes for {n_restored:,} rows (HOUSING -> HOUSING INC etc.)")
+    for transform, audit_name, reason, fields, message in _LATE_STEPS:
+        df = trail.run_logged(df, transform, audit_name, reason, fields, message, log)
 
-    # re-assert curated synonyms: the two passes above can revert one to a raw form
-    df, n_synonyms_final = trail.run(
-        df, apply_employer_synonyms, 'enh_employer_synonyms_final', 'verified_same_company',
-        _EMPLOYER_ONLY,
-    )
-    if n_synonyms_final:
-        log(f"Re-applied {n_synonyms_final:,} employer synonyms (final pass)")
-
-    # abbreviation expansion AFTER synonyms, so forms a synonym target reintroduces also collapse
-    df, n_abbr = trail.run(
-        df, expand_employer_abbreviations, 'employer_expand_abbreviations',
-        'employer_abbreviation_expanded', _EMPLOYER_ONLY,
-    )
-    if n_abbr:
-        log(f"Expanded {n_abbr:,} employer abbreviations (MGMT->MANAGEMENT, ...)")
-    # ASSOC is contextual: real associations -> ASSOCIATION, the rest -> ASSOCIATES
-    df, n_assoc = trail.run(
-        df, expand_employer_associates, 'employer_expand_assoc',
-        'employer_assoc_expanded', _EMPLOYER_ONLY,
-    )
-    if n_assoc:
-        log(f"Normalized {n_assoc:,} ASSOC employers (-> ASSOCIATES / ASSOCIATION)")
-    n_self = trail.run(
-        df, _clean_self_employed_variants, 'self_employed_variants',
-        'self_employed_variant_unified', WORK_FIELDS,
-    )
-    if n_self:
-        log(f"Unified {n_self:,} self-employed variants -> SELF-EMPLOYED")
-
-    # final sweep: refusals/placeholders that only became skip-words after the normalization above
-    n_null_emp = trail.run(
-        df, _clean_junk_status_word_employer, 'late_placeholder_employers',
-        'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY,
-    )
-    if n_null_emp:
-        log(f"Nulled {n_null_emp:,} refusal/placeholder employers (N/A, PRIVATE, etc.)")
     df.drop(columns=['employer_name_normalized'], inplace=True)
     log("  -> Dropped employer_name_normalized (merged into contributor_employer)")
     return df

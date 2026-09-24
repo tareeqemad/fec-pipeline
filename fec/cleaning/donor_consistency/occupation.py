@@ -53,12 +53,31 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     """
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     employer = indiv['contributor_employer']
-    missing_occ = indiv[
-        indiv['contributor_occupation'].isna()
-        & employer.notna()
-        & ~employer.isin(SKIP_EMPLOYERS)
-    ]
+    occupation = indiv['contributor_occupation']
+    real_employer = employer.notna() & ~employer.isin(SKIP_EMPLOYERS)
 
+    n_fixed = _fill_missing_occupations(df, indiv[occupation.isna() & real_employer])
+
+    # SELF-EMPLOYED is sometimes filed as the occupation beside a named company.
+    # Recover it only when this donor has one clear role at that same company.
+    self_employed = indiv[occupation.eq('SELF-EMPLOYED') & real_employer]
+    n_fixed += _fill_placeholder_occupations(df, self_employed)
+
+    # A company occasionally lands in both fields (for example KIRKLAND &
+    # ELLIS beside KIRKLAND & ELLIS LLP). Legal suffixes and punctuation are
+    # ignored only for detecting this placeholder; the role still needs unique
+    # same-donor, same-employer evidence.
+    occupation_key = occupation.fillna('').map(canonical_key)
+    employer_key = employer.fillna('').map(canonical_key)
+    company_as_occupation = indiv[
+        occupation_key.ne('') & occupation_key.eq(employer_key) & real_employer
+    ]
+    n_fixed += _fill_placeholder_occupations(df, company_as_occupation)
+    return n_fixed
+
+
+def _fill_missing_occupations(df: pd.DataFrame, missing_occ: pd.DataFrame) -> int:
+    """Fill each empty occupation with the donor's most common one there."""
     n_fixed = 0
     for (dk, emp), missing in missing_occ.groupby(['donor_key', 'contributor_employer']):
         same_job = (
@@ -79,53 +98,20 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
         if len(counts) > 1 and counts.iloc[0] == counts.iloc[1]:
             continue
 
-        main_occ = counts.index[0]
-        df.loc[missing.index, 'contributor_occupation'] = main_occ
-        df.loc[missing.index, 'occupation_category'] = _categorize_final(
-            pd.Series(main_occ, index=missing.index)
-        )
-        df.loc[missing.index, 'occupation_status'] = 'DERIVED'
+        _set_derived_occupation(df, missing.index, counts.index[0])
         n_fixed += len(missing)
+    return n_fixed
 
-    # SELF-EMPLOYED is sometimes filed as the occupation beside a named company.
-    # Recover it only when this donor has one clear role at that same company.
-    placeholder_occ = indiv[
-        indiv['contributor_occupation'].eq('SELF-EMPLOYED')
-        & employer.notna()
-        & ~employer.isin(SKIP_EMPLOYERS)
-    ]
-    for (dk, emp), placeholders in placeholder_occ.groupby(
-        ['donor_key', 'contributor_employer']
-    ):
+
+def _fill_placeholder_occupations(df: pd.DataFrame, placeholders: pd.DataFrame) -> int:
+    """Replace placeholder occupations with the donor's one confirmed role."""
+    n_fixed = 0
+    for (dk, emp), rows in placeholders.groupby(['donor_key', 'contributor_employer']):
         occupation = _one_confirmed_role(df, dk, emp)
         if occupation is None:
             continue
-
-        _set_derived_occupation(df, placeholders.index, occupation)
-        n_fixed += len(placeholders)
-
-    # A company occasionally lands in both fields (for example KIRKLAND &
-    # ELLIS beside KIRKLAND & ELLIS LLP). Legal suffixes and punctuation are
-    # ignored only for detecting this placeholder; the role still needs unique
-    # same-donor, same-employer evidence.
-    occupation_key = indiv['contributor_occupation'].fillna('').map(canonical_key)
-    employer_key = employer.fillna('').map(canonical_key)
-    company_occ = indiv[
-        occupation_key.ne('')
-        & occupation_key.eq(employer_key)
-        & employer.notna()
-        & ~employer.isin(SKIP_EMPLOYERS)
-    ]
-    for (dk, emp), placeholders in company_occ.groupby(
-        ['donor_key', 'contributor_employer']
-    ):
-        occupation = _one_confirmed_role(df, dk, emp)
-        if occupation is None:
-            continue
-
-        _set_derived_occupation(df, placeholders.index, occupation)
-        n_fixed += len(placeholders)
-
+        _set_derived_occupation(df, rows.index, occupation)
+        n_fixed += len(rows)
     return n_fixed
 
 

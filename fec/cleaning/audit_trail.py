@@ -91,6 +91,19 @@ class AuditTrail:
         self._record(after, before, step, reason, source)
         return result
 
+    def run_logged(self, df, transform, step, reason, fields, message, log, always=False):
+        """Run one step; log its counts when it changed rows.
+
+        message is formatted with the step's counts: {n} for a plain count,
+        or the keys of a dict of counts. always logs even a zero count.
+        """
+        result = self.run(df, transform, step, reason, fields)
+        df, counts = result if isinstance(result, tuple) else (df, result)
+        values = counts if isinstance(counts, dict) else {"n": counts}
+        if always or any(values.values()):
+            log(message.format(**values))
+        return df
+
     def _record(self, df, before, step, reason, source) -> None:
         for field, old in before.items():
             if field not in df.columns:

@@ -184,6 +184,14 @@ def _null_junk_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# (status employer, occupations that already mean it), applied in this order
+_STATUS_OCCUPATIONS = (
+    ('RETIRED', {'RETIRED', ''}),
+    ('NOT EMPLOYED', {'NOT EMPLOYED', 'UNEMPLOYED', ''}),
+    ('HOMEMAKER', {'HOMEMAKER', 'HOUSEWIFE', ''}),
+)
+
+
 def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     """AR. Cross-field employer/occupation/category consistency; a real-company employer wins over a RETIRED occupation or SELF-EMPLOYED category."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -207,41 +215,20 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
         df.loc[retired_not_employed, 'occupation_status'] = 'NOT_APPLICABLE'
         n_fixed += n_retired_not_employed
 
-    ret_wrong_cat = (
-        is_indiv & (emp == 'RETIRED')
-        & (categories != 'RETIRED')
-        & occ.isin({'RETIRED', ''})
-    )
-    n_retired = int(ret_wrong_cat.sum())
-    if n_retired:
-        df.loc[ret_wrong_cat, 'contributor_occupation'] = 'RETIRED'
-        df.loc[ret_wrong_cat, 'occupation_category'] = 'RETIRED'
-        df.loc[ret_wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
-        n_fixed += n_retired
-
-    not_employed_wrong_cat = (
-        is_indiv & (emp == 'NOT EMPLOYED')
-        & (categories != 'NOT EMPLOYED')
-        & occ.isin({'NOT EMPLOYED', 'UNEMPLOYED', ''})
-    )
-    n_not_employed = int(not_employed_wrong_cat.sum())
-    if n_not_employed:
-        df.loc[not_employed_wrong_cat, 'contributor_occupation'] = 'NOT EMPLOYED'
-        df.loc[not_employed_wrong_cat, 'occupation_category'] = 'NOT EMPLOYED'
-        df.loc[not_employed_wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
-        n_fixed += n_not_employed
-
-    homemaker_wrong_cat = (
-        is_indiv & (emp == 'HOMEMAKER')
-        & (categories != 'HOMEMAKER')
-        & occ.isin({'HOMEMAKER', 'HOUSEWIFE', ''})
-    )
-    n_homemaker = int(homemaker_wrong_cat.sum())
-    if n_homemaker:
-        df.loc[homemaker_wrong_cat, 'contributor_occupation'] = 'HOMEMAKER'
-        df.loc[homemaker_wrong_cat, 'occupation_category'] = 'HOMEMAKER'
-        df.loc[homemaker_wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
-        n_fixed += n_homemaker
+    # a status employer (RETIRED, NOT EMPLOYED, HOMEMAKER) sets the matching
+    # occupation and category when the occupation is empty or says the same
+    for status, occupations in _STATUS_OCCUPATIONS:
+        wrong_cat = (
+            is_indiv & (emp == status)
+            & (categories != status)
+            & occ.isin(occupations)
+        )
+        n_status = int(wrong_cat.sum())
+        if n_status:
+            df.loc[wrong_cat, 'contributor_occupation'] = status
+            df.loc[wrong_cat, 'occupation_category'] = status
+            df.loc[wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
+            n_fixed += n_status
 
     # category=SELF-EMPLOYED but employer is a real company: re-derive from occupation
     se_cat_real_emp = (
