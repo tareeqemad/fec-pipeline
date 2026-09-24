@@ -62,12 +62,15 @@ def _assert_known_committees(df):
 
 
 def _ensure_zip_format(df):
-    """Keep ZIPs as five digits."""
+    """Keep US ZIPs as five digits; a foreign postcode (SW1A 2AA) stays as filed."""
+    from fec.cleaning.foreign_addresses import foreign_address_mask
+
+    us = ~foreign_address_mask(df)
     zips = df['contributor_zip']
 
     if zips.dtype.name in ('object', 'string'):
         valid = zips.isna() | zips.astype(str).str.match(r'^\d{5}$', na=False)
-        if valid.all():
+        if (valid | ~us).all():
             return
 
     cleaned = (
@@ -82,7 +85,7 @@ def _ensure_zip_format(df):
         ~cleaned.str.match(r'^\d{5}$', na=False) | cleaned.eq('00000')
     )
     cleaned[invalid] = pd.NA
-    df['contributor_zip'] = cleaned
+    df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
 
 
 def _print_summary(df, quality, output):
@@ -154,6 +157,18 @@ def main():
 
     _assert_known_committees(output)
     _ensure_zip_format(output)
+
+    # the gates check the output before it replaces the last good file
+    # (the gates that need employer_status read not_run here; resolve.py
+    # --apply reruns every gate and overwrites quality_gates.json)
+    quality = run_quality_gates(output)
+    with open(os.path.join(out_dir, 'quality_gates.json'), 'w') as handle:
+        json.dump({**quality, 'stage': 'clean'}, handle, indent=2)
+    if not quality['passed']:
+        logger.error("  ABORT - quality gates failed, %s kept as it was:", output_path)
+        for issue in quality['issues']:
+            logger.error("    %s", issue)
+        raise SystemExit(1)
     output.to_csv(output_path, index=False)
 
     audit = write_audit(cleaned, original_rows, out_dir, trail)
@@ -165,12 +180,6 @@ def main():
     )
 
     save_report(missing, out_dir, 'missing_report')
-
-    # Preliminary: the gates that need employer_status read not_run here.
-    # resolve.py --apply reruns every gate and overwrites this file.
-    quality = run_quality_gates(output)
-    with open(os.path.join(out_dir, 'quality_gates.json'), 'w') as handle:
-        json.dump({**quality, 'stage': 'clean'}, handle, indent=2)
 
     scan = _write_quality_scan(output_path, out_dir)
     logger.info(
