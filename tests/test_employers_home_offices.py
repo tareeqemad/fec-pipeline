@@ -120,3 +120,16 @@ def test_an_office_that_is_no_employee_s_address_keeps_its_street(tmp_path, monk
 
     assert location["employer_address"] == "905 ENFIELD CHASE"
     assert review.empty
+
+
+def test_a_manual_row_marked_office_premises_keeps_its_street(tmp_path, monkeypatch):
+    # a dealership or casino whose owner files the business address is not a home
+    pd.DataFrame([{
+        "name": "757CFO LLC", "address": HOME, "city": CITY, "state": STATE, "zip": ZIP,
+        "is_primary": "true", "note": "OFFICE PREMISES: storefront listed on the company's site",
+        "source_name": "example", "source_url": "https://example.com",
+    }]).to_csv(tmp_path / "manual_employer_addresses.csv", index=False)
+    location, review = _build(tmp_path, monkeypatch, [_filing()], method="manual_override")
+
+    assert location["employer_address"] == "905 ENFIELD CHASE"
+    assert build_employers.REVIEW_HOME_OFFICE not in review["reason"].tolist()

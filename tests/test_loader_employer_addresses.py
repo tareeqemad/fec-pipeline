@@ -54,8 +54,26 @@ def test_whitespace_only_parts_are_missing_and_filled_parts_are_untouched():
     assert location["employer_zip"] == " NW1 5DX"
 
 
-def test_blank_employer_address_is_not_published():
-    assert load_employer_locations(_frame(employer_address="   ")) == []
+def test_employer_without_street_or_town_is_not_published():
+    assert load_employer_locations(_frame(employer_address="   ", employer_city=" ")) == []
+
+
+def test_home_based_business_is_published_as_its_town_only():
+    location = load_employer_locations(_frame(
+        employer_name="HSK CONSULTING LLC", employer_address="", employer_city="BETHESDA",
+        employer_state="MD", employer_zip="20817",
+    ))[0]
+
+    assert location["employer_address"] is None
+    assert (location["employer_city"], location["employer_state"], location["employer_zip"]) == (
+        "BETHESDA", "MD", "20817",
+    )
+
+
+def test_town_only_row_without_publishable_trust_is_not_published():
+    assert load_employer_locations(_frame(
+        employer_address="", employer_city="BETHESDA", address_trust="uncorroborated",
+    )) == []
 
 
 class AddressCursor:
