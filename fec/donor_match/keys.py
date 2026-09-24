@@ -15,6 +15,7 @@ from .rules import (
     identities_must_stay_separate,
     names_must_stay_separate,
     resolve_donor_key,
+    split_zip,
 )
 from .scoring import normalize_committee_name
 
@@ -24,15 +25,17 @@ logger = get_logger(__name__)
 _VAGUE_OCC_CATEGORIES = ("", "OTHER", "NOT EMPLOYED", "RETIRED")
 
 
-def individual_record_id(name, city, state, suffix="") -> str:
-    """Build the individual record ID used by matching and key assignment."""
+def individual_record_id(name, city, state, suffix="", zip5="") -> str:
+    """Build the individual record ID used by matching and key assignment (zip5 only for a ZIP-split name)."""
     base = f"{name or ''}|{city or ''}|{state or ''}"
+    if zip5:
+        base = f"{base}|@{zip5}"
     return f"{base}|{suffix}" if suffix else base
 
 
-def individual_donor_key(name, city, state, suffix="") -> str:
+def individual_donor_key(name, city, state, suffix="", zip5="") -> str:
     """Canonical donor_key (sha256 of record-id, first 12 hex); must stay identical to leadership_matcher's."""
-    rid = individual_record_id(name, city, state, suffix)
+    rid = individual_record_id(name, city, state, suffix, zip5)
     return hashlib.sha256(rid.encode()).hexdigest()[:12]
 
 
@@ -48,17 +51,20 @@ def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     def _get_key(row):
         if row["entity_type"] != "INDIVIDUAL":
             return non_individual_donor_key(row.get("contributor_name"))
+        zip5 = split_zip(row["contributor_name"], row.get("contributor_zip", ""))
         rid = individual_record_id(
             row["contributor_name"],
             row["contributor_city"],
             row["contributor_state"],
             row.get("_generational_suffix", ""),
+            zip5,
         )
         return rid_to_key.get(rid, individual_donor_key(
             row["contributor_name"],
             row["contributor_city"],
             row["contributor_state"],
             row.get("_generational_suffix", ""),
+            zip5,
         ))
 
     df["donor_key"] = df.apply(_get_key, axis=1)
@@ -141,8 +147,9 @@ def validate_separations(df: pd.DataFrame) -> None:
     """Reject a donor containing a verified separation pair."""
     columns = [
         "donor_key", "contributor_name", "contributor_city",
-        "contributor_state", "entity_type",
+        "contributor_state", "contributor_zip", "entity_type",
     ]
+    columns = [column for column in columns if column in df.columns]
     profiles = df.loc[df["entity_type"].eq("INDIVIDUAL"), columns].drop_duplicates()
 
     for donor_key, group in profiles.groupby("donor_key"):
@@ -151,6 +158,7 @@ def validate_separations(df: pd.DataFrame) -> None:
                 "name": row.contributor_name,
                 "city": row.contributor_city,
                 "state": row.contributor_state,
+                "zip5": str(getattr(row, "contributor_zip", "") or "")[:5],
             }
             for row in group.itertuples(index=False)
         ]

@@ -21,8 +21,9 @@ def _normalize(value: str) -> str:
     return " ".join(str(value or "").upper().split())
 
 
-def _identity(name: str, city: str, state: str) -> str:
-    return "|".join(map(_normalize, (name, city, state)))
+def _identity(name: str, city: str, state: str, zip5: str = "") -> str:
+    parts = (name, city, state, zip5) if zip5 else (name, city, state)
+    return "|".join(map(_normalize, parts))
 
 
 def _read_rules() -> list[dict[str, str]]:
@@ -54,9 +55,14 @@ def _read_rules() -> list[dict[str, str]]:
 
 
 def _load_separations(rows):
-    name_pairs = set()
-    identity_pairs = set()
+    """(name pairs, name+city+state pairs, names whose rules also give ZIP codes).
 
+    Two people with one name in one city (a physician and a lawyer, both ANDREW
+    ROSENBERG in NEW YORK) share one name+city+state profile; a rule in one city
+    that also gives zip_a/zip_b splits that name's profiles by ZIP, and every
+    rule of that name giving ZIPs then compares profiles by ZIP.
+    """
+    separations = []
     for row in rows:
         if _normalize(row.get("action")) != "SEPARATE":
             continue
@@ -64,20 +70,30 @@ def _load_separations(rows):
         name_b = _normalize(row.get("name_b"))
         if not name_a or not name_b:
             continue
+        place_a = (_normalize(row.get("city_a")), _normalize(row.get("state_a")))
+        place_b = (_normalize(row.get("city_b")), _normalize(row.get("state_b")))
+        zips = (_normalize(row.get("zip_a"))[:5], _normalize(row.get("zip_b"))[:5])
+        separations.append((name_a, name_b, place_a, place_b, zips))
 
-        locations = (
-            row.get("city_a"), row.get("state_a"),
-            row.get("city_b"), row.get("state_b"),
-        )
-        if all(_normalize(value) for value in locations):
-            identity_pairs.add(frozenset((
-                _identity(name_a, row["city_a"], row["state_a"]),
-                _identity(name_b, row["city_b"], row["state_b"]),
-            )))
-        else:
+    # ZIPs matter only for a name the city cannot tell apart
+    zip_names = {
+        name
+        for name_a, name_b, place_a, place_b, zips in separations
+        if all(place_a + place_b + zips) and place_a == place_b
+        for name in (name_a, name_b)
+    }
+    name_pairs = set()
+    identity_pairs = set()
+    for name_a, name_b, place_a, place_b, zips in separations:
+        if not all(place_a + place_b):
             name_pairs.add(frozenset((name_a, name_b)))
-
-    return name_pairs, identity_pairs
+            continue
+        by_zip = all(zips) and {name_a, name_b} <= zip_names
+        identity_pairs.add(frozenset((
+            _identity(name_a, *place_a, zips[0] if by_zip else ""),
+            _identity(name_b, *place_b, zips[1] if by_zip else ""),
+        )))
+    return name_pairs, identity_pairs, frozenset(zip_names)
 
 
 def _load_key_merges(rows) -> dict[str, str]:
@@ -133,7 +149,7 @@ def _load_joint_exemptions(rows) -> frozenset[str]:
 
 
 _RULES = _read_rules()
-SEPARATE_NAMES, SEPARATE_IDENTITIES = _load_separations(_RULES)
+SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES)
 KEY_MERGES = _load_key_merges(_RULES)
 NAME_MERGES = _load_name_merges(_RULES)
 _JOINT_EXEMPT_NAMES = _load_joint_exemptions(_RULES)
@@ -160,6 +176,11 @@ def names_must_stay_separate(name_a: str, name_b: str) -> bool:
     return pair in SEPARATE_NAMES
 
 
+def split_zip(name: str, zip_code: str) -> str:
+    """The ZIP5 a profile of this name is also keyed by: only for names a ZIP-level rule splits."""
+    return _normalize(zip_code)[:5] if _normalize(name) in ZIP_SPLIT_NAMES else ""
+
+
 def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
     if names_must_stay_separate(person_a["name"], person_b["name"]):
         return True
@@ -167,7 +188,11 @@ def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
         _identity(person_a["name"], person_a["city"], person_a["state"]),
         _identity(person_b["name"], person_b["city"], person_b["state"]),
     ))
-    return pair in SEPARATE_IDENTITIES
+    zip_pair = frozenset((
+        _identity(person_a["name"], person_a["city"], person_a["state"], person_a.get("zip5", "")[:5]),
+        _identity(person_b["name"], person_b["city"], person_b["state"], person_b.get("zip5", "")[:5]),
+    ))
+    return pair in SEPARATE_IDENTITIES or zip_pair in SEPARATE_IDENTITIES
 
 
 def resolve_donor_key(key: str) -> str:
