@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import logging
 import os
 from decimal import Decimal, InvalidOperation
@@ -339,6 +340,22 @@ def _pull_pages(
             progress.close()
 
 
+def _pull_state_path(csv_path: Path) -> Path:
+    return csv_path.parent / "pull_state.json"
+
+
+def _read_pull_state(csv_path: Path) -> dict:
+    path = _pull_state_path(csv_path)
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _mark_pull(csv_path: Path, committee_id: str, period: int, status: str) -> None:
+    """Record 'in_progress' before a pull and 'complete' after it."""
+    state = _read_pull_state(csv_path)
+    state[f"{committee_id}/{period}"] = status
+    _pull_state_path(csv_path).write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+
+
 def run(committee_id: str, period: int, full: bool = False) -> None:
     """Append one committee's new Schedule A filings to contributions.csv."""
     api_key = required_env("FEC_API_KEY")
@@ -349,6 +366,13 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
         committee_id,
         period,
     )
+    # pages come newest first: a pull cut off part-way has the newest rows but
+    # not the older pages, so starting again from the newest saved date would
+    # skip them for good. Such a pull is redone in full (deduped by sub_id).
+    if _read_pull_state(csv_path).get(f"{committee_id}/{period}") == "in_progress" and not full:
+        log.warning("[RESUME] the last pull of %s / %s did not finish: rechecking the whole period",
+                    committee_id, period)
+        full = True
     _log_pull_mode(full, period, latest_date, len(existing_ids))
 
     params = _pull_params(api_key, committee_id, period, latest_date, full)
@@ -357,6 +381,7 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
     stats = {"new_rows": 0, "duplicates": 0, "missing_ids": 0, "pages": 0}
 
     log.info("[START] %s / %s -> %s", committee_id, period, csv_path)
+    _mark_pull(csv_path, committee_id, period, "in_progress")
     try:
         _pull_pages(
             csv_path,
@@ -379,6 +404,7 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
         )
         raise
 
+    _mark_pull(csv_path, committee_id, period, "complete")
     _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
 
 
