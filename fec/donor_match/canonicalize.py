@@ -105,6 +105,20 @@ def _parenthesized_tokens(values) -> set:
     return tokens
 
 
+def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) -> str:
+    """'GLENN STUART CHRYSTA' -> 'GLENN STUART' when the surname is CHRYSTAL.
+
+    Only a piece no other donor files as a given name: a middle name JOHN next
+    to the surname JOHNSON is a real name and stays.
+    """
+    words = first.split()
+    tail = words[-1].upper() if len(words) > 1 else ""
+    if (len(tail) >= 3 and tail not in given_names
+            and any(word != tail and word.startswith(tail) for word in last_words)):
+        return " ".join(words[:-1])
+    return first
+
+
 def _choose_first(candidates: list[str]) -> str | None:
     """Fullest first name by its real letters, spelled the way the donor files it.
 
@@ -219,7 +233,8 @@ def _choose_last(lasts: list[str], parents: dict) -> str:
     return min(counts, key=lambda v: (-counts[v], v))
 
 
-def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None):
+def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
+                           given_names: frozenset = frozenset()):
     """(canonical last, canonical first) for one donor from its rows' (last, first) pairs.
 
     is_joint(first) marks a spelling that also carries a co-filer's given name
@@ -252,6 +267,9 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None):
         canon_last = match.group(3).strip()
 
     last_words = set(canon_last.upper().split())
+    # a name field cut off by FEC's length limit can end in the start of the
+    # surname ("GLENN STUART CHRYSTA" for CHRYSTAL): that piece is not a name
+    candidates = [_drop_cut_surname(first, last_words, given_names) for first in candidates]
     # candidates must carry a non-surname token: a reversed filing's
     # surname-as-first could otherwise win, then strip to nothing
     fcands = [f for f in candidates if any(w.upper() not in last_words for w in f.split())]
@@ -312,6 +330,14 @@ def _household_spellings(df: pd.DataFrame, ind: pd.Series) -> tuple[dict, dict]:
     return own, household
 
 
+def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
+    """Words at least two donors file in their first-name field: real given names."""
+    words = _text_column(df, "contributor_first_name")[ind].str.split()
+    donors = pd.DataFrame({"donor": df.loc[ind, "donor_key"], "word": words}).explode("word")
+    per_word = donors.dropna().drop_duplicates().groupby("word")["donor"].size()
+    return frozenset(per_word[per_word >= 2].index)
+
+
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
     """Write one canonical first/last (see _canonical_person_name) plus a rebuilt LAST, FIRST composite to every row of each donor; returns rows changed.
 
@@ -327,6 +353,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     ln_col = "contributor_last_name"
     cn_col = "contributor_name"
     own_spellings, household_spellings = _household_spellings(df, ind)
+    given_names = _shared_given_names(df, ind)
 
     for donor_key, idx in df[ind].groupby("donor_key").groups.items():
         rows = df.loc[idx]
@@ -349,7 +376,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
                     ) and bool(joint_partners(given_tokens(first), own, household))
                 return verdicts[first]
 
-        canon_last, canon_first = _canonical_person_name(lasts, firsts, is_joint)
+        canon_last, canon_first = _canonical_person_name(lasts, firsts, is_joint, given_names)
 
         # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
         canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
