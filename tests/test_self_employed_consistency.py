@@ -36,6 +36,14 @@ def test_a_self_employed_filing_in_another_job_keeps_its_employer():
     assert df.contributor_employer.tolist()[1] == 'SELF-EMPLOYED'
 
 
+def test_a_title_at_the_firm_does_not_block_the_donors_own_field():
+    df = _df([('INDIVIDUAL', 'k1', 'BAYER, JEFFREY', 'BAYER VENTURES LLC', 'PRESIDENT & CEO', 'EXECUTIVE / C-SUITE'),
+              ('INDIVIDUAL', 'k1', 'BAYER, JEFFREY', 'SELF-EMPLOYED', 'COMMERCIAL REAL ESTATE', 'REAL ESTATE'),
+              ('INDIVIDUAL', 'k2', 'STUTMAN, ROBERT', 'STUTMAN LAW', 'ATTORNEY', 'LEGAL'),
+              ('INDIVIDUAL', 'k2', 'STUTMAN, ROBERT', 'SELF-EMPLOYED', 'SELF', 'OTHER')])
+    assert _own_firm_absorbs_self_employed(df) == 2
+
+
 def test_self_employed_occupation_takes_the_donors_real_one():
     df = _df([('INDIVIDUAL', 'k1', 'AGAM, JERRY', 'SELF-EMPLOYED', 'SELF-EMPLOYED', 'SELF-EMPLOYED')] * 2
              + [('INDIVIDUAL', 'k1', 'AGAM, JERRY', 'SELF-EMPLOYED', 'REAL ESTATE', 'REAL ESTATE')] * 3
