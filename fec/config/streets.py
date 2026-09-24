@@ -159,10 +159,9 @@ ORDINAL_TENS = {
 # (only the designator changes; a word there can be the suite's name), while a
 # spelled ordinal before FLOOR can only be the floor's number.
 _NUMBERED_FLOOR = r'(\d{1,3})(?:(?:ST|ND|RD|TH)\s+(?:FLOOR|FLR|FL)|\s+(?:FLOOR|FLR))\b\.?'
-_SPELLED_FLOOR = (
-    rf"(?:({'|'.join(ORDINAL_TENS)})[\s-]+)?({'|'.join(ORDINAL_WORDS)})"
-    r'\s+(?:FLOOR|FLR|FL)\b\.?'
-)
+_SPELLED_ORDINAL = rf"(?:({'|'.join(ORDINAL_TENS)})[\s-]+)?({'|'.join(ORDINAL_WORDS)})"
+_SPELLED_FLOOR = _SPELLED_ORDINAL + r'\s+(?:FLOOR|FLR|FL)\b\.?'
+
 
 
 def _spelled_floor(match: re.Match) -> str:
@@ -186,8 +185,10 @@ USPS_UNIT_RULES = [
     (re.compile(_AFTER_TOKEN + _NOT_A_STREET_NAME + r'(\d{1,3})(?:ST|ND|RD|TH)\s+FL\b\.?(?=\s|$)',
                 re.IGNORECASE), r'FL \1'),
     (re.compile(_AFTER_WORD + r'(\d{1,3})\s+(?:FLOOR|FLR)\b\.?(?=\s|$)', re.IGNORECASE), r'FL \1'),
-    (re.compile(_AFTER_WORD + _NOT_A_STREET_NAME + _SPELLED_FLOOR + r'(?=\s|$)', re.IGNORECASE),
+    (re.compile(_AFTER_WORD + _SPELLED_ORDINAL + r'\s+(?:FLOOR|FLR)\b\.?(?=\s|$)', re.IGNORECASE),
      _spelled_floor),
+    (re.compile(_AFTER_WORD + _NOT_A_STREET_NAME + _SPELLED_ORDINAL + r'\s+FL\b\.?(?=\s|$)',
+                re.IGNORECASE), _spelled_floor),
     (re.compile(r'(?<=\s)(?:FLOOR|FLR)\s*#?\s*(\d{1,3}[A-Z]?)(?=\s|$)', re.IGNORECASE), r'FL \1'),
     # SUITE followed by a street type is a street's name ('1 SUITE ST'), not a unit
     (re.compile(r'(?<=\s)(?:SUITE|STE)\s*#\s*(?=\w)'

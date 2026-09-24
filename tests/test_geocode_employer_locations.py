@@ -164,7 +164,7 @@ def test_manual_coordinate_survives_rerun(tmp_path, monkeypatch):
 def test_city_fallback_retries_without_zip(monkeypatch):
     calls = []
 
-    def city(_city, _state, zipcode):
+    def city(_city, _state, zipcode, _near):
         calls.append(zipcode)
         if zipcode:
             return None, None, None
@@ -173,11 +173,21 @@ def test_city_fallback_retries_without_zip(monkeypatch):
     monkeypatch.setattr(geocoding_pipeline, "city_level", city)
     monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
 
+    # 23219 (downtown Richmond) has a centroid: the town is searched with it first
+    result = geocoding_pipeline._geocode_one(
+        "PO BOX 396", "Richmond", "VA", "23219",
+    )
+
+    assert calls == ["23219", ""]
+    assert result == (37.54, -77.43, "US", "nominatim_city")
+
+    # 23218 is PO-box-only, unknown to OSM and without a centroid: never sent
+    calls.clear()
     result = geocoding_pipeline._geocode_one(
         "PO BOX 396", "Richmond", "VA", "23218",
     )
 
-    assert calls == ["23218", ""]
+    assert calls == [""]
     assert result == (37.54, -77.43, "US", "nominatim_city")
 
 

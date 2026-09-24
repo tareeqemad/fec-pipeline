@@ -63,6 +63,18 @@ def test_the_text_as_resolved_wins_a_tie(tmp_path, monkeypatch):
     assert location["employer_latitude"] == "25.969"
 
 
+def test_a_level_the_ranking_does_not_list_counts_as_a_street_point(tmp_path, monkeypatch):
+    # a new engine or a hand-checked level is never ranked below a ZIP centroid
+    geocodes = {
+        f"{RAW.upper()}|{PLACE}": _point(25.9565, -80.1392, "zip_centroid"),
+        f"20900 NE 30TH AVE|{PLACE}": _point(25.9696, -80.1440, "reviewed"),
+    }
+
+    location = _build(tmp_path, monkeypatch, geocodes)
+
+    assert location["employer_latitude"] == "25.9696"
+
+
 def test_a_point_its_own_key_rejects_is_never_taken(tmp_path, monkeypatch):
     # a street point in another state is no upgrade, whatever key holds it
     geocodes = {

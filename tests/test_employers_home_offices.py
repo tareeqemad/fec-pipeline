@@ -97,6 +97,14 @@ def test_a_building_filed_with_a_floor_is_an_office(tmp_path, monkeypatch):
     assert review.empty
 
 
+def test_a_flat_is_still_the_owner_s_home(tmp_path, monkeypatch):
+    # 'APT 7E' is a home's unit, not an office's: the building's street is the home street
+    location, review = _build(tmp_path, monkeypatch, [_filing(street_2="APT 7E")])
+
+    assert location["employer_address"] == ""
+    assert review["reason"].tolist() == [build_employers.REVIEW_HOME_OFFICE]
+
+
 def test_several_filers_or_donors_keep_the_street(tmp_path, monkeypatch):
     three_filers = [_filing(), _filing(employer="OTHER CO", donor="d2"), _filing(employer="OTHER CO", donor="d3")]
     location, _review = _build(tmp_path, monkeypatch, three_filers)
