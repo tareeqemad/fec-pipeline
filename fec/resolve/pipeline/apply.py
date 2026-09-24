@@ -1,9 +1,10 @@
 """Apply resolved addresses to DataFrame columns."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
+from fec.cleaning.donor_consistency.retired import dated_previous_employers
 from fec.cleaning.employer_synonyms import canonical_key, _recanonicalize_employers
 from fec.cleaning.previous_employer import (
     classify_employer_status,
@@ -11,6 +12,7 @@ from fec.cleaning.previous_employer import (
 )
 
 from .helpers import _prev_key, _previous_employer_identity, _s
+from .steps.previous_employer import PROTECTED_METHODS
 from .locations import address_cache_lookup, select_location
 from .quality_fixes import (
     _clear_nonindividual_employer,
@@ -22,6 +24,8 @@ from .quality_fixes import (
 class ResolveContext:
     previous_cache: object
     address_lookup: dict
+    # row index -> the donor's own latest employer on or before that retired filing
+    dated_previous: dict = field(default_factory=dict)
 
 
 def _address_aliases(addr_cache) -> dict:
@@ -47,12 +51,17 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
         "previous_employer": [],
     }
 
+    dated = {}
+    if {"entity_type", "donor_key", "contribution_receipt_date"}.issubset(df.columns):
+        retired_rows = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].eq("RETIRED")
+        dated = dated_previous_employers(df, retired_rows)
     context = ResolveContext(
         previous_cache=prev_cache,
         address_lookup=_address_aliases(addr_cache),
+        dated_previous=dated,
     )
-    for _, row in df.iterrows():
-        result = _resolve_row(row, context)
+    for index, row in df.iterrows():
+        result = _resolve_row(row, context, index)
         for column in cols:
             cols[column].append(result.get(column, ""))
 
@@ -200,8 +209,19 @@ def _resolve_retired(
     context: ResolveContext,
     state: str,
     zip_code: str,
+    index=None,
 ) -> dict:
+    """A retired filing's previous employer and its office.
+
+    The cache holds one previous employer per donor (their latest). A donor who
+    retired, went back to work and retired again (RUDY, RICHARD: BASCO INC, then
+    KINZIE HOUSE DESIGNS in 2026) needs each filing's own: the latest employer
+    the donor filed on or before that date. A hand-set cache entry still wins.
+    """
     prev_entry = context.previous_cache.get(_prev_key(row.get("donor_key", "")))
+    dated = context.dated_previous.get(index)
+    if dated and not (prev_entry and prev_entry.get("method") in PROTECTED_METHODS):
+        prev_entry = {"employer": dated, "method": "cross_record"}
     prev_name, address_keys = _previous_employer_identity(prev_entry)
     if not prev_name:
         return _result("retired")
@@ -228,7 +248,7 @@ def _resolve_retired(
     )
 
 
-def _resolve_row(row: pd.Series, context: ResolveContext) -> dict:
+def _resolve_row(row: pd.Series, context: ResolveContext, index=None) -> dict:
     """Resolve one row."""
     entity = row.get("entity_type", "")
     state = _s(row.get("contributor_state")).strip()
@@ -247,7 +267,7 @@ def _resolve_row(row: pd.Series, context: ResolveContext) -> dict:
     if status == "active":
         return _resolve_active(employer, state, zip_code, context)
     if status == "retired":
-        return _resolve_retired(row, context, state, zip_code)
+        return _resolve_retired(row, context, state, zip_code, index)
     if status == "self_employed":
         return _own_address(
             row,

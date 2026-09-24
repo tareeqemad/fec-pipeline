@@ -328,3 +328,44 @@ def test_fec_previous_employer_rejects_conflicting_middle_initials():
     }
 
     assert not _same_fec_donor(person, record)
+
+
+def _filing(date, employer, occupation, category):
+    return {
+        "entity_type": "INDIVIDUAL", "donor_key": "RUDY", "contributor_name": "RUDY, RICHARD",
+        "contribution_receipt_date": date, "contributor_employer": employer,
+        "contributor_occupation": occupation, "occupation_category": category,
+        "contributor_state": "IL", "contributor_street_1": "", "contributor_city": "CHICAGO",
+        "contributor_zip": "60601", "previous_employer": "",
+    }
+
+
+def _rudy():
+    """Retired in 2025 after BASCO INC; worked for KINZIE HOUSE DESIGNS only from May 2026."""
+    return pd.DataFrame([
+        _filing("2024-04-05", "BASCO INC", "CEO", "EXECUTIVE"),
+        _filing("2025-10-25", "RETIRED", "RETIRED", "RETIRED"),
+        _filing("2026-05-01", "KINZIE HOUSE DESIGNS", "PARTNER", "EXECUTIVE"),
+        _filing("2026-07-14", "RETIRED", "RETIRED", "RETIRED"),
+    ])
+
+
+def test_each_retired_filing_gets_the_employer_it_had_retired_from():
+    from fec.resolve.pipeline.apply import apply_results
+
+    cache = {"donor:RUDY": {"employer": "KINZIE HOUSE DESIGNS", "method": "cross_record"}}
+
+    resolved = apply_results(_rudy(), cache, {})
+
+    # the donor's one cached answer (their latest) is not taken from the future
+    assert resolved["previous_employer"].tolist() == ["", "BASCO INC", "", "KINZIE HOUSE DESIGNS"]
+
+
+def test_a_hand_set_previous_employer_still_wins_over_the_filing_history():
+    from fec.resolve.pipeline.apply import apply_results
+
+    cache = {"donor:RUDY": {"employer": "ACME INDUSTRIES", "method": "manual_override"}}
+
+    resolved = apply_results(_rudy(), cache, {})
+
+    assert resolved["previous_employer"].tolist()[1::2] == ["ACME INDUSTRIES", "ACME INDUSTRIES"]
