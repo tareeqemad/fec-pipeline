@@ -113,7 +113,7 @@ def _spellman():
 
 
 def _keys(df):
-    rid_to_key, _ = match_donors(df, verbose=False)
+    rid_to_key, _ = match_donors(df)
     df = apply_donor_key(df, rid_to_key)
     return df, df.groupby("contributor_name")["donor_key"].agg(set)
 

@@ -14,15 +14,12 @@ from .addresses import (
     _fix_pr_zip_wrong_state,
 )
 from .committee import (
-    _classify_committee_types,
     _fix_committee_employer,
-    _fix_individual_committee_type,
     _fix_misclassified_foundation,
     _fix_title_as_first_name,
 )
 from .employer import (
     _clear_admin_note_employers,
-    _clear_orphan_normalized,
     _clear_refusal_employers,
     _fix_choose_prefix,
     _fix_email_employer_final,
@@ -52,7 +49,6 @@ from .occupation import (
     _fix_emp_occ_category_consistency,
     _fix_employed_as_occupation,
     _fix_employed_no_category,
-    _fix_not_disclosed_in_other,
     _fix_not_disclosed_with_real_occ,
     _fix_slash_occupation,
     _fix_status_word_in_occupation,
@@ -69,10 +65,6 @@ NON_INDIVIDUALS = "non_individuals"
 SAFETY_RULES = (
     (_fix_committee_employer, NON_INDIVIDUALS, WORK_FIELDS,
      'committee_employer_cleared'),
-    (_fix_individual_committee_type, INDIVIDUALS, (),
-     'individual_committee_type_not_applicable'),
-    (_classify_committee_types, NON_INDIVIDUALS, (),
-     'committee_type_inferred_from_name'),
     (_fix_disclosed_no_employer, ALL_ROWS, WORK_FIELDS,
      'disclosed_without_employer_status_fixed'),
     (_fix_employed_no_category, ALL_ROWS, WORK_FIELDS,
@@ -91,8 +83,6 @@ SAFETY_RULES = (
      'refusal_placeholder_employer_nulled'),
     (_clear_admin_note_employers, INDIVIDUALS, WORK_FIELDS,
      'admin_note_employer_nulled'),
-    (_clear_orphan_normalized, ALL_ROWS, (),
-     'orphan_normalized_employer_cleared'),
     (_null_short_employer_junk, INDIVIDUALS, WORK_FIELDS,
      'short_employer_junk_nulled'),
     (_fix_numeric_employer_final, INDIVIDUALS, WORK_FIELDS,
@@ -136,8 +126,6 @@ SAFETY_RULES = (
      'company_in_occupation_moved_to_employer'),
     (_fix_swapped_emp_occ_company, ALL_ROWS, WORK_FIELDS,
      'job_title_employer_company_occupation_swapped'),
-    (_fix_not_disclosed_in_other, ALL_ROWS, WORK_FIELDS,
-     'not_disclosed_occupation_status_realigned'),
     (_fix_occ_emp_both_swapped, ALL_ROWS, WORK_FIELDS,
      'curated_company_in_occupation_swapped'),
     (_fix_web_artifact_occupation, ALL_ROWS, WORK_FIELDS,

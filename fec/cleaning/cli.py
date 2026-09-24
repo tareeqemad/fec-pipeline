@@ -9,7 +9,7 @@ from fec.cleaning.pipeline import clean_pipeline
 from fec.cleaning.quality import run_quality_gates, save_report
 from fec.env import CLEANED_CSV, RAW_CSV
 from fec.io import read_pipeline_csv
-from fec.log import get_logger, setup_logging
+from fec.log import get_logger
 
 logger = get_logger(__name__)
 
@@ -128,7 +128,6 @@ def main():
     from fec import env
 
     env.load_env()
-    setup_logging()
 
     input_path = str(RAW_CSV)
     output_path = str(CLEANED_CSV)

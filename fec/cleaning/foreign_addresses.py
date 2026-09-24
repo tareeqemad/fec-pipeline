@@ -10,16 +10,11 @@ back and never geocode them.
 """
 import re
 
-import numpy as np
 import pandas as pd
 
+from fec.cleaning._helpers import _norm
+from fec.cleaning.audit_trail import ADDRESS_FIELDS
 from fec.config.constants import AMBIGUOUS_CITIES, FOREIGN_CITIES_NO_US_STATE
-
-ADDRESS_FIELDS = (
-    'contributor_street_1', 'contributor_street_2',
-    'contributor_city', 'contributor_state', 'contributor_zip',
-)
-GEO_FIELDS = ('latitude', 'longitude', 'geocode_level')
 
 _COUNTRIES = (
     'ISRAEL', 'ENGLAND', 'UNITED KINGDOM', 'UK', 'SCOTLAND', 'IRELAND', 'CANADA',
@@ -70,10 +65,6 @@ REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
 }
 
 
-def _norm(series: pd.Series) -> pd.Series:
-    return series.fillna('').astype(str).str.strip().str.upper()
-
-
 def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
     """True for rows whose filed address is outside the US."""
     city = _norm(df['contributor_city'])
@@ -106,7 +97,7 @@ def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def restore_foreign_addresses(df: pd.DataFrame, snapshot: pd.DataFrame) -> int:
-    """Put the filed address back on every snapshotted row and drop its coordinates; returns cells restored."""
+    """Put the filed address back on every snapshotted row; returns cells restored."""
     if snapshot.empty or 'sub_id' not in df.columns:
         return 0
     hit = df['sub_id'].isin(snapshot.index)
@@ -123,7 +114,4 @@ def restore_foreign_addresses(df: pd.DataFrame, snapshot: pd.DataFrame) -> int:
         if changed.any():
             df.loc[rows[changed], field] = filed[changed]
             n_restored += int(changed.sum())
-    for field in GEO_FIELDS:
-        if field in df.columns:
-            df.loc[rows, field] = np.nan
     return n_restored

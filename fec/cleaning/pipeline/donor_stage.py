@@ -113,10 +113,6 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     df.loc[targets, "occupation_category"] = "ORGANIZATION"
     if "previous_employer" in df.columns:
         df.loc[targets, "previous_employer"] = pd.NA
-    if "occupation_status" in df.columns:
-        df.loc[targets, "occupation_status"] = "NOT_APPLICABLE"
-    if "committee_type" in df.columns:
-        df.loc[targets, "committee_type"] = "ORGANIZATION"
     df.loc[targets, "donor_key"] = organization_names.map(non_individual_donor_key)
     return int(targets.sum())
 

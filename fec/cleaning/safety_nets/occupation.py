@@ -119,20 +119,6 @@ def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
-def _fix_not_disclosed_in_other(df: pd.DataFrame) -> int:
-    """AN. occupation='NOT DISCLOSED' stays in the reportable OTHER category."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    mask = (
-        is_indiv
-        & (df['contributor_occupation'] == 'NOT DISCLOSED')
-        & (df['occupation_category'] == 'OTHER')
-    )
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'occupation_status'] = 'NOT_DISCLOSED'
-    return n_fixed
-
-
 def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
     """AP. Web form artifacts in occupation ('LOADING', 'ACMIO', 'REMD') -> NaN."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'

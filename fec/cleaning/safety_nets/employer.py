@@ -28,14 +28,12 @@ _REPEATED_CHAR_RE = re.compile(r'^(.)\1{3,}$')
 
 
 def _null_employer_where(df: pd.DataFrame, mask: pd.Series, *, set_status='EMPLOYER_MISSING') -> int:
-    """Null contributor_employer under mask, clear employer_name_normalized, optionally set occupation_status; returns rows changed."""
+    """Null contributor_employer under mask, optionally set occupation_status; returns rows changed."""
     n_changed = int(mask.sum())
     if n_changed:
         df.loc[mask, 'contributor_employer'] = np.nan
         if set_status is not None:
             df.loc[mask, 'occupation_status'] = set_status
-        if 'employer_name_normalized' in df.columns:
-            df.loc[mask, 'employer_name_normalized'] = pd.NA
     return n_changed
 
 
@@ -49,10 +47,8 @@ def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     has_real = mask & (df['occupation_status'] == 'DISCLOSED')
     has_not_disclosed = mask & (df['occupation_status'] == 'NOT_DISCLOSED')
     df.loc[has_real, 'contributor_employer'] = pd.NA
-    df.loc[has_real, 'employer_name_normalized'] = pd.NA
     df.loc[has_real, 'occupation_status'] = 'EMPLOYER_MISSING'
     df.loc[has_not_disclosed, 'contributor_employer'] = pd.NA
-    df.loc[has_not_disclosed, 'employer_name_normalized'] = pd.NA
     return n_fixed
 
 
@@ -61,15 +57,6 @@ def _clear_admin_note_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     emp = df['contributor_employer'].fillna('').str.upper().str.strip()
     mask = is_indiv & emp.str.match(ADMIN_NOTE_EMPLOYER_RE, na=False)
     return _null_employer_where(df, mask)
-
-
-def _clear_orphan_normalized(df: pd.DataFrame) -> int:
-    """N. Clear employer_name_normalized where contributor_employer is NULL."""
-    mask = df['contributor_employer'].isna() & df['employer_name_normalized'].notna()
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'employer_name_normalized'] = pd.NA
-    return n_fixed
 
 
 def _null_short_employer_junk(df: pd.DataFrame, is_indiv: pd.Series) -> int:

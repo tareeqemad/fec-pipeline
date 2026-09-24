@@ -108,7 +108,7 @@ def test_address_stage_defers_queues_when_the_pipeline_collects_them(tmp_path):
     logs = []
     reports = {}
     df = _address_stage_frame()
-    df = _report_address_issues(df, AuditTrail(), str(tmp_path), logs.append, reports)
+    df = _report_address_issues(df, AuditTrail(), logs.append, reports)
     assert not (tmp_path / "address_manual_review.csv").exists()   # written later, from the final rows
     assert set(reports["street2_auto_fixed"]["sub_id"]) == {"1", "2", "4"}
     assert df.set_index("sub_id").loc[["1", "2", "4"], "contributor_street_2"].isna().all()
@@ -122,17 +122,10 @@ def test_address_stage_defers_queues_when_the_pipeline_collects_them(tmp_path):
     assert {r["sub_id"] for r in regeo if "PO Box" in r["review_reason"]} == {"6"}
 
 
-def test_address_stage_still_writes_queues_on_its_own(tmp_path):
-    df = _address_stage_frame()
-    _report_address_issues(df, AuditTrail(), str(tmp_path), lambda _msg: None)
-    review = list(csv.DictReader(open(tmp_path / "address_manual_review.csv", encoding="utf-8")))
-    assert {r["sub_id"] for r in review if r["status"] == AUTO_FIXED} == {"1", "2", "4"}
-
-
 def test_street2_step_edits_are_recorded_under_address_review():
     trail = AuditTrail()
     df = _address_stage_frame()
     trail.start(df)
-    _report_address_issues(df, trail, None, lambda _msg: None, {})
+    _report_address_issues(df, trail, lambda _msg: None, {})
     changed = {(r["sub_id"], r["field"], r["step"], r["after"]) for r in trail.records}
     assert changed == {(s, "contributor_street_2", "address_review", "") for s in ("1", "2", "4")}

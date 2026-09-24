@@ -74,7 +74,7 @@ def test_joint_rows_get_their_own_donor_not_a_spouses():
     stamps the partner's name on every solo filing). Passes when donor matching
     keeps a joint filing apart, by the joint-filing guard or by separate rules."""
     df = _household()
-    rid_to_key, _ = match_donors(df, verbose=False)
+    rid_to_key, _ = match_donors(df)
     df = apply_donor_key(df, rid_to_key)
     merge_split_name_donors(df)
     keys = df.groupby('contributor_name')['donor_key'].agg(set)

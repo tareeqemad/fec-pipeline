@@ -159,7 +159,7 @@ def _strip_city_state_tail(street, city, state, zip_code):
 
 def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Deterministic text fixes, applied; runs right after clean_streets so the cleaned values feed the per-donor dedup/recovery downstream."""
-    counts = {"house_number": 0, "unit_split": 0, "care_of": 0, "city_tail": 0}
+    counts = {"house_number": 0, "unit_split": 0, "care_of": 0}
 
     before = df[S1].copy()
     was_care_of = before.fillna("").astype(str).str.match(_CO_RE)
@@ -170,14 +170,12 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     still_care_of = df[S1].fillna("").astype(str).str.match(_CO_RE)
     counts["care_of"] = int((was_care_of & ~still_care_of).sum())
 
-    before_tail = df[S1].copy()
     df[S1] = [
         _strip_city_state_tail(s, c, st, z)
         for s, c, st, z in zip(df[S1], df.get(CITY, pd.Series(index=df.index, dtype=object)),
                                df.get(STATE, pd.Series(index=df.index, dtype=object)),
                                df.get(ZIP, pd.Series(index=df.index, dtype=object)))
     ]
-    counts["city_tail"] = int((before_tail.fillna("") != df[S1].fillna("")).sum())
 
     # trailing comma / whitespace on any field (city/state can carry a stray "TEMPLE,")
     for column in (S1, CITY, STATE):

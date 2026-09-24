@@ -2,7 +2,6 @@
 import re
 from difflib import SequenceMatcher
 
-import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
@@ -14,14 +13,12 @@ from fec.config.constants import (
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_CATEGORY,
     FINAL_EMPLOYER_FROM_OCCUPATION,
-    FINAL_NULL_EMPLOYERS,
 )
 from fec.env import RAW_CSV
 from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
 
-_WS_RE = re.compile(r'\s+')
 # the config patterns are plain strings; compile once for the .str calls below
 _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
@@ -134,20 +131,6 @@ def _employer_acronym_variants(df: pd.DataFrame) -> int:
                         n_fixed += n
                     break
     return n_fixed
-
-
-def _null_refusal_employers(df: pd.DataFrame) -> int:
-    """AS. Null refusal/placeholder employers that AK/AL re-filled from raw; valid status words stay."""
-    collapsed = (df['contributor_employer'].fillna('').astype(str)
-                 .str.strip().str.upper().str.replace(_WS_RE, ' ', regex=True))
-    mask = (
-        (df['entity_type'] == 'INDIVIDUAL')
-        & collapsed.isin(FINAL_NULL_EMPLOYERS)
-    )
-    n = int(mask.sum())
-    if n:
-        df.loc[mask, 'contributor_employer'] = np.nan
-    return n
 
 
 def _fill_employer_from_donor(df: pd.DataFrame) -> int:

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import re
 
-import numpy as np
 import pandas as pd
 
+from fec.cleaning._helpers import _set_missing
 from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.config.constants import (
@@ -234,8 +234,6 @@ def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
     n_fixed = int(mask.sum())
     if n_fixed:
         _swap_occ_emp_fields(df, mask, status='DISCLOSED')
-        if 'employer_name_normalized' in df.columns:
-            df.loc[mask, 'employer_name_normalized'] = pd.NA
     return n_fixed
 
 
@@ -337,8 +335,6 @@ def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
 
     if hits:
         df.loc[hits, 'contributor_employer'] = 'SELF-EMPLOYED'
-        if 'employer_name_normalized' in df.columns:
-            df.loc[hits, 'employer_name_normalized'] = pd.NA
     return len(hits)
 
 
@@ -371,9 +367,7 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
         return 0
 
     df.loc[occ_is_company, 'contributor_employer'] = df.loc[occ_is_company, 'contributor_occupation']
-    df.loc[occ_is_company, 'contributor_occupation'] = np.nan
-    df.loc[occ_is_company, 'occupation_category'] = pd.NA
-    df.loc[occ_is_company, 'occupation_status'] = 'MISSING'
+    _set_missing(df, occ_is_company)
     return n_fixed
 
 

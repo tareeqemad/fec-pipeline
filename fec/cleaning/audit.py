@@ -13,9 +13,6 @@ CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 're
 
 def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
     """Write every cleaning audit artifact."""
-    if 'sub_id' not in df_after.columns:
-        return
-
     after = df_after.drop_duplicates('sub_id', keep='first').set_index('sub_id')
     row_index = (
         orig_map.drop_duplicates('sub_id', keep='first')

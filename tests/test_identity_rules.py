@@ -119,7 +119,7 @@ def test_location_block_prevents_a_high_scoring_match(monkeypatch):
         },
     ])
 
-    keys, audit = match_donors(rows, verbose=False)
+    keys, audit = match_donors(rows)
 
     assert len(set(keys.values())) == 2
     assert "SEPARATED(curated_rule)" in audit[0]["signals"]

@@ -223,7 +223,7 @@ def _gate_special_chars_names(df):
 
 
 def _gate_retired_active_sync(df):
-    # RETIRED category with employer_status=active contradicts the _retired_active_sync sweep
+    # RETIRED category with employer_status=active contradicts classify_employer_status
     required = {'entity_type', 'occupation_category', 'employer_status'}
     not_run = _resolve_only_gate('retired_active_sync', df, required)
     if not_run:
@@ -236,7 +236,7 @@ def _gate_retired_active_sync(df):
     n_bad_sync = int(bad_sync.sum())
     issue = (
         f"retired+active contradiction: {n_bad_sync} rows "
-        "-- run _retired_active_sync in donor_consistency"
+        "-- check classify_employer_status in fec/cleaning/previous_employer.py"
     ) if n_bad_sync else None
     return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
 

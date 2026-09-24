@@ -4,7 +4,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _norm
+from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.config.employers import EMPLOYER_NORMALIZE
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_OCCUPATION,
@@ -139,13 +139,7 @@ def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
     if not mask.any():
         return
 
-    old_occupation = df.loc[mask, 'contributor_occupation'].copy()
-    old_employer = df.loc[mask, 'contributor_employer'].copy()
-    df.loc[mask, 'contributor_occupation'] = old_employer
-    df.loc[mask, 'contributor_employer'] = old_occupation
-    df.loc[mask, 'occupation_category'] = _categorize(
-        df.loc[mask, 'contributor_occupation']
-    )
+    _swap_fields(df, df.index[mask])
 
 
 def _normalize_work_text(df: pd.DataFrame) -> int:
@@ -179,9 +173,7 @@ def _apply_occupation_fixes(df: pd.DataFrame) -> int:
     is_refusal = original.index[now_not_disclosed & original.isin(OCCUPATION_REFUSAL_INPUTS)]
     is_junk = original.index[now_not_disclosed & ~original.isin(OCCUPATION_REFUSAL_INPUTS)]
     df.loc[is_refusal, 'occupation_status'] = 'NOT_DISCLOSED'
-    df.loc[is_junk, 'contributor_occupation'] = np.nan
-    df.loc[is_junk, 'occupation_category'] = pd.NA
-    df.loc[is_junk, 'occupation_status'] = 'MISSING'
+    _set_missing(df, is_junk)
     return len(original)
 
 

@@ -6,9 +6,6 @@ import pandas as pd
 
 from fec.cleaning.address_review import (
     apply_street2_fixes,
-    build_review_queues,
-    queue_counts,
-    write_review_queues,
 )
 from fec.cleaning.addresses import clean_cities, clean_streets, clean_zips
 from fec.cleaning.audit_trail import (
@@ -41,7 +38,6 @@ def _street_reason(df: pd.DataFrame) -> pd.Series:
         flagged = df["_street_email_in_s1"].fillna(False).astype(bool)
         swapped = df["_street_swapped_from_s2"].fillna(False).astype(bool)
         nulled = df["_street_nulled_email"].fillna(False).astype(bool)
-        reasons[flagged] = "street_email_in_street1"
         reasons[flagged & swapped] = "street_swap_due_to_email_in_street1"
         reasons[flagged & nulled] = "street_nulled_due_to_email_in_street1"
     return reasons
@@ -202,7 +198,7 @@ def log_review_queues(counts: dict, log) -> None:
 
 
 def _report_address_issues(
-    df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
+    df: pd.DataFrame, trail: AuditTrail, log, reports: dict | None = None,
 ) -> pd.DataFrame:
     df, auto_fixed, emptied = trail.run(
         df, apply_street2_fixes,
@@ -213,10 +209,6 @@ def _report_address_issues(
     if reports is not None:
         # clean_pipeline writes the queues after the donor stage
         reports["street2_auto_fixed"] = auto_fixed
-    elif out_dir:
-        review_df, regeocode_df = build_review_queues(df, auto_fixed)
-        write_review_queues(out_dir, review_df, regeocode_df)
-        log_review_queues(queue_counts(review_df, regeocode_df), log)
     return df
 
 
@@ -227,7 +219,7 @@ def clean_addresses(
 
     With ``reports`` the review queues are not written here: the street_2 values
     the stage emptied are stored in it for clean_pipeline, which writes the queues
-    from the final rows. Without it they are written at the end of this stage.
+    from the final rows.
     """
     df = _clean_street_text(df, trail, log)
     _recover_streets(df, trail, out_dir, log)
@@ -239,4 +231,4 @@ def clean_addresses(
     if verified:
         log(f"Streets: applied {verified:,} verified postal corrections")
     _align_address_parts(df, trail, log)
-    return _report_address_issues(df, trail, out_dir, log, reports)
+    return _report_address_issues(df, trail, log, reports)

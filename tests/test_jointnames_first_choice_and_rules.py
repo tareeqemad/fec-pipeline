@@ -82,7 +82,7 @@ def _gindi_rows():
 
 def _gindi_keys():
     df = _gindi_rows()
-    rid_to_key, _ = match_donors(df, verbose=False)
+    rid_to_key, _ = match_donors(df)
     df = apply_donor_key(df, rid_to_key)
     return df, df.groupby("contributor_city")["donor_key"].agg(set)
 
