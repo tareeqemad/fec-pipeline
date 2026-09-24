@@ -438,21 +438,6 @@ def _normalize_street(s: str) -> str:
 
     s = re.sub(r'\s+', ' ', s).strip()
     return s
-    for index in range(2, len(tokens) - 1):
-        if tokens[index] != tokens[0]:
-            continue
-        # a separator between the two copies ('1020 HULL ST / 1020 HULL ST') goes too
-        head = tokens[:index]
-        while head and not any(char.isalnum() for char in head[-1]):
-            head.pop()
-        first, copy = ' '.join(head), ' '.join(tokens[index:])
-        # what is kept must still name a street ('159 W 159 WEST' is not '159 W')
-        names_street = any(
-            token not in _DIRECTION_TOKENS and re.search(r'[A-Z]', token) for token in head[1:]
-        )
-        if names_street and first.startswith(copy):
-            return first
-    return s
 
 
 _FUSED_HOUSE_NUMBER_RE = re.compile(r'^(\d+)([A-Z])(?=[A-Z])')
