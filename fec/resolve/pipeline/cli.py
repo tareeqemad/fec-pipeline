@@ -48,9 +48,16 @@ def _load_data(csv_path: str):
     employers = Cache(os.path.join(data_dir, EMPLOYER_ADDR_CACHE))
 
     df = read_pipeline_csv(csv_path)
-    df["contribution_receipt_amount"] = pd.to_numeric(
-        df["contribution_receipt_amount"], errors="coerce"
-    ).fillna(0)
+    amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
+    unreadable = amounts.isna()
+    if unreadable.any():
+        # a missing amount is fixed in cleaning; writing it back as $0 would hide it
+        examples = ", ".join(df.loc[unreadable, "sub_id"].astype(str).head(5))
+        raise ValueError(
+            f"{int(unreadable.sum()):,} row(s) with a missing or unreadable "
+            f"contribution_receipt_amount (sub_id {examples})"
+        )
+    df["contribution_receipt_amount"] = amounts
     totals = _compute_donor_totals(df)
     return data_dir, df, totals, previous, employers
 

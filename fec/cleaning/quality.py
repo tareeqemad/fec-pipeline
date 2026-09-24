@@ -45,6 +45,16 @@ def _gate_nan_strings(df):
     return [('no_nan_strings', {'passed': nan_count == 0, 'count': nan_count}, issue)]
 
 
+def _gate_amounts_readable(df):
+    # every filing keeps a real dollar amount; blank or text is never $0
+    if 'contribution_receipt_amount' not in df.columns:
+        return []
+    amounts = pd.to_numeric(df['contribution_receipt_amount'], errors='coerce')
+    bad = int(amounts.isna().sum())
+    issue = f"{bad} rows with a missing or unreadable contribution_receipt_amount" if bad else None
+    return [('amounts_readable', {'passed': bad == 0, 'count': bad}, issue)]
+
+
 def _gate_valid_categories(df):
     if 'occupation_category' not in df.columns:
         return []
@@ -295,6 +305,7 @@ def _gate_null_surname(df):
 # order matters: this is the checks-dict order and the order issues are reported
 _QUALITY_GATES = [
     _gate_nan_strings,
+    _gate_amounts_readable,
     _gate_valid_categories,
     _gate_occupation_category_consistency,
     _gate_self_employed_status,
