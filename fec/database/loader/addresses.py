@@ -40,7 +40,10 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
         )
     locations = []
     for row in frame.to_dict("records"):
-        if _blank_to_none(row.get("employer_address")) is None:
+        # a home-based business is published as its town only (no street); a row
+        # with neither a street nor a town is an employer without a public office
+        if (_blank_to_none(row.get("employer_address")) is None
+                and _blank_to_none(row.get("employer_city")) is None):
             continue
         if row.get("address_trust") not in PUBLISHABLE_ADDRESS_TRUST:
             continue

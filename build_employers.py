@@ -74,6 +74,9 @@ REVIEW_HOME_OFFICE = "home_office_street_withheld"
 # employer has at most this many donors (owner decision 2026-09-24)
 HOME_OFFICE_MAX_FILERS = 2
 HOME_OFFICE_MAX_DONORS = 3
+# a manual row whose note starts with this was checked to be a business's own premises
+# (a dealership, a casino, a headquarters its owner also files), so its street stays
+OFFICE_PREMISES_NOTE = "OFFICE PREMISES:"
 # how precise a cached point is: a hand-checked point beats a street point, which
 # beats a ZIP centroid, which beats a town's point ('nominatim_city'); any other
 # level accepted_coordinates returns is an engine's street point
@@ -530,7 +533,19 @@ def _city_level_point(city: str, state: str, zipcode: str) -> tuple[object, obje
     return latitude, longitude
 
 
-def withhold_home_streets(frame: pd.DataFrame, df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
+def office_premises_employers(path=None) -> set[str]:
+    """Employers whose manual row is marked OFFICE_PREMISES_NOTE: never withheld as a home."""
+    path = path or DATA_DIR / "manual_employer_addresses.csv"
+    if not path.exists():
+        return set()
+    manual = pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[])
+    marked = manual["note"].str.strip().str.upper().str.startswith(OFFICE_PREMISES_NOTE)
+    return set(manual.loc[marked, "name"].str.strip().str.upper())
+
+
+def withhold_home_streets(
+    frame: pd.DataFrame, df: pd.DataFrame, premises: set[str] = frozenset(),
+) -> tuple[pd.DataFrame, list[dict]]:
     """A home-based business is published with its city, state and ZIP only (owner decision 2026-09-24).
 
     A published US office is a home when it is the filing address (street without
@@ -538,7 +553,8 @@ def withhold_home_streets(frame: pd.DataFrame, df: pd.DataFrame) -> tuple[pd.Dat
     HOME_OFFICE_MAX_FILERS donors file at that address and the employer has at most
     HOME_OFFICE_MAX_DONORS donors. Whatever the source (AI or manual), the street and
     its pin are withheld; the ZIP's centroid stands in. A PO box is a mailbox, not a
-    home, and a storefront with a suite or several employees keeps its street.
+    home, and a storefront with a suite or several employees keeps its street, as
+    does an employer in `premises` (a manual row checked to be the business's premises).
     """
     frame = frame.copy()
     addresses, donors, filers, with_units = _employee_addresses(df)
@@ -554,6 +570,8 @@ def withhold_home_streets(frame: pd.DataFrame, df: pd.DataFrame) -> tuple[pd.Dat
     for index in frame.index[candidates]:
         row = frame.loc[index]
         employer = row["employer_name"]
+        if str(employer).strip().upper() in premises:
+            continue
         employer_donors = donors.get(employer, set())
         if not employer_donors or len(employer_donors) > HOME_OFFICE_MAX_DONORS:
             continue
@@ -593,7 +611,7 @@ def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         if row["employer_name"] not in managed
     ])
     locations = _deduplicate(cache_rows + preserved, employers)
-    locations, home_offices = withhold_home_streets(locations, df)
+    locations, home_offices = withhold_home_streets(locations, df, office_premises_employers())
     review_frame = pd.DataFrame(review + unsourced + home_offices, columns=REVIEW_COLUMNS)
     # counts stay whole numbers where other reasons leave them blank ('2', not '2.0')
     for column in ("employer_donors", "filers_at_address"):
