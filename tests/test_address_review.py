@@ -329,3 +329,13 @@ def test_the_same_unit_written_two_ways_still_unifies():
     df = _units(["APT 15-03", "APT 15-03", "# 1503", "UNIT 15-03"])
     assert _unify_unit_designators(df) == 2
     assert set(df.contributor_street_2) == {"APT 15-03"}
+
+
+def test_a_space_inside_one_unit_id_does_not_split_it():
+    # EPSTEIN filed APT 705N and # 705 N; FRIEDMANN PH 20 and APT PH20
+    from fec.cleaning.pipeline.address_fixes.unify import _unit_core
+    assert _unit_core("APT 705N") == _unit_core("# 705 N")
+    assert _unit_core("PH 20") == _unit_core("APT PH20")
+    assert _unit_core("UNIT PH-3") == _unit_core("PH 3")
+    assert _unit_core("BLDG 1 STE 23") != _unit_core("BLDG 12 STE 3")
+    assert _unit_core("FL 9") != _unit_core("APT 9")

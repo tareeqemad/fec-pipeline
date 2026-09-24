@@ -88,11 +88,13 @@ _BUILDING_RE = re.compile(r'\b(?:BLDG|BUILDING)\b\.?', re.IGNORECASE)
 
 def _unit_core(s: str) -> str:
     """Bare unit id of a street_2, unit words and punctuation removed; a floor or building keeps its kind."""
-    text = _UNIT_DESIGNATOR_RE.sub(' ', str(s).upper())
-    text = _FLOOR_RE.sub(' FLOOR ', _BUILDING_RE.sub(' BUILDING ', text))
-    # punctuation inside an id goes ("15-03" = "1503"), the space between two
-    # ids stays ("BLDG 1 STE 23" is not "BLDG 12 STE 3")
-    return ' '.join(re.sub(r'[^A-Z0-9\s]', '', text).split())
+    # every designator starts a new id; inside one id spaces and punctuation
+    # go ("705 N" = "705N", "15-03" = "1503"), while two ids stay apart
+    # ("BLDG 1 STE 23" is not "BLDG 12 STE 3")
+    text = _UNIT_DESIGNATOR_RE.sub('|', str(s).upper())
+    text = _FLOOR_RE.sub('|FLOOR|', _BUILDING_RE.sub('|BUILDING|', text))
+    ids = (re.sub(r'[^A-Z0-9]', '', part) for part in text.split('|'))
+    return ' '.join(part for part in ids if part)
 
 
 def _unify_unit_designators(df: pd.DataFrame) -> int:
