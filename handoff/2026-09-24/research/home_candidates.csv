@@ -1,0 +1,150 @@
+hid,employer_name,reason,employer_address,employer_city,employer_state,employer_zip,is_primary,address_source,method,donor_states,employer_donors,filers_at_address,note,source_url
+1,50 EIGHTH AVENUE TENANTS CORP,home_office_street_withheld,50 8TH AVE,BROOKLYN,NY,11217,True,ai,,,1,1,,
+2,510 VENTURES LLC,home_office_street_withheld,510 GARRISON FOREST RD,OWINGS MILLS,MD,21117,True,manual,,,1,1,"Source: https://marylanddb.com/company/W06864136/510-ventures-llc | Maryland registry record shows 510 Ventures LLC (incorporated 2002) with resident agent Mark D. Neumann Esq. at 510 Garrison Forest Rd, Owings Mills MD 21117 - the donor's own city; other records list Mark Neumann as CEO. | Independently verified (Maryland registry shows 510 Ventures LLC (active, incorporated 2002) with business address 510 Garrison Forest Rd, Owings Mills MD 21117; the resident) | Researched by agent sweep 2026-07-30, adjudicated by hand",https://marylanddb.com/company/W06864136/510-ventures-llc
+3,757CFO LLC,home_office_street_withheld,905 ENFIELD CHASE,VIRGINIA BEACH,VA,23452,True,ai,,,1,1,,
+4,"ABBOTT LEE STILLMAN, ARTIST LLC",home_office_street_withheld,11 BIRCHALL DR,SCARSDALE,NY,10583,True,ai,,,1,1,,
+5,ACUITY CAPITAL LLC,home_office_street_withheld,12720 HANOVER ST,LOS ANGELES,CA,90049,True,ai,,,1,2,,
+6,ADVANCE PACKAGING TECHNOLOGIES,home_office_street_withheld,5720 WILLIAMS LAKE RD,WATERFORD TOWNSHIP,MI,48329,True,ai,,,1,1,,
+7,ADVOCATE BROKERAGE CORP,home_office_street_withheld,820 SCARSDALE AVE,SCARSDALE,NY,10583,True,ai,,,2,1,,
+8,AGI FINANCIAL,home_office_street_withheld,930 CARMEL CT,LOS ALTOS,CA,94022,True,ai,,,1,1,,
+9,AINI & ASSOCIATES PLLC,home_office_street_withheld,2615 CONEY ISLAND AVE,BROOKLYN,NY,11223,True,ai,,,1,1,,
+10,AJS STONE CONSULTING LLC,home_office_street_withheld,9715 CRESTA DR,LOS ANGELES,CA,90035,True,ai,,,1,2,,
+11,ALAN GRAHAM MOTORING,home_office_street_withheld,8618 LINDLEY AVE,NORTHRIDGE,CA,91325,True,ai,,,1,1,,
+12,ALANA MULLER ENTERPRISES,home_office_street_withheld,8209 W 145TH ST,OVERLAND PARK,KS,66223,True,ai,,,1,2,,
+13,ALL ACCESS APPAREL,home_office_street_withheld,1515 GAGE RD,MONTEBELLO,CA,90640,True,ai,,,1,1,,
+14,ALLAN WISER INSURANCE,home_office_street_withheld,4809 SPARKS AVE,SAN DIEGO,CA,92110,True,ai,,,1,1,,
+15,ALLEN FELTMAN REAL ESTATE,home_office_street_withheld,5509 SAINT ANDREWS CT,PLANO,TX,75093,True,ai,,,1,1,,
+16,ALMEL INCORPORATED,home_office_street_withheld,368 N HAMETOWN RD,AKRON,OH,44333,True,ai,,,1,1,,
+17,ALPHA BETA PLANNING,home_office_street_withheld,75 JEFFERSON CT,YORKTOWN HEIGHTS,NY,10598,True,ai,,,1,1,,
+18,AME EQUITIES,home_office_street_withheld,2011 BRADFORD HALL PL,CHARLOTTE,NC,28270,True,ai,,,1,1,,
+19,AMERICAN FINDINGS CORP,home_office_street_withheld,10441 N SCOTTSDALE RD,SCOTTSDALE,AZ,85253,True,ai,,,1,1,,
+20,AMERICAN NITRILE,home_office_street_withheld,3500 SOUTHWEST BLVD,GROVE CITY,OH,43123,True,ai,,,1,1,,
+21,AMG PROPERTIES INC,home_office_street_withheld,614 W FRIENDLY AVE,GREENSBORO,NC,27401,True,manual,,,1,1,HIGH (VERIFIED) - current company listing and public business records; Paul Mengert is the donor,https://www.yellowpages.com/greensboro-nc/mip/amg-480223219
+22,AMROCK HOLDINGS,home_office_street_withheld,662 WOODWARD AVE,DETROIT,MI,48226,False,ai,,,1,1,,
+23,ANHALT REALTY LLC,home_office_street_withheld,240 GRAND AVE,ENGLEWOOD,NJ,07631,True,ai,,,1,1,,
+24,APPROVED FINANCIAL,home_office_street_withheld,1226 JASMINE CIR,WESTON,FL,33326,True,ai,,,1,1,,
+25,ARC,home_office_street_withheld,5504 ESTATE OAK CIR,FORT LAUDERDALE,FL,33312,True,ai,,,2,2,,
+26,ARDMORE TOYOTA,home_office_street_withheld,219 E LANCASTER AVE,ARDMORE,PA,19003,True,ai,,,1,1,,
+27,ARDR REALTY LLC,home_office_street_withheld,318 AMETHYST AVE,NEWPORT BEACH,CA,92662,True,ai,,,2,2,,
+28,ARONOV REALTY MANAGEMENT INC,home_office_street_withheld,3500 EASTERN BLVD,MONTGOMERY,AL,36116,True,ai,,,1,1,,
+29,ARTISTIC TILE INC,home_office_street_withheld,520 SECAUCUS RD,SECAUCUS,NJ,07094,True,manual,,,1,1,"Real HQ and distribution centre (artistictile.com, 2026-07-30). The closed-book answer of 40 W 28th St, New York was their Manhattan showroom, not the head office - and one of the two donors lives in Secaucus itself",https://www.naturalstoneinstitute.org/about/about-natural-stone-institute/2026-board-of-directors/
+30,ASF WINES LLC,home_office_street_withheld,68 CLOVER DR,GREAT NECK,NY,11021,True,ai,,,1,2,,
+31,ASPHALT ANCHORS CORP,home_office_street_withheld,10 RIDGE RD,WEST ORANGE,NJ,07052,True,ai,,,1,1,,
+32,ASSESSMENT SOLUTIONS GROUP,home_office_street_withheld,215 LOCH LOMOND WAY,DANVILLE,CA,94526,True,ai,,,3,1,,
+33,ASSOCIATION MANAGEMENT GROUP INC,home_office_street_withheld,614 W FRIENDLY AVE,GREENSBORO,NC,27401,True,ai,,,1,1,,
+34,ATLANTIS CASINO RESORT & SPA,home_office_street_withheld,3800 S VIRGINIA ST,RENO,NV,89502,True,ai,,,1,1,,
+35,ATLAS STRATEGY GROUP,home_office_street_withheld,15 LADUE LN,SAINT LOUIS,MO,63124,True,ai,,,1,1,,
+36,AUERBACH REALTY HOLDINGS LLC,home_office_street_withheld,2416 WILSHIRE BLVD,SANTA MONICA,CA,90403,True,manual,,,1,1,"Real office (auerbachrealty.com/contact-us, 2026-07-30). Replaces a closed-book answer of 3000 Marcus Ave, Lake Success NY - the firm is in Santa Monica and both donors live in Santa Monica and Pacific Palisades",https://www.auerbachrealty.com/
+37,BABACO,home_office_street_withheld,497 WASHINGTON AVE,CARLSTADT,NJ,07072,True,ai,,,1,1,,
+38,BACKENGINE,home_office_street_withheld,1924 BAGLEY AVE,LOS ANGELES,CA,90035,True,ai,,,1,2,,
+39,BEST CARE NURSES REGISTRY INC,home_office_street_withheld,208 S 28TH AVE,HOLLYWOOD,FL,33020,True,manual,,,1,1,HIGH (VERIFIED) - company and location source rechecked 2026-08-19,https://search.sunbiz.org/Inquiry/corporationsearch/SearchResultDetail?aggregateId=domp-p02000033721-22830623-d85d-4c03-919a-d6723da59ab7&directionType=ForwardList&inquirytype=EntityName&listNameOrder=BESTCAREPASCO+H997710&searchNameOrder=BESTCAREREGISTRY+P020000337210&searchTerm=BEST+CARE+LABORATORY%2C+LLC
+40,BLATT REALTY,home_office_street_withheld,241 S LINDEN DR,BEVERLY HILLS,CA,90212,True,ai,,,1,1,,
+41,BLOOMBERG,home_office_street_withheld,731 LEXINGTON AVE,NEW YORK,NY,10022,True,ai,,,2,1,,
+42,BRIAN DROR CPA INC,home_office_street_withheld,5862 W 3RD ST,LOS ANGELES,CA,90036,True,ai,,,1,2,,
+43,BRISTOL ASSOCIATES,home_office_street_withheld,20 MORRIS LN,SCARSDALE,NY,10583,True,ai,,,1,1,,
+44,BYNANCY,home_office_street_withheld,5020 GLORIA AVE,ENCINO,CA,91436,True,ai,,,1,1,,
+45,CAMELOT BIOCAPITAL,home_office_street_withheld,1100 HOLLAND DR,BOCA RATON,FL,33487,True,ai,,,1,1,,
+46,CAMPUS APARTMENTS,home_office_street_withheld,4043 WALNUT ST,PHILADELPHIA,PA,19104,True,ai,,,1,1,,
+47,CANTOR INJURY LAW,home_office_street_withheld,12283 OLIVE BLVD,SAINT LOUIS,MO,63141,True,ai,,,1,1,,
+48,CBG REAL ESTATE,home_office_street_withheld,4629 MACRO DR,SAN ANTONIO,TX,78218,True,ai,,,1,1,,
+49,CDS MECHANICAL SERVICES,home_office_street_withheld,909 WILLIAM MEADE CT,DAVIDSONVILLE,MD,21035,True,ai,,,1,1,,
+50,CERTIFIED FINANCIAL GROUP INC,home_office_street_withheld,1111 DOUGLAS AVE,ALTAMONTE SPRINGS,FL,32714,True,ai,,,1,1,,
+51,CHOSEN RESUMES LLC,home_office_street_withheld,1330 CORNELL DR SE,GRAND RAPIDS,MI,49506,True,manual,,,1,1,HIGH (VERIFIED) - company and location source rechecked 2026-08-19,https://www.bbb.org/us/mi/grand-rapids/profile/resume-services/chosen-resumes-llc-0372-38141504
+52,CITRINFINANCIAL,home_office_street_withheld,3005 NE QUAYSIDE LN,MIAMI,FL,33138,True,ai,,,1,1,,
+53,CONGREGATION EMANU-EL,home_office_street_withheld,2 LAKE ST,SAN FRANCISCO,CA,94118,True,ai,,,2,1,,
+54,CONSOLIDATED INVESTMENT GROUP,home_office_street_withheld,18 INVERNESS PL E,ENGLEWOOD,CO,80112,True,ai,,,2,1,,
+55,CRESCENT REALTY ADVISORS,home_office_street_withheld,4840 ANDASOL AVE,ENCINO,CA,91316,True,ai,,,1,1,,
+56,CROOKED MONKEY,home_office_street_withheld,8220 RIVER QUARRY PL,BETHESDA,MD,20817,True,ai,,,1,1,,
+57,CSR PRIVACY SOLUTIONS,home_office_street_withheld,830 NE POP TILTON PL,JENSEN BEACH,FL,34957,True,manual,,,2,1,"Official HQ (csrps.com/Manta, 2026-07-29); CSRPS expanded - donors Ross and Warren Federgreen run the company",https://csrps.com/contact/
+58,DANALEX INC,home_office_street_withheld,85 PRISTINE GLEN ST,LAS VEGAS,NV,89135,True,ai,,,1,1,,
+59,DENALI BRANDS INC,home_office_street_withheld,4 ANDOVER COUNTRY CLUB LN,ANDOVER,MA,01810,True,ai,,,1,1,,
+60,ECO MARKETING,home_office_street_withheld,41 NACE AVE,PIEDMONT,CA,94611,True,ai,,,1,1,,
+61,EDELSTEIN PUBLIC AFFAIRS,home_office_street_withheld,6417 THORNHILL DR,OAKLAND,CA,94611,True,ai,,,1,1,,
+62,FLOWERS PROPERTIES LLC,home_office_street_withheld,864 GOODMAN RD E,SOUTHAVEN,MS,38671,True,ai,,,1,1,,
+63,GARRISON SYSTEMS LLC,home_office_street_withheld,240 E 74TH ST,NEW YORK,NY,10021,True,manual,,,1,1,HIGH (VERIFIED) - government vendor contract identifies Arnon Rosan,https://www.tips-usa.com/assets/Vendorspdf/250702_CONTRACT_TEMPORARY_FLOOD_Garrison.pdf
+64,"GARY OPPER, CPA",home_office_street_withheld,1226 JASMINE CIR,WESTON,FL,33326,True,ai,,,1,1,,
+65,GEFFEN ENTERPRISES,home_office_street_withheld,5 BRECKENRIDGE LN,SAVANNAH,GA,31411,True,ai,,,1,1,,
+66,GHB CAPITAL LLC,home_office_street_withheld,805 WILMOT RD,SCARSDALE,NY,10583,True,ai,,,1,1,,
+67,GLOBAL PHOTONICS,home_office_street_withheld,7826 PHOTONICS DR,TRINITY,FL,34655,True,ai,,,1,1,,
+68,GOLD AND COMPANY,home_office_street_withheld,5601 NEWBURY ST,BALTIMORE,MD,21209,True,manual,,,3,1,Commercial real estate brokerage office per LoopNet company profile (web-verified 2026-09-22),https://www.loopnet.com/company/gold-and-company-llc/baltimore-md/0vt3xx1l/
+69,GOLDHABER POLICY SERVICES LLC,home_office_street_withheld,4112 GARDENLAKE DR,RALEIGH,NC,27612,True,manual,,,2,2,,
+70,GRANDSTONE INVESTMENT SALES,home_office_street_withheld,1385 BROOKWOOD PL,COLUMBUS,OH,43209,True,ai,,,1,1,,
+71,GREENE KARLIN REAL ESTATE LLC,home_office_street_withheld,500 NORTHLAND RIDGE CT,ATLANTA,GA,30342,True,ai,,,1,1,,
+72,GRT CORPORATION,home_office_street_withheld,263 TRESSER BLVD,STAMFORD,CT,06901,True,manual,,,1,1,"Official HQ (grtcorp.com/contact-us, 2026-07-30); GRT acronym expanded - donor Viktor Litvinov is the company president",https://grtcorp.com/contact-us/
+73,HAMMERMAN CAPITAL MANAGEMENT,home_office_street_withheld,1232 ROSE LN,LAFAYETTE,CA,94549,True,ai,,,1,1,,
+74,HARDWOOD PARTNERS,home_office_street_withheld,968 HARBOR RD,SOUTHPORT,CT,06890,True,ai,,,1,1,,
+75,HILLWOOD,home_office_street_withheld,3000 TURTLE CREEK BLVD,DALLAS,TX,75219,True,ai,,,1,2,,
+76,HMS PARTNERS,home_office_street_withheld,7370 ANDORRA PL,BOCA RATON,FL,33433,True,ai,,,1,1,,
+77,HOME EXPRESSIONS INC,home_office_street_withheld,195 RARITAN CENTER PKWY,EDISON,NJ,08837,True,ai,,,1,1,,
+78,INNOVATIONS IN EDUCATION LLC,home_office_street_withheld,10400 HARDWOOD CT,WOODSTOCK,MD,21163,True,manual,,,1,1,HIGH (VERIFIED) - company and location source rechecked 2026-08-19,https://mscca.org/membership/
+79,ISLAND CAPITAL GROUP,home_office_street_withheld,717 FIFTH AVE,NEW YORK,NY,10022,True,ai,,,1,1,,
+80,J.M. EDBERG INVESTMENT MANAGEMENT,home_office_street_withheld,6206 LANDON LN,BETHESDA,MD,20817,True,ai,,,1,1,,
+81,JERICHO CAPITAL,home_office_street_withheld,510 MADISON AVE,NEW YORK,NY,10022,True,manual,,,1,1,Hong Kong exchange disclosure identifies Joshua Resnick's Jericho Capital entities at this address; verified 2026-08-04.,https://www.jerichocap.com/
+82,JOHN HENRY HOMES,home_office_street_withheld,11025 REED HARTMAN HWY,BLUE ASH,OH,45242,True,ai,,,2,1,,
+83,KAP'S WHOLESALE FOODS,home_office_street_withheld,1300 MAPLE ST,DETROIT,MI,48207,True,ai,,,1,1,,
+84,KAWESCH LAW GROUP,home_office_street_withheld,6 GARNER ST,NEWTON CENTER,MA,02459,True,ai,,,1,2,,
+85,KIDDESIGNS,home_office_street_withheld,1299 MAIN ST,RAHWAY,NJ,07065,True,ai,,,1,2,,
+86,KNISH SHOP,home_office_street_withheld,508 REISTERSTOWN RD,PIKESVILLE,MD,21208,True,ai,,,1,1,,
+87,LANGSAM PROPERTY SERVICES,home_office_street_withheld,1601 BRONXDALE AVE,BRONX,NY,10462,True,manual,,,2,2,Langsam Property Services Corp — verified research,https://www.langsampropertyservices.com/index.html
+88,LAUDER PARTNERS,home_office_street_withheld,88 MERCEDES LN,ATHERTON,CA,94027,False,ai,,,2,1,,
+89,LAVITSKY COMPUTER LABORATORIES INC,home_office_street_withheld,865 SHERWOOD RD,BRIDGEWATER,NJ,08807,True,manual,,,1,1,"Source: https://www.dandb.com/businessdirectory/lavitskycomputerlaboratoriesinc-bridgewater-nj-15230874.html | Donor Eric Lavitsky is president of Lavitsky Computer Laboratories Inc (LinkedIn, company site lavitsky.com); D&B, Buzzfile and Manta all place the company at this Bridgewater NJ address - the donor's own city. | Independently verified (The eponymous consulting/software firm of donor Eric Lavitsky (consultant, Bridgewater NJ). D&B, Manta, and YellowPages all place Lavitsky Computer La) | Researched by agent sweep 2026-07-30, adjudicated by hand",https://www.dandb.com/businessdirectory/lavitskycomputerlaboratoriesinc-bridgewater-nj-15230874.html
+90,LEIFER CAPITAL ADVISERS LLC,home_office_street_withheld,86 CLEMENTS RD,NEWTON,MA,02458,True,ai,,,2,2,,
+91,LEON KOROL CO,home_office_street_withheld,2050 E DEVON AVE,ELK GROVE VILLAGE,IL,60007,True,manual,,,2,1,Company headquarters per BBB and company site (family liquidation firm since 1959) (web-verified 2026-09-22),https://www.leonkorol.com/about-us
+92,LEVIN AND ROSENSTEIN,home_office_street_withheld,14120 CHINKAPIN DR,ROCKVILLE,MD,20850,True,ai,,,1,1,,
+93,LIPSEY'S,home_office_street_withheld,7277 EXCHEQUER DR,BATON ROUGE,LA,70809,True,ai,,,2,1,,
+94,LISI NIGRIN INTERIORS,home_office_street_withheld,13 PALADIA WAY,PIKESVILLE,MD,21208,True,ai,,,1,1,,
+95,LMR ADVISORS,home_office_street_withheld,1841 W MERCER WAY,MERCER ISLAND,WA,98040,True,ai,,,1,1,,
+96,MADALUXE GROUP,home_office_street_withheld,1760 APOLLO CT,SEAL BEACH,CA,90740,True,manual,,,1,1,"Source: https://www.zoominfo.com/pic/madaluxe-group/353833408 | Donor Adam Freede of Seal Beach CA, occupation CEO, is the co-founder and CEO of MadaLuxe Group, the largest US distributor of luxury fashion (Crunchbase, California Apparel News, madaluxe.com). HQ is in his own city of Seal Beach. | Independently verified (MadaLuxe Group's headquarters is 1760 Apollo Court, Seal Beach, CA 90740 per Dun & Bradstreet, ZoomInfo, and The Org; the company is active (announced) | Researched by agent sweep 2026-07-30, adjudicated by hand",https://www.zoominfo.com/pic/madaluxe-group/353833408
+97,MALLARD INVESTMENTS INC,home_office_street_withheld,20 BASSWOOD LN,CHAGRIN FALLS,OH,44022,True,ai,,,1,2,,
+98,MB DAVIS GROUP,home_office_street_withheld,3920 N HILLS DR,AUSTIN,TX,78731,True,manual,,,1,1,Headquarters announced in the company's own press release on moving HQ to Austin (web-verified 2026-09-22),https://mbdgrp.com/mbd-group-moves-to-austin-tx/
+99,MFAL CONSULTING LLC,home_office_street_withheld,2401 NE 47TH ST,LIGHTHOUSE POINT,FL,33064,True,manual,,,1,1,HIGH (VERIFIED) - final Florida annual report address before the 2025 administrative dissolution; donor later reported retirement; rechecked 2026-08-19,https://search.sunbiz.org/Inquiry/corporationsearch/SearchResultDetail?aggregateId=flal-l18000096377-d3d2eccf-4543-4239-a447-382a75f769c2&directionType=ForwardList&inquirytype=EntityName&listNameOrder=MFALCON+L170001657840&searchNameOrder=MFALCONSULTING+L180000963770&searchTerm=MFAVII+LLC
+100,MINUTE MEN INC,home_office_street_withheld,3740 CARNEGIE AVE,CLEVELAND,OH,44115,True,manual,,,1,1,HIGH (VERIFIED) - state registry records identify Jason Lucarelli,https://search.sunbiz.org/Inquiry/corporationsearch/SearchResultDetail?aggregateId=forp-f17000002686-87ac02db-b304-4111-8d78-a6fa37c39466&directionType=ForwardList&inquirytype=EntityName&listNameOrder=MINUTEMARINE+M834740&searchNameOrder=MINUTEMEN+F170000026860&searchTerm=MINUTEMAN+LEASING+COMPANY+INC.
+101,MONROE GROUP,home_office_street_withheld,6875 E EVANS AVE,DENVER,CO,80224,True,ai,,,1,1,,
+102,MORGAN LANGUAGE SERVICES CORP,home_office_street_withheld,11515 GAUGUIN LN,POTOMAC,MD,20854,True,ai,,,2,2,,
+103,MORTON FRIDMAN MD,home_office_street_withheld,826 WINTHROP RD,TEANECK,NJ,07666,True,ai,,,1,2,,
+104,MOYAL DESIGNS LLC,home_office_street_withheld,4200 KENWYCK CT,MARIETTA,GA,30062,True,ai,,,1,1,,
+105,MSBD CAPITAL MANAGEMENT CORP,home_office_street_withheld,725 REDWOOD LN,GLENCOE,IL,60022,True,ai,,,1,1,,
+106,NATIONAL LUMBER COMPANY,home_office_street_withheld,4901 PULASKI HWY,BALTIMORE,MD,21224,True,ai,,,1,1,,
+107,NOVA CONSULTING,home_office_street_withheld,10486 NW 31ST TER,DORAL,FL,33172,True,ai,,,1,1,,
+108,OPC POLYMERS,home_office_street_withheld,1920 LEONARD AVE,COLUMBUS,OH,43219,True,ai,,,1,1,,
+109,PARKWAY CORPORATION,home_office_street_withheld,150 N BROAD ST,PHILADELPHIA,PA,19102,True,ai,,,2,2,,
+110,PASSION GROWERS,home_office_street_withheld,7499 NW 31 ST,MIAMI,FL,33122,True,manual,,,3,2,Sunbiz exact entity address; some directories show 7911 NW 21st Street.,https://search.sunbiz.org/Inquiry/corporationsearch/SearchResultDetail?aggregateId=flal-l01000016579-5c40caf8-d26b-4b21-a18d-f5fcb6dad28c&directionType=Initial&inquirytype=EntityName&listNameOrder=PASSIONGROWERS+L010000165791&searchNameOrder=PASSIONGROWERS+L010000165791&searchTerm=PASSION+GROWERS+LLC
+111,PHARMACY BENEFIT CONSULTANTS,home_office_street_withheld,7 ARBORVIEW WAY,MORRISTOWN,NJ,07960,True,ai,,,1,1,,
+112,PLYMOUTH BEEF,home_office_street_withheld,355 FOOD CENTER DR,BRONX,NY,10474,True,manual,,,2,1,Official company contact address: https://plymouthbeef.com/; reviewed 2026-08-04.,https://plymouthbeef.com/
+113,PREMIER DENTAL PRODUCTS COMPANY,home_office_street_withheld,1710 ROMANO DR,PLYMOUTH MEETING,PA,19462,True,ai,,,1,1,,
+114,PROLIFIC ELECTRONICS LLC,home_office_street_withheld,2297 WORTHING LN,LOS ANGELES,CA,90077,True,manual,,,1,1,HIGH (VERIFIED) - California registry-derived index confirms the active company and address; Adam Solomon independently matches the company; rechecked 2026-08-19,https://www.bizprofile.net/2022-05-19/5
+115,RED FOX CAPITAL PARTNERS,home_office_street_withheld,1960 QUEENS RD W,CHARLOTTE,NC,28207,True,ai,,,1,1,,
+116,REDWOOD APARTMENT LIVING,home_office_street_withheld,7007 E PLEASANT VALLEY RD,INDEPENDENCE,OH,44131,True,ai,,,1,2,,
+117,RIEDER COMMUNITIES,home_office_street_withheld,2220 AVE J,BROOKLYN,NY,11210,True,ai,,,1,1,,
+118,ROBBINS FIRM,home_office_street_withheld,500 14TH ST NW,ATLANTA,GA,30318,True,ai,,,1,1,,
+119,RSS CAPITAL,home_office_street_withheld,1100 S NORTHLAKE DR,HOLLYWOOD,FL,33019,True,ai,,,1,2,,
+120,S JONAS ASSOCIATES LLC,home_office_street_withheld,215 W 90TH ST,NEW YORK,NY,10024,True,ai,,,1,1,,
+121,SANTA CLARITA STUDIOS CORP,home_office_street_withheld,25135 ANZA DR,SANTA CLARITA,CA,91355,True,ai,,,1,1,,
+122,SCHOENBERG MEMORIAL CHAPEL,home_office_street_withheld,519 PHILADELPHIA PIKE,WILMINGTON,DE,19809,True,ai,,,1,1,,
+123,SEGAL MANAGEMENT LLC,home_office_street_withheld,2220 CAPE COD PL,MINNETONKA,MN,55305,True,ai,,,1,1,,
+124,SHADER BROTHERS CORP,home_office_street_withheld,6327 EDGEWATER DR,ORLANDO,FL,32810,True,ai,,,1,1,,
+125,SHANNON FABRICS,home_office_street_withheld,3131 S ALAMEDA ST,LOS ANGELES,CA,90058,True,ai,,,1,1,,
+126,SHP REALTY INC,home_office_street_withheld,2141 MALLARD DR,NORTHBROOK,IL,60062,True,ai,,,1,1,,
+127,"SHUMAKER, LOOP & KENDRICK",home_office_street_withheld,1000 JACKSON ST,TOLEDO,OH,43604,True,manual,,,3,1,Toledo office per firm website; most donor rows are Toledo (web-verified 2026-09-22),https://www.shumaker.com/offices/toledo-oh/
+128,SIMONCRE,home_office_street_withheld,6900 E 2ND ST,SCOTTSDALE,AZ,85251,True,ai,,,1,1,,
+129,SONCO,home_office_street_withheld,2050 E DEVON AVE,ELK GROVE VILLAGE,IL,60007,True,ai,,,1,1,,
+130,STEIN ADVISORS LLC,home_office_street_withheld,42 RIVER WIND RD,NEW CANAAN,CT,06840,True,manual,,,1,1,HIGH (verified) — Stein Advisors LLC (financial advisory + turnaround); Jeffrey S. Stein (Founder & Managing Partner),https://my.turnaround.org/Chapters/Chapter-Members?pa_chapterid=%7B38200680-95CC-EC11-A7B5-0022482F86EF%7D
+131,STERLING FLOOR DESIGNS LTD,home_office_street_withheld,82 MODULAR AVE,COMMACK,NY,11725,True,manual,,,1,1,Company location per the company contact page (web-verified 2026-09-22),https://sterlingfloordesigns.com/contact/
+132,SURRY INVESTMENT ADVISORS,home_office_street_withheld,56 SURRY DAM RD,SURRY,NH,03431,True,manual,,,2,2,"Source: https://www.nhcompanyregistry.com/companies/surry-investment-advisors-llc/ | Donor Mark Gross is president/owner of Surry Investment Advisors LLC (AIRA bio; former co-president of C&S Wholesale Grocers) and lives in Surry NH — the firm is named after and registered in his own town. | Independently verified (NH company registry lists Surry Investment Advisors, LLC at 56 Surry Dam Road, Surry NH 03431. Donor Mark Gross is the firm's founder and president an) | Researched by agent sweep 2026-07-30, adjudicated by hand",https://www.nhcompanyregistry.com/companies/surry-investment-advisors-llc/
+133,TEXAS IRON AND METAL,home_office_street_withheld,865 LOCKWOOD DR,HOUSTON,TX,77020,True,manual,,,2,2,Official Texas Iron and Metal contact page and stock guide identify this address and president Max Reichenthal; verified 2026-08-04.,https://www.texasironandmetal.com/when-you-need-steel-dealers-you-can-count-on-visit-texas-iron-and-metal/
+134,THE LIVELY FOUNDATION,home_office_street_withheld,550 MOUNTAIN VIEW AVE,MOUNTAIN VIEW,CA,94041,True,ai,,,1,1,,
+135,THE MINKOFF GROUP,home_office_street_withheld,6272 VIRGO RD,OAKLAND,CA,94611,True,ai,,,2,2,,
+136,THE ROBERTS COMPANIES,home_office_street_withheld,2886 COLORADO AVE,SANTA MONICA,CA,90404,True,ai,,,1,1,,
+137,THRIVE FP,home_office_street_withheld,809 N CUERNAVACA DR,AUSTIN,TX,78733,True,ai,,,2,2,,
+138,TIERRAMANO LLC,home_office_street_withheld,1405 W 24TH ST,MIAMI BEACH,FL,33140,True,manual,,,1,1,HIGH (VERIFIED) — FL Sunbiz principal+mailing address (L13000119000); manager Jeremy Goldstein is the donor,https://www.bizprofile.net/fl/miami-beach/tierramano-llc
+139,TRANSFORMER LAB SERVICES,home_office_street_withheld,12 WAVERLY PL,LAWRENCE,NY,11559,True,manual,,,1,1,HIGH (VERIFIED) - company and location source rechecked 2026-08-19,https://pdfcoffee.com/ein-master-pdf-pdf-free.html
+140,TRIUMPH DEALER SERVICES,home_office_street_withheld,4574 NAUTILUS DR,MIAMI BEACH,FL,33140,True,ai,,,1,2,,
+141,TRUCK FAX INC,home_office_street_withheld,17700 S WOODLAND RD,SHAKER HEIGHTS,OH,44120,True,ai,,,1,1,,
+142,TWIN CITY FAN COMPANIES LTD,home_office_street_withheld,5959 TRENTON LN N,MINNEAPOLIS,MN,55442,True,manual,,,1,2,,
+143,TWINCO INDUSTRIAL PRODUCTS,home_office_street_withheld,5201 S LOOP E,HOUSTON,TX,77033,True,ai,,,1,1,,
+144,US STANDARD PRODUCTS,home_office_street_withheld,41 HONECK ST,ENGLEWOOD,NJ,07631,True,ai,,,2,1,,
+145,VAYIKRA CAPITAL LLC,home_office_street_withheld,1 FARMSTEAD RD,SHORT HILLS,NJ,07078,True,ai,,,1,2,,
+146,WEBSTER LOCK CO,home_office_street_withheld,2471 WEBSTER AVE,BRONX,NY,10458,True,ai,,,2,1,,
+147,WESTMORE CAPITAL ADVISORS,home_office_street_withheld,301 21ST PL,SANTA MONICA,CA,90402,True,ai,,,1,1,,
+148,WOLMAN WEALTH MANAGEMENT,home_office_street_withheld,4208 OVERLAND AVE,CULVER CITY,CA,90230,True,manual,,,1,1,Office per business listings and D&B profile (web-verified 2026-09-22),https://www.dnb.com/business-directory/company-profiles.wolman_wealth_management_inc.9f4995245783fa9112db167bbaa18bcc.html
+149,YELLEN & ASSOCIATES,home_office_street_withheld,32119 HARBORVIEW LN,WESTLAKE VILLAGE,CA,91361,True,ai,,,1,1,,
