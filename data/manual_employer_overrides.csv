@@ -48,7 +48,7 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4062320251206917705,SELF-EMPLOYED,,,"COHEN, TZIPPY (ENGLEWOOD NJ) - was 'TZIPORA COHEN': own name (TZIPPY COHEN)"
 4060420241953437424,SELF-EMPLOYED,,,"ZIMMERMAN, LENARD (ALLENTOWN PA) - was 'LEN ZIMMERMAN': own name (LENARD ZIMMERMAN)"
 4070720261523713567,SELF-EMPLOYED,,,"ETTING, JESSICA (ENCINO CA) - was 'JESSICA KOOSED ETTING': own name (JESSICA ETTING)"
-4052120241949843855,SELF-EMPLOYED,,,"ORIENTALE, ANNA (BRIARCLIFF MANOR NY) - was 'ANNA': own given name (ANNA ORIENTALE); occupation held the surname"
+4052120241949843855,[CLEAR],[CLEAR],,"ORIENTALE, ANNA (BRIARCLIFF MANOR NY) - employer held her given name (ANNA) and occupation her surname; neither says where she works, so both are cleared rather than read as self-employment"
 4082220242014749677,SELF-EMPLOYED,,,"KAPLAN, GARY (CHAGRIN FALLS OH) - was 'GARY-SELF': donor typed his given name onto SELF"
 4070720261523713079,SELF-EMPLOYED,LANDLORD,,"ZOKEN, MOLLEE SUE (SAN RAFAEL CA) - was 'LANDLORD': title in employer, SELF-EMPLOYED in occupation - fields reversed"
 4072420241978924761,SELF-EMPLOYED,,,"FENSTER, EDWARD (ROCHESTER NY) - was 'INDEPENDENT CONTRACTOR': employment arrangement, no occupation to trigger the role rule"
@@ -151,7 +151,7 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4030420261386075609,,,,"COHEN, MARTIN (ROLLING HILLS ESTATES CA 90274) is not the Malibu 90265 Cohen Brown Management executive",[CLEAR]
 4070720261523714083,,,,"COHEN, MARTIN (MELROSE PARK PA 19027) is not the Bethlehem 18020 Cohen & Feeley attorney",[CLEAR]
 4122120231813093429,,,,"HELLER, DAVID G MD (HINGHAM MA) - Massachusetts corporate records identify his medical practice; distinct from the Holden David Heller",DAVID G HELLER MD
-4112020241071382260,,,,"HARRIS, MICHAEL I MD (BODEGA BAY CA) - physician sources and UC records identify his 33-year Marin pediatrics career with The Permanente Medical Group",THE PERMANENTE MEDICAL GROUP
+4112020241071382260,,,,"HARRIS, MICHAEL (BODEGA BAY CA) - every filing says RETIRED / RETIRED with no middle initial or medical title; nothing ties this donor to Michael I. Harris MD of The Permanente Medical Group, so no previous employer is given",[CLEAR]
 4021220241824545480,,,,"LEVY, HAROLD (FAIRFIELD CT) - separate from the verified Iridian founder in Boca Raton; no documented previous employer",[CLEAR]
 4022620261359401262,,,,"LEVY, HAROLD (FAIRFIELD CT) - separate from the verified Iridian founder in Boca Raton; no documented previous employer",[CLEAR]
 4071420261533989113,,COUNCILMEMBER,,"LITT, RACHELLE - official Palm Beach Gardens profile identifies her as a city councilmember/former mayor: https://www.pbgfl.gov/247/Rachelle-Litt",
