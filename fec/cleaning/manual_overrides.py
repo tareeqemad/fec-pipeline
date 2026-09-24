@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 
+import pandas as pd
+
 from fec.config.constants import NOT_REAL_EMPLOYER
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
@@ -23,8 +25,13 @@ _ROW_FIELDS = (
 
 
 def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
+    # "[CLEAR]" removes a filed value that is not this donor's (a committee
+    # that typed another person's employer and address under the donor's name)
     fields = {
-        column: (row.get(column) or "").strip()
+        column: (
+            pd.NA if (row.get(column) or "").strip().upper() == CLEAR_PREVIOUS_EMPLOYER
+            else (row.get(column) or "").strip()
+        )
         for column in _ROW_FIELDS
         if (row.get(column) or "").strip()
     }
@@ -38,7 +45,8 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
 
     company_fields = {}
     employer = fields.get("contributor_employer")
-    if employer and employer.upper() not in NOT_REAL_EMPLOYER:
+    if employer is pd.NA or (employer and employer.upper() not in NOT_REAL_EMPLOYER):
+        # a cleared employer stays cleared: the late pass undoes any refill
         company_fields["contributor_employer"] = employer
     if "previous_employer" in fields:
         company_fields["previous_employer"] = fields["previous_employer"]
