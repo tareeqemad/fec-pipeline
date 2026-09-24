@@ -5,6 +5,7 @@ from textwrap import dedent
 
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
+from fec.env import DATABASE_OWNER, DATABASE_READER
 
 CRIT, WARN = "crit", "warn"
 BIGINT_MAX = 9223372036854775807
@@ -676,8 +677,61 @@ def _value_checks() -> list[Check]:
     return checks
 
 
+def _access_checks() -> list[Check]:
+    """Only fec_owner and fec_app, public only; fec_app reads only."""
+    owner, reader = DATABASE_OWNER, DATABASE_READER
+    relations = """
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm')
+    """
+    return [
+        _zero(
+            "access: public is the only schema",
+            _sql("""
+                SELECT COUNT(*) FROM pg_namespace
+                WHERE nspname NOT IN ('public', 'information_schema')
+                  AND nspname NOT LIKE 'pg\\_%'
+            """),
+            "other schema(s)",
+        ),
+        _zero(
+            f"access: {owner} and {reader} are the only logins",
+            _sql(f"""
+                SELECT COUNT(*) FROM pg_roles
+                WHERE rolcanlogin AND NOT rolsuper
+                  AND rolname NOT IN ('{owner}', '{reader}')
+            """),
+            "other login role(s)",
+        ),
+        _zero(
+            f"access: {owner} owns every table and view",
+            _sql(f"SELECT COUNT(*) {relations} AND pg_get_userbyid(c.relowner) <> '{owner}'"),
+            "object(s) owned by another role",
+        ),
+        _zero(
+            f"access: {reader} reads every table, view and materialized view",
+            _sql(f"SELECT COUNT(*) {relations} AND NOT has_table_privilege('{reader}', c.oid, 'SELECT')"),
+            "object(s) it cannot read",
+        ),
+        _zero(
+            f"access: {reader} cannot write",
+            _sql(f"""
+                SELECT COUNT(*) {relations}
+                  AND has_table_privilege(
+                      '{reader}', c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'
+                  )
+            """),
+            "object(s) it can change",
+        ),
+    ]
+
+
 def _build() -> list[Check]:
-    return _integrity_checks() + _money_checks() + _cleaning_checks() + _value_checks()
+    return (
+        _integrity_checks() + _money_checks() + _cleaning_checks() + _value_checks()
+        + _access_checks()
+    )
 
 
 CHECKS = _build()
