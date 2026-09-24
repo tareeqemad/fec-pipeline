@@ -28,7 +28,12 @@ from .engines import (
 from .places import distance_km as _distance_km
 from .places import in_us_bounds as _in_us_bounds
 from .places import valid_for_state as _valid_for_state
-from .reviewed_points import is_reviewed_zip_typo
+from .reviewed_points import (
+    REVIEWED_WRONG_POINTS,
+    is_reviewed_wrong,
+    is_reviewed_zip_typo,
+    reviewed_point,
+)
 
 logger = get_logger(__name__)
 
@@ -51,6 +56,7 @@ _ZIP_OUTLIER_KM = 50
 # the ZIP is the typo and the point is kept if it lies in the filed city (see
 # _resolve_outside_zip). Hand-checked typos are listed in reviewed_points.py.
 STREET_LEVEL_SOURCES = frozenset({"census", "nominatim", "google"})
+_REVIEWED_STREET_SOURCES = STREET_LEVEL_SOURCES | {"manual_census"}
 _STREET_ZIP_SPREAD = 2.5
 _STREET_ZIP_FLOOR_KM = 5.0
 _ZIP_NEIGHBOUR_RANK = 3
@@ -69,6 +75,9 @@ _FOREIGN_POSTCODE_RE = re.compile(
 
 _PO_BOX_RE = re.compile(r"^PO\s+BOX", re.IGNORECASE)
 
+# every REVIEWED_POINTS point is a copied Google street result
+_REVIEWED_POINT_LEVEL = "google"
+
 # require whitespace before the keyword and a word boundary after, so short
 # abbreviations (FL, STE, RM, APT) never match inside street names like FLANDERS
 _SUITE_RE = re.compile(
@@ -78,6 +87,15 @@ _SUITE_RE = re.compile(
 )
 _FLOOR_RE = re.compile(
     r',?\s*\d+(?:st|nd|rd|th)\s+Floor.*$',
+    re.IGNORECASE,
+)
+# a building's name before its street address ('ONE WILLIAMS CENTER 101 E 2ND ST',
+# 'CIRA CENTRE, 2929 ARCH ST'): the name ends in a building word and is followed by
+# a house number and a street; 'ONE KENDALL SQ BUILDING 600 STE 380' names no street
+_BUILDING_NAME_RE = re.compile(
+    r"^[A-Z][A-Z'&.\- ]*?\b(?:CENTER|CENTRE|TOWERS?|PLAZA|BUILDING|BLDG|HALL|HOUSE|COMPLEX"
+    r"|CAMPUS|PAVILION|ATRIUM)\s*,?\s+"
+    r"(?=\d+[A-Z]?\s+(?!(?:STE|SUITE|FL|FLOOR|UNIT|APT|RM|ROOM|BLDG|BUILDING)\b)[A-Z0-9])",
     re.IGNORECASE,
 )
 
@@ -297,7 +315,13 @@ def _zip_replaces_city(city_point: tuple[float, float], zip_point: tuple[float, 
 
 
 def accepted_coordinates(key: str, entry: dict | None) -> tuple[float | None, float | None, str]:
-    """(lat, lng, level) a cached result may publish, or (None, None, reason) when the key's own address rules it out."""
+    """(lat, lng, level) a cached result may publish, or (None, None, reason) when the key's own address rules it out.
+
+    A hand-checked point (reviewed_points.REVIEWED_POINTS) is published whatever the
+    cache holds; a street point shown wrong (REVIEWED_WRONG_POINTS) never is."""
+    reviewed = reviewed_point(key)
+    if reviewed is not None:
+        return reviewed[0], reviewed[1], _REVIEWED_POINT_LEVEL
     if not entry or entry.get("lat") is None:
         return None, None, "not_found"
     lat, lng = float(entry["lat"]), float(entry["lng"])
@@ -316,9 +340,18 @@ def accepted_coordinates(key: str, entry: dict | None) -> tuple[float | None, fl
         return lat, lng, source
     if not _valid_for_state(lat, lng, state):
         return None, None, "rejected_out_of_us"
+    if _reviewed_wrong_street(key, entry, lat, lng):
+        return None, None, "rejected_reviewed_wrong"
     if _unchecked_outside_zip(key, entry, lat, lng, zipcode):
         return None, None, "rejected_far_from_zip"
     return lat, lng, source
+
+
+def _reviewed_wrong_street(key: str, entry: dict, lat: float, lng: float) -> bool:
+    """A cached street-level point at the spot reviewed_points shows wrong for the key.
+
+    A ZIP centroid or town point there is honest about its precision and stands."""
+    return entry.get("source") in _REVIEWED_STREET_SOURCES and is_reviewed_wrong(key, lat, lng)
 
 
 def _unchecked_outside_zip(key: str, entry: dict, lat: float, lng: float, zipcode: str) -> bool:
@@ -362,11 +395,16 @@ def _needs_lookup(key: str, cache: GeoCache) -> bool:
 
 def _lookup_reason(key: str, cache: GeoCache) -> str | None:
     """Why a key is looked up (again) this run, or None when its cached entry stands."""
+    if reviewed_point(key) is not None:
+        return None  # checked by hand: the reviewed point is published, no lookup can beat it
     if cache.needs_retry(key):
         return "uncached"
 
     entry = cache.get(key) or {}
     source = entry.get("source")
+    if (entry.get("lat") is not None
+            and _reviewed_wrong_street(key, entry, float(entry["lat"]), float(entry["lng"]))):
+        return "reviewed_wrong"
     if source == "manual_census":
         return None
     if is_reviewed_zip_typo(key) and source in STREET_LEVEL_SOURCES and entry.get("lat") is not None:
@@ -560,7 +598,7 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
             lat, lng, country, source = _geocode_one(
                 street, city, state, zipcode,
             )
-        except NominatimUnavailable as error:
+        except (NominatimUnavailable, CensusUnavailable) as error:
             if not recheck:  # a re-checked pin stays as it is and is re-checked next run
                 cache.put_transient(key)
             stats["transient"] += 1
@@ -601,8 +639,9 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
 
 
 def _clean_street_for_geocoding(street: str) -> str:
-    """Strip suite/floor/unit suffixes that confuse Nominatim."""
-    cleaned = _FLOOR_RE.sub('', street)
+    """Strip a leading building name and suite/floor/unit suffixes that confuse Nominatim and Census."""
+    cleaned = _BUILDING_NAME_RE.sub('', street)
+    cleaned = _FLOOR_RE.sub('', cleaned)
     cleaned = _SUITE_RE.sub('', cleaned)
     return cleaned.strip().rstrip(',')
 
@@ -762,6 +801,7 @@ def _geocode_one(street, city, state, zipcode):
         return None, None, None, "not_found"
 
     locality = _Locality(city, state, zipcode)
+    raw_street = street
     if is_po_box(street):
         result = _fallback(locality, po_box=True)
         if result:
@@ -770,6 +810,9 @@ def _geocode_one(street, city, state, zipcode):
 
     if street:
         street = _clean_street_for_geocoding(street)
+
+    if f"{raw_street}|{city}|{state}|{zipcode}" in REVIEWED_WRONG_POINTS:
+        return _geocode_reviewed_wrong(raw_street, street, locality)
 
     outside = []  # street-level results that landed outside the filed ZIP
     if street and state in _STATE_BOUNDS:
@@ -805,6 +848,25 @@ def _geocode_one(street, city, state, zipcode):
 
     # a foreign address mislabeled with a US state is kept and flagged, not dropped
     return _geocode_abroad_unless_us_zip(street, city, locality)
+
+
+def _geocode_reviewed_wrong(key_street: str, street: str, locality: _Locality) -> tuple:
+    """A key whose cached street point was shown wrong: Census inside the filed ZIP, else the ZIP's centroid.
+
+    Nominatim is skipped: it gave most of these points (the same-name street inside
+    the city of the postal name) and would give them again. A Census answer at the
+    rejected spot is refused. CensusUnavailable is raised, so an outage is retried
+    next run instead of settling for the centroid."""
+    key = f"{key_street}|{locality.city}|{locality.state}|{locality.zipcode}"
+    if street and locality.state in _STATE_BOUNDS:
+        lat, lng, country_code = census(street, locality.city, locality.state, locality.zipcode)
+        if (lat is not None and _valid_for_state(lat, lng, locality.state)
+                and _inside_filed_zip(lat, lng, locality) and not is_reviewed_wrong(key, lat, lng)):
+            return lat, lng, country_code or "US", "census"
+    if locality.zip_point is not None:
+        return locality.zip_point[0], locality.zip_point[1], "US", "zip_centroid"
+    result = _fallback(locality, require_zip_match=True)
+    return result or (None, None, None, "not_found")
 
 
 def _geocode_foreign(street, city, state, zipcode):

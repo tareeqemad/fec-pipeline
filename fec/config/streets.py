@@ -170,36 +170,47 @@ def _spelled_floor(match: re.Match) -> str:
     return f'FL {tens + ORDINAL_WORDS[match.group(2).upper()]}'
 
 
+# The same designators inside a street line that keeps its unit (employer
+# addresses: '450 7TH AVE 10TH FLOOR', '399 PARK AVE 25TH FLOOR STE 2502',
+# '666 THIRD AVE FLOOR 24 STE 2402') or after another unit in a street_2
+# ('STE 200 10TH FLOOR'). Never the line's first word (the house number), and a
+# spelled floor only after a word ('9460 WILSHIRE BLVD SEVENTH FLOOR'), so
+# '100 FIRST FLOOR' is not guessed at. A bare FL after a direction and an
+# ordinal is a street without its type, not a floor: '3 W 3RD FL' stays.
+_AFTER_TOKEN = r'(?<=\S\s)'
+_AFTER_WORD = r'(?<=[A-Z.,\-]\s)'
+_NOT_A_STREET_NAME = r'(?<!\s[NSEW]\s)(?<!\s[NS][EW]\s)'
+USPS_UNIT_RULES = [
+    (re.compile(_AFTER_TOKEN + r'(\d{1,3})(?:ST|ND|RD|TH)\s+(?:FLOOR|FLR)\b\.?(?=\s|$)', re.IGNORECASE),
+     r'FL \1'),
+    (re.compile(_AFTER_TOKEN + _NOT_A_STREET_NAME + r'(\d{1,3})(?:ST|ND|RD|TH)\s+FL\b\.?(?=\s|$)',
+                re.IGNORECASE), r'FL \1'),
+    (re.compile(_AFTER_WORD + r'(\d{1,3})\s+(?:FLOOR|FLR)\b\.?(?=\s|$)', re.IGNORECASE), r'FL \1'),
+    (re.compile(_AFTER_WORD + _NOT_A_STREET_NAME + _SPELLED_FLOOR + r'(?=\s|$)', re.IGNORECASE),
+     _spelled_floor),
+    (re.compile(r'(?<=\s)(?:FLOOR|FLR)\s*#?\s*(\d{1,3}[A-Z]?)(?=\s|$)', re.IGNORECASE), r'FL \1'),
+    # SUITE followed by a street type is a street's name ('1 SUITE ST'), not a unit
+    (re.compile(r'(?<=\s)(?:SUITE|STE)\s*#\s*(?=\w)'
+                r'|(?<=\s)SUITE\s+(?!(?:' + _NAME_SUFFIXES + r')\b)(?=\w)', re.IGNORECASE), 'STE '),
+]
+
+# street_2 units (the donor cleaning's _normalize_unit): the leading designator,
+# then the in-line rules above, so a donor's '10TH FLOOR' / 'STE 200 10TH FLOOR'
+# reads 'FL 10' / 'STE 200 FL 10' like the employer line '... FL 10'.
 UNIT_RULES = [
     (re.compile(rf'^{pattern}', re.IGNORECASE), abbr)
     for pattern, abbr in [
         (r'SUITE\b', 'STE'), (r'STE\.\s*', 'STE '), (r'STE\s*#\s*(?=\w)', 'STE '),
         (r'APARTMENT\b', 'APT'), (r'APT\.\s*', 'APT '),
-        # a unit that is only a floor: '5TH FLOOR', '2ND FL', '2 FLOOR', 'SECOND FLOOR'
-        (_NUMBERED_FLOOR + r'(?=\s*$)', r'FL \1'), (_SPELLED_FLOOR + r'(?=\s*$)', _spelled_floor),
+        # a unit that starts with a floor: '5TH FLOOR', '2ND FL', '2 FLOOR', 'SECOND FLOOR REAR'
+        (_NUMBERED_FLOOR + r'(?=\s|$)', r'FL \1'), (_SPELLED_FLOOR + r'(?=\s|$)', _spelled_floor),
         (r'FLOOR\b', 'FL'), (r'FL\.\s*', 'FL '),
         (r'BUILDING\b', 'BLDG'), (r'BLDG\.?\s*', 'BLDG '),
         (r'DEPARTMENT\b', 'DEPT'), (r'DEPT\.?\s*', 'DEPT '),
         (r'OFFICE\b', 'OFF'), (r'OFF\.?\s*', 'OFF '),
         (r'#\s*', '# '),
     ]
-]
-
-# The same designators inside a street line that keeps its unit (employer
-# addresses: '450 7TH AVE 10TH FLOOR', '399 PARK AVE 25TH FLOOR STE 2502',
-# '666 THIRD AVE FLOOR 24 STE 2402'). Never the line's first word (the house
-# number), and a spelled floor only after a street word ('9460 WILSHIRE BLVD
-# SEVENTH FLOOR'), so '100 FIRST FLOOR' is not guessed at.
-USPS_UNIT_RULES = [
-    (re.compile(r'(?<=\s)(\d{1,3})(?:ST|ND|RD|TH)\s+(?:FLOOR|FLR|FL)\b\.?(?=\s|$)', re.IGNORECASE),
-     r'FL \1'),
-    (re.compile(r'(?<=[A-Z]\s)(\d{1,3})\s+(?:FLOOR|FLR)\b\.?(?=\s|$)', re.IGNORECASE), r'FL \1'),
-    (re.compile(r'(?<=[A-Z\-,]\s)' + _SPELLED_FLOOR + r'(?=\s|$)', re.IGNORECASE), _spelled_floor),
-    (re.compile(r'(?<=\s)(?:FLOOR|FLR)\s*#?\s*(\d{1,3}[A-Z]?)(?=\s|$)', re.IGNORECASE), r'FL \1'),
-    # SUITE followed by a street type is a street's name ('1 SUITE ST'), not a unit
-    (re.compile(r'(?<=\s)(?:SUITE|STE)\s*#\s*(?=\w)'
-                r'|(?<=\s)SUITE\s+(?!(?:' + _NAME_SUFFIXES + r')\b)(?=\w)', re.IGNORECASE), 'STE '),
-]
+] + USPS_UNIT_RULES
 
 
 def usps_unit_designators(street: str) -> str:
