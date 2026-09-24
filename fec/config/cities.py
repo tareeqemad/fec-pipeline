@@ -55,7 +55,7 @@ CITY_NORMALIZE = {
     'SKOKIIE': 'SKOKIE',
     'PHONIX': 'PHOENIX',
     'PARADISE VSLLEY': 'PARADISE VALLEY',
-    'SCOTTDALE': 'SCOTTSDALE',
+    # SCOTTDALE is a real town in PA and GA: fixed for AZ only (CITY_STATE_NORMALIZE)
     'BROOKKYN': 'BROOKLYN',
     'BRROOKLYN': 'BROOKLYN',
     'JAMIACA': 'JAMAICA',
@@ -91,7 +91,7 @@ CITY_NORMALIZE = {
     'NPB': 'NORTH PALM BEACH',
     'SLC': 'SALT LAKE CITY',
     'LBTS': 'LAUDERDALE BY THE SEA',
-    'NY': 'NEW YORK',
+    # 'NY' names a borough only through its ZIP: see CITY_ZIP3_NORMALIZE
     # single-record garbage cities ('A', 'GA', 'HOWARD COUNTY', 'LOS W') and
     # ambiguous two-letter initials ('SM', 'PB', 'GV', 'KP') are fixed per
     # sub_id in data/manual_employer_overrides.csv, not here: a global rule
@@ -143,6 +143,22 @@ CITY_STATE_NORMALIZE = {
     ('FAIRLAWN', 'NJ'): 'FAIR LAWN',
     ('EASTHAMPTON', 'NY'): 'EAST HAMPTON',
     ('DELMAR', 'CA'): 'DEL MAR',
+    ('SCOTTDALE', 'AZ'): 'SCOTTSDALE',
+}
+
+
+# Short forms whose city follows the ZIP, keyed (city, state, ZIP3). 'NY' as
+# the city is NEW YORK only for Manhattan ZIPs; the USPS city of the other
+# boroughs is the borough itself. Queens ZIPs are named by neighbourhood
+# (FLUSHING, FAR ROCKAWAY, ...), so a Queens 'NY' stays as filed and is fixed
+# per sub_id in data/manual_employer_overrides.csv.
+CITY_ZIP3_NORMALIZE = {
+    ('NY', 'NY', '100'): 'NEW YORK',
+    ('NY', 'NY', '101'): 'NEW YORK',
+    ('NY', 'NY', '102'): 'NEW YORK',
+    ('NY', 'NY', '103'): 'STATEN ISLAND',
+    ('NY', 'NY', '104'): 'BRONX',
+    ('NY', 'NY', '112'): 'BROOKLYN',
 }
 
 

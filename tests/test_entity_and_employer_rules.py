@@ -153,18 +153,28 @@ def test_status_employer_fills_empty_occupation_idempotently():
 def test_manual_individual_name_correction_keeps_name_columns_consistent():
     from fec.cleaning.entity_classification import apply_name_corrections
 
-    df = _make_df([{
-        'contributor_name': 'MEYERS, SARA STUART',
-        'contributor_first_name': 'SARA STUART',
-        'contributor_last_name': 'MEYERS',
-    }])
+    df = _make_df([
+        {
+            'contributor_name': 'CHENEY, D AVID',
+            'contributor_first_name': 'D AVID',
+            'contributor_last_name': 'CHENEY',
+        },
+        # Joint filing of two people: each keeps their own name, so the row stays as filed.
+        {
+            'contributor_name': 'MEYERS, SARA STUART',
+            'contributor_first_name': 'SARA STUART',
+            'contributor_last_name': 'MEYERS',
+        },
+    ])
 
     df, count = apply_name_corrections(df)
 
     assert count == 1
-    assert df.loc[0, 'contributor_name'] == 'MEYERS, SARA'
-    assert df.loc[0, 'contributor_first_name'] == 'SARA'
-    assert df.loc[0, 'contributor_last_name'] == 'MEYERS'
+    assert df.loc[0, 'contributor_name'] == 'CHENEY, DAVID'
+    assert df.loc[0, 'contributor_first_name'] == 'DAVID'
+    assert df.loc[0, 'contributor_last_name'] == 'CHENEY'
+    assert df.loc[1, 'contributor_name'] == 'MEYERS, SARA STUART'
+    assert df.loc[1, 'contributor_first_name'] == 'SARA STUART'
 
 
 def test_swapped_name_correction_is_limited_to_known_rows():
@@ -189,6 +199,8 @@ def test_laryl_kupor_uses_verified_lary_spelling():
         'contributor_name': 'KUPOR, LARYL',
         'contributor_first_name': 'LARYL',
         'contributor_last_name': 'KUPOR',
+        # First-name rules are scoped to the filer's surname and ZIP.
+        'contributor_zip': '77401',
     }])
 
     _clean_names(df)

@@ -106,6 +106,15 @@ def _print_summary(df, quality, output):
         logger.info("  Quality issues: %s", quality['issues'])
     else:
         logger.info("  Quality gates: all applicable checks passed")
+    not_run = [
+        name for name, check in quality['checks'].items()
+        if isinstance(check, dict) and check.get('not_run')
+    ]
+    if not_run:
+        logger.info(
+            "  Quality gates not run yet (need resolve.py --apply): %s",
+            ", ".join(not_run),
+        )
 
     if not individuals.empty:
         logger.info("\n  Top occupation categories:")
@@ -158,9 +167,11 @@ def main():
 
     save_report(missing, out_dir, 'missing_report')
 
+    # Preliminary: the gates that need employer_status read not_run here.
+    # resolve.py --apply reruns every gate and overwrites this file.
     quality = run_quality_gates(output)
     with open(os.path.join(out_dir, 'quality_gates.json'), 'w') as handle:
-        json.dump(quality, handle, indent=2)
+        json.dump({**quality, 'stage': 'clean'}, handle, indent=2)
 
     scan = _write_quality_scan(output_path, out_dir)
     logger.info(

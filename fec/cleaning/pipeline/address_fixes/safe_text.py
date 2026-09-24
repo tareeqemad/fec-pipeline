@@ -36,6 +36,16 @@ _TYPE_NUM_DIR_RE = re.compile(
     r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+"
     r"(\d{1,5}\s+(?:NE|NW|SE|SW|N|S|E|W))$"
 )
+# A number after these is the street's route/name number, not a unit, so it stays in
+# street_1: "3831 COUNTY RD 102", "289 W STATE RD 130", "18 PRIVATE RD 20" (a qualifier
+# right before the type), and a type that is the whole name, "1704 N AVE 54" (Los
+# Angeles' Avenue 54), "1100 NW LOOP 410" (San Antonio's Loop 410), "1234 RD 20".
+# COUNTY LINE RD or FOREST RD are ordinary names: a number after them is still a unit.
+_NUMBERED_NAME_BASE_RE = re.compile(
+    r"(?:\b(?:COUNTY|CO|STATE|PRIVATE|TOWNSHIP|TWP|PARISH|RANCH|FARM|FM|FARM TO MARKET"
+    r"|RANCH TO MARKET)\s+(?:RD|AVE|LOOP)"
+    r"|^\S*\d\S*\s+(?:(?:NE|NW|SE|SW|N|S|E|W)\s+)?(?:RD|AVE|LOOP))$"
+)
 _REPEATED_ADDRESS_START_RE = re.compile(
     r"^(?P<start>\d+[A-Z]?(?:\s+(?:NE|NW|SE|SW|N|S|E|W))?)\s+"
     r"(?P<body>.+\b(?:" + "|".join(_SPLIT_TYPES) + r")\b)\s+(?P=start)$"
@@ -190,8 +200,10 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     num = s1.str.extract(_TYPE_NUM_RE)  # "... DR 601"     -> unit prefixed "#"
     num_dir = s1.str.extract(_TYPE_NUM_DIR_RE)  # "... DR 601 N" -> "# 601 N"
     is_floor = floor[0].notna()
-    is_num = num[0].notna()
-    base = floor[0].where(is_floor, num[0].where(is_num, num_dir[0]))
+    # "COUNTY RD 102": the number names the road, it is not a unit
+    is_num = num[0].notna() & ~num[0].fillna("").str.contains(_NUMBERED_NAME_BASE_RE)
+    is_num_dir = num_dir[0].notna() & ~num_dir[0].fillna("").str.contains(_NUMBERED_NAME_BASE_RE)
+    base = floor[0].where(is_floor, num[0].where(is_num, num_dir[0].where(is_num_dir)))
     unit = floor[1].where(
         is_floor,
         ("# " + num[1].fillna("")).where(
@@ -208,9 +220,19 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return df, counts
 
 
+# "ANTA GA3034": the end of the city, then the state glued to the start of the ZIP
+_CITY_TAIL_STATE_ZIP_RE = re.compile(r"^([A-Z]+)\s+([A-Z]{2})\d{3,5}$")
+# a unit word before "<2 letters><digits>" makes it a unit id ("STE NE200"), not a spill
+_UNIT_WORDS = {"APT", "STE", "SUITE", "UNIT", "BLDG", "FL", "FLR", "FLOOR", "RM", "ROOM", "PH",
+               "OFFICE", "OFF", "DEPT", "LOT", "SPC", "SPACE", "TRLR", "PMB", "NO", "BOX"}
+
+
 def is_state_zip_fragment(value: str) -> bool:
-    """'# NY1179', '# CA9213', '# NJU', 'USA': a state/ZIP/country tail that a 34-char FEC street_1 spilled into street_2."""
+    """'# NY1179', '# CA9213', '# NJU', 'ANTA GA3034', 'USA': a state/ZIP/country tail that a 34-char FEC street_1 spilled into street_2."""
     core = str(value or "").strip().upper().lstrip("#").strip()
     if core == "USA":
+        return True
+    city_tail = _CITY_TAIL_STATE_ZIP_RE.match(core)
+    if city_tail and city_tail.group(1) not in _UNIT_WORDS and city_tail.group(2) in US_STATES:
         return True
     return len(core) >= 3 and core[:2] in US_STATES and (core[2:].isdigit() or (len(core) == 3 and core[2:].isalpha()))

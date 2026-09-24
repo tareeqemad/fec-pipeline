@@ -231,6 +231,8 @@ SECTOR_AS_EMPLOYER = frozenset({
     'TELECOMMUNICATIONS', 'AUTOMOTIVE', 'AEROSPACE', 'LOGISTICS',
     'ENGINEERING', 'BIOTECHNOLOGY', 'BIOTECH', 'ACCOUNTING',
     'ADVERTISING', 'NONPROFIT', 'NON-PROFIT', 'GOVERNMENT',
+    # EXECUTIVE is a title, not an industry: the sector safety net swaps it
+    # back when the occupation box holds the company (safety_nets/employer.py)
     'EXECUTIVE', 'MANAGEMENT', 'SALES', 'MARKETING',
     # bare institution-type words: a KIND of workplace, not a workplace
     'HOSPITAL', 'LAW FIRM', 'LAW OFFICE', 'UNIVERSITY', 'SCHOOL',

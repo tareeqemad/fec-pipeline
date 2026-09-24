@@ -2,8 +2,8 @@
 
 | Script | What it proves |
 |---|---|
-| `final_verify.py` | rows and sub_ids match raw, quality gates, audit totals, key donors, roster drift (`sync_rosters.py --check`), coordinates, employer-address coverage |
-| `address_audit.py` | every cleaned street/city/state/ZIP is grounded in the SAME donor's raw filings; lists donors whose distinct raw addresses or apartment numbers were reduced (`data/_review/address_audit_*.csv`) |
+| `final_verify.py` | rows and sub_ids match raw, quality gates, audit totals, key donors, roster drift (`sync_rosters.py --check`), coordinates, employer-address coverage; exits 1 when `data/quality_gates.json` has a failed or not-run gate or a different row count (so `resolve.py --apply` must have run) |
+| `address_audit.py` | every cleaned street/city/state/ZIP is grounded in the SAME donor's raw filings; lists donors whose distinct raw addresses or apartment numbers were reduced (`data/_review/address_audit_*.csv`); a ZIP check over every entity type and step (never sampled) lists each cleaned city that no other filing pairs with the row's ZIP5 in `address_audit_zip_city.csv` and exits 1 on flags not in `REVIEWED_SAME_PLACE`; `--out-dir` writes elsewhere |
 | `name_audit.py` | no row carries a surname/first name its donor never filed (nickname, initial, typo and suffix variants allowed); donor keys holding non-variant raw names (`data/_review/name_audit_*.csv`) |
 | `self_employed_audit.py` | raw self-employed filings keep their real occupation, companies never collapse into SELF-EMPLOYED, own-firm/self-employed splits, `previous_employer` never set on self-employed rows |
 
