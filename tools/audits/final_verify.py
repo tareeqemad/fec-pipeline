@@ -12,6 +12,9 @@ import sys
 
 import pandas as pd
 
+# run as 'python tools/audits/final_verify.py': the repo root holds the fec package
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 S = "tools/audits"
 QUALITY_GATES_JSON = "data/quality_gates.json"
 
