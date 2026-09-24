@@ -8,6 +8,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
+from itertools import chain
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -151,20 +152,42 @@ def collect_employer_lookups(
         else {}
     )
 
+    misses = chain(
+        _active_misses(individuals, addr_cache, resolver_tag),
+        _retired_misses(individuals, prev_cache, addr_cache, resolver_tag),
+    )
+    for employer, row in misses:
+        _remember_context(
+            names,
+            locations,
+            occupations,
+            priorities,
+            employer,
+            row,
+            totals.get(row.get("donor_key"), 0),
+        )
+
+    return [
+        EmployerLookup(
+            name=names[key],
+            donor_locations=_top_context(locations[key]),
+            donor_occupations=_top_context(occupations[key]),
+        )
+        for key in sorted(names, key=lambda value: (-priorities[value], value))
+    ]
+
+
+def _active_misses(individuals, addr_cache, resolver_tag):
+    """Yield (employer, row) for active donors whose employer needs AI."""
     active = classify_employer_statuses(individuals).eq("active")
     for _, row in individuals.loc[active].iterrows():
         employer = _s(row.get("contributor_employer")).strip()
         if _needs_ai(addr_cache.get(employer.upper()), resolver_tag):
-            _remember_context(
-                names,
-                locations,
-                occupations,
-                priorities,
-                employer,
-                row,
-                totals.get(row.get("donor_key"), 0),
-            )
+            yield employer, row
 
+
+def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
+    """Yield (previous employer, row) for retirees whose old employer needs AI."""
     retired_mask = (
         individuals["contributor_employer"].map(_s).str.strip().str.upper() == RETIRED
     )
@@ -177,24 +200,7 @@ def collect_employer_lookups(
         if employer and all(
             _needs_ai(addr_cache.get(key), resolver_tag) for key in address_keys
         ):
-            _remember_context(
-                names,
-                locations,
-                occupations,
-                priorities,
-                employer,
-                row,
-                totals.get(row.get("donor_key"), 0),
-            )
-
-    return [
-        EmployerLookup(
-            name=names[key],
-            donor_locations=_top_context(locations[key]),
-            donor_occupations=_top_context(occupations[key]),
-        )
-        for key in sorted(names, key=lambda value: (-priorities[value], value))
-    ]
+            yield employer, row
 
 
 def build_employer_prompt(lookup: EmployerLookup) -> str:

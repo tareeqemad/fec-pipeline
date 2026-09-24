@@ -89,41 +89,7 @@ def load_address_dimension(
     logger.info("\n-- 4/8 Loading addresses (shared dimension) --")
     start = time.time()
 
-    addr_dim = {}
-
-    def _add_addr(st1, st2, city, state, z, lat, lng):
-        key = _akey(st1, st2, city, state, z)
-        entry = addr_dim.get(key)
-        if entry is None:
-            # '' and NULL share one key (_akey), so store the NULL form.
-            addr_dim[key] = [_empty_to_none(st1), _empty_to_none(st2),
-                             _empty_to_none(city), _empty_to_none(state),
-                             _empty_to_none(z), lat, lng]
-        elif entry[5] is None and lat is not None:  # Backfill coordinates.
-            entry[5], entry[6] = lat, lng
-
-    # Donor addresses.
-    for (street_1, street_2, city, state, zip_code), group in df.groupby(
-        ['contributor_street_1', 'contributor_street_2', 'contributor_city',
-         'contributor_state', 'contributor_zip'], dropna=False
-    ):
-        first_row = group.iloc[0]
-        _add_addr(street_1, street_2, city, state, zip_code,
-                  to_float_or_none(first_row.get('latitude')),
-                  to_float_or_none(first_row.get('longitude')))
-
-    locations = employer_locations
-    if locations is None:
-        locations = load_employer_locations()
-    for location in locations:
-        _add_addr(
-            location["employer_address"], None,
-            location["employer_city"], location["employer_state"],
-            location["employer_zip"],
-            to_float_or_none(location.get("employer_latitude")),
-            to_float_or_none(location.get("employer_longitude")),
-        )
-
+    addr_dim = _address_rows(df, _employer_locations(employer_locations))
     addr_keys = list(addr_dim.keys())
     execute_values(cur,
         """INSERT INTO addresses
@@ -142,6 +108,51 @@ def load_address_dimension(
         addr_dim_id[(row[1], row[2], row[3], row[4], row[5])] = row[0]
     logger.info(f"  addresses: {_count(cur, 'addresses'):,} ({time.time()-start:.1f}s)")
     return addr_dim_id
+
+
+def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
+    """The given employer locations, else the ones on disk."""
+    if employer_locations is None:
+        return load_employer_locations()
+    return employer_locations
+
+
+def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
+    """One row per distinct donor or employer address, with coordinates."""
+    addr_dim = {}
+    # Donor addresses.
+    for (street_1, street_2, city, state, zip_code), group in df.groupby(
+        ['contributor_street_1', 'contributor_street_2', 'contributor_city',
+         'contributor_state', 'contributor_zip'], dropna=False
+    ):
+        first_row = group.iloc[0]
+        _add_address(addr_dim, street_1, street_2, city, state, zip_code,
+                     to_float_or_none(first_row.get('latitude')),
+                     to_float_or_none(first_row.get('longitude')))
+
+    for location in locations:
+        _add_address(
+            addr_dim,
+            location["employer_address"], None,
+            location["employer_city"], location["employer_state"],
+            location["employer_zip"],
+            to_float_or_none(location.get("employer_latitude")),
+            to_float_or_none(location.get("employer_longitude")),
+        )
+    return addr_dim
+
+
+def _add_address(addr_dim: dict, st1, st2, city, state, z, lat, lng) -> None:
+    """Add one address, or fill a stored address's missing coordinates."""
+    key = _akey(st1, st2, city, state, z)
+    entry = addr_dim.get(key)
+    if entry is None:
+        # '' and NULL share one key (_akey), so store the NULL form.
+        addr_dim[key] = [_empty_to_none(st1), _empty_to_none(st2),
+                         _empty_to_none(city), _empty_to_none(state),
+                         _empty_to_none(z), lat, lng]
+    elif entry[5] is None and lat is not None:  # Backfill coordinates.
+        entry[5], entry[6] = lat, lng
 
 
 def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
@@ -195,10 +206,29 @@ def link_employer_locations(
     logger.info("\n-- 8/8 Linking employer locations --")
     start = time.time()
 
+    employer_rows = _primary_location_rows(
+        _employer_locations(employer_locations), addr_dim_id, get_employer_id,
+    )
+    if employer_rows:
+        execute_values(cur, """
+            UPDATE employers e
+            SET address_id = v.address_id
+            FROM (VALUES %s) AS v(employer_id, address_id)
+            WHERE e.employer_id = v.employer_id
+        """,
+        employer_rows,
+        template="(%s::int, %s::int)",
+        page_size=5000)
+    conn.commit()
+    cur.execute("SELECT COUNT(*) FROM employers WHERE address_id IS NOT NULL")
+    linked = cur.fetchone()[0]
+    logger.info(f"  employers with location: {linked:,} ({time.time()-start:.1f}s)")
+    _prune_orphan_addresses(conn, cur)
+
+
+def _primary_location_rows(locations, addr_dim_id: dict, get_employer_id) -> list[tuple]:
+    """(employer_id, address_id) for each employer's primary location."""
     employer_rows = []
-    locations = employer_locations
-    if locations is None:
-        locations = load_employer_locations()
     for location in locations:
         if not location["is_primary"]:
             continue
@@ -219,23 +249,11 @@ def link_employer_locations(
                 f"{location['employer_name']!r}"
             )
         employer_rows.append((int(emp_id), int(address_id)))
+    return employer_rows
 
-    if employer_rows:
-        execute_values(cur, """
-            UPDATE employers e
-            SET address_id = v.address_id
-            FROM (VALUES %s) AS v(employer_id, address_id)
-            WHERE e.employer_id = v.employer_id
-        """,
-        employer_rows,
-        template="(%s::int, %s::int)",
-        page_size=5000)
-    conn.commit()
-    cur.execute("SELECT COUNT(*) FROM employers WHERE address_id IS NOT NULL")
-    linked = cur.fetchone()[0]
-    logger.info(f"  employers with location: {linked:,} ({time.time()-start:.1f}s)")
 
-    # Remove unused addresses.
+def _prune_orphan_addresses(conn, cur) -> None:
+    """Delete addresses no donor, employer or employment uses."""
     cur.execute("""
         DELETE FROM addresses a
         WHERE NOT EXISTS (SELECT 1 FROM donor_addresses d WHERE d.address_id = a.address_id)

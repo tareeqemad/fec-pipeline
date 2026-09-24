@@ -295,7 +295,8 @@ def grant_read_access(conn: Any, cur: Any) -> None:
     logger.info("  %s: table SELECT only; no sequence access", DATABASE_READER)
 
 
-def main() -> None:
+def _require_reset_flag() -> None:
+    """Stop unless the caller passed --reset."""
     parser = argparse.ArgumentParser(
         description="Load FEC data into normalized PostgreSQL"
     )
@@ -307,6 +308,19 @@ def main() -> None:
     if not args.reset:
         parser.error("use --reset to reload the database")
 
+
+def _analyze_tables(conn, cur) -> None:
+    """Refresh planner statistics for every non-empty table."""
+    logger.info("\n-- Analyzing tables --")
+    for table in TABLES:
+        if _count(cur, table) > 0:
+            cur.execute(f"ANALYZE {table}")
+    conn.commit()
+    logger.info("  ANALYZE complete")
+
+
+def main() -> None:
+    _require_reset_flag()
     try:
         df, employer_locations = _read_input()
     except (FileNotFoundError, ValueError) as error:
@@ -340,12 +354,7 @@ def main() -> None:
     load_leadership(conn, cur)
     load_key_accomplices(conn, cur)
 
-    logger.info("\n-- Analyzing tables --")
-    for table in TABLES:
-        if _count(cur, table) > 0:
-            cur.execute(f"ANALYZE {table}")
-    conn.commit()
-    logger.info("  ANALYZE complete")
+    _analyze_tables(conn, cur)
 
     refresh_materialized_views(conn, cur)
 

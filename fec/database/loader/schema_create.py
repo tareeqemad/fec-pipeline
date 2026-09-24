@@ -148,17 +148,10 @@ def _is_employment_key(definition: str) -> bool:
 
 def _verify_schema_integrity(cur: Any) -> None:
     """Assert v1.2 invariants: views/matviews exist, leader_committees junction, donor_employments unique key, no legacy donor pointer columns."""
-    cur.execute("SELECT viewname FROM pg_views WHERE schemaname='public'")
-    actual_views = {row[0] for row in cur.fetchall()}
-    missing_views = sorted(set(VIEWS) - actual_views)
-    if missing_views:
-        raise RuntimeError(f"Schema: missing views {missing_views}")
-
-    cur.execute("SELECT matviewname FROM pg_matviews WHERE schemaname='public'")
-    actual_mvs = {row[0] for row in cur.fetchall()}
-    missing_mvs = sorted(set(MAT_VIEWS) - actual_mvs)
-    if missing_mvs:
-        raise RuntimeError(f"Schema: missing materialized views {missing_mvs}")
+    _require_names(cur, "SELECT viewname FROM pg_views WHERE schemaname='public'",
+                   VIEWS, "views")
+    _require_names(cur, "SELECT matviewname FROM pg_matviews WHERE schemaname='public'",
+                   MAT_VIEWS, "materialized views")
 
     # Verify leader relationships.
     cur.execute("""
@@ -169,7 +162,26 @@ def _verify_schema_integrity(cur: Any) -> None:
     if not cur.fetchone():
         raise RuntimeError("Schema: leader_committees junction table is missing")
 
-    # Verify employment uniqueness.
+    _verify_employments_table(cur)
+    _reject_legacy_columns(cur)
+
+    logger.info(
+        f"  schema v1.2 integrity checks pass "
+        f"(views={len(VIEWS)}, mvs={len(MAT_VIEWS)}, constraints OK)"
+    )
+
+
+def _require_names(cur: Any, query: str, expected, label: str) -> None:
+    """Raise when the query's names lack any expected one."""
+    cur.execute(query)
+    actual = {row[0] for row in cur.fetchall()}
+    missing = sorted(set(expected) - actual)
+    if missing:
+        raise RuntimeError(f"Schema: missing {label} {missing}")
+
+
+def _verify_employments_table(cur: Any) -> None:
+    """donor_employments has its unique key and self-employed column."""
     cur.execute("""
         SELECT pg_get_constraintdef(oid)
         FROM pg_constraint
@@ -193,7 +205,9 @@ def _verify_schema_integrity(cur: Any) -> None:
             "Schema: donor_employments.previous_self_employed is missing"
         )
 
-    # Reject legacy columns.
+
+def _reject_legacy_columns(cur: Any) -> None:
+    """Raise when donors still has old denormalized pointer columns."""
     cur.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_schema='public' AND table_name='donors'
@@ -205,11 +219,6 @@ def _verify_schema_integrity(cur: Any) -> None:
             f"Schema: donors still has legacy denormalized pointer columns "
             f"{stale_cols}. Drop them or reset_schema."
         )
-
-    logger.info(
-        f"  schema v1.2 integrity checks pass "
-        f"(views={len(VIEWS)}, mvs={len(MAT_VIEWS)}, constraints OK)"
-    )
 
 
 def verify_extensions(cur: Any) -> None:

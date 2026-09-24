@@ -306,16 +306,9 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
             continue
 
         emp_status = to_native(row.get('employer_status'))
-        employer_name = current_employer_name(emp_status, emp_val)
-        if emp_status == 'active' and not employer_name:
-            raise RuntimeError(
-                f"active employment has no employer: donor_key={donor_key}"
-            )
-        emp_id = get_employer_id(employer_name)
-        if employer_name and emp_id is None:
-            raise RuntimeError(
-                f"cleaned employer has no exact database match: {employer_name!r}"
-            )
+        employer_name, emp_id = _current_employer(
+            emp_status, emp_val, donor_key, get_employer_id,
+        )
 
         dedup_key = employment_key(donor_id, emp_id, occ, emp_status)
         if dedup_key in seen_empl:
@@ -325,21 +318,9 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
         occ_cat = to_native(row.get('occupation_category'))
         occ_cat_id = occ_cat_map.get(occ_cat)
 
-        prev_emp_id = _previous_employer_id(
-            emp_status,
-            donor_key,
-            donor_prev_employer_id,
+        prev_emp_id, prev_self_employed = _previous_employment(
+            emp_status, donor_key, donor_prev_employer_id, previous_self_employed or set(),
         )
-        prev_self_employed = _previous_self_employed(
-            emp_status,
-            donor_key,
-            previous_self_employed or set(),
-        )
-        if prev_self_employed and prev_emp_id is not None:
-            raise RuntimeError(
-                "previous employer is both a company and SELF-EMPLOYED: "
-                f"donor_key={donor_key}"
-            )
 
         if emp_id:
             location_employer = employer_name
@@ -369,13 +350,50 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
         empl_rows, page_size=5000)
     conn.commit()
 
-    # Build employment lookup.
+    empl_donor_emp_to_id = _employment_ids(cur)
+    logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
+    return empl_donor_emp_to_id
+
+
+def _current_employer(emp_status, emp_val, donor_key, get_employer_id):
+    """The filing's current employer name and its database id."""
+    employer_name = current_employer_name(emp_status, emp_val)
+    if emp_status == 'active' and not employer_name:
+        raise RuntimeError(
+            f"active employment has no employer: donor_key={donor_key}"
+        )
+    emp_id = get_employer_id(employer_name)
+    if employer_name and emp_id is None:
+        raise RuntimeError(
+            f"cleaned employer has no exact database match: {employer_name!r}"
+        )
+    return employer_name, emp_id
+
+
+def _previous_employment(emp_status, donor_key, donor_prev_employer_id, previous_self_employed):
+    """A retiree's previous employer id or SELF-EMPLOYED flag, never both."""
+    prev_emp_id = _previous_employer_id(
+        emp_status,
+        donor_key,
+        donor_prev_employer_id,
+    )
+    prev_self_employed = _previous_self_employed(
+        emp_status,
+        donor_key,
+        previous_self_employed,
+    )
+    if prev_self_employed and prev_emp_id is not None:
+        raise RuntimeError(
+            "previous employer is both a company and SELF-EMPLOYED: "
+            f"donor_key={donor_key}"
+        )
+    return prev_emp_id, prev_self_employed
+
+
+def _employment_ids(cur) -> dict:
+    """employment_key(...) -> donor_employment_id for every loaded row."""
     cur.execute(
         "SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS)
         + " FROM donor_employments"
     )
-    empl_donor_emp_to_id = {}
-    for row in cur.fetchall():
-        empl_donor_emp_to_id[employment_key(*row[1:])] = row[0]
-    logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
-    return empl_donor_emp_to_id
+    return {employment_key(*row[1:]): row[0] for row in cur.fetchall()}
