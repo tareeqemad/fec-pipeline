@@ -139,8 +139,10 @@ def test_fullest_first_name_rule_still_adds_real_tokens():
     assert _name(_donor(("DOE", "MARK", 5), ("DOE", "MARK L.", 1)))[1] == "MARK L."
     # the donor-level name is still the fullest
     assert _canonical_person_name(["DOE"] * 3, ["FRANKLIN", "FRANKLIN", "FRANKLIN J. JAY"])[1] == "FRANKLIN J. JAY"
-    # after an initial, the whole word is the donor's own name
-    assert _name(_donor(("DOE", "P", 3), ("DOE", "P RICHARD", 1)))[1] == "P RICHARD"
+    # an initial expands only within filings that carry the same whole names
+    df = _donor(("DOE", "MARVIN", 2), ("DOE", "M STEPHEN", 1), ("DOE", "MARVIN STEPHEN", 3))
+    canonicalize_donor_names(df)
+    assert df["contributor_first_name"].tolist() == ["MARVIN"] * 2 + ["MARVIN STEPHEN"] * 4
 
 
 def test_word_the_donor_brackets_elsewhere_is_an_aside():

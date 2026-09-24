@@ -245,7 +245,8 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     that carry the same whole given names: a whole extra name may be a middle
     name (JOSE FELIX) or a co-filer who never files alone (SHIRA JARED), and
     the data cannot tell them apart, so a filing never gains or loses one.
-    Spelling, nicknames and initials are still unified (MARK -> MARK L.).
+    Spelling, nicknames and initials are still unified (MARK -> MARK L.,
+    M STEPHEN -> MARVIN STEPHEN).
     """
     firsts_by_last: dict[str, list[str]] = defaultdict(list)
     for last, first in zip(lasts, firsts):
@@ -425,8 +426,8 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
 def _extra_given_words(first: str, own: set) -> frozenset:
     """The whole given names after the first name, the donor's own words aside."""
     words = first.split()
-    if not words or len(_name_tokens(words[0])) != 1 or len(_name_tokens(words[0])[0]) == 1:
-        return frozenset()  # empty, bracketed, or an initial: the next word is the name
+    if not words or len(_name_tokens(words[0])) != 1:
+        return frozenset()  # empty, bracketed or hyphenated first word
     return frozenset(
         token for word in words[1:] for token in _name_tokens(word)
         if len(token) > 1 and token not in own
