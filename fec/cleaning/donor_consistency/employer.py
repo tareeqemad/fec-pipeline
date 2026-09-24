@@ -5,6 +5,7 @@ from difflib import SequenceMatcher
 import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
+from fec.cleaning.occupations import _categorize_final
 from fec.config.constants import (
     SKIP_EMPLOYERS, RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP,
     JUNK_EMPLOYER_RE, REFUSAL_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
@@ -291,6 +292,10 @@ _OWN_FIRM_TOKEN_RE = re.compile(
 )
 
 
+# categories that name a title or status, not a field of work
+_NO_FIELD = frozenset({'OTHER', 'SELF-EMPLOYED', 'EXECUTIVE / C-SUITE', 'BUSINESS / ENTREPRENEUR'})
+
+
 def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
     """AV. A donor who files both SELF-EMPLOYED and a firm carrying their own surname
     (SCOTT FANE CPA PA, SCHALL LAW FIRM, GENET PROPERTY GROUP) has one workplace: the firm.
@@ -314,10 +319,17 @@ def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
         ]
         if len(firms) != 1:
             continue
-        firm_fields = set(grp.loc[grp['contributor_employer'] == firms[0], 'occupation_category'].dropna())
-        field = df['occupation_category']
-        same_job = field.isna() | field.eq('') | field.isin(firm_fields)
-        mask = (df['donor_key'] == dk) & (df['contributor_employer'] == 'SELF-EMPLOYED') & same_job
+        donor_rows = df['donor_key'] == dk
+        # the field of each filing's own occupation (a SELF-EMPLOYED filing's
+        # category still reads SELF-EMPLOYED here, so it cannot be compared)
+        occupation = df.loc[donor_rows, 'contributor_occupation'].fillna('')
+        field = _categorize_final(occupation)
+        firm_fields = set(field[df.loc[donor_rows, 'contributor_employer'] == firms[0]]) - _NO_FIELD
+        same_field = occupation.eq('') | field.isin(_NO_FIELD) | field.isin(firm_fields)
+        if not firm_fields:
+            same_field[:] = True
+        mask = donor_rows & (df['contributor_employer'] == 'SELF-EMPLOYED')
+        mask &= same_field.reindex(df.index, fill_value=False)
         n = int(mask.sum())
         if n:
             df.loc[mask, 'contributor_employer'] = firms[0]
