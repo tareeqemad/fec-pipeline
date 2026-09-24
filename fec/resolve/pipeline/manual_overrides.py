@@ -71,15 +71,19 @@ def _read_location_groups(csv_path: Path) -> dict:
 
 
 def _merge_manual_locations(existing: dict, manual: dict) -> dict:
-    ai_locations = [
+    primary = manual["primary"]
+    # INVALID says the company has no public office: no AI address of it stays
+    invalid = primary is not None and primary.get("method") == "manual_invalid"
+    ai_locations = [] if invalid else [
         location
         for location in existing.get("locations", [])
         if not str(location.get("method", "")).startswith("manual_")
     ]
     replacement = dict(existing)
-    primary = manual["primary"]
+    # a checked manual row (a correction or an INVALID) beats an AI web-search
+    # answer; an uncertain one (manual_review) does not
     if primary is not None and (
-        primary.get("method") == "manual_override"
+        primary.get("method") in {"manual_override", "manual_invalid"}
         or not str(existing.get("method", "")).endswith("_search")
     ):
         replacement.update(primary)
