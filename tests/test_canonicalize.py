@@ -206,3 +206,26 @@ def test_pobox_keeps_same_length_numbers_separate():
     )
 
     assert canonicalize_donor_pobox_typos(df) == 0
+
+
+def test_a_cut_off_surname_piece_is_not_kept_as_a_middle_name():
+    from fec.donor_match.canonicalize import _canonical_person_name
+
+    # 'CHRYSTAL, GLENN STUART CHRYSTA': the name field ran out mid-surname
+    last, first = _canonical_person_name(
+        ["CHRYSTAL", "CHRYSTAL"], ["GLENN", "GLENN STUART CHRYSTA"],
+        given_names=frozenset({"GLENN", "STUART"}),
+    )
+
+    assert (last, first) == ("CHRYSTAL", "GLENN STUART")
+
+
+def test_a_real_middle_name_that_starts_the_surname_stays():
+    from fec.donor_match.canonicalize import _canonical_person_name
+
+    # JOHN is a given name other donors file: MARY JOHN JOHNSON keeps it
+    last, first = _canonical_person_name(
+        ["JOHNSON"], ["MARY JOHN"], given_names=frozenset({"MARY", "JOHN"}),
+    )
+
+    assert first == "MARY JOHN"
