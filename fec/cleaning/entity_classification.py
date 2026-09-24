@@ -6,7 +6,6 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
-from fec.config.data import COMM_PATTERNS
 from fec.config.constants import LEGAL_SUFFIX_RE, STATUS_CATEGORIES
 
 _COMMITTEE_IN_NAME_RE = re.compile(
@@ -98,16 +97,6 @@ def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
     if n_fixed:
         _mark_as_committee(df, hits, 'POLITICAL COMMITTEE')
-        for idx in hits:
-            name = str(df.at[idx, 'contributor_name'])
-            matched = False
-            for comm_type, pattern in COMM_PATTERNS:
-                if pattern.search(name):
-                    df.at[idx, 'committee_type'] = comm_type
-                    matched = True
-                    break
-            if not matched:
-                df.at[idx, 'committee_type'] = 'POLITICAL COMMITTEE'
 
     return df, n_fixed
 

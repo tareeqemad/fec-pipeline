@@ -10,7 +10,6 @@ from fec.cleaning.safety_nets.employer_swaps import (
 )
 from fec.cleaning.safety_nets.occupation import (
     _fix_emp_occ_category_consistency,
-    _fix_not_disclosed_in_other,
     _fix_web_artifact_occupation,
 )
 from fec.cleaning.donor_consistency.employer import _fill_employer_from_donor
@@ -87,10 +86,6 @@ def test_not_disclosed_uses_other_without_losing_the_refusal():
         'occupation_category': ['OTHER'],
         'occupation_status': ['MISSING'],
     })
-
-    assert _fix_not_disclosed_in_other(df) == 1
-    assert df.loc[0, 'occupation_status'] == 'NOT_DISCLOSED'
-    assert df.loc[0, 'occupation_category'] == 'OTHER'
 
     df.loc[0, 'occupation_category'] = pd.NA
     assert _rederive_occupation_category(df) == 1

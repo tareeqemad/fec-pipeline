@@ -89,7 +89,7 @@ class TestSurnameVariantSafety:
         rows = _donor_rows(
             "KOPEL, JULIE", "LOBEL, JULIE", "45 E 89TH ST", "1095 PARK AVE"
         )
-        keys, _ = match_donors(rows, verbose=False)
+        keys, _ = match_donors(rows)
 
         assert len(set(keys.values())) == 2
 
@@ -100,7 +100,7 @@ class TestSurnameVariantSafety:
             "EPSTEIN, BARBARA", "EPSTIEN, BARBARA",
             "24530 TWICKENHAM DR", "24530 TWICKENHAM DR",
         )
-        keys, _ = match_donors(rows, verbose=False)
+        keys, _ = match_donors(rows)
 
         assert len(set(keys.values())) == 1
 
@@ -111,7 +111,7 @@ class TestSurnameVariantSafety:
             "MYERE, LUANN", "MYERS, LUANN", "108 BEACH AVE", "201 BEACH AVE",
             "ACME LLC", "ACME",
         )
-        keys, _ = match_donors(rows, verbose=False)
+        keys, _ = match_donors(rows)
 
         assert len(set(keys.values())) == 1
 
@@ -126,7 +126,7 @@ class TestCrossNameSafety:
         rows.loc[1, ["contributor_city", "contributor_state", "contributor_zip"]] = [
             "VALLEY VILLAGE", "CA", "91607",
         ]
-        keys, _ = match_donors(rows, verbose=False)
+        keys, _ = match_donors(rows)
 
         assert len(set(keys.values())) == 2
 
@@ -136,7 +136,7 @@ class TestCrossNameSafety:
         rows = _donor_rows(
             "DOE, STEPHEN", "DOE, STEVEN", "9 STAR FARM RD", "9 STAR FARM RD"
         )
-        keys, _ = match_donors(rows, verbose=False)
+        keys, _ = match_donors(rows)
 
         assert len(set(keys.values())) == 1
 
@@ -146,7 +146,7 @@ class TestCrossNameSafety:
         rows = _donor_rows(
             "PRINCE, STEPHEN", "PRINCE, STEVEN", "9 STAR FARM RD", "9 STAR FARM RD"
         )
-        keys, _ = match_donors(rows, verbose=False)
+        keys, _ = match_donors(rows)
 
         assert len(set(keys.values())) == 2
 
@@ -217,7 +217,7 @@ class TestChainValidation:
 
         monkeypatch.setattr(matcher, "compute_score", score)
         matcher._build_and_validate_chains(
-            union, profiles, {"DOE|JOHN": rids}, verbose=False
+            union, profiles, {"DOE|JOHN": rids}
         )
 
         assert set(canonicals) == {"DOE, JOHN|D|NY"}

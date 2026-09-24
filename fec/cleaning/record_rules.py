@@ -111,8 +111,6 @@ _AUDITED_RULES = (
 )
 
 
-
-
 def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Apply all record-level rules."""
     log = logger.info
@@ -196,7 +194,7 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     return df
 
 
-def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str], None]) -> int:
+def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str], None]) -> None:
     individuals = df['is_individual'].astype(bool)
     non_individuals = ~individuals
     fixed = 0
@@ -213,7 +211,6 @@ def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str]
 
     if fixed:
         log(f"Safety rules: fixed {fixed:,} remaining inconsistencies")
-    return fixed
 
 
 def _apply_step(

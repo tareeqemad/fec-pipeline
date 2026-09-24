@@ -235,9 +235,6 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
         new_first_word = FIRST_NAME_FIXES.get((last, old_first_word, zip5.at[idx]))
         if not new_first_word or not last:
             continue
-        if '_garbled_before' not in df.columns:
-            df['_garbled_before'] = pd.Series(pd.NA, index=df.index, dtype='object')
-        df.at[idx, '_garbled_before'] = old_first_word
         rest = old_first[len(old_first_word):].strip()
         new_first = f"{new_first_word} {rest}" if rest else new_first_word
         df.at[idx, 'contributor_first_name'] = new_first
@@ -324,5 +321,5 @@ def _clean_names(df: pd.DataFrame, trail=None) -> None:
         'committee': df['entity_type'] == 'COMMITTEE/PAC',
     }
     for fn, scope, step, reason in NAME_STEPS:
-        transform = fn if scope is None else (lambda d, fn=fn, mask=masks[scope]: fn(d, mask))
+        transform = lambda d, fn=fn, mask=masks[scope]: fn(d, mask)
         trail.run(df, transform, step, reason, NAME_FIELDS + WORK_FIELDS)

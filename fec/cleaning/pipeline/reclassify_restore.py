@@ -82,7 +82,6 @@ def _restore_individual_employers(
 
 def _clear_individual_residue(df: pd.DataFrame) -> None:
     is_individual = df["is_individual"]
-    df.loc[is_individual, "committee_type"] = "NOT_APPLICABLE"
 
     missing_status = is_individual & df["occupation_status"].eq("NOT_APPLICABLE")
     if missing_status.any():
@@ -114,7 +113,6 @@ def _restore_reclassified_committees(
     raw_occ_backup: pd.Series,
     raw_emp_backup: pd.Series,
     log,
-    clear_residue: bool = True,
 ) -> None:
     """Restore work fields for committee rows reclassified as individuals."""
     reclassified = df["is_individual"] & df["_reclass_reason"].str.startswith(
@@ -125,5 +123,3 @@ def _restore_reclassified_committees(
         raw_employers = raw_emp_backup.loc[reclassified]
         _restore_individual_occupations(df, raw_occupations, raw_employers, log)
         _restore_individual_employers(df, reclassified, raw_employers)
-    if clear_residue:
-        _clear_individual_residue(df)

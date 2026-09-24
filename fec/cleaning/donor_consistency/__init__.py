@@ -9,6 +9,7 @@ from fec.cleaning.audit_trail import (
     WORK_FIELDS,
     AuditTrail,
 )
+from fec.cleaning.record_junk import _clean_junk_status_word_employer
 from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
 from fec.log import get_logger, log_count
 
@@ -19,7 +20,6 @@ from .employer import (
     _employer_typos,
     _fill_employer_from_donor,
     _fill_employer_from_occupation,
-    _null_refusal_employers,
 )
 from .entity import (
     _apply_entity_overrides,
@@ -33,15 +33,12 @@ from fec.cleaning.pipeline.address_fixes.recovery import (
 from .occupation import (
     _fill_occupation_from_donor,
     _fill_self_employed_occupation_from_donor,
-    _not_applicable_individual_sweep,
     _rederive_occupation_category,
-    _rederive_occupation_status,
     _converge_occupation_within_employer,
 )
 from .retired import (
     _fill_prev_employer_from_donor,
     _normalize_previous_employer,
-    _retired_active_sync,
     _settle_retired_employer,
 )
 
@@ -72,13 +69,9 @@ CONSISTENCY_FIXES = (
      "self_employed_occupation_replaced_by_donors_real_one", None),
     ("fill employer from occupation", _fill_employer_from_occupation, WORK_FIELDS,
      "employer_derived_from_occupation_category_or_raw_filings", None),
-    ("clear not-applicable people", _not_applicable_individual_sweep, WORK_FIELDS,
-     "individual_occupation_status_rederived", None),
     ("recover previous employer", _fill_prev_employer_from_donor, PREVIOUS,
      "previous_employer_from_latest_earlier_filing", None),
-    ("sync retired status", _retired_active_sync, EMPLOYMENT_FIELDS,
-     "retired_category_employer_demoted_to_previous", None),
-    ("clear refusal employers", _null_refusal_employers, WORK_FIELDS,
+    ("clear refusal employers", _clean_junk_status_word_employer, WORK_FIELDS,
      "refusal_placeholder_employer_nulled", None),
     ("enforce entity consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
      "entity_type_unified_by_name", None),
@@ -88,8 +81,6 @@ CONSISTENCY_FIXES = (
      "same_job_spelling_unified_to_donor_dominant", None),
     ("sync employer and occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
      "employer_occupation_category_consistency_fixed", None),
-    ("rebuild occupation status", _rederive_occupation_status, WORK_FIELDS,
-     "occupation_status_rederived", None),
     ("rebuild occupation category", _rederive_occupation_category, WORK_FIELDS,
      "occupation_category_rederived_from_final_occupation", None),
     ("settle retired employer", _settle_retired_employer, EMPLOYMENT_FIELDS,

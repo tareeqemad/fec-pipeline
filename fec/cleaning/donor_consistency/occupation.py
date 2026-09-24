@@ -7,22 +7,6 @@ from fec.cleaning.occupations import _categorize_final
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 
 
-def _rederive_occupation_status(df: pd.DataFrame) -> int:
-    """AR. Re-derive occupation_status from the final occupation/employer state; rows with no occupation stay untouched."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    has_occ = _norm(df['contributor_occupation']) != ''
-    has_emp = _norm(df['contributor_employer']) != ''
-    st = df['occupation_status']
-
-    # DERIVED is a provenance marker set by the donor-history fills - never overwrite it
-    disclosed = is_indiv & has_occ & has_emp & ~st.isin(['DISCLOSED', 'DERIVED'])
-    emp_missing = (is_indiv & has_occ & ~has_emp
-                   & ~st.isin(['EMPLOYER_MISSING', 'NOT_DISCLOSED', 'DERIVED']))
-    df.loc[disclosed, 'occupation_status'] = 'DISCLOSED'
-    df.loc[emp_missing, 'occupation_status'] = 'EMPLOYER_MISSING'
-    return int(disclosed.sum()) + int(emp_missing.sum())
-
-
 def _rederive_occupation_category(df: pd.DataFrame) -> int:
     """AT. Make every individual's category match their final occupation."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -143,24 +127,6 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
         n_fixed += len(placeholders)
 
     return n_fixed
-
-
-def _not_applicable_individual_sweep(df: pd.DataFrame) -> int:
-    """AM. Individuals left with occupation_status='NOT_APPLICABLE' (committee-only value) get it re-derived; final net after donor_match."""
-    bad = (df['entity_type'] == 'INDIVIDUAL') & (df['occupation_status'] == 'NOT_APPLICABLE')
-    n = int(bad.sum())
-    if not n:
-        return 0
-
-    occ = df.loc[bad, 'contributor_occupation'].astype('string').str.strip().str.upper()
-    is_empty = occ.isna() | occ.eq('')
-    is_notdisc = occ.eq('NOT DISCLOSED')
-
-    df.loc[bad & is_empty.reindex(df.index, fill_value=False),   'occupation_status'] = 'MISSING'
-    df.loc[bad & is_notdisc.reindex(df.index, fill_value=False), 'occupation_status'] = 'NOT_DISCLOSED'
-    remaining = bad & ~(is_empty | is_notdisc).reindex(df.index, fill_value=False)
-    df.loc[remaining, 'occupation_status'] = 'DISCLOSED'
-    return n
 
 
 def _converge_occupation_within_employer(df: pd.DataFrame) -> int:

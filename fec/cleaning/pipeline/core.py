@@ -102,7 +102,7 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     trail.run(
         df,
         lambda frame: _restore_reclassified_committees(
-            frame, raw_occupations, raw_employers, log, clear_residue=False
+            frame, raw_occupations, raw_employers, log
         ),
         "reclassify_restore_work_fields",
         "raw_work_fields_restored_for_reclassified_committee", WORK_FIELDS,
@@ -177,8 +177,7 @@ def clean_records(
     """Clean every contribution record.
 
     ``address_reports`` (optional) collects what the address stage leaves for the
-    review queues, so the caller can write them later; without it the address
-    stage writes them itself.
+    review queues, so the caller can write them later.
     """
     df_clean, missing = _clean_fields(
         df, trail, out_dir=out_dir, address_reports=address_reports,
@@ -205,7 +204,7 @@ def clean_records(
 
 
 def identify_donors(
-    df_clean: pd.DataFrame, out_dir: str | None = None
+    df_clean: pd.DataFrame
 ) -> pd.DataFrame:
     """Assign one donor_key to each identity."""
     df_clean = df_clean.reset_index(drop=True)
@@ -220,7 +219,7 @@ def identify_donors(
         validate_separations,
     )
 
-    rid_to_key, match_audit = match_donors(df_clean, verbose=False)
+    rid_to_key, match_audit = match_donors(df_clean)
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
     repointed = merge_split_name_donors(df_clean)
@@ -296,7 +295,7 @@ def clean_pipeline(
     df_clean, missing = clean_records(
         df, trail, out_dir=out_dir, address_reports=address_reports,
     )
-    df_clean = identify_donors(df_clean, out_dir=out_dir)
+    df_clean = identify_donors(df_clean)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
     n_foreign = trail.run(
         df_clean, lambda frame: restore_foreign_addresses(frame, foreign),

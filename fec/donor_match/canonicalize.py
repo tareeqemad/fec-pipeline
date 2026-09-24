@@ -10,6 +10,7 @@ from fec.config.constants import EMPLOYER_STATUS_VALUES
 from .joint import given_tokens, joint_partners
 from .matcher import UnionFind
 from .rules import joint_name_exempt
+from .scoring import _NAME_TOKEN_RE
 
 # legal suffixes/connectors carry no identity when comparing employer names
 _EMP_DROP_TOKENS = frozenset(
@@ -48,7 +49,6 @@ _PAREN_GROUP_RE = re.compile(r"\([^()]*\)")
 _PAREN_OPEN_TAIL_RE = re.compile(r"\([^()]*$")
 _TRAILING_NOISE_RE = re.compile(r"[\s,\-]+$")
 _WORD_PERIOD_RE = re.compile(r"(?<=[A-Z]{3})\.+$")
-_NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _COMMA_SUFFIXES = frozenset(
     {"JR", "SR", "II", "III", "IV", "V", "MD", "M.D", "PHD", "PH.D", "ESQ", "DDS", "DO"}
 )

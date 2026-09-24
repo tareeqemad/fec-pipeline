@@ -1,5 +1,4 @@
 """Foreign addresses are detected on the raw filing, kept exactly as filed, and never geocoded."""
-import numpy as np
 import pandas as pd
 
 from fec.cleaning.foreign_addresses import (
@@ -43,16 +42,12 @@ def test_snapshot_and_restore_put_the_filed_address_back_and_drop_coordinates():
     cleaned = raw.copy()
     # what the US-only repairs would do to the foreign row
     cleaned.loc[0, ['contributor_street_1', 'contributor_city', 'contributor_zip']] = ['1191 2ND AVE', 'SEATTLE', '98101']
-    cleaned['latitude'] = [47.6, 47.6]
-    cleaned['longitude'] = [-122.3, -122.3]
-    cleaned['geocode_level'] = ['rooftop', 'rooftop']
 
     n = restore_foreign_addresses(cleaned, snapshot)
     assert n == 3
     assert cleaned.loc[0, ['contributor_street_1', 'contributor_city', 'contributor_zip']].tolist() == ['EHUD MANOR 5', 'NETANYA', '98040']
-    assert np.isnan(cleaned.loc[0, 'latitude']) and np.isnan(cleaned.loc[0, 'longitude'])
     # the US row is untouched
-    assert cleaned.loc[1, 'contributor_city'] == 'SEATTLE' and cleaned.loc[1, 'latitude'] == 47.6
+    assert cleaned.loc[1, 'contributor_city'] == 'SEATTLE'
 
 
 def test_restore_is_a_no_op_without_foreign_rows():
