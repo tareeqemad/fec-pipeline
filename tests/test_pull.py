@@ -273,3 +273,52 @@ def test_committee_state_is_scoped_to_period(tmp_path):
 
     assert ids == {"2024-row"}
     assert latest == "2024-12-01"
+
+
+def _saved_committee(tmp_path):
+    csv_path = tmp_path / "contributions.csv"
+    row = pull.build_row({
+        "sub_id": "1", "committee_id": "C00000001", "two_year_transaction_period": 2026,
+        "contribution_receipt_date": "2026-07-01T00:00:00", "contribution_receipt_amount": 10,
+    })
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(pull.COLUMNS)
+        writer.writerow(row)
+    return csv_path
+
+
+def _pull_with(monkeypatch, csv_path, pages):
+    params_seen = {}
+
+    def fake_pages(_session, params, _limiter):
+        params_seen.update(params)
+        yield from pages
+
+    monkeypatch.setattr(pull, "RAW_CSV", csv_path)
+    monkeypatch.setattr(pull, "build_session", lambda: None)
+    monkeypatch.setattr(pull, "iter_pages", fake_pages)
+    monkeypatch.setenv("FEC_API_KEY", "test")
+    return params_seen
+
+
+def test_a_pull_cut_off_part_way_is_redone_in_full_next_time(tmp_path, monkeypatch):
+    csv_path = _saved_committee(tmp_path)
+
+    def cut_off():
+        yield {"results": [], "pagination": {}}
+        raise KeyboardInterrupt
+
+    _pull_with(monkeypatch, csv_path, cut_off())
+    with pytest.raises(KeyboardInterrupt):
+        pull.run("C00000001", 2026)
+
+    # the newest date is saved, the older pages are not: no min_date this time
+    params_seen = _pull_with(monkeypatch, csv_path, [{"results": [], "pagination": {}}])
+    pull.run("C00000001", 2026)
+    assert "min_date" not in params_seen
+
+    # finished once, the next pull starts from the newest saved date again
+    params_seen = _pull_with(monkeypatch, csv_path, [{"results": [], "pagination": {}}])
+    pull.run("C00000001", 2026)
+    assert params_seen["min_date"] == "2026-07-01"
