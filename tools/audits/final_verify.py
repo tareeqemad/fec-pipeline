@@ -56,7 +56,13 @@ def main() -> int:
     n = pd.read_csv("data/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False)
     n["amt"] = pd.to_numeric(n.contribution_receipt_amount, errors="coerce").fillna(0)
     raw = pd.read_csv("data/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "committee_id", "contribution_receipt_date"], low_memory=False)
-    print("== rows: cleaned", len(n), "| raw", len(raw), "| same sub_ids:", set(n.sub_id) == set(raw.sub_id), "| dup sub_id:", int(n.sub_id.duplicated().sum()))
+    problems = []  # every check that must hold; any entry makes the exit code 1
+    same_ids, dup_ids = set(n.sub_id) == set(raw.sub_id), int(n.sub_id.duplicated().sum())
+    print("== rows: cleaned", len(n), "| raw", len(raw), "| same sub_ids:", same_ids, "| dup sub_id:", dup_ids)
+    if len(n) != len(raw) or not same_ids:
+        problems.append(f"cleaned rows {len(n)} / raw rows {len(raw)}, same sub_ids: {same_ids}")
+    if dup_ids:
+        problems.append(f"{dup_ids} duplicate sub_id(s)")
     d = pd.to_datetime(raw.contribution_receipt_date, errors="coerce")
     print("== latest date per committee:", raw.assign(d=d).groupby("committee_id").d.max().dt.date.to_dict())
 
@@ -66,7 +72,12 @@ def main() -> int:
     for step in ["enh_normalize_occupation_style", "enh_occupation_typo_fixes", "enh_employer_synonyms_final", "foreign_address_restore",
                  "safety_disambiguate_vague_occupation", "streets_trim_truncated", "donor_converge_occupation_within_employer"]:
         print(f"   {step}: {a['steps'].get(step, {}).get('changes')}")
-    print("   summary total == sum of steps:", a["changes"] == sum(v["changes"] for v in a["steps"].values()))
+    summed = a["changes"] == sum(v["changes"] for v in a["steps"].values())
+    print("   summary total == sum of steps:", summed)
+    if a["untracked_changes"]:
+        problems.append(f"{a['untracked_changes']} change(s) outside the audited steps")
+    if not summed:
+        problems.append("audit summary total differs from the sum of its steps")
     for occ in ["DEVELOPER", "REAL ESTATE DEVELOPER", "SOFTWARE DEVELOPER"]:
         print(f"   {occ}: {int((n.contributor_occupation == occ).sum())} rows")
     smith = n[n.donor_key == "34befe88f597"]
@@ -75,6 +86,8 @@ def main() -> int:
     print("   NEUBERGER latest:", neub.contributor_street_1, "|", neub.contributor_street_2, "|", neub.latitude, neub.longitude)
     chk = subprocess.run([sys.executable, "sync_rosters.py", "--check"], capture_output=True, text=True, encoding="utf-8", env={**os.environ, "PYTHONPATH": ".", "PYTHONIOENCODING": "utf-8"})
     print("== roster sync --check exit:", chk.returncode, "|", chk.stdout.strip().splitlines()[0] if chk.stdout.strip() else chk.stderr[-300:])
+    if chk.returncode:
+        problems.append(f"sync_rosters.py --check exited {chk.returncode}")
 
     # donor identity rules all applied
     rules = list(csv.DictReader(open("data/database/donor_identity_rules.csv", encoding="utf-8-sig", newline="")))
@@ -83,6 +96,8 @@ def main() -> int:
     dropped_present = [r["donor_key_b"] for r in merges if r["donor_key_b"] in keys]
     keep_missing = [r["donor_key_a"] for r in merges if r["donor_key_a"] not in keys]
     print("== identity rules:", len(rules), "| merges:", len(merges), "| dropped keys still present:", len(dropped_present), "| keep keys absent:", len(keep_missing))
+    if dropped_present or keep_missing:
+        problems.append(f"identity merges not applied: {len(dropped_present)} dropped key(s) present, {len(keep_missing)} kept key(s) absent")
     ind = n[n.entity_type == "INDIVIDUAL"]
     print("== donors: individuals", ind.donor_key.nunique(), "| all keys", n.donor_key.nunique())
     for who, key in [("SHEAR, HERBERT", "71bff575bdc1"), ("CAYRE, JOSEPH", "1bc54314d330"), ("COLLIS, STEVEN", "7d37f9b78787"), ("FRIEND, DONALD", "6ab402180935"), ("RUDY, DEBORAH", "e0a9ab832bb7")]:
@@ -102,7 +117,10 @@ def main() -> int:
     fm = foreign_address_mask(rawfull.reset_index()).to_numpy()
     nn = n.set_index("sub_id")
     ok = sum(1 for i in rawfull.index[fm] if all(str(rawfull.at[i, c]).strip() == str(nn.at[i, c]).strip() for c in ["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]))
-    print("   foreign:", int(fm.sum()), "| identical:", ok, "| with coords:", int((nn.loc[rawfull.index[fm], "latitude"] != "").sum()))
+    foreign_coords = int((nn.loc[rawfull.index[fm], "latitude"] != "").sum())
+    print("   foreign:", int(fm.sum()), "| identical:", ok, "| with coords:", foreign_coords)
+    if ok != int(fm.sum()) or foreign_coords:
+        problems.append(f"foreign rows: {int(fm.sum()) - ok} changed from the raw filing, {foreign_coords} geocoded")
     print("== contributor coords:", int((ind.latitude != "").sum()), "/", len(ind))
     addr = json.load(open("data/resolve_employer_addr.json"))
     manual = [k for k, v in addr.items() if str(v.get("method", "")).startswith("manual")]
@@ -112,11 +130,12 @@ def main() -> int:
     e = pd.read_csv("data/employer_locations.csv", dtype=str, keep_default_na=False)
     print("== employer_locations:", len(e), "rows | with coords:", int((e.employer_latitude != "").sum()))
     mrows = list(csv.DictReader(open("data/manual_employer_addresses.csv", encoding="utf-8", newline="")))
-    print("== manual_employer_addresses.csv:", len(mrows), "rows | today's:", sum(1 for r in mrows if "2026-09-22" in r["note"]), "| header ok:", list(mrows[0].keys())[0] == "name")
+    print("== manual_employer_addresses.csv:", len(mrows), "rows | header ok:", list(mrows[0].keys())[0] == "name")
 
-    if gate_problems:
-        print(f"\nFAIL: {len(gate_problems)} quality-gate problem(s) in {QUALITY_GATES_JSON} (rerun resolve.py --apply):")
-        for problem in gate_problems:
+    problems += [f"quality gates ({QUALITY_GATES_JSON}, rerun resolve.py --apply): {p}" for p in gate_problems]
+    if problems:
+        print(f"\nFAIL: {len(problems)} problem(s):")
+        for problem in problems:
             print("   -", problem)
         return 1
     return 0
