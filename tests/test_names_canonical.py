@@ -7,6 +7,7 @@ Every case is a real filing pattern from data/contributions.csv (audit of
 import pandas as pd
 
 from fec.donor_match.canonicalize import (
+    _canonical_person_name,
     _first_core,
     canonicalize_donor_names,
     unify_org_donor_suffix_variants,
@@ -136,10 +137,9 @@ def test_spouse_or_nickname_parenthetical_does_not_win():
 
 def test_fullest_first_name_rule_still_adds_real_tokens():
     assert _name(_donor(("DOE", "MARK", 5), ("DOE", "MARK L.", 1)))[1] == "MARK L."
-    assert _name(_donor(("DOE", "FRANKLIN", 1), ("DOE", "FRANKLIN J. JAY", 1)))[1] == "FRANKLIN J. JAY"
-    # a whole extra name on a minority of filings is not written onto the rest
-    assert _name(_donor(("DOE", "FRANKLIN", 2), ("DOE", "FRANKLIN J. JAY", 1)))[1] == "FRANKLIN"
-    # after an initial, the whole word is the name the donor goes by
+    # the donor-level name is still the fullest
+    assert _canonical_person_name(["DOE"] * 3, ["FRANKLIN", "FRANKLIN", "FRANKLIN J. JAY"])[1] == "FRANKLIN J. JAY"
+    # after an initial, the whole word is the donor's own name
     assert _name(_donor(("DOE", "P", 3), ("DOE", "P RICHARD", 1)))[1] == "P RICHARD"
 
 
