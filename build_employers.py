@@ -17,6 +17,7 @@ from fec.geocoding.pipeline import (
     is_po_box,
     numbered_street,
 )
+from fec.geocoding.reviewed_points import REVIEWED_POINTS
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
@@ -149,8 +150,10 @@ def _trust(method: str, state: str, donor_states: set[str]) -> tuple[str, str]:
 def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
     """Cached coordinates the key's own address accepts, with their level (a foreign office never takes a US match)."""
     cache = _read_json(DATA_DIR / "geocode_cache.json")
+    # a hand-checked point counts even when its key has no cache entry
+    keys = {**{key: None for key in REVIEWED_POINTS}, **cache}
     coordinates = {}
-    for key, result in cache.items():
+    for key, result in keys.items():
         parts = tuple(part.strip().upper() for part in key.split("|"))
         if len(parts) != 4:
             continue

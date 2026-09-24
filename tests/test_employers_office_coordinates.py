@@ -85,3 +85,16 @@ def test_a_point_its_own_key_rejects_is_never_taken(tmp_path, monkeypatch):
     location = _build(tmp_path, monkeypatch, geocodes)
 
     assert location["employer_latitude"] == "25.9565"
+
+
+def test_a_hand_checked_point_counts_without_a_cache_entry(tmp_path, monkeypatch):
+    # the prune step deletes unused cache keys; a reviewed point lives in the code
+    monkeypatch.setattr(build_employers, "REVIEWED_POINTS", {
+        f"20900 NE 30TH AVE|{PLACE}": (25.97, -80.145, "checked by hand"),
+    })
+    monkeypatch.setattr("fec.geocoding.pipeline.reviewed_point", lambda key: (
+        (25.97, -80.145) if key == f"20900 NE 30TH AVE|{PLACE}" else None))
+
+    location = _build(tmp_path, monkeypatch, {})
+
+    assert (location["employer_latitude"], location["employer_longitude"]) == ("25.97", "-80.145")
