@@ -149,6 +149,7 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     if null_emp.empty:
         return 0
 
+    dates = pd.to_datetime(df['contribution_receipt_date'], errors='coerce')
     n_fixed = 0
     for dk, missing in null_emp.groupby('donor_key'):
         all_recs = df[(df['donor_key'] == dk) & (df['entity_type'] == 'INDIVIDUAL')]
@@ -156,16 +157,31 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
                              & ~all_recs['contributor_employer'].isin(SKIP_EMPLOYERS)]
         if real_recs.empty:
             continue
+        real_recs = real_recs.assign(_date=dates.loc[real_recs.index]).sort_values(
+            '_date', na_position='first', kind='stable')
 
-        # latest-dated qualifying filing - closest in time = best estimate
-        main_emp = real_recs.sort_values(
-            'contribution_receipt_date', na_position='first'
-        )['contributor_employer'].iloc[-1]
-        df.loc[missing.index, 'contributor_employer'] = main_emp
-        df.loc[missing.index, 'occupation_status'] = 'DERIVED'
+        for index in missing.index:
+            df.at[index, 'contributor_employer'] = _employer_nearest_in_time(real_recs, dates.at[index])
+            df.at[index, 'occupation_status'] = 'DERIVED'
         n_fixed += len(missing)
 
     return n_fixed
+
+
+def _employer_nearest_in_time(real_recs: pd.DataFrame, when) -> str:
+    """The employer the donor filed last on or before `when`, else the first one after it.
+
+    real_recs is sorted by date. A filing with no date takes the latest employer.
+    """
+    if pd.notna(when):
+        dated = real_recs[real_recs['_date'].notna()]
+        before = dated[dated['_date'] <= when]
+        if not before.empty:
+            return before['contributor_employer'].iloc[-1]
+        after = dated[dated['_date'] > when]
+        if not after.empty:
+            return after['contributor_employer'].iloc[0]
+    return real_recs['contributor_employer'].iloc[-1]
 
 
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
@@ -200,31 +216,30 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
 
 
 def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
-    """Recover an employer from raw filings."""
+    """Recover an employer from the same donor's own raw filings (their sub_ids).
+
+    Only the donor's own filings count: two people with one name in one state
+    (a Los Angeles and a San Francisco COHEN, ROBERT) never share an employer.
+    """
     if not RAW_CSV.exists():
         return 0
 
     raw = pd.read_csv(
         RAW_CSV,
         dtype=str,
-        usecols=['contributor_name', 'contributor_state', 'contributor_employer'],
+        usecols=['sub_id', 'contributor_employer'],
         low_memory=False,
         keep_default_na=False,
     )
+    raw_employer = raw.drop_duplicates('sub_id').set_index('sub_id')['contributor_employer']
 
-    empty_rows = df[empty_mask]
-    empty_keys = {
-        str(r['contributor_name']).strip().upper() + '|' + str(r['contributor_state']).strip().upper()
-        for _, r in empty_rows.iterrows()
-    }
-
-    raw['_key'] = raw['contributor_name'].fillna('').str.strip().str.upper() + '|' + raw['contributor_state'].fillna('').str.strip().str.upper()
-    raw_matches = raw[raw['_key'].isin(empty_keys)]
+    donors = set(df.loc[empty_mask, 'donor_key'].dropna())
+    own = df[df['donor_key'].isin(donors)]
+    filed = own['sub_id'].astype(str).map(raw_employer)
 
     key_to_emp = {}
-    for key in empty_keys:
-        person = raw_matches[raw_matches['_key'] == key]
-        emps = person['contributor_employer'].fillna('').str.strip()
+    for donor_key, emps in filed.groupby(own['donor_key']):
+        emps = emps.fillna('').str.strip()
         emps_u = emps.str.upper()
 
         # sector/role/title/refusal words are blanked or converted upstream on
@@ -243,22 +258,20 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
                     & ~real_u.str.match(_JUNK_RE, na=False)
                     & ~real_u.str.match(_ADMIN_NOTE_RE, na=False)]
         if len(real) > 0:
-            key_to_emp[key] = real.value_counts().index[0]
+            key_to_emp[donor_key] = real.value_counts().index[0]
             continue
 
         # Try status word
         status = emps[emps_u.isin(RAW_STATUS_MAP.keys())]
         if len(status) > 0:
             raw_val = status.value_counts().index[0].upper()
-            key_to_emp[key] = RAW_STATUS_MAP.get(raw_val, raw_val)
+            key_to_emp[donor_key] = RAW_STATUS_MAP.get(raw_val, raw_val)
 
     n = 0
     for idx in df[empty_mask].index:
-        name = str(df.at[idx, 'contributor_name']).strip().upper()
-        state = str(df.at[idx, 'contributor_state']).strip().upper()
-        key = f'{name}|{state}'
-        if key in key_to_emp:
-            df.at[idx, 'contributor_employer'] = key_to_emp[key]
+        donor_key = df.at[idx, 'donor_key']
+        if donor_key in key_to_emp:
+            df.at[idx, 'contributor_employer'] = key_to_emp[donor_key]
             df.at[idx, 'occupation_status'] = 'DERIVED'   # recovered from donor's raw filings
             n += 1
 

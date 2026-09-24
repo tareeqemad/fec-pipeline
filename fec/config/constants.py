@@ -324,6 +324,7 @@ OCCUPATION_TITLE_EMPLOYERS = frozenset({
 # there is no second list to keep in sync. Lives in config (data, not logic)
 # because cleaning, resolve AND database all need it.
 NOT_REAL_EMPLOYER = frozenset({
+    "NO",
     "SELF",
     "SELF EMPL.", "SELF EMPL", "SELF-EMP", "SELF EMP",
     "UNKNOWN",

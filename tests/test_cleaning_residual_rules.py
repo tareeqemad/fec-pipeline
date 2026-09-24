@@ -430,3 +430,75 @@ def test_garbled_web_artifact_is_removed():
 
     assert _fix_web_artifact_occupation(df) == 1
     assert pd.isna(df.loc[0, 'contributor_occupation'])
+
+
+def test_employer_fill_takes_the_employer_of_that_time_not_a_later_one():
+    # HABER, JIMMY: BLT in 2024, JUNO from 2025; a blank 2024 filing is BLT
+    df = pd.DataFrame({
+        'donor_key': ['same'] * 4,
+        'entity_type': ['INDIVIDUAL'] * 4,
+        'contributor_employer': ['BLT RESTAURANT GROUP', pd.NA, 'JUNO INVESTMENTS', pd.NA],
+        'contributor_occupation': ['CEO'] * 4,
+        'occupation_category': ['EXECUTIVE / C-SUITE'] * 4,
+        'occupation_status': ['DISCLOSED', 'EMPLOYER_MISSING', 'DISCLOSED', 'EMPLOYER_MISSING'],
+        'contribution_receipt_date': ['2024-03-25', '2024-06-01', '2025-05-19', '2025-11-10'],
+    })
+
+    assert _fill_employer_from_donor(df) == 2
+    assert df['contributor_employer'].tolist() == [
+        'BLT RESTAURANT GROUP', 'BLT RESTAURANT GROUP', 'JUNO INVESTMENTS', 'JUNO INVESTMENTS']
+
+
+def test_employer_fill_before_any_employer_takes_the_first_one_after():
+    df = pd.DataFrame({
+        'donor_key': ['same'] * 3,
+        'entity_type': ['INDIVIDUAL'] * 3,
+        'contributor_employer': [pd.NA, 'FIRST CO', 'SECOND CO'],
+        'contributor_occupation': ['CEO'] * 3,
+        'occupation_category': ['EXECUTIVE / C-SUITE'] * 3,
+        'occupation_status': ['EMPLOYER_MISSING', 'DISCLOSED', 'DISCLOSED'],
+        'contribution_receipt_date': ['2022-01-01', '2023-01-01', '2024-01-01'],
+    })
+
+    _fill_employer_from_donor(df)
+    assert df.loc[0, 'contributor_employer'] == 'FIRST CO'
+
+
+def test_raw_employer_recovery_never_takes_a_namesakes_employer(tmp_path, monkeypatch):
+    from fec.cleaning.donor_consistency import employer as employer_module
+
+    raw = tmp_path / 'contributions.csv'
+    pd.DataFrame({
+        'sub_id': ['1', '2', '3'],
+        'contributor_name': ['COHEN, ROBERT'] * 3,
+        'contributor_state': ['CA'] * 3,
+        'contributor_employer': ['LOS ANGELES LAW GROUP', 'LOS ANGELES LAW GROUP', ''],
+    }).to_csv(raw, index=False)
+    monkeypatch.setattr(employer_module, 'RAW_CSV', raw)
+    # the San Francisco COHEN, ROBERT (another donor) files no employer at all
+    df = pd.DataFrame({
+        'sub_id': ['1', '2', '3'],
+        'donor_key': ['la', 'la', 'sf'],
+        'contributor_name': ['COHEN, ROBERT'] * 3,
+        'contributor_state': ['CA'] * 3,
+        'contributor_employer': ['LOS ANGELES LAW GROUP', 'LOS ANGELES LAW GROUP', pd.NA],
+        'occupation_status': ['DISCLOSED', 'DISCLOSED', 'EMPLOYER_MISSING'],
+    })
+
+    assert employer_module._fill_employer_from_raw(df, df['contributor_employer'].isna()) == 0
+    assert pd.isna(df.loc[2, 'contributor_employer'])
+
+
+def test_a_retiree_who_filed_no_as_employer_gets_no_previous_employer():
+    # GOLDSMITH, JOANNE filed employer 'NO', occupation RETIRED
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'],
+        'contributor_employer': ['NO'],
+        'contributor_occupation': ['RETIRED'],
+        'occupation_category': ['RETIRED'],
+        'previous_employer': [pd.NA],
+    })
+
+    _settle_retired_employer(df)
+    assert df.loc[0, 'contributor_employer'] == 'RETIRED'
+    assert pd.isna(df.loc[0, 'previous_employer'])
