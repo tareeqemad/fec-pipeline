@@ -1,7 +1,7 @@
 """Remove cache entries the current data no longer uses, proving the pipeline result is unchanged.
 
-  python prune_caches.py dry     -> writes pruned copies + report to scratchpad/cache/pruned/, touches nothing in data/
-  python prune_caches.py apply   -> same checks, then backs up data/ caches to scratchpad/cache/backup/ and writes the pruned files
+  python prune_caches.py dry   [repo] [out_dir] -> writes pruned copies + report to <out_dir>/pruned/, touches nothing in data/
+  python prune_caches.py apply [repo] [out_dir] -> same checks, then backs up data/ caches to <out_dir>/backup/ and writes the pruned files
 
 "Used" is decided by the pipeline's own functions:
   geocode_cache.json         keys built by geocode_addresses / geocode_employer_addresses / build_employers for the
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pandas as pd
 
-REPO = Path(r"C:\Users\PC\Desktop\fec-pipeline")
-OUT = Path(r"C:\Users\PC\AppData\Local\Temp\claude\C--Users-PC-Desktop-fec-pipeline\ed385f69-648b-4ef4-b621-6658f7a540a2\scratchpad\cache")
+REPO = Path(__file__).resolve().parents[2] if len(sys.argv) < 3 else Path(sys.argv[2])
+OUT = Path(sys.argv[3]) if len(sys.argv) > 3 else REPO.parent / "prune_caches_out"
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "."))
 
@@ -133,7 +133,52 @@ report = {
 for name, (before, after) in report.items():
     print(f"{name}: {before} -> {after}  (remove {before - after})")
 
-ok = all(v == 0 for v in diff.values()) and ekeys_full == ekeys_pruned and need_pruned == need_full
+# ---------- build_employers with the pruned geocode cache ----------
+import build_employers  # noqa: E402
+
+
+def built(geo_data):
+    tmp = OUT / "tmp_build"
+    tmp.mkdir(parents=True, exist_ok=True)
+    for name in ("resolve_employer_addr.json", "manual_employer_addresses.csv", "employer_locations.csv"):
+        shutil.copy(DATA / name, tmp / name)
+    (tmp / "geocode_cache.json").write_text(json.dumps(geo_data, ensure_ascii=False), encoding="utf-8")
+    saved = build_employers.DATA_DIR, build_employers.EMPLOYER_LOCATIONS_CSV
+    build_employers.DATA_DIR, build_employers.EMPLOYER_LOCATIONS_CSV = tmp, tmp / "employer_locations.csv"
+    try:
+        locations, _review = build_employers.build_locations(df.copy())
+    finally:
+        build_employers.DATA_DIR, build_employers.EMPLOYER_LOCATIONS_CSV = saved
+    return locations
+
+
+# every key build_employers looks an office up under is used (the office's raw,
+# normalised, donor-form and bare-street spellings)
+looked_up = set()
+_original_geocodes = build_employers._geocodes
+
+
+class _Recording(dict):
+    def get(self, key, default=None):
+        looked_up.add(tuple(key))
+        return super().get(key, default)
+
+
+build_employers._geocodes = lambda: _Recording(_original_geocodes())
+built_full = built(geo)
+build_employers._geocodes = _original_geocodes
+extra = {k: v for k, v in geo.items()
+         if k not in geo_keep and tuple(part.strip().upper() for part in k.split("|")) in looked_up}
+print("geocode keys kept because build_employers looks them up:", len(extra))
+geo_keep.update(extra)
+built_pruned = built(geo_keep)
+norm = lambda frame: frame.astype(object).where(frame.notna(), "").astype(str).reset_index(drop=True)
+same_build = norm(built_full).equals(norm(built_pruned))
+print("build_employers output identical with the pruned geocode cache:", same_build)
+
+report["geocode_cache.json"] = (len(geo), len(geo_keep))
+print("geocode_cache.json final:", len(geo), "->", len(geo_keep))
+ok = all(v == 0 for v in diff.values()) and ekeys_full == ekeys_pruned and need_pruned == need_full and same_build
 print("VERIFIED:", ok)
 
 target = OUT / "pruned"
@@ -155,3 +200,11 @@ if mode == "apply":
         shutil.copy(DATA / name, backup / name)
         shutil.copy(target / name, DATA / name)
     print("applied; backups in", backup)
+
+if not same_build:
+    a, b = norm(built_full), norm(built_pruned)
+    print("shapes", a.shape, b.shape)
+    if a.shape == b.shape:
+        rows = (a != b).any(axis=1)
+        print("rows differing:", int(rows.sum()))
+        print(pd.concat([a[rows].head(8), b[rows].head(8)]).to_string())
