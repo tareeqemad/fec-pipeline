@@ -47,7 +47,7 @@ def test_editorial_notes_in_parentheses_are_dropped():
 
     streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
 
-    assert streets == ["PO BOX 1000", "200 LIBERTY ST 6TH FLOOR", "1211 SW 5TH AVE STE 2700",
+    assert streets == ["PO BOX 1000", "200 LIBERTY ST FL 6", "1211 SW 5TH AVE STE 2700",
                        "400 N CAPITOL ST NW"]
 
 
@@ -59,7 +59,7 @@ def test_nothing_in_front_of_the_suite_is_lost():
 
     streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
 
-    assert streets == ["ONE KENDALL SQ BUILDING 600 STE 380", "666 THIRD AVE FLOOR 24 STE 2402"]
+    assert streets == ["ONE KENDALL SQ BUILDING 600 STE 380", "666 THIRD AVE FL 24 STE 2402"]
 
 
 def test_foreign_addresses_stay_exactly_as_given():
@@ -151,5 +151,36 @@ def test_real_unit_codes_are_still_abbreviated():
     assert abbreviate("7030 S YALE AVE SUITE E-100") == "7030 S YALE AVE STE E-100"
     assert abbreviate("848 BRICKELL AVE SUITE 2A") == "848 BRICKELL AVE STE 2A"
     assert abbreviate("11610 ASH ST SUITE 200") == "11610 ASH ST STE 200"
-    # a spelled-out unit is left alone rather than guessed at
-    assert abbreviate("175 STRAFFORD AVE SUITE ONE") == "175 STRAFFORD AVE SUITE ONE"
+
+
+def test_unit_designators_take_the_usps_form():
+    # USPS Publication 28: the designator is abbreviated and comes first, the identifier
+    # is kept as written. A spelled ordinal before FLOOR is the floor's number; a word
+    # after SUITE is not guessed at ('SUITE ONE' -> 'STE ONE', never 'STE 1').
+    frame = _frame([
+        ("A", "450 Seventh Avenue, 10th Floor", "New York", "NY", "10123"),
+        ("B", "9460 Wilshire Blvd, Seventh Floor", "Beverly Hills", "CA", "90212"),
+        ("C", "399 Park Avenue, 25th Floor, Suite 2502", "New York", "NY", "10022"),
+        ("D", "11160 Warner Ave, Suite #211", "Fountain Valley", "CA", "92708"),
+        ("E", "3350 SW 148th Ave, Suite 110 #353", "Miramar", "FL", "33027"),
+        ("F", "175 Strafford Ave, Suite One", "Wayne", "PA", "19087"),
+        ("G", "1 Main St, Floor 3", "Boston", "MA", "02108"),
+        # the house number and a street named after a floor word are not units
+        ("H", "100 Second Floor Rd", "Albany", "NY", "12207"),
+        ("I", "1 Suite St", "Albany", "NY", "12207"),
+    ])
+
+    streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
+
+    assert streets == [
+        "450 SEVENTH AVE FL 10",
+        "9460 WILSHIRE BLVD FL 7",
+        "399 PARK AVE FL 25 STE 2502",
+        "11160 WARNER AVE STE 211",
+        "3350 SW 148TH AVE STE 110 #353",
+        "175 STRAFFORD AVE STE ONE",
+        "1 MAIN ST FL 3",
+        "100 SECOND FLOOR RD",
+        "1 SUITE ST",
+    ]
+    assert not any(word in street.split() for street in streets[:7] for word in ("FLOOR", "SUITE"))

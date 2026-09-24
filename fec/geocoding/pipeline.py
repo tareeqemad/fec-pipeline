@@ -2,6 +2,7 @@
 
 import math
 import re
+import statistics
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +25,9 @@ from .engines import (
     nominatim_international,
     nominatim_within,
 )
+from .places import distance_km as _distance_km
+from .places import in_us_bounds as _in_us_bounds
+from .places import valid_for_state as _valid_for_state
 from .reviewed_points import is_reviewed_zip_typo
 
 logger = get_logger(__name__)
@@ -50,6 +54,8 @@ STREET_LEVEL_SOURCES = frozenset({"census", "nominatim", "google"})
 _STREET_ZIP_SPREAD = 2.5
 _STREET_ZIP_FLOOR_KM = 5.0
 _ZIP_NEIGHBOUR_RANK = 3
+# a ZIP without a centroid is placed by this many nearest-numbered ZIPs of its 3-digit area
+_ZIP_AREA_NEIGHBOURS = 4
 # two engines' points for one address this close together are the same place
 # (Census address ranges vs OSM: 0.01-0.7 km apart for the 2026-09-23 typos)
 _ENGINES_AGREE_KM = 1.0
@@ -124,22 +130,6 @@ def _numbered_streets(streets: pd.Series) -> pd.Series:
     return streets.map(numbered_street)
 
 
-def _in_us_bounds(lat: float, lng: float) -> bool:
-    """True if coords fall in any US state/territory bbox (+1 deg margin) -- the global US guard."""
-    for lat_min, lat_max, lng_min, lng_max in _STATE_BOUNDS.values():
-        if lat_min - 1 <= lat <= lat_max + 1 and lng_min - 1 <= lng <= lng_max + 1:
-            return True
-    return False
-
-
-def _valid_for_state(lat: float, lng: float, state: str) -> bool:
-    """True if coords are plausible for the given US state (1 deg border margin)."""
-    if not state or state not in _STATE_BOUNDS:
-        return _in_us_bounds(lat, lng)  # unknown state: accept only if inside the US
-    lat_min, lat_max, lng_min, lng_max = _STATE_BOUNDS[state]
-    return (lat_min - 1 <= lat <= lat_max + 1) and (lng_min - 1 <= lng <= lng_max + 1)
-
-
 def is_po_box(street: str) -> bool:
     return bool(_PO_BOX_RE.match(street.strip()))
 
@@ -200,15 +190,6 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
         str(row.zip).zfill(5): (float(row.lat), float(row.lng))
         for row in rows.itertuples()
     }
-
-
-def _distance_km(first: tuple[float, float], second: tuple[float, float]) -> float:
-    lat1, lng1 = map(math.radians, first)
-    lat2, lng2 = map(math.radians, second)
-    dlat, dlng = lat2 - lat1, lng2 - lng1
-    value = math.sin(dlat / 2) ** 2
-    value += math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    return 6371 * 2 * math.asin(math.sqrt(value))
 
 
 def _far_from_zip(lat: float, lng: float, zipcode: str) -> bool:
@@ -273,6 +254,27 @@ def _zip_point(zipcode: str, state: str) -> tuple[float, float] | None:
     if point is None or not _valid_for_state(point[0], point[1], state):
         return None
     return point
+
+
+def _zip_area_point(zipcode: str, state: str) -> tuple[float, float] | None:
+    """Where the filed ZIP lies, to tell same-name towns apart: its centroid, or for a ZIP
+    without one (PO-box-only and unique ZIPs: 94141, 78711, 20859) the median of the
+    nearest-numbered ZIP centroids of its 3-digit area inside the filed state (20859's
+    neighbours are Potomac and Rockville, not Potomac in Allegany County). None without a ZIP.
+    """
+    point = _zip_point(zipcode, state)
+    if point is not None or not re.fullmatch(r"\d{5}", zipcode or ""):
+        return point
+    number = int(zipcode)
+    neighbours = sorted(
+        (abs(int(other) - number), lat, lng)
+        for other, (lat, lng) in _zip_centroids().items()
+        if other[:3] == zipcode[:3] and _valid_for_state(lat, lng, state)
+    )[:_ZIP_AREA_NEIGHBOURS]
+    if not neighbours:
+        return None
+    return (statistics.median(lat for _gap, lat, _lng in neighbours),
+            statistics.median(lng for _gap, _lat, lng in neighbours))
 
 
 def _zip_replaces_city(city_point: tuple[float, float], zip_point: tuple[float, float],
@@ -350,40 +352,70 @@ def prefer_zip_centroids(keys, cache: GeoCache) -> int:
     return changed
 
 
+# _lookup_reason value for a cached town pin that only needs the one-time town re-check
+_TOWN_CHECK = "town_check"
+
+
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
+    return _lookup_reason(key, cache) is not None
+
+
+def _lookup_reason(key: str, cache: GeoCache) -> str | None:
+    """Why a key is looked up (again) this run, or None when its cached entry stands."""
     if cache.needs_retry(key):
-        return True
+        return "uncached"
 
     entry = cache.get(key) or {}
     source = entry.get("source")
     if source == "manual_census":
-        return False
+        return None
     if is_reviewed_zip_typo(key) and source in STREET_LEVEL_SOURCES and entry.get("lat") is not None:
-        return False  # checked by hand: the point is right, the filed ZIP is the typo
+        return None  # checked by hand: the point is right, the filed ZIP is the typo
     if source == "not_found":
-        return not entry.get("validated")
+        return None if entry.get("validated") else "unvalidated_not_found"
     if is_foreign_key(key):
         # a foreign office cached with a US match is looked up again, internationally
-        return entry.get("lat") is not None and (entry.get("country") or "US") == "US"
+        if entry.get("lat") is not None and (entry.get("country") or "US") == "US":
+            return "us_match_for_foreign"
+        return None
     if entry.get("country", "US") != "US" or entry.get("lat") is None:
-        return False
+        return None
 
     street, _city, state, zipcode = key.split("|")
     if state not in _STATE_BOUNDS:
-        return False
+        return None
     lat, lng = float(entry["lat"]), float(entry["lng"])
     # a street-level result outside its ZIP that no run has checked against the
     # filed ZIP and city yet (validated results from before the ZIP check included)
     if _unchecked_outside_zip(key, entry, lat, lng, zipcode):
-        return True
+        return "outside_zip"
     if source == "census":
-        return False
+        return None
     far_from_zip = _far_from_zip(lat, lng, zipcode)
     if entry.get("validated"):
-        return source == "nominatim_city" and not is_po_box(street) and far_from_zip
-    if not far_from_zip:
-        return False
-    return True
+        if source == "nominatim_city" and not is_po_box(street) and far_from_zip:
+            return "far_from_zip"
+    elif far_from_zip:
+        return "far_from_zip"
+    if _town_check_due(entry, state, zipcode):
+        return _TOWN_CHECK
+    return None
+
+
+def _town_check_due(entry: dict, state: str, zipcode: str) -> bool:
+    """A town-level pin cached before the settlement-only town search, in a ZIP without a centroid to hold it.
+
+    The old free-text query put these on a POI named '... USA', a county, a road or
+    the next city (Lego Miniland in Carlsbad for SAN FRANCISCO 94141, North Little
+    Rock for LITTLE ROCK 72217), and nothing checked them: a PO-box-only or unique
+    ZIP (or none filed) has no centroid for the ZIP rules to compare with. Each is
+    looked up once more; the answer is stored with town_checked. A pin in a ZIP with
+    a centroid is already held inside that ZIP by prefer_zip_centroids and the
+    fallback's ZIP rules, so it is not re-checked.
+    """
+    return (entry.get("source") == "nominatim_city"
+            and not entry.get("town_checked")
+            and _zip_point(zipcode, state) is None)
 
 
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
@@ -514,28 +546,40 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
         "failed": 0,
         "transient": 0,
         "city": 0,
+        "town_kept": 0,
     }
     start = time.time()
+    # the one-time town re-check replaces a working pin only with a better one
+    town_rechecks = {key for key in todo if _lookup_reason(key, cache) == _TOWN_CHECK}
 
     for done, key in enumerate(todo, 1):
         street, city, state, zipcode = key.split("|")
+        recheck = key in town_rechecks
 
         try:
             lat, lng, country, source = _geocode_one(
                 street, city, state, zipcode,
             )
         except NominatimUnavailable as error:
-            cache.put_transient(key)
+            if not recheck:  # a re-checked pin stays as it is and is re-checked next run
+                cache.put_transient(key)
             stats["transient"] += 1
             logger.debug("Geocoding unavailable for %s: %s", key, error)
             continue
 
-        if lat is not None:
+        if lat is not None and not (recheck and (country or "US") != "US"):
             # every result written here passed the ZIP / foreign checks in _geocode_one
-            cache.put(key, lat, lng, source, country, validated=True, zip_checked=True)
+            cache.put(key, lat, lng, source, country, validated=True, zip_checked=True,
+                      town_checked=True)
             stats["found"] += 1
             if source in {"nominatim_city", "zip_centroid"}:
                 stats["city"] += 1
+        elif recheck:
+            # no town of that name found (JAMAICA NY is no OSM settlement): keep the
+            # old pin rather than erase it or move a US filing abroad
+            cache.mark_town_checked(key)
+            stats["town_kept"] += 1
+            logger.debug("Town re-check found nothing better for %s: cached pin kept", key)
         else:
             cache.put_failed(key, validated=True)
             stats["failed"] += 1
@@ -571,16 +615,18 @@ class _Locality:
         self.state = state
         self.zipcode = zipcode
         self.zip_point = _zip_point(zipcode, state)
+        self.zip_area = self.zip_point or _zip_area_point(zipcode, state)
         self._city_points: dict[str, tuple | None] = {}
 
     def city_point(self, zipcode: str = "") -> tuple | None:
-        """(lat, lng, country) Nominatim gives for the filed city (optionally with a ZIP), inside the filed state."""
+        """(lat, lng, country) of the filed town itself (a settlement of that name, inside the filed state; see engines.city_level), optionally searched with the filed ZIP."""
         if zipcode not in self._city_points:
-            lat, lng, country = city_level(self.city, self.state, zipcode)
-            time.sleep(NOMINATIM_DELAY)
             point = None
-            if lat and _valid_for_state(lat, lng, self.state):
-                point = (lat, lng, country)
+            if self.city:
+                lat, lng, country = city_level(self.city, self.state, zipcode, self.zip_area)
+                time.sleep(NOMINATIM_DELAY)
+                if lat is not None and _valid_for_state(lat, lng, self.state):
+                    point = (lat, lng, country)
             self._city_points[zipcode] = point
         return self._city_points[zipcode]
 
@@ -669,10 +715,15 @@ def _resolve_outside_zip(street: str, locality: _Locality, outside: list[tuple])
 
 def _fallback(locality: _Locality, require_zip_match: bool = False,
               po_box: bool = False) -> tuple | None:
-    """City-level fallback: the filed ZIP's centroid when _zip_replaces_city allows, else the city point; None on a city/ZIP conflict when require_zip_match."""
+    """City-level fallback: the filed ZIP's centroid when _zip_replaces_city allows, else the town's point; None on a city/ZIP conflict when require_zip_match.
+
+    The ZIP is part of the town search only when it has a centroid: OSM does not know
+    PO-box-only and unique ZIPs (94141, 78711). With no centroid to test against, the
+    town's own settlement point is the pin (a PO box sits at the post office, in the town).
+    """
     zip_point = locality.zip_point
     conflicting = None
-    for zip_code in ([locality.zipcode, ""] if locality.zipcode else [""]):
+    for zip_code in ([locality.zipcode, ""] if zip_point is not None else [""]):
         point = locality.city_point(zip_code)
         if point is None:
             continue
@@ -715,7 +766,7 @@ def _geocode_one(street, city, state, zipcode):
         result = _fallback(locality, po_box=True)
         if result:
             return result
-        return _geocode_international(street, city)
+        return _geocode_abroad_unless_us_zip(street, city, locality)
 
     if street:
         street = _clean_street_for_geocoding(street)
@@ -753,7 +804,7 @@ def _geocode_one(street, city, state, zipcode):
         return result
 
     # a foreign address mislabeled with a US state is kept and flagged, not dropped
-    return _geocode_international(street, city)
+    return _geocode_abroad_unless_us_zip(street, city, locality)
 
 
 def _geocode_foreign(street, city, state, zipcode):
@@ -769,6 +820,16 @@ def _geocode_foreign(street, city, state, zipcode):
         if lat is not None and country_code and country_code != "US":
             return lat, lng, country_code, level
     return None, None, None, "not_found"
+
+
+def _geocode_abroad_unless_us_zip(street, city, locality: _Locality):
+    """The international last resort, skipped when the filed ZIP lies in the filed state.
+
+    Such a filing is in the US even when its town is not found: JAMAICA NY is no OSM
+    settlement, and 'PO BOX 5, JAMAICA' searched abroad is the island."""
+    if locality.zip_area is not None:
+        return None, None, None, "not_found"
+    return _geocode_international(street, city)
 
 
 def _geocode_international(street, city):
@@ -792,3 +853,5 @@ def _print_summary(todo: list, stats: dict, elapsed: float) -> None:
         logger.info(f"  Retry later: {stats['transient']:,}")
     if stats["city"]:
         logger.info(f"  City-level:  {stats['city']:,}")
+    if stats.get("town_kept"):
+        logger.info(f"  Town re-check kept the cached pin: {stats['town_kept']:,}")

@@ -204,6 +204,43 @@ def resolve_cache_entry(
     return lookup.get(exact) or lookup.get(canonical_key(exact))
 
 
+def _publishable_signatures(entry: dict | None) -> set[tuple[str, ...]]:
+    return {
+        _signature(location)
+        for location in location_candidates(entry)
+        if is_publishable_location(location)
+    }
+
+
+def publishable_first_entry(
+    publishable_lookup: dict[str, dict],
+    lookup: dict[str, dict],
+    employer_name: str,
+) -> tuple[dict | None, bool]:
+    """The entry resolve's apply step uses, else the full lookup's entry.
+
+    ``publishable_lookup`` is ``address_cache_lookup(cache, publishable_only=True)``
+    (what apply.py resolves with) and ``lookup`` the full ``address_cache_lookup(cache)``.
+    The full lookup lets an exact closed-book answer hide a grounded canonical sibling
+    ('SCOTT FANE,CPA PA' vs 'SCOTT FANE CPA PA') and calls a group with a closed-book
+    sibling at another address ambiguous; the publishable lookup filters closed-book
+    answers first, so it finds the grounded address.
+
+    Returns ``(entry, changed)``: ``changed`` is True only when the publishable
+    lookup found publishable addresses the full lookup's entry does not have, so
+    the caller can check that answer before publishing it. A blocker
+    (ai_not_found, manual_invalid, manual_review) is never overruled here.
+    """
+    entry = resolve_cache_entry(lookup, employer_name)
+    trusted = resolve_cache_entry(publishable_lookup, employer_name)
+    if not isinstance(trusted, dict) or trusted.get("method") in _CACHE_BLOCK_METHODS:
+        return entry, False
+    signatures = _publishable_signatures(trusted)
+    if not signatures or _publishable_signatures(entry) == signatures:
+        return entry, False
+    return trusted, True
+
+
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
     path = PROJECT_ROOT / "data" / "database" / "zip_centroids.csv"
@@ -218,6 +255,11 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
             except (KeyError, TypeError, ValueError):
                 continue
     return centroids
+
+
+def zip_centroid(zipcode: str) -> tuple[float, float] | None:
+    """The 5-digit ZIP's centroid, or None when it has none."""
+    return _zip_centroids().get(_text(zipcode)[:5])
 
 
 def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:

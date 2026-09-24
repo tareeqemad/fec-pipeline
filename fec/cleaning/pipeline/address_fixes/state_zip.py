@@ -33,6 +33,7 @@ def _load_zcta_to_state() -> dict[str, str]:
     return dict(zip(zcta_df['zcta5'], state_codes))
 
 
+@lru_cache(maxsize=1)
 def _load_zip3_to_state() -> dict[str, str]:
     """ZIP3 prefix to state, fallback for non-ZCTA ZIPs (PO-box-only / unique) missing from the crosswalk."""
     crosswalk = _read_crosswalk()
@@ -65,6 +66,19 @@ def _load_zip3_to_state() -> dict[str, str]:
         if below and above and below == above:
             out[prefix] = below
     return out
+
+
+def zip_state(zip5: str) -> str:
+    """State of a 5-digit ZIP: the ZCTA crosswalk first, else its ZIP3 prefix; '' when unknown."""
+    zip5 = str(zip5 or '')
+    if len(zip5) != 5 or not zip5.isdigit():
+        return ''
+    return _load_zcta_to_state().get(zip5) or _load_zip3_to_state().get(zip5[:3], '')
+
+
+def is_zcta(zip5: str) -> bool:
+    """True for a ZIP with a Census ZCTA, i.e. an area ZIP of street addresses; PO-box-only ZIPs (20859 Potomac) have none."""
+    return str(zip5 or '') in _load_zcta_to_state()
 
 
 def _fix_impossible_city_states(df: pd.DataFrame) -> int:
