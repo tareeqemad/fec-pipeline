@@ -116,29 +116,6 @@ def test_no_state_from_any_source_leaves_the_row_as_filed(monkeypatch):
     assert _place(out, '0')[2:] == ('ALBANY', 'NY', '12230')
 
 
-def test_typed_state_before_the_zip_is_used_and_removed():
-    df = _frame([
-        ('AMIR', 'AGAM', '14638 TUDOR DRIVE ENCINO CA 91436', '', 'ROCHESTER', 'NY', '14638'),
-        *_others('ENCINO', 'CA', '91436'),
-    ])
-    assert _place(_clean(df), '0') == ('14638 TUDOR DR', '', 'ENCINO', 'CA', '91436')
-
-
-def test_typed_state_that_contradicts_the_zip_is_not_used_nor_kept_in_the_city():
-    df = _frame([
-        ('AMIR', 'AGAM', '14638 TUDOR DRIVE ENCINO NY 91436', '', 'ROCHESTER', 'NY', '146380001'),
-        ('ANN', 'SMITH', '14638 TUDOR DRIVE ENCINO NY 91436', '', 'ROCHESTER', 'NY', '146380001'),
-        *_others('ENCINO', 'CA', '91436'),
-    ])
-    out = _clean(df)
-    assert _place(out, '0') == ('14638 TUDOR DR', '', 'ENCINO', 'CA', '91436')
-    # the same with no filing naming ENCINO at 91436: the city still stops before NY
-    df = _frame([
-        ('AMIR', 'AGAM', '14638 TUDOR DRIVE ENCINO NY 91436', '', 'ROCHESTER', 'NY', '146380001'),
-    ])
-    assert _place(_clean(df), '0') == ('14638 TUDOR DR', '', 'ENCINO', 'CA', '91436')
-
-
 def test_janis_cut_off_street2_place_is_completed_from_widely_filed_place():
     df = _frame([
         ('MARTIN', 'JANIS', '11425 TWINING LANE 11425 TWINING L', 'POTO 2085', 'JAMAICA', 'NY', '114250001'),
@@ -196,11 +173,17 @@ def test_house_number_zip_without_typed_place_or_unit_street2_is_untouched():
     assert _place(out, '1') == ('14638 TUDOR DR', 'APT 950', 'ROCHESTER', 'NY', '14638')
 
 
-def test_street_type_marks_the_city_when_no_filing_attests_it():
+def test_city_no_filing_names_at_the_zip_leaves_the_row_as_filed():
+    # the city/street split is read from the city names filed at the typed ZIP;
+    # with none (or a typed state in the way) nothing is guessed
     df = _frame([
         ('ANN', 'SMITH', '14638 TUDOR DRIVE NEW TOWNVILLE 91436', '', 'ROCHESTER', 'NY', '146380001'),
+        ('BOB', 'JONES', '14638 TUDOR DRIVE ENCINO CA 91436', '', 'ROCHESTER', 'NY', '146380001'),
+        *_others('ENCINO', 'CA', '91436'),
     ])
-    assert _place(_clean(df), '0') == ('14638 TUDOR DR', '', 'NEW TOWNVILLE', 'CA', '91436')
+    out = _clean(df)
+    assert _place(out, '0')[2:] == ('ROCHESTER', 'NY', '14638')
+    assert _place(out, '1')[2:] == ('ROCHESTER', 'NY', '14638')
 
 
 def test_changes_are_recorded_by_the_steps_that_own_the_fields():
@@ -235,11 +218,6 @@ def test_changes_are_recorded_by_the_steps_that_own_the_fields():
 ])
 def test_drop_repeated_street(street, expected):
     assert _drop_repeated_street(street) == expected
-
-
-def test_normalize_street_drops_the_cut_copy_of_the_street():
-    assert _normalize_street('11425 TWINING LANE 11425 TWINING L') == '11425 TWINING LN'
-    assert _normalize_street('206 CARRIAGE LN, 206 CARRIAGE LN') == '206 CARRIAGE LN'
 
 
 def test_zip_state_and_zcta_helpers():

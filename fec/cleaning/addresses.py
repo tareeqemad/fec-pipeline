@@ -13,7 +13,6 @@ from fec.config.cities import (
     CITY_ZIP3_NORMALIZE,
     expand_city_abbreviations,
 )
-from fec.config.geography import US_STATES
 from fec.config.streets import (
     POBOX_RE, DIR_PREFIX, DIR_SUFFIX, DIR_MID, STREET_TYPES,
     UNIT_RULES, UNIT_EXTRACT, HASH_EXTRACT, STREET_TYPO_RULES,
@@ -130,7 +129,7 @@ def _move_floor_only_street(df: pd.DataFrame) -> int:
 
 # ZIP box holding the house number
 #
-# Some filings reach FEC with the house number in the ZIP box (ZIP = house
+# A few filings reach FEC with the house number in the ZIP box (ZIP = house
 # number + '0001', or the bare 5-digit house number) and the real "<CITY> <ZIP>"
 # typed at the end of street_1 ("12230 HOLLOW ROAD KAMAS 84036") or in street_2
 # ("POTO 2085", cut by the field length). The city and state on those filings
@@ -144,24 +143,18 @@ HOUSE_ZIP_ZIP = '_house_zip_zip'
 _HOUSE_ZIP_COLUMNS = (HOUSE_ZIP_CITY, HOUSE_ZIP_STATE, HOUSE_ZIP_ZIP)
 
 _LEADING_HOUSE_NUMBER_RE = re.compile(r'^(\d{3,5})\s')
-_TAIL_ZIP_RE = re.compile(r'^(\d{5})(?:-?\d{4})?$')
-_STREET2_PLACE_RE = re.compile(r"^([A-Z][A-Z .'-]*[A-Z])[\s,]+(\d{3,5})$")
-# a street type ends the street, so the words after it are the typed city
-_PLACE_BOUNDARY_TYPES = frozenset({
-    'ST', 'STREET', 'AVE', 'AVENUE', 'RD', 'ROAD', 'BLVD', 'BOULEVARD', 'DR',
-    'DRIVE', 'LN', 'LANE', 'CT', 'COURT', 'CIR', 'CIRCLE', 'PL', 'PLACE',
-    'PKWY', 'PARKWAY', 'HWY', 'HIGHWAY', 'TER', 'TERRACE', 'TRL', 'TRAIL',
-    'WAY', 'SQ', 'SQUARE', 'LOOP', 'PATH', 'ROW', 'PIKE', 'TPKE',
-})
-_UNIT_WORDS = frozenset({
-    'APT', 'APARTMENT', 'STE', 'SUITE', 'UNIT', 'BLDG', 'FL', 'FLR', 'FLOOR',
-    'RM', 'ROOM', 'PH', 'LOT', 'SPC', 'SPACE', 'BOX', 'PMB', 'NO', 'DEPT',
-    'OFFICE', 'TRLR',
-})
-_MAX_CITY_WORDS = 4
+# '<house> <street words> <city words> <ZIP5>[-ZIP4]'; the city/street split is
+# decided by the city names filed at that ZIP
+_STREET1_PLACE_RE = re.compile(r'^(\d{3,5} .*[A-Z].*?),? (\d{5})(?:-?\d{4})?$')
+_STREET2_PLACE_RE = re.compile(r'^([A-Z]{3,}(?: [A-Z]+)*),? (\d{4,5})$')
+_MAX_CITY_WORDS = 3
 # a cut-off city ('POTO' + '2085') is completed only from a city/state/ZIP that
 # this many different people file, so no single person's address is copied
 _MIN_PLACE_FILERS = 3
+# a typed street of only these words ('12230 RD') names no street to match
+_STREET_WORDS_ONLY = frozenset(abbr for _pattern, abbr in STREET_TYPES) | {
+    'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW',
+}
 
 
 def _upper_text(df: pd.DataFrame, column: str) -> pd.Series:
@@ -172,8 +165,12 @@ def _upper_text(df: pd.DataFrame, column: str) -> pd.Series:
     return values.where(values.notna(), '').astype(str).str.strip().str.upper()
 
 
+def _person_key(df: pd.DataFrame) -> pd.Series:
+    return _upper_text(df, 'contributor_first_name') + '\x00' + _upper_text(df, 'contributor_last_name')
+
+
 class _FiledPlaces:
-    """City / state / ZIP5 combinations the other filings use: which city names exist at a ZIP and which state one person files them under."""
+    """City / state / ZIP5 of the other filings: which city names exist at a ZIP (anyone's filings) and the state and street one person files there (that person's own)."""
 
     def __init__(self, df: pd.DataFrame, exclude: pd.Series):
         zip5, _n_invalid = _clean_zip_raw(df['contributor_zip'])
@@ -181,59 +178,46 @@ class _FiledPlaces:
             'city': _upper_text(df, 'contributor_city').str.rstrip('.,'),
             'state': _upper_text(df, 'contributor_state'),
             'zip5': zip5.fillna('').astype(str),
-            'person': _upper_text(df, 'contributor_first_name') + '\x00'
-                      + _upper_text(df, 'contributor_last_name'),
+            'person': _person_key(df),
             'street': _upper_text(df, 'contributor_street_1'),
         })
         self.frame = frame[~exclude & (frame['city'] != '') & (frame['zip5'] != '')]
         self.city_zips = set(zip(self.frame['city'], self.frame['zip5']))
-        self.filers = (
-            self.frame[self.frame['state'] != '']
-            .groupby(['city', 'state', 'zip5'])['person'].nunique()
-        )
 
     def attested(self, city: str, zip5: str) -> bool:
         return (city, zip5) in self.city_zips
 
     def _own_rows(self, person: str, city: str, zip5: str) -> pd.DataFrame:
-        if person.strip('\x00') == '':
-            return self.frame.iloc[0:0]
-        rows = self.frame[(self.frame['person'] == person) & (self.frame['city'] == city)]
-        return rows[rows['zip5'] == zip5] if zip5 else rows
+        frame = self.frame
+        return frame[(frame['person'] == person) & (frame['city'] == city) & (frame['zip5'] == zip5)]
 
     def own_state(self, person: str, city: str, zip5: str) -> str:
-        """The single state this person files the city (and ZIP) under; '' when none or several."""
+        """The single state this person files the city and ZIP under; '' when none or several."""
         states = set(self._own_rows(person, city, zip5)['state']) - {''}
         return states.pop() if len(states) == 1 else ''
 
-    def own_street(self, person: str, city: str, zip5: str, street: str) -> str:
-        """The person's own street at the same city/ZIP and house number of which the typed street is the end ('12230 BONE HOLLOW RD' for '12230 HOLLOW ROAD'); '' unless exactly one fits."""
-        typed = _normalize_street(street)
-        if pd.isna(typed) or ' ' not in typed:
+    def own_street(self, person: str, city: str, zip5: str, typed: str) -> str:
+        """The person's own street at the city/ZIP with the same house number that ends with the typed street ('12230 BONE HOLLOW RD' for '12230 HOLLOW RD'); '' unless exactly one fits."""
+        house, _space, rest = typed.partition(' ')
+        if not set(rest.split()) - _STREET_WORDS_ONLY:
             return ''
-        house, rest = typed.split(' ', 1)
-        if all(word in _PLACE_BOUNDARY_TYPES or word in _DIRECTION_TOKENS for word in rest.split()):
-            return ''
-        fits = set()
-        for own in set(self._own_rows(person, city, zip5)['street']):
-            own_normalized = _normalize_street(own)
-            if pd.isna(own_normalized):
-                continue
-            if own_normalized == typed or (
-                own_normalized.startswith(house + ' ') and own_normalized.endswith(' ' + rest)
-            ):
-                fits.add(own_normalized)
+        fits = {
+            own for own in map(_normalize_street, set(self._own_rows(person, city, zip5)['street']))
+            if isinstance(own, str) and own.startswith(house + ' ') and own.endswith(' ' + rest)
+        }
         return fits.pop() if len(fits) == 1 else ''
 
     def complete(self, city_start: str, zip_start: str) -> tuple[str, str, str] | None:
-        """(city, ZIP5, state) for a cut-off city + ZIP: one city/state must match both starts; the ZIP stays '' when several area ZIPs fit."""
+        """(city, ZIP5, state) for a cut-off '<city> <ZIP>': one widely filed city/state must match both starts; of several ZIPs only an area ZIP (ZCTA) is kept, else the ZIP stays ''."""
         from fec.cleaning.pipeline.address_fixes.state_zip import is_zcta
 
-        widely_filed = self.filers[self.filers >= _MIN_PLACE_FILERS]
-        matches = [
-            key for key in widely_filed.index
-            if key[0].startswith(city_start) and key[2].startswith(zip_start)
+        frame = self.frame[
+            self.frame['city'].str.startswith(city_start)
+            & self.frame['zip5'].str.startswith(zip_start)
+            & (self.frame['state'] != '')
         ]
+        filers = frame.groupby(['city', 'state', 'zip5'])['person'].nunique()
+        matches = filers[filers >= _MIN_PLACE_FILERS].index
         places = {(city, state) for city, state, _zip in matches}
         if len(places) != 1:
             return None
@@ -244,87 +228,40 @@ class _FiledPlaces:
         return city, (zips[0] if len(zips) == 1 else ''), state
 
 
-def _looks_like_house_street(tokens: list[str]) -> bool:
-    """House number followed by at least one word with a letter ('20440 PCH')."""
-    return (
-        len(tokens) >= 2
-        and tokens[0].isdigit()
-        and any(re.search(r'[A-Z]', token) for token in tokens[1:])
-    )
-
-
-def _attested_city(words: list[str], zip5: str, places: _FiledPlaces) -> tuple[str, str] | None:
-    """(street, city) from '<street> <city>': the longest city other filings use at the ZIP."""
-    longest = min(_MAX_CITY_WORDS, len(words) - 2)
-    for n_words in range(longest, 0, -1):
-        city, street = ' '.join(words[-n_words:]), words[:-n_words]
-        if places.attested(city, zip5) and _looks_like_house_street(street):
-            return ' '.join(street), city
-    return None
-
-
-def _city_after_street_type(words: list[str]) -> tuple[str, str] | None:
-    """(street, city) from '<street> <type> <city>' when no filing names the city at that ZIP: the plain words after the last street type."""
-    for n_words in range(min(3, len(words) - 2), 0, -1):
-        city_words, street = words[-n_words:], words[:-n_words]
-        plain = all(
-            word.isalpha() and word not in _UNIT_WORDS and word not in _PLACE_BOUNDARY_TYPES
-            for word in city_words
-        )
-        if plain and street[-1] in _PLACE_BOUNDARY_TYPES and _looks_like_house_street(street):
-            return ' '.join(street), ' '.join(city_words)
-    return None
-
-
-def _street1_place(street: str, house: str, places: _FiledPlaces, zip_state) -> tuple[str, str, str, str] | None:
-    """(street, city, ZIP5, typed state) from '<street> <city> [<state>] <ZIP>' in street_1; the typed ZIP must differ from the house number.
-
-    A state code before the ZIP is never part of the city; it is used as the
-    typed state only when the ZIP does not place the row in another state."""
-    tokens = street.replace(',', ' ').split()
-    if len(tokens) < 4:
+def _street1_place(street: str, house: str, places: _FiledPlaces) -> tuple[str, str, str] | None:
+    """(street, city, ZIP5) from '<street> <city> <ZIP>': the longest city other filings name at that ZIP, with a house number and a street word left before it."""
+    match = _STREET1_PLACE_RE.match(street)
+    if not match or match.group(2) == house.zfill(5):
         return None
-    match = _TAIL_ZIP_RE.match(tokens[-1])
-    if not match or match.group(1) == house.zfill(5):
-        return None
-    zip5, body = match.group(1), tokens[:-1]
-    readings = [(body, '')]
-    if len(body) >= 4 and body[-1] in US_STATES:
-        typed_state = body[-1] if zip_state(zip5) in ('', body[-1]) else ''
-        readings.insert(0, (body[:-1], typed_state))
-    for split_city in (lambda words: _attested_city(words, zip5, places), _city_after_street_type):
-        for words, typed_state in readings:
-            split = split_city(words)
-            if split:
-                return split[0], split[1], zip5, typed_state
+    words, zip5 = match.group(1).replace(',', ' ').split(), match.group(2)
+    for n_words in range(min(_MAX_CITY_WORDS, len(words) - 2), 0, -1):
+        city, rest = ' '.join(words[-n_words:]), words[:-n_words]
+        if places.attested(city, zip5) and any(re.search(r'[A-Z]', word) for word in rest[1:]):
+            return ' '.join(rest), city, zip5
     return None
 
 
 def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str, str, str] | None:
     """(city, ZIP5, state) from '<city> <ZIP>' in street_2; a cut-off 'POTO 2085' is completed from the places many people file."""
     match = _STREET2_PLACE_RE.match(street2)
-    if not match:
+    if not match or match.group(2) == house.zfill(5):
         return None
-    city, zip_text = match.group(1).strip(), match.group(2)
-    if any(word in _UNIT_WORDS for word in city.split()) or len(city.replace(' ', '')) < 3:
-        return None
-    if zip_text == house.zfill(5):
-        return None
+    city, zip_text = match.groups()
     if len(zip_text) == 5 and places.attested(city, zip_text):
         return city, zip_text, ''
     return places.complete(city, zip_text)
 
 
 def _split_house_number_zip(df: pd.DataFrame) -> int:
-    """Rows whose ZIP box holds the house number and whose street holds the real city + ZIP: the place moves to the HOUSE_ZIP_* columns (the state from the person's own filings of that city, the typed state, or the ZIP); returns rows fixed.
+    """Rows whose ZIP box holds the house number and whose street holds the real city + ZIP: the place moves to the HOUSE_ZIP_* columns; returns rows fixed.
 
-    Only the person's own filings (same first and last name) ever supply a
-    state or a street; other people's filings only show which city names exist
-    at a ZIP. Rows where no city and state can be read are left as filed."""
+    The state comes from the person's own filings of that city and ZIP (same
+    first and last name), else from the ZIP; other people's filings only show
+    which city names exist at a ZIP. Rows with no readable city and state are
+    left as filed."""
     if 'contributor_street_1' not in df.columns or 'contributor_zip' not in df.columns:
         return 0
     street1 = _upper_text(df, 'contributor_street_1')
-    street2 = _upper_text(df, 'contributor_street_2')
     digits = _upper_text(df, 'contributor_zip').str.replace(r'\D', '', regex=True)
     house = street1.str.extract(_LEADING_HOUSE_NUMBER_RE)[0].fillna('')
     candidate = (house != '') & (
@@ -335,40 +272,36 @@ def _split_house_number_zip(df: pd.DataFrame) -> int:
 
     from fec.cleaning.pipeline.address_fixes.state_zip import zip_state
 
+    street2 = _upper_text(df, 'contributor_street_2')
+    person = _person_key(df)
     places = _FiledPlaces(df, candidate)
-    person = _upper_text(df, 'contributor_first_name') + '\x00' + _upper_text(df, 'contributor_last_name')
     fixes = {}
     for index in df.index[candidate]:
-        new_street1 = street2_blank = None
-        found = _street1_place(street1[index], house[index], places, zip_state)
+        found = _street1_place(street1[index], house[index], places)
         if found:
-            new_street1, city, zip5, typed_state = found
-            place_state = ''
+            new_street1, city, zip5 = found
+            place_state, clear_street2 = '', False
         else:
             found = _street2_place(street2[index], house[index], places)
             if not found:
                 continue
             city, zip5, place_state = found
-            typed_state, street2_blank = '', True
-        state = (
-            places.own_state(person[index], city, zip5)
-            or typed_state or place_state or zip_state(zip5)
-        )
+            new_street1, clear_street2 = street1[index], True
+        state = places.own_state(person[index], city, zip5) or place_state or zip_state(zip5)
         if not state:
             continue
-        # a word the filing dropped ('12230 HOLLOW ROAD') comes back from the
-        # person's own filings of the same house at that city and ZIP
-        own_street = places.own_street(person[index], city, zip5, new_street1 or street1[index])
-        if own_street:
-            new_street1 = own_street
-        fixes[index] = (new_street1, street2_blank, city, state, zip5)
+        # the street typed twice and cut by the field ('11425 TWINING LN 11425
+        # TWINING L'); a word the filing dropped ('12230 HOLLOW ROAD') comes back
+        # from the person's own filings of the same house at that city and ZIP
+        new_street1 = _drop_repeated_street(_normalize_street(new_street1))
+        new_street1 = places.own_street(person[index], city, zip5, new_street1) or new_street1
+        fixes[index] = (new_street1, clear_street2, city, state, zip5)
 
     for column in _HOUSE_ZIP_COLUMNS:
         df[column] = pd.Series(None, index=df.index, dtype=object)
-    for index, (new_street1, street2_blank, city, state, zip5) in fixes.items():
-        if new_street1 is not None:
-            df.at[index, 'contributor_street_1'] = new_street1
-        if street2_blank:
+    for index, (new_street1, clear_street2, city, state, zip5) in fixes.items():
+        df.at[index, 'contributor_street_1'] = new_street1
+        if clear_street2:
             df.at[index, 'contributor_street_2'] = np.nan
         df.at[index, HOUSE_ZIP_CITY] = city
         df.at[index, HOUSE_ZIP_STATE] = state
@@ -388,8 +321,40 @@ def _apply_house_number_zip(df: pd.DataFrame) -> int:
     ):
         if fixed.any() and column in df.columns:
             df.loc[fixed, column] = df.loc[fixed, source].replace('', np.nan)
-    df.drop(columns=[column for column in _HOUSE_ZIP_COLUMNS if column in df.columns], inplace=True)
+    df.drop(columns=list(_HOUSE_ZIP_COLUMNS), inplace=True)
     return int(fixed.sum())
+
+
+_HOUSE_TOKEN_RE = re.compile(r'^\d+[A-Z]?$')
+_DIRECTION_TOKENS = frozenset({'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'})
+
+
+def _drop_repeated_street(s):
+    """'11425 TWINING LN 11425 TWINING L' -> '11425 TWINING LN': the filer typed the street twice and the 34-character FEC field cut the copy.
+
+    Only a copy that starts with the same house number and is a prefix of the
+    street before it is dropped ('396 FOREST AVE 396 FOREST AVE' too); a grid
+    address such as '1300 E 1300 S' is not a copy and stays."""
+    if not isinstance(s, str):
+        return s
+    tokens = s.split()
+    if len(tokens) < 4 or not _HOUSE_TOKEN_RE.match(tokens[0]):
+        return s
+    for index in range(2, len(tokens) - 1):
+        if tokens[index] != tokens[0]:
+            continue
+        # a separator between the two copies ('1020 HULL ST / 1020 HULL ST') goes too
+        head = tokens[:index]
+        while head and not any(char.isalnum() for char in head[-1]):
+            head.pop()
+        first, copy = ' '.join(head), ' '.join(tokens[index:])
+        # what is kept must still name a street ('159 W 159 WEST' is not '159 W')
+        names_street = any(
+            token not in _DIRECTION_TOKENS and re.search(r'[A-Z]', token) for token in head[1:]
+        )
+        if names_street and first.startswith(copy):
+            return first
+    return s
 
 
 def _normalize_street(s: str) -> str:
@@ -470,22 +435,7 @@ def _normalize_street(s: str) -> str:
     s = s.rstrip('.')
 
     s = re.sub(r'\s+', ' ', s).strip()
-    return _drop_repeated_street(s)
-
-
-_HOUSE_TOKEN_RE = re.compile(r'^\d+[A-Z]?$')
-_DIRECTION_TOKENS = frozenset({'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'})
-
-
-def _drop_repeated_street(s: str) -> str:
-    """'11425 TWINING LN 11425 TWINING L' -> '11425 TWINING LN': the filer typed the street twice and the 34-character FEC field cut the copy.
-
-    Only a copy that starts with the same house number and is a prefix of the
-    street before it is dropped ('396 FOREST AVE 396 FOREST AVE' too); a grid
-    address such as '1300 E 1300 S' is not a copy and stays."""
-    tokens = s.split()
-    if len(tokens) < 4 or not _HOUSE_TOKEN_RE.match(tokens[0]):
-        return s
+    return s
     for index in range(2, len(tokens) - 1):
         if tokens[index] != tokens[0]:
             continue
