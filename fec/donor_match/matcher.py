@@ -12,7 +12,7 @@ from .constants import (
 )
 from .joint import first_of_name, given_tokens, joint_partners
 from .keys import individual_record_id
-from .rules import NAME_MERGES, joint_name_exempt, resolve_donor_key
+from .rules import NAME_MERGES, joint_name_exempt, resolve_donor_key, split_zip
 from .scoring import (
     compute_score,
     normalize_name,
@@ -142,6 +142,7 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
             _s(row["contributor_city"]),
             _s(row["contributor_state"]),
             suffix,
+            split_zip(_s(row["contributor_name"]), _s(row.get("contributor_zip"))),
         )
 
         if rid not in profiles:
