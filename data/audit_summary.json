@@ -1,6 +1,6 @@
 {
-  "changes": 863464,
-  "changed_cells": 835755,
+  "changes": 863614,
+  "changed_cells": 835905,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -177,9 +177,9 @@
       }
     },
     "streets_normalize": {
-      "changes": 52485,
+      "changes": 52626,
       "reasons": {
-        "street_text_normalized_or_placeholder_nulled": 52423,
+        "street_text_normalized_or_placeholder_nulled": 52564,
         "street_nulled_due_to_email_in_street1": 62
       }
     },
@@ -220,15 +220,15 @@
       }
     },
     "cities_normalize": {
-      "changes": 5369,
+      "changes": 5381,
       "reasons": {
-        "city_alias_typo_or_punctuation_normalized": 5369
+        "city_alias_typo_or_punctuation_normalized": 5381
       }
     },
     "zips_normalize": {
-      "changes": 117157,
+      "changes": 117153,
       "reasons": {
-        "zip_reduced_to_five_digits_or_invalid_nulled": 117157
+        "zip_reduced_to_five_digits_or_invalid_nulled": 117153
       }
     },
     "address_verified_rules": {
@@ -670,9 +670,9 @@
       }
     },
     "donor_recover_previous_employer": {
-      "changes": 3237,
+      "changes": 3238,
       "reasons": {
-        "previous_employer_from_latest_earlier_filing": 3237
+        "previous_employer_from_latest_earlier_filing": 3238
       }
     },
     "donor_clear_refusal_employers": {
