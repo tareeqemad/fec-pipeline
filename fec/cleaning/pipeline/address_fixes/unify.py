@@ -78,14 +78,21 @@ def _unify_street_spacing(df: pd.DataFrame) -> int:
 # "# 1503" to the bare id lets one donor's same unit collapse to one address
 # (the addresses dimension keys on the full street_1 + street_2)
 _UNIT_DESIGNATOR_RE = re.compile(
-    r'#|\b(?:APARTMENT|APT|UNIT|STE|SUITE|NUMBER|NO|RM|ROOM|FL|FLOOR|BLDG|BUILDING)\b\.?',
+    r'#|\b(?:APARTMENT|APT|UNIT|STE|SUITE|NUMBER|NO|RM|ROOM)\b\.?',
     re.IGNORECASE,
 )
+# a floor or a building is other information than a unit: "FL 3" is not "APT 3"
+_FLOOR_RE = re.compile(r'\b(?:FL|FLR|FLOOR)\b\.?', re.IGNORECASE)
+_BUILDING_RE = re.compile(r'\b(?:BLDG|BUILDING)\b\.?', re.IGNORECASE)
 
 
 def _unit_core(s: str) -> str:
-    """Bare unit id of a street_2, designator words and punctuation removed."""
-    return re.sub(r'[^A-Z0-9]', '', _UNIT_DESIGNATOR_RE.sub(' ', str(s).upper()))
+    """Bare unit id of a street_2, unit words and punctuation removed; a floor or building keeps its kind."""
+    text = _UNIT_DESIGNATOR_RE.sub(' ', str(s).upper())
+    text = _FLOOR_RE.sub(' FLOOR ', _BUILDING_RE.sub(' BUILDING ', text))
+    # punctuation inside an id goes ("15-03" = "1503"), the space between two
+    # ids stays ("BLDG 1 STE 23" is not "BLDG 12 STE 3")
+    return ' '.join(re.sub(r'[^A-Z0-9\s]', '', text).split())
 
 
 def _unify_unit_designators(df: pd.DataFrame) -> int:
@@ -123,10 +130,23 @@ _TYPE_TOKENS = {'ST', 'AVE', 'RD', 'DR', 'BLVD', 'LN', 'CT', 'PL', 'CIR', 'TER',
 
 
 def _unify_street_types(df: pd.DataFrame) -> int:
-    """Merge one donor's "103 STANTON" with "103 STANTON AVE" (fingerprint: tokens without the street type)."""
+    """Give one donor's "103 STANTON" the type of their "103 STANTON AVE"; returns rows rewritten."""
     # a person does not live at both 103 Stanton and 103 Stanton Ave; the fuller
-    # spelling (the one carrying the type) wins even when filed less often
-    def fingerprint(street: str) -> str:
-        tokens = re.findall(r'[A-Z0-9]+', street.upper())
-        return ' '.join(t for t in tokens if t not in _TYPE_TOKENS)
-    return _unify_street_variants(df, fingerprint, prefer_longest=True)
+    # spelling (the one carrying the type) wins even when filed less often.
+    # Only a missing type is filled: when the donor's typed spellings disagree
+    # ("8044 MONTGOMERY RD" / "8044 MONTGOMERY AVE"), nothing proves which is
+    # right, so each filing keeps its own
+    street = df['contributor_street_1'].fillna('')
+    name = df['contributor_name'].fillna('')
+    words = street.str.upper().str.findall(r'[A-Z0-9]+')
+    bare = words.map(lambda tokens: ' '.join(t for t in tokens if t not in _TYPE_TOKENS))
+    types = words.map(lambda tokens: ' '.join(t for t in tokens if t in _TYPE_TOKENS))
+    group_key = name.str.cat([df['contributor_city'].fillna(''), df['contributor_state'].fillna(''), bare],
+                             sep='\x00')
+    typed = types != ''
+    kinds = types[typed].groupby(group_key[typed]).nunique()
+    conflict = group_key.isin(kinds[kinds > 1].index)
+    eligible = (name != '') & (street != '') & ~conflict
+    if not eligible.any():
+        return 0
+    return _collapse_to_dominant(df, 'contributor_street_1', group_key, eligible, prefer_longest=True)
