@@ -74,17 +74,15 @@ REVIEW_HOME_OFFICE = "home_office_street_withheld"
 # employer has at most this many donors (owner decision 2026-09-24)
 HOME_OFFICE_MAX_FILERS = 2
 HOME_OFFICE_MAX_DONORS = 3
-# how precise a cached point is: a street point beats a ZIP centroid, which beats a town's point
+# how precise a cached point is: a hand-checked point beats a street point, which
+# beats a ZIP centroid, which beats a town's point ('nominatim_city'); any other
+# level accepted_coordinates returns is an engine's street point
 _LEVEL_RANK = {
     "manual_census": 4,
-    "census": 3,
-    "google": 3,
-    "nominatim": 3,
-    "nominatim_intl": 3,
     "zip_centroid": 2,
-    "nominatim_city": 1,
-    "nominatim_intl_city": 1,
 }
+_STREET_LEVEL_RANK = 3
+_TOWN_LEVEL_RANK = 1
 # a researcher's note inside the street text: "200 Liberty Street, 6th Floor (Brookfield Place)"
 _EDITORIAL_NOTE_RE = re.compile(r"\s*\([^()]*\)")
 _ZIP_PLUS_FOUR_RE = re.compile(r"^(\d{5})-?\d{4}$")
@@ -95,7 +93,17 @@ _ANY_UNIT_RE = re.compile(
     r"#|\b(?:STE|SUITE|FL|FLR|FLOOR|APT|APARTMENT|UNIT|RM|ROOM|BLDG|BUILDING|PH|PENTHOUSE"
     r"|PMB|LOT|SPC|SPACE|DEPT|OFC)\b"
 )
+# a unit of a home: a flat, a penthouse, a mobile-home lot; any other unit (STE, FL,
+# RM, BLDG, UNIT, '#', PMB) may be an office's
+_HOME_UNIT_RE = re.compile(r"(?:APT|APARTMENT|PH|PENTHOUSE|LOT|SPC|SPACE)\b")
 _TRAILING_UNIT_WORD_RE = re.compile(r"\s+(?:APT|UNIT|STE|SUITE)\s*$")
+
+
+def _level_rank(level: str) -> int:
+    level = str(level or "")
+    if level in _LEVEL_RANK:
+        return _LEVEL_RANK[level]
+    return _TOWN_LEVEL_RANK if level.endswith("_city") else _STREET_LEVEL_RANK
 
 
 def _read_json(path) -> dict:
@@ -147,7 +155,7 @@ def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
         if latitude is None:
             continue
         known = coordinates.get(parts)
-        if known is None or _LEVEL_RANK.get(level, 0) > _LEVEL_RANK.get(known[2], 0):
+        if known is None or _level_rank(level) > _level_rank(known[2]):
             coordinates[parts] = (latitude, longitude, level)
     return coordinates
 
@@ -395,7 +403,7 @@ def _attach_coordinates(frame: pd.DataFrame) -> pd.DataFrame:
             point = geocodes.get(tuple(key))
             if point is None:
                 continue
-            rank = (_LEVEL_RANK.get(point[2], 0), -order)
+            rank = (_level_rank(point[2]), -order)
             if choice is None or rank > choice[0]:
                 choice = (rank, point)
         best[index] = (normalized, choice)
@@ -456,6 +464,11 @@ def _street_match_key(street) -> str:
     return " ".join(re.sub(r"[^A-Z0-9 ]", " ", street).split())
 
 
+def _has_office_unit(street: str) -> bool:
+    """A unit on a street_1 other than a home's ('10 MAIN ST STE 5' yes, '10 MAIN ST APT 5' no)."""
+    return any(not _HOME_UNIT_RE.match(match.group(0)) for match in _ANY_UNIT_RE.finditer(street))
+
+
 def _employee_addresses(df: pd.DataFrame) -> tuple[dict, dict, dict, set]:
     """Who works where and who files where, by building (street key, ZIP5).
 
@@ -463,9 +476,10 @@ def _employee_addresses(df: pd.DataFrame) -> tuple[dict, dict, dict, set]:
     donors, building -> donors filing there, buildings some filing gives a unit).
     An employee is a donor whose filing names the employer the way referenced_employers
     reads it: the current employer of an active or self-employed filing, the previous
-    employer of a retired one. A building with a unit in any filing is not a house: a
-    donor who files '55 HUDSON YARDS' / 'FL 50' files an office floor, 'APT 7E' is one
-    flat of an apartment building.
+    employer of a retired one. A building some filing gives an office unit is not a
+    home: a donor who files '55 HUDSON YARDS' / 'FL 50' files an office floor. A flat
+    ('APT 7E', 'PH') is still a home: the building's street without the unit is the
+    owner's home street.
     """
     work = df.reindex(columns=[
         "entity_type", "employer_status", "contributor_employer", "previous_employer",
@@ -476,8 +490,9 @@ def _employee_addresses(df: pd.DataFrame) -> tuple[dict, dict, dict, set]:
     filed = work[work["_street"].ne("") & work["donor_key"].ne("")]
     filers = filed.groupby(["_street", "_zip5"])["donor_key"].agg(set).to_dict()
     # the street_1 itself may still hold a unit the donor split could not move
-    has_unit = (filed["contributor_street_2"].str.strip().ne("")
-                | filed["contributor_street_1"].str.upper().str.contains(_ANY_UNIT_RE))
+    street_2 = filed["contributor_street_2"].str.strip().str.upper()
+    has_unit = ((street_2.ne("") & ~street_2.str.match(_HOME_UNIT_RE))
+                | filed["contributor_street_1"].str.upper().map(_has_office_unit))
     with_units = set(zip(filed.loc[has_unit, "_street"], filed.loc[has_unit, "_zip5"]))
 
     individuals = work[work["entity_type"].eq("INDIVIDUAL")] if "entity_type" in df.columns else work
@@ -580,6 +595,9 @@ def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     locations = _deduplicate(cache_rows + preserved, employers)
     locations, home_offices = withhold_home_streets(locations, df)
     review_frame = pd.DataFrame(review + unsourced + home_offices, columns=REVIEW_COLUMNS)
+    # counts stay whole numbers where other reasons leave them blank ('2', not '2.0')
+    for column in ("employer_donors", "filers_at_address"):
+        review_frame[column] = review_frame[column].astype("Int64")
     review_frame = review_frame.sort_values(["reason", "employer_name"], kind="stable").reset_index(drop=True)
     return locations, review_frame
 

@@ -420,3 +420,103 @@ def test_audit_wrong_town_pins_are_rechecked_or_fixed():
             continue
         assert places.distance_km(point, town) <= 8, f"{key}: {point} is not at its town {town}"
         assert places.distance_km(point, wrong) >= 1, f"{key}: still on the audit's wrong point {wrong}"
+
+
+# ---- the whole chain with Nominatim's answers mocked: a wrong place never becomes the pin
+
+PHOENIX = _place("Phoenix", "city", 33.4484367, -112.0741410, "AZ")
+PHOENIX_KEY = "PO BOX 7586|PHOENIX|AZ|85011"
+PHOENIX_TATUM_PIN = (33.6660986, -111.9738117)   # the cached in-city pin (19801 N Tatum Blvd)
+
+
+class _Census:
+    """Stands in for engines.census: records the streets it is asked for."""
+
+    def __init__(self, answer=(None, None, None)):
+        self.answer = answer
+        self.streets = []
+
+    def __call__(self, street, city, state, zipcode):
+        self.streets.append(street)
+        return self.answer
+
+
+@pytest.mark.parametrize("key, wrong", [
+    ("PO BOX 13026|AUSTIN|TX|78711", MURPHY_USA_SEALY),
+    ("PO BOX 2930|JACKSON|MS|39207", JACKSON_COUNTY),
+    ("PO BOX 55|CROWN POINT|IN|46308", CROWN_POINT_ROAD),
+    ("PO BOX 7839|LITTLE ROCK|AR|72217", NORTH_LITTLE_ROCK),
+])
+def test_a_wrong_place_is_never_published_for_a_po_box(monkeypatch, no_sleep, key, wrong):
+    # the old chain took the first answer of 'CITY, ST ZIP, USA' and published it
+    _serve(monkeypatch, [wrong])
+    monkeypatch.setattr(geo, "nominatim_international", lambda *_args: (None, None, None))
+
+    assert geo._geocode_one(*key.split("|"))[:2] == (None, None)
+
+
+def test_recheck_moves_a_wrong_place_to_its_town(tmp_path, monkeypatch, no_sleep):
+    key = "PO BOX 7839|LITTLE ROCK|AR|72217"
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    cache.data[key] = {"lat": 34.769536, "lng": -92.2670941, "source": "nominatim_city"}
+    _serve(monkeypatch, [NORTH_LITTLE_ROCK, LITTLE_ROCK])
+
+    geo._geocode_todo([key], cache, 50)
+
+    entry = cache.get(key)
+    assert (entry["lat"], entry["lng"], entry["source"]) == (34.7465071, -92.2896267, "nominatim_city")
+    assert entry["town_checked"] and not geo._needs_lookup(key, cache)
+
+
+def test_recheck_keeps_an_in_city_pin_in_the_city(tmp_path, monkeypatch, no_sleep):
+    # the 7 Phoenix PO boxes sit inside Phoenix (N Tatum Blvd): the re-check moves them to
+    # the city's own point, and a wrong answer would leave them where they are
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    cache.data[PHOENIX_KEY] = {"lat": PHOENIX_TATUM_PIN[0], "lng": PHOENIX_TATUM_PIN[1],
+                               "source": "nominatim_city"}
+    assert geo._needs_lookup(PHOENIX_KEY, cache)
+    _serve(monkeypatch, [MURPHY_USA_SEALY, PHOENIX])
+
+    geo._geocode_todo([PHOENIX_KEY], cache, 50)
+
+    entry = cache.get(PHOENIX_KEY)
+    assert (entry["lat"], entry["lng"]) == (33.4484367, -112.074141)
+    assert geo.accepted_coordinates(PHOENIX_KEY, entry)[:2] == (33.4484367, -112.074141)
+
+
+def test_recheck_of_a_town_osm_does_not_know_keeps_the_pin(tmp_path, monkeypatch, no_sleep):
+    # JAMAICA NY is no OSM settlement: only its stations answer. The cached Jamaica pin stays,
+    # is not searched abroad (Jamaica the island) and is not looked up again
+    key = "17290 HIGHLAND AVE STE 1|JAMAICA|NY|11432"
+    pin = {"lat": 40.699835, "lng": -73.8077023, "source": "nominatim_city", "country": "US"}
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    cache.data[key] = dict(pin)
+    monkeypatch.setattr(geo, "_zip_centroids", lambda: {"11435": (40.7009, -73.8095)})
+    service = _serve(monkeypatch, [JAMAICA_STATION])
+    census = _Census()
+    monkeypatch.setattr(geo, "census", census)
+    monkeypatch.setattr(geo, "nominatim", lambda *_args: (None, None, None))
+    assert geo._needs_lookup(key, cache)
+
+    geo._geocode_todo([key], cache, 50)
+
+    assert cache.get(key) == {**pin, "town_checked": True}
+    assert not geo._needs_lookup(key, cache)
+    assert census.streets == ["17290 HIGHLAND AVE"]
+    # only the town was searched, in the US: never abroad
+    assert [(params["city"], params["countrycodes"]) for params in service.sent] == [("JAMAICA", "us")]
+
+
+def test_a_blocked_client_is_an_outage_not_a_miss(tmp_path, monkeypatch, no_sleep):
+    # a 403 (Nominatim's block, or a proxy's) read as 'not found' would end the re-check for good
+    class Forbidden(_Response):
+        status_code = 403
+        ok = False
+
+    monkeypatch.setattr(engines.requests, "get", lambda *_args, **_kwargs: Forbidden([]))
+    with pytest.raises(NominatimUnavailable):
+        engines.city_level("LITTLE ROCK", "AR", "")
+
+    cache = _recheck_cache(tmp_path, monkeypatch)
+    geo._geocode_todo([SF_KEY], cache, 50)
+    assert "town_checked" not in cache.get(SF_KEY) and geo._needs_lookup(SF_KEY, cache)

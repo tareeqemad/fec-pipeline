@@ -34,7 +34,8 @@ def test_street2_placeholders_are_null(value):
 @pytest.mark.parametrize('value,expected', [
     ('APT 5', 'APT 5'), ('SUITE 200', 'STE 200'), ('PH', 'PH'), ('X', 'X'), ('B', 'B'),
     ('#', '#'),                     # kept: address_review flags it as a unit without a number
-    ('3RD FLOOR', '3RD FLOOR'), ('FLOOR 3', 'FL 3'),
+    # USPS unit form (fec/config/streets.py UNIT_RULES): the floor designator first
+    ('3RD FLOOR', 'FL 3'), ('FLOOR 3', 'FL 3'),
 ])
 def test_real_units_are_kept(value, expected):
     assert _normalize_unit(value) == expected
@@ -65,7 +66,7 @@ def test_leading_ordinal_is_not_split_but_a_fused_house_number_is():
 def test_floor_only_street1_moves_to_an_empty_street2():
     df, _ = clean_streets(_streets([('3RD FLOOR', np.nan), ('FLOOR 12', ''), ('3RD ST', np.nan)]))
     assert df['contributor_street_1'].isna().tolist() == [True, True, False]
-    assert df['contributor_street_2'].tolist()[:2] == ['3RD FLOOR', 'FL 12']
+    assert df['contributor_street_2'].tolist()[:2] == ['FL 3', 'FL 12']
     assert df['contributor_street_1'].iloc[2] == '3RD ST'
 
 
@@ -96,7 +97,7 @@ def test_moved_floor_row_is_refilled_from_the_donor_history():
     rows = _donor_rows(df['contributor_street_1'].iloc[0], df['contributor_street_2'].iloc[0])
     assert _recover_null_streets(rows) == 1
     assert rows['contributor_street_1'].tolist() == ['15 W 72ND ST', '15 W 72ND ST']
-    assert rows['contributor_street_2'].iloc[0] == '3RD FLOOR'
+    assert rows['contributor_street_2'].iloc[0] == 'FL 3'
 
 
 def test_floor_only_street_with_a_unit_is_replaced_by_the_donor_street():
