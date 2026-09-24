@@ -213,6 +213,7 @@ def identify_donors(
     from fec.donor_match import (
         apply_curated_key_merges,
         apply_donor_key,
+        hold_unproven_filings,
         match_donors,
         merge_split_name_donors,
         validate_separations,
@@ -223,6 +224,7 @@ def identify_donors(
 
     repointed = merge_split_name_donors(df_clean)
     repointed += apply_curated_key_merges(df_clean)
+    held = hold_unproven_filings(df_clean)
     _validate_generational_suffixes(df_clean)
     validate_separations(df_clean)
 
@@ -239,6 +241,8 @@ def identify_donors(
     )
     if repointed:
         logger.info("  %s rows joined by identity rules", f"{repointed:,}")
+    if held:
+        logger.info("  %s filings held outside every person", f"{held:,}")
     return df_clean
 
 

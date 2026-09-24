@@ -8,12 +8,13 @@ from fec.env import DATA_DIR
 
 
 RULES_PATH = DATA_DIR / "database" / "donor_identity_rules.csv"
-VALID_ACTIONS = {"merge_keys", "merge_names", "separate"}
+VALID_ACTIONS = {"merge_keys", "merge_names", "separate", "hold"}
 VALID_REVIEW_STATUSES = {"verified_fec", "verified_web"}
 REQUIRED_FIELDS = {
     "merge_keys": ("donor_key_a", "donor_key_b"),
     "merge_names": ("name_a",),
     "separate": ("name_a", "name_b"),
+    "hold": ("sub_id", "group"),
 }
 
 
@@ -108,6 +109,15 @@ def _load_key_merges(rows) -> dict[str, str]:
     return merges
 
 
+def _load_holds(rows) -> dict[str, str]:
+    """sub_id -> hold group: filings no person is proven to own."""
+    return {
+        row["sub_id"].strip(): row["group"].strip()
+        for row in rows
+        if _normalize(row.get("action")) == "HOLD"
+    }
+
+
 def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     groups = defaultdict(list)
     for row in rows:
@@ -151,6 +161,7 @@ def _load_joint_exemptions(rows) -> frozenset[str]:
 _RULES = _read_rules()
 SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES)
 KEY_MERGES = _load_key_merges(_RULES)
+HELD_FILINGS = _load_holds(_RULES)
 NAME_MERGES = _load_name_merges(_RULES)
 _JOINT_EXEMPT_NAMES = _load_joint_exemptions(_RULES)
 _MERGED_NAME_PREFIXES = tuple(

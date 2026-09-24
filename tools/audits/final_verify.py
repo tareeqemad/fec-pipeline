@@ -98,6 +98,13 @@ def main() -> int:
     print("== identity rules:", len(rules), "| merges:", len(merges), "| dropped keys still present:", len(dropped_present), "| keep keys absent:", len(keep_missing))
     if dropped_present or keep_missing:
         problems.append(f"identity merges not applied: {len(dropped_present)} dropped key(s) present, {len(keep_missing)} kept key(s) absent")
+    # held filings stay together and away from every person's filings
+    held = {r["sub_id"] for r in rules if r["action"].lower() == "hold"}
+    held_keys = set(n.loc[n.sub_id.isin(held), "donor_key"])
+    mixed = int((n.donor_key.isin(held_keys) & ~n.sub_id.isin(held)).sum())
+    print("== held filings:", len(held), "| found:", int(n.sub_id.isin(held).sum()), "| other rows on their keys:", mixed)
+    if mixed or n.sub_id.isin(held).sum() != len(held):
+        problems.append(f"held filings not kept apart: {mixed} other row(s) share their keys")
     ind = n[n.entity_type == "INDIVIDUAL"]
     print("== donors: individuals", ind.donor_key.nunique(), "| all keys", n.donor_key.nunique())
     for who, key in [("SHEAR, HERBERT", "71bff575bdc1"), ("CAYRE, JOSEPH", "1bc54314d330"), ("COLLIS, STEVEN", "7d37f9b78787"), ("FRIEND, DONALD", "6ab402180935"), ("RUDY, DEBORAH", "e0a9ab832bb7")]:
