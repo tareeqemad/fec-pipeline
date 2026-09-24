@@ -418,6 +418,10 @@ def _lookup_reason(key: str, cache: GeoCache) -> str | None:
         return None
     if entry.get("country", "US") != "US" or entry.get("lat") is None:
         return None
+    if accepted_coordinates(key, entry)[0] is None:
+        # a cached point its own address rules out (another state, far outside
+        # its ZIP) is never published, so it must be looked up again
+        return "rejected"
 
     street, _city, state, zipcode = key.split("|")
     if state not in _STATE_BOUNDS:
