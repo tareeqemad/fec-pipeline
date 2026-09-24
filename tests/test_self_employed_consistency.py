@@ -29,6 +29,13 @@ def test_a_joint_personal_name_or_another_persons_firm_does_not_absorb():
     assert _own_firm_absorbs_self_employed(df) == 0
 
 
+def test_a_self_employed_filing_in_another_job_keeps_its_employer():
+    df = _df([('INDIVIDUAL', 'k1', 'FOLDES, NADINE', 'EVENSKY & KATZ / FOLDES WEALTH MANAGEMENT', 'WEALTH MANAGER', 'FINANCE / INVESTMENT'),
+              ('INDIVIDUAL', 'k1', 'FOLDES, NADINE', 'SELF-EMPLOYED', 'SOCIAL WORKER', 'SOCIAL SERVICES')])
+    assert _own_firm_absorbs_self_employed(df) == 0
+    assert df.contributor_employer.tolist()[1] == 'SELF-EMPLOYED'
+
+
 def test_self_employed_occupation_takes_the_donors_real_one():
     df = _df([('INDIVIDUAL', 'k1', 'AGAM, JERRY', 'SELF-EMPLOYED', 'SELF-EMPLOYED', 'SELF-EMPLOYED')] * 2
              + [('INDIVIDUAL', 'k1', 'AGAM, JERRY', 'SELF-EMPLOYED', 'REAL ESTATE', 'REAL ESTATE')] * 3
