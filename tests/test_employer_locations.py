@@ -474,7 +474,8 @@ def test_stale_cleaned_previous_employer_is_removed():
 
     step_cross_record(rows, cache)
 
-    assert "donor:D1" not in cache
+    # the stale occupation is gone; her self-employment before retiring is kept
+    assert cache.get("donor:D1")["employer"] == "SELF-EMPLOYED"
 
 
 def test_fec_cache_rejects_a_bare_donor_name():

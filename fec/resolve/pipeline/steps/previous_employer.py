@@ -25,6 +25,9 @@ from ..helpers import (
 
 logger = get_logger(__name__)
 FEC_BASE = "https://api.open.fec.gov/v1"
+FEC_PAGE_SIZE = 100
+# 2,000 filings under one name and state: past that the search is given up as not found
+FEC_MAX_PAGES = 20
 PROTECTED_METHODS = {
     "manual_clear",
     "manual_override",
@@ -102,7 +105,8 @@ def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 def _clean_employer(value) -> str:
     """Apply the same previous-employer contract to every source."""
     cleaned = normalize_previous_employer_value(value)
-    return cleaned if is_real_employer(cleaned) else ""
+    # self-employment is known work history, not an empty answer
+    return cleaned if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned) else ""
 
 
 def _explicit_self_employment(value) -> bool:
@@ -353,7 +357,7 @@ def _pending_fec_searches(
         if (
             donor_key in tier_keys
             and cache_key not in todo_cache_keys
-            and prev_cache.get(cache_key) is None
+            and _fec_search_due(prev_cache.get(cache_key))
         ):
             todo_donors.add(donor_key)
             todo_cache_keys.add(cache_key)
@@ -364,28 +368,49 @@ def _pending_fec_searches(
     return searches
 
 
+def _fec_search_due(cached: dict | None) -> bool:
+    """No answer yet, or a 'not found' from the old search that read only the first 100 filings."""
+    if cached is None:
+        return True
+    return cached.get("method") == "fec_api_not_found" and not cached.get("all_pages")
+
+
+def _fec_filings(person: dict, fec_key: str, request_get):
+    """Every FEC filing under the donor's name and state, newest first, page by page.
+
+    Yields None when a page cannot be read (rate limit, error): the search is
+    then incomplete and must not be recorded as 'not found'.
+    """
+    params = {
+        "api_key": fec_key,
+        "contributor_name": person["name"],
+        "contributor_state": person["state"],
+        "per_page": FEC_PAGE_SIZE,
+        "sort": "-contribution_receipt_date",
+        "is_individual": "true",
+    }
+    for _page in range(FEC_MAX_PAGES):
+        response = request_get(f"{FEC_BASE}/schedules/schedule_a/", params=params, timeout=15)
+        if response.status_code == 429:
+            time.sleep(5)
+        if response.status_code != 200:
+            yield None
+            return
+        body = response.json()
+        results = body.get("results", [])
+        yield from results
+        last = (body.get("pagination") or {}).get("last_indexes")
+        if len(results) < FEC_PAGE_SIZE or not last:
+            return
+        params = {**params, **last}
+
+
 def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
     """Fetch one donor's latest matching FEC filing and return its cache entry."""
     try:
-        response = request_get(
-            f"{FEC_BASE}/schedules/schedule_a/",
-            params={
-                "api_key": fec_key,
-                "contributor_name": person["name"],
-                "contributor_state": person["state"],
-                "per_page": 100,
-                "sort": "-contribution_receipt_date",
-                "is_individual": "true",
-            },
-            timeout=15,
-        )
-        if response.status_code == 429:
-            time.sleep(5)
-            return None, None
-        if response.status_code != 200:
-            return None, None
-
-        for record in response.json().get("results", []):
+        for record in _fec_filings(person, fec_key, request_get):
+            if record is None:
+                return None, None
             if not _same_fec_donor(person, record):
                 continue
             if (
@@ -411,6 +436,7 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
         return person["prev_key"], {
             "employer": "",
             "method": "fec_api_not_found",
+            "all_pages": True,
         }
     except Exception:
         return None, None
