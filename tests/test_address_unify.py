@@ -129,3 +129,20 @@ def test_repairs_rare_truncated_house_number_per_donor():
     assert df.loc[df["donor_key"] == "different", "contributor_street_1"].item() == (
         "123 OAK ST"
     )
+
+
+def test_a_house_number_split_by_a_space_loses_to_the_joined_one():
+    # WEINER filed '10 17 GREENTREE DR' and '1017 GREENTREE DR': one house, 1017
+    df = _df(["10 17 GREENTREE DR", "10 17 GREENTREE DR", "1017 GREENTREE DR"])
+
+    _unify_street_spacing(df)
+
+    assert df["contributor_street_1"].tolist() == ["1017 GREENTREE DR"] * 3
+
+
+def test_a_number_before_a_numbered_street_is_not_a_split_house_number():
+    df = _df(["100 1ST ST", "100 1ST ST", "1001ST ST"])
+
+    _unify_street_spacing(df)
+
+    assert df["contributor_street_1"].tolist() == ["100 1ST ST"] * 3

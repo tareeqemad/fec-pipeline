@@ -6,6 +6,10 @@ import re
 import pandas as pd
 
 
+# '10 17 GREENTREE DR': a house number cut in two by a space
+_SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
+
+
 def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
                           eligible: pd.Series, prefer_longest: bool = False) -> int:
     """Rewrite each group's minority spellings of col to the dominant one; returns rows rewritten."""
@@ -20,10 +24,13 @@ def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
     if counts.empty:
         return 0
 
+    # a house number never holds a space: '10 17 GREENTREE DR' loses to the same
+    # donor's '1017 GREENTREE DR' whatever the counts ('100 1ST ST' is not split)
+    counts['split_number'] = counts['s'].str.match(_SPLIT_HOUSE_NUMBER_RE)
     # winner per group: most rows, then longest string (keeps the fuller form);
     # prefer_longest flips that so the fuller spelling wins even as a minority
-    order = ['g', 'len', 'n'] if prefer_longest else ['g', 'n', 'len']
-    counts = counts.sort_values(order, ascending=[True, False, False])
+    order = ['g', 'split_number'] + (['len', 'n'] if prefer_longest else ['n', 'len'])
+    counts = counts.sort_values(order, ascending=[True, True, False, False])
     winner = counts.drop_duplicates('g').set_index('g')['s']
     canonical = grp.map(winner)
 
