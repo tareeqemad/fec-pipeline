@@ -143,6 +143,10 @@ def test_fullest_first_name_rule_still_adds_real_tokens():
     df = _donor(("DOE", "MARVIN", 2), ("DOE", "M STEPHEN", 1), ("DOE", "MARVIN STEPHEN", 3))
     canonicalize_donor_names(df)
     assert df["contributor_first_name"].tolist() == ["MARVIN"] * 2 + ["MARVIN STEPHEN"] * 4
+    # an initial alone takes the full name; a co-filer's name is never taken
+    df = _donor(("DOE", "J", 1), ("DOE", "JOHN", 2), ("DOE", "SHIRA", 2), ("DOE", "SHIRA JARED", 1), key="K")
+    canonicalize_donor_names(df)
+    assert df["contributor_first_name"].tolist()[:3] == ["JOHN"] * 3
 
 
 def test_word_the_donor_brackets_elsewhere_is_an_aside():
