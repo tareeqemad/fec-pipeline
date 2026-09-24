@@ -266,3 +266,15 @@ def test_org_alignment_sees_entity_overrides_and_final_employer(tmp_path, monkey
     assert org_row["entity_type"] == "ORGANIZATION"
     assert org_row["contributor_name"] == firm
     assert org_row["donor_key"] == "orgkey"
+
+
+def test_a_given_name_after_an_initial_is_kept():
+    from fec.cleaning.pipeline.names import _keep_given_name_after_initial
+
+    df = pd.DataFrame({
+        'contributor_name': ['HARRIS, S. WOLF', 'SMITH, J', 'DOE, J JANE'],
+        'contributor_first_name': ['S.', 'J', 'K'],
+        'contributor_last_name': ['HARRIS', 'SMITH', 'DOE'],
+    })
+    _keep_given_name_after_initial(df, pd.Series(True, index=df.index))
+    assert df['contributor_first_name'].tolist() == ['S. WOLF', 'J', 'K']
