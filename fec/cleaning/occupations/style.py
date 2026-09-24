@@ -118,7 +118,9 @@ def normalize_occupation_style(value: str) -> str:
     return s
 
 
-_LEGAL_SUFFIX_IN_OCC_RE = re.compile(r'\b(LLC|LLP|INC|CORP|CORPORATION|LTD|PLLC|PC|LP)\b')
+# non-capturing: str.contains only needs a yes/no, and a capture group makes
+# pandas warn "this pattern has match groups" on every run
+_LEGAL_SUFFIX_IN_OCC_RE = re.compile(r'\b(?:LLC|LLP|INC|CORP|CORPORATION|LTD|PLLC|PC|LP)\b')
 
 
 def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:

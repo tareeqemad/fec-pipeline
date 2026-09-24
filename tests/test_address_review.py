@@ -159,22 +159,38 @@ def test_reports_split_review_vs_regeocode(tmp_path):
          "contributor_city": "POTOMAC", "contributor_state": "MD", "contributor_zip": "20854"},
         {"sub_id": "6", "contributor_street_1": "PMB 288", "contributor_street_2": np.nan,
          "contributor_city": "WINTER PARK", "contributor_state": "FL", "contributor_zip": "32789"},
+        # committee / organization mailboxes are their normal filing address: not queued
+        {"sub_id": "7", "contributor_street_1": "PO BOX 378", "contributor_street_2": np.nan,
+         "contributor_city": "VICTOR", "contributor_state": "NY", "contributor_zip": "14564"},
+        {"sub_id": "8", "contributor_street_1": "PO BOX 12", "contributor_street_2": np.nan,
+         "contributor_city": "ASPEN", "contributor_state": "CO", "contributor_zip": "81612"},
+        {"sub_id": "9", "contributor_street_1": "PMB 288", "contributor_street_2": "501 N ORLANDO AVE",
+         "contributor_city": "WINTER PARK", "contributor_state": "FL", "contributor_zip": "32789"},
     ])
+    df["entity_type"] = ["INDIVIDUAL"] * 6 + ["COMMITTEE/PAC", "ORGANIZATION", "COMMITTEE/PAC"]
     df, counts = build_address_reports(df, str(tmp_path))
 
     review = list(csv.DictReader(open(tmp_path / "address_manual_review.csv", encoding="utf-8")))
     regeo = list(csv.DictReader(open(tmp_path / "address_regeocode_suspects.csv", encoding="utf-8")))
-    review_reasons = {r["review_reason"] for r in review}
+    status_of = {r["review_reason"]: r["status"] for r in review}
 
-    # human-judgment cases land in manual review
-    assert "entity / non-address in street_1" in review_reasons
-    assert "street_2 unit keyword without a number" in review_reasons
-    assert "street_2 looks like a state/city abbreviation" in review_reasons
+    # human-judgment cases are open manual-review items
+    assert status_of["entity / non-address in street_1"] == "open"
+    # street_2 values the step already emptied stay visible, but as auto_fixed, not open
+    assert status_of["street_2 unit keyword without a number"] == "auto_fixed"
+    assert status_of["street_2 looks like a state/city abbreviation"] == "auto_fixed"
+    fixed = {r["sub_id"]: r["contributor_street_2"] for r in review if r["status"] == "auto_fixed"}
+    assert fixed == {"3": "STE", "4": "FL", "5": "POTO MD"}   # the value as filed, before emptying
+    assert counts["manual_review"] == sum(r["status"] == "open" for r in review)
+    assert counts["auto_fixed"] == 3 and counts["street2_emptied"] == 3
     # PO boxes and PMB private mailboxes go to the re-geocode notes, not manual review
     assert any("PO Box" in r["review_reason"] for r in regeo)
     assert any("PMB" in r["review_reason"] for r in regeo)
-    assert not any("PO Box" in r for r in review_reasons)
-    assert not any("PMB" in r for r in review_reasons)
+    assert not any("PO Box" in r for r in status_of)
+    assert not any("PMB" in r for r in status_of)
+    # ... and only for individuals
+    mailbox_ids = {r["sub_id"] for r in regeo if "PO Box" in r["review_reason"] or "PMB" in r["review_reason"]}
+    assert mailbox_ids == {"2", "6"}
 
     # The only edit this step makes: a bad street_2 is emptied
     assert df.loc[df.sub_id == "3", "contributor_street_2"].isna().all()

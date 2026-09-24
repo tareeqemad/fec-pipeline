@@ -105,10 +105,54 @@ def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     return {group: tuple(names) for group, names in groups.items()}
 
 
+def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
+    last, _, first = _normalize(name).partition(",")
+    return last.strip(), tuple(re.findall(r"[A-Z]+", first))
+
+
+def _load_joint_exemptions(rows) -> frozenset[str]:
+    """Longer names of verified merge_keys pairs 'LAST, A' + 'LAST, A W...'.
+
+    Such a rule is a reviewed statement that the extra word is the filer's own
+    name (GOTTESMAN, MARGERY ARCHIE: Archie is Margery's public name), so the
+    joint-filing guard must not split it off.
+    """
+    exempt = set()
+    for row in rows:
+        if _normalize(row.get("action")) != "MERGE_KEYS":
+            continue
+        (last_a, words_a), (last_b, words_b) = (
+            _name_words(row.get("name_a")), _name_words(row.get("name_b"))
+        )
+        if not last_a or last_a != last_b or words_a == words_b:
+            continue
+        short, long = sorted((words_a, words_b), key=len)
+        if short and long[: len(short)] == short:
+            exempt.add(f"{last_a}, {' '.join(long)}")
+    return frozenset(exempt)
+
+
 _RULES = _read_rules()
 SEPARATE_NAMES, SEPARATE_IDENTITIES = _load_separations(_RULES)
 KEY_MERGES = _load_key_merges(_RULES)
 NAME_MERGES = _load_name_merges(_RULES)
+_JOINT_EXEMPT_NAMES = _load_joint_exemptions(_RULES)
+_MERGED_NAME_PREFIXES = tuple(
+    prefix for prefixes in NAME_MERGES.values() for prefix in prefixes
+)
+
+
+def joint_name_exempt(name: str) -> bool:
+    """True when a verified rule says this multi-word first name is its filer's own.
+
+    A merge_names group covers every name that starts with one of its names
+    (all one person); a merge_keys pair 'LAST, A' / 'LAST, A W' covers 'LAST, A W'.
+    """
+    last, words = _name_words(name)
+    if not last or not words:
+        return False
+    text = f"{last}, {' '.join(words)}"
+    return text in _JOINT_EXEMPT_NAMES or text.startswith(_MERGED_NAME_PREFIXES)
 
 
 def names_must_stay_separate(name_a: str, name_b: str) -> bool:

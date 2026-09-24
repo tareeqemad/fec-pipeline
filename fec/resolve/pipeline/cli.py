@@ -1,6 +1,7 @@
 """CLI entry point for the resolve pipeline."""
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -105,6 +106,23 @@ def _run_steps(
     return ai_incomplete
 
 
+QUALITY_GATES_JSON = "quality_gates.json"
+
+
+def _write_quality_gates(quality: dict, data_dir: str, csv_written: bool) -> None:
+    """Replace clean.py's gate report with the one run on the resolved data.
+
+    clean.py writes the report before resolve adds employer_status, so four
+    gates read not_run there; this is the report of the final file.
+    """
+    report = {**quality, "stage": "resolve", "csv_written": csv_written}
+    destination = Path(data_dir) / QUALITY_GATES_JSON
+    temporary = destination.with_suffix(f"{destination.suffix}.tmp")
+    with open(temporary, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2)
+    os.replace(temporary, destination)
+
+
 def _write_results(
     df: pd.DataFrame,
     csv_path: str,
@@ -113,10 +131,12 @@ def _write_results(
 ) -> pd.DataFrame:
     logger.info(f"\n-- Writing results -> {csv_path} --")
     df = apply_results(df, prev_cache, addr_cache)
+    data_dir = os.path.dirname(csv_path) or "."
 
     from fec.cleaning.quality import run_quality_gates
     quality = run_quality_gates(df)
     if not quality["passed"]:
+        _write_quality_gates(quality, data_dir, csv_written=False)
         details = "; ".join(quality["issues"]) or "quality gate failed"
         raise ValueError(f"Resolved CSV was not written: {details}")
 
@@ -128,6 +148,8 @@ def _write_results(
     temporary = destination.with_suffix(f"{destination.suffix}.tmp")
     df.to_csv(temporary, index=False)
     os.replace(temporary, destination)
+    # the gates read no employer_city, so the report above describes this file
+    _write_quality_gates(quality, data_dir, csv_written=True)
     logger.info(f"  Written {len(df):,} rows")
     return df
 

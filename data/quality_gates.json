@@ -15,31 +15,20 @@
       "count": 0
     },
     "self_employed_status_consistency": {
-      "passed": null,
-      "count": null,
-      "not_run": true,
-      "missing_columns": [
-        "employer_status"
-      ],
-      "reason": "run after resolve --apply"
+      "passed": true,
+      "count": 0,
+      "marker_without_status": 0,
+      "status_without_marker": 0
     },
     "not_employed_status_consistency": {
-      "passed": null,
-      "count": null,
-      "not_run": true,
-      "missing_columns": [
-        "employer_status"
-      ],
-      "reason": "run after resolve --apply"
+      "passed": true,
+      "count": 0,
+      "marker_without_status": 0,
+      "status_without_marker": 0
     },
     "previous_employer_scope": {
-      "passed": null,
-      "count": null,
-      "not_run": true,
-      "missing_columns": [
-        "employer_status"
-      ],
-      "reason": "run after resolve --apply"
+      "passed": true,
+      "count": 0
     },
     "zip_coverage": {
       "passed": true,
@@ -71,13 +60,8 @@
       "count": 0
     },
     "retired_active_sync": {
-      "passed": null,
-      "count": null,
-      "not_run": true,
-      "missing_columns": [
-        "employer_status"
-      ],
-      "reason": "run after resolve --apply"
+      "passed": true,
+      "count": 0
     },
     "retired_employer_marker": {
       "passed": true,
@@ -92,5 +76,7 @@
       "count": 0
     }
   },
-  "issues": []
+  "issues": [],
+  "stage": "resolve",
+  "csv_written": true
 }

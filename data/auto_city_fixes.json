@@ -1,11 +1,50 @@
-{
-  "CARLESBAD": "CARLSBAD",
-  "WOODLAND HLS": "WOODLAND HILLS",
-  "SNOW MASS VILLAGE": "SNOWMASS VILLAGE",
-  "EAST HARTFORD": "WEST HARTFORD",
-  "LOXAHACHEE": "LOXAHATCHEE",
-  "GLENCOVE": "GLEN COVE",
-  "PLEASANTVILE": "PLEASANTVILLE",
-  "PLEASANVILLE": "PLEASANTVILLE",
-  "FT WASHINGTON": "FORT WASHINGTON"
-}
+[
+  {
+    "state": "CA",
+    "city": "CARLESBAD",
+    "zip5": "92009",
+    "fix": "CARLSBAD"
+  },
+  {
+    "state": "CA",
+    "city": "WOODLAND HLS",
+    "zip5": "91364",
+    "fix": "WOODLAND HILLS"
+  },
+  {
+    "state": "CO",
+    "city": "SNOW MASS VILLAGE",
+    "zip5": "81615",
+    "fix": "SNOWMASS VILLAGE"
+  },
+  {
+    "state": "FL",
+    "city": "LOXAHACHEE",
+    "zip5": "33470",
+    "fix": "LOXAHATCHEE"
+  },
+  {
+    "state": "NY",
+    "city": "GLENCOVE",
+    "zip5": "11542",
+    "fix": "GLEN COVE"
+  },
+  {
+    "state": "NY",
+    "city": "PLEASANTVILE",
+    "zip5": "10570",
+    "fix": "PLEASANTVILLE"
+  },
+  {
+    "state": "NY",
+    "city": "PLEASANVILLE",
+    "zip5": "10570",
+    "fix": "PLEASANTVILLE"
+  },
+  {
+    "state": "PA",
+    "city": "FT WASHINGTON",
+    "zip5": "19034",
+    "fix": "FORT WASHINGTON"
+  }
+]

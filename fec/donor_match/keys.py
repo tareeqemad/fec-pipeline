@@ -9,6 +9,7 @@ import pandas as pd
 from fec.log import get_logger
 
 from .constants import NICKNAME_MAP
+from .joint import given_tokens, joint_partners
 from .rules import (
     KEY_MERGES,
     identities_must_stay_separate,
@@ -207,6 +208,23 @@ def _first_name_relation(first_a: str, first_b: str) -> str:
     return ""
 
 
+def _is_joint_pair(first_a: str, first_b: str, household_firsts) -> bool:
+    """One first name is the other's joint filing with a co-filer of the same
+    ZIP and surname ("MARC MELISSA" / "MARC" next to MELISSA, "GAYLEDAVID" /
+    "GAYLE" next to DAVID): two donors on purpose, not a pending duplicate."""
+    tokens_a, tokens_b = given_tokens(first_a), given_tokens(first_b)
+    for joint, solo in ((tokens_a, tokens_b), (tokens_b, tokens_a)):
+        if not joint or not solo or joint == solo:
+            continue
+        same_filer = joint[0] == solo[0] or (
+            len(joint) == 1 and joint[0].startswith(solo[0])
+        )
+        others = {given_tokens(first) for first in household_firsts} - {joint, solo}
+        if same_filer and joint_partners(joint, {joint, solo}, others):
+            return True
+    return False
+
+
 def _review_row(
     summary: pd.DataFrame, zip_code: str, last_name: str,
     key_a: str, key_b: str, reason: str,
@@ -246,6 +264,7 @@ def _review_candidates(
         donor_keys = sorted(group["donor_key"].unique())
         if not last_name or len(donor_keys) < 2:
             continue
+        household_firsts = {summary.at[key, "first"] for key in donor_keys}
         for key_a, key_b in combinations(donor_keys, 2):
             if (key_a, key_b) in seen:
                 continue
@@ -257,7 +276,7 @@ def _review_candidates(
                 continue
             if names_must_stay_separate(
                 f"{last_name}, {first_a}", f"{last_name}, {first_b}"
-            ):
+            ) or _is_joint_pair(first_a, first_b, household_firsts):
                 continue
             rows.append(_review_row(
                 summary, zip_code, last_name, key_a, key_b, reason,

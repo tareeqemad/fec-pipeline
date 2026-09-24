@@ -199,25 +199,51 @@ def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series
     )
 
 
+def _text(value) -> str:
+    """A name cell as text; NaN / None / pd.NA (all truthy or ambiguous) become ''."""
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return ''
+    return str(value).strip()
+
+
 def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Fix keyboard errors like JEFREY/ROBERTB (verified by address matching)."""
-    first_names = df.loc[is_individual, 'contributor_first_name'].fillna('')
-    first_word = first_names.str.split().str[0].fillna('')
-    garbled_mask = is_individual & first_word.isin(FIRST_NAME_FIXES).reindex(df.index, fill_value=False)
-    if garbled_mask.any():
-        n_garbled = int(garbled_mask.sum())
+    """Fix a verified keyboard error in ONE filer's first name (FISHER, JEFREY -> JEFFREY).
+
+    Each first_name rule in contributor_name_rules.csv was checked against that
+    filer's own other filings and names the filer it was written for: the
+    surname, the garbled first word and the ZIP5 of the address. A row is
+    corrected only when all three match, so the same word on anyone else's
+    filing (BRIA, CAROLL, AURI, DORUS and ISSAC are real given names) is left
+    as filed, and a row without a surname or ZIP is never touched.
+    """
+    if not FIRST_NAME_FIXES or 'contributor_zip' not in df.columns:
+        return
+    garbled_words = {word for _, word, _ in FIRST_NAME_FIXES}
+    first_word = df['contributor_first_name'].fillna('').astype(str).str.split().str[0]
+    candidates = is_individual & first_word.isin(garbled_words)
+    if not candidates.any():
+        return
+    zip5 = (
+        df.loc[candidates, 'contributor_zip'].astype('string').fillna('')
+        .str.replace(r'\D', '', regex=True).str[:5]
+    )
+    n_garbled = 0
+    for idx in df.index[candidates]:
+        old_first = _text(df.at[idx, 'contributor_first_name'])
+        last = _text(df.at[idx, 'contributor_last_name'])
+        old_first_word = old_first.split()[0]
+        new_first_word = FIRST_NAME_FIXES.get((last, old_first_word, zip5.at[idx]))
+        if not new_first_word or not last:
+            continue
         if '_garbled_before' not in df.columns:
             df['_garbled_before'] = pd.Series(pd.NA, index=df.index, dtype='object')
-        for idx in df.loc[garbled_mask].index:
-            old_first = df.at[idx, 'contributor_first_name']
-            old_first_word = old_first.split()[0]
-            new_first_word = FIRST_NAME_FIXES[old_first_word]
-            df.at[idx, '_garbled_before'] = old_first_word
-            rest = old_first[len(old_first_word):].strip()
-            new_first = f"{new_first_word} {rest}".strip() if rest else new_first_word
-            last = df.at[idx, 'contributor_last_name'] or ''
-            df.at[idx, 'contributor_first_name'] = new_first
-            df.at[idx, 'contributor_name'] = f"{last}, {new_first}"
+        df.at[idx, '_garbled_before'] = old_first_word
+        rest = old_first[len(old_first_word):].strip()
+        new_first = f"{new_first_word} {rest}" if rest else new_first_word
+        df.at[idx, 'contributor_first_name'] = new_first
+        df.at[idx, 'contributor_name'] = f"{last}, {new_first}"
+        n_garbled += 1
+    if n_garbled:
         logger.info("Fixed %d garbled first names (keyboard errors)", n_garbled)
 
 

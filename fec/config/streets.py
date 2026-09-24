@@ -44,10 +44,54 @@ STATE_IN_CITY = re.compile(r'\s*,?\s+(' + '|'.join(sorted(US_STATES)) + r')\s*$'
 
 # direction abbreviations
 
+# A direction word that IS the street's name stays spelled out (USPS Pub 28:
+# right to left, the suffix is read first and the word left of it is the
+# name): "650 WEST AVE", "5555 SOUTH ST, STE 200", "3500 SOUTHWEST BLVD". The
+# direction is the name only when the suffix closes the street: end of text,
+# a comma, a unit, or a number that can only be a unit. Lincoln NE has both a
+# South St and a lettered S St, so abbreviating names a different street.
+# Still abbreviated: "123 NORTH MAIN ST", "4550 NORTH PARK AVE" (PARK is the
+# name), "123 NORTH ST JOHNS AVE" (ST is SAINT), "2100 WEST LOOP S" (a
+# post-directional follows, Houston's W LOOP S) and "1704 NORTH AVENUE 54" (LA's
+# numbered Avenue 54, where the number is the name, not a unit). "WEST END
+# AVE" stays "W END AVE": END is not a suffix, and the filers themselves write
+# "W END AVE" (452 rows / 63 donors in New York) far more than "WEST END".
+#
+# Only thoroughfare types that are not themselves common street names count:
+# PARK, CENTER, GREEN, HILL, VIEW, PLAZA ... are left out, because
+# "100 WEST CENTER" is usually W Center St with its type dropped.
+_NAME_SUFFIXES = (
+    'ALLEY|ALY|AVENUE|AVE|AV|BOULEVARD|BLVD|BYPASS|BYP|CAUSEWAY|CSWY'
+    '|CIRCLE|CIR|COURT|CT|CRESCENT|CRES|DRIVE|DR|EXPRESSWAY|EXPY'
+    '|FREEWAY|FWY|HIGHWAY|HWY|LANE|LN|LOOP|PARKWAY|PKWY|PLACE|PL'
+    '|ROAD|RD|ROUTE|RTE|SQUARE|SQ|STREET|ST|TERRACE|TER|TRAIL|TRL'
+    '|TURNPIKE|TPKE|WAY'
+)
+# suffixes whose trailing number is part of the name (Avenue 54, Loop 410,
+# County Road 20, Highway 9), so a bare number after them is not a unit
+_NUMBERED_NAME_SUFFIXES = (
+    'AVENUE|AVE|AV|ROAD|RD|LOOP|HIGHWAY|HWY|ROUTE|RTE|PIKE|TURNPIKE|TPKE'
+    '|EXPRESSWAY|EXPY|FREEWAY|FWY|PARKWAY|PKWY'
+)
+_UNIT_WORDS = (
+    'APT|APARTMENT|UNIT|STE|SUITE|BLDG|BUILDING|DEPT|FL|FLR|FLOOR|RM|ROOM'
+    '|PH|PENTHOUSE|OFFICE|OFC|LOT|SPC|SPACE|TRLR|PMB|NO'
+)
+_NAME_CLOSED = (
+    r'\.?(?:\s*(?:,|;|#|$)|\s+-|\s+(?:' + _UNIT_WORDS + r')\b'
+    r'|\s+\d+(?:ST|ND|RD|TH)\s+(?:FL|FLR|FLOOR)\b)'
+)
+_DIRECTION_IS_NAME = (
+    r'\s+(?:' + _NAME_SUFFIXES + r')\b' + _NAME_CLOSED +
+    r'|\s+(?!(?:' + _NUMBERED_NAME_SUFFIXES + r')\b)(?:' + _NAME_SUFFIXES + r')\b'
+    r'\.?\s+\d+[A-Z]?\s*$'
+)
+
+
 def _direction_rule(word: str, abbr: str, prefix: bool = True) -> tuple:
     """Build a (regex, replacement) pair for direction abbreviation."""
     if prefix:
-        return (re.compile(rf'^{word}\b\s+', re.IGNORECASE), f'{abbr} ')
+        return (re.compile(rf'^{word}\b(?!{_DIRECTION_IS_NAME})\s+', re.IGNORECASE), f'{abbr} ')
     return (re.compile(rf'\s+{word}\s*$', re.IGNORECASE), f' {abbr}')
 
 
@@ -57,9 +101,10 @@ DIRECTION_ABBREVIATIONS = [
     ('NORTH', 'N'), ('SOUTH', 'S'), ('EAST', 'E'), ('WEST', 'W'),
 ]
 
-# Direction words after a house number ("123 NORTH MAIN ST")
+# Direction words after a house number ("123 NORTH MAIN ST"); a direction word
+# that is the street's name ("650 WEST AVE") is left spelled out
 DIR_MID = [
-    (re.compile(rf'(\d\s+){word}\b', re.IGNORECASE), rf'\g<1>{abbr}')
+    (re.compile(rf'(\d\s+){word}\b(?!{_DIRECTION_IS_NAME})', re.IGNORECASE), rf'\g<1>{abbr}')
     for word, abbr in DIRECTION_ABBREVIATIONS
 ]
 
@@ -111,4 +156,7 @@ UNIT_RULES = [
 STREET_TYPO_RULES = [
     (re.compile(r'\bOLYMIC\b', re.IGNORECASE), 'OLYMPIC'),
     (re.compile(r'\bSUTE\b', re.IGNORECASE), 'SUITE'),
+    # "200 WEST SREET" (same donor files "200 WEST ST" 18 times); fixed before the
+    # direction rules so the street name WEST is kept like the donor's other rows
+    (re.compile(r'\bSREET\b', re.IGNORECASE), 'STREET'),
 ]

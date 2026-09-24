@@ -133,7 +133,7 @@ SAFETY_RULES = (
     (_fix_truncated_employer_38, ALL_ROWS, WORK_FIELDS,
      'truncated_employer_expanded'),
     (_fix_company_name_as_occupation, ALL_ROWS, WORK_FIELDS,
-     'company_in_occupation_moved_to_employer_occupation_imputed'),
+     'company_in_occupation_moved_to_employer'),
     (_fix_swapped_emp_occ_company, ALL_ROWS, WORK_FIELDS,
      'job_title_employer_company_occupation_swapped'),
     (_fix_not_disclosed_in_other, ALL_ROWS, WORK_FIELDS,

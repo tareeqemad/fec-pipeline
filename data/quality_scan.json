@@ -18,63 +18,15 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 11,
-    "rows": 12,
+    "distinct": 3,
+    "rows": 3,
     "examples": [
-      {
-        "value": "GLOBAL BROADCAST TALENT",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 10x POKER BROADCASTER"
-        ]
-      },
-      {
-        "value": "COSMETICS",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 28x BEAUTY"
-        ]
-      },
-      {
-        "value": "INFRASTRUCTURE DEVELOPMENT AND OPERATI",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 39x INFRASTRUCTURE AND PRIVATE EQUITY/PRIVATE EQUITY"
-        ]
-      },
       {
         "value": "STATISTICAL ENVIRONMENTALIST",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
           "1x vs 11x HYDRO/AQUIFER CONSULTANT/INVESTOR"
-        ]
-      },
-      {
-        "value": "BIG BOY",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 17x REAL ESTATE/REAL ESTATE INVESTMENT & MANAGEMENT"
-        ]
-      },
-      {
-        "value": "SALED",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 14x SALES"
-        ]
-      },
-      {
-        "value": "PRINTER",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 18x BUSINESS OWNER"
         ]
       },
       {
@@ -92,28 +44,12 @@
         "evidence": [
           "1x vs 9x REAL ESTATE/REAL ESTATE EXECUTIVE"
         ]
-      },
-      {
-        "value": "OFFICER AT RICHKER METALS",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 27x OFFICER/SECRETARY"
-        ]
-      },
-      {
-        "value": "FIANCE",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 67x FINANCE/FINANCIAL ANALYST"
-        ]
       }
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 337,
-    "rows": 395,
+    "distinct": 147,
+    "rows": 180,
     "examples": [
       {
         "value": "INVESTIGATOR",
@@ -124,19 +60,7 @@
         "rows": 6
       },
       {
-        "value": "GM",
-        "rows": 6
-      },
-      {
-        "value": "EQUESTRIAN",
-        "rows": 5
-      },
-      {
         "value": "STRATEGY",
-        "rows": 5
-      },
-      {
-        "value": "ACCOUNT MANANGER",
         "rows": 5
       },
       {
@@ -156,10 +80,6 @@
         "rows": 3
       },
       {
-        "value": "BUYER",
-        "rows": 3
-      },
-      {
         "value": "LOVER",
         "rows": 3
       },
@@ -172,23 +92,7 @@
         "rows": 2
       },
       {
-        "value": "HOLISTIC NUTRITION",
-        "rows": 2
-      },
-      {
-        "value": "CLEANING SERVICE",
-        "rows": 2
-      },
-      {
-        "value": "COURT COORDINATOR",
-        "rows": 2
-      },
-      {
         "value": "ADVOCATE",
-        "rows": 2
-      },
-      {
-        "value": "INTERPRETER",
         "rows": 2
       },
       {
@@ -196,24 +100,56 @@
         "rows": 2
       },
       {
-        "value": "INS AGENCY",
+        "value": "PROFESSIONAL NURTURER",
         "rows": 2
       },
       {
-        "value": "MATHEMATICIAN",
+        "value": "SERVICES",
         "rows": 2
       },
       {
-        "value": "CLO",
+        "value": "REPRESENTATIVE",
         "rows": 2
       },
       {
-        "value": "CGO",
-        "rows": 2
+        "value": "LEARNING AND DEVELOPMENT",
+        "rows": 1
       },
       {
-        "value": "TAP",
-        "rows": 2
+        "value": "SR. MARKET REP ASSOCIATE",
+        "rows": 1
+      },
+      {
+        "value": "BRANDED SIGNS AND PROMOTIONS",
+        "rows": 1
+      },
+      {
+        "value": "MEMBERSHIP",
+        "rows": 1
+      },
+      {
+        "value": "EXTERNAL ENGAGEMENT",
+        "rows": 1
+      },
+      {
+        "value": "INFRASTRUCTURE",
+        "rows": 1
+      },
+      {
+        "value": "NEELY FOR NEVADA AD9",
+        "rows": 1
+      },
+      {
+        "value": "RURAL AND APPALACHIAN HEALTH LEAD",
+        "rows": 1
+      },
+      {
+        "value": "SPEAKER",
+        "rows": 1
+      },
+      {
+        "value": "POSITION",
+        "rows": 1
       }
     ]
   }

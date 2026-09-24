@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.address_review import build_address_reports
+from fec.cleaning.address_review import (
+    apply_street2_fixes,
+    build_review_queues,
+    queue_counts,
+    write_review_queues,
+)
 from fec.cleaning.addresses import clean_cities, clean_streets, clean_zips
 from fec.cleaning.audit_trail import (
     ADDRESS_FIELDS,
@@ -187,22 +192,43 @@ def _align_address_parts(df: pd.DataFrame, trail: AuditTrail, log) -> None:
         )
 
 
-def _report_address_issues(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.DataFrame:
-    df, review_counts = trail.run(
-        df, lambda frame: build_address_reports(frame, out_dir),
+def log_review_queues(counts: dict, log) -> None:
+    if counts["manual_review"] or counts["auto_fixed"] or counts["regeocode"]:
+        log(
+            f"Address review: {counts['manual_review']:,} open for manual review, "
+            f"{counts['auto_fixed']:,} emptied street_2 listed as auto_fixed, "
+            f"{counts['regeocode']:,} for re-geocoding"
+        )
+
+
+def _report_address_issues(
+    df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
+) -> pd.DataFrame:
+    df, auto_fixed, emptied = trail.run(
+        df, apply_street2_fixes,
         "address_review", "street_2_nulled_unit_keyword_or_state_only", STREET_FIELDS,
     )
-    if review_counts["manual_review"] or review_counts["regeocode"]:
-        log(
-            f"Address review: {review_counts['manual_review']:,} flagged for manual review, "
-            f"{review_counts['regeocode']:,} for re-geocoding "
-            f"({review_counts['street2_emptied']:,} bad street_2 emptied)"
-        )
+    if emptied:
+        log(f"Address review: {emptied:,} bad street_2 emptied")
+    if reports is not None:
+        # clean_pipeline writes the queues after the donor stage
+        reports["street2_auto_fixed"] = auto_fixed
+    elif out_dir:
+        review_df, regeocode_df = build_review_queues(df, auto_fixed)
+        write_review_queues(out_dir, review_df, regeocode_df)
+        log_review_queues(queue_counts(review_df, regeocode_df), log)
     return df
 
 
-def clean_addresses(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.DataFrame:
-    """Run the whole address stage."""
+def clean_addresses(
+    df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
+) -> pd.DataFrame:
+    """Run the whole address stage.
+
+    With ``reports`` the review queues are not written here: the street_2 values
+    the stage emptied are stored in it for clean_pipeline, which writes the queues
+    from the final rows. Without it they are written at the end of this stage.
+    """
     df = _clean_street_text(df, trail, log)
     _recover_streets(df, trail, out_dir, log)
     df = _clean_city_zip(df, trail, out_dir, log)
@@ -213,4 +239,4 @@ def clean_addresses(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.Dat
     if verified:
         log(f"Streets: applied {verified:,} verified postal corrections")
     _align_address_parts(df, trail, log)
-    return _report_address_issues(df, trail, out_dir, log)
+    return _report_address_issues(df, trail, out_dir, log, reports)

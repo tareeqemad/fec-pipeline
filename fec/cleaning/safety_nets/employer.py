@@ -6,10 +6,14 @@ import re
 import numpy as np
 import pandas as pd
 
+from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.config.constants import (
     REFUSAL_EMPLOYERS, OK_SHORT_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
-    OCCUPATION_AS_EMPLOYER, RETIRED_TYPO_EMPLOYERS,
+    OCCUPATION_AS_EMPLOYER, RETIRED_TYPO_EMPLOYERS, NOT_REAL_EMPLOYER,
+    JOB_TITLE_AS_EMPLOYER,
 )
+
+from .employer_swaps import _swap_occ_emp_fields
 
 # Safe structural variants of the status word: RETIR / RETIRE / RETIRED /
 # RETIREE / RETIRD. Full-match only, so "RETIREMENT" is never touched.
@@ -132,14 +136,73 @@ def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
+# EXECUTIVE is a title, not an industry. It stays in SECTOR_AS_EMPLOYER (the
+# previous-employer contract and the raw-employer recovery must keep reading it
+# as "no company"), but here an occupation box holding a named company
+# (NORTH INDUSTRIES) is swapped back instead of the title being lost. Beside an
+# industry it reads "<industry> executive" (EXECUTIVE / COSMETICS, EXECUTIVE /
+# HEALTHCARE): the employer is nulled and the words are kept, as for any sector.
+_TITLE_SECTOR_WORDS = frozenset({'EXECUTIVE'}) & SECTOR_AS_EMPLOYER
+
+# Legal-entity words only. The broad company marker of the AD swap
+# (_COMPANY_NAME_RE) also matches industry words (HEALTHCARE, INSURANCE, MEDIA,
+# FINANCIAL, SERVICES, MANAGEMENT, GLOBAL, HOSPITAL), any "X & Y" (OIL & GAS)
+# and CO-FOUNDER, which beside EXECUTIVE are lines of work, not employers.
+_ENTITY_WORD_RE = re.compile(
+    r'\b(?:L\.?L\.?C|L\.?L\.?P|L\.?P|INC|CORP|CORPORATION|COMPANY|LTD|PLC'
+    r'|GROUP|HOLDINGS|PARTNERS|ENTERPRISES|INDUSTRIES)\b\.?'
+)
+# a name part that is itself an industry, a kind of workplace or a job
+_NOT_A_COMPANY_NAME = SECTOR_AS_EMPLOYER | NOT_REAL_EMPLOYER | JOB_TITLE_AS_EMPLOYER
+
+
+def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Series:
+    """EXECUTIVE / <text>: the text is the company only when it carries a legal-entity word AND the name beside that word is no line of work.
+
+    NORTH INDUSTRIES -> yes. HEALTHCARE COMPANY, INSURANCE GROUP, INVESTMENT
+    GROUP, a bare LLC -> no: the name part is empty, a sector / non-company
+    word, or text a category rule recognises as a line of work.
+    """
+    upper = occ.fillna('').astype(str).str.strip().str.upper()
+    entity = candidates & upper.str.contains(_ENTITY_WORD_RE, na=False)
+    result = pd.Series(False, index=occ.index)
+    if not entity.any():
+        return result
+    name = (upper[entity]
+            .str.replace(_ENTITY_WORD_RE, ' ', regex=True)
+            .str.replace(r'[^\w&]+', ' ', regex=True)
+            .str.split().str.join(' '))
+    named = (
+        name.ne('')
+        & ~name.isin(_NOT_A_COMPANY_NAME)
+        & ~upper[entity].isin(_NOT_A_COMPANY_NAME)
+        & _categorize_final(name).eq('OTHER')
+    )
+    result.loc[named.index] = named.to_numpy()
+    return result
+
+
 def _null_sector_as_employer(df: pd.DataFrame) -> int:
-    """AD2. Industry/sector word in employer -> NULL (not a company; occupation kept, no swap-back on purpose)."""
+    """AD2. Industry/sector word in employer -> NULL (not a company; occupation kept). The title word EXECUTIVE is swapped back when the occupation box names a company, and moved into an empty occupation box."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('')
+    occ = df['contributor_occupation'].fillna('')
     mask = is_indiv & emp.str.upper().isin(SECTOR_AS_EMPLOYER)
     n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'contributor_employer'] = np.nan
+    if not n_fixed:
+        return 0
+
+    title = mask & emp.str.upper().isin(_TITLE_SECTOR_WORDS)
+    swap = _occupation_names_a_company(occ, title & occ.ne(''))
+    if swap.any():
+        _swap_occ_emp_fields(df, swap, status='DISCLOSED')
+    to_occupation = title & occ.eq('')
+    if to_occupation.any():
+        df.loc[to_occupation, 'contributor_occupation'] = emp[to_occupation].str.upper()
+        df.loc[to_occupation, 'occupation_category'] = _categorize(emp[to_occupation].str.upper())
+        df.loc[to_occupation, 'occupation_status'] = 'EMPLOYER_MISSING'
+
+    df.loc[mask & ~swap, 'contributor_employer'] = np.nan
     return n_fixed
 
 

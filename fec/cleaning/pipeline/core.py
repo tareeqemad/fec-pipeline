@@ -141,6 +141,7 @@ def _clean_fields(
     df: pd.DataFrame,
     trail: AuditTrail,
     out_dir: str | None = None,
+    address_reports: dict | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Clean contribution fields before donor matching."""
     start = time.time()
@@ -149,7 +150,7 @@ def _clean_fields(
     df = _prepare_records(df, log)
     trail.start(df)
     df = _clean_people(df, trail, log)
-    df = clean_addresses(df, trail, out_dir, log)
+    df = clean_addresses(df, trail, out_dir, log, reports=address_reports)
     df, missing = _finish_records(df, log)
     elapsed = time.time() - start
     log(f"Done: {len(df):,} rows in {elapsed:.1f}s")
@@ -171,9 +172,17 @@ def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
     out_dir: str | None = None,
+    address_reports: dict | None = None,
 ):
-    """Clean every contribution record."""
-    df_clean, missing = _clean_fields(df, trail, out_dir=out_dir)
+    """Clean every contribution record.
+
+    ``address_reports`` (optional) collects what the address stage leaves for the
+    review queues, so the caller can write them later; without it the address
+    stage writes them itself.
+    """
+    df_clean, missing = _clean_fields(
+        df, trail, out_dir=out_dir, address_reports=address_reports,
+    )
 
     logger.info("\n-- Record rules --")
     from fec.cleaning.record_rules import apply_record_rules
@@ -246,6 +255,29 @@ def standardize_donors(
     return standardize(df_clean, out_dir, trail or AuditTrail())
 
 
+def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_ids) -> None:
+    """Write the address review queues from the final rows (read-only: edits nothing).
+
+    Written here rather than in the address stage so donor-stage repairs are
+    reflected and every row carries its donor_key; foreign filings (kept as
+    filed, never geocoded) are not queued.
+    """
+    from fec.cleaning.address_review import (
+        build_review_queues,
+        queue_counts,
+        write_review_queues,
+    )
+    from .address_stage import log_review_queues
+
+    review_df, regeocode_df = build_review_queues(
+        df_clean,
+        address_reports.get("street2_auto_fixed"),
+        exclude_sub_ids=foreign_sub_ids,
+    )
+    write_review_queues(out_dir, review_df, regeocode_df)
+    log_review_queues(queue_counts(review_df, regeocode_df), logger.info)
+
+
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
@@ -260,7 +292,10 @@ def clean_pipeline(
     trail = AuditTrail()
     # foreign filings are kept exactly as filed: remember them before any repair
     foreign = snapshot_foreign_addresses(df)
-    df_clean, missing = clean_records(df, trail, out_dir=out_dir)
+    address_reports: dict = {}
+    df_clean, missing = clean_records(
+        df, trail, out_dir=out_dir, address_reports=address_reports,
+    )
     df_clean = identify_donors(df_clean, out_dir=out_dir)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
     n_foreign = trail.run(
@@ -271,6 +306,8 @@ def clean_pipeline(
         "  Foreign addresses: %s rows kept as filed (%s cells restored)",
         f"{len(foreign):,}", f"{n_foreign:,}",
     )
+    if out_dir:
+        _write_address_queues(df_clean, out_dir, address_reports, foreign.index)
     unexplained = trail.finish(df_clean)
     if unexplained:
         logger.warning(

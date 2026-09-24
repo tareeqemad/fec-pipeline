@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import re
 
+import numpy as np
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize
+from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.config.constants import (
     SKIP_EMPLOYERS, SKIP_OCCUPATIONS, OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER,
     JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE,
+    NOT_REAL_EMPLOYER,
 )
 from fec.config.occupation_rules.rules import (
     KNOWN_COMPANY_OCCUPATIONS,
@@ -59,6 +61,82 @@ _KNOWN_OCCUPATIONS = (
     | SELF_EMPLOYED_OCC_AS_EMP
     | {"ADVOCATE"}
 )
+
+# Titles that name a position OF an organisation ("CEO of X"). Filed alone in
+# the employer box they say the filer swapped the boxes, so an occupation box
+# holding no job is the organisation: VERON, JANE filed CEO / TAP = CEO of The
+# Acceleration Project. Left out on purpose: words for working for oneself
+# (OWNER, INDEPENDENT, FREELANCE, PRIVATE PRACTICE, INVESTOR, PARTNER,
+# PRINCIPAL ...), which beside a line of work (OWNER / DISTRIBUTION) really
+# mean self-employed; and a bare EXECUTIVE / EXEC, which beside an unknown
+# word reads "<word> executive" (EXECUTIVE / COSMETICS: an industry), so it is
+# swapped back only on a legal-entity word (the sector net, employer.py).
+ORG_TITLE_ROLES = frozenset({
+    'CEO', 'COO', 'PRESIDENT', 'PRESIDENT CEO', 'VICE PRESIDENT', 'VP',
+    'CHAIRMAN', 'FOUNDER', 'DEPUTY CEO', 'SENIOR DIRECTOR',
+    'MANAGING DIRECTOR', 'MANAGING PARTNER', 'EXEC DIRECTOR',
+})
+# placeholders that categorize OTHER without naming anything
+_NO_INFO_OCCUPATIONS = frozenset({'EMPLOYED', 'NOT DISCLOSED', 'OTHER'})
+
+
+def _filer_names(df: pd.DataFrame) -> pd.Series:
+    """The filer's name as written on each row (donor_key does not exist yet at this stage)."""
+    if 'contributor_name' in df.columns:
+        names = df['contributor_name']
+    elif {'contributor_last_name', 'contributor_first_name'} <= set(df.columns):
+        names = (df['contributor_last_name'].fillna('').astype(str) + ', '
+                 + df['contributor_first_name'].fillna('').astype(str))
+    else:
+        names = pd.Series('', index=df.index)
+    return names.fillna('').astype(str).str.strip().str.upper()
+
+
+def _occupation_names_no_job(df: pd.DataFrame, occ: pd.Series, candidates: pd.Series) -> pd.Series:
+    """Candidate rows whose occupation text is no job at all, so it can only be the organisation.
+
+    All of: no category rule, fix or override recognises it (_categorize_final
+    gives OTHER); it is not a known title, status, placeholder or non-company
+    word; and nobody else files it as an occupation (the one filer who swapped
+    the boxes is the only source; a word two filers use, like STRATEGY, is a
+    job description, not a name).
+    """
+    if not candidates.any():
+        return candidates
+    is_indiv = df['entity_type'] == 'INDIVIDUAL'
+    names = _filer_names(df)
+    filed = is_indiv & occ.ne('')
+    filers = names[filed].groupby(occ[filed]).nunique()
+    only_on_candidates = ~occ.isin(set(occ[filed & ~candidates]))
+    one_filer = occ.map(filers).fillna(0).eq(1)
+
+    uncategorised = pd.Series(False, index=occ.index)
+    cand_occ = occ[candidates]
+    uncategorised.loc[cand_occ.index] = _categorize_final(cand_occ).eq('OTHER').to_numpy()
+    upper = occ.str.upper()
+    return (
+        candidates
+        & occ.ne('')
+        & uncategorised
+        & only_on_candidates
+        & one_filer
+        & ~upper.isin(_KNOWN_OCCUPATIONS)
+        & ~upper.isin(SKIP_OCCUPATIONS)
+        & ~upper.isin(NOT_REAL_EMPLOYER)
+        & ~upper.isin(_NO_INFO_OCCUPATIONS)
+    )
+
+
+def occupation_holds_company(df: pd.DataFrame, occ: pd.Series, emp: pd.Series, candidates: pd.Series) -> pd.Series:
+    """A role word sits in the employer box (candidates): does the occupation box hold the company?
+
+    Yes when the text carries a company marker (LLC, GROUP, CAPITAL, ...), or
+    when the role is an organisation title and the text is no job at all.
+    """
+    marker = candidates & occ.str.contains(_COMPANY_NAME_RE, na=False)
+    org_title = candidates & emp.str.upper().isin(ORG_TITLE_ROLES)
+    return marker | _occupation_names_no_job(df, occ, org_title)
+
 
 def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> None:
     """Swap contributor_employer <-> contributor_occupation where mask is True, optionally setting occupation_status."""
@@ -162,7 +240,7 @@ def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
 
 
 def _fix_role_as_employer(df: pd.DataFrame) -> int:
-    """AD. Role/title in employer field: swap back if occ is a real company, else SELF-EMPLOYED."""
+    """AD. Role/title in employer field: swap back if occ holds the company (marker, or no job at all beside an organisation title), else SELF-EMPLOYED."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('')
     occ = df['contributor_occupation'].fillna('')
@@ -172,12 +250,11 @@ def _fix_role_as_employer(df: pd.DataFrame) -> int:
     if not n_fixed:
         return 0
 
-    occ_looks_like_company = occ.str.contains(_COMPANY_NAME_RE, na=False)
-    swap = mask & occ_looks_like_company
+    swap = occupation_holds_company(df, occ, emp, mask)
     if swap.any():
         _swap_occ_emp_fields(df, swap, status='DISCLOSED')
 
-    self_emp = mask & ~occ_looks_like_company
+    self_emp = mask & ~swap
     if self_emp.any():
         df.loc[self_emp, 'contributor_employer'] = 'SELF-EMPLOYED'
     return n_fixed
@@ -266,7 +343,13 @@ def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
 
 
 def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
-    """AK. emp='SELF-EMPLOYED' but occ is a frequent employer name in the dataset -> occ is the real employer, swap."""
+    """AK. emp='SELF-EMPLOYED' but occ is a frequent employer name in the dataset -> occ is the real employer; the occupation is left empty.
+
+    The filing names no job, and what OTHER people at that company report is
+    another person's occupation, never evidence for this one. The donor-stage
+    fill (donor_consistency AJ) later recovers the role only from this same
+    donor's own filings at this same employer; with none it stays missing.
+    """
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('')
     occ = df['contributor_occupation'].fillna('')
@@ -287,19 +370,10 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
     if not n_fixed:
         return 0
 
-    # replacement occ comes from what other employees of that company report
-    for occ_val in df.loc[occ_is_company, 'contributor_occupation'].unique():
-        other_emps = df[(df['contributor_employer'] == occ_val) & is_indiv]
-        real_occs = other_emps['contributor_occupation'].dropna()
-        real_occs = real_occs[~real_occs.isin({'RETIRED', 'SELF-EMPLOYED', 'NOT EMPLOYED', ''})]
-        best_occ = real_occs.value_counts().index[0] if len(real_occs) > 0 else None
-
-        mask = occ_is_company & (occ == occ_val)
-        df.loc[mask, 'contributor_employer'] = occ_val
-        if best_occ:
-            df.loc[mask, 'contributor_occupation'] = best_occ
-        df.loc[mask, 'occupation_status'] = 'DISCLOSED'
-
+    df.loc[occ_is_company, 'contributor_employer'] = df.loc[occ_is_company, 'contributor_occupation']
+    df.loc[occ_is_company, 'contributor_occupation'] = np.nan
+    df.loc[occ_is_company, 'occupation_category'] = pd.NA
+    df.loc[occ_is_company, 'occupation_status'] = 'MISSING'
     return n_fixed
 
 

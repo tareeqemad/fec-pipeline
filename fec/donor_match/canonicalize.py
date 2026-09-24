@@ -7,7 +7,9 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 
+from .joint import given_tokens, joint_partners
 from .matcher import UnionFind
+from .rules import joint_name_exempt
 
 # legal suffixes/connectors carry no identity when comparing employer names
 _EMP_DROP_TOKENS = frozenset(
@@ -108,13 +110,16 @@ def _choose_first(candidates: list[str]) -> str | None:
 
     Decoration is ignored when measuring the name: brackets and their content
     (a nickname, a spouse, initials), a trailing dash/comma, a period after a
-    whole word, and any later word the donor puts in brackets in another
-    filing ("LYON LENNY" next to "LYON (LENNY)"). The fullest name still wins,
-    so "MARK L." beats "MARK", and among its undecorated spellings the choice
-    is the one the old longest-name rule made. A balanced parenthetical
-    ("JAMES (JIM)") is kept only when the donor never filed the name without
-    decoration; a spelling that is only ever broken ("ANNA)", "MIRIAM.") is
-    shown without the decoration.
+    whole word or an initial, and any later word the donor puts in brackets in
+    another filing ("LYON LENNY" next to "LYON (LENNY)"). The fullest name
+    still wins, so "MARK L." beats "MARK". When different names are equally
+    full ("ADAM" / "ADDM", "MARC L" / "MARC I") the one the donor files most
+    often wins, and only a tie falls back to the first filed; among the
+    undecorated spellings of the chosen name the longest wins ("MARK L." over
+    "MARK L"), then the most filed, then the first filed. A balanced
+    parenthetical ("JAMES (JIM)") is kept only when the donor never filed the
+    name without decoration; a spelling that is only ever broken ("ANNA)",
+    "MIRIAM.") is shown without the decoration.
     """
     if not candidates:
         return None
@@ -133,13 +138,23 @@ def _choose_first(candidates: list[str]) -> str | None:
         return " ".join(kept)
 
     cores = {value: _core(value) for value in order}
-    fullest = max((cores[value] for value in order), key=len)
-    group_key = _name_tokens(fullest)
+    # fullness = the name's letters and word breaks, not its punctuation: the
+    # period of "ISAAC S." must not outweigh the "A" of "ISAAC A"
+    fullness = {value: len(" ".join(_name_tokens(cores[value]))) for value in order}
+    longest = max(fullness.values())
+    filings: Counter = Counter()
+    first_filed: dict[tuple, int] = {}
+    for value in order:
+        if fullness[value] == longest:
+            key = _name_tokens(cores[value])
+            filings[key] += counts[value]
+            first_filed.setdefault(key, order[value])
+    group_key = min(filings, key=lambda key: (-filings[key], first_filed[key]))
     group = [value for value in order if _name_tokens(cores[value]) == group_key]
 
     clean = [value for value in group if cores[value] == value]
-    if clean:  # the old rule: longest spelling, first filed on a tie
-        return min(clean, key=lambda v: (-len(v), order[v]))
+    if clean:  # longest spelling, then the most filed, then the first filed
+        return min(clean, key=lambda v: (-len(v), -counts[v], order[v]))
     ranked = sorted(group, key=lambda v: (-counts[v], -len(v), order[v]))
     for value in ranked:
         if _only_balanced_parens(value) and _first_core(value) == cores[value]:
@@ -204,8 +219,13 @@ def _choose_last(lasts: list[str], parents: dict) -> str:
     return min(counts, key=lambda v: (-counts[v], v))
 
 
-def _canonical_person_name(lasts: list[str], firsts: list[str]):
-    """(canonical last, canonical first) for one donor from its rows' (last, first) pairs."""
+def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None):
+    """(canonical last, canonical first) for one donor from its rows' (last, first) pairs.
+
+    is_joint(first) marks a spelling that also carries a co-filer's given name
+    (joint.py). Such a spelling never becomes the donor's name while the donor
+    has a solo spelling: the partner's name is not written onto solo filings.
+    """
     firsts_by_last: dict[str, list[str]] = defaultdict(list)
     for last, first in zip(lasts, firsts):
         if last and first:
@@ -235,6 +255,10 @@ def _canonical_person_name(lasts: list[str], firsts: list[str]):
     # candidates must carry a non-surname token: a reversed filing's
     # surname-as-first could otherwise win, then strip to nothing
     fcands = [f for f in candidates if any(w.upper() not in last_words for w in f.split())]
+    if is_joint is not None:
+        solo = [f for f in fcands if not is_joint(f)]
+        if solo:
+            fcands = solo
     canon_first = _choose_first(fcands)
     if canon_first:
         kept = [w for w in canon_first.split() if w.upper() not in last_words]
@@ -244,8 +268,56 @@ def _canonical_person_name(lasts: list[str], firsts: list[str]):
     return canon_last, canon_first
 
 
+def _text_column(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series("", index=df.index)
+    values = df[column]
+    return values.where(values.map(lambda v: isinstance(v, str)), "").str.strip().str.upper()
+
+
+def _household_spellings(df: pd.DataFrame, ind: pd.Series) -> tuple[dict, dict]:
+    """donor_key -> its own first-name spellings, and the spellings of the
+    OTHER donors with the same surname at one of its streets or ZIPs."""
+    keys = df.loc[ind, "donor_key"]
+    lasts = _text_column(df, "contributor_last_name")[ind]
+    firsts = _text_column(df, "contributor_first_name")[ind]
+    streets = _text_column(df, "contributor_street_1")[ind]
+    zips = _text_column(df, "contributor_zip")[ind].str[:5]
+
+    own = defaultdict(set)
+    spots_of = defaultdict(set)
+    at_spot = defaultdict(set)  # (surname, street/zip) -> {(donor_key, spelling)}
+    for key, last, first, street, zip5 in zip(keys, lasts, firsts, streets, zips):
+        spelling = given_tokens(first)
+        if not (isinstance(key, str) and last and spelling):
+            continue
+        own[key].add(spelling)
+        spots = [("S", street)] if street else []
+        if len(zip5) == 5:
+            spots.append(("Z", zip5))
+        for spot in spots:
+            spots_of[key].add((last, spot))
+            at_spot[(last, spot)].add((key, spelling))
+
+    household = {}
+    for key, spots in spots_of.items():
+        found = {
+            spelling
+            for spot in spots
+            for other, spelling in at_spot[spot]
+            if other != key
+        }
+        if found:
+            household[key] = found
+    return own, household
+
+
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
-    """Write one canonical first/last (see _canonical_person_name) plus a rebuilt LAST, FIRST composite to every row of each donor; returns rows changed."""
+    """Write one canonical first/last (see _canonical_person_name) plus a rebuilt LAST, FIRST composite to every row of each donor; returns rows changed.
+
+    A spelling that carries a co-filer's name (a joint filing, see joint.py)
+    is never chosen for a donor that also files alone under a solo spelling.
+    """
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
@@ -254,14 +326,30 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     fn_col = "contributor_first_name"
     ln_col = "contributor_last_name"
     cn_col = "contributor_name"
+    own_spellings, household_spellings = _household_spellings(df, ind)
 
-    for idx in df[ind].groupby("donor_key").groups.values():
+    for donor_key, idx in df[ind].groupby("donor_key").groups.items():
         rows = df.loc[idx]
         lasts = [v.strip() if isinstance(v, str) else "" for v in rows[ln_col]]
         if not any(lasts):
             continue
         firsts = [v.strip() if isinstance(v, str) else "" for v in rows[fn_col]]
-        canon_last, canon_first = _canonical_person_name(lasts, firsts)
+        is_joint = None
+        household = household_spellings.get(donor_key)
+        if household:
+            own = own_spellings.get(donor_key, set())
+            surnames = {last for last in lasts if last}
+            verdicts: dict[str, bool] = {}
+
+            def is_joint(first, own=own, household=household, surnames=surnames,
+                         verdicts=verdicts):
+                if first not in verdicts:
+                    verdicts[first] = not any(
+                        joint_name_exempt(f"{last}, {first}") for last in surnames
+                    ) and bool(joint_partners(given_tokens(first), own, household))
+                return verdicts[first]
+
+        canon_last, canon_first = _canonical_person_name(lasts, firsts, is_joint)
 
         # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
         canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last

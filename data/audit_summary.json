@@ -1,6 +1,6 @@
 {
-  "changes": 863924,
-  "changed_cells": 836258,
+  "changes": 863464,
+  "changed_cells": 835755,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -10,9 +10,9 @@
       }
     },
     "occ_normalize_text": {
-      "changes": 16404,
+      "changes": 16463,
       "reasons": {
-        "text_normalized_or_missing_placeholder_nulled": 16404
+        "text_normalized_or_missing_placeholder_nulled": 16463
       }
     },
     "occ_swap_fields": {
@@ -82,15 +82,15 @@
       }
     },
     "occ_derive_status_category": {
-      "changes": 116473,
+      "changes": 116449,
       "reasons": {
-        "derived_from_occupation": 116473
+        "derived_from_occupation": 116449
       }
     },
     "occ_known_fixes": {
-      "changes": 4019,
+      "changes": 4020,
       "reasons": {
-        "known_occupation_typo_fixed_or_junk_nulled": 4019
+        "known_occupation_typo_fixed_or_junk_nulled": 4020
       }
     },
     "occ_committee_rows": {
@@ -177,16 +177,16 @@
       }
     },
     "streets_normalize": {
-      "changes": 52821,
+      "changes": 52485,
       "reasons": {
-        "street_text_normalized_or_placeholder_nulled": 52759,
+        "street_text_normalized_or_placeholder_nulled": 52423,
         "street_nulled_due_to_email_in_street1": 62
       }
     },
     "streets_safe_fixes": {
-      "changes": 1322,
+      "changes": 1304,
       "reasons": {
-        "care_of_house_number_or_trailing_unit_fixed": 1322
+        "care_of_house_number_or_trailing_unit_fixed": 1304
       }
     },
     "streets_recover_null": {
@@ -220,9 +220,9 @@
       }
     },
     "cities_normalize": {
-      "changes": 5371,
+      "changes": 5369,
       "reasons": {
-        "city_alias_typo_or_punctuation_normalized": 5371
+        "city_alias_typo_or_punctuation_normalized": 5369
       }
     },
     "zips_normalize": {
@@ -232,9 +232,9 @@
       }
     },
     "address_verified_rules": {
-      "changes": 90,
+      "changes": 89,
       "reasons": {
-        "verified_postal_correction": 90
+        "verified_postal_correction": 89
       }
     },
     "address_city_state_conflict": {
@@ -268,9 +268,9 @@
       }
     },
     "address_same_street_align": {
-      "changes": 945,
+      "changes": 902,
       "reasons": {
-        "aligned_to_donor_dominant_at_same_street": 945
+        "aligned_to_donor_dominant_at_same_street": 902
       }
     },
     "streets_unify_units": {
@@ -280,9 +280,9 @@
       }
     },
     "address_review": {
-      "changes": 274,
+      "changes": 278,
       "reasons": {
-        "street_2_nulled_unit_keyword_or_state_only": 274
+        "street_2_nulled_unit_keyword_or_state_only": 278
       }
     },
     "enh_normalize_business_names": {
@@ -304,9 +304,9 @@
       }
     },
     "enh_name_corrections": {
-      "changes": 63,
+      "changes": 49,
       "reasons": {
-        "manual_correction": 63
+        "manual_correction": 49
       }
     },
     "enh_fix_apostrophes": {
@@ -430,9 +430,9 @@
       }
     },
     "safety_fix_role_as_employer": {
-      "changes": 62,
+      "changes": 70,
       "reasons": {
-        "role_as_employer_swapped_or_self_employed": 62
+        "role_as_employer_swapped_or_self_employed": 70
       }
     },
     "safety_null_sector_as_employer": {
@@ -468,7 +468,7 @@
     "safety_fix_company_name_as_occupation": {
       "changes": 48,
       "reasons": {
-        "company_in_occupation_moved_to_employer_occupation_imputed": 48
+        "company_in_occupation_moved_to_employer": 48
       }
     },
     "safety_fix_occ_emp_both_swapped": {
@@ -478,9 +478,9 @@
       }
     },
     "safety_fix_web_artifact_occupation": {
-      "changes": 15,
+      "changes": 16,
       "reasons": {
-        "web_artifact_occupation_nulled": 15
+        "web_artifact_occupation_nulled": 16
       }
     },
     "safety_null_junk_occupation": {
@@ -502,21 +502,21 @@
       }
     },
     "safety_reclassify_other_category": {
-      "changes": 26,
+      "changes": 35,
       "reasons": {
-        "other_category_reclassified": 26
+        "other_category_reclassified": 35
       }
     },
     "enh_normalize_occupation_style": {
-      "changes": 749,
+      "changes": 748,
       "reasons": {
-        "separator_joiner_or_plural_style_unified": 749
+        "separator_joiner_or_plural_style_unified": 748
       }
     },
     "enh_occupation_typo_fixes": {
-      "changes": 137,
+      "changes": 160,
       "reasons": {
-        "curated_typo_or_abbreviation_fixed": 137
+        "curated_typo_or_abbreviation_fixed": 160
       }
     },
     "employer_recanonicalize": {
@@ -562,9 +562,9 @@
       }
     },
     "manual_overrides": {
-      "changes": 139,
+      "changes": 141,
       "reasons": {
-        "curated_row_override": 139
+        "curated_row_override": 141
       }
     },
     "network_identity_recovery": {
@@ -580,9 +580,9 @@
       }
     },
     "donor_canonical_names": {
-      "changes": 14702,
+      "changes": 14513,
       "reasons": {
-        "donor_name_unified_to_modal_last_and_longest_first": 14702
+        "donor_name_unified_to_modal_last_and_longest_first": 14513
       }
     },
     "donor_canonical_employers": {
@@ -652,9 +652,9 @@
       }
     },
     "donor_fill_occupation_from_donor": {
-      "changes": 641,
+      "changes": 693,
       "reasons": {
-        "occupation_derived_from_donor_same_employer": 641
+        "occupation_derived_from_donor_same_employer": 693
       }
     },
     "donor_fill_self_employed_occupation_from_donor": {
@@ -664,9 +664,9 @@
       }
     },
     "donor_fill_employer_from_occupation": {
-      "changes": 391,
+      "changes": 393,
       "reasons": {
-        "employer_derived_from_occupation_category_or_raw_filings": 391
+        "employer_derived_from_occupation_category_or_raw_filings": 393
       }
     },
     "donor_recover_previous_employer": {
@@ -694,9 +694,9 @@
       }
     },
     "donor_converge_occupation_within_employer": {
-      "changes": 1181,
+      "changes": 1183,
       "reasons": {
-        "same_job_spelling_unified_to_donor_dominant": 1181
+        "same_job_spelling_unified_to_donor_dominant": 1183
       }
     },
     "donor_sync_employer_and_occupation": {
@@ -706,15 +706,15 @@
       }
     },
     "donor_rebuild_occupation_category": {
-      "changes": 114,
+      "changes": 118,
       "reasons": {
-        "occupation_category_rederived_from_final_occupation": 114
+        "occupation_category_rederived_from_final_occupation": 118
       }
     },
     "donor_settle_retired_employer": {
-      "changes": 272,
+      "changes": 273,
       "reasons": {
-        "retired_recovered_company_demoted_to_previous": 272
+        "retired_recovered_company_demoted_to_previous": 273
       }
     },
     "donor_normalize_previous_employers": {
