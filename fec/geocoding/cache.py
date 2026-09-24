@@ -43,8 +43,9 @@ class GeoCache:
         country: str = "US",
         validated: bool = False,
         zip_checked: bool = False,
+        town_checked: bool = False,
     ):
-        """Store a hit; country is ISO-2, old entries without it read as 'US'; zip_checked marks a result already checked against its filed ZIP and city."""
+        """Store a hit; country is ISO-2, old entries without it read as 'US'; zip_checked marks a result already checked against its filed ZIP and city, town_checked one from the settlement-only town search."""
         self.data[key] = {
             "lat": lat,
             "lng": lng,
@@ -54,6 +55,13 @@ class GeoCache:
         }
         if zip_checked:
             self.data[key]["zip_checked"] = True
+        if town_checked:
+            self.data[key]["town_checked"] = True
+
+    def mark_town_checked(self, key: str):
+        """Keep a cached point that the settlement-only town search could not improve on."""
+        if key in self.data:
+            self.data[key]["town_checked"] = True
 
     def put_failed(self, key: str, validated: bool = False):
         """Mark an address as genuinely not geocodable (never retried)."""

@@ -6,6 +6,8 @@ import requests
 
 from fec.log import get_logger
 
+from .places import STATE_NAMES, choose_town, result_point
+
 logger = get_logger(__name__)
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
@@ -101,16 +103,46 @@ def nominatim_international(street: str, city: str, state: str, zipcode: str) ->
     })
 
 
-def city_level(city: str, state: str, zipcode: str) -> tuple:
-    """Geocode city + state + ZIP only (PO boxes, or when street-level fails)."""
-    query = f"{city}, {state} {zipcode}, USA"
-    return _nominatim_request(params={
-        "q": query, "format": "json", "limit": 1, "countrycodes": "us",
-    })
+def city_level(city: str, state: str, zipcode: str = "",
+               near: tuple[float, float] | None = None) -> tuple:
+    """The filed town's own point (PO boxes, or when street-level fails): (lat, lng, ISO-2 country) or Nones.
+
+    A structured search (city=, the state's full name, country us, no free-text
+    ', USA' word; postalcode only when given, i.e. when the ZIP has a centroid)
+    that keeps only a settlement named like the city inside the state, so a county,
+    road, building or a POI named '... USA' is never taken for the town. near (the
+    filed ZIP's area) picks among same-name towns in one state. A free-text
+    'CITY, STATE' retry found no town on the 380 re-checked keys of 2026-09-24
+    (JAMAICA NY gives only its railway stations), so there is none.
+    """
+    if not str(city or "").strip():
+        return None, None, None
+    params = {"city": city, "format": "jsonv2", "limit": 10, "countrycodes": "us", "namedetails": 1}
+    if STATE_NAMES.get(state):
+        params["state"] = STATE_NAMES[state]
+    if zipcode:
+        params["postalcode"] = zipcode
+    town = choose_town(_nominatim_results(params), city, state, near)
+    if town is None:
+        return None, None, None
+    lat, lng = result_point(town)
+    country_code = ((town.get("address") or {}).get("country_code") or "").upper() or None
+    return lat, lng, country_code
 
 
 def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
     """One Nominatim request, retried on 429/5xx/timeout only; returns (lat, lng, ISO-2 country) or Nones."""
+    results = _nominatim_results(params, _retries)
+    if not results:
+        return None, None, None
+    first_result = results[0]
+    # country_code tells a genuinely foreign address from a wrong-state US match
+    country_code = (first_result.get("address", {}).get("country_code") or "").upper() or None
+    return float(first_result["lat"]), float(first_result["lon"]), country_code
+
+
+def _nominatim_results(params: dict, _retries=NOMINATIM_RETRIES) -> list[dict]:
+    """Every result of one Nominatim search, retried on 429/5xx/timeout only; [] when nothing is found."""
     params = {**params, "addressdetails": 1}
     last_error = "temporary Nominatim failure"
     for attempt in range(1 + _retries):
@@ -133,14 +165,14 @@ def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
                 time.sleep(NOMINATIM_DELAY * 2)
                 continue
 
-            if response.ok and response.json():
-                first_result = response.json()[0]
-                # country_code tells a genuinely foreign address from a wrong-state US match
-                country_code = (first_result.get("address", {}).get("country_code") or "").upper() or None
-                return float(first_result["lat"]), float(first_result["lon"]), country_code
+            if response.ok:
+                results = response.json()
+                if not isinstance(results, list):
+                    raise ValueError(f"unexpected Nominatim answer: {str(results)[:200]}")
+                return results
 
-            # 200 with no results: genuinely not found, no retry
-            return None, None, None
+            # any other client error: genuinely not found, no retry
+            return []
 
         except requests.exceptions.Timeout:
             last_error = "Nominatim timeout"
