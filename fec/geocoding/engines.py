@@ -18,6 +18,8 @@ NOMINATIM_TIMEOUT = 10  # seconds
 CENSUS_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 CENSUS_TIMEOUT = 10
 CENSUS_RETRIES = 2
+# unauthorized, forbidden (Nominatim's block for a client over its usage policy), proxy authentication
+_BLOCKED_STATUSES = frozenset({401, 403, 407})
 
 
 class NominatimUnavailable(RuntimeError):
@@ -164,6 +166,11 @@ def _nominatim_results(params: dict, _retries=NOMINATIM_RETRIES) -> list[dict]:
                 logger.debug("Nominatim %d - retrying (attempt %d)", response.status_code, attempt + 1)
                 time.sleep(NOMINATIM_DELAY * 2)
                 continue
+
+            if response.status_code in _BLOCKED_STATUSES:
+                # a blocked client or proxy answers every search alike: an outage, not a
+                # miss (read as 'not found' it would end lookups and re-checks for good)
+                raise NominatimUnavailable(f"Nominatim HTTP {response.status_code}")
 
             if response.ok:
                 results = response.json()
