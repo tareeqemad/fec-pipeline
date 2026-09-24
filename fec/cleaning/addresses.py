@@ -189,6 +189,8 @@ class _FiledPlaces:
 
     def _own_rows(self, person: str, city: str, zip5: str) -> pd.DataFrame:
         frame = self.frame
+        if person == '\x00':  # no name: nobody's own filings
+            return frame.iloc[0:0]
         return frame[(frame['person'] == person) & (frame['city'] == city) & (frame['zip5'] == zip5)]
 
     def own_state(self, person: str, city: str, zip5: str) -> str:
