@@ -177,21 +177,30 @@ def test_manual_individual_name_correction_keeps_name_columns_consistent():
     assert df.loc[1, 'contributor_first_name'] == 'SARA STUART'
 
 
-def test_swapped_name_correction_is_limited_to_known_rows():
+def test_swapped_name_correction_is_limited_to_known_rows(monkeypatch):
+    from fec.cleaning import entity_classification
+
+    monkeypatch.setattr(entity_classification, 'ROW_NAME_CORRECTIONS', {'known': 'DOE, JANE'})
+    df = _make_df([
+        {'sub_id': 'known', 'contributor_name': 'CORP, ACME'},
+        {'sub_id': 'other', 'contributor_name': 'CORP, ACME'},
+    ])
+
+    df, count = entity_classification.apply_name_corrections(df)
+
+    assert count == 1
+    assert df['contributor_name'].tolist() == ['DOE, JANE', 'CORP, ACME']
+
+
+def test_a_person_named_only_in_the_employer_field_is_not_the_donor():
     from fec.cleaning.entity_classification import apply_name_corrections
 
-    df = _make_df([
-        {'sub_id': '4011420231698186281', 'contributor_name': 'HEALTH, GOOD'},
-        {'sub_id': 'other', 'contributor_name': 'HEALTH, GOOD'},
-    ])
+    df = _make_df([{'sub_id': '4011420231698186281', 'contributor_name': 'HEALTH, GOOD'}])
 
     df, count = apply_name_corrections(df)
 
-    assert count == 1
-    assert df['contributor_name'].tolist() == [
-        'KELLOGG, SARAH',
-        'HEALTH, GOOD',
-    ]
+    assert count == 0
+    assert df.loc[0, 'contributor_name'] == 'HEALTH, GOOD'
 
 
 def test_laryl_kupor_uses_verified_lary_spelling():
