@@ -18,7 +18,8 @@ from fec.config.geography import US_STATES
 from fec.log import get_logger
 
 from .address_stage import clean_addresses
-from .names import _clean_names, _preclean_name_punctuation
+from .names import _clean_names
+from .name_parsing import _preclean_name_punctuation
 from .reclassify import _reclassify_entities
 from .reclassify_restore import _clear_individual_residue, _restore_reclassified_committees
 from .reports import _build_missing_report, _sanity_check

@@ -4,9 +4,9 @@ import pandas as pd
 from fec.cleaning.occupations.clean import _fix_swapped_occ_emp
 from fec.cleaning.pipeline.reclassify_restore import _restore_reclassified_committees
 from fec.cleaning.safety_nets.employer_swaps import (
-    _fix_company_name_as_occupation,
     _swap_role_employer_with_known_company,
 )
+from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
 
 
 def _frame(rows):

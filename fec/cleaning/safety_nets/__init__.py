@@ -31,15 +31,17 @@ from .employer import (
     _null_short_employer_junk,
 )
 from .employer_swaps import (
-    _fix_company_name_as_occupation,
     _fix_employer_equals_occupation,
     _fix_employer_is_occupation_word,
-    _fix_occ_emp_both_swapped,
-    _fix_own_name_as_employer,
     _fix_role_as_employer,
     _fix_self_employed_consistency,
-    _fix_swapped_emp_occ_company,
     _swap_role_employer_with_known_company,
+)
+from .name_fields import (
+    _fix_company_name_as_occupation,
+    _fix_occ_emp_both_swapped,
+    _fix_own_name_as_employer,
+    _fix_swapped_emp_occ_company,
 )
 from .occupation_context import _disambiguate_vague_occupation
 from .occupation import (

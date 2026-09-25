@@ -9,5 +9,6 @@ from .unify import (  # noqa: F401
 from .recovery import (  # noqa: F401
     _recover_null_streets, _is_usable_street,
     _recover_nonstreet_from_donor, _recover_house_number_from_donor,
-    _recover_address_from_same_street, _trim_street_to_donor_short_form,
+    _trim_street_to_donor_short_form,
 )
+from .same_street import _recover_address_from_same_street  # noqa: F401

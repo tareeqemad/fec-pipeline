@@ -24,10 +24,8 @@ from fec.cleaning.occupations import _categorize_final
 from fec.cleaning.occupations.normalize import _normalize_text
 from fec.cleaning.occupations.style import normalize_occupation_style_step
 from fec.cleaning.safety_nets.employer import _null_sector_as_employer
-from fec.cleaning.safety_nets.employer_swaps import (
-    _fix_company_name_as_occupation,
-    _fix_role_as_employer,
-)
+from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
+from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
 from fec.cleaning.safety_nets.occupation import _fix_web_artifact_occupation
 from fec.config.occupation_rules.categories import CATEGORY_OVERRIDES
 from fec.config.occupation_rules.rules import (
