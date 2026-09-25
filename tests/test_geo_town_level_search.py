@@ -15,6 +15,8 @@ import pytest
 from fec.geocoding import GeoCache
 from fec.geocoding import engines, places
 from fec.geocoding import pipeline as geo
+from geo_patch import patch_geo
+from fec.geocoding import zip_checks
 from fec.geocoding.engines import NominatimUnavailable
 
 
@@ -235,17 +237,17 @@ LR_CENTROIDS = {
 
 @pytest.fixture
 def little_rock_reference(monkeypatch, no_sleep):
-    monkeypatch.setattr(geo, "_zip_centroids", lambda: LR_CENTROIDS)
-    monkeypatch.setattr(geo, "_zip_neighbour_km", lambda _zip: 3.0)
+    patch_geo(monkeypatch, "_zip_centroids", lambda: LR_CENTROIDS)
+    patch_geo(monkeypatch, "_zip_neighbour_km", lambda _zip: 3.0)
 
 
 def test_a_zip_without_centroid_is_placed_by_its_nearest_numbered_neighbours(little_rock_reference):
-    lat, lng = geo._zip_area_point("72217", "AR")
+    lat, lng = zip_checks._zip_area_point("72217", "AR")
     # the median of 72207, 72205, 72204, 72202, the nearest numbers in 722 (72114 and 72701 are other areas)
     assert lat == pytest.approx(34.746) and lng == pytest.approx(-92.350)
-    assert geo._zip_area_point("72201", "AR") == LR_CENTROIDS["72201"]
-    assert geo._zip_area_point("72217", "TX") is None    # no neighbour inside the filed state
-    assert geo._zip_area_point("", "AR") is None
+    assert zip_checks._zip_area_point("72201", "AR") == LR_CENTROIDS["72201"]
+    assert zip_checks._zip_area_point("72217", "TX") is None    # no neighbour inside the filed state
+    assert zip_checks._zip_area_point("", "AR") is None
 
 
 def test_po_box_without_zip_centroid_gets_the_town_point(monkeypatch, little_rock_reference):
@@ -255,7 +257,7 @@ def test_po_box_without_zip_centroid_gets_the_town_point(monkeypatch, little_roc
         calls.append((city, state, zipcode, near))
         return 34.7465071, -92.2896267, "US"
 
-    monkeypatch.setattr(geo, "city_level", city_level)
+    patch_geo(monkeypatch, "city_level", city_level)
 
     result = geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217")
 
@@ -267,8 +269,8 @@ def test_po_box_without_zip_centroid_gets_the_town_point(monkeypatch, little_roc
 
 def test_po_box_whose_town_is_not_found_is_not_searched_abroad(monkeypatch, little_rock_reference):
     # a ZIP of the filed state makes it a US filing: 'PO BOX 5, JAMAICA' abroad is the island
-    monkeypatch.setattr(geo, "city_level", lambda *_args: (None, None, None))
-    monkeypatch.setattr(geo, "nominatim_international", lambda *_args: (18.1096, -77.2975, "JM"))
+    patch_geo(monkeypatch, "city_level", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "nominatim_international", lambda *_args: (18.1096, -77.2975, "JM"))
 
     assert geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") == (None, None, None, "not_found")
     # no ZIP of the filed state: the international last resort still runs
@@ -282,7 +284,7 @@ def test_zip_with_centroid_is_still_searched_first(monkeypatch, little_rock_refe
         calls.append((zipcode, near))
         return 34.7465071, -92.2896267, "US"
 
-    monkeypatch.setattr(geo, "city_level", city_level)
+    patch_geo(monkeypatch, "city_level", city_level)
 
     geo._geocode_one("PO BOX 1", "LITTLE ROCK", "AR", "72201")
 
@@ -309,7 +311,7 @@ SF_KEY = "PO BOX 411291|SAN FRANCISCO|CA|94141"
     ("PO BOX 1|SAN FRANCISCO|CA|94103", {"lat": 37.7749, "lng": -122.4194, "source": "nominatim_city"}, False),
 ])
 def test_cached_town_pins_without_zip_centroid_are_rechecked_once(tmp_path, monkeypatch, key, entry, due):
-    monkeypatch.setattr(geo, "_zip_centroids", lambda: {"94103": (37.7726, -122.4099)})
+    patch_geo(monkeypatch, "_zip_centroids", lambda: {"94103": (37.7726, -122.4099)})
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[key] = entry
 
@@ -317,7 +319,7 @@ def test_cached_town_pins_without_zip_centroid_are_rechecked_once(tmp_path, monk
 
 
 def _recheck_cache(tmp_path, monkeypatch):
-    monkeypatch.setattr(geo, "_zip_centroids", lambda: {})
+    patch_geo(monkeypatch, "_zip_centroids", lambda: {})
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[SF_KEY] = {"lat": 33.1282409, "lng": -117.3113959, "source": "nominatim_city"}
     return cache
@@ -325,7 +327,7 @@ def _recheck_cache(tmp_path, monkeypatch):
 
 def test_recheck_replaces_the_wrong_pin_and_marks_it(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    monkeypatch.setattr(geo, "_geocode_one",
+    patch_geo(monkeypatch, "_geocode_one",
                         lambda *_args: (37.7792588, -122.4193286, "US", "nominatim_city"))
 
     geo._geocode_todo([SF_KEY], cache, 50)
@@ -337,7 +339,7 @@ def test_recheck_replaces_the_wrong_pin_and_marks_it(tmp_path, monkeypatch):
 
 def test_recheck_that_finds_nothing_keeps_the_pin(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    monkeypatch.setattr(geo, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
+    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
 
     geo._geocode_todo([SF_KEY], cache, 50)
 
@@ -348,7 +350,7 @@ def test_recheck_that_finds_nothing_keeps_the_pin(tmp_path, monkeypatch):
 
 def test_recheck_never_moves_a_us_filing_abroad(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    monkeypatch.setattr(geo, "_geocode_one", lambda *_args: (18.1096, -77.2975, "JM", "nominatim_intl"))
+    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (18.1096, -77.2975, "JM", "nominatim_intl"))
 
     geo._geocode_todo([SF_KEY], cache, 50)
 
@@ -361,7 +363,7 @@ def test_recheck_during_an_outage_leaves_the_pin_for_next_run(tmp_path, monkeypa
     def outage(*_args):
         raise NominatimUnavailable("down")
 
-    monkeypatch.setattr(geo, "_geocode_one", outage)
+    patch_geo(monkeypatch, "_geocode_one", outage)
 
     geo._geocode_todo([SF_KEY], cache, 50)
 
@@ -372,7 +374,7 @@ def test_recheck_during_an_outage_leaves_the_pin_for_next_run(tmp_path, monkeypa
 def test_a_new_lookup_that_finds_nothing_is_still_final(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
     key = "PO BOX 5|SAN FRANCISCO|CA|94147"
-    monkeypatch.setattr(geo, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
+    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
 
     geo._geocode_todo([key], cache, 50)
 
@@ -404,8 +406,8 @@ AUDIT_WRONG_TOWN_PINS = {
 
 def test_audit_wrong_town_pins_are_rechecked_or_fixed():
     """Each wrong pin is either due for the re-check or, once re-checked, at its town and off the wrong spot."""
-    path = geo._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
-    if not path.exists() or not geo._ZIP_CENTROIDS.exists():
+    path = zip_checks._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
+    if not path.exists() or not zip_checks._ZIP_CENTROIDS.exists():
         pytest.skip("geocode_cache.json or zip_centroids.csv not present")
     cache = GeoCache(str(path))
     present = [key for key in AUDIT_WRONG_TOWN_PINS if (cache.get(key) or {}).get("lat") is not None]
@@ -450,7 +452,7 @@ class _Census:
 def test_a_wrong_place_is_never_published_for_a_po_box(monkeypatch, no_sleep, key, wrong):
     # the old chain took the first answer of 'CITY, ST ZIP, USA' and published it
     _serve(monkeypatch, [wrong])
-    monkeypatch.setattr(geo, "nominatim_international", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "nominatim_international", lambda *_args: (None, None, None))
 
     assert geo._geocode_one(*key.split("|"))[:2] == (None, None)
 
@@ -491,11 +493,11 @@ def test_recheck_of_a_town_osm_does_not_know_keeps_the_pin(tmp_path, monkeypatch
     pin = {"lat": 40.699835, "lng": -73.8077023, "source": "nominatim_city", "country": "US"}
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[key] = dict(pin)
-    monkeypatch.setattr(geo, "_zip_centroids", lambda: {"11435": (40.7009, -73.8095)})
+    patch_geo(monkeypatch, "_zip_centroids", lambda: {"11435": (40.7009, -73.8095)})
     service = _serve(monkeypatch, [JAMAICA_STATION])
     census = _Census()
-    monkeypatch.setattr(geo, "census", census)
-    monkeypatch.setattr(geo, "nominatim", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "census", census)
+    patch_geo(monkeypatch, "nominatim", lambda *_args: (None, None, None))
     assert geo._needs_lookup(key, cache)
 
     geo._geocode_todo([key], cache, 50)

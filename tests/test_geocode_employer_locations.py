@@ -10,6 +10,8 @@ import geocode
 from fec import io
 from fec.geocoding import GeoCache
 from fec.geocoding import pipeline as geocoding_pipeline
+from fec.geocoding import employers
+from geo_patch import patch_geo
 from fec.geocoding.engines import NominatimUnavailable
 
 
@@ -93,7 +95,7 @@ def test_network_failure_stays_retryable(tmp_path, monkeypatch):
     def unavailable(*_args, **_kwargs):
         raise NominatimUnavailable("TLS failure")
 
-    monkeypatch.setattr(geocoding_pipeline, "_geocode_one", unavailable)
+    patch_geo(monkeypatch, "_geocode_one", unavailable)
 
     geocoding_pipeline._geocode_todo([key], cache, 50)
 
@@ -113,7 +115,7 @@ def test_employer_geocode_can_be_applied_twice(tmp_path):
         "employer_zip": "10001",
     }])
 
-    result = geocoding_pipeline.apply_employer_to_dataframe(rows, cache)
+    result = employers.apply_employer_to_dataframe(rows, cache)
 
     assert result.loc[0, "employer_latitude"] == 40.7506
     assert result.loc[0, "employer_geocode_level"] == "nominatim"
@@ -148,7 +150,7 @@ def test_manual_coordinate_survives_rerun(tmp_path, monkeypatch):
     def unexpected_lookup(*_args, **_kwargs):
         raise AssertionError("manual coordinate was retried")
 
-    monkeypatch.setattr(geocoding_pipeline, "_geocode_one", unexpected_lookup)
+    patch_geo(monkeypatch, "_geocode_one", unexpected_lookup)
     rows = pd.DataFrame([{
         "employer_address": "1 MAIN ST",
         "employer_city": "NEW YORK",
@@ -156,7 +158,7 @@ def test_manual_coordinate_survives_rerun(tmp_path, monkeypatch):
         "employer_zip": "10001",
     }])
 
-    geocoding_pipeline.geocode_employer_addresses(rows, cache)
+    employers.geocode_employer_addresses(rows, cache)
 
     assert cache.get(key)["source"] == "manual_census"
 
@@ -170,7 +172,7 @@ def test_city_fallback_retries_without_zip(monkeypatch):
             return None, None, None
         return 37.54, -77.43, "US"
 
-    monkeypatch.setattr(geocoding_pipeline, "city_level", city)
+    patch_geo(monkeypatch, "city_level", city)
     monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
 
     # 23219 (downtown Richmond) has a centroid: the town is searched with it first
@@ -192,14 +194,12 @@ def test_city_fallback_retries_without_zip(monkeypatch):
 
 
 def test_census_is_preferred_for_us_street(monkeypatch):
-    monkeypatch.setattr(
-        geocoding_pipeline,
-        "census",
+    patch_geo(
+        monkeypatch, "census",
         lambda *_args: (40.749146, -73.991886, "US"),
     )
-    monkeypatch.setattr(
-        geocoding_pipeline,
-        "nominatim",
+    patch_geo(
+        monkeypatch, "nominatim",
         lambda *_args: (_ for _ in ()).throw(AssertionError("not needed")),
     )
 
@@ -233,18 +233,18 @@ def test_old_not_found_gets_one_census_retry(tmp_path):
 
 
 def test_street_city_fallback_rejects_zip_conflict(monkeypatch):
-    monkeypatch.setattr(geocoding_pipeline, "census", lambda *_args: (None, None, None))
-    monkeypatch.setattr(geocoding_pipeline, "nominatim", lambda *_args: (None, None, None))
-    monkeypatch.setattr(
-        geocoding_pipeline, "city_level",
+    patch_geo(monkeypatch, "census", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "nominatim", lambda *_args: (None, None, None))
+    patch_geo(
+        monkeypatch, "city_level",
         lambda *_args: (41.3582, -73.7052, "US"),
     )
-    monkeypatch.setattr(
-        geocoding_pipeline, "nominatim_international",
+    patch_geo(
+        monkeypatch, "nominatim_international",
         lambda *_args: (None, None, None),
     )
-    monkeypatch.setattr(
-        geocoding_pipeline, "_zip_centroids",
+    patch_geo(
+        monkeypatch, "_zip_centroids",
         lambda: {"11963": (40.9979, -72.2926)},
     )
     monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)

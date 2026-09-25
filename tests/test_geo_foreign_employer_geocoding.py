@@ -14,6 +14,9 @@ import build_employers
 from fec.geocoding import GeoCache
 from fec.geocoding import engines
 from fec.geocoding import pipeline as geo
+from fec.geocoding import employers
+from fec.geocoding import accepted
+from geo_patch import patch_geo
 
 KIFO_KEY = "YORK GATE, 100 MARYLEBONE ROAD|LONDON||NW1 5DX"
 SHOPPERAI_KEY = "65 YIGAL ALON STREET|TEL AVIV||6744316"
@@ -42,7 +45,7 @@ def _no_us_engine(*_args, **_kwargs):
     ("NY", "NW1 5DX", True),        # nor is a UK one
 ])
 def test_foreign_address_is_recognised_from_state_and_postcode(state, zipcode, foreign):
-    assert geo.is_foreign_address(state, zipcode) is foreign
+    assert accepted.is_foreign_address(state, zipcode) is foreign
 
 
 def test_foreign_office_uses_only_the_international_engine(monkeypatch):
@@ -53,8 +56,8 @@ def test_foreign_office_uses_only_the_international_engine(monkeypatch):
         return 51.5234, -0.1530, "GB"
 
     for name in ("census", "nominatim", "city_level"):
-        monkeypatch.setattr(geo, name, _no_us_engine)
-    monkeypatch.setattr(geo, "nominatim_international", international)
+        patch_geo(monkeypatch, name, _no_us_engine)
+    patch_geo(monkeypatch, "nominatim_international", international)
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
     result = geo._geocode_one("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")
@@ -65,9 +68,9 @@ def test_foreign_office_uses_only_the_international_engine(monkeypatch):
 
 def test_foreign_office_rejects_a_us_answer_from_the_international_engine(monkeypatch):
     for name in ("census", "nominatim", "city_level"):
-        monkeypatch.setattr(geo, name, _no_us_engine)
+        patch_geo(monkeypatch, name, _no_us_engine)
     # street query and city query both come back in the US (Providence RI)
-    monkeypatch.setattr(geo, "nominatim_international",
+    patch_geo(monkeypatch, "nominatim_international",
                         lambda *_args: (41.8174424, -71.4018816, "US"))
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
@@ -78,7 +81,7 @@ def test_foreign_office_rejects_a_us_answer_from_the_international_engine(monkey
 
 def test_foreign_office_falls_back_to_its_city_abroad(monkeypatch):
     answers = iter([(None, None, None), (32.0853, 34.7818, "IL")])
-    monkeypatch.setattr(geo, "nominatim_international", lambda *_args: next(answers))
+    patch_geo(monkeypatch, "nominatim_international", lambda *_args: next(answers))
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
     result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
@@ -109,7 +112,7 @@ def test_us_match_for_a_foreign_office_is_never_published(tmp_path):
         "employer_zip": "6744316",
     }])
 
-    result = geo.apply_employer_to_dataframe(rows, cache)
+    result = employers.apply_employer_to_dataframe(rows, cache)
 
     assert np.isnan(result.loc[0, "employer_latitude"])
     assert result.loc[0, "employer_geocode_level"] == "rejected_us_match_for_foreign"

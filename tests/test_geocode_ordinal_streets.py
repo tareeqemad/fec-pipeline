@@ -4,7 +4,9 @@ import pandas as pd
 import pytest
 
 import build_employers
-from fec.geocoding.pipeline import _contributor_keys, _employer_keys, numbered_street
+from fec.geocoding.pipeline import _contributor_keys
+from fec.geocoding.employers import _employer_keys
+from fec.geocoding.street_text import numbered_street
 
 
 @pytest.mark.parametrize("street, expected", [

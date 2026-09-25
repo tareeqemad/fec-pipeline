@@ -92,7 +92,7 @@ def test_a_hand_checked_point_counts_without_a_cache_entry(tmp_path, monkeypatch
     monkeypatch.setattr(build_employers, "REVIEWED_POINTS", {
         f"20900 NE 30TH AVE|{PLACE}": (25.97, -80.145, "checked by hand"),
     })
-    monkeypatch.setattr("fec.geocoding.pipeline.reviewed_point", lambda key: (
+    monkeypatch.setattr("fec.geocoding.accepted.reviewed_point", lambda key: (
         (25.97, -80.145) if key == f"20900 NE 30TH AVE|{PLACE}" else None))
 
     location = _build(tmp_path, monkeypatch, {})

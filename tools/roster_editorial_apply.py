@@ -91,7 +91,7 @@ def geocode(office: dict) -> tuple[str, str]:
     if lat is None:
         # PO boxes / mail drops do not geocode to a street: fall back to the ZIP centroid,
         # never to the row's previous coordinates (they belong to the old address)
-        from fec.geocoding.pipeline import _zip_centroids
+        from fec.geocoding.zip_checks import _zip_centroids
         centroid = _zip_centroids().get(str(office.get("zip", "")).zfill(5)) if (office.get("country") or "US") == "US" else None
         if not centroid:
             return "", ""
