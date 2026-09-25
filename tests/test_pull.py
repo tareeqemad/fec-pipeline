@@ -4,6 +4,7 @@ from importlib import import_module
 import pytest
 from requests.exceptions import ConnectTimeout
 
+import fec.fec_api as fec_api
 import fec.pull as pull
 
 pull_cli = import_module("pull")
@@ -36,9 +37,9 @@ def test_fetch_page_retries_once(monkeypatch):
         def wait(self):
             pass
 
-    monkeypatch.setattr(pull, "sleep", delays.append)
+    monkeypatch.setattr(fec_api, "sleep", delays.append)
 
-    assert pull.fetch_page(Session(), {"api_key": "secret"}, Limiter()) == {"results": []}
+    assert fec_api.fetch_page(Session(), {"api_key": "secret"}, Limiter()) == {"results": []}
     assert delays == [1]
 
 
@@ -59,9 +60,9 @@ def test_fetch_page_waits_through_rate_limit_window(monkeypatch):
         def wait(self):
             pass
 
-    monkeypatch.setattr(pull, "sleep", delays.append)
+    monkeypatch.setattr(fec_api, "sleep", delays.append)
 
-    assert pull.fetch_page(Session(), {"api_key": "secret"}, Limiter()) == {
+    assert fec_api.fetch_page(Session(), {"api_key": "secret"}, Limiter()) == {
         "results": []
     }
     assert len(delays) == 7
@@ -79,11 +80,11 @@ def test_fetch_page_stops_after_rate_limit_timeout(monkeypatch):
         def wait(self):
             pass
 
-    monkeypatch.setattr(pull, "RATE_LIMIT_MAX_WAIT", 2)
-    monkeypatch.setattr(pull, "sleep", lambda _delay: None)
+    monkeypatch.setattr(fec_api, "RATE_LIMIT_MAX_WAIT", 2)
+    monkeypatch.setattr(fec_api, "sleep", lambda _delay: None)
 
-    with pytest.raises(pull.PullError, match="rate limit did not clear"):
-        pull.fetch_page(Session(), {"api_key": "secret"}, Limiter())
+    with pytest.raises(fec_api.PullError, match="rate limit did not clear"):
+        fec_api.fetch_page(Session(), {"api_key": "secret"}, Limiter())
 
 
 def test_iter_pages_passes_the_fec_cursor(monkeypatch):
@@ -176,8 +177,8 @@ def test_permanent_api_error_raises_pull_error():
         def wait(self):
             pass
 
-    with pytest.raises(pull.PullError, match="invalid or expired"):
-        pull.fetch_page(Session(), {"api_key": "bad"}, Limiter())
+    with pytest.raises(fec_api.PullError, match="invalid or expired"):
+        fec_api.fetch_page(Session(), {"api_key": "bad"}, Limiter())
 
 
 def test_cli_pulls_one_configured_committee(monkeypatch):
@@ -207,7 +208,7 @@ def test_cli_missing_api_key_returns_error(monkeypatch):
     )
     def missing_key(**kwargs):
         calls.append(kwargs)
-        pull.required_env("FEC_API_KEY")
+        fec_api.required_env("FEC_API_KEY")
 
     monkeypatch.setattr(pull_cli, "pull_run", missing_key)
 
