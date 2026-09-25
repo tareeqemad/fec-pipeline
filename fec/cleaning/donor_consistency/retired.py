@@ -2,10 +2,8 @@
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.previous_employer import (
-    is_real_employer,
-    normalize_previous_employer_column,
-)
+from fec.cleaning.previous_employer import normalize_previous_employer_column
+from fec.cleaning.employer_status import is_real_employer
 from fec.config.constants import (
     STATUS_CATEGORIES,
     STATUS_WORDS,

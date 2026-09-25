@@ -8,7 +8,7 @@ import sys
 
 import pandas as pd
 
-from fec.cleaning.previous_employer import referenced_employers
+from fec.cleaning.employer_status import referenced_employers
 from fec.env import CLEANED_CSV
 from fec.geocoding import (
     GeoCache,

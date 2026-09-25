@@ -14,12 +14,14 @@ from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistenc
 from fec.log import get_logger, log_count
 
 from .employer import (
-    _employer_substring_variants,
-    _employer_acronym_variants,
     _own_firm_absorbs_self_employed,
-    _employer_typos,
     _fill_employer_from_donor,
     _fill_employer_from_occupation,
+)
+from .employer_variants import (
+    _employer_substring_variants,
+    _employer_acronym_variants,
+    _employer_typos,
 )
 from .entity import (
     _apply_entity_overrides,

@@ -13,7 +13,7 @@ except ImportError:
 
 from fec.env import CLEANED_CSV
 from fec.log import get_logger
-from fec.cleaning.previous_employer import current_employer_name
+from fec.cleaning.employer_status import current_employer_name
 
 from ._base import _count, to_float_or_none, to_int_or_none
 from .employers import employment_key

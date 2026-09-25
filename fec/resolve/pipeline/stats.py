@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from fec.cleaning.previous_employer import classify_employer_statuses
+from fec.cleaning.employer_status import classify_employer_statuses
 from fec.log import get_logger
 
 from .constants import TIERS

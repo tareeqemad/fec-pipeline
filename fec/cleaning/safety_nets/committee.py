@@ -24,7 +24,7 @@ def _fix_committee_employer(df: pd.DataFrame, is_comm: pd.Series) -> int:
 
 def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     """Reclassify an organization parsed as a person."""
-    from fec.cleaning.previous_employer import is_real_employer
+    from fec.cleaning.employer_status import is_real_employer
 
     first = df['contributor_first_name'].fillna('').astype(str).str.strip()
     mask = (

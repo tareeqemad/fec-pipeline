@@ -4,8 +4,8 @@ import pandas as pd
 from fec.cleaning.previous_employer import (
     normalize_previous_employer_value as V,
     normalize_previous_employer_column,
-    referenced_employers,
 )
+from fec.cleaning.employer_status import referenced_employers
 from fec.cleaning.donor_consistency import _normalize_previous_employer
 from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
 
