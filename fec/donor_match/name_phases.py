@@ -34,7 +34,7 @@ def _norms_by_name_tokens(name_groups: dict) -> dict:
     return grouped
 
 
-# a token-set match earns the cross-name bonus only without a middle conflict
+# token-set match gets the bonus unless middle names conflict
 def _name_format_adjust(score: float, signals: list) -> float:
     # so a same-street father and son never tip over the threshold
     if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):

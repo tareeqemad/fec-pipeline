@@ -54,7 +54,7 @@ def find_or_create_donor(
     return new_id, "created"
 
 
-# the address row matching these fields, inserted when new; fills missing coords
+# find or insert the address row; fill missing coordinates
 def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
     cur.execute(
         """

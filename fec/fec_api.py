@@ -68,7 +68,7 @@ def _retry_delay(attempt: int, response=None, cap: float = 60.0) -> float:
         return fallback
 
 
-# sleep and retry a transient failure, or raise after max attempts
+# retry a transient failure, or raise after max attempts
 def _retry_or_raise(attempt: int, failure: str, gave_up: str, response=None, error=None) -> None:
     if attempt == MAX_ATTEMPTS:
         raise PullError(f"{gave_up} after {attempt} attempts") from error

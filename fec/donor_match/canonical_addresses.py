@@ -24,7 +24,7 @@ def _addr_fingerprint(street: str) -> str:
     return toks[0] + "|" + " ".join(sorted(toks[1:]))
 
 
-# rewrite each donor's spellings of one value to the bucket's winning form
+# rewrite each donor's variant spellings to the winning form
 def _collapse_donor_variants(df: pd.DataFrame, column: str, bucket_of, rank) -> int:
     """Within each donor, bucket rows by bucket_of(df, i, value) and rewrite every
     spelling in a bucket to the one with the highest rank(form, forms); returns rows rewritten.
