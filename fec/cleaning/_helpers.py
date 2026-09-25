@@ -15,6 +15,17 @@ def _indiv_idx(df: pd.DataFrame) -> pd.Index:
     return df.index[df['entity_type'] == 'INDIVIDUAL']
 
 
+# rewrite individuals' occupations found in mapping to the mapped value
+def _map_occupations(df: pd.DataFrame, mapping: dict) -> tuple[pd.DataFrame, int]:
+    """Replace each INDIVIDUAL occupation that is a key of mapping; returns (df, rows changed)."""
+    individuals = _indiv_idx(df)
+    occupation = df.loc[individuals, 'contributor_occupation']
+    hits = individuals[occupation.isin(mapping)]
+    if len(hits):
+        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(mapping)
+    return df, int(len(hits))
+
+
 # mark rows as missing occupation
 def _set_missing(df: pd.DataFrame, idx) -> None:
     """Mark rows as missing occupation (NaN + MISSING status)."""

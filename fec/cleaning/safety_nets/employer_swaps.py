@@ -7,6 +7,7 @@ import pandas as pd
 
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.cleaning.occupations import _categorize, _categorize_final
+from fec.cleaning.occupations.normalize import swap_employer_and_occupation
 from fec.cleaning.safety_nets.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 from fec.config.not_employers import (
@@ -16,7 +17,6 @@ from fec.config.not_employers import (
     ROLE_AS_EMPLOYER,
     SELF_EMPLOYED_OCC_AS_EMP,
 )
-from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 
 # HEALTH / HEALTHCARE name a company (SUMMIT HEALTH, CVS HEALTH) but not when
 # a person noun follows: MENTAL HEALTH COUNSELOR, HEALTH COACH, HEALTHCARE
@@ -141,19 +141,6 @@ def occupation_holds_company(df: pd.DataFrame, occ: pd.Series, emp: pd.Series, c
     return marker | _occupation_names_no_job(df, occ, org_title)
 
 
-# swap employer and occupation fields for the masked rows
-def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> None:
-    """Swap contributor_employer <-> contributor_occupation where mask is True, optionally setting occupation_status."""
-    old_emp = df.loc[mask, 'contributor_employer'].copy()
-    old_occ = df.loc[mask, 'contributor_occupation'].copy()
-    df.loc[mask, 'contributor_employer'] = old_occ
-    new_occ = old_emp.replace(OCCUPATION_CANONICAL)
-    df.loc[mask, 'contributor_occupation'] = new_occ
-    df.loc[mask, 'occupation_category'] = _categorize(new_occ)
-    if status is not None:
-        df.loc[mask, 'occupation_status'] = status
-
-
 # set employer to SELF-EMPLOYED when it duplicates the occupation
 def _fix_employer_equals_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """U. Employer == occupation -> SELF-EMPLOYED, except real company names (donor works there, wrote it twice)."""
@@ -210,7 +197,7 @@ def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> i
         occ_looks_like_company = occ.str.contains(_COMPANY_NAME_RE, na=False)
         company_in_occ = other & occ_looks_like_company
         if company_in_occ.any():
-            _swap_occ_emp_fields(df, company_in_occ, status='DISCLOSED')
+            swap_employer_and_occupation(df, company_in_occ, status='DISCLOSED')
         not_company = other & ~occ_looks_like_company
         if not_company.any():
             df.loc[not_company, 'contributor_employer'] = 'SELF-EMPLOYED'
@@ -240,7 +227,7 @@ def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
     mask = candidates & (occ.isin(real) | known_company.isin(real))
     n_fixed = int(mask.sum())
     if n_fixed:
-        _swap_occ_emp_fields(df, mask, status='DISCLOSED')
+        swap_employer_and_occupation(df, mask, status='DISCLOSED')
     return n_fixed
 
 
@@ -258,7 +245,7 @@ def _fix_role_as_employer(df: pd.DataFrame) -> int:
 
     swap = occupation_holds_company(df, occ, emp, mask)
     if swap.any():
-        _swap_occ_emp_fields(df, swap, status='DISCLOSED')
+        swap_employer_and_occupation(df, swap, status='DISCLOSED')
 
     self_emp = mask & ~swap
     if self_emp.any():

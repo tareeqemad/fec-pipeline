@@ -4,8 +4,9 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
+from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm, _set_missing
 from fec.cleaning.audit_trail import WORK_FIELDS
+from fec.cleaning.occupations.normalize import swap_employer_and_occupation
 from fec.config.employers import EMPLOYER_NORMALIZE
 from fec.config.occupation_rules.normalize import (
     OCCUPATION_CANONICAL,
@@ -59,15 +60,6 @@ _ORGANIZATION_IN_OCCUPATION_RE = re.compile(
 )
 
 
-# swap occupation and employer values for the given rows
-def _swap_fields(df: pd.DataFrame, indexes: pd.Index) -> None:
-    occupation = df.loc[indexes, 'contributor_occupation'].copy()
-    employer = df.loc[indexes, 'contributor_employer'].copy()
-    df.loc[indexes, 'contributor_occupation'] = employer
-    df.loc[indexes, 'contributor_employer'] = occupation
-    df.loc[indexes, 'occupation_category'] = _categorize(employer)
-
-
 # fix swaps exposed by earlier cleaning
 def fix_remaining_swapped_occ_emp(
     df: pd.DataFrame,
@@ -82,7 +74,7 @@ def fix_remaining_swapped_occ_emp(
     company &= ~occupation.str.startswith('CORP ', na=False)
     company_swaps = individuals[company & employer_is_job]
     if len(company_swaps):
-        _swap_fields(df, company_swaps)
+        swap_employer_and_occupation(df, company_swaps, canonical=False)
 
     same = individuals[(occupation == employer) & employer_is_job]
     if len(same):
@@ -94,7 +86,7 @@ def fix_remaining_swapped_occ_emp(
     )
     organization_swaps = individuals[organization & employer_is_job]
     if len(organization_swaps):
-        _swap_fields(df, organization_swaps)
+        swap_employer_and_occupation(df, organization_swaps, canonical=False)
 
     swaps = len(company_swaps) + len(organization_swaps)
     return df, swaps, len(same)
@@ -105,14 +97,7 @@ def normalize_occupation_canonical(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, int]:
     """Map safe occupation variants."""
-    individuals = _indiv_idx(df)
-    occupation = df.loc[individuals, 'contributor_occupation']
-    hits = individuals[occupation.isin(OCCUPATION_CANONICAL)]
-    if len(hits):
-        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(
-            OCCUPATION_CANONICAL
-        )
-    return df, len(hits)
+    return _map_occupations(df, OCCUPATION_CANONICAL)
 
 
 # fill an obvious missing occupation or employer from the other
@@ -149,7 +134,7 @@ def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
     if not mask.any():
         return
 
-    _swap_fields(df, df.index[mask])
+    swap_employer_and_occupation(df, df.index[mask], canonical=False)
 
 
 # normalize free-text occupation and employer fields

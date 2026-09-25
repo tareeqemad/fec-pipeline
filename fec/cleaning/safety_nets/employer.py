@@ -7,16 +7,19 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.occupations import _categorize, _categorize_final
+from fec.cleaning.occupations.normalize import swap_employer_and_occupation
 from fec.config.constants import (
-    REFUSAL_EMPLOYERS, OK_SHORT_EMPLOYERS, ADMIN_NOTE_EMPLOYER_RE,
+    ADMIN_NOTE_EMPLOYER_RE,
+    OK_SHORT_EMPLOYERS,
+    REFUSAL_EMPLOYERS,
     RETIRED_TYPO_EMPLOYERS,
 )
 from fec.config.not_employers import (
-    SECTOR_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER, NOT_REAL_EMPLOYER,
     JOB_TITLE_AS_EMPLOYER,
+    NOT_REAL_EMPLOYER,
+    OCCUPATION_AS_EMPLOYER,
+    SECTOR_AS_EMPLOYER,
 )
-
-from .employer_swaps import _swap_occ_emp_fields
 
 # Safe structural variants of the status word: RETIR / RETIRE / RETIRED /
 # RETIREE / RETIRD. Full-match only, so "RETIREMENT" is never touched.
@@ -198,7 +201,7 @@ def _null_sector_as_employer(df: pd.DataFrame) -> int:
     title = mask & emp.str.upper().isin(_TITLE_SECTOR_WORDS)
     swap = _occupation_names_a_company(occ, title & occ.ne(''))
     if swap.any():
-        _swap_occ_emp_fields(df, swap, status='DISCLOSED')
+        swap_employer_and_occupation(df, swap, status='DISCLOSED')
     to_occupation = title & occ.eq('')
     if to_occupation.any():
         df.loc[to_occupation, 'contributor_occupation'] = emp[to_occupation].str.upper()

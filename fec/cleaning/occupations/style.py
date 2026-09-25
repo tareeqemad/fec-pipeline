@@ -8,7 +8,7 @@ import re
 
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx
+from fec.cleaning._helpers import _indiv_idx, _map_occupations
 from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
 
 # Job titles that combine with "/" (PRESIDENT/CEO). Longest first so the
@@ -153,9 +153,4 @@ def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int
 # pipeline step applying curated occupation typo fixes
 def apply_occupation_typo_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Pipeline step: curated typo/abbreviation -> canonical spelling (runs right after the style step)."""
-    individuals = _indiv_idx(df)
-    occupation = df.loc[individuals, 'contributor_occupation']
-    hits = individuals[occupation.isin(OCCUPATION_TYPO_FIXES)]
-    if len(hits):
-        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(OCCUPATION_TYPO_FIXES)
-    return df, int(len(hits))
+    return _map_occupations(df, OCCUPATION_TYPO_FIXES)
