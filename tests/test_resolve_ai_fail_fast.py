@@ -7,7 +7,7 @@ import pytest
 
 from fec.resolve.pipeline import cli as resolve_cli
 from fec.resolve.pipeline.ai_client import AIQuotaExhausted, is_ai_quota_error
-from fec.resolve.pipeline.steps import ai_employer
+from fec.resolve.pipeline.steps import web_search
 
 
 class _ProviderError(Exception):
@@ -59,10 +59,10 @@ def test_credit_error_stops_on_preflight_without_storing_not_found(monkeypatch):
             }
         )
 
-    monkeypatch.setattr(ai_employer, "ai_web_search_call", no_credits)
+    monkeypatch.setattr(web_search, "ai_web_search_call", no_credits)
 
     with pytest.raises(AIQuotaExhausted):
-        ai_employer.run_web_search(
+        web_search.run_web_search(
             client=None,
             model="model",
             system_prompt="system",
@@ -91,9 +91,9 @@ def test_web_search_stores_successes_and_skips_failed_calls(monkeypatch):
         stored.append((item, result))
         return result is not None
 
-    monkeypatch.setattr(ai_employer, "ai_web_search_call", search)
+    monkeypatch.setattr(web_search, "ai_web_search_call", search)
 
-    found = ai_employer.run_web_search(
+    found = web_search.run_web_search(
         client=None,
         model="model",
         system_prompt="system",
