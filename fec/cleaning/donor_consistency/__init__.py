@@ -16,6 +16,7 @@ from fec.log import get_logger, log_count
 from .employer import (
     _own_firm_absorbs_self_employed,
     _fill_employer_from_donor,
+    _fill_employer_from_raw_filings,
     _fill_employer_from_occupation,
 )
 from .employer_variants import (
@@ -70,7 +71,9 @@ CONSISTENCY_FIXES = (
     ("fill self-employed occupation from donor", _fill_self_employed_occupation_from_donor, WORK_FIELDS,
      "self_employed_occupation_replaced_by_donors_real_one", None),
     ("fill employer from occupation", _fill_employer_from_occupation, WORK_FIELDS,
-     "employer_derived_from_occupation_category_or_raw_filings", None),
+     "employer_derived_from_occupation_or_category", None),
+    ("fill employer from raw filings", _fill_employer_from_raw_filings, WORK_FIELDS,
+     "employer_recovered_from_donors_other_raw_filings", None),
     ("recover previous employer", _fill_prev_employer_from_donor, PREVIOUS,
      "previous_employer_from_latest_earlier_filing", None),
     ("clear refusal employers", _clean_junk_status_word_employer, WORK_FIELDS,
@@ -92,6 +95,16 @@ CONSISTENCY_FIXES = (
     ("normalize previous employers", _normalize_previous_employer, PREVIOUS,
      "previous_employer_contract_normalized", None),
 )
+
+
+# steps whose employer or occupation comes from the donor's OTHER filings
+INFERRED_WORK_STEPS = frozenset({
+    "donor_own_firm_absorbs_self_employed",
+    "donor_fill_employer_from_donor",
+    "donor_fill_occupation_from_donor",
+    "donor_fill_self_employed_occupation_from_donor",
+    "donor_fill_employer_from_raw_filings",
+})
 
 
 def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> int:

@@ -100,7 +100,9 @@ CREATE TABLE donors (
     donor_key       TEXT    NOT NULL UNIQUE,
     entity_type     TEXT    NOT NULL CHECK (entity_type IN ('INDIVIDUAL', 'ORGANIZATION', 'COMMITTEE/PAC')),
     first_name      TEXT,                       -- NULL for committees
-    last_name       TEXT                        -- committee full name for COMMITTEE/PAC
+    last_name       TEXT,                       -- committee full name for COMMITTEE/PAC
+    identity_status TEXT    NOT NULL DEFAULT 'confirmed'
+                    CHECK (identity_status IN ('confirmed', 'held', 'unresolved'))
 );
 
 
@@ -223,7 +225,9 @@ CREATE TABLE contributions (
     donor_employment_id INT             REFERENCES donor_employments(donor_employment_id),
     amount              NUMERIC(15, 2)  NOT NULL,       -- matches committees.raised/spent precision
     receipt_date        DATE            NOT NULL,
-    election_cycle      INTEGER         NOT NULL
+    election_cycle      INTEGER         NOT NULL,
+    employment_source   TEXT            NOT NULL DEFAULT 'filed'
+                        CHECK (employment_source IN ('filed', 'inferred'))
 );
 
 
@@ -314,7 +318,8 @@ SELECT DISTINCT ON (c.donor_id)
     e.employer_status,            -- active / retired / not_employed / ...
     e.previous_employer_id,       -- last real job before retirement
     e.previous_self_employed,     -- retiree who used to work for themselves
-    e.address_id                  -- selected workplace
+    e.address_id,                 -- selected workplace
+    c.employment_source           -- filed on this filing, or inferred from others
 FROM contributions c
 JOIN donor_employments e ON e.donor_employment_id = c.donor_employment_id
 ORDER BY
@@ -356,6 +361,7 @@ SELECT
     d.entity_type,
     d.first_name,
     d.last_name,
+    d.identity_status,
 
     -- Lifetime stats (from v_donor_stats)
     s.donation_count,
@@ -379,6 +385,7 @@ SELECT
     e.occupation    AS current_occupation,
     oc.name         AS current_occ_category,
     e.employer_status,
+    e.employment_source AS current_employment_source,
 
     -- Previous employer - set when donor is now RETIRED so we still
     -- know where they USED TO work. Self-employment is not a company (no
@@ -555,6 +562,10 @@ CREATE INDEX idx_lc_committee ON leader_committees (committee_id);
 -- file). These COMMENTs live IN the database, so DBeaver / pgAdmin / psql \d+
 -- all show the purpose of each table and the intent behind the non-obvious
 -- columns.
+
+-- Columns: how sure the data is
+COMMENT ON COLUMN donors.identity_status IS 'confirmed = one person as identified; held = filings a hold rule keeps apart because no person is proven to own them; unresolved = a filing under a network name whose donor is unknown. Only confirmed donors are people.';
+COMMENT ON COLUMN contributions.employment_source IS 'filed = the employer and occupation come from this filing; inferred = at least one was filled from the same donor''s other filings, not filed here.';
 
 -- Tables
 COMMENT ON TABLE occupation_categories IS 'Lookup: ~29 standardized occupation buckets. LAWYER vs ATTORNEY stay distinct as raw occupations; this groups them for filtering.';

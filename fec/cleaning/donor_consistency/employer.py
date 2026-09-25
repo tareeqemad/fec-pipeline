@@ -75,7 +75,7 @@ def _employer_nearest_in_time(real_recs: pd.DataFrame, when) -> str:
 
 
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
-    """AK. Empty employer + status-word occupation/category -> employer = that status; else recover from raw."""
+    """AK. Empty employer + status-word occupation/category -> employer = that status."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     empty_emp = df['contributor_employer'].isna() | (df['contributor_employer'] == '')
     occ = df['contributor_occupation'].fillna('')
@@ -97,12 +97,14 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
             df.loc[mask, 'contributor_employer'] = emp_val
             n += cnt
 
-    # Still empty? Try to recover from raw FEC data
-    still_empty2 = is_indiv & (df['contributor_employer'].isna() | (df['contributor_employer'] == ''))
-    if still_empty2.any():
-        n += _fill_employer_from_raw(df, still_empty2)
-
     return n
+
+
+def _fill_employer_from_raw_filings(df: pd.DataFrame) -> int:
+    """AK2. A still-empty employer from the donor's own other raw filings."""
+    is_indiv = df['entity_type'] == 'INDIVIDUAL'
+    empty = is_indiv & (df['contributor_employer'].isna() | (df['contributor_employer'] == ''))
+    return _fill_employer_from_raw(df, empty) if empty.any() else 0
 
 
 def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:

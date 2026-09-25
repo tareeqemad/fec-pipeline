@@ -33,10 +33,12 @@ def load_donors(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
         # Organizations use last_name.
         if not last and entity in ('COMMITTEE/PAC', 'ORGANIZATION'):
             last = to_native(latest['contributor_name'])
-        donor_rows.append((donor_key, entity, first, last))
+        # a CSV from before the column existed reads as all confirmed
+        status = to_native(latest.get('identity_status')) or 'confirmed'
+        donor_rows.append((donor_key, entity, first, last, status))
 
     execute_values(cur,
-        "INSERT INTO donors (donor_key, entity_type, first_name, last_name) "
+        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) "
         "VALUES %s",
         donor_rows, page_size=5000)
     conn.commit()

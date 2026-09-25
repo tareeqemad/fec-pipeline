@@ -27,7 +27,8 @@ _ADDRESS_COLUMNS = [
 _INSERT_SQL = """
     INSERT INTO contributions (
         sub_id, transaction_id, donor_id, committee_id, donor_address_id,
-        donor_employment_id, amount, receipt_date, election_cycle
+        donor_employment_id, amount, receipt_date, election_cycle,
+        employment_source
     ) VALUES %s
 """
 
@@ -103,7 +104,7 @@ def _map_employment_ids(rows, employment_ids, get_employer_id):
 
 def _native_row(values):
     (sub_id, transaction_id, donor_id, committee_id, address_id, employment_id,
-     amount, receipt_date, election_cycle) = values
+     amount, receipt_date, election_cycle, employment_source) = values
     return (
         int(sub_id),
         str(transaction_id),
@@ -114,6 +115,7 @@ def _native_row(values):
         to_float_or_none(amount),
         receipt_date.date() if pd.notna(receipt_date) else None,
         to_int_or_none(election_cycle),
+        employment_source,
     )
 
 
@@ -133,10 +135,14 @@ def _build_rows(rows):
     election_cycles = pd.to_numeric(
         rows["two_year_transaction_period"], errors="coerce"
     )
+    # a CSV from before the column existed reads as all filed
+    sources = rows.get("employment_source", pd.Series("filed", index=rows.index))
+    sources = sources.fillna("").replace("", "filed")
     return list(map(_native_row, zip(
         rows["sub_id"], rows["transaction_id"], rows["_donor_id"],
         rows["_committee_id"], rows["_address_id"], rows["_employment_id"],
         rows["contribution_receipt_amount"], receipt_dates, election_cycles,
+        sources,
     )))
 
 

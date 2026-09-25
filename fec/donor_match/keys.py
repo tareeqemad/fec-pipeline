@@ -161,6 +161,7 @@ def hold_unproven_filings(df: pd.DataFrame) -> int:
     df.loc[held, "donor_key"] = groups[held].map(
         lambda group: hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
     )
+    df.loc[held, "identity_status"] = "held"
     return int(held.sum())
 
 
