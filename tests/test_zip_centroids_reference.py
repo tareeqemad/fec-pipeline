@@ -12,12 +12,9 @@ import pytest
 
 from fec.cleaning.pipeline.address_fixes.state_zip import _load_zcta_to_state
 from fec.env import DATA_DIR
-from fec.geocoding.pipeline import (
-    _STATE_BOUNDS,
-    _ZIP_CENTROIDS,
-    _distance_km,
-    _zip_centroids,
-)
+from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
+from fec.geocoding.places import distance_km as _distance_km
+from fec.geocoding.zip_checks import _ZIP_CENTROIDS, _zip_centroids
 
 _MARGIN_DEG = 1.0          # coarse state bounding boxes: border ZIPs may sit just outside
 _MAX_KM_FROM_GEOCODES = 50  # same threshold the geocoder uses for its ZIP-distance retry rule

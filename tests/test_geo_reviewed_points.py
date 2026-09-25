@@ -12,6 +12,10 @@ import pytest
 
 from fec.geocoding import GeoCache
 from fec.geocoding import pipeline as geo
+from fec.geocoding import accepted
+from geo_patch import patch_geo
+from fec.geocoding import street_text
+from fec.geocoding import zip_checks
 from fec.geocoding.engines import CensusUnavailable
 from fec.geocoding.places import distance_km
 from fec.geocoding.reviewed_points import (
@@ -43,8 +47,8 @@ def no_sleep(monkeypatch):
 
 @pytest.fixture
 def palm_beach_zip(monkeypatch, no_sleep):
-    monkeypatch.setattr(geo, "_zip_centroids", lambda: {"33480": ZIP_33480})
-    monkeypatch.setattr(geo, "_zip_neighbour_km", lambda _zip: 5.9)   # a 14.8 km limit, as for 33480
+    patch_geo(monkeypatch, "_zip_centroids", lambda: {"33480": ZIP_33480})
+    patch_geo(monkeypatch, "_zip_neighbour_km", lambda _zip: 5.9)   # a 14.8 km limit, as for 33480
 
 
 # ---- REVIEWED_POINTS
@@ -85,7 +89,7 @@ def _source_key(note: str) -> str:
 
 def test_every_reviewed_point_names_its_source_key():
     for key, (lat, lng, note) in REVIEWED_POINTS.items():
-        assert key.count("|") == 3 and geo._valid_for_state(lat, lng, key.split("|")[2]), key
+        assert key.count("|") == 3 and accepted._valid_for_state(lat, lng, key.split("|")[2]), key
         assert _source_key(note).count("|") == 3, key
     # the lists never contradict each other
     assert not set(REVIEWED_POINTS) & set(REVIEWED_WRONG_POINTS)
@@ -93,7 +97,7 @@ def test_every_reviewed_point_names_its_source_key():
 
 
 def _real_cache() -> dict:
-    path = geo._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
+    path = zip_checks._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
     if not path.exists():
         pytest.skip("geocode_cache.json not present")
     return json.loads(path.read_text(encoding="utf-8"))
@@ -128,7 +132,7 @@ def test_reviewed_points_replace_a_different_cached_point():
 def test_a_wrong_street_point_is_withheld_and_looked_up_again(tmp_path, palm_beach_zip):
     cache = _cache(tmp_path, PALM_BEACH, *MANALAPAN, "nominatim")
     # inside the 33480 circle: no ZIP rule catches it
-    assert not geo._street_far_from_zip(*MANALAPAN, "33480")
+    assert not accepted._street_far_from_zip(*MANALAPAN, "33480")
 
     assert geo.accepted_coordinates(PALM_BEACH, cache.get(PALM_BEACH)) == (None, None, "rejected_reviewed_wrong")
     assert geo._needs_lookup(PALM_BEACH, cache)
@@ -166,10 +170,10 @@ class _Engine:
 def _engines(monkeypatch, census_answer):
     census = _Engine(census_answer)
     nominatim = _Engine((*MANALAPAN, "US"))
-    monkeypatch.setattr(geo, "census", census)
-    monkeypatch.setattr(geo, "nominatim", nominatim)
-    monkeypatch.setattr(geo, "nominatim_within", nominatim)
-    monkeypatch.setattr(geo, "city_level", _Engine((26.7056, -80.0364, "US")))
+    patch_geo(monkeypatch, "census", census)
+    patch_geo(monkeypatch, "nominatim", nominatim)
+    patch_geo(monkeypatch, "nominatim_within", nominatim)
+    patch_geo(monkeypatch, "city_level", _Engine((26.7056, -80.0364, "US")))
     return census, nominatim
 
 
@@ -229,7 +233,7 @@ def test_rejected_points_are_the_cached_points():
     checked = 0
     for key, (lat, lng, _note) in REVIEWED_WRONG_POINTS.items():
         entry = cache.get(key)
-        if not entry or entry.get("lat") is None or entry.get("source") not in geo._REVIEWED_STREET_SOURCES:
+        if not entry or entry.get("lat") is None or entry.get("source") not in accepted._REVIEWED_STREET_SOURCES:
             continue
         if distance_km((entry["lat"], entry["lng"]), (lat, lng)) > 0.5:
             continue   # re-geocoded since
@@ -262,12 +266,12 @@ def _as_cache(data: dict) -> GeoCache:
     ("100 MAIN ST", "100 MAIN ST"),
 ])
 def test_a_leading_building_name_is_not_sent(filed, sent):
-    assert geo._clean_street_for_geocoding(filed) == sent
+    assert street_text._clean_street_for_geocoding(filed) == sent
 
 
 def test_census_gets_the_street_without_the_building_name(monkeypatch, no_sleep):
     census = _Engine((36.1563, -95.9928, "US"))
-    monkeypatch.setattr(geo, "census", census)
+    patch_geo(monkeypatch, "census", census)
 
     geo._geocode_one("ONE WILLIAMS CENTER 101 E 2ND ST", "TULSA", "OK", "74172")
 

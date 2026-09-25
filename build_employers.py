@@ -11,12 +11,9 @@ from fec.cleaning.employer_status import current_employer_name, referenced_emplo
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
 from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
-from fec.geocoding.pipeline import (
-    accepted_coordinates,
-    is_foreign_address,
-    is_po_box,
-    numbered_street,
-)
+from fec.geocoding.accepted import accepted_coordinates
+from fec.geocoding.street_text import numbered_street
+from fec.geocoding.address_kind import is_foreign_address, is_po_box
 from fec.geocoding.reviewed_points import REVIEWED_POINTS
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
