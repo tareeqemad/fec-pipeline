@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 
+# clean the contributor_zip column in place and return counts
 def clean_zips(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Extract and normalize 5-digit ZIP codes; returns (df, counts)."""
     # FEC sends 5- or 9-digit; keep the 5-digit form under the same column name
@@ -13,6 +14,7 @@ def clean_zips(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     }
 
 
+# strip non-digits, pad/truncate to 5 digits, and null unassigned ZIPs
 def _clean_zip_raw(raw: pd.Series) -> tuple[pd.Series, int]:
     """Clean raw ZIP strings to 5 digits; returns (series, n_invalid_nulled)."""
     raw = raw.astype(str).str.strip().str.replace(r'[^\d]', '', regex=True)

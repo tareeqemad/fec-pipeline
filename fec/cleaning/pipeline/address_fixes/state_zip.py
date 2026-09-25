@@ -10,6 +10,7 @@ import pandas as pd
 _DATA_DIR = Path(__file__).resolve().parents[4] / 'data' / 'database'
 
 
+# load the ZCTA and state-code CSVs, or None
 def _read_crosswalk() -> tuple[pd.DataFrame, dict] | None:
     """Read the ZCTA crosswalk; returns (zcta_df, fips_to_code) or None if the CSVs are missing."""
     zcta_path = _DATA_DIR / 'zcta_state_rel.csv'
@@ -22,6 +23,7 @@ def _read_crosswalk() -> tuple[pd.DataFrame, dict] | None:
     return zcta_df, fips_to_code
 
 
+# build the ZCTA5-to-state lookup, caching the result
 @lru_cache(maxsize=1)
 def _load_zcta_to_state() -> dict[str, str]:
     """Load ZCTA5 to state code mapping from data/database/ (cached)."""
@@ -33,6 +35,7 @@ def _load_zcta_to_state() -> dict[str, str]:
     return dict(zip(zcta_df['zcta5'], state_codes))
 
 
+# build the ZIP3-to-state fallback lookup for ZIPs missing a ZCTA
 @lru_cache(maxsize=1)
 def _load_zip3_to_state() -> dict[str, str]:
     """ZIP3 prefix to state, fallback for non-ZCTA ZIPs (PO-box-only / unique) missing from the crosswalk."""
@@ -68,6 +71,7 @@ def _load_zip3_to_state() -> dict[str, str]:
     return out
 
 
+# look up a ZIP5's state via crosswalk or ZIP3 prefix
 def zip_state(zip5: str) -> str:
     """State of a 5-digit ZIP: the ZCTA crosswalk first, else its ZIP3 prefix; '' when unknown."""
     zip5 = str(zip5 or '')
@@ -76,11 +80,13 @@ def zip_state(zip5: str) -> str:
     return _load_zcta_to_state().get(zip5) or _load_zip3_to_state().get(zip5[:3], '')
 
 
+# true when the ZIP is a real Census area ZIP
 def is_zcta(zip5: str) -> bool:
     """True for a ZIP with a Census ZCTA, i.e. an area ZIP of street addresses; PO-box-only ZIPs (20859 Potomac) have none."""
     return str(zip5 or '') in _load_zcta_to_state()
 
 
+# correct a state typo from the same person's other filings
 def _fix_impossible_city_states(df: pd.DataFrame) -> int:
     """Fix a person's state typos from their own history; returns states corrected."""
     # a city sits in one state: the same person filing one city name under two
@@ -134,6 +140,7 @@ def _fix_impossible_city_states(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# resolve state/ZIP conflicts by voting with the city
 def _fix_state_zip_mismatches(df: pd.DataFrame) -> dict:
     """Resolve ZIP/state conflicts by a 3-way vote with the city; returns fix counts."""
     # city agrees with the ZIP -> the state was the typo (fix state, keep ZIP);
