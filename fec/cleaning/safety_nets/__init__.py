@@ -46,14 +46,16 @@ from fec.cleaning.safety_nets.occupation import (
     _fill_null_occupation_category,
     _fix_bitton_edge_case,
     _fix_disclosed_no_employer,
-    _fix_emp_occ_category_consistency,
     _fix_employed_as_occupation,
     _fix_employed_no_category,
     _fix_not_disclosed_with_real_occ,
-    _fix_slash_occupation,
     _fix_status_word_in_occupation,
     _fix_web_artifact_occupation,
     _null_junk_occupation,
+)
+from fec.cleaning.safety_nets.occupation_category import (
+    _fix_emp_occ_category_consistency,
+    _fix_slash_occupation,
     _reclassify_other_category,
 )
 from fec.cleaning.safety_nets.occupation_context import _disambiguate_vague_occupation

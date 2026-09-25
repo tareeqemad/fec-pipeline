@@ -1,10 +1,8 @@
 """Keep each donor consistent across filings."""
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.recovery import (
-    _recover_missing_streets,
-    _truncated_house_numbers,
-)
+from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
+from fec.cleaning.addresses.fixes.house_numbers import _truncated_house_numbers
 from fec.cleaning.audit_trail import (
     EMPLOYMENT_FIELDS,
     ENTITY_FIELDS,
@@ -41,7 +39,9 @@ from fec.cleaning.donor_consistency.retired import (
     _settle_retired_employer,
 )
 from fec.cleaning.record_junk import _clean_junk_status_word_employer
-from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
+from fec.cleaning.safety_nets.occupation_category import (
+    _fix_emp_occ_category_consistency,
+)
 from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)

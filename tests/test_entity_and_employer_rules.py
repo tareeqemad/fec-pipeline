@@ -6,7 +6,9 @@ from fec.cleaning.audit_trail import AuditTrail
 from fec.cleaning.pipeline.core import _clean_people
 from fec.cleaning.pipeline.names import _clean_names
 from fec.cleaning.pipeline.reclassify import _reclassify_entities
-from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
+from fec.cleaning.safety_nets.occupation_category import (
+    _fix_emp_occ_category_consistency,
+)
 
 
 class TestCommitteeReclassification:
