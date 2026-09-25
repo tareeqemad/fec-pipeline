@@ -6,11 +6,11 @@ import pandas as pd
 
 from fec.cleaning.addresses.cities import clean_cities
 from fec.cleaning.addresses.fixes.recovery import (
-    _recover_house_number_from_donor,
     _recover_nonstreet_from_donor,
     _recover_null_streets,
     _trim_street_to_donor_short_form,
 )
+from fec.cleaning.addresses.fixes.house_numbers import _recover_house_number_from_donor
 from fec.cleaning.addresses.fixes.safe_text import apply_safe_fixes
 from fec.cleaning.addresses.fixes.same_street import (
     _recover_address_from_same_street,

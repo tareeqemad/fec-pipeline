@@ -3,18 +3,17 @@ import math
 import time
 
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
+from fec.geocoding.abroad import _geocode_abroad_unless_us_zip, _geocode_foreign
 from fec.geocoding.address_kind import is_foreign_address, is_po_box
 from fec.geocoding.engines import (
     NOMINATIM_DELAY,
     CensusUnavailable,
     census,
-    city_level,
     nominatim,
-    nominatim_international,
     nominatim_within,
 )
+from fec.geocoding.locality import _Locality
 from fec.geocoding.places import distance_km as _distance_km
-from fec.geocoding.places import in_us_bounds as _in_us_bounds
 from fec.geocoding.places import valid_for_state as _valid_for_state
 from fec.geocoding.reviewed_points import (
     REVIEWED_WRONG_POINTS,
@@ -23,8 +22,6 @@ from fec.geocoding.reviewed_points import (
 from fec.geocoding.street_text import _clean_street_for_geocoding
 from fec.geocoding.zip_checks import (
     _ZIP_OUTLIER_KM,
-    _zip_area_point,
-    _zip_point,
     _zip_replaces_city,
     street_zip_limit_km,
 )
@@ -35,32 +32,6 @@ logger = get_logger(__name__)
 # two engines' points for one address this close together are the same place
 # (Census address ranges vs OSM: 0.01-0.7 km apart for the 2026-09-23 typos)
 _ENGINES_AGREE_KM = 1.0
-
-
-class _Locality:
-    """The filed city/state/ZIP of one address; each city-level query runs at most once."""
-
-    # store the filed city/state/ZIP and its zip-point lookups
-    def __init__(self, city: str, state: str, zipcode: str):
-        self.city = city
-        self.state = state
-        self.zipcode = zipcode
-        self.zip_point = _zip_point(zipcode, state)
-        self.zip_area = self.zip_point or _zip_area_point(zipcode, state)
-        self._city_points: dict[str, tuple | None] = {}
-
-    # look up and cache the filed town's own point
-    def city_point(self, zipcode: str = "") -> tuple | None:
-        """(lat, lng, country) of the filed town itself (a settlement of that name, inside the filed state; see engines.city_level), optionally searched with the filed ZIP."""
-        if zipcode not in self._city_points:
-            point = None
-            if self.city:
-                lat, lng, country = city_level(self.city, self.state, zipcode, self.zip_area)
-                time.sleep(NOMINATIM_DELAY)
-                if lat is not None and _valid_for_state(lat, lng, self.state):
-                    point = (lat, lng, country)
-            self._city_points[zipcode] = point
-        return self._city_points[zipcode]
 
 
 # check whether a street-level result lies inside the filed ZIP
@@ -272,41 +243,3 @@ def _geocode_reviewed_wrong(key_street: str, street: str, locality: _Locality) -
     return result or (None, None, None, "not_found")
 
 
-# geocode a foreign address using only the international engine
-def _geocode_foreign(street, city, state, zipcode):
-    """A foreign address (no US state, or a non-US postal code): international engine only, and only a non-US result is accepted."""
-    queries = []
-    if street:
-        queries.append((street, "nominatim_intl"))
-    if city:
-        queries.append(("", "nominatim_intl_city"))
-    for query_street, level in queries:
-        lat, lng, country_code = nominatim_international(query_street, city, state, zipcode)
-        time.sleep(NOMINATIM_DELAY)
-        if lat is not None and country_code and country_code != "US":
-            return lat, lng, country_code, level
-    return None, None, None, "not_found"
-
-
-# try international geocoding unless the filed ZIP matches the state
-def _geocode_abroad_unless_us_zip(street, city, locality: _Locality):
-    """The international last resort, skipped when the filed ZIP lies in the filed state.
-
-    Such a filing is in the US even when its town is not found: JAMAICA NY is no OSM
-    settlement, and 'PO BOX 5, JAMAICA' searched abroad is the island."""
-    if locality.zip_area is not None:
-        return None, None, None, "not_found"
-    return _geocode_international(street, city)
-
-
-# last-resort international geocode, accepted only if confidently foreign
-def _geocode_international(street, city):
-    """Last resort without a US restriction; accept only a confidently foreign result (non-US country AND coords outside the US), else not_found."""
-    if not street and not city:
-        return None, None, None, "not_found"
-    # the suspected-wrong US state is dropped so it doesn't bias the lookup back into the US
-    lat, lng, country_code = nominatim_international(street, city, "", "")
-    time.sleep(NOMINATIM_DELAY)
-    if lat and country_code and country_code != "US" and not _in_us_bounds(lat, lng):
-        return lat, lng, country_code, "nominatim_intl"
-    return None, None, None, "not_found"

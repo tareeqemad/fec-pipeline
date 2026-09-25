@@ -2,10 +2,8 @@
 
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.recovery import (
-    _recover_missing_streets,
-    _truncated_house_numbers,
-)
+from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
+from fec.cleaning.addresses.fixes.house_numbers import _truncated_house_numbers
 from fec.cleaning.addresses.fixes.unify import _unify_street_spacing
 
 
