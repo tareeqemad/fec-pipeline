@@ -7,7 +7,7 @@ from fec.cleaning.occupations.style import (
     normalize_occupation_style,
     normalize_occupation_style_step,
 )
-from fec.config.occupation_rules.rules import OCCUPATION_TYPO_FIXES
+from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
 
 
 @pytest.mark.parametrize('raw, expected', [

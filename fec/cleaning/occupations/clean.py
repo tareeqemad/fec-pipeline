@@ -8,12 +8,14 @@ from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.config.employers import EMPLOYER_NORMALIZE
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_OCCUPATION,
-    OCCUPATION_CANONICAL,
     OCCUPATION_FROM_EMPLOYER,
     OCCUPATION_KEYWORDS,
-    OCCUPATION_NORMALIZE,
     OCCUPATION_REFUSAL_INPUTS,
     SWAP_JOB_TITLES,
+)
+from fec.config.occupation_rules.normalize import (
+    OCCUPATION_CANONICAL,
+    OCCUPATION_NORMALIZE,
 )
 from fec.log import get_logger
 

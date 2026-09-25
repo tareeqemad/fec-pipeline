@@ -27,11 +27,9 @@ from fec.cleaning.safety_nets.employer import _null_sector_as_employer
 from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
 from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
 from fec.cleaning.safety_nets.occupation import _fix_web_artifact_occupation
-from fec.config.occupation_rules.categories import CATEGORY_OVERRIDES
-from fec.config.occupation_rules.rules import (
-    OCCUPATION_NORMALIZE,
-    OCCUPATION_TYPO_FIXES,
-)
+from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
+from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
+from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
 
 ARTS = 'ARTS / ENTERTAINMENT'
 EXEC = 'EXECUTIVE / C-SUITE'

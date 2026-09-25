@@ -10,7 +10,8 @@ from fec.config.occupation_rules.categories import (
     RECLASSIFY_CATEGORY_RULES,
     VALID_CATEGORIES,
 )
-from fec.config.occupation_rules.rules import OCCUPATION_FIXES, OCCUPATION_NORMALIZE
+from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
+from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
 
 
 def test_reclassify_categories_are_valid():
