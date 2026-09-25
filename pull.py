@@ -8,7 +8,7 @@ from datetime import date
 
 from fec.committees import committee_id_to_name
 from fec.log import get_logger
-from fec.pull import PullError
+from fec.fec_api import PullError
 from fec.pull import run as pull_run
 
 logger = get_logger(__name__)
