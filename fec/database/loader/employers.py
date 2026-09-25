@@ -12,15 +12,18 @@ from fec.cleaning.employer_status import (
     referenced_employers,
 )
 from fec.config.not_employers import NOT_REAL_EMPLOYER
+from fec.database.loader.employment_locations import (
+    _employment_address_id,
+    _location_employer,
+    _location_index,
+)
 from fec.database.loader.previous_employers import (
     _previous_employer_id,
     _previous_self_employed,
 )
 from fec.log import get_logger
-from fec.resolve.pipeline.locations import select_location
 
 from ._base import _count, to_native
-from .addresses import _akey, load_employer_locations
 
 logger = get_logger(__name__)
 
@@ -42,86 +45,6 @@ def employment_key(donor_id, employer_id, occupation, employer_status) -> tuple:
         to_native(occupation),
         to_native(employer_status),
     )
-
-
-def _location_index(
-    employer_locations: list[dict] | None = None,
-) -> dict[str, dict]:
-    """Index known locations by exact employer name."""
-    grouped: dict[str, list[dict]] = {}
-    locations = employer_locations
-    if locations is None:
-        locations = load_employer_locations()
-    for location in locations:
-        grouped.setdefault(location["employer_name"], []).append(location)
-
-    lookup = {}
-    for name, locations in grouped.items():
-        primary = next(
-            (location for location in locations if location["is_primary"]),
-            None,
-        )
-        entry = {**(primary or {}), "locations": [
-            location for location in locations if location is not primary
-        ]}
-        lookup[name] = entry
-    return lookup
-
-
-def _employment_address_id(
-    row,
-    employer_name,
-    locations: dict,
-    address_ids: dict,
-):
-    """Choose the address attached to one employment."""
-    status = str(to_native(row.get("employer_status")) or "")
-
-    if status == "not_employed":
-        return None
-
-    if status == "self_employed":
-        address = _akey(
-            row.get("contributor_street_1"),
-            row.get("contributor_street_2"),
-            row.get("contributor_city"),
-            row.get("contributor_state"),
-            row.get("contributor_zip"),
-        )
-        if not any(address):
-            return None
-        address_id = address_ids.get(address)
-        if address_id is None:
-            raise RuntimeError(
-                "self-employed address was not loaded: "
-                f"donor_key={row.get('donor_key')}"
-            )
-        return address_id
-
-    name = str(to_native(employer_name) or "").strip()
-    if not name or not locations:
-        return None
-
-    entry = locations.get(name)
-    location = select_location(
-        entry,
-        str(to_native(row.get("contributor_zip")) or ""),
-        str(to_native(row.get("contributor_state")) or ""),
-    )
-    if not location:
-        return None
-
-    address = _akey(
-        location["employer_address"],
-        None,
-        location["employer_city"],
-        location["employer_state"],
-        location["employer_zip"],
-    )
-    address_id = address_ids.get(address)
-    if address_id is None:
-        raise RuntimeError(f"employer address was not loaded: {name!r}")
-    return address_id
 
 
 def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
@@ -175,6 +98,18 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     return emp_name_to_id
 
 
+def _insert_employments(conn: Any, cur: Any, rows: list[tuple]) -> None:
+    """Insert donor_employments rows; a repeated key is skipped."""
+    execute_values(cur,
+        """INSERT INTO donor_employments
+           (donor_id, employer_id, occupation, occupation_category_id,
+            employer_status, previous_employer_id, previous_self_employed,
+            address_id)
+           VALUES %s ON CONFLICT DO NOTHING""",
+        rows, page_size=5000)
+    conn.commit()
+
+
 def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                      occ_cat_map: dict, donor_prev_employer_id: dict,
                      get_employer_id, addr_dim_id: dict | None = None,
@@ -188,7 +123,21 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
     """
     logger.info("\n-- 6/8 Loading donor employments --")
     start = time.time()
+    rows = _employment_rows(
+        df, donor_key_to_id, occ_cat_map, donor_prev_employer_id, get_employer_id,
+        addr_dim_id, employer_locations, previous_self_employed,
+    )
+    _insert_employments(conn, cur, rows)
+    empl_donor_emp_to_id = _employment_ids(cur)
+    logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
+    return empl_donor_emp_to_id
 
+
+def _employment_rows(df: pd.DataFrame, donor_key_to_id: dict, occ_cat_map: dict,
+                     donor_prev_employer_id: dict, get_employer_id,
+                     addr_dim_id: dict | None, employer_locations: list[dict] | None,
+                     previous_self_employed: set[str] | None) -> list[tuple]:
+    """One donor_employments row per distinct employment_key, from each donor's latest filings."""
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
     empl_rows = []
     seen_empl = set()
@@ -225,16 +174,9 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
             emp_status, donor_key, donor_prev_employer_id, previous_self_employed or set(),
         )
 
-        if emp_id:
-            location_employer = employer_name
-        elif emp_status == 'retired':
-            location_employer = row.get('previous_employer')
-        else:
-            location_employer = None
-
         location_address_id = _employment_address_id(
             row,
-            location_employer,
+            _location_employer(row, emp_id, employer_name, emp_status),
             locations,
             addr_dim_id or {},
         )
@@ -244,18 +186,7 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
             emp_status, prev_emp_id, prev_self_employed, location_address_id,
         ))
 
-    execute_values(cur,
-        """INSERT INTO donor_employments
-           (donor_id, employer_id, occupation, occupation_category_id,
-            employer_status, previous_employer_id, previous_self_employed,
-            address_id)
-           VALUES %s ON CONFLICT DO NOTHING""",
-        empl_rows, page_size=5000)
-    conn.commit()
-
-    empl_donor_emp_to_id = _employment_ids(cur)
-    logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
-    return empl_donor_emp_to_id
+    return empl_rows
 
 
 def _current_employer(emp_status, emp_val, donor_key, get_employer_id):

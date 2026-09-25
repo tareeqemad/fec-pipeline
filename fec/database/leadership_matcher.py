@@ -9,7 +9,7 @@ from fec.cleaning.occupations import _categorize_final
 
 from fec.cleaning.employer_status import classify_employer_status, is_real_employer
 from fec.donor_match.rules import resolve_donor_key
-from fec.resolve.pipeline.locations import select_location
+from fec.resolve.pipeline.location_choice import select_location
 
 
 def find_or_create_donor(

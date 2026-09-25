@@ -64,39 +64,48 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     ]
 
     def pick(group: list) -> str | None:
-        # candidates must carry a non-surname token: a reversed filing's
-        # surname-as-first could otherwise win, then strip to nothing
-        fcands = [f for f in group if f and any(w.upper() not in last_words for w in f.split())]
-        if is_joint is not None:
-            solo = [f for f in fcands if not is_joint(f)]
-            if solo:
-                fcands = solo
-        canon_first = _choose_first(fcands)
-        if canon_first:
-            kept = [w for w in canon_first.split() if w.upper() not in last_words]
-            canon_first = " ".join(kept) or None
-        if moved_initial and moved_initial[0] not in _name_tokens(canon_first or ""):
-            canon_first = f"{canon_first} {moved_initial}" if canon_first else moved_initial
-        return canon_first
+        return _pick_first(group, last_words, is_joint, moved_initial)
 
     if not by_row:
         return canon_last, pick(candidates)
-
     own = {word for last in named for word in _name_tokens(last)} | last_words
-    own |= _parenthesized_tokens({first for first in candidates if first})
+    return canon_last, _firsts_by_row(candidates, own, pick)
+
+
+def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | None) -> str | None:
+    """The canonical first name among one group's candidates."""
+    # candidates must carry a non-surname token: a reversed filing's
+    # surname-as-first could otherwise win, then strip to nothing
+    fcands = [f for f in group if f and any(w.upper() not in last_words for w in f.split())]
+    if is_joint is not None:
+        solo = [f for f in fcands if not is_joint(f)]
+        if solo:
+            fcands = solo
+    canon_first = _choose_first(fcands)
+    if canon_first:
+        kept = [w for w in canon_first.split() if w.upper() not in last_words]
+        canon_first = " ".join(kept) or None
+    if moved_initial and moved_initial[0] not in _name_tokens(canon_first or ""):
+        canon_first = f"{canon_first} {moved_initial}" if canon_first else moved_initial
+    return canon_first
+
+
+def _firsts_by_row(candidates: list, own: set, pick) -> list:
+    """One first name per row, unified only among rows with the same whole given names."""
+    own = own | _parenthesized_tokens({first for first in candidates if first})
     groups = defaultdict(list)
     for position, first in enumerate(candidates):
         groups[_extra_given_words(first or "", own)].append(position)
     groups = _join_initial_groups(groups, candidates)
     donor_first = pick(candidates)
     if len(groups) == 1:
-        return canon_last, [donor_first] * len(candidates)
+        return [donor_first] * len(candidates)
     by_position = [None] * len(candidates)
     for positions in groups.values():
         group_first = pick([candidates[p] for p in positions]) or donor_first
         for position in positions:
             by_position[position] = group_first
-    return canon_last, by_position
+    return by_position
 
 
 def _text_column(df: pd.DataFrame, column: str) -> pd.Series:

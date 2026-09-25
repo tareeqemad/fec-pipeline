@@ -8,10 +8,9 @@ from fec.cleaning.safety_nets.employer_swaps import (
     _COMPANY_NAME_RE,
     _COMPANY_SUFFIX_RE,
     _KNOWN_OCCUPATIONS,
-    _had_legal_suffix,
-    _is_own_name,
     _swap_occ_emp_fields,
 )
+from fec.cleaning.safety_nets.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 from fec.config.not_employers import JOB_TITLE_AS_EMPLOYER
 from fec.config.occupation_rules.rules import (

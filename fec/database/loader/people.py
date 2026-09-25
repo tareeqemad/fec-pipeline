@@ -15,7 +15,7 @@ from fec.database.leadership_matcher import (
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
 
-from .employers import _location_index
+from .employment_locations import _location_index
 
 logger = get_logger(__name__)
 
