@@ -55,6 +55,7 @@ class SyncResult:
     fieldnames: list[str]
     changes: list[tuple[str, str, str, str]] = field(default_factory=list)   # (name, column, old, new)
     unlinked: list[str] = field(default_factory=list)                        # names with no FEC filing
+    broken: list[tuple[str, str]] = field(default_factory=list)              # (name, key) must link, cannot
 
 
 def latest_filings(cleaned: pd.DataFrame) -> pd.DataFrame:
@@ -158,6 +159,9 @@ def sync_rows(rows: list[dict], fieldnames: list[str], prefix: str,
         name = (row.get(f"{prefix}_name") or "").strip()
         key = resolve_donor_key((row.get("donor_key") or "").strip())
         if key not in latest.index:
+            if (row.get("create_if_missing") or "").strip().lower() == "false":
+                # the loader would stop on this row: its donor_key names no donor
+                result.broken.append((name, key))
             result.unlinked.append(name)
             for column, new in editorial_street_changes(row, prefix).items():
                 result.changes.append((name, column, (row.get(column) or "").strip(), new))
@@ -216,7 +220,7 @@ def sync_rosters(check: bool = False, cleaned_csv: Path = CLEANED_CSV,
 
 
 def report(results: list[SyncResult], check: bool) -> int:
-    """Print what changed; return 1 in check mode when a roster drifted."""
+    """Print what changed; return 1 on a broken donor_key, or in check mode when a roster drifted."""
     drifted = False
     for r in results:
         linked = len(r.rows) - len(r.unlinked)
@@ -227,5 +231,8 @@ def report(results: list[SyncResult], check: bool) -> int:
             print(f"  {name}: {column}: {old!r} -> {new!r}")
         if r.unlinked:
             print(f"  not in FEC data (address kept, street in pipeline style): {', '.join(r.unlinked)}")
+        for name, key in r.broken:
+            print(f"  BROKEN: {name}: donor_key {key!r} is in no cleaned filing but create_if_missing=false")
         drifted |= bool(r.changes)
-    return 1 if (check and drifted) else 0
+    broken = any(r.broken for r in results)
+    return 1 if broken or (check and drifted) else 0

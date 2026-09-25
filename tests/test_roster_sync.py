@@ -169,3 +169,24 @@ def test_foreign_editorial_address_is_kept_exactly_as_written():
 def test_an_editorial_street_already_in_pipeline_style_is_not_touched():
     row = _accomplice("zz", "Jeff Yass", "401 CITY AVE", "", "BALA CYNWYD", "PA", "19004")
     assert editorial_street_changes(row, "accomplice") == {}
+
+
+def test_a_must_link_row_whose_key_names_no_donor_is_broken(capsys):
+    latest = latest_filings(_cleaned(
+        ("9", "k1", "2026-07-14", "NEW RD", "", "BUCHANAN", "MI", "49107", "NEW CO", "OWNER", "42.1", "-86.3"),
+    ))
+    fieldnames = ["donor_key", "create_if_missing", "leader_name", "leader_street_1", "leader_street_2",
+                  "leader_city", "leader_state", "leader_zip", "leader_employer"]
+    rows = [
+        {"donor_key": "gone", "create_if_missing": "false", "leader_name": "FRANCO, ALAN",
+         "leader_street_1": "524 METAIRIE RD", "leader_street_2": "", "leader_city": "METAIRIE",
+         "leader_state": "LA", "leader_zip": "70005", "leader_employer": "MAGNOLIA"},
+        {"donor_key": "new", "create_if_missing": "true", "leader_name": "NOBODY, NEW",
+         "leader_street_1": "1 EDITORIAL WAY", "leader_street_2": "", "leader_city": "NOWHERE",
+         "leader_state": "NY", "leader_zip": "", "leader_employer": ""},
+    ]
+    result = sync_rows(rows, fieldnames, "leader", latest, "leaders.csv")
+
+    assert result.broken == [("FRANCO, ALAN", "gone")]
+    assert roster_sync.report([result], check=False) == 1
+    assert "BROKEN: FRANCO, ALAN" in capsys.readouterr().out
