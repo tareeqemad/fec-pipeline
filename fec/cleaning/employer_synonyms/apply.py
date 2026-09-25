@@ -5,6 +5,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm
 from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
+from fec.cleaning.employer_synonyms.canonical import _recanonicalize_employers
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.cleaning.occupations import _categorize
@@ -15,8 +16,6 @@ from fec.config.not_employers import (
     OCCUPATION_AS_EMPLOYER,
     ROLE_AS_EMPLOYER,
 )
-
-from .canonical import _recanonicalize_employers
 
 # Occupation words filed as the employer: these people are self-employed.
 # A deliberate subset of the config lists (the full lists are applied by the safety nets later).

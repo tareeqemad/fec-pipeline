@@ -8,10 +8,9 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.committees import load_committees
+from fec.database.loader._base import _count
 from fec.env import CLEANED_CSV, PROJECT_ROOT
 from fec.log import get_logger
-
-from ._base import _count
 
 logger = get_logger(__name__)
 

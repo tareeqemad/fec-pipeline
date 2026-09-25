@@ -25,7 +25,7 @@ filed ZIP's centroid, which lies in the right town. Unresolved conflicts (two
 points, neither shown wrong) do not belong here.
 """
 
-from .places import distance_km
+from fec.geocoding.places import distance_km
 
 REVIEWED_ZIP_TYPO_KEYS: dict[str, str] = {
     # the 2026-09-23 audit verdict (finding 8) lists these as ZIP typos with correct coordinates

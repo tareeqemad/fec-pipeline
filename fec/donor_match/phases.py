@@ -4,12 +4,13 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .constants import (
-    MERGE_THRESHOLD,
-    SCORE_CROSS_NAME_BONUS,
+from fec.donor_match.constants import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS
+from fec.donor_match.rules import identities_must_stay_separate
+from fec.donor_match.scoring import (
+    _are_cross_group_candidates,
+    _is_surname_variant,
+    compute_score,
 )
-from .rules import identities_must_stay_separate
-from .scoring import _are_cross_group_candidates, _is_surname_variant, compute_score
 
 # one or more spaces/commas, to split a name into words
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")

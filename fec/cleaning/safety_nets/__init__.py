@@ -6,19 +6,18 @@ from fec.cleaning.audit_trail import (
     PLACE_FIELDS,
     WORK_FIELDS,
 )
-
-from .addresses import (
+from fec.cleaning.safety_nets.addresses import (
     _fill_null_city_from_zip,
     _fix_foreign_addresses,
     _fix_garbage_city_names,
     _fix_pr_zip_wrong_state,
 )
-from .committee import (
+from fec.cleaning.safety_nets.committee import (
     _fix_committee_employer,
     _fix_misclassified_foundation,
     _fix_title_as_first_name,
 )
-from .employer import (
+from fec.cleaning.safety_nets.employer import (
     _clear_admin_note_employers,
     _clear_refusal_employers,
     _fix_choose_prefix,
@@ -30,21 +29,20 @@ from .employer import (
     _null_sector_as_employer,
     _null_short_employer_junk,
 )
-from .employer_swaps import (
+from fec.cleaning.safety_nets.employer_swaps import (
     _fix_employer_equals_occupation,
     _fix_employer_is_occupation_word,
     _fix_role_as_employer,
     _fix_self_employed_consistency,
     _swap_role_employer_with_known_company,
 )
-from .name_fields import (
+from fec.cleaning.safety_nets.name_fields import (
     _fix_company_name_as_occupation,
     _fix_occ_emp_both_swapped,
     _fix_own_name_as_employer,
     _fix_swapped_emp_occ_company,
 )
-from .occupation_context import _disambiguate_vague_occupation
-from .occupation import (
+from fec.cleaning.safety_nets.occupation import (
     _fill_null_occupation_category,
     _fix_bitton_edge_case,
     _fix_disclosed_no_employer,
@@ -58,6 +56,7 @@ from .occupation import (
     _null_junk_occupation,
     _reclassify_other_category,
 )
+from fec.cleaning.safety_nets.occupation_context import _disambiguate_vague_occupation
 
 ALL_ROWS = "all"
 INDIVIDUALS = "individuals"

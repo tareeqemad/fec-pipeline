@@ -17,21 +17,26 @@ constants.py holds matching weights and nickname rules. Every human identity
 decision lives in data/database/donor_identity_rules.csv.
 """
 
-from .matcher import match_donors
-from .keys import (
-    apply_donor_key, merge_split_name_donors, validate_separations,
-    apply_curated_key_merges, hold_unproven_filings,
-)
-from .dedup_review import build_donor_dedup_review
-from .canonicalize import canonicalize_donor_names
-from .canonical_addresses import (
-    canonicalize_donor_addresses, canonicalize_donor_pobox_typos,
+from fec.donor_match.canonical_addresses import (
+    canonicalize_donor_addresses,
+    canonicalize_donor_pobox_typos,
     canonicalize_donor_units,
 )
-from .canonical_employers import (
-    canonicalize_donor_employers, align_org_donor_company_names,
+from fec.donor_match.canonical_employers import (
+    align_org_donor_company_names,
+    canonicalize_donor_employers,
 )
-from .scoring import compute_score
+from fec.donor_match.canonicalize import canonicalize_donor_names
+from fec.donor_match.dedup_review import build_donor_dedup_review
+from fec.donor_match.keys import (
+    apply_curated_key_merges,
+    apply_donor_key,
+    hold_unproven_filings,
+    merge_split_name_donors,
+    validate_separations,
+)
+from fec.donor_match.matcher import match_donors
+from fec.donor_match.scoring import compute_score
 
 __all__ = [
     "match_donors",

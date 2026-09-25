@@ -6,9 +6,8 @@ import re
 
 import pandas as pd
 
+from fec.cleaning.pipeline.address_fixes.safe_text import is_state_zip_fragment
 from fec.config.streets import FLOOR_ONLY_RE
-
-from .safe_text import is_state_zip_fragment
 
 # a street_1 is usable if a geocoder can place it: house number, PO box, or a
 # street-type token. deliberately NARROWER than address_review._STREET_TYPES:

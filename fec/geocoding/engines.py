@@ -4,9 +4,8 @@ import time
 
 import requests
 
+from fec.geocoding.places import STATE_NAMES, choose_town, result_point
 from fec.log import get_logger
-
-from .places import STATE_NAMES, choose_town, result_point
 
 logger = get_logger(__name__)
 

@@ -4,6 +4,8 @@ from collections import defaultdict
 
 import pandas as pd
 
+from fec.donor_match.constants import NICKNAME_MAP
+from fec.donor_match.joint import given_tokens, joint_partners
 from fec.donor_match.name_choice import (
     _LEADING_INITIAL_RE,
     _choose_first,
@@ -14,10 +16,7 @@ from fec.donor_match.name_choice import (
     _parenthesized_tokens,
     _surname_parents,
 )
-
-from .constants import NICKNAME_MAP
-from .joint import given_tokens, joint_partners
-from .rules import joint_name_exempt
+from fec.donor_match.rules import joint_name_exempt
 
 
 # pick a donor's canonical last name and first name(s)

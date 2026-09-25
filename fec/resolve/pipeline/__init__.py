@@ -1,5 +1,5 @@
 """Resolve previous employers and employer addresses."""
 
-from .cli import main
+from fec.resolve.pipeline.cli import main
 
 __all__ = ["main"]

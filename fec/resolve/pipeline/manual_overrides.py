@@ -9,8 +9,7 @@ from fec.cleaning.manual_overrides import CLEAR_PREVIOUS_EMPLOYER
 from fec.cleaning.previous_employer import normalize_previous_employer_value
 from fec.config.cities import expand_city_abbreviations
 from fec.log import get_logger
-
-from .helpers import _prev_key, _s
+from fec.resolve.pipeline.helpers import _prev_key, _s
 
 logger = get_logger(__name__)
 

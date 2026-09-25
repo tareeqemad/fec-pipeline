@@ -11,21 +11,21 @@ from fec.donor_match.chains import (
     _validate_merge_audit,
 )
 from fec.donor_match.components import UnionFind, _donor_keys
+from fec.donor_match.constants import GENERIC_OCC_CATEGORIES
 from fec.donor_match.joint_split import find_joint_filings, split_joint_filings
-
-from .constants import (
-    GENERIC_OCC_CATEGORIES,
+from fec.donor_match.keys import individual_record_id
+from fec.donor_match.name_phases import (
+    _score_name_variants,
+    _score_surname_superset_variants,
 )
-from .keys import individual_record_id
-from .name_phases import _score_name_variants, _score_surname_superset_variants
-from .normalize import extract_middle, normalize_employer, normalize_name
-from .phases import (
+from fec.donor_match.normalize import extract_middle, normalize_employer, normalize_name
+from fec.donor_match.phases import (
     MatchContext,
     _score_cross_groups,
     _score_surname_variants,
     _score_within_groups,
 )
-from .rules import split_zip
+from fec.donor_match.rules import split_zip
 
 
 # a cell value as a stripped string, NaN -> ''

@@ -15,24 +15,20 @@ from fec.geocoding.accepted import (
     prefer_zip_centroids,
 )
 from fec.geocoding.address_kind import is_foreign_key, is_po_box
+from fec.geocoding.cache import GeoCache
+from fec.geocoding.engines import (
+    NOMINATIM_DELAY,
+    CensusUnavailable,
+    NominatimUnavailable,
+)
 from fec.geocoding.lookup import _geocode_one
+from fec.geocoding.reviewed_points import is_reviewed_zip_typo, reviewed_point
 from fec.geocoding.street_text import _numbered_streets
 from fec.geocoding.zip_checks import (
     _far_from_zip,
     _zip_point,
 )
 from fec.log import get_logger
-
-from .cache import GeoCache
-from .engines import (
-    NOMINATIM_DELAY,
-    CensusUnavailable,
-    NominatimUnavailable,
-)
-from .reviewed_points import (
-    is_reviewed_zip_typo,
-    reviewed_point,
-)
 
 logger = get_logger(__name__)
 

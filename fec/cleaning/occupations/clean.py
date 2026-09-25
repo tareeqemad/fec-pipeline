@@ -6,7 +6,18 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm, _set_missing
 from fec.cleaning.audit_trail import WORK_FIELDS
-from fec.cleaning.occupations.normalize import swap_employer_and_occupation
+from fec.cleaning.occupations.employer_deep_clean import _deep_clean_employer
+from fec.cleaning.occupations.employer_groups import _canonicalize_employers
+from fec.cleaning.occupations.normalize import (
+    EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT,
+)
+from fec.cleaning.occupations.normalize import (
+    _categorize,
+    _classify_committee_names,
+    _normalize_text,
+    map_occupation_fixes,
+    swap_employer_and_occupation,
+)
 from fec.config.employers import EMPLOYER_NORMALIZE
 from fec.config.occupation_rules.normalize import (
     OCCUPATION_CANONICAL,
@@ -20,16 +31,6 @@ from fec.config.occupation_rules.rules import (
     SWAP_JOB_TITLES,
 )
 from fec.log import get_logger
-
-from .employer_deep_clean import _deep_clean_employer
-from .employer_groups import _canonicalize_employers
-from .normalize import EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT
-from .normalize import (
-    _categorize,
-    _classify_committee_names,
-    _normalize_text,
-    map_occupation_fixes,
-)
 
 logger = get_logger(__name__)
 
