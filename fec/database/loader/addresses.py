@@ -7,11 +7,10 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
+from fec.database.loader._base import _count, to_float_or_none, to_native
 from fec.env import EMPLOYER_LOCATIONS_CSV
 from fec.log import get_logger
 from fec.resolve.pipeline.locations import PUBLISHABLE_ADDRESS_TRUST
-
-from ._base import _count, to_float_or_none, to_native
 
 logger = get_logger(__name__)
 

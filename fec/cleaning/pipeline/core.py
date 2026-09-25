@@ -25,24 +25,23 @@ from fec.cleaning.foreign_addresses import (
 )
 from fec.cleaning.manual_overrides import apply_manual_employer_overrides
 from fec.cleaning.occupations import clean_employer_occupation
+from fec.cleaning.pipeline.address_stage import clean_addresses, log_review_queues
 from fec.cleaning.pipeline.donor_identity import identify_donors
+from fec.cleaning.pipeline.donor_stage import standardize
+from fec.cleaning.pipeline.name_parsing import _preclean_name_punctuation
+from fec.cleaning.pipeline.names import _clean_names
+from fec.cleaning.pipeline.reclassify import _reclassify_entities
+from fec.cleaning.pipeline.reclassify_restore import (
+    _clear_individual_residue,
+    _restore_reclassified_committees,
+)
+from fec.cleaning.pipeline.reports import _build_missing_report, _sanity_check
 from fec.cleaning.record_rules import apply_record_rules
 from fec.committees import committee_id_to_name
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
 from fec.config.geography import US_STATES
 from fec.donor_match.normalize import extract_generational_suffix
 from fec.log import get_logger
-
-from .address_stage import clean_addresses, log_review_queues
-from .donor_stage import standardize
-from .name_parsing import _preclean_name_punctuation
-from .names import _clean_names
-from .reclassify import _reclassify_entities
-from .reclassify_restore import (
-    _clear_individual_residue,
-    _restore_reclassified_committees,
-)
-from .reports import _build_missing_report, _sanity_check
 
 logger = get_logger(__name__)
 

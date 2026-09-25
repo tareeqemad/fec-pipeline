@@ -4,23 +4,18 @@ import re
 
 import pandas as pd
 
+from fec.cleaning.employer_status import (
+    classify_employer_statuses,
+    is_real_employer,
+)
 from fec.cleaning.employer_synonyms import canonical_key
 from fec.cleaning.previous_employer import (
     normalize_previous_employer_value,
     preserve_own_named_legal_employer,
 )
-from fec.cleaning.employer_status import (
-    classify_employer_statuses,
-    is_real_employer,
-)
 from fec.log import get_logger
-
-from ..constants import RETIRED
-from ..helpers import (
-    _prev_key,
-    _previous_employer_identity,
-    _s,
-)
+from fec.resolve.pipeline.constants import RETIRED
+from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
 
 logger = get_logger(__name__)
 PROTECTED_METHODS = {

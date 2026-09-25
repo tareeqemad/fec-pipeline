@@ -13,21 +13,20 @@ from fec.config.cities import expand_city_abbreviations
 from fec.env import CLEANED_CSV, load_env
 from fec.io import read_pipeline_csv, write_json_atomic
 from fec.log import get_logger
-from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
-
-from .ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
-from .apply import apply_results
-from .cache import Cache
-from .constants import EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE
-from .dedup import dedup_by_resolved_address
-from .helpers import _compute_donor_totals
-from .manual_overrides import (
+from fec.resolve.pipeline.ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
+from fec.resolve.pipeline.apply import apply_results
+from fec.resolve.pipeline.cache import Cache
+from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE
+from fec.resolve.pipeline.dedup import dedup_by_resolved_address
+from fec.resolve.pipeline.helpers import _compute_donor_totals
+from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
 )
-from .stats import show_stats
-from .steps.ai_employer import step_ai_lookup
-from .steps.previous_employer import step_cross_record
+from fec.resolve.pipeline.stats import show_stats
+from fec.resolve.pipeline.steps.ai_employer import step_ai_lookup
+from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
+from fec.resolve.pipeline.steps.previous_employer import step_cross_record
 
 logger = get_logger(__name__)
 

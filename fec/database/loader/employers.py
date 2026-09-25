@@ -12,6 +12,7 @@ from fec.cleaning.employer_status import (
     referenced_employers,
 )
 from fec.config.not_employers import NOT_REAL_EMPLOYER
+from fec.database.loader._base import _count, to_native
 from fec.database.loader.employment_locations import (
     _employment_address_id,
     _location_employer,
@@ -22,8 +23,6 @@ from fec.database.loader.previous_employers import (
     _previous_self_employed,
 )
 from fec.log import get_logger
-
-from ._base import _count, to_native
 
 logger = get_logger(__name__)
 

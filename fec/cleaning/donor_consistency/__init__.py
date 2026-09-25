@@ -9,41 +9,40 @@ from fec.cleaning.audit_trail import (
     WORK_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.record_junk import _clean_junk_status_word_employer
-from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
-from fec.log import get_logger, log_count
-
-from .employer import (
-    _own_firm_absorbs_self_employed,
+from fec.cleaning.donor_consistency.employer import (
     _fill_employer_from_donor,
-    _fill_employer_from_raw_filings,
     _fill_employer_from_occupation,
+    _fill_employer_from_raw_filings,
+    _own_firm_absorbs_self_employed,
 )
-from .employer_variants import (
-    _employer_substring_variants,
+from fec.cleaning.donor_consistency.employer_variants import (
     _employer_acronym_variants,
+    _employer_substring_variants,
     _employer_typos,
 )
-from .entity import (
+from fec.cleaning.donor_consistency.entity import (
     _apply_entity_overrides,
     _clear_nonindividual_employer_field,
     _reenforce_entity_consistency,
+)
+from fec.cleaning.donor_consistency.occupation import (
+    _converge_occupation_within_employer,
+    _fill_occupation_from_donor,
+    _fill_self_employed_occupation_from_donor,
+    _rederive_occupation_category,
+)
+from fec.cleaning.donor_consistency.retired import (
+    _fill_prev_employer_from_donor,
+    _normalize_previous_employer,
+    _settle_retired_employer,
 )
 from fec.cleaning.pipeline.address_fixes.recovery import (
     _recover_missing_streets,
     _truncated_house_numbers,
 )
-from .occupation import (
-    _fill_occupation_from_donor,
-    _fill_self_employed_occupation_from_donor,
-    _rederive_occupation_category,
-    _converge_occupation_within_employer,
-)
-from .retired import (
-    _fill_prev_employer_from_donor,
-    _normalize_previous_employer,
-    _settle_retired_employer,
-)
+from fec.cleaning.record_junk import _clean_junk_status_word_employer
+from fec.cleaning.safety_nets.occupation import _fix_emp_occ_category_consistency
+from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
 

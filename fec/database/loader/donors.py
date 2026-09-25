@@ -7,9 +7,8 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
+from fec.database.loader._base import to_native
 from fec.log import get_logger
-
-from ._base import to_native
 
 logger = get_logger(__name__)
 

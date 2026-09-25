@@ -4,8 +4,7 @@ import pandas as pd
 
 from fec.cleaning.employer_status import classify_employer_statuses
 from fec.log import get_logger
-
-from .constants import TIERS
+from fec.resolve.pipeline.constants import TIERS
 
 logger = get_logger(__name__)
 

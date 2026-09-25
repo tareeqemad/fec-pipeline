@@ -5,18 +5,17 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from fec.cleaning.donor_consistency.retired import dated_previous_employers
-from fec.cleaning.employer_synonyms import canonical_key, _recanonicalize_employers
-from fec.cleaning.previous_employer import preserve_own_named_legal_employer
 from fec.cleaning.employer_status import classify_employer_status
-
-from .helpers import _prev_key, _previous_employer_identity, _s
-from .steps.previous_employer import PROTECTED_METHODS
-from .locations import address_cache_lookup
-from .location_choice import select_location
-from .quality_fixes import (
+from fec.cleaning.employer_synonyms import _recanonicalize_employers, canonical_key
+from fec.cleaning.previous_employer import preserve_own_named_legal_employer
+from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
+from fec.resolve.pipeline.location_choice import select_location
+from fec.resolve.pipeline.locations import address_cache_lookup
+from fec.resolve.pipeline.quality_fixes import (
     _clear_nonindividual_employer,
     _fix_employer_address_quality,
 )
+from fec.resolve.pipeline.steps.previous_employer import PROTECTED_METHODS
 
 
 @dataclass(frozen=True)

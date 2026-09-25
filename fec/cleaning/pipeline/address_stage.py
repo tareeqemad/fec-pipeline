@@ -21,6 +21,7 @@ from fec.cleaning.pipeline.address_fixes.recovery import (
     _recover_null_streets,
     _trim_street_to_donor_short_form,
 )
+from fec.cleaning.pipeline.address_fixes.safe_text import apply_safe_fixes
 from fec.cleaning.pipeline.address_fixes.same_street import (
     _recover_address_from_same_street,
 )
@@ -34,11 +35,9 @@ from fec.cleaning.pipeline.address_fixes.unify import (
     _unify_street_types,
     _unify_unit_designators,
 )
+from fec.cleaning.pipeline.address_fixes.verified import apply_verified_address_fixes
+from fec.cleaning.pipeline.fec_recovery import recover_addresses_from_fec
 from fec.cleaning.zips import clean_zips
-
-from .address_fixes.safe_text import apply_safe_fixes
-from .address_fixes.verified import apply_verified_address_fixes
-from .fec_recovery import recover_addresses_from_fec
 
 
 # per-row street-normalize reason, flags email-in-street1 cases

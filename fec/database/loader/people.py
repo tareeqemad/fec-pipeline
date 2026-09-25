@@ -12,10 +12,9 @@ from fec.database.leadership_matcher import (
     upsert_donor_address,
     upsert_leader_employment,
 )
+from fec.database.loader.employment_locations import _location_index
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
-
-from .employment_locations import _location_index
 
 logger = get_logger(__name__)
 

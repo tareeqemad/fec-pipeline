@@ -5,9 +5,8 @@ from itertools import combinations
 
 import pandas as pd
 
-from fec.log import get_logger
-
-from .rules import (
+from fec.donor_match.normalize import normalize_committee_name
+from fec.donor_match.rules import (
     HELD_FILINGS,
     KEY_MERGES,
     identities_must_stay_separate,
@@ -15,7 +14,7 @@ from .rules import (
     resolve_donor_key,
     split_zip,
 )
-from .normalize import normalize_committee_name
+from fec.log import get_logger
 
 logger = get_logger(__name__)
 

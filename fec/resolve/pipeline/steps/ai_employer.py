@@ -8,23 +8,15 @@ import pandas as pd
 
 from fec.config.geography import US_STATES
 from fec.log import get_logger
+from fec.resolve.pipeline.ai_client import ai_method, get_ai_client, resolver_id
+from fec.resolve.pipeline.constants import AI_SYSTEM_PROMPT, EMPLOYER_PROMPT_VERSION
+from fec.resolve.pipeline.helpers import _s
 from fec.resolve.pipeline.steps.employer_lookups import (
     EmployerLookup,
     build_employer_prompt,
     collect_employer_lookups,
 )
 from fec.resolve.pipeline.steps.web_search import run_web_search
-
-from ..ai_client import (
-    ai_method,
-    get_ai_client,
-    resolver_id,
-)
-from ..constants import (
-    AI_SYSTEM_PROMPT,
-    EMPLOYER_PROMPT_VERSION,
-)
-from ..helpers import _s
 
 logger = get_logger(__name__)
 

@@ -9,11 +9,10 @@ from typing import Any
 
 import sqlparse
 
+from fec.database.loader._base import PG
+from fec.database.loader.employers import EMPLOYMENT_KEY_COLUMNS
 from fec.env import SCHEMA_SQL
 from fec.log import get_logger
-
-from ._base import PG
-from .employers import EMPLOYMENT_KEY_COLUMNS
 
 logger = get_logger(__name__)
 

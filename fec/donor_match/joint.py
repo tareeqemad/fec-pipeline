@@ -25,7 +25,7 @@ a middle name in another.
 
 import re
 
-from .constants import NAME_SUFFIXES, NICKNAME_MAP
+from fec.donor_match.constants import NAME_SUFFIXES, NICKNAME_MAP
 
 # a parenthesized aside to drop: "(NICKNAME)", "(unclosed"
 _PAREN_RE = re.compile(r"\([^()]*\)?")
