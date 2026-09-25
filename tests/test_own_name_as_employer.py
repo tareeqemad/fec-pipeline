@@ -1,10 +1,8 @@
 """The donor's own name in the employer field becomes SELF-EMPLOYED; shared-surname firms are kept."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer_swaps import (
-    _fix_own_name_as_employer,
-    _fix_self_employed_consistency,
-)
+from fec.cleaning.safety_nets.employer_swaps import _fix_self_employed_consistency
+from fec.cleaning.safety_nets.name_fields import _fix_own_name_as_employer
 
 
 def _frame(rows):

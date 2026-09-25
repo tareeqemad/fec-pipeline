@@ -5,9 +5,9 @@ from fec.cleaning.quality_scan import scan_uncategorized_occupations
 from fec.cleaning.safety_nets.addresses import _fix_foreign_addresses
 from fec.cleaning.safety_nets.employer import _fix_retired_typos
 from fec.cleaning.safety_nets.employer_swaps import (
-    _fix_occ_emp_both_swapped,
     _swap_role_employer_with_known_company,
 )
+from fec.cleaning.safety_nets.name_fields import _fix_occ_emp_both_swapped
 from fec.cleaning.safety_nets.occupation import (
     _fix_emp_occ_category_consistency,
     _fix_web_artifact_occupation,

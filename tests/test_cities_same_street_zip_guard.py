@@ -3,7 +3,7 @@
 import pandas as pd
 
 from fec.cleaning.addresses import CITY_TABLE_FIXED
-from fec.cleaning.pipeline.address_fixes.recovery import _recover_address_from_same_street
+from fec.cleaning.pipeline.address_fixes.same_street import _recover_address_from_same_street
 
 
 def _frame(*groups):
