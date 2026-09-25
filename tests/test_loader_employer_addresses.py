@@ -13,7 +13,9 @@ from fec.database.loader.addresses import (
     load_address_dimension,
     load_employer_locations,
 )
-from fec.database.loader.employers import _employment_address_id, _location_index
+from fec.database.loader.employment_locations import (
+    _employment_address_id, _location_index,
+)
 
 
 def _frame(**overrides):

@@ -5,12 +5,16 @@ import re
 
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
+from fec.cleaning.occupations import _categorize, _categorize_final
+from fec.cleaning.safety_nets.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 from fec.config.not_employers import (
-    OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER, JOB_TITLE_AS_EMPLOYER,
-    SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE, NOT_REAL_EMPLOYER,
+    JOB_TITLE_AS_EMPLOYER,
+    NOT_REAL_EMPLOYER,
+    OCCUPATION_AS_EMPLOYER,
+    ROLE_AS_EMPLOYER,
+    SELF_EMPLOYED_OCC_AS_EMP,
 )
 from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 
@@ -287,30 +291,3 @@ def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-def _name_word_set(*parts: str) -> frozenset[str]:
-    """Word-set of a personal name: punctuation dropped, single letters ignored, order ignored (FEC stores LAST, FIRST)."""
-    words = re.sub(r'[^A-Z]', ' ', ' '.join(parts).upper()).split()
-    return frozenset(word for word in words if len(word) > 1)
-
-
-def _is_own_name(df: pd.DataFrame, idx, employer: str) -> bool:
-    """True only when the whole employer value is the donor's name."""
-    first = _name_word_set(df.at[idx, 'contributor_first_name'])
-    last = _name_word_set(df.at[idx, 'contributor_last_name'])
-    if not first or not last:
-        return False
-
-    possible = {first | last}
-    if 'contributor_middle_name' in df.columns:
-        middle = _name_word_set(df.at[idx, 'contributor_middle_name'])
-        if middle:
-            possible.add(first | middle | last)
-    return _name_word_set(employer) in possible
-
-
-def _had_legal_suffix(df: pd.DataFrame, idx) -> bool:
-    """The raw suffix proves an own-named value is a company, not a bare name."""
-    if 'contributor_employer_original' not in df.columns:
-        return False
-    original = str(df.at[idx, 'contributor_employer_original']).strip().upper()
-    return bool(LEGAL_SUFFIX_RE.search(original))

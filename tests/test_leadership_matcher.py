@@ -77,7 +77,7 @@ def test_editorial_boolean_is_strict():
 # --- roster employments point at the employer's workplace like FEC ones -------------
 
 from fec.database.leadership_matcher import employment_address_id, upsert_leader_employment  # noqa: E402
-from fec.database.loader.employers import _location_index  # noqa: E402
+from fec.database.loader.employment_locations import _location_index  # noqa: E402
 
 
 def _office(name, street, city, state, zip_code, primary, lat="", lng=""):

@@ -11,7 +11,8 @@ from fec.cleaning.employer_status import classify_employer_status
 
 from .helpers import _prev_key, _previous_employer_identity, _s
 from .steps.previous_employer import PROTECTED_METHODS
-from .locations import address_cache_lookup, select_location
+from .locations import address_cache_lookup
+from .location_choice import select_location
 from .quality_fixes import (
     _clear_nonindividual_employer,
     _fix_employer_address_quality,
