@@ -37,7 +37,7 @@ def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     )
 
 
-# write JSON through a temp file so a crash never leaves half a file
+# write JSON via a temp file, never half-written
 def write_json_atomic(path: str | Path, data, **dump_options) -> None:
     """Write data as JSON to path via path + '.tmp' and an atomic rename."""
     path = str(path)

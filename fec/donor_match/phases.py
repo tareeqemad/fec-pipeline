@@ -126,7 +126,7 @@ def _norms_by_last_name(name_groups: dict) -> dict:
     return grouped
 
 
-# score every record pair across two gated names of one bucket
+# score record pairs across two gated names in a bucket
 def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, records_match, adjust) -> None:
     """Score each pair of records under two names of a bucket.
 
@@ -169,7 +169,7 @@ def _same_street_or_zip(p1: dict, p2: dict) -> bool:
     return bool(p1["streets"] & p2["streets"]) or bool(z1 and len(z1) == 5 and z1 == z2)
 
 
-# first-name variants earn the bonus only with a street, ZIP or employer anchor
+# first-name variants get the bonus only with an anchor
 def _cross_name_adjust(score: float, signals: list) -> float:
     if any(signal.startswith(("street(", "zip5=", "employer=")) for signal in signals):
         signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")

@@ -140,7 +140,7 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     return n_to_indiv, n_to_comm
 
 
-# set the class and the reason on the masked rows; returns how many
+# set class and reason on masked rows; return the count
 def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool) -> int:
     count = int(mask.sum())
     if count:

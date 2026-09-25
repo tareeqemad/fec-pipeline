@@ -160,7 +160,7 @@ def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
     return original
 
 
-# swap employer and occupation on the given rows, recategorizing the occupation
+# swap employer and occupation, then recategorize the occupation
 def swap_employer_and_occupation(df: pd.DataFrame, rows, *, canonical: bool = True, status=None) -> None:
     """rows is a boolean mask or an index. canonical maps the new occupation
     through OCCUPATION_CANONICAL; status, when given, sets occupation_status."""
