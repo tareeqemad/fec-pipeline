@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 
 
 def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
-    from fec.donor_match.scoring import extract_generational_suffix
+    from fec.donor_match.normalize import extract_generational_suffix
 
     df["_generational_suffix"] = df["contributor_name"].map(
         extract_generational_suffix

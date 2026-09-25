@@ -108,7 +108,7 @@ def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
     finalisation (so the target is the spelling the employers table shows).
     Only contributor_name changes; donor_keys were assigned earlier.
     """
-    from fec.donor_match.canonicalize import (
+    from fec.donor_match.canonical_employers import (
         align_org_donor_company_names,
         unify_org_donor_suffix_variants,
     )

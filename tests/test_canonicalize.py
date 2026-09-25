@@ -2,12 +2,10 @@
 
 import pandas as pd
 
-from fec.donor_match.canonicalize import (
-    canonicalize_donor_names,
-    canonicalize_donor_employers,
-    canonicalize_donor_pobox_typos,
-)
-from fec.donor_match.canonicalize import canonicalize_donor_addresses
+from fec.donor_match.canonicalize import canonicalize_donor_names
+from fec.donor_match.canonical_addresses import canonicalize_donor_pobox_typos
+from fec.donor_match.canonical_employers import canonicalize_donor_employers
+from fec.donor_match.canonical_addresses import canonicalize_donor_addresses
 
 
 def _df(rows, cols):

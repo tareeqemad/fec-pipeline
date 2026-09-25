@@ -2,6 +2,7 @@
 import pandas as pd
 import pytest
 
+from fec.donor_match import dedup_review
 from fec.donor_match import keys as K
 from fec.donor_match import rules as R
 from fec.donor_match.matcher import match_donors
@@ -183,7 +184,7 @@ def test_split_name_merge_respects_blocked_people(monkeypatch):
 def test_review_uses_last_first_separation_names(monkeypatch, tmp_path):
     checked = []
     monkeypatch.setattr(
-        K,
+        dedup_review,
         "names_must_stay_separate",
         lambda a, b: checked.append((a, b)) or True,
     )
@@ -195,22 +196,22 @@ def test_review_uses_last_first_separation_names(monkeypatch, tmp_path):
     report.write_text("stale")
     rows["contribution_receipt_amount"] = "100"
 
-    assert K.build_donor_dedup_review(rows, tmp_path) == 0
+    assert dedup_review.build_donor_dedup_review(rows, tmp_path) == 0
     assert not report.exists()
     assert len(checked) == 1
     assert frozenset(checked[0]) == {"MEYERS, STUART", "MEYERS, STUARTANDSARA"}
 
 
 def test_review_writes_related_names_with_totals(monkeypatch, tmp_path):
-    monkeypatch.setattr(K, "names_must_stay_separate", lambda *_: False)
-    monkeypatch.setattr(K, "NICKNAME_MAP", {})
+    monkeypatch.setattr(dedup_review, "names_must_stay_separate", lambda *_: False)
+    monkeypatch.setattr(dedup_review, "NICKNAME_MAP", {})
     rows = pd.DataFrame([
         _person("alex", "MEYERS, ALEX", "ALEX"),
         _person("alexander", "MEYERS, ALEXANDER", "ALEXANDER"),
     ])
     rows["contribution_receipt_amount"] = ["100", "250"]
 
-    assert K.build_donor_dedup_review(rows, tmp_path) == 1
+    assert dedup_review.build_donor_dedup_review(rows, tmp_path) == 1
 
     report = pd.read_csv(tmp_path / "donor_dedup_review.csv")
     assert report.loc[0, "reason"] == "initial/prefix ALEX->ALEXANDER"

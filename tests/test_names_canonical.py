@@ -8,10 +8,10 @@ import pandas as pd
 
 from fec.donor_match.canonicalize import (
     _canonical_person_name,
-    _first_core,
     canonicalize_donor_names,
-    unify_org_donor_suffix_variants,
 )
+from fec.donor_match.name_choice import _first_core
+from fec.donor_match.canonical_employers import unify_org_donor_suffix_variants
 
 COLS = [
     "entity_type",

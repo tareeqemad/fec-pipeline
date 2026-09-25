@@ -185,7 +185,7 @@ def test_a_joint_only_donor_keeps_its_joint_name():
 
 
 def test_review_does_not_list_an_intended_joint_split():
-    from fec.donor_match.keys import _is_joint_pair
+    from fec.donor_match.dedup_review import _is_joint_pair
 
     # SPELLMAN 60022: MARC / MARC MELISSA next to MELISSA
     assert _is_joint_pair("MARC", "MARC MELISSA", {"MARC", "MARC MELISSA", "MELISSA"})
