@@ -45,6 +45,17 @@ def _zero(name, query, label, severity=CRIT):
     return Check(name, severity, fn)
 
 
+def _none(name, query, label, severity=CRIT):
+    """Pass when the query returns no names; the detail lists them."""
+
+    def fn(cur, query=query, label=label):
+        cur.execute(query)
+        names = [row[0] for row in cur.fetchall()]
+        return not names, f"{len(names)} {label}" + (f": {', '.join(names)}" if names else "")
+
+    return Check(name, severity, fn)
+
+
 def _equal(name, query_a, query_b, label, severity=CRIT):
     """Pass when two scalar queries return the same value."""
 
@@ -686,21 +697,24 @@ def _access_checks() -> list[Check]:
         WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm')
     """
     return [
-        _zero(
+        _none(
             "access: public is the only schema",
             _sql("""
-                SELECT COUNT(*) FROM pg_namespace
+                SELECT nspname FROM pg_namespace
                 WHERE nspname NOT IN ('public', 'information_schema')
                   AND nspname NOT LIKE 'pg\\_%'
+                ORDER BY nspname
             """),
             "other schema(s)",
         ),
-        _zero(
-            f"access: {owner} and {reader} are the only logins",
+        _none(
+            f"access: {owner} and {reader} are the only logins to this database",
             _sql(f"""
-                SELECT COUNT(*) FROM pg_roles
+                SELECT rolname FROM pg_roles
                 WHERE rolcanlogin AND NOT rolsuper
                   AND rolname NOT IN ('{owner}', '{reader}')
+                  AND has_database_privilege(oid, current_database(), 'CONNECT')
+                ORDER BY rolname
             """),
             "other login role(s)",
         ),
