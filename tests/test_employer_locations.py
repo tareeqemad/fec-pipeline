@@ -18,7 +18,7 @@ from fec.database.loader.employers import (
     load_employers,
 )
 from fec.cleaning.quality import run_quality_gates
-from fec.cleaning.previous_employer import current_employer_name
+from fec.cleaning.employer_status import current_employer_name
 
 
 class FakeCache(dict):

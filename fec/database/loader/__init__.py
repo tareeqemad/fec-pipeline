@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from fec.cleaning.previous_employer import referenced_employers
+from fec.cleaning.employer_status import referenced_employers
 from fec.cleaning.quality import run_quality_gates
 from fec.config.data import FINAL_OUTPUT_COLUMNS
 from fec.env import (

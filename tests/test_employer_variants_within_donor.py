@@ -1,7 +1,7 @@
 """One donor, one company name: substring and acronym variants converge; different companies stay."""
 import pandas as pd
 
-from fec.cleaning.donor_consistency.employer import (
+from fec.cleaning.donor_consistency.employer_variants import (
     _employer_acronym_variants,
     _employer_substring_variants,
 )

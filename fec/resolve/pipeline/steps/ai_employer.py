@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
-from fec.cleaning.previous_employer import classify_employer_statuses
+from fec.cleaning.employer_status import classify_employer_statuses
 from fec.config.constants import SKIP_OCCUPATIONS
 from fec.config.geography import US_STATES
 from fec.log import get_logger

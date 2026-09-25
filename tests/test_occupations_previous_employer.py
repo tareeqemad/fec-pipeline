@@ -9,11 +9,10 @@ import pandas as pd
 import pytest
 
 from fec.cleaning.previous_employer import (
-    classify_employer_status,
-    is_real_employer,
     normalize_previous_employer_column,
     normalize_previous_employer_value as V,
 )
+from fec.cleaning.employer_status import classify_employer_status, is_real_employer
 from fec.resolve.pipeline.apply import _preserve_previous_employer_display
 from fec.resolve.pipeline.helpers import _previous_employer_identity
 

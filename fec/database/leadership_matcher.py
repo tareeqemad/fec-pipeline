@@ -7,10 +7,7 @@ import pandas as pd
 
 from fec.cleaning.occupations import _categorize_final
 
-from fec.cleaning.previous_employer import (
-    classify_employer_status,
-    is_real_employer,
-)
+from fec.cleaning.employer_status import classify_employer_status, is_real_employer
 from fec.donor_match.rules import resolve_donor_key
 from fec.resolve.pipeline.locations import select_location
 

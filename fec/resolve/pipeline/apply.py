@@ -6,10 +6,8 @@ import pandas as pd
 
 from fec.cleaning.donor_consistency.retired import dated_previous_employers
 from fec.cleaning.employer_synonyms import canonical_key, _recanonicalize_employers
-from fec.cleaning.previous_employer import (
-    classify_employer_status,
-    preserve_own_named_legal_employer,
-)
+from fec.cleaning.previous_employer import preserve_own_named_legal_employer
+from fec.cleaning.employer_status import classify_employer_status
 
 from .helpers import _prev_key, _previous_employer_identity, _s
 from .steps.previous_employer import PROTECTED_METHODS
