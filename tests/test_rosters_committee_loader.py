@@ -4,7 +4,7 @@ import pytest
 
 from fec.database import leadership_matcher
 from fec.database.loader import employers as employers_loader
-from fec.database.loader import leadership
+from fec.database.loader import leadership, people
 from fec.database.loader.leadership import (
     accomplice_committee_id,
     committee_lookup,
@@ -71,7 +71,7 @@ def _roster(tmp_path, monkeypatch, filename, header, rows):
     database = tmp_path / "data" / "database"
     database.mkdir(parents=True)
     pd.DataFrame(rows, columns=header).to_csv(database / filename, index=False)
-    monkeypatch.setattr(leadership, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(people, "PROJECT_ROOT", tmp_path)
 
     calls = {"donors": [], "employment": []}
 

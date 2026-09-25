@@ -1,7 +1,7 @@
 import pytest
 
 from fec.database.leadership_matcher import find_or_create_donor
-from fec.database.loader.leadership import _boolean
+from fec.database.loader.people import _boolean
 from fec.donor_match import rules as R
 
 

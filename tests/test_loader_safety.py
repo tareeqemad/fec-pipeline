@@ -2,8 +2,8 @@
 import pandas as pd
 import pytest
 
-import fec.database.loader as loader
-from fec.database.loader import grant_read_access
+from fec.database.loader import validate
+from fec.database.loader.access import grant_read_access
 from fec.database.loader.addresses import load_employer_locations
 from fec.database.loader.schema_create import verify_extensions
 from fec.database.loader.schema_reset import reset_schema
@@ -200,7 +200,7 @@ def test_missing_extension_stops_without_installing_it():
 def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
     committee_file = tmp_path / "committees.csv"
     committee_file.write_text("committee_short\nAIPAC\n", encoding="utf-8")
-    monkeypatch.setattr(loader, "COMMITTEES_CSV", committee_file)
+    monkeypatch.setattr(validate, "COMMITTEES_CSV", committee_file)
 
     df = pd.DataFrame([{
         "sub_id": "1", "transaction_id": "T1",
@@ -225,16 +225,16 @@ def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
         "address_source": "manual", "address_trust": "verified",
     }])
 
-    loader._validate_input(df, locations)
+    validate._validate_input(df, locations)
 
     invalid_trust = locations.copy()
     invalid_trust.loc[0, "address_trust"] = "legacy"
     with pytest.raises(ValueError, match="invalid address_trust"):
-        loader._validate_input(df, invalid_trust)
+        validate._validate_input(df, invalid_trust)
 
     locations.loc[0, "employer_name"] = "ACME, INC."
     with pytest.raises(ValueError, match="does not match cleaned employers"):
-        loader._validate_input(df, locations)
+        validate._validate_input(df, locations)
 
 
 def test_loader_publishes_only_verified_or_grounded_locations():

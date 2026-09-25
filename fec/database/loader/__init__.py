@@ -8,36 +8,22 @@ from typing import Any
 
 import pandas as pd
 
-from fec.cleaning.employer_status import referenced_employers
-from fec.cleaning.quality import run_quality_gates
-from fec.config.data import FINAL_OUTPUT_COLUMNS
-from fec.env import (
-    CLEANED_CSV,
-    COMMITTEES_CSV,
-    DATABASE_READER,
-    EMPLOYER_LOCATIONS_CSV,
-)
-from fec.io import read_pipeline_csv
+from fec.database.loader.access import _check_reader, grant_read_access
+from fec.database.loader.validate import _read_input
+from fec.env import CLEANED_CSV
 from fec.log import get_logger
-from fec.resolve.pipeline.locations import ADDRESS_TRUST_VALUES
 
-from ._base import PG, _count, _quote_identifier, connect
+from ._base import PG, _count, connect
 from .addresses import (
     link_employer_locations,
     load_address_dimension,
     load_donor_addresses,
-    load_employer_locations,
 )
 from .contributions import load_contributions
 from .donors import load_donors
-from .employers import (
-    _make_employer_resolver,
-    link_previous_employers,
-    load_employers,
-    load_employments,
-    previous_self_employed_donors,
-)
+from .employers import _make_employer_resolver, load_employers, load_employments
 from .leadership import load_key_accomplices, load_leadership
+from .previous_employers import link_previous_employers, previous_self_employed_donors
 from .reference import load_lookups, load_reference_tables
 from .schema_create import MAT_VIEWS, TABLES, VIEWS, create_schema, verify_extensions
 from .schema_reset import reset_schema
@@ -45,127 +31,6 @@ from .schema_reset import reset_schema
 logger = get_logger(__name__)
 
 __all__ = ["main", "connect"]
-
-_REQUIRED_COLUMNS = set(FINAL_OUTPUT_COLUMNS)
-_LOCATION_COLUMNS = {
-    "employer_name",
-    "employer_address",
-    "employer_city",
-    "employer_state",
-    "employer_zip",
-    "employer_latitude",
-    "employer_longitude",
-    "is_primary",
-    "address_source",
-    "address_trust",
-}
-
-
-def _validate_cleaned_data(df: pd.DataFrame) -> None:
-    missing = sorted(_REQUIRED_COLUMNS - set(df.columns))
-    if missing:
-        raise ValueError(f"{CLEANED_CSV.name}: missing columns: {', '.join(missing)}")
-
-    quality = run_quality_gates(df)
-    if not quality["passed"]:
-        raise ValueError(
-            "cleaned data failed quality gates: " + "; ".join(quality["issues"])
-        )
-
-
-def _validate_employer_locations(
-    df: pd.DataFrame,
-    locations: pd.DataFrame,
-) -> None:
-    if not _LOCATION_COLUMNS.issubset(locations.columns):
-        raise ValueError(
-            "employer_locations.csv is invalid; run geocode.py --employer-only"
-        )
-
-    expected = referenced_employers(df)
-    actual = set(locations["employer_name"].dropna().astype(str).str.strip())
-    if locations["employer_name"].isna().any() or expected != actual:
-        raise ValueError(
-            "employer_locations.csv does not match cleaned employers; "
-            "run geocode.py --employer-only"
-        )
-
-    primary = locations["is_primary"].astype(str).str.lower().eq("true")
-    primary_counts = primary.groupby(locations["employer_name"]).sum()
-    if not primary_counts.eq(1).all():
-        raise ValueError("each employer must have exactly one primary location row")
-
-    valid_primary = (
-        locations["is_primary"].astype(str).str.lower().isin({"true", "false"})
-    )
-    if not valid_primary.all():
-        raise ValueError("employer_locations.csv contains an invalid is_primary value")
-
-    trust = locations["address_trust"].fillna("").astype(str).str.strip()
-    has_address = locations["employer_address"].fillna("").astype(str).str.strip().ne("")
-    if (has_address & ~trust.isin(ADDRESS_TRUST_VALUES)).any():
-        raise ValueError("employer_locations.csv contains an invalid address_trust value")
-
-
-def _validate_contribution_fields(df: pd.DataFrame) -> None:
-    donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
-    if donor_keys.eq("").any():
-        raise ValueError("donor_key contains blank values")
-
-    sub_ids = df["sub_id"].fillna("").astype(str).str.strip()
-    if not sub_ids.str.fullmatch(r"\d+").all():
-        raise ValueError("sub_id contains invalid values")
-
-    dates = pd.to_datetime(df["contribution_receipt_date"], errors="coerce")
-    if dates.isna().any():
-        raise ValueError("contribution_receipt_date contains invalid values")
-
-    cycles = pd.to_numeric(df["two_year_transaction_period"], errors="coerce")
-    if cycles.isna().any():
-        raise ValueError("two_year_transaction_period contains invalid values")
-
-
-def _validate_committees(df: pd.DataFrame) -> None:
-    committees = pd.read_csv(COMMITTEES_CSV, dtype=str, keep_default_na=False)
-    known = set(committees["committee_short"].str.strip())
-    received = set(df["recipient_committee"].dropna().astype(str).str.strip())
-    unknown = sorted(received - known)
-    if unknown:
-        raise ValueError(
-            "recipient_committee is missing from committees.csv: " + ", ".join(unknown)
-        )
-
-
-def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
-    """Reject unfinished pipeline output."""
-    _validate_cleaned_data(df)
-    _validate_employer_locations(df, locations)
-    _validate_contribution_fields(df)
-    _validate_committees(df)
-
-
-def _read_input() -> tuple[pd.DataFrame, list[dict]]:
-    if not CLEANED_CSV.exists():
-        raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
-    if not EMPLOYER_LOCATIONS_CSV.exists():
-        raise FileNotFoundError(
-            f"{EMPLOYER_LOCATIONS_CSV} not found; "
-            "run geocode.py --employer-only"
-        )
-
-    df = read_pipeline_csv(CLEANED_CSV)
-    locations = pd.read_csv(
-        EMPLOYER_LOCATIONS_CSV,
-        dtype=str,
-        keep_default_na=False,
-    )
-    _validate_input(df, locations)
-
-    amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
-    if amounts.isna().any():
-        raise ValueError("contribution_receipt_amount contains invalid values")
-    df["contribution_receipt_amount"] = amounts
-    return df, load_employer_locations(locations)
 
 
 def show_stats(cur: Any) -> None:
@@ -243,57 +108,6 @@ def refresh_materialized_views(conn: Any, cur: Any) -> None:
     logger.info(
         f"  mv_donor_profile: {_count(cur, 'mv_donor_profile'):,} rows ({time.time() - start:.1f}s)"
     )
-
-
-def _check_reader(cur: Any) -> None:
-    cur.execute(
-        """
-        SELECT
-            rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls,
-            EXISTS (
-                SELECT 1 FROM pg_auth_members
-                WHERE member = pg_roles.oid
-            )
-        FROM pg_roles
-        WHERE rolname = %s
-        """,
-        (DATABASE_READER,),
-    )
-    role = cur.fetchone()
-
-    if role is None:
-        raise RuntimeError(f"Database role {DATABASE_READER} does not exist")
-    if role[0]:
-        raise RuntimeError(f"{DATABASE_READER} must be unprivileged")
-    if role[1]:
-        raise RuntimeError(f"{DATABASE_READER} must not inherit another role")
-
-
-def grant_read_access(conn: Any, cur: Any) -> None:
-    """Give fec_app SELECT on every table, view and materialized view, nothing else."""
-    logger.info("\n-- Granting permissions --")
-    _check_reader(cur)
-
-    reader = _quote_identifier(DATABASE_READER)
-
-    statements = (
-        "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC",
-        f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {reader}",
-        "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC",
-        f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {reader}",
-        f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {reader}",
-    )
-
-    try:
-        for statement in statements:
-            cur.execute(statement)
-        conn.commit()
-    except Exception as error:
-        conn.rollback()
-        raise RuntimeError(f"Permission update failed: {error}") from error
-
-    # ALL TABLES covers tables, views and materialized views
-    logger.info("  %s: SELECT on tables, views and materialized views; nothing else", DATABASE_READER)
 
 
 def _require_reset_flag() -> None:

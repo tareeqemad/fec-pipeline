@@ -14,9 +14,9 @@ from fec.database.loader.employers import (
     _employment_address_id,
     _latest_employment_rows,
     _make_employer_resolver,
-    _previous_employer_id,
     load_employers,
 )
+from fec.database.loader.previous_employers import _previous_employer_id
 from fec.cleaning.quality import run_quality_gates
 from fec.cleaning.employer_status import current_employer_name
 

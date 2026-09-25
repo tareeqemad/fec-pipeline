@@ -13,13 +13,16 @@ import pandas as pd
 import pytest
 
 import fec.database.loader.employers as employer_loader
+import fec.database.loader.previous_employers as previous_loader
 from fec.database.loader.contributions import _map_employment_ids
 from fec.database.loader.employers import (
     EMPLOYMENT_KEY_COLUMNS,
     _make_employer_resolver,
     employment_key,
-    link_previous_employers,
     load_employments,
+)
+from fec.database.loader.previous_employers import (
+    link_previous_employers,
     previous_self_employed_donors,
 )
 from fec.env import SCHEMA_SQL
@@ -263,7 +266,7 @@ class EmployerCursor:
 def test_self_employed_never_becomes_an_employer_row(monkeypatch):
     cursor = EmployerCursor()
     monkeypatch.setattr(
-        employer_loader, "execute_values",
+        previous_loader, "execute_values",
         lambda _cur, _sql, rows, **_kw: cursor.names.extend(name for (name,) in rows),
     )
     frame = pd.DataFrame([
@@ -281,7 +284,7 @@ def test_self_employed_never_becomes_an_employer_row(monkeypatch):
 
 def test_other_non_company_previous_values_are_reported(monkeypatch, caplog):
     cursor = EmployerCursor()
-    monkeypatch.setattr(employer_loader, "execute_values", lambda *_a, **_kw: None)
+    monkeypatch.setattr(previous_loader, "execute_values", lambda *_a, **_kw: None)
     frame = pd.DataFrame([
         _filing("1", "2024-01-01", "RETIRED", "RETIRED", "retired", previous="RETIRED"),
     ])
