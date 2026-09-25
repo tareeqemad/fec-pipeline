@@ -13,6 +13,23 @@ from fec.cleaning.audit_trail import (
     STREET_FIELDS,
     AuditTrail,
 )
+from fec.cleaning.donor_consistency import apply_donor_consistency
+from fec.cleaning.employer_synonyms import finalize_employer_names
+from fec.cleaning.entity_classification import apply_name_corrections
+from fec.cleaning.manual_overrides import apply_manual_employer_overrides
+from fec.donor_match import (
+    build_donor_dedup_review,
+    canonicalize_donor_addresses,
+    canonicalize_donor_employers,
+    canonicalize_donor_names,
+    canonicalize_donor_pobox_typos,
+    canonicalize_donor_units,
+)
+from fec.donor_match.canonical_employers import (
+    align_org_donor_company_names,
+    unify_org_donor_suffix_variants,
+)
+from fec.donor_match.keys import non_individual_donor_key
 from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
@@ -30,8 +47,6 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     filings under one network name are not proof of one donor. Each filing gets
     its own key, outside every person's total.
     """
-    from fec.donor_match.keys import non_individual_donor_key
-
     names = df["contributor_name"].fillna("").astype(str)
     matches = names.str.extract(_NETWORK_NAME_RE)
     targets = df["entity_type"].eq("INDIVIDUAL") & matches.notna().any(axis=1)
@@ -58,14 +73,6 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
 
 
 def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
-    from fec.donor_match import (
-        canonicalize_donor_addresses,
-        canonicalize_donor_employers,
-        canonicalize_donor_names,
-        canonicalize_donor_pobox_typos,
-        canonicalize_donor_units,
-    )
-
     steps = (
         (canonicalize_donor_names, "donor_canonical_names",
          "donor_name_unified_to_modal_last_and_longest_first", NAME_FIELDS),
@@ -87,9 +94,6 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
 
 
 def _finalize_employers(df: pd.DataFrame, trail: AuditTrail) -> tuple[pd.DataFrame, int]:
-    from fec.cleaning.employer_synonyms import finalize_employer_names
-    from fec.donor_match import canonicalize_donor_employers
-
     df, total = finalize_employer_names(df, trail)
     log_count(logger, "final employer names", total)
     final_canonical = trail.run(
@@ -108,11 +112,6 @@ def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
     finalisation (so the target is the spelling the employers table shows).
     Only contributor_name changes; donor_keys were assigned earlier.
     """
-    from fec.donor_match.canonical_employers import (
-        align_org_donor_company_names,
-        unify_org_donor_suffix_variants,
-    )
-
     steps = (
         (align_org_donor_company_names, "donor_align_org_names",
          "organization_name_aligned_to_employer_spelling"),
@@ -145,10 +144,6 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     """Make each donor consistent across filings."""
     df = df.reset_index(drop=True)
     logger.info("\n-- Donor consistency --")
-    from fec.cleaning.donor_consistency import apply_donor_consistency
-    from fec.cleaning.entity_classification import apply_name_corrections
-    from fec.cleaning.manual_overrides import apply_manual_employer_overrides
-    from fec.donor_match import build_donor_dedup_review
 
     organizations = trail.run(
         df,

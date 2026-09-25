@@ -4,6 +4,7 @@ import csv
 import numpy as np
 import pandas as pd
 
+from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
 from fec.env import PROJECT_ROOT
 
 
@@ -68,7 +69,6 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
 
 def _reenforce_entity_consistency(df: pd.DataFrame) -> int:
     """AU. Re-enforce same-name -> same entity_type; must run after canonicalize_donor_names has unified names."""
-    from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
     before = df['entity_type'].copy()
     n = _enforce_entity_name_consistency(df)
     if n:

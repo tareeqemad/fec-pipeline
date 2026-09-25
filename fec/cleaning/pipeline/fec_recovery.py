@@ -8,11 +8,12 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
+import requests
 
-from fec.log import get_logger
-from fec.resolve.pipeline.cache import Cache
 from fec.cleaning.addresses import _normalize_street
 from fec.cleaning.pipeline.address_fixes import _is_usable_street
+from fec.log import get_logger
+from fec.resolve.pipeline.cache import Cache
 
 logger = get_logger(__name__)
 
@@ -23,8 +24,6 @@ CACHE_NAME = "fec_address_cache.json"
 
 def _fetch_one(name: str, state: str, key: str) -> dict | None:
     """Query the FEC API for one donor's dominant real street; miss = {'street': ''}, None = transient error so the donor is retried next run."""
-    import requests
-
     try:
         resp = requests.get(
             f"{FEC_BASE}/schedules/schedule_a/",

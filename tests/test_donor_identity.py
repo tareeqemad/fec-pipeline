@@ -1,14 +1,15 @@
 """Donor identity uses the complete dataset."""
 import pandas as pd
 
-from fec.cleaning.pipeline import identify_donors, standardize_donors
+from fec.cleaning.entity_classification import apply_name_corrections
+from fec.cleaning.pipeline.core import standardize_donors
+from fec.cleaning.pipeline.donor_identity import identify_donors
 from fec.cleaning.pipeline.donor_stage import (
     _classify_network_organizations,
 )
-from fec.cleaning.entity_classification import apply_name_corrections
+from fec.config.data import INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS
 from fec.donor_match import canonicalize_donor_names
 from fec.donor_match.normalize import extract_generational_suffix
-from fec.config.data import INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS
 
 
 def _row(sub_id, name, first, last, city, state, zip5, street,

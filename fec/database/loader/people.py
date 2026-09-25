@@ -7,8 +7,15 @@ from typing import Any
 
 import pandas as pd
 
+from fec.database.leadership_matcher import (
+    find_or_create_donor,
+    upsert_donor_address,
+    upsert_leader_employment,
+)
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
+
+from .employers import _location_index
 
 logger = get_logger(__name__)
 
@@ -136,8 +143,6 @@ def _load_donor_linked_csv(
     validate_rows=None,
 ) -> None:
     """Load curated donor links."""
-    from .employers import _location_index
-
     csv_path = PROJECT_ROOT / "data" / "database" / csv_filename
     if not csv_path.exists():
         logger.info(f"  {csv_path.name} not found -- skipping {table}")
@@ -171,12 +176,6 @@ def _load_donor_linked_csv(
 
 def _load_person(cur, row, csv_filename: str, locations, insert_row):
     """Link one roster row to its donor; return the match method."""
-    from fec.database.leadership_matcher import (
-        find_or_create_donor,
-        upsert_donor_address,
-        upsert_leader_employment,
-    )
-
     name, first, last, city, state = _person_identity(row)
     if not name:
         return None

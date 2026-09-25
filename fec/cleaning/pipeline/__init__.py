@@ -1,12 +1,1 @@
-"""Public cleaning pipeline."""
-from .core import (
-    clean_pipeline,
-    identify_donors,
-    standardize_donors,
-)
-
-__all__ = [
-    "clean_pipeline",
-    "identify_donors",
-    "standardize_donors",
-]
+"""The cleaning pipeline; core.clean_pipeline runs every stage in order."""

@@ -3,15 +3,20 @@ import re
 
 import pandas as pd
 
-from fec.cleaning._helpers import _norm, _indiv_idx
+from fec.cleaning._helpers import _indiv_idx, _norm
+from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
+from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
+from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.cleaning.occupations import _categorize
 from fec.config.constants import SKIP_EMPLOYERS
-from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
+from fec.config.not_employers import (
+    LEGAL_SUFFIX_RE,
+    OCCUPATION_AS_EMPLOYER,
+    ROLE_AS_EMPLOYER,
+)
 
-from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
-from fec.config.not_employers import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
-from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
+from .canonical import _recanonicalize_employers
 
 # Occupation words filed as the employer: these people are self-employed.
 # A deliberate subset of the config lists (the full lists are applied by the safety nets later).
@@ -133,9 +138,6 @@ def tidy_slash_spacing(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame, int]:
     """Reapply employer rules after donor-history repairs."""
-    from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
-
-    from .canonical import _recanonicalize_employers
 
     trail = trail or AuditTrail()
     total = 0

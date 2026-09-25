@@ -1,8 +1,8 @@
 """Centralized logging: clean console output (message only), detailed file output (timestamp + level + module)."""
+import io
 import logging
 import os
 import sys
-
 
 _CONFIGURED = False
 
@@ -28,7 +28,6 @@ def setup_logging() -> None:
 
     # force UTF-8 on Windows: cp1256/cp1252 can't encode some log characters
     if sys.platform == "win32":
-        import io
         console_stream = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     else:
         console_stream = sys.stdout

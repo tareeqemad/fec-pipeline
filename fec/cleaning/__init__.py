@@ -1,5 +1,1 @@
-"""FEC data cleaning package."""
-
-from fec.cleaning.pipeline import clean_pipeline
-
-__all__ = ["clean_pipeline"]
+"""FEC data cleaning package; the entry point is pipeline.core.clean_pipeline."""

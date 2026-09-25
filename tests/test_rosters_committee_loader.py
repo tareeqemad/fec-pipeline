@@ -2,8 +2,6 @@
 import pandas as pd
 import pytest
 
-from fec.database import leadership_matcher
-from fec.database.loader import employers as employers_loader
 from fec.database.loader import leadership, people
 from fec.database.loader.leadership import (
     accomplice_committee_id,
@@ -82,10 +80,10 @@ def _roster(tmp_path, monkeypatch, filename, header, rows):
     def upsert_leader_employment(cur, donor_id, employer, occupation=None, **kwargs):
         calls["employment"].append((donor_id, employer, occupation, kwargs))
 
-    monkeypatch.setattr(leadership_matcher, "find_or_create_donor", find_or_create_donor)
-    monkeypatch.setattr(leadership_matcher, "upsert_donor_address", lambda *a, **k: None)
-    monkeypatch.setattr(leadership_matcher, "upsert_leader_employment", upsert_leader_employment)
-    monkeypatch.setattr(employers_loader, "_location_index", lambda *a: {"ORACLE": {"sentinel": True}})
+    monkeypatch.setattr(people, "find_or_create_donor", find_or_create_donor)
+    monkeypatch.setattr(people, "upsert_donor_address", lambda *a, **k: None)
+    monkeypatch.setattr(people, "upsert_leader_employment", upsert_leader_employment)
+    monkeypatch.setattr(people, "_location_index", lambda *a: {"ORACLE": {"sentinel": True}})
     return calls
 
 

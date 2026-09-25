@@ -6,9 +6,11 @@ import pandas as pd
 
 from fec import env
 from fec.cleaning.audit import write_audit
-from fec.cleaning.pipeline import clean_pipeline
+from fec.cleaning.foreign_addresses import foreign_address_mask
+from fec.cleaning.pipeline.core import clean_pipeline
 from fec.cleaning.quality import run_quality_gates, save_report
 from fec.cleaning.quality_scan import scan
+from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.env import CLEANED_CSV, RAW_CSV
 from fec.io import read_pipeline_csv
@@ -41,8 +43,6 @@ def _write_quality_scan(output_path, out_dir):
 
 def _assert_known_committees(df):
     """Reject unknown recipients."""
-    from fec.committees import load_committees
-
     known = {
         row['committee_short']
         for row in load_committees()
@@ -62,8 +62,6 @@ def _assert_known_committees(df):
 
 def _ensure_zip_format(df):
     """Keep US ZIPs as five digits; a foreign postcode (SW1A 2AA) stays as filed."""
-    from fec.cleaning.foreign_addresses import foreign_address_mask
-
     us = ~foreign_address_mask(df)
     zips = df['contributor_zip']
 

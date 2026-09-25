@@ -5,15 +5,11 @@ import time
 from typing import Any
 
 import pandas as pd
+from psycopg2.extras import execute_values
 
-try:
-    from psycopg2.extras import execute_values
-except ImportError:
-    raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
-
+from fec.cleaning.employer_status import current_employer_name
 from fec.env import CLEANED_CSV
 from fec.log import get_logger
-from fec.cleaning.employer_status import current_employer_name
 
 from ._base import _count, to_float_or_none, to_int_or_none
 from .employers import employment_key

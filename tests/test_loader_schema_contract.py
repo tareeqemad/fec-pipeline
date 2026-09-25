@@ -169,9 +169,7 @@ def test_csv_status_comparison_counts_missing_and_differing_filings():
 
 
 def test_csv_status_check_skips_without_the_csv(monkeypatch, tmp_path):
-    import fec.env
-
-    monkeypatch.setattr(fec.env, "CLEANED_CSV", tmp_path / "absent.csv")
+    monkeypatch.setattr(healthcheck, "CLEANED_CSV", tmp_path / "absent.csv")
 
     severity, name, detail = healthcheck._csv_employment_status_check(object())
     assert (severity, name) == (healthcheck.OK, "employment_status_vs_csv")

@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
+from fec.cleaning.pipeline.address_fixes import _unit_core
 from fec.donor_match.components import UnionFind
 
 _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
@@ -62,7 +63,6 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
-    from fec.cleaning.pipeline.address_fixes import _unit_core
 
     st1_col = "contributor_street_1"
     st2_col = "contributor_street_2"

@@ -5,12 +5,9 @@ import time
 from typing import Any
 
 import pandas as pd
+from psycopg2.extras import execute_values
 
-try:
-    from psycopg2.extras import execute_values
-except ImportError:
-    raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
-
+from fec.committees import load_committees
 from fec.env import CLEANED_CSV, PROJECT_ROOT
 from fec.log import get_logger
 
@@ -108,7 +105,6 @@ def load_lookups(conn: Any, cur: Any) -> None:
     conn.commit()
     logger.info("  occupation_categories: %d", _count(cur, 'occupation_categories'))
 
-    from fec.committees import load_committees
     for committee in load_committees():
         committee_number = committee.get('committee_number')
         vals = (committee_number, committee['committee_name'], committee['committee_short'],
