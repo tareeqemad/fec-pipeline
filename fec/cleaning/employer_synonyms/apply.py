@@ -81,7 +81,9 @@ def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
+# the abbreviated word "ASSOC" or "ASSOCS", with optional trailing period
 _ASSOC_RX = re.compile(r'\bASSOCS?\b\.?')
+# the full word "ASSOCIATION" as a standalone token
 _ASSOCIATION_RX = re.compile(r'\bASSOCIATION\b')
 
 
@@ -116,6 +118,7 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
+# a slash with inconsistent spacing: "A/ B", "A /B", "A//B"
 _LOOSE_SLASH_RE = re.compile(r'\s/|/\s|//')
 
 
@@ -191,6 +194,7 @@ def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
+# a legal suffix followed by separators, mid-string: "SMITH LLC, JONES"
 _MID_SUFFIX_RE = re.compile(
     r'\b(?:LLC|LLP|INC\.?|CORP\.?|LTD\.?)[\s,./]+',
     re.IGNORECASE,

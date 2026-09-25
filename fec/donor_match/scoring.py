@@ -17,6 +17,7 @@ from .constants import (
 # -- string normalization: make raw strings comparable ----------------------
 
 
+# a run of letters/digits, to tokenize a name for comparison
 _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 

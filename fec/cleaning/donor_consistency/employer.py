@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 
 # the config patterns are plain strings; compile once for the .str calls below
 _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
+# compiled admin-note/refusal phrasing: "PENDING", "DECLINED TO STATE"
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
 
 
@@ -183,6 +184,7 @@ def _employer_from_raw_filings(emps: pd.Series):
     return None
 
 
+# a business/professional-firm token: "LLC", "CPA", "LAW", "GROUP"
 _OWN_FIRM_TOKEN_RE = re.compile(
     r'\b(?:LLC|LLP|INC|CORP|CORPORATION|CO|COMPANY|COMPANIES|LTD|LP|PLLC|PC|PA|LAW|CPA|MD|DDS|DMD|ESQ|'
     r'OFFICES?|GROUP|PARTNERS|ASSOCIATES|ADVISORS|CONSULTING|CONSULTANTS|DESIGN|STUDIO|CONSTRUCTION|'

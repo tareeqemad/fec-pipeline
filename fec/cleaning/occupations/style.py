@@ -82,6 +82,7 @@ _ROLE_NOUNS = frozenset({
     'TRAINER', 'UNDERWRITER', 'UROLOGIST', 'VETERINARIAN', 'VOLUNTEER',
     'WHOLESALER', 'WORKER', 'WRITER',
 })
+# last word ending in S, captured without the S: "TRADERS" -> "TRADER"
 _LAST_WORD_RE = re.compile(r'([A-Z]+)S$')
 
 

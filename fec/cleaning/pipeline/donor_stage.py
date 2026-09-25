@@ -34,6 +34,7 @@ from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
 
+# a "POLITICAL NETWORK" name, region leading or trailing: "POLITICAL NETWORK, LA VALLEY"
 _NETWORK_NAME_RE = re.compile(
     r"^(?:POLITICAL NETWORK,\s*(?P<region>.+)|(?P<leading>.+?)\s+POLITICAL NETWORK)$",
     re.IGNORECASE,

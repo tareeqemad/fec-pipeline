@@ -38,6 +38,7 @@ _ADDRESS_TYPES = frozenset(
 )
 _OFFICE_TYPES = frozenset({"OFFICE"})
 _CONFIDENCE_LEVELS = frozenset({"HIGH", "MEDIUM"})
+# a full-match ZIP5, digits only: "10001"
 _ZIP_RE = re.compile(r"^\d{5}$")
 
 

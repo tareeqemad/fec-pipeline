@@ -12,6 +12,7 @@ _SUITE_RE = re.compile(
 )
 
 
+# a trailing ordinal floor to drop: "123 MAIN ST, 3RD FLOOR"
 _FLOOR_RE = re.compile(
     r',?\s*\d+(?:st|nd|rd|th)\s+Floor.*$',
     re.IGNORECASE,
@@ -49,6 +50,7 @@ _ORDINAL_TENS = {
 }
 
 
+# a spelled-out ordinal before a street type: "THIRD AVE" -> to become "3RD AVE"
 _ORDINAL_STREET_RE = re.compile(
     rf"\b(?:({'|'.join(_ORDINAL_TENS)})[\s-]+)?({'|'.join(_ORDINAL_WORDS)})\b"
     r"(?=\s+(?:ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT"

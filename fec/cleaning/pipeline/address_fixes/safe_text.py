@@ -28,10 +28,13 @@ _SPLIT_TYPES = (
     "LOOP",
     "BROADWAY",
 )
+# street with trailing floor unit: "123 MAIN ST 28TH FLOOR" -> street + "28TH FLOOR"
 _ORD_FLOOR_RE = re.compile(r"^(.+?)\s+(\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL))$")
+# street type followed by a trailing unit number: "123 MAIN DR 601" -> street + "601"
 _TYPE_NUM_RE = re.compile(
     r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+(\d{1,5}[A-Z]?)$"
 )
+# street type followed by a unit number and direction: "123 MAIN DR 601 N"
 _TYPE_NUM_DIR_RE = re.compile(
     r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+"
     r"(\d{1,5}\s+(?:NE|NW|SE|SW|N|S|E|W))$"
@@ -46,6 +49,7 @@ _NUMBERED_NAME_BASE_RE = re.compile(
     r"|RANCH TO MARKET)\s+(?:RD|AVE|LOOP)"
     r"|^\S*\d\S*\s+(?:(?:NE|NW|SE|SW|N|S|E|W)\s+)?(?:RD|AVE|LOOP))$"
 )
+# house number repeated at start and end: "123 MAIN ST 123" -> "123 MAIN ST"
 _REPEATED_ADDRESS_START_RE = re.compile(
     r"^(?P<start>\d+[A-Z]?(?:\s+(?:NE|NW|SE|SW|N|S|E|W))?)\s+"
     r"(?P<body>.+\b(?:" + "|".join(_SPLIT_TYPES) + r")\b)\s+(?P=start)$"

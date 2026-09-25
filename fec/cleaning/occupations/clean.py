@@ -32,6 +32,7 @@ from .normalize import (
 
 logger = get_logger(__name__)
 
+# a company/org name in occupation text: "INC", "LLC", "UNIVERSITY", "P.A."
 _CORP_NAME_RE = re.compile(
     r'\bINC\b\.?|\bP\.?A\.?\s*$'
     r'|\b(?:LLC|LLP|CORP'
@@ -41,6 +42,7 @@ _CORP_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+# a company name written in occupation text: "INC", "GROUP", "SMITH & JONES"
 _COMPANY_IN_OCCUPATION_RE = re.compile(
     r'\bINC\b\.?'
     r'|\b(?:LLC|LLP|CORP|LTD|COMPANY|CORPORATION|HOLDINGS|GROUP'
@@ -50,6 +52,7 @@ _COMPANY_IN_OCCUPATION_RE = re.compile(
     r'|\b\w+\s*&\s*\w+\b'
     r'|& (?:PARTNERS|ASSOCIATES|CRUTCHER|DE LLANO|BUTLER)',
 )
+# a nonprofit/institution name in occupation text: "HOSPITAL", "UNIVERSITY"
 _ORGANIZATION_IN_OCCUPATION_RE = re.compile(
     r'\b(?:HOSPITAL|UNIVERSITY|INSTITUTE|COLLEGE|SCHOOL|ACADEMY'
     r'|FOUNDATION|AGENCY|BUREAU|DEPARTMENT|MINISTRY|AIPAC|DMFI)\b',

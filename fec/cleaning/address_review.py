@@ -46,10 +46,12 @@ PMB_REASON = "PMB private mailbox (no precise physical point)"
 # Bare trailing number -> unit. Excludes HWY/RTE so route numbers
 # ("HWY 9", "RTE 1") aren't mistaken for unit numbers.
 
+# leading PO box marker: "PO BOX 123", "P.O. BOX 45", "Post Office Box 9"
 _PO_BOX_RE = re.compile(
     r"^P\.?\s*O\.?\s*BOX|^POST OFFICE BOX",
     re.IGNORECASE,
 )
+# leading private mailbox marker: "PMB 123", "PMB#45"
 _PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.IGNORECASE)
 
 # Street-type tokens: a street_1 with none of these (and no leading house number
@@ -63,6 +65,7 @@ _STREET_TYPES = (
     "STREET AVENUE ROAD BOULEVARD DRIVE LANE COURT CIRCLE PLACE HIGHWAY TERRACE "
     "APT STE UNIT FL"
 ).split()
+# any street-type/unit word as a token: "MAIN ST", "5TH AVE", "APT 4"
 _STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(_STREET_TYPES) + r")\b")
 
 # street_2 that is a unit keyword with no number: incomplete (drop + flag)

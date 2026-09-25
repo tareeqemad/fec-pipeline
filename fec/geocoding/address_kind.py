@@ -3,6 +3,7 @@ import re
 
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
 
+# a US ZIP5 or ZIP+4: "10001", "10001-1234", "100011234"
 _US_ZIP_RE = re.compile(r"\d{5}(?:-?\d{4})?")
 
 
@@ -13,6 +14,7 @@ _FOREIGN_POSTCODE_RE = re.compile(
 )
 
 
+# a leading "PO BOX" marker: "PO BOX 123"
 _PO_BOX_RE = re.compile(r"^PO\s+BOX", re.IGNORECASE)
 
 

@@ -72,6 +72,7 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
         logger.info("Fixed %d garbled first names (keyboard errors)", n_garbled)
 
 
+# a plain given-name word: letters, apostrophes, hyphens, e.g. "O'BRIEN"
 _GIVEN_WORD_RE = re.compile(r"[A-Z][A-Z'-]+")
 
 
