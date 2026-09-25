@@ -3,6 +3,8 @@
 import json
 import os
 
+from fec.io import write_json_atomic
+
 
 class Cache:
     # load cached data from path if it exists
@@ -27,11 +29,7 @@ class Cache:
 
     # write the cache to disk atomically
     def save(self):
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        temp_path = self.path + ".tmp"
-        with open(temp_path, "w", encoding="utf-8") as handle:
-            json.dump(self.data, handle, ensure_ascii=False)
-        os.replace(temp_path, self.path)
+        write_json_atomic(self.path, self.data, ensure_ascii=False)
 
     # number of entries in the cache
     def __len__(self):

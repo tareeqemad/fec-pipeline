@@ -68,12 +68,12 @@ def _retry_delay(attempt: int, response=None, cap: float = 60.0) -> float:
         return fallback
 
 
-# sleep and retry, or raise after max attempts
-def _retry_connection(error: Exception, attempt: int) -> None:
+# sleep and retry a transient failure, or raise after max attempts
+def _retry_or_raise(attempt: int, failure: str, gave_up: str, response=None, error=None) -> None:
     if attempt == MAX_ATTEMPTS:
-        raise PullError(f"FEC API unavailable after {attempt} attempts") from error
-    delay = _retry_delay(attempt)
-    log.warning("%s; retrying in %.1fs", type(error).__name__, delay)
+        raise PullError(f"{gave_up} after {attempt} attempts") from error
+    delay = _retry_delay(attempt, response)
+    log.warning("%s; retrying in %.1fs", failure, delay)
     sleep(delay)
 
 
@@ -90,17 +90,6 @@ def _wait_for_rate_limit(response, attempt: int, waited: float) -> float:
     )
     sleep(delay)
     return waited
-
-
-# sleep and retry a transient server error
-def _retry_server_error(response, attempt: int) -> None:
-    if attempt == MAX_ATTEMPTS:
-        raise PullError(
-            f"FEC API returned HTTP {response.status_code} after {attempt} attempts"
-        )
-    delay = _retry_delay(attempt, response)
-    log.warning("HTTP %s; retrying in %.1fs", response.status_code, delay)
-    sleep(delay)
 
 
 # raise on api errors, else return parsed json
@@ -133,7 +122,9 @@ def fetch_page(session, params: dict, limiter: RateLimiter) -> dict:
             response = session.get(BASE_URL, params=params, timeout=(10, 180))
         except (ReadTimeout, ConnectTimeout, ConnectionError) as error:
             transient_attempts += 1
-            _retry_connection(error, transient_attempts)
+            _retry_or_raise(
+                transient_attempts, type(error).__name__, "FEC API unavailable", error=error,
+            )
             continue
 
         over_limit = response.status_code == 429 or "OVER_RATE_LIMIT" in response.text
@@ -148,7 +139,10 @@ def fetch_page(session, params: dict, limiter: RateLimiter) -> dict:
 
         if response.status_code in TRANSIENT_STATUSES:
             transient_attempts += 1
-            _retry_server_error(response, transient_attempts)
+            _retry_or_raise(
+                transient_attempts, f"HTTP {response.status_code}",
+                f"FEC API returned HTTP {response.status_code}", response=response,
+            )
             continue
 
         return _response_data(response, params)

@@ -54,62 +54,47 @@ def _gate_occupation_category_consistency(df):
     }, issue)]
 
 
-# quality gate: self-employed fields and employer_status must agree
-def _gate_self_employed_status(df):
-    """Self-employment fields and status must agree."""
+# quality gate: a status's field markers and employer_status must agree
+def _status_agreement_gate(df, gate: str, status_value: str, label: str):
+    """Rows whose fields mark status_value must carry that employer_status, and back."""
     required = {
         'entity_type', 'contributor_employer', 'contributor_occupation',
         'occupation_category', 'employer_status',
     }
-    not_run = _resolve_only_gate('self_employed_status_consistency', df, required)
+    not_run = _resolve_only_gate(gate, df, required)
     if not_run:
         return not_run
 
     individuals = df['entity_type'].eq('INDIVIDUAL')
     status = df['employer_status'].fillna('').str.strip().str.lower()
     expected = classify_employer_statuses(df)
-    marker = individuals & expected.eq('self_employed')
-    self_status = individuals & status.eq('self_employed')
+    marker = individuals & expected.eq(status_value)
+    has_status = individuals & status.eq(status_value)
 
-    marker_without_status = int((marker & ~self_status).sum())
-    status_without_marker = int((self_status & ~marker).sum())
+    marker_without_status = int((marker & ~has_status).sum())
+    status_without_marker = int((has_status & ~marker).sum())
     count = marker_without_status + status_without_marker
-    issue = f"SELF-EMPLOYED/status mismatches: {count}" if count else None
-    return [('self_employed_status_consistency', {
+    issue = f"{label}/status mismatches: {count}" if count else None
+    return [(gate, {
         'passed': count == 0,
         'count': count,
         'marker_without_status': marker_without_status,
         'status_without_marker': status_without_marker,
     }, issue)]
+
+
+# quality gate: self-employed fields and employer_status must agree
+def _gate_self_employed_status(df):
+    return _status_agreement_gate(
+        df, 'self_employed_status_consistency', 'self_employed', 'SELF-EMPLOYED',
+    )
 
 
 # quality gate: non-working occupations and employer_status must agree
 def _gate_not_employed_status(df):
-    """Non-working occupations and status must agree."""
-    required = {
-        'entity_type', 'contributor_employer', 'contributor_occupation',
-        'occupation_category', 'employer_status',
-    }
-    not_run = _resolve_only_gate('not_employed_status_consistency', df, required)
-    if not_run:
-        return not_run
-
-    individuals = df['entity_type'].eq('INDIVIDUAL')
-    status = df['employer_status'].fillna('').str.strip().str.lower()
-    expected = classify_employer_statuses(df)
-    marker = individuals & expected.eq('not_employed')
-    not_status = individuals & status.eq('not_employed')
-
-    marker_without_status = int((marker & ~not_status).sum())
-    status_without_marker = int((not_status & ~marker).sum())
-    count = marker_without_status + status_without_marker
-    issue = f"NOT EMPLOYED/status mismatches: {count}" if count else None
-    return [('not_employed_status_consistency', {
-        'passed': count == 0,
-        'count': count,
-        'marker_without_status': marker_without_status,
-        'status_without_marker': status_without_marker,
-    }, issue)]
+    return _status_agreement_gate(
+        df, 'not_employed_status_consistency', 'not_employed', 'NOT EMPLOYED',
+    )
 
 
 # quality gate: previous_employer must only be set on retired rows
