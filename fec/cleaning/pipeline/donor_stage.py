@@ -173,7 +173,10 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
 
     protected = trail.run(
         df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
-        "curated_employer_names", "curated_row_override", ("contributor_employer", "previous_employer"),
+        "curated_employer_names", "curated_row_override",
+        ("contributor_employer", "contributor_occupation", "occupation_category",
+         "contributor_city", "contributor_street_1", "contributor_street_2",
+         "contributor_zip", "previous_employer"),
         source="data/manual_employer_overrides.csv",
     )
     log_count(logger, "curated employer names", protected)
