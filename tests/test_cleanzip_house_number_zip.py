@@ -10,7 +10,6 @@ import pytest
 
 from fec.cleaning.addresses import (
     _drop_repeated_street,
-    _normalize_street,
     clean_cities,
     clean_streets,
     clean_zips,
