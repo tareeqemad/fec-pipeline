@@ -55,6 +55,10 @@ check('Boschan solo filings keep SHIRA', set(names('BOSCHAN, SHIRA').contributor
 # people fixes
 check('Kellogg: HEALTH, GOOD not Sarah', by.at['4011420231698184106', 'contributor_name'] == 'HEALTH, GOOD')
 check('Tuchin: Hackman details cleared', by.at['4080220231759311394', 'contributor_employer'] == '')
+for sub, who in [('4080220231759311394', 'Tuchin'), ('4080120261540164347', 'Heymann')]:
+    check(f'{who}: cleared occupation stays cleared', by.at[sub, 'contributor_occupation'] == '')
+check('Kellogg: no employer taken from GOOD HEALTH filings', by.at['4122920221645232594', 'contributor_employer'] == '')
+check('Newman: one donor, $24,000', round(b.loc[b.donor_key == key('4092320242041366530'), 'amt'].sum()) == 24000)
 check('Harris Michael: no Permanente', 'PERMANENTE' not in ' '.join(b.loc[b.donor_key == key('4112020241071382260'), 'previous_employer']))
 check('Orientale: employer cleared', by.at['4052120241949843855', 'contributor_employer'] == '')
 check('Foldes $100: SELF-EMPLOYED kept', by.at['4102420231807010022', 'contributor_employer'] == 'SELF-EMPLOYED')
