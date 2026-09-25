@@ -7,7 +7,7 @@ import pandas as pd
 from fec.donor_match import apply_donor_key, match_donors
 from fec.donor_match import keys as K
 from fec.donor_match import rules as R
-from fec.donor_match.canonicalize import _choose_first
+from fec.donor_match.name_choice import _choose_first
 
 
 def test_equal_length_spellings_go_to_the_majority_not_the_first_filed():

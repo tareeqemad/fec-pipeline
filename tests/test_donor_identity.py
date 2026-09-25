@@ -7,7 +7,7 @@ from fec.cleaning.pipeline.donor_stage import (
 )
 from fec.cleaning.entity_classification import apply_name_corrections
 from fec.donor_match import canonicalize_donor_names
-from fec.donor_match.scoring import extract_generational_suffix
+from fec.donor_match.normalize import extract_generational_suffix
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS
 
 
