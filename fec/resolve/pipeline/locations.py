@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 
-from fec.cleaning.addresses import _normalize_street
+from fec.cleaning.street_text import _normalize_street
 from fec.cleaning.employer_synonyms import canonical_key
 
 ADDRESS_FIELDS = (

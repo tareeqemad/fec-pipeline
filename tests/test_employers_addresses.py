@@ -3,16 +3,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.addresses import (
-    _normalize_street,
-    _normalize_unit,
-    _split_fused_house_number,
-    clean_streets,
-)
-from fec.cleaning.pipeline.address_fixes import (
+from fec.cleaning.addresses import clean_streets
+from fec.cleaning.pipeline.address_fixes.recovery import (
     _is_usable_street,
     _recover_nonstreet_from_donor,
     _recover_null_streets,
+)
+from fec.cleaning.street_text import (
+    _normalize_street,
+    _normalize_unit,
+    _split_fused_house_number,
 )
 
 

@@ -6,7 +6,8 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.cleaning.addresses import _extract_units, _normalize_street, _normalize_unit, clean_cities
+from fec.cleaning.cities import clean_cities
+from fec.cleaning.street_text import _extract_units, _normalize_street, _normalize_unit
 from fec.cleaning.employer_status import current_employer_name, referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
