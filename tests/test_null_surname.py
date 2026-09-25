@@ -59,7 +59,7 @@ def test_default_pandas_loses_distinction():
 
 def test_quality_gate_catches_erased_null():
     """run_quality_gates must fail when 'NULL, JAMES' has empty surname."""
-    from fec.cleaning.quality import run_quality_gates
+    from fec.cleaning.quality.gates import run_quality_gates
 
     bug = pd.DataFrame([
         {'sub_id': '1', 'contributor_name': 'NULL, JAMES',
@@ -71,7 +71,7 @@ def test_quality_gate_catches_erased_null():
 
 
 def test_quality_gate_passes_with_literal_null():
-    from fec.cleaning.quality import run_quality_gates
+    from fec.cleaning.quality.gates import run_quality_gates
 
     good = pd.DataFrame([
         {'sub_id': '1', 'contributor_name': 'NULL, JAMES',

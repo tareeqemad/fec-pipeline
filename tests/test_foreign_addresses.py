@@ -1,7 +1,7 @@
 """Foreign addresses are detected on the raw filing, kept exactly as filed, and never geocoded."""
 import pandas as pd
 
-from fec.cleaning.foreign_addresses import (
+from fec.cleaning.addresses.foreign import (
     foreign_address_mask,
     restore_foreign_addresses,
     snapshot_foreign_addresses,

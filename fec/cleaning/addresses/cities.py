@@ -6,10 +6,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.zips import _clean_zip_raw
-from fec.cleaning.house_number_zip import (
+from fec.cleaning.addresses.house_number_zip import (
     _apply_house_number_zip,
 )
+from fec.cleaning.addresses.zips import _clean_zip_raw
 from fec.config.cities import (
     CITY_NORMALIZE,
     CITY_STATE_NORMALIZE,

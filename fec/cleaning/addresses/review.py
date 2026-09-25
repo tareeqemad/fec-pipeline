@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.pipeline.address_fixes.safe_text import _CO_RE, is_state_zip_fragment
+from fec.cleaning.addresses.fixes.safe_text import _CO_RE, is_state_zip_fragment
 from fec.config.geography import US_STATES
 
 S1, S2 = "contributor_street_1", "contributor_street_2"

@@ -5,7 +5,7 @@ import csv
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.address_review import (
+from fec.cleaning.addresses.review import (
     AUTO_FIXED,
     OPEN,
     apply_street2_fixes,

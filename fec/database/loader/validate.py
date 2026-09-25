@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 
 from fec.cleaning.employer_status import referenced_employers
-from fec.cleaning.quality import run_quality_gates
+from fec.cleaning.quality.gates import run_quality_gates
 from fec.config.data import FINAL_OUTPUT_COLUMNS
 from fec.database.loader.addresses import (
     load_employer_locations,

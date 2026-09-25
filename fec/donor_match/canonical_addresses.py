@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.cleaning.pipeline.address_fixes.unify import _unit_core
+from fec.cleaning.addresses.fixes.unify import _unit_core
 from fec.donor_match.components import UnionFind
 
 # a run of letters/digits, to tokenize a street address

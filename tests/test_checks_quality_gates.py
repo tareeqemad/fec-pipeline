@@ -7,9 +7,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fec.cleaning.occupations import _categorize_final
 from fec.cleaning.employer_status import classify_employer_statuses
-from fec.cleaning.quality import run_quality_gates
+from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.quality.gates import run_quality_gates
 from fec.resolve.pipeline import cli as resolve_cli
 
 REPO = Path(__file__).resolve().parents[1]

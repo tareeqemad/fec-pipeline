@@ -6,7 +6,11 @@ import time
 
 import pandas as pd
 
-from fec.cleaning.address_review import (
+from fec.cleaning.addresses.foreign import (
+    restore_foreign_addresses,
+    snapshot_foreign_addresses,
+)
+from fec.cleaning.addresses.review import (
     build_review_queues,
     queue_counts,
     write_review_queues,
@@ -19,10 +23,6 @@ from fec.cleaning.audit_trail import (
     AuditTrail,
 )
 from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
-from fec.cleaning.foreign_addresses import (
-    restore_foreign_addresses,
-    snapshot_foreign_addresses,
-)
 from fec.cleaning.manual_overrides import apply_manual_employer_overrides
 from fec.cleaning.occupations import clean_employer_occupation
 from fec.cleaning.pipeline.address_stage import clean_addresses, log_review_queues

@@ -4,12 +4,12 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.pipeline.address_fixes.state_zip import is_zcta, zip_state
-from fec.cleaning.street_text import (
+from fec.cleaning.addresses.fixes.state_zip import is_zcta, zip_state
+from fec.cleaning.addresses.street_text import (
     _drop_repeated_street,
     _normalize_street,
 )
-from fec.cleaning.zips import _clean_zip_raw
+from fec.cleaning.addresses.zips import _clean_zip_raw
 from fec.config.streets import (
     STREET_TYPES,
 )

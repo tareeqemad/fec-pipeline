@@ -1,7 +1,7 @@
 """A 34-char FEC street that extends the donor's own shorter street is trimmed back to it."""
 import pandas as pd
 
-from fec.cleaning.pipeline.address_fixes.recovery import _trim_street_to_donor_short_form
+from fec.cleaning.addresses.fixes.recovery import _trim_street_to_donor_short_form
 
 
 def _df(rows):

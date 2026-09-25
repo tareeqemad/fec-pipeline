@@ -1,7 +1,7 @@
 """OFFICE followed by a place word is part of the street's name, not a unit."""
 import pandas as pd
 
-from fec.cleaning.addresses import clean_streets
+from fec.cleaning.addresses.streets import clean_streets
 
 
 def _clean(street):
