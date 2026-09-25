@@ -1,8 +1,6 @@
 """Occupation cross-field rules: occupation-employer mappings and job-title sets."""
-from fec.config.constants import (
-    OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER,
-    REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS,
-)
+from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
+from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 
 
 # Explicit refusals keep NOT DISCLOSED; other fixes to that value are junk.

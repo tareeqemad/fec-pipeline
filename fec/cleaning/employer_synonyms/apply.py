@@ -5,11 +5,12 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.occupations import _categorize
-from fec.config.constants import LEGAL_SUFFIX_RE, SKIP_EMPLOYERS
+from fec.config.constants import SKIP_EMPLOYERS
+from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
-from fec.config.constants import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
+from fec.config.not_employers import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 
 # Occupation words filed as the employer: these people are self-employed.

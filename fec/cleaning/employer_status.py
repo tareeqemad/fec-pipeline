@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.config.constants import (
-    NOT_REAL_EMPLOYER,
-)
+from fec.config.not_employers import NOT_REAL_EMPLOYER
 
 _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
 

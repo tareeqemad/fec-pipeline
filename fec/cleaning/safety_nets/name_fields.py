@@ -12,11 +12,8 @@ from fec.cleaning.safety_nets.employer_swaps import (
     _is_own_name,
     _swap_occ_emp_fields,
 )
-from fec.config.constants import (
-    JOB_TITLE_AS_EMPLOYER,
-    SKIP_EMPLOYERS,
-    SKIP_OCCUPATIONS,
-)
+from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
+from fec.config.not_employers import JOB_TITLE_AS_EMPLOYER
 from fec.config.occupation_rules.rules import (
     KNOWN_COMPANY_OCCUPATIONS,
 )

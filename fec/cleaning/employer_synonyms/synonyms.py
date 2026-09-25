@@ -2,7 +2,7 @@
 import csv
 import re
 
-from fec.config.constants import LEGAL_SUFFIX_RE
+from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.env import EMPLOYER_NAME_RULES_CSV
 from fec.log import get_logger
 

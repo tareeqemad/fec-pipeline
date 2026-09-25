@@ -6,7 +6,7 @@ import csv
 
 import pandas as pd
 
-from fec.config.constants import NOT_REAL_EMPLOYER
+from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
 

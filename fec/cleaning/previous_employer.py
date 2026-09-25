@@ -11,14 +11,12 @@ from fec.cleaning.employer_synonyms import (
     normalize_employer_display_name,
     restyle_legal_suffix,
 )
-from fec.config.constants import (
-    JUNK_EMPLOYER_RE,
+from fec.config.constants import JUNK_EMPLOYER_RE, SLASH_BRAND_EMPLOYERS, STATUS_WORDS
+from fec.config.not_employers import (
     LEGAL_SUFFIX_RE,
     OCCUPATION_AS_EMPLOYER,
     ROLE_AS_EMPLOYER,
     SECTOR_AS_EMPLOYER,
-    SLASH_BRAND_EMPLOYERS,
-    STATUS_WORDS,
 )
 from fec.config.data import MISSING_VALUES
 

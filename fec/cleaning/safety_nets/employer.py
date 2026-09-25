@@ -8,8 +8,11 @@ import pandas as pd
 
 from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.config.constants import (
-    REFUSAL_EMPLOYERS, OK_SHORT_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
-    OCCUPATION_AS_EMPLOYER, RETIRED_TYPO_EMPLOYERS, NOT_REAL_EMPLOYER,
+    REFUSAL_EMPLOYERS, OK_SHORT_EMPLOYERS, ADMIN_NOTE_EMPLOYER_RE,
+    RETIRED_TYPO_EMPLOYERS,
+)
+from fec.config.not_employers import (
+    SECTOR_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER, NOT_REAL_EMPLOYER,
     JOB_TITLE_AS_EMPLOYER,
 )
 
