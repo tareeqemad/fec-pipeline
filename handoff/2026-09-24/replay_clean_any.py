@@ -29,7 +29,7 @@ from fec.io import read_pipeline_csv  # noqa: E402
 from fec.log import setup_logging  # noqa: E402
 from fec.cleaning.audit import write_audit  # noqa: E402
 from fec.cleaning.cli import _drop_internal_cols, _ensure_zip_format  # noqa: E402
-from fec.cleaning.pipeline import clean_pipeline  # noqa: E402
+from fec.cleaning.pipeline.core import clean_pipeline  # noqa: E402
 
 setup_logging()
 df = read_pipeline_csv(str(RAW_CSV))
