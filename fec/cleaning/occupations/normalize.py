@@ -5,11 +5,11 @@ import pandas as pd
 from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
 from fec.config.data import COMM_PATTERNS, MISSING_VALUES, RETIRE_RE
 from fec.config.occupation_rules.categories import (
-    CATEGORY_OVERRIDES,
     CATEGORY_PATTERNS,
     RECLASSIFY_CATEGORY_RULES,
 )
-from fec.config.occupation_rules.rules import OCCUPATION_FIXES
+from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
+from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
 
 # junk value -> NaN, one batch replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}

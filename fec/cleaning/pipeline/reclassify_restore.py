@@ -10,7 +10,8 @@ from fec.cleaning.occupations.normalize import EMPLOYER_STATUS_TEXT
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES
 from fec.config.employers import EMPLOYER_NORMALIZE
-from fec.config.occupation_rules.rules import OCCUPATION_NORMALIZE, SWAP_JOB_TITLES
+from fec.config.occupation_rules.rules import SWAP_JOB_TITLES
+from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
 
 from .reclassify import _ORG_BUSINESS_RE
 

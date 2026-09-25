@@ -9,7 +9,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx
-from fec.config.occupation_rules.rules import OCCUPATION_TYPO_FIXES
+from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
 
 # Job titles that combine with "/" (PRESIDENT/CEO). Longest first so the
 # alternation prefers VICE PRESIDENT over PRESIDENT.

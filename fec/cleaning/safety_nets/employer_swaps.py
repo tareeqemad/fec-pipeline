@@ -12,9 +12,7 @@ from fec.config.constants import (
     JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE,
     NOT_REAL_EMPLOYER,
 )
-from fec.config.occupation_rules.rules import (
-    OCCUPATION_CANONICAL,
-)
+from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 
 # HEALTH / HEALTHCARE name a company (SUMMIT HEALTH, CVS HEALTH) but not when
 # a person noun follows: MENTAL HEALTH COUNSELOR, HEALTH COACH, HEALTHCARE

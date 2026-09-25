@@ -11,11 +11,11 @@ import pytest
 
 from fec.cleaning.occupations import _categorize_final
 from fec.config.occupation_rules.categories import (
-    CATEGORY_OVERRIDES,
     CATEGORY_RULES,
     RECLASSIFY_CATEGORY_RULES,
     VALID_CATEGORIES,
 )
+from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
 
 LEGAL = 'LEGAL'
 MED = 'MEDICAL / HEALTHCARE'

@@ -8,10 +8,8 @@ from fec.config.data import MISSING_VALUES
 from fec.config.constants import (
     OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS,
 )
-from fec.config.occupation_rules.rules import (
-    EMPLOYER_TYPO_FIXES,
-    HOMEMAKER_EMPLOYER_VALUES,
-)
+from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
+from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES
 
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
