@@ -220,6 +220,8 @@ def identify_donors(
         validate_separations,
     )
 
+    # confirmed unless a hold rule (held) or the network step (unresolved) says otherwise
+    df_clean["identity_status"] = "confirmed"
     rid_to_key, match_audit = match_donors(df_clean)
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
@@ -281,6 +283,19 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
     log_review_queues(queue_counts(review_df, regeocode_df), logger.info)
 
 
+def _employment_sources(df: pd.DataFrame, trail: AuditTrail) -> pd.Series:
+    """'inferred' where the employer or occupation came from other filings, else 'filed'."""
+    from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
+
+    inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
+    has_work = (
+        df["contributor_employer"].fillna("").astype(str).ne("")
+        | df["contributor_occupation"].fillna("").astype(str).ne("")
+    )
+    from_others = df["sub_id"].astype(str).isin(inferred) & has_work
+    return pd.Series("filed", index=df.index).mask(from_others, "inferred")
+
+
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
@@ -312,6 +327,7 @@ def clean_pipeline(
     if out_dir:
         _write_address_queues(df_clean, out_dir, address_reports, foreign.index)
     unexplained = trail.finish(df_clean)
+    df_clean["employment_source"] = _employment_sources(df_clean, trail)
     if unexplained:
         logger.warning(
             "  Audit: %s field values changed outside tracked steps", f"{unexplained:,}"

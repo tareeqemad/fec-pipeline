@@ -170,6 +170,14 @@ class AuditTrail:
                 unexplained += 1
         return unexplained
 
+    def keys_set_by(self, steps, fields) -> set:
+        """sub_ids whose surviving change to any of fields came from one of steps."""
+        steps, fields = set(steps), set(fields)
+        return {
+            str(record["sub_id"]) for record in self.net_records()
+            if record["step"] in steps and record["field"] in fields
+        }
+
     def net_records(self) -> list[dict]:
         """Remove changes undone by a later step."""
         chains: dict[tuple, list[dict]] = {}

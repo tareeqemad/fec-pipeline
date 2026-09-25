@@ -242,6 +242,8 @@ def test_held_filings_leave_the_person_and_stay_together(monkeypatch):
     assert K.hold_unproven_filings(df) == 2
     assert df.at[0, "donor_key"] == "ellen"
     assert df.at[1, "donor_key"] == df.at[2, "donor_key"] != "ellen"
+    # the export says the owner is unproven
+    assert df["identity_status"].tolist()[1:] == ["held", "held"]
 
 
 def test_a_hold_rule_needs_a_sub_id(monkeypatch, tmp_path):
