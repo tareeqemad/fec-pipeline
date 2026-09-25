@@ -24,8 +24,8 @@ from fec.resolve.pipeline.locations import (
     location_candidates,
     publishable_first_entry,
     resolve_cache_entry,
-    zip_centroid,
 )
+from fec.resolve.pipeline.location_choice import zip_centroid
 
 logger = get_logger(__name__)
 
