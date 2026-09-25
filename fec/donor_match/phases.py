@@ -9,7 +9,7 @@ from .constants import (
     SCORE_CROSS_NAME_BONUS,
 )
 from .rules import identities_must_stay_separate
-from .scoring import compute_score, _are_cross_group_candidates, _is_surname_variant
+from .scoring import _are_cross_group_candidates, _is_surname_variant, compute_score
 
 # one or more spaces/commas, to split a name into words
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
@@ -126,51 +126,65 @@ def _norms_by_last_name(name_groups: dict) -> dict:
     return grouped
 
 
-# match first-name variants corroborated by street, ZIP, or employer
-def _score_cross_groups(
-    context: MatchContext,
-) -> None:
-    """Match first-name variants only when street, ZIP, or employer corroborates them."""
-    for norms in _norms_by_last_name(context.name_groups).values():
+# score every record pair across two gated names of one bucket
+def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, records_match, adjust) -> None:
+    """Score each pair of records under two names of a bucket.
+
+    names_match(a, b) gates a pair of normalized names; records_match(p1, p2)
+    gates a pair of profiles before scoring; adjust(score, signals) returns the
+    phase's final score and may add signals. Pairs are visited in sorted name
+    order, so merges happen in the same order on every run.
+    """
+    for norms in buckets.values():
         if len(norms) < 2:
             continue
         norm_list = sorted(norms)
-        for i in range(len(norm_list)):
-            candidates = (
-                j
-                for j in range(i + 1, len(norm_list))
-                if _are_cross_group_candidates(norm_list[i], norm_list[j])
-            )
-            for j in candidates:
-                rids_a = context.name_groups[norm_list[i]]
-                rids_b = context.name_groups[norm_list[j]]
+        for i, name_a in enumerate(norm_list):
+            for name_b in norm_list[i + 1:]:
+                if not names_match(name_a, name_b):
+                    continue
+                rids_a = context.name_groups[name_a]
+                rids_b = context.name_groups[name_b]
                 combined_freq = len(rids_a) + len(rids_b)
-
                 for rid_a in rids_a:
                     for rid_b in rids_b:
-                        p1 = context.profiles[rid_a]
-                        p2 = context.profiles[rid_b]
-
+                        p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
+                        if not records_match(p1, p2):
+                            continue
                         score, signals = compute_score(p1, p2, combined_freq)
-                        has_anchor = any(
-                            signal.startswith(("street(", "zip5=", "employer="))
-                            for signal in signals
-                        )
-                        if has_anchor:
-                            score += SCORE_CROSS_NAME_BONUS
-                            signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")
-                        else:
-                            score = min(score, MERGE_THRESHOLD - 1)
-                            signals.append("CROSS_NAME_NO_ANCHOR")
-
+                        score = adjust(score, signals)
                         _merge_and_audit(
-                            context,
-                            rid_a,
-                            rid_b,
-                            f"{norm_list[i]} ↔ {norm_list[j]}",
-                            score,
-                            signals,
+                            context, rid_a, rid_b, f"{name_a} ↔ {name_b}", score, signals,
                         )
+
+
+# any pair of profiles
+def _any_records(_p1: dict, _p2: dict) -> bool:
+    return True
+
+
+# same street, or the same full ZIP5
+def _same_street_or_zip(p1: dict, p2: dict) -> bool:
+    z1, z2 = p1["zip5"], p2["zip5"]
+    return bool(p1["streets"] & p2["streets"]) or bool(z1 and len(z1) == 5 and z1 == z2)
+
+
+# first-name variants earn the bonus only with a street, ZIP or employer anchor
+def _cross_name_adjust(score: float, signals: list) -> float:
+    if any(signal.startswith(("street(", "zip5=", "employer=")) for signal in signals):
+        signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")
+        return score + SCORE_CROSS_NAME_BONUS
+    signals.append("CROSS_NAME_NO_ANCHOR")
+    return min(score, MERGE_THRESHOLD - 1)
+
+
+# match first-name variants corroborated by street, ZIP, or employer
+def _score_cross_groups(context: MatchContext) -> None:
+    """Match first-name variants only when street, ZIP, or employer corroborates them."""
+    _score_bucket_pairs(
+        context, _norms_by_last_name(context.name_groups),
+        _are_cross_group_candidates, _any_records, _cross_name_adjust,
+    )
 
 
 # group normalized names by shared first name
@@ -185,48 +199,29 @@ def _norms_by_first_name(name_groups: dict) -> dict:
     return grouped
 
 
+# same street, or the same ZIP5 and a shared employer
+def _same_street_or_zip_and_employer(p1: dict, p2: dict) -> bool:
+    z1, z2 = p1["zip5"], p2["zip5"]
+    same_zip = bool(z1 and len(z1) == 5 and z1 == z2)
+    same_employer = bool(p1["norm_employers"] & p2["norm_employers"])
+    return bool(p1["streets"] & p2["streets"]) or (same_zip and same_employer)
+
+
+# two names whose surnames are typos of each other
+def _surnames_vary(name_a: str, name_b: str) -> bool:
+    return _is_surname_variant(name_a.split("|", 1)[0], name_b.split("|", 1)[0])
+
+
+# tag a surname-variant pair without changing its score
+def _surname_variant_adjust(score: float, signals: list) -> float:
+    signals.append("surname_variant")
+    return score
+
+
 # match surname typos sharing a street or a ZIP/employer
-def _score_surname_variants(
-    context: MatchContext,
-) -> None:
+def _score_surname_variants(context: MatchContext) -> None:
     """Match surname typos only when the records share a street, or a ZIP and employer."""
-    for norms in _norms_by_first_name(context.name_groups).values():
-        if len(norms) < 2:
-            continue
-        norm_list = sorted(norms)
-        for i in range(len(norm_list)):
-            last_i = norm_list[i].split("|", 1)[0]
-            for j in range(i + 1, len(norm_list)):
-                last_j = norm_list[j].split("|", 1)[0]
-                if not _is_surname_variant(last_i, last_j):
-                    continue
-
-                rids_a = context.name_groups[norm_list[i]]
-                rids_b = context.name_groups[norm_list[j]]
-                combined_freq = len(rids_a) + len(rids_b)
-
-                for ra in rids_a:
-                    for rb in rids_b:
-                        p1, p2 = context.profiles[ra], context.profiles[rb]
-
-                        same_street = bool(p1["streets"] & p2["streets"])
-                        same_employer = bool(
-                            p1["norm_employers"] & p2["norm_employers"]
-                        )
-                        z1, z2 = p1["zip5"], p2["zip5"]
-                        same_zip = bool(z1 and len(z1) == 5 and z1 == z2)
-                        if not (same_street or (same_zip and same_employer)):
-                            continue
-
-                        score, signals = compute_score(p1, p2, combined_freq)
-                        signals.append("surname_variant")
-                        _merge_and_audit(
-                            context,
-                            ra,
-                            rb,
-                            f"{norm_list[i]} ↔ {norm_list[j]}",
-                            score,
-                            signals,
-                        )
-
-
+    _score_bucket_pairs(
+        context, _norms_by_first_name(context.name_groups),
+        _surnames_vary, _same_street_or_zip_and_employer, _surname_variant_adjust,
+    )

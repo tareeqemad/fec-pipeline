@@ -10,6 +10,7 @@ from fec.config.occupation_rules.categories import (
 )
 from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
 from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
+from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 
 # junk value -> NaN, one batch replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
@@ -157,3 +158,17 @@ def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
             {key: value[1] for key, value in OCCUPATION_FIXES.items()}
         )
     return original
+
+
+# swap employer and occupation on the given rows, recategorizing the occupation
+def swap_employer_and_occupation(df: pd.DataFrame, rows, *, canonical: bool = True, status=None) -> None:
+    """rows is a boolean mask or an index. canonical maps the new occupation
+    through OCCUPATION_CANONICAL; status, when given, sets occupation_status."""
+    old_employer = df.loc[rows, 'contributor_employer'].copy()
+    old_occupation = df.loc[rows, 'contributor_occupation'].copy()
+    new_occupation = old_employer.replace(OCCUPATION_CANONICAL) if canonical else old_employer
+    df.loc[rows, 'contributor_employer'] = old_occupation
+    df.loc[rows, 'contributor_occupation'] = new_occupation
+    df.loc[rows, 'occupation_category'] = _categorize(new_occupation)
+    if status is not None:
+        df.loc[rows, 'occupation_status'] = status

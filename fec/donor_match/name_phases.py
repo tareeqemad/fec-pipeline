@@ -5,7 +5,13 @@ from fec.donor_match.constants import (
     SCORE_CROSS_NAME_BONUS,
 )
 from fec.donor_match.normalize import _GENERATION_SUFFIXES
-from fec.donor_match.phases import _TOKEN_SPLIT_RE, MatchContext, _merge_and_audit
+from fec.donor_match.phases import (
+    _TOKEN_SPLIT_RE,
+    MatchContext,
+    _merge_and_audit,
+    _same_street_or_zip,
+    _score_bucket_pairs,
+)
 from fec.donor_match.scoring import compute_score
 
 
@@ -28,48 +34,27 @@ def _norms_by_name_tokens(name_groups: dict) -> dict:
     return grouped
 
 
+# a token-set match earns the cross-name bonus only without a middle conflict
+def _name_format_adjust(score: float, signals: list) -> float:
+    # so a same-street father and son never tip over the threshold
+    if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):
+        score += SCORE_CROSS_NAME_BONUS
+    signals.append("name_format_variant")
+    return score
+
+
 # match same person written with a different name format
-def _score_name_variants(
-    context: MatchContext,
-) -> None:
+def _score_name_variants(context: MatchContext) -> None:
     """Match the same person written in a different name format, bucketed by token set and gated on same street or ZIP5; middle-name conflicts stay blocked/penalised."""
-    for norms in _norms_by_name_tokens(context.name_groups).values():
-        if len(norms) < 2:
-            continue
-        norm_list = sorted(norms)
-        for i in range(len(norm_list)):
-            for j in range(i + 1, len(norm_list)):
-                rids_a = context.name_groups[norm_list[i]]
-                rids_b = context.name_groups[norm_list[j]]
-                combined_freq = len(rids_a) + len(rids_b)
+    _score_bucket_pairs(
+        context, _norms_by_name_tokens(context.name_groups),
+        _any_names, _same_street_or_zip, _name_format_adjust,
+    )
 
-                for ra in rids_a:
-                    for rb in rids_b:
-                        p1, p2 = context.profiles[ra], context.profiles[rb]
-                        z1, z2 = p1["zip5"], p2["zip5"]
-                        strong_geo = bool(p1["streets"] & p2["streets"]) or (
-                            z1 and len(z1) == 5 and z1 == z2
-                        )
-                        if not strong_geo:
-                            continue
 
-                        score, signals = compute_score(p1, p2, combined_freq)
-                        # token-set match earns the cross-name credit only without a
-                        # middle conflict, so a same-street father/son never tips over
-                        if not any(
-                            ("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s)
-                            for s in signals
-                        ):
-                            score += SCORE_CROSS_NAME_BONUS
-                        signals.append("name_format_variant")
-                        _merge_and_audit(
-                            context,
-                            ra,
-                            rb,
-                            f"{norm_list[i]} ↔ {norm_list[j]}",
-                            score,
-                            signals,
-                        )
+# any pair of names in the bucket
+def _any_names(_name_a: str, _name_b: str) -> bool:
+    return True
 
 
 # index names by significant tokens and first-name tokens

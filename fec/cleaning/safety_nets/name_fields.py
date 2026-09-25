@@ -4,11 +4,11 @@ from __future__ import annotations
 import pandas as pd
 
 from fec.cleaning._helpers import _set_missing
+from fec.cleaning.occupations.normalize import swap_employer_and_occupation
 from fec.cleaning.safety_nets.employer_swaps import (
     _COMPANY_NAME_RE,
     _COMPANY_SUFFIX_RE,
     _KNOWN_OCCUPATIONS,
-    _swap_occ_emp_fields,
 )
 from fec.cleaning.safety_nets.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
@@ -85,7 +85,7 @@ def _fix_swapped_emp_occ_company(df: pd.DataFrame) -> int:
     if not n_fixed:
         return 0
 
-    _swap_occ_emp_fields(df, mask)
+    swap_employer_and_occupation(df, mask)
     return n_fixed
 
 
@@ -102,5 +102,5 @@ def _fix_occ_emp_both_swapped(df: pd.DataFrame) -> int:
     mask = is_indiv & occ.isin(KNOWN_COMPANY_OCCUPATIONS) & emp.ne('') & ~emp_is_company
     n_fixed = int(mask.sum())
     if n_fixed:
-        _swap_occ_emp_fields(df, mask)
+        swap_employer_and_occupation(df, mask)
     return n_fixed

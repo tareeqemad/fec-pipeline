@@ -145,7 +145,8 @@ def test_roster_zip_agrees_with_the_rows_own_coordinates():
     # Sandberg's 94027 (Atherton) sat 41 km from her San Francisco office pin; the largest
     # remaining gaps are ~12 km in big suburban ZIPs
     from fec.database.roster_sync import is_foreign_row
-    from fec.resolve.pipeline.location_choice import _distance, _zip_centroids
+    from fec.geocoding.places import distance_km
+    from fec.resolve.pipeline.location_choice import _zip_centroids
 
     centroids = _zip_centroids()
     compared = 0
@@ -155,6 +156,6 @@ def test_roster_zip_agrees_with_the_rows_own_coordinates():
             if is_foreign_row(row, prefix) or not (zip_code and lat and lng) or zip_code not in centroids:
                 continue
             compared += 1
-            km = _distance((float(lat), float(lng)), centroids[zip_code]) * 1.609344
+            km = distance_km((float(lat), float(lng)), centroids[zip_code])
             assert km < 20, (filename, row["donor_key"], zip_code, round(km, 1))
     assert compared > 100

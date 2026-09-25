@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import csv
-import math
 from functools import lru_cache
 
 from fec.env import PROJECT_ROOT
+from fec.geocoding.places import EARTH_RADIUS_MILES, great_circle
 from fec.resolve.pipeline.locations import _signature, _text, location_candidates
 
 
@@ -30,19 +30,6 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
 def zip_centroid(zipcode: str) -> tuple[float, float] | None:
     """The 5-digit ZIP's centroid, or None when it has none."""
     return _zip_centroids().get(_text(zipcode)[:5])
-
-
-# great-circle distance in miles between two points
-def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
-    """Great-circle distance in miles."""
-    lat1, lon1 = map(math.radians, a)
-    lat2, lon2 = map(math.radians, b)
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    value = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    )
-    return 3958.8 * 2 * math.asin(min(1.0, math.sqrt(value)))
 
 
 # pick the best employer location: same state, then nearest
@@ -79,7 +66,7 @@ def select_location(
         for location in same_state:
             point = centroids.get(_text(location.get("employer_zip"))[:5])
             if point:
-                ranked.append((_distance(donor_point, point), location))
+                ranked.append((great_circle(donor_point, point, EARTH_RADIUS_MILES), location))
         if ranked:
             return min(
                 ranked,

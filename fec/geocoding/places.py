@@ -67,14 +67,24 @@ _TOWN_SUFFIX_RE = re.compile(r" (?:TOWNSHIP|TWP)$")
 _TOWNSHIP_RE = re.compile(r"^TOWN(?:SHIP)? OF | (?:TOWNSHIP|TWP)$")
 
 
-# great-circle distance between two lat/lng points, in km
-def distance_km(first: tuple[float, float], second: tuple[float, float]) -> float:
+EARTH_RADIUS_KM = 6371
+EARTH_RADIUS_MILES = 3958.8
+
+
+# great-circle distance between two lat/lng points, in the radius's unit
+def great_circle(first: tuple[float, float], second: tuple[float, float], radius: float) -> float:
     lat1, lng1 = map(math.radians, first)
     lat2, lng2 = map(math.radians, second)
     dlat, dlng = lat2 - lat1, lng2 - lng1
     value = math.sin(dlat / 2) ** 2
     value += math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
-    return 6371 * 2 * math.asin(math.sqrt(value))
+    # rounding can push the root a hair past 1, outside asin's domain
+    return radius * 2 * math.asin(min(1.0, math.sqrt(value)))
+
+
+# great-circle distance between two lat/lng points, in km
+def distance_km(first: tuple[float, float], second: tuple[float, float]) -> float:
+    return great_circle(first, second, EARTH_RADIUS_KM)
 
 
 # true if coords fall in any US state/territory bounding box
