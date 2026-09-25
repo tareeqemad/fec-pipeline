@@ -1,6 +1,8 @@
 """OpenAI client for employer lookups; reads OPENAI_API_KEY and AI_MODEL."""
 import os
 
+from openai import OpenAI
+
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -46,8 +48,6 @@ def get_ai_model() -> str:
 
 def get_ai_client():
     """(client, model); client is None without OPENAI_API_KEY."""
-    from openai import OpenAI
-
     model = get_ai_model()
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:

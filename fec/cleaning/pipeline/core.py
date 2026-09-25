@@ -6,30 +6,48 @@ import time
 
 import pandas as pd
 
+from fec.cleaning.address_review import (
+    build_review_queues,
+    queue_counts,
+    write_review_queues,
+)
 from fec.cleaning.audit_trail import (
+    ADDRESS_FIELDS,
     ENTITY_FIELDS,
     NAME_FIELDS,
     WORK_FIELDS,
     AuditTrail,
 )
+from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
+from fec.cleaning.foreign_addresses import (
+    restore_foreign_addresses,
+    snapshot_foreign_addresses,
+)
+from fec.cleaning.manual_overrides import apply_manual_employer_overrides
 from fec.cleaning.occupations import clean_employer_occupation
+from fec.cleaning.pipeline.donor_identity import identify_donors
+from fec.cleaning.record_rules import apply_record_rules
+from fec.committees import committee_id_to_name
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
 from fec.config.geography import US_STATES
+from fec.donor_match.normalize import extract_generational_suffix
 from fec.log import get_logger
 
-from .address_stage import clean_addresses
-from .names import _clean_names
+from .address_stage import clean_addresses, log_review_queues
+from .donor_stage import standardize
 from .name_parsing import _preclean_name_punctuation
+from .names import _clean_names
 from .reclassify import _reclassify_entities
-from .reclassify_restore import _clear_individual_residue, _restore_reclassified_committees
+from .reclassify_restore import (
+    _clear_individual_residue,
+    _restore_reclassified_committees,
+)
 from .reports import _build_missing_report, _sanity_check
 
 logger = get_logger(__name__)
 
 
 def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
-    from fec.donor_match.normalize import extract_generational_suffix
-
     df["_generational_suffix"] = df["contributor_name"].map(
         extract_generational_suffix
     )
@@ -116,8 +134,6 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
 
 
 def _finish_records(df: pd.DataFrame, log):
-    from fec.committees import committee_id_to_name
-
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])
     unknown = sorted(
@@ -157,17 +173,6 @@ def _clean_fields(
     return df, missing
 
 
-def _validate_generational_suffixes(df: pd.DataFrame) -> None:
-    """Reject a donor containing different explicit generation suffixes."""
-    people = df[df["entity_type"] == "INDIVIDUAL"]
-    suffixes = people[people["_generational_suffix"] != ""]
-    conflicts = suffixes.groupby("donor_key")["_generational_suffix"].nunique()
-    conflicts = conflicts[conflicts > 1]
-    if not conflicts.empty:
-        keys = ", ".join(conflicts.index.astype(str)[:3])
-        raise ValueError(f"JR/SR identity guard rejected donor(s): {keys}")
-
-
 def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
@@ -184,12 +189,10 @@ def clean_records(
     )
 
     logger.info("\n-- Record rules --")
-    from fec.cleaning.record_rules import apply_record_rules
 
     df_clean = apply_record_rules(df_clean, trail)
 
     # Reapply curated overrides.
-    from fec.cleaning.manual_overrides import apply_manual_employer_overrides
 
     n_overrides = trail.run(
         df_clean, apply_manual_employer_overrides, "manual_overrides",
@@ -203,60 +206,12 @@ def clean_records(
     return df_clean, missing
 
 
-def identify_donors(
-    df_clean: pd.DataFrame
-) -> pd.DataFrame:
-    """Assign one donor_key to each identity."""
-    df_clean = df_clean.reset_index(drop=True)
-    if "_generational_suffix" not in df_clean.columns:
-        df_clean["_generational_suffix"] = ""
-    logger.info("\n-- Donor identity --")
-    from fec.donor_match import (
-        apply_curated_key_merges,
-        apply_donor_key,
-        hold_unproven_filings,
-        match_donors,
-        merge_split_name_donors,
-        validate_separations,
-    )
-
-    # confirmed unless a hold rule (held) or the network step (unresolved) says otherwise
-    df_clean["identity_status"] = "confirmed"
-    rid_to_key, match_audit = match_donors(df_clean)
-    df_clean = apply_donor_key(df_clean, rid_to_key)
-
-    repointed = merge_split_name_donors(df_clean)
-    repointed += apply_curated_key_merges(df_clean)
-    held = hold_unproven_filings(df_clean)
-    _validate_generational_suffixes(df_clean)
-    validate_separations(df_clean)
-
-    profiles = len(rid_to_key)
-    donors = df_clean.loc[
-        df_clean["entity_type"].eq("INDIVIDUAL"), "donor_key"
-    ].nunique()
-    logger.info(
-        "  %s profiles -> %s donors (%s merged; %s pairs scored)",
-        f"{profiles:,}",
-        f"{donors:,}",
-        f"{profiles - donors:,}",
-        f"{len(match_audit):,}",
-    )
-    if repointed:
-        logger.info("  %s rows joined by identity rules", f"{repointed:,}")
-    if held:
-        logger.info("  %s filings held outside every person", f"{held:,}")
-    return df_clean
-
-
 def standardize_donors(
     df_clean: pd.DataFrame,
     out_dir: str | None = None,
     trail: AuditTrail | None = None,
 ) -> pd.DataFrame:
     """Make each donor consistent across filings."""
-    from .donor_stage import standardize
-
     return standardize(df_clean, out_dir, trail or AuditTrail())
 
 
@@ -267,12 +222,6 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
     reflected and every row carries its donor_key; foreign filings (kept as
     filed, never geocoded) are not queued.
     """
-    from fec.cleaning.address_review import (
-        build_review_queues,
-        queue_counts,
-        write_review_queues,
-    )
-    from .address_stage import log_review_queues
 
     review_df, regeocode_df = build_review_queues(
         df_clean,
@@ -285,8 +234,6 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
 
 def _employment_sources(df: pd.DataFrame, trail: AuditTrail) -> pd.Series:
     """'inferred' where the employer or occupation came from other filings, else 'filed'."""
-    from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
-
     inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
     has_work = (
         df["contributor_employer"].fillna("").astype(str).ne("")
@@ -301,12 +248,6 @@ def clean_pipeline(
     out_dir: str | None = None,
 ):
     """Run the complete cleaning pipeline."""
-    from fec.cleaning.audit_trail import ADDRESS_FIELDS
-    from fec.cleaning.foreign_addresses import (
-        restore_foreign_addresses,
-        snapshot_foreign_addresses,
-    )
-
     trail = AuditTrail()
     # foreign filings are kept exactly as filed: remember them before any repair
     foreign = snapshot_foreign_addresses(df)

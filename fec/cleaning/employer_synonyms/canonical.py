@@ -8,6 +8,13 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm
 from fec.cleaning.employer_synonyms.normalize import _TRAILING_PAREN_RE
+from fec.cleaning.occupations.employer_groups import (
+    _employer_group_key,
+    employer_filers,
+    employer_group_words,
+    prefer_attested_spacing,
+    spacing_index,
+)
 
 # COMPANY listed before CO (and INCORPORATED before INC) so iteration strips
 # the longer suffix first - otherwise "MPANY" residue would be left behind.
@@ -117,13 +124,6 @@ def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) ->
     if "contributor_name" not in raw.columns:
         return
     # imported here: the occupations package imports this one at load time
-    from fec.cleaning.occupations.employer_groups import (
-        _employer_group_key,
-        employer_filers,
-        employer_group_words,
-        prefer_attested_spacing,
-        spacing_index,
-    )
 
     candidates = {}
     for key, forms in raw.groupby("key")["emp"].unique().items():

@@ -6,6 +6,7 @@ import re
 import numpy as np
 import pandas as pd
 
+from fec.cleaning.audit_trail import NAME_FIELDS, WORK_FIELDS, AuditTrail
 from fec.cleaning.name_rules import FIRST_NAME_FIXES
 from fec.cleaning.pipeline.name_parsing import (
     _clean_committee_names,
@@ -175,8 +176,6 @@ NAME_STEPS = (
 
 def _clean_names(df: pd.DataFrame, trail=None) -> None:
     """Clean names in place, rebuild contributor_name."""
-    from fec.cleaning.audit_trail import NAME_FIELDS, WORK_FIELDS, AuditTrail
-
     trail = trail or AuditTrail()
     for col in ['contributor_first_name', 'contributor_last_name']:
         df[col] = df[col].astype('object')

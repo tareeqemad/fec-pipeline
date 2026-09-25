@@ -8,11 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-
-try:
-    from psycopg2.extras import execute_values
-except ImportError:
-    raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
+from psycopg2.extras import execute_values
 
 from fec.database.loader.people import _load_donor_linked_csv
 from fec.log import get_logger

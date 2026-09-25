@@ -4,6 +4,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from fec.cleaning.employer_status import is_real_employer
+
 _ORG_SURNAMES = frozenset({
     'FOUNDATION', 'FUND', 'TRUST', 'ASSOCIATION', 'SOCIETY', 'INSTITUTE',
 })
@@ -24,8 +26,6 @@ def _fix_committee_employer(df: pd.DataFrame, is_comm: pd.Series) -> int:
 
 def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     """Reclassify an organization parsed as a person."""
-    from fec.cleaning.employer_status import is_real_employer
-
     first = df['contributor_first_name'].fillna('').astype(str).str.strip()
     mask = (
         (df['entity_type'] == 'INDIVIDUAL')

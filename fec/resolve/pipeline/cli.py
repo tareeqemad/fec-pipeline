@@ -9,8 +9,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from fec.cleaning.quality import run_quality_gates
+from fec.config.cities import expand_city_abbreviations
 from fec.env import CLEANED_CSV, load_env
+from fec.io import read_pipeline_csv
 from fec.log import get_logger
+from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
 
 from .ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
 from .apply import apply_results
@@ -25,7 +29,6 @@ from .manual_overrides import (
 from .stats import show_stats
 from .steps.ai_employer import step_ai_lookup
 from .steps.previous_employer import step_cross_record
-from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
 
 logger = get_logger(__name__)
 
@@ -42,8 +45,6 @@ def _parse_args():
 
 
 def _load_data(csv_path: str):
-    from fec.io import read_pipeline_csv
-
     data_dir = os.path.dirname(csv_path) or "."
     previous = Cache(os.path.join(data_dir, PREV_EMPLOYER_CACHE))
     employers = Cache(os.path.join(data_dir, EMPLOYER_ADDR_CACHE))
@@ -141,7 +142,6 @@ def _write_results(
     df = apply_results(df, prev_cache, addr_cache)
     data_dir = os.path.dirname(csv_path) or "."
 
-    from fec.cleaning.quality import run_quality_gates
     quality = run_quality_gates(df)
     if not quality["passed"]:
         _write_quality_gates(quality, data_dir, csv_written=False)
@@ -149,7 +149,6 @@ def _write_results(
         raise ValueError(f"Resolved CSV was not written: {details}")
 
     # Expand Saint/Mount/Fort in resolved employer cities, matching clean.py.
-    from fec.config.cities import expand_city_abbreviations
     df["employer_city"] = df["employer_city"].map(expand_city_abbreviations)
 
     destination = Path(csv_path)

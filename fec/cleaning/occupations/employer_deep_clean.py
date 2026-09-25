@@ -4,12 +4,15 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.config.data import MISSING_VALUES
+from fec.cleaning.audit_trail import WORK_FIELDS
 from fec.config.constants import (
-    OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS,
+    OK_SHORT_EMPLOYERS,
+    OK_SHORT_OCCUPATIONS,
+    SELF_EMPLOYED_TYPOS,
 )
-from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
+from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES
+from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
 
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
@@ -20,8 +23,6 @@ _TITLE_PREFIX_RE = re.compile(
 
 def _deep_clean_employer(df: pd.DataFrame, trail) -> int:
     """Employer-specific cleaning beyond text normalization; returns number of values changed."""
-    from fec.cleaning.audit_trail import WORK_FIELDS
-
     n_changed = 0
     for pass_fn, reason in DEEP_CLEAN_PASSES:
         n_changed += trail.run(

@@ -255,7 +255,7 @@ def test_org_alignment_sees_entity_overrides_and_final_employer(tmp_path, monkey
     """Pachulski: the override makes the row an ORGANIZATION only in donor consistency,
     so the alignment must run after it (and after employer finalisation)."""
     from fec.cleaning.donor_consistency import entity
-    from fec.cleaning.pipeline import standardize_donors
+    from fec.cleaning.pipeline.core import standardize_donors
 
     (tmp_path / "data" / "database").mkdir(parents=True)
     (tmp_path / "data" / "database" / "entity_overrides.csv").write_text(

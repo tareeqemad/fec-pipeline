@@ -2,8 +2,10 @@
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
+import requests
 
 from fec.cleaning.employer_status import (
     classify_employer_status,
@@ -194,9 +196,6 @@ def step_fec_api(
     donor_totals: pd.DataFrame,
 ) -> int:
     """Find remaining retired donors' latest real employer through the FEC API."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    import requests
 
     fec_key = os.environ.get("FEC_API_KEY", "").strip()
     if not fec_key:

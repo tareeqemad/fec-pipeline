@@ -5,11 +5,7 @@ import time
 from typing import Any
 
 import pandas as pd
-
-try:
-    from psycopg2.extras import execute_values
-except ImportError:
-    raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
+from psycopg2.extras import execute_values
 
 from fec.cleaning.employer_status import (
     current_employer_name,
@@ -150,7 +146,6 @@ def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
 
 def _make_employer_resolver(emp_name_to_id: dict):
     """Map a cleaned employer name exactly."""
-
     def _get_employer_id(emp_name):
         if pd.isna(emp_name):
             return None

@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
+from fec.cleaning.employer_synonyms import canonical_key
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.components import UnionFind
 
@@ -100,8 +101,6 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
 
 def align_org_donor_company_names(df: pd.DataFrame) -> int:
     """Rename ORGANIZATION donors to the canonical employer spelling of the same company (reuses canonical_key, adds no new normalization); returns rows aligned."""
-    from fec.cleaning.employer_synonyms import canonical_key
-
     # canonical display name per canonical_key = the donor-side spelling seen most
     ind = df[df["entity_type"] == "INDIVIDUAL"]
     emp = ind["contributor_employer"].dropna().astype(str).str.strip()

@@ -5,7 +5,12 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
+from fec.cleaning.audit_trail import WORK_FIELDS
 from fec.config.employers import EMPLOYER_NORMALIZE
+from fec.config.occupation_rules.normalize import (
+    OCCUPATION_CANONICAL,
+    OCCUPATION_NORMALIZE,
+)
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_OCCUPATION,
     OCCUPATION_FROM_EMPLOYER,
@@ -13,16 +18,17 @@ from fec.config.occupation_rules.rules import (
     OCCUPATION_REFUSAL_INPUTS,
     SWAP_JOB_TITLES,
 )
-from fec.config.occupation_rules.normalize import (
-    OCCUPATION_CANONICAL,
-    OCCUPATION_NORMALIZE,
-)
 from fec.log import get_logger
 
-from .normalize import _normalize_text, _categorize, _classify_committee_names, map_occupation_fixes
-from .normalize import EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT
 from .employer_deep_clean import _deep_clean_employer
 from .employer_groups import _canonicalize_employers
+from .normalize import EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT
+from .normalize import (
+    _categorize,
+    _classify_committee_names,
+    _normalize_text,
+    map_occupation_fixes,
+)
 
 logger = get_logger(__name__)
 
@@ -205,8 +211,6 @@ def _mark_still_missing(df: pd.DataFrame) -> int:
 
 def clean_employer_occupation(df: pd.DataFrame, trail) -> tuple[pd.DataFrame, dict[str, int]]:
     """Run the employer/occupation pipeline in place."""
-    from fec.cleaning.audit_trail import WORK_FIELDS
-
     counts = {'normalized': 0, 'occ_fixed': 0, 'comm_filled': 0}
 
     counts['normalized'] += trail.run(

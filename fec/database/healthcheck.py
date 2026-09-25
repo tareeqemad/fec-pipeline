@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import sys
+from decimal import Decimal, InvalidOperation
 
+import pandas as pd
 import psycopg2
 
+from fec.database.loader import connect
 from fec.database.query_checks import CHECKS
 from fec.database.query_checks import CRIT as QC_CRIT
+from fec.env import CLEANED_CSV
 
 CRIT, WARN, OK = "FAIL", "WARN", "ok"
 
@@ -99,10 +103,8 @@ def _csv_employment_status_check(cur) -> tuple[str, str, str]:
     """Each INDIVIDUAL filing's donor_employments.employer_status equals its CSV employer_status (the check the (donor, employer, occupation) key used to fail); OK-skips when the CSV is absent."""
     name = "employment_status_vs_csv"
     try:
-        from fec.env import CLEANED_CSV
         if not CLEANED_CSV.exists():
             return (OK, name, "cleaned CSV not present - skipped")
-        import pandas as pd
         csv = pd.read_csv(CLEANED_CSV, usecols=["sub_id", "entity_type", "employer_status"],
                           dtype=str, keep_default_na=False)
         cur.execute("""
@@ -125,12 +127,9 @@ def _csv_employment_status_check(cur) -> tuple[str, str, str]:
 
 def _csv_total_check(cur) -> tuple[str, str, str]:
     """Compare sum(contributions.amount) to the CSV with exact Decimals (sub-cent tolerance absorbs NUMERIC(15,2) rounding); OK-skips when the CSV is absent."""
-    from decimal import Decimal, InvalidOperation
     try:
-        from fec.env import CLEANED_CSV
         if not CLEANED_CSV.exists():
             return (OK, "total_amount_vs_csv", "cleaned CSV not present - skipped")
-        import pandas as pd
         amounts = pd.read_csv(CLEANED_CSV, usecols=["contribution_receipt_amount"],
                               dtype=str, keep_default_na=False)["contribution_receipt_amount"]
         csv_total = Decimal(0)
@@ -148,7 +147,6 @@ def _csv_total_check(cur) -> tuple[str, str, str]:
 
 def main() -> int:
     try:
-        from fec.database.loader import connect
         conn = connect()
     except Exception as error:
         print(f"  cannot connect to fec_db: {error}", file=sys.stderr)

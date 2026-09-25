@@ -5,11 +5,7 @@ import time
 from typing import Any
 
 import pandas as pd
-
-try:
-    from psycopg2.extras import execute_values
-except ImportError:
-    raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
+from psycopg2.extras import execute_values
 
 from fec.log import get_logger
 
