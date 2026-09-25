@@ -54,24 +54,8 @@ def find_or_create_donor(
     return new_id, "created"
 
 
-# find or insert an address and link to donor
-def upsert_donor_address(
-    cur: Any, donor_id: int, street_1: str | None, street_2: str | None,
-    city: str | None, state: str | None, zip_5: str | None = None,
-    latitude: float | None = None, longitude: float | None = None,
-) -> None:
-    """Link one curated address."""
-    # blank strings become None so comparisons treat them as missing
-    def _none_if_empty(s: str | None) -> str | None:
-        return s.strip() if s and s.strip() else None
-
-    clean_street_1, clean_street_2 = _none_if_empty(street_1), _none_if_empty(street_2)
-    clean_city, clean_state, clean_zip = (
-        _none_if_empty(city), _none_if_empty(state), _none_if_empty(zip_5))
-    if (clean_street_1 is None and clean_street_2 is None and clean_city is None
-            and clean_state is None and clean_zip is None):
-        return
-
+# the address row matching these fields, inserted when new; fills missing coords
+def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
     cur.execute(
         """
         SELECT address_id FROM addresses
@@ -82,7 +66,7 @@ def upsert_donor_address(
           AND zip_code   IS NOT DISTINCT FROM %s
         LIMIT 1
         """,
-        (clean_street_1, clean_street_2, clean_city, clean_state, clean_zip),
+        fields,
     )
     row = cur.fetchone()
     if row:
@@ -101,10 +85,27 @@ def upsert_donor_address(
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING address_id
             """,
-            (clean_street_1, clean_street_2, clean_city, clean_state, clean_zip,
-             latitude, longitude),
+            (*fields, latitude, longitude),
         )
         address_id = cur.fetchone()[0]
+    return address_id
+
+
+# find or insert an address and link to donor
+def upsert_donor_address(
+    cur: Any, donor_id: int, street_1: str | None, street_2: str | None,
+    city: str | None, state: str | None, zip_5: str | None = None,
+    latitude: float | None = None, longitude: float | None = None,
+) -> None:
+    """Link one curated address."""
+    # blank strings become None so comparisons treat them as missing
+    def _none_if_empty(s: str | None) -> str | None:
+        return s.strip() if s and s.strip() else None
+
+    fields = tuple(_none_if_empty(value) for value in (street_1, street_2, city, state, zip_5))
+    if all(value is None for value in fields):
+        return
+    address_id = _address_id(cur, fields, latitude, longitude)
 
     cur.execute(
         "SELECT 1 FROM donor_addresses WHERE donor_id = %s AND address_id = %s LIMIT 1",
