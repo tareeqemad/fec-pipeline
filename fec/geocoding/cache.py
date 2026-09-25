@@ -3,6 +3,8 @@
 import json
 import os
 
+from fec.io import write_json_atomic
+
 
 class GeoCache:
 
@@ -21,11 +23,7 @@ class GeoCache:
     # write cache to disk atomically via a temp file
     def save(self):
         """Write cache to disk atomically via a temp file."""
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        temp_path = self.path + ".tmp"
-        with open(temp_path, "w", encoding="utf-8") as handle:
-            json.dump(self.data, handle, ensure_ascii=False)
-        os.replace(temp_path, self.path)
+        write_json_atomic(self.path, self.data, ensure_ascii=False)
 
     # look up a cached entry by key
     def get(self, key: str) -> dict | None:

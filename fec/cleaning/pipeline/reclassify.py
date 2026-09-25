@@ -140,6 +140,15 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     return n_to_indiv, n_to_comm
 
 
+# set the class and the reason on the masked rows; returns how many
+def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool) -> int:
+    count = int(mask.sum())
+    if count:
+        df.loc[mask, "_reclass_reason"] = reason
+        df.loc[mask, "is_individual"] = individual
+    return count
+
+
 # reclassify committees whose name is really LASTNAME, FIRST
 def _reclass_committee_to_individual(
     df: pd.DataFrame,
@@ -148,9 +157,7 @@ def _reclass_committee_to_individual(
 ) -> int:
     """Committees whose name is really a person in LASTNAME, FIRST format."""
     should = ~df["is_individual"] & ~has_org_keywords & looks_like_person
-    df.loc[should, "_reclass_reason"] = "committee_to_individual_last_first"
-    df.loc[should, "is_individual"] = True
-    return int(should.sum())
+    return _reclassify(df, should, "committee_to_individual_last_first", individual=True)
 
 
 # reclassify individuals with org keywords not looking like a person
@@ -161,11 +168,7 @@ def _reclass_individual_to_committee_org(
 ) -> int:
     """Individuals with org keywords in a name that doesn't look like a person."""
     mask = df["is_individual"] & has_org_keywords & ~looks_like_person
-    n_changed = int(mask.sum())
-    if n_changed:
-        df.loc[mask, "_reclass_reason"] = "individual_to_committee_org_keywords"
-        df.loc[mask, "is_individual"] = False
-    return n_changed
+    return _reclassify(df, mask, "individual_to_committee_org_keywords", individual=False)
 
 
 # reclassify nameless individuals whose name looks like an org
@@ -179,11 +182,7 @@ def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> i
         & no_names
         & name_str.str.contains(_NAMELESS_ORG_RE, na=False)
     )
-    n_changed = int(mask.sum())
-    if n_changed:
-        df.loc[mask, "_reclass_reason"] = "individual_to_committee_no_name_org_pattern"
-        df.loc[mask, "is_individual"] = False
-    return n_changed
+    return _reclassify(df, mask, "individual_to_committee_no_name_org_pattern", individual=False)
 
 
 # reclassify individuals with no name, employer or occupation
@@ -196,21 +195,15 @@ def _reclass_individual_ghost(df: pd.DataFrame) -> int:
         & _blank(df["contributor_employer"])
         & _blank(df["contributor_occupation"])
     )
-    n_changed = int(mask.sum())
-    if n_changed:
-        df.loc[mask, "_reclass_reason"] = "individual_to_committee_no_identity"
-        df.loc[mask, "is_individual"] = False
-    return n_changed
+    return _reclassify(df, mask, "individual_to_committee_no_identity", individual=False)
 
 
 # reclassify names that are always committees regardless of type
 def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
     """Names that are always committees (FRIENDS OF, PEOPLE FOR, ...)."""
     mask = df["is_individual"] & name_str.str.contains(_DEFINITE_COMM_RE, na=False)
-    n_changed = int(mask.sum())
+    n_changed = _reclassify(df, mask, "individual_to_committee_definite_prefix", individual=False)
     if n_changed:
-        df.loc[mask, "_reclass_reason"] = "individual_to_committee_definite_prefix"
-        df.loc[mask, "is_individual"] = False
         for idx in df.loc[mask].index:
             name = df.at[idx, "contributor_name"]
             if "," in name:

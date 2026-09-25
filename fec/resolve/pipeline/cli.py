@@ -1,7 +1,6 @@
 """CLI entry point for the resolve pipeline."""
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -12,7 +11,7 @@ import pandas as pd
 from fec.cleaning.quality import run_quality_gates
 from fec.config.cities import expand_city_abbreviations
 from fec.env import CLEANED_CSV, load_env
-from fec.io import read_pipeline_csv
+from fec.io import read_pipeline_csv, write_json_atomic
 from fec.log import get_logger
 from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
 
@@ -130,11 +129,7 @@ def _write_quality_gates(quality: dict, data_dir: str, csv_written: bool) -> Non
     gates read not_run there; this is the report of the final file.
     """
     report = {**quality, "stage": "resolve", "csv_written": csv_written}
-    destination = Path(data_dir) / QUALITY_GATES_JSON
-    temporary = destination.with_suffix(f"{destination.suffix}.tmp")
-    with open(temporary, "w", encoding="utf-8") as handle:
-        json.dump(report, handle, indent=2)
-    os.replace(temporary, destination)
+    write_json_atomic(Path(data_dir) / QUALITY_GATES_JSON, report, indent=2)
 
 
 # apply results, check quality gates, and write the final CSV
