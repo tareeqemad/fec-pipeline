@@ -19,7 +19,7 @@ from fec.config.streets import (
 # Street cleaning
 
 
-# an email in street_1: take street_2 when it looks like an address, else clear
+# fix street_1 values that mistakenly hold an email address
 def _replace_email_street(df: pd.DataFrame) -> None:
     """Flag and fix street_1 values holding an email (flags feed the address audit)."""
     s1 = df['contributor_street_1'].astype('string')
@@ -40,7 +40,7 @@ def _replace_email_street(df: pd.DataFrame) -> None:
         df.loc[null_mask, 'contributor_street_1'] = np.nan
 
 
-# FEC sometimes has the donor's own name as the street: clear it
+# clear street_1 when it just repeats the donor's own name
 def _clear_own_name_street(df: pd.DataFrame) -> int:
     street = df['contributor_street_1'].fillna('')
     first_names = df['contributor_first_name'].fillna('').str.strip().str.upper()
@@ -56,6 +56,7 @@ def _clear_own_name_street(df: pd.DataFrame) -> int:
     return int(is_name.sum())
 
 
+# run all street-cleaning steps and return updated counts
 def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Normalize street_1/street_2 and extract embedded units; returns (df, counts)."""
     _replace_email_street(df)
@@ -96,6 +97,7 @@ def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return df, counts
 
 
+# move a floor-only street_1 into street_2, leaving street_1 blank
 def _move_floor_only_street(df: pd.DataFrame) -> int:
     """street_1 that is only a floor designation -> street_2 when that is empty; street_1 becomes NULL so the recovery steps can refill it from the donor's other filings."""
     street1 = df['contributor_street_1']

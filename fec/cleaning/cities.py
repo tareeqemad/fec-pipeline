@@ -48,11 +48,13 @@ _PLACE_QUALIFIERS = frozenset({
 })
 
 
+# count rows where a value actually differs, ignoring blank-to-blank
 def _changed(before: pd.Series, after: pd.Series) -> int:
     """Rows whose value changed; a blank that stays blank is not a change."""
     return int((before.fillna('') != after.fillna('')).sum())
 
 
+# derive cleaned ZIP5 from the raw contributor_zip column, if present
 def _zip5(df: pd.DataFrame) -> pd.Series | None:
     """ZIP5 derived from the raw contributor_zip (clean_zips runs after the cities); None without that column."""
     if 'contributor_zip' not in df.columns:
@@ -61,6 +63,7 @@ def _zip5(df: pd.DataFrame) -> pd.Series | None:
     return zip5
 
 
+# run all city-cleaning steps and return updated counts
 def clean_cities(df: pd.DataFrame, fuzzy: bool = True, report_dir: str | None = None) -> tuple[pd.DataFrame, dict]:
     """Clean city names; report_dir writes auto_city_fixes.json for review. Returns (df, counts)."""
     counts = {'known_fixes': 0, 'fuzzy_fixes': 0, 'punctuation_cleaned': 0}
@@ -121,7 +124,7 @@ def _strip_city_text(raw: pd.Series) -> tuple[pd.Series, int]:
     return cities.str.replace(r'\s{2,}', ' ', regex=True), cleaned
 
 
-# apply the curated city tables: by name, by state, by ZIP3
+# fix city names using the hand-curated lookup tables
 def _table_city_fixes(cities: pd.Series, states: pd.Series, zip5) -> pd.Series:
     cities = cities.replace(CITY_NORMALIZE)
     state_fixes = pd.Series(
@@ -139,7 +142,7 @@ def _table_city_fixes(cities: pd.Series, states: pd.Series, zip5) -> pd.Series:
     return cities
 
 
-# apply detected city typos per (state, city, ZIP5); optionally write them for review
+# apply the fuzzy-detected typo fixes and optionally log them
 def _fix_detected_city_typos(df: pd.DataFrame, states: pd.Series, zip5, report_dir) -> tuple[int, pd.Series]:
     """Returns (rows changed, mask of rows a fix applied to)."""
     auto_fixes = _auto_detect_city_typos(df)
@@ -166,6 +169,7 @@ def _fix_detected_city_typos(df: pd.DataFrame, states: pd.Series, zip5, report_d
     return changed, fixed_rows
 
 
+# true when two names differ only by qualifier words
 def _swaps_place_qualifier(city: str, other: str) -> bool:
     """True when the two names differ only by whole qualifier words (EAST HARTFORD / WEST HARTFORD, WEST BLOOMFIELD TOWNSHIP / BLOOMFIELD TOWNSHIP)."""
     words, other_words = city.split(), other.split()
@@ -175,6 +179,7 @@ def _swaps_place_qualifier(city: str, other: str) -> bool:
     return bool(differing) and all(word in _PLACE_QUALIFIERS for word in differing)
 
 
+# find city typos by fuzzy-matching rare names to common ones
 def _auto_detect_city_typos(df: pd.DataFrame, cutoff: float = 0.88, min_common: int = 10, max_rare: int = 3) -> dict:
     """Fuzzy-match rare city names against common ones in the same state; returns {(state, typo, zip5): fix}.
 

@@ -25,6 +25,7 @@ _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
 _JUNK_UNITS = (_JUNK_STREETS - {'X'}) | {'NULL', 'N.A', 'N.A.'}
 
 
+# true when a street_2 value has no letters or digits
 def _has_no_unit_text(value: str) -> bool:
     """True for a street_2 holding no letter or digit ('.', '-', '..'); a bare '#' is kept for address_review, which reports it as a unit keyword without a number."""
     return not any(char.isalnum() or char == '#' for char in value)
@@ -33,17 +34,21 @@ def _has_no_unit_text(value: str) -> bool:
 # trailing unit word without a number
 _TRAILING_UNIT_RE = re.compile(r'\s+(?:APT|UNIT|STE|SUITE)\s*$')
 
+# an FEC committee id or a bare number, not a real street: "C0012345"
 _INVALID_STREET_RE = re.compile(r'^(?:C\d{7,}|\d+)$')
 
+# a PO box abbreviated so far it's missing the word BOX: "P O B 123"
 _SHORT_POBOX_RE = re.compile(r'^(?:P\.?\s*O\.?\s*B?|BOX)\s+(\d)')
 
 
+# a house number token, with an optional letter suffix: "1425" or "14A"
 _HOUSE_TOKEN_RE = re.compile(r'^\d+[A-Z]?$')
 
 
 _DIRECTION_TOKENS = frozenset({'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'})
 
 
+# drop a street typed twice then cut short
 def _drop_repeated_street(s):
     """'11425 TWINING LN 11425 TWINING L' -> '11425 TWINING LN': the filer typed the street twice and the 34-character FEC field cut the copy.
 
@@ -102,6 +107,7 @@ def _tidy_periods(s: str) -> str:
     return s.rstrip('.')
 
 
+# run all cleanup and abbreviation steps on one street string
 def _normalize_street(s: str) -> str:
     """Normalize a single street address string."""
     if pd.isna(s) or not str(s).strip():
@@ -161,12 +167,15 @@ def _normalize_street(s: str) -> str:
     return s
 
 
+# a house number run into the street name: "123M" in "123MAIN ST"
 _FUSED_HOUSE_NUMBER_RE = re.compile(r'^(\d+)([A-Z])(?=[A-Z])')
 
 
+# a leading ordinal number, e.g. "21ST" in "21ST STREET"
 _LEADING_ORDINAL_RE = re.compile(r'^(\d+)(ST|ND|RD|TH)\b')
 
 
+# compute a number's English ordinal suffix
 def _ordinal_suffix(number: str) -> str:
     """English ordinal suffix of a number: 1 -> ST, 3 -> RD, 12 -> TH, 23 -> RD."""
     value = int(number)
@@ -175,6 +184,7 @@ def _ordinal_suffix(number: str) -> str:
     return {1: 'ST', 2: 'ND', 3: 'RD'}.get(value % 10, 'TH')
 
 
+# split a house number fused to the street name
 def _split_fused_house_number(s: str) -> str:
     """'123MAIN ST' -> '123 MAIN ST', but a correct ordinal ('3RD FLOOR', '21ST ST') stays one word; '12ST JAMES PL' (12 takes TH) is still split."""
     match = _LEADING_ORDINAL_RE.match(s)
@@ -183,6 +193,7 @@ def _split_fused_house_number(s: str) -> str:
     return _FUSED_HOUSE_NUMBER_RE.sub(r'\1 \2', s)
 
 
+# clean and abbreviate a unit/apt/suite string, or nan for placeholders
 def _normalize_unit(s: str) -> str:
     """Normalize a unit/apt/suite string; placeholders ('NONE', '.', 'N/A', 'HOME') are no unit."""
     if pd.isna(s) or not str(s).strip():
@@ -196,12 +207,14 @@ def _normalize_unit(s: str) -> str:
     return s.strip()
 
 
+# remove a trailing named unit from street_1 values
 def _strip_named_unit(streets: pd.Series) -> pd.Series:
     """Remove a trailing named unit and its leftover comma/whitespace."""
     stripped = streets.str.replace(UNIT_EXTRACT, '', regex=True).str.strip()
     return stripped.str.rstrip(',').str.strip()
 
 
+# pull named and hash units from street_1 into empty street_2
 def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, pd.Series, int]:
     """Move unit info embedded in street_1 into empty street_2; returns (s1, s2, n_extracted)."""
     s1 = street1.fillna('').astype(str).replace({'nan': ''})

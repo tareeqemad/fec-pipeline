@@ -36,6 +36,7 @@ HOUSE_ZIP_ZIP = '_house_zip_zip'
 _HOUSE_ZIP_COLUMNS = (HOUSE_ZIP_CITY, HOUSE_ZIP_STATE, HOUSE_ZIP_ZIP)
 
 
+# a 3-5 digit house number at the start of the street: "12230 HOLLOW ROAD"
 _LEADING_HOUSE_NUMBER_RE = re.compile(r'^(\d{3,5})\s')
 
 
@@ -44,6 +45,7 @@ _LEADING_HOUSE_NUMBER_RE = re.compile(r'^(\d{3,5})\s')
 _STREET1_PLACE_RE = re.compile(r'^(\d{3,5} .*[A-Z].*?),? (\d{5})(?:-?\d{4})?$')
 
 
+# a city name followed by a 4-5 digit ZIP fragment in street_2: "POTO 2085"
 _STREET2_PLACE_RE = re.compile(r'^([A-Z]{3,}(?: [A-Z]+)*),? (\d{4,5})$')
 
 
@@ -61,6 +63,7 @@ _STREET_WORDS_ONLY = frozenset(abbr for _pattern, abbr in STREET_TYPES) | {
 }
 
 
+# read a column as stripped uppercase text, blank if missing
 def _upper_text(df: pd.DataFrame, column: str) -> pd.Series:
     """Column as stripped uppercase text ('' for blanks); an absent column is all ''."""
     if column not in df.columns:
@@ -69,6 +72,7 @@ def _upper_text(df: pd.DataFrame, column: str) -> pd.Series:
     return values.where(values.notna(), '').astype(str).str.strip().str.upper()
 
 
+# build a donor key from first and last name
 def _person_key(df: pd.DataFrame) -> pd.Series:
     return _upper_text(df, 'contributor_first_name') + '\x00' + _upper_text(df, 'contributor_last_name')
 
@@ -76,6 +80,7 @@ def _person_key(df: pd.DataFrame) -> pd.Series:
 class _FiledPlaces:
     """City / state / ZIP5 of the other filings: which city names exist at a ZIP (anyone's filings) and the state and street one person files there (that person's own)."""
 
+    # index the other filings' places, skipping the rows being fixed
     def __init__(self, df: pd.DataFrame, exclude: pd.Series):
         zip5, _n_invalid = _clean_zip_raw(df['contributor_zip'])
         frame = pd.DataFrame({
@@ -88,20 +93,24 @@ class _FiledPlaces:
         self.frame = frame[~exclude & (frame['city'] != '') & (frame['zip5'] != '')]
         self.city_zips = set(zip(self.frame['city'], self.frame['zip5']))
 
+    # true when another filing shows this city at this ZIP
     def attested(self, city: str, zip5: str) -> bool:
         return (city, zip5) in self.city_zips
 
+    # this person's own rows at the given city and ZIP
     def _own_rows(self, person: str, city: str, zip5: str) -> pd.DataFrame:
         frame = self.frame
         if person == '\x00':  # no name: nobody's own filings
             return frame.iloc[0:0]
         return frame[(frame['person'] == person) & (frame['city'] == city) & (frame['zip5'] == zip5)]
 
+    # the one state this person files for this city/ZIP
     def own_state(self, person: str, city: str, zip5: str) -> str:
         """The single state this person files the city and ZIP under; '' when none or several."""
         states = set(self._own_rows(person, city, zip5)['state']) - {''}
         return states.pop() if len(states) == 1 else ''
 
+    # recover a dropped street word from this person's other filings
     def own_street(self, person: str, city: str, zip5: str, typed: str) -> str:
         """The person's own street at the city/ZIP with the same house number that ends with the typed street ('12230 BONE HOLLOW RD' for '12230 HOLLOW RD'); '' unless exactly one fits."""
         house, _space, rest = typed.partition(' ')
@@ -113,6 +122,7 @@ class _FiledPlaces:
         }
         return fits.pop() if len(fits) == 1 else ''
 
+    # fill in a cut-off city/ZIP fragment from widely filed places
     def complete(self, city_start: str, zip_start: str) -> tuple[str, str, str] | None:
         """(city, ZIP5, state) for a cut-off '<city> <ZIP>': one widely filed city/state must match both starts; of several ZIPs only an area ZIP (ZCTA) is kept, else the ZIP stays ''."""
 
@@ -133,6 +143,7 @@ class _FiledPlaces:
         return city, (zips[0] if len(zips) == 1 else ''), state
 
 
+# pull a trailing city/ZIP out of a street_1 string
 def _street1_place(street: str, house: str, places: _FiledPlaces) -> tuple[str, str, str] | None:
     """(street, city, ZIP5) from '<street> <city> <ZIP>': the longest city other filings name at that ZIP, with a house number and a street word left before it."""
     match = _STREET1_PLACE_RE.match(street)
@@ -146,6 +157,7 @@ def _street1_place(street: str, house: str, places: _FiledPlaces) -> tuple[str, 
     return None
 
 
+# pull a city/ZIP out of street_2, completing it if truncated
 def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str, str, str] | None:
     """(city, ZIP5, state) from '<city> <ZIP>' in street_2; a cut-off 'POTO 2085' is completed from the places many people file."""
     match = _STREET2_PLACE_RE.match(street2)
@@ -157,6 +169,7 @@ def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str,
     return places.complete(city, zip_text)
 
 
+# find rows where the ZIP holds the house number
 def _split_house_number_zip(df: pd.DataFrame) -> int:
     """Rows whose ZIP box holds the house number and whose street holds the real city + ZIP: the place moves to the HOUSE_ZIP_* columns; returns rows fixed.
 
@@ -213,6 +226,7 @@ def _split_house_number_zip(df: pd.DataFrame) -> int:
     return len(fixes)
 
 
+# write the recovered place into city/state/ZIP, drop temp columns
 def _apply_house_number_zip(df: pd.DataFrame) -> int:
     """Write the place clean_streets read from the street into city/state/ZIP (a ZIP left '' is blanked) and drop the working columns; returns rows changed."""
     if HOUSE_ZIP_CITY not in df.columns:

@@ -88,6 +88,7 @@ _DIRECTION_IS_NAME = (
 )
 
 
+# build a regex/replacement pair to abbreviate one direction word
 def _direction_rule(word: str, abbr: str, prefix: bool = True) -> tuple:
     """Build a (regex, replacement) pair for direction abbreviation."""
     if prefix:
@@ -164,6 +165,7 @@ _SPELLED_FLOOR = _SPELLED_ORDINAL + r'\s+(?:FLOOR|FLR|FL)\b\.?'
 
 
 
+# convert a spelled ordinal floor match to its FL form
 def _spelled_floor(match: re.Match) -> str:
     tens = ORDINAL_TENS.get((match.group(1) or '').upper(), 0)
     return f'FL {tens + ORDINAL_WORDS[match.group(2).upper()]}'
@@ -214,6 +216,7 @@ UNIT_RULES = [
 ] + USPS_UNIT_RULES
 
 
+# apply USPS floor/suite designator abbreviations to a street line
 def usps_unit_designators(street: str) -> str:
     """'450 7TH AVE 10TH FLOOR' -> '450 7TH AVE FL 10', '11160 WARNER AVE SUITE #211' -> '11160 WARNER AVE STE 211'; the rest of the line is unchanged."""
     for pattern, replacement in USPS_UNIT_RULES:
