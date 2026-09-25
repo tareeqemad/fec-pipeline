@@ -85,6 +85,7 @@ _ROLE_NOUNS = frozenset({
 _LAST_WORD_RE = re.compile(r'([A-Z]+)S$')
 
 
+# drop trailing S from a known role noun
 def _depluralize_last_word(value: str) -> str:
     if ' OF ' in f' {value} ':
         return value
@@ -101,6 +102,7 @@ def _depluralize_last_word(value: str) -> str:
     return value[:start] + singular
 
 
+# apply every style rule to one occupation string
 def normalize_occupation_style(value: str) -> str:
     """Apply every style rule to one occupation string."""
     s = value
@@ -123,6 +125,7 @@ def normalize_occupation_style(value: str) -> str:
 _LEGAL_SUFFIX_IN_OCC_RE = re.compile(r'\b(?:LLC|LLP|INC|CORP|CORPORATION|LTD|PLLC|PC|LP)\b')
 
 
+# pipeline step applying occupation style normalization to individuals
 def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Pipeline step: unify separator, joiner, compound and plural style of individuals' occupations.
 
@@ -146,6 +149,7 @@ def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int
     return df, int(changed.sum())
 
 
+# pipeline step applying curated occupation typo fixes
 def apply_occupation_typo_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Pipeline step: curated typo/abbreviation -> canonical spelling (runs right after the style step)."""
     individuals = _indiv_idx(df)

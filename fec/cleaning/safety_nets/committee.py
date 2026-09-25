@@ -15,6 +15,7 @@ _TITLES = frozenset({
 })
 
 
+# clear employer field for committee/PAC rows
 def _fix_committee_employer(df: pd.DataFrame, is_comm: pd.Series) -> int:
     """A. Committees carry no employer -> clear it."""
     mask = is_comm & (df['contributor_employer'].fillna('').str.strip() != '')
@@ -24,6 +25,7 @@ def _fix_committee_employer(df: pd.DataFrame, is_comm: pd.Series) -> int:
     return n_fixed
 
 
+# reclassify an organization name parsed as a person
 def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     """Reclassify an organization parsed as a person."""
     first = df['contributor_first_name'].fillna('').astype(str).str.strip()
@@ -49,6 +51,7 @@ def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     return changed
 
 
+# clear a title mistakenly parsed as a first name
 def _fix_title_as_first_name(df: pd.DataFrame) -> int:
     """Clear titles parsed as first names."""
     is_individual = df['entity_type'] == 'INDIVIDUAL'

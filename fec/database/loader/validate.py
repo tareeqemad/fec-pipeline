@@ -34,6 +34,7 @@ _LOCATION_COLUMNS = {
 }
 
 
+# check required columns are present and quality gates pass
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
     missing = sorted(_REQUIRED_COLUMNS - set(df.columns))
     if missing:
@@ -46,6 +47,7 @@ def _validate_cleaned_data(df: pd.DataFrame) -> None:
         )
 
 
+# validate employer_locations.csv matches cleaned employers
 def _validate_employer_locations(
     df: pd.DataFrame,
     locations: pd.DataFrame,
@@ -80,6 +82,7 @@ def _validate_employer_locations(
         raise ValueError("employer_locations.csv contains an invalid address_trust value")
 
 
+# validate donor_key, sub_id, date, and cycle fields
 def _validate_contribution_fields(df: pd.DataFrame) -> None:
     donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
     if donor_keys.eq("").any():
@@ -98,6 +101,7 @@ def _validate_contribution_fields(df: pd.DataFrame) -> None:
         raise ValueError("two_year_transaction_period contains invalid values")
 
 
+# validate recipient committees are all known
 def _validate_committees(df: pd.DataFrame) -> None:
     committees = pd.read_csv(COMMITTEES_CSV, dtype=str, keep_default_na=False)
     known = set(committees["committee_short"].str.strip())
@@ -109,6 +113,7 @@ def _validate_committees(df: pd.DataFrame) -> None:
         )
 
 
+# reject unfinished pipeline output
 def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
     """Reject unfinished pipeline output."""
     _validate_cleaned_data(df)
@@ -117,6 +122,7 @@ def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
     _validate_committees(df)
 
 
+# read and validate the cleaned CSV and employer locations
 def _read_input() -> tuple[pd.DataFrame, list[dict]]:
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")

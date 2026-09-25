@@ -13,6 +13,7 @@ _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _POBOX_RE = re.compile(r"\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)")
 
 
+# build an order-independent key from a street's number and tokens
 def _addr_fingerprint(street: str) -> str:
     """Order-independent street key: house number anchored, remaining tokens sorted (keeps grid addresses distinct)."""
     toks = _ADDR_TOKEN_RE.findall(street.upper())
@@ -21,6 +22,7 @@ def _addr_fingerprint(street: str) -> str:
     return toks[0] + "|" + " ".join(sorted(toks[1:]))
 
 
+# collapse a donor's street variants to the most common form
 def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
     """Collapse per-donor street_1 variants with the same ZIP and anchored token set to the most common form; returns rows rewritten."""
     ind = df["entity_type"] == "INDIVIDUAL"
@@ -58,6 +60,7 @@ def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
     return changed
 
 
+# collapse a donor's unit spelling variants to the dominant form
 def canonicalize_donor_units(df: pd.DataFrame) -> int:
     """Collapse per-donor street_2 spellings of the same unit (APT/UNIT/# 1503), bucketed by (street_1, ZIP, unit id), to the dominant form; returns rows rewritten."""
     ind = df["entity_type"] == "INDIVIDUAL"
@@ -96,12 +99,14 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
     return changed
 
 
+# extract a PO box number from a street, else empty
 def _pobox_num(street: str) -> str:
     """Extract the box number from a PO-box street, else ''."""
     m = _POBOX_RE.search(street.upper())
     return m.group(1) if m else ""
 
 
+# check if one string equals the other plus one digit
 def _is_insertion_typo(a: str, b: str) -> bool:
     """True iff one string is the other with exactly one extra digit inserted; same-length pairs never match."""
     if abs(len(a) - len(b)) != 1:
@@ -114,6 +119,7 @@ def _is_insertion_typo(a: str, b: str) -> bool:
     return i == len(short)
 
 
+# group a donor's PO box rows by ZIP code
 def _pobox_rows_by_zip(df: pd.DataFrame, indexes) -> dict[str, list]:
     by_zip = defaultdict(list)
     for index in indexes:
@@ -127,6 +133,7 @@ def _pobox_rows_by_zip(df: pd.DataFrame, indexes) -> dict[str, list]:
     return by_zip
 
 
+# cluster PO box numbers connected by single-digit-insertion typos
 def _pobox_clusters(numbers: list[str]) -> list[list[str]]:
     union = UnionFind()
     for left in numbers:
@@ -140,6 +147,7 @@ def _pobox_clusters(numbers: list[str]) -> list[list[str]]:
     return list(clusters.values())
 
 
+# rewrite a PO box typo cluster to dominant street form
 def _apply_pobox_cluster(df: pd.DataFrame, rows: list, members: list[str]) -> int:
     frequencies = defaultdict(int)
     for _, _, box in rows:
@@ -159,6 +167,7 @@ def _apply_pobox_cluster(df: pd.DataFrame, rows: list, members: list[str]) -> in
     return changed
 
 
+# unify one-digit-insertion typos in a donor's same-ZIP PO boxes
 def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
     """Unify one-digit insertion typos in a donor's same-ZIP PO boxes."""
     changed = 0

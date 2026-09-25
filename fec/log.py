@@ -10,10 +10,12 @@ _CONFIGURED = False
 class CleanFormatter(logging.Formatter):
     """Console formatter: just the message, no clutter."""
 
+    # return only the log message, no timestamp or level
     def format(self, record):
         return record.getMessage()
 
 
+# configure logging for the whole pipeline, once at startup
 def setup_logging() -> None:
     """Configure logging for the entire pipeline. Call once at startup."""
     global _CONFIGURED
@@ -46,6 +48,7 @@ def setup_logging() -> None:
     _CONFIGURED = True
 
 
+# get a module logger, auto-configuring logging if needed
 def get_logger(name: str) -> logging.Logger:
     """Get a logger for a module. Auto-configures if not yet done."""
     if not _CONFIGURED:
@@ -53,6 +56,7 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
+# log a label and count only when count is nonzero
 def log_count(logger: logging.Logger, label: str, count: int) -> None:
     """Log label and count when non-zero."""
     if count:

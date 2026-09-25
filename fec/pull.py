@@ -42,6 +42,7 @@ FIELDS = [
 COLUMNS = FIELDS[:-1] + ["contributor_year"] + FIELDS[-1:]
 
 
+# parse a value into a Decimal, default zero on failure
 def _number(value) -> Decimal:
     try:
         return Decimal(str(value).strip() or "0") if value is not None else Decimal("0")
@@ -49,10 +50,12 @@ def _number(value) -> Decimal:
         return Decimal("0")
 
 
+# truncate a value to a YYYY-MM-DD date string, else None
 def _date(value) -> str | None:
     return str(value)[:10] if value and str(value).strip() else None
 
 
+# extract the year from a date string, else None
 def _year(date_value: str | None) -> int | None:
     try:
         return int(date_value[:4]) if date_value else None
@@ -60,6 +63,7 @@ def _year(date_value: str | None) -> int | None:
         return None
 
 
+# load existing sub_ids and latest date for a committee period
 def read_committee_state(
     csv_path: Path,
     committee_id: str,
@@ -86,6 +90,7 @@ def read_committee_state(
     return sub_ids, latest_date
 
 
+# convert one FEC API result into a raw CSV row
 def build_row(result: dict[str, Any]) -> list | None:
     """Convert one FEC result to the raw CSV schema."""
     sub_id = str(result.get("sub_id") or "").strip()
@@ -103,6 +108,7 @@ def build_row(result: dict[str, Any]) -> list | None:
     return [values.get(column) for column in COLUMNS]
 
 
+# yield successive cursor-paginated FEC API responses
 def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
     """Yield cursor-paginated FEC responses."""
     params = dict(params)
@@ -121,6 +127,7 @@ def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
         params["last_index"] = indexes.get("last_index")
 
 
+# log whether this pull is full, refresh, or fresh start
 def _log_pull_mode(
     full: bool,
     period: int,
@@ -139,6 +146,7 @@ def _log_pull_mode(
         log.info("[REFRESH] no existing data; pulling everything")
 
 
+# build the FEC API request parameters for one pull
 def _pull_params(
     api_key: str,
     committee_id: str,
@@ -159,6 +167,7 @@ def _pull_params(
     return params
 
 
+# fetch and write all pages of one pull to CSV
 def _pull_pages(
     csv_path: Path,
     session,
@@ -206,15 +215,18 @@ def _pull_pages(
             progress.close()
 
 
+# path to the pull-state JSON file next to the CSV
 def _pull_state_path(csv_path: Path) -> Path:
     return csv_path.parent / "pull_state.json"
 
 
+# load the pull-state JSON, or empty dict if none exists
 def _read_pull_state(csv_path: Path) -> dict:
     path = _pull_state_path(csv_path)
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
+# persist a committee period's pull status to the state file
 def _mark_pull(csv_path: Path, committee_id: str, period: int, status: str) -> None:
     """Record 'in_progress' before a pull and 'complete' after it."""
     state = _read_pull_state(csv_path)
@@ -222,6 +234,7 @@ def _mark_pull(csv_path: Path, committee_id: str, period: int, status: str) -> N
     _pull_state_path(csv_path).write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
 
 
+# pull and append one committee's new Schedule A filings
 def run(committee_id: str, period: int, full: bool = False) -> None:
     """Append one committee's new Schedule A filings to contributions.csv."""
     api_key = required_env("FEC_API_KEY")
@@ -274,6 +287,7 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
     _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
 
 
+# log a one-line summary of a pull run's outcome
 def _log_summary(
     status,
     committee_id,

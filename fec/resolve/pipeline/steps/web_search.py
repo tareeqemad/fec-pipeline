@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 WEB_SEARCH_WORKERS = 5
 
 
+# parse a list of results from a loosely-formatted AI response
 def _parse_ai_json(text: str) -> list | None:
     """Robustly parse JSON from AI response."""
     text = text.strip()
@@ -52,6 +53,7 @@ def _parse_ai_json(text: str) -> list | None:
     raise json.JSONDecodeError("Could not parse AI response", text, 0)
 
 
+# run one AI web-search call, raising on quota exhaustion
 def _search_item(client, model, system_prompt, build_prompt, item):
     try:
         text, cost = ai_web_search_call(
@@ -69,6 +71,7 @@ def _search_item(client, model, system_prompt, build_prompt, item):
     return item, text, cost
 
 
+# parse one search response and store its first result
 def _store_search_result(store_fn, item, text) -> int:
     try:
         parsed = _parse_ai_json(text)
@@ -78,6 +81,7 @@ def _store_search_result(store_fn, item, text) -> int:
     return int(store_fn(item, result))
 
 
+# run searches in a thread pool, stop on quota loss
 def _run_search_pool(search, store, items, cache, label, total):
     found = 0
     cost = 0.0
@@ -110,6 +114,7 @@ def _run_search_pool(search, store, items, cache, label, total):
     return found, cost, quota_error
 
 
+# resolve items via concurrent AI search, stop on quota loss
 def run_web_search(
     client,
     model,

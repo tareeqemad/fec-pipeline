@@ -107,6 +107,7 @@ INFERRED_WORK_STEPS = frozenset({
 })
 
 
+# run each donor-consistency fix in order, logging counts
 def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> int:
     """Repair values using donor history."""
     total = 0

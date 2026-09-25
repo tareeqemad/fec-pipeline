@@ -30,6 +30,7 @@ _DIGITS_ONLY_RE = re.compile(r'^\d+$')
 _REPEATED_CHAR_RE = re.compile(r'^(.)\1{3,}$')
 
 
+# null contributor_employer under mask, optionally set occupation_status
 def _null_employer_where(df: pd.DataFrame, mask: pd.Series, *, set_status='EMPLOYER_MISSING') -> int:
     """Null contributor_employer under mask, optionally set occupation_status; returns rows changed."""
     n_changed = int(mask.sum())
@@ -40,6 +41,7 @@ def _null_employer_where(df: pd.DataFrame, mask: pd.Series, *, set_status='EMPLO
     return n_changed
 
 
+# clear employer when it is a refusal word (PRIVATE, CONFIDENTIAL)
 def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """M. Employer is a refusal word (PRIVATE, CONFIDENTIAL): clear it."""
     mask = is_indiv & df['contributor_employer'].fillna('').str.upper().str.strip().isin(REFUSAL_EMPLOYERS)
@@ -55,6 +57,7 @@ def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
+# clear employer when it is FEC admin-note phrasing, not real
 def _clear_admin_note_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """FEC admin-note phrasing in employer (PER BEST EFFORTS, REQUEST SENT...); full-anchored so a real name CONTAINING such a word is kept."""
     emp = df['contributor_employer'].fillna('').str.upper().str.strip()
@@ -62,6 +65,7 @@ def _clear_admin_note_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return _null_employer_where(df, mask)
 
 
+# null out truncated 2-char employer junk
 def _null_short_employer_junk(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """O. Null out truncated 2-char employer junk."""
     emp = df['contributor_employer']
@@ -69,6 +73,7 @@ def _null_short_employer_junk(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return _null_employer_where(df, mask, set_status=None)
 
 
+# clear a numeric-only employer (card number, ZIP, phone)
 def _fix_numeric_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """Q. Final pass: numeric-only employer (card number, ZIP, phone) -> NaN."""
     emp = df['contributor_employer'].fillna('')
@@ -76,6 +81,7 @@ def _fix_numeric_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return _null_employer_where(df, mask)
 
 
+# clear employer when it holds an email address
 def _fix_email_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """R. Final pass: email in employer -> NaN."""
     emp = df['contributor_employer'].fillna('')
@@ -83,6 +89,7 @@ def _fix_email_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return _null_employer_where(df, mask)
 
 
+# clear all-same-character junk employer values
 def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """S. All-same-char junk employers (XXXXXXXXX, AAAAAAA) -> NaN."""
     emp = df['contributor_employer'].fillna('')
@@ -94,6 +101,7 @@ def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
+# normalize RETIRED typos, splitting any trailing text off
 def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """T. RETIRED typos normalized; 'RETIRED <X>' splits X to previous_employer (company) or occupation (profession word)."""
     emp = df['contributor_employer'].fillna('')
@@ -146,6 +154,7 @@ _ENTITY_WORD_RE = re.compile(
 _NOT_A_COMPANY_NAME = SECTOR_AS_EMPLOYER | NOT_REAL_EMPLOYER | JOB_TITLE_AS_EMPLOYER
 
 
+# detect whether an occupation cell actually names a company
 def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Series:
     """EXECUTIVE / <text>: the text is the company only when it carries a legal-entity word AND the name beside that word is no line of work.
 
@@ -172,6 +181,7 @@ def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Ser
     return result
 
 
+# null an industry/sector word used as employer; recover real company
 def _null_sector_as_employer(df: pd.DataFrame) -> int:
     """AD2. Industry/sector word in employer -> NULL (not a company; occupation kept). The title word EXECUTIVE is swapped back when the occupation box names a company, and moved into an empty occupation box."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -196,6 +206,7 @@ def _null_sector_as_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# merge FEC's 38-char truncated employer names with their full versions
 def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
     """AI. FEC truncates employer at 38 chars; merge truncated names with their unique (or most common) longer version."""
     emp_col = df['contributor_employer']
@@ -232,6 +243,7 @@ def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# remove the web-form --CHOOSE-- prefix from employer names
 def _fix_choose_prefix(df: pd.DataFrame) -> int:
     """Remove the web-form --CHOOSE-- prefix from employer names."""
     employer = df['contributor_employer'].fillna('')

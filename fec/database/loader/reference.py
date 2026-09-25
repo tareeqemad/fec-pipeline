@@ -34,6 +34,7 @@ NOT_NULL_COLS = {
 }
 
 
+# load us_states/zcta/zip_centroids reference tables from csv files
 def load_reference_tables(conn: Any, cur: Any) -> None:
     """Load reference tables from data/database/*.csv files."""
     db_dir = PROJECT_ROOT / "data" / "database"
@@ -93,6 +94,7 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
         logger.info(f"  {table_name}: {_count(cur, table_name):,} ({time.time()-start:.1f}s)")
 
 
+# load occupation_categories and committees lookup tables
 def load_lookups(conn: Any, cur: Any) -> None:
     """Load occupation_categories from the cleaned CSV and committees from committees.csv (single source of truth)."""
     logger.info("-- Loading lookups --")

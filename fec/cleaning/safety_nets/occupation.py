@@ -26,6 +26,7 @@ _OCC_ROLE_PREFIX_RE = re.compile(
 
 
 
+# fix status when marked DISCLOSED but employer is missing
 def _fix_disclosed_no_employer(df: pd.DataFrame) -> int:
     """D. DISCLOSED but no employer -> fix status."""
     bad = (
@@ -44,6 +45,7 @@ def _fix_disclosed_no_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# categorize EMPLOYED occupation with no category as OTHER
 def _fix_employed_no_category(df: pd.DataFrame) -> int:
     """E. occ='EMPLOYED' with no category -> OTHER."""
     mask = (
@@ -62,6 +64,7 @@ def _fix_employed_no_category(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# mark status word in occupation as NOT_APPLICABLE
 def _fix_status_word_in_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """G. EMPLOYER_MISSING/NOT_DISCLOSED + status word in occupation -> NOT_APPLICABLE."""
     mask = (
@@ -75,6 +78,7 @@ def _fix_status_word_in_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int
     return n_fixed
 
 
+# reclassify NOT_DISCLOSED rows that actually have a real occupation
 def _fix_not_disclosed_with_real_occ(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """H. NOT_DISCLOSED with real occupation -> EMPLOYER_MISSING."""
     mask = (
@@ -90,6 +94,7 @@ def _fix_not_disclosed_with_real_occ(df: pd.DataFrame, is_indiv: pd.Series) -> i
     return n_fixed
 
 
+# fill null occupation_category based on entity type
 def _fill_null_occupation_category(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """I. occupation_category NULL -> fill based on entity type."""
     n_fixed = 0
@@ -105,6 +110,7 @@ def _fill_null_occupation_category(df: pd.DataFrame, is_indiv: pd.Series) -> int
     return n_fixed
 
 
+# fix contradictory NOT DISCLOSED occupation with SELF-EMPLOYED employer
 def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """L. occ='NOT DISCLOSED' + emp='SELF-EMPLOYED' -> contradictory; fix status."""
     mask = (
@@ -119,6 +125,7 @@ def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
+# clear web form artifact strings left in occupation field
 def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
     """AP. Web form artifacts in occupation ('LOADING', 'ACMIO', 'REMD') -> NaN."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -131,6 +138,7 @@ def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# derive a real occupation when occupation is just EMPLOYED
 def _fix_employed_as_occupation(df: pd.DataFrame) -> int:
     """AQ. occupation='EMPLOYED' -> derive real occupation from employer context."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -152,6 +160,7 @@ def _fix_employed_as_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# clear or relocate non-occupation junk (emails, bare company names)
 def _null_junk_occupation(df: pd.DataFrame) -> int:
     """AR. Null non-occupation values (category OTHER): emails always; a bare company name is MOVED to an empty/SELF-EMPLOYED employer (never destroyed), nulled only when the employer already has a value."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -192,6 +201,7 @@ _STATUS_OCCUPATIONS = (
 )
 
 
+# keep employer, occupation and category mutually consistent
 def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     """AR. Cross-field employer/occupation/category consistency; a real-company employer wins over a RETIRED occupation or SELF-EMPLOYED category."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -248,6 +258,7 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# categorize slash occupations using their first part
 def _fix_slash_occupation(df: pd.DataFrame) -> int:
     """AS. Slash occupation (INVESTOR/DEVELOPER): categorize on the first part, but only when the category is OTHER or NULL."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -272,6 +283,7 @@ def _fix_slash_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# reclassify remaining OTHER categories from final occupation text
 def _reclassify_other_category(df: pd.DataFrame) -> int:
     """AT. Reclassify remaining OTHER values from the final occupation text."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'

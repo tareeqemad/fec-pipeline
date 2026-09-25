@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 __all__ = ["main", "connect"]
 
 
+# log row counts for every table, view, and matview
 def show_stats(cur: Any) -> None:
     logger.info("\n  -- Database Stats --")
     logger.info(f"  {'Name':35s} {'Type':8s} {'Rows':>10s}")
@@ -42,6 +43,7 @@ def show_stats(cur: Any) -> None:
             logger.info(f"  {name:35s} {kind:8s} {_count(cur, name):>10,}")
 
 
+# load every table in dependency order, passing ID maps forward
 def load_all(
     conn: Any,
     cur: Any,
@@ -97,6 +99,7 @@ def load_all(
     )
 
 
+# refresh materialized views concurrently
 def refresh_materialized_views(conn: Any, cur: Any) -> None:
     """Refresh concurrently; schema.sql supplies the required unique index."""
     logger.info("\n-- Refreshing materialized views --")
@@ -110,6 +113,7 @@ def refresh_materialized_views(conn: Any, cur: Any) -> None:
     )
 
 
+# stop unless the caller passed --reset
 def _require_reset_flag() -> None:
     """Stop unless the caller passed --reset."""
     parser = argparse.ArgumentParser(
@@ -124,6 +128,7 @@ def _require_reset_flag() -> None:
         parser.error("use --reset to reload the database")
 
 
+# refresh planner statistics for every non-empty table
 def _analyze_tables(conn, cur) -> None:
     """Refresh planner statistics for every non-empty table."""
     logger.info("\n-- Analyzing tables --")
@@ -134,6 +139,7 @@ def _analyze_tables(conn, cur) -> None:
     logger.info("  ANALYZE complete")
 
 
+# entry point: reset and reload the database from cleaned CSV
 def main() -> None:
     _require_reset_flag()
     try:

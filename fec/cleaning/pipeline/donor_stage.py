@@ -38,6 +38,7 @@ _NETWORK_NAME_RE = re.compile(
     r"^(?:POLITICAL NETWORK,\s*(?P<region>.+)|(?P<leading>.+?)\s+POLITICAL NETWORK)$",
     re.IGNORECASE,
 )
+# keep network-name filings as their own unresolved donor
 def _classify_network_organizations(df: pd.DataFrame) -> int:
     """Keep a filing under a network name as its own unresolved donor, never a person's.
 
@@ -72,6 +73,7 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     return int(targets.sum())
 
 
+# run canonicalization steps: names, employers, addresses, units, pobox
 def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
     steps = (
         (canonicalize_donor_names, "donor_canonical_names",
@@ -93,6 +95,7 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
     return total
 
 
+# finalize employer names and re-canonicalize
 def _finalize_employers(df: pd.DataFrame, trail: AuditTrail) -> tuple[pd.DataFrame, int]:
     df, total = finalize_employer_names(df, trail)
     log_count(logger, "final employer names", total)
@@ -104,6 +107,7 @@ def _finalize_employers(df: pd.DataFrame, trail: AuditTrail) -> tuple[pd.DataFra
     return df, total + final_canonical
 
 
+# align organization donor names to final employer spelling
 def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
     """Give organization donors the final spelling of the same company.
 
@@ -126,6 +130,7 @@ def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
     return total
 
 
+# clear person name fields for non-individual donors
 def _clear_non_individual_names(df: pd.DataFrame) -> int:
     name_cols = [
         column
@@ -140,6 +145,7 @@ def _clear_non_individual_names(df: pd.DataFrame) -> int:
     return int(mask.sum())
 
 
+# make each donor consistent across filings
 def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     """Make each donor consistent across filings."""
     df = df.reset_index(drop=True)

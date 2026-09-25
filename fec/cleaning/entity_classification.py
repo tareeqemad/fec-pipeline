@@ -73,6 +73,7 @@ _CREDENTIAL_RE = re.compile(
 _THREE_PART_NAME_RE = re.compile(r'^([^,]+),\s*([^,]+),\s*(.+)$')
 
 
+# reclassify given rows as a committee/PAC and clear individual fields
 def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
     df.loc[hits, 'entity_type'] = 'COMMITTEE/PAC'
     df.loc[hits, 'is_individual'] = False
@@ -84,6 +85,7 @@ def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
     df.loc[hits, 'contributor_employer'] = np.nan
 
 
+# reclassify individuals whose name matches committee patterns
 def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Reclassify individuals whose name matches committee patterns as COMMITTEE/PAC."""
     indiv_idx = _indiv_idx(df)
@@ -102,6 +104,7 @@ def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
+# reclassify individuals that are actually business entities
 def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Reclassify individuals that are actually business entities."""
     indiv_idx = _indiv_idx(df)
@@ -124,6 +127,7 @@ def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame,
     return df, n_fixed
 
 
+# strip legal suffixes from non-individual contributor names
 def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Strip legal suffixes (LLC, LLP, INC) from non-individual contributor names."""
     mask = df['entity_type'] != 'INDIVIDUAL'
@@ -136,6 +140,7 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(n_fixed)
 
 
+# fix occupation when it duplicates a non-generic employer name
 def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """When a non-generic company name sits in both employer and occupation, fix occupation."""
     indiv_idx = _indiv_idx(df)
@@ -166,6 +171,7 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
     return df, n_fixed
 
 
+# apply manual name corrections, exact and per-row
 def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Apply manual name corrections."""
     corrected = df['contributor_name'].map(EXACT_NAME_CORRECTIONS)
@@ -184,6 +190,7 @@ def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
+# collapse doubled apostrophes in name fields
 def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Collapse doubled apostrophes in name fields (CHALME'' becomes CHALME')."""
     n_fixed = 0
@@ -199,6 +206,7 @@ def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
+# remove periods from initials and titles in contributor names
 def normalize_name_periods(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Remove periods from initials and titles in contributor_name, all records."""
     names = df['contributor_name'].fillna('')
@@ -214,6 +222,7 @@ def normalize_name_periods(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
+# drop a credential wedged into 'LAST, CREDENTIAL, FIRST'
 def fix_credential_in_name(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Drop a credential wedged in 'LAST, CREDENTIAL, FIRST'; must run after normalize_name_periods."""
     indiv_idx = _indiv_idx(df)
@@ -256,6 +265,7 @@ def fix_credential_in_name(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
+# split a full name duplicated into first and last
 def fix_fullname_in_both_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Split a full name duplicated into both first_name and last_name."""
     indiv_idx = _indiv_idx(df)

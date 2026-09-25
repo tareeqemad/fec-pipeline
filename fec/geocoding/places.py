@@ -64,6 +64,7 @@ _TOWN_SUFFIX_RE = re.compile(r" (?:TOWNSHIP|TWP)$")
 _TOWNSHIP_RE = re.compile(r"^TOWN(?:SHIP)? OF | (?:TOWNSHIP|TWP)$")
 
 
+# great-circle distance between two lat/lng points, in km
 def distance_km(first: tuple[float, float], second: tuple[float, float]) -> float:
     lat1, lng1 = map(math.radians, first)
     lat2, lng2 = map(math.radians, second)
@@ -73,6 +74,7 @@ def distance_km(first: tuple[float, float], second: tuple[float, float]) -> floa
     return 6371 * 2 * math.asin(math.sqrt(value))
 
 
+# true if coords fall in any US state/territory bounding box
 def in_us_bounds(lat: float, lng: float) -> bool:
     """True if coords fall in any US state/territory bbox (+1 deg margin) -- the global US guard."""
     for lat_min, lat_max, lng_min, lng_max in US_STATE_BBOX.values():
@@ -81,6 +83,7 @@ def in_us_bounds(lat: float, lng: float) -> bool:
     return False
 
 
+# true if coords are plausible for the given US state
 def valid_for_state(lat: float, lng: float, state: str) -> bool:
     """True if coords are plausible for the given US state (1 deg border margin)."""
     if not state or state not in US_STATE_BBOX:
@@ -89,6 +92,7 @@ def valid_for_state(lat: float, lng: float, state: str) -> bool:
     return (lat_min - 1 <= lat <= lat_max + 1) and (lng_min - 1 <= lng <= lng_max + 1)
 
 
+# normalized comparable form of a town name
 def town_name_key(name: str) -> str:
     """Comparable form of a town name: 'Saint Louis' / 'ST. LOUIS', 'McLean' / 'MC LEAN', 'City of Boulder' / 'BOULDER', 'The Bronx' / 'BRONX' agree."""
     text = unicodedata.normalize("NFKD", str(name or ""))
@@ -99,6 +103,7 @@ def town_name_key(name: str) -> str:
     return "".join(_WORD_FORMS.get(word, word) for word in text.split())
 
 
+# every name Nominatim gives for a result
 def result_names(result: dict) -> set[str]:
     """The names Nominatim gives for a result: its name and English, alternative, short and official names."""
     names = {result.get("name") or ""}
@@ -108,26 +113,31 @@ def result_names(result: dict) -> set[str]:
     return {name for name in names if name}
 
 
+# true if the result is named like the filed city
 def same_town_name(result: dict, city: str) -> bool:
     """The result is named like the filed city (North Little Rock is not Little Rock)."""
     wanted = town_name_key(city)
     return bool(wanted) and any(town_name_key(name) == wanted for name in result_names(result))
 
 
+# true if a result is a civil town or township
 def is_township(result: dict) -> bool:
     """A civil town or township by its own name ('Town of Ithaca', 'West Bloomfield Township')."""
     name = re.sub(r"[^A-Z0-9]+", " ", str(result.get("name") or "").upper()).strip()
     return bool(_TOWNSHIP_RE.search(name))
 
 
+# true if the result's address type is a populated place
 def is_settlement(result: dict) -> bool:
     return (result.get("addresstype") or "") in SETTLEMENT_TYPES
 
 
+# a result's (lat, lng) as floats
 def result_point(result: dict) -> tuple[float, float]:
     return float(result["lat"]), float(result["lon"])
 
 
+# true if the result lies in the filed state
 def in_state(result: dict, state: str) -> bool:
     """The result lies in the filed state: its ISO 3166-2 code when Nominatim gives one, and the state box.
 
@@ -139,12 +149,14 @@ def in_state(result: dict, state: str) -> bool:
     return valid_for_state(lat, lng, state)
 
 
+# results that are the filed town: settlement, name, state match
 def matching_towns(results: list[dict], city: str, state: str) -> list[dict]:
     """The results that are the filed town: a settlement, named like the city, in the state (Nominatim's order kept)."""
     return [result for result in results or []
             if is_settlement(result) and same_town_name(result, city) and in_state(result, state)]
 
 
+# pick the filed town among results, nearest to hint point
 def choose_town(results: list[dict], city: str, state: str,
                 near: tuple[float, float] | None = None) -> dict | None:
     """The filed town among Nominatim results, or None.

@@ -62,6 +62,7 @@ _ORGANIZATION_IN_OCCUPATION_RE = re.compile(
 )
 
 
+# swap occupation and employer values for the given rows
 def _swap_fields(df: pd.DataFrame, indexes: pd.Index) -> None:
     occupation = df.loc[indexes, 'contributor_occupation'].copy()
     employer = df.loc[indexes, 'contributor_employer'].copy()
@@ -70,6 +71,7 @@ def _swap_fields(df: pd.DataFrame, indexes: pd.Index) -> None:
     df.loc[indexes, 'occupation_category'] = _categorize(employer)
 
 
+# fix swaps exposed by earlier cleaning
 def fix_remaining_swapped_occ_emp(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, int, int]:
@@ -101,6 +103,7 @@ def fix_remaining_swapped_occ_emp(
     return df, swaps, len(same)
 
 
+# map safe occupation variants to their canonical spelling
 def normalize_occupation_canonical(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, int]:
@@ -115,6 +118,7 @@ def normalize_occupation_canonical(
     return df, len(hits)
 
 
+# fill an obvious missing occupation or employer from the other
 def _cross_fill(df: pd.DataFrame) -> None:
     """Fill an obvious missing occupation or employer from its other field."""
     for employer, (occupation, category) in OCCUPATION_FROM_EMPLOYER.items():
@@ -134,6 +138,7 @@ def _cross_fill(df: pd.DataFrame) -> None:
         )
 
 
+# swap a company in occupation with a job title employer
 def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
     """Swap a company in occupation with a job title in employer."""
     has_both = df['contributor_occupation'].notna() & df['contributor_employer'].notna()
@@ -150,6 +155,7 @@ def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
     _swap_fields(df, df.index[mask])
 
 
+# normalize free-text occupation and employer fields
 def _normalize_work_text(df: pd.DataFrame) -> int:
     df['contributor_employer'], n_emp = _normalize_text(
         df['contributor_employer'], EMPLOYER_NORMALIZE, digits_only_before=_EMPLOYER_STATUS_TEXT
@@ -160,6 +166,7 @@ def _normalize_work_text(df: pd.DataFrame) -> int:
     return n_emp + n_occ
 
 
+# set initial occupation_status and occupation_category
 def _derive_status_and_category(df: pd.DataFrame) -> int:
     """Initial occupation_status and category."""
     has_occ = df['contributor_occupation'].notna()
@@ -171,6 +178,7 @@ def _derive_status_and_category(df: pd.DataFrame) -> int:
     return int(len(df))
 
 
+# apply known occupation typo/junk fixes
 def _apply_occupation_fixes(df: pd.DataFrame) -> int:
     """Known typo -> (occupation, category) fixes."""
     original = map_occupation_fixes(df, df.index)
@@ -185,6 +193,7 @@ def _apply_occupation_fixes(df: pd.DataFrame) -> int:
     return len(original)
 
 
+# clear occupation fields for committee rows, derive committee_type
 def _clear_committee_work_fields(df: pd.DataFrame) -> int:
     """Committees: committee_type from the name, no occupation."""
     is_committee = ~df['is_individual']
@@ -201,6 +210,7 @@ def _clear_committee_work_fields(df: pd.DataFrame) -> int:
     return int(is_committee.sum())
 
 
+# mark individuals still missing occupation after all fixes
 def _mark_still_missing(df: pd.DataFrame) -> int:
     """Individuals still missing stay NaN."""
     still_missing_occ = df['is_individual'] & df['contributor_occupation'].isna()
@@ -209,6 +219,7 @@ def _mark_still_missing(df: pd.DataFrame) -> int:
     return int(still_missing_occ.sum())
 
 
+# run the full employer/occupation cleaning pipeline in place
 def clean_employer_occupation(df: pd.DataFrame, trail) -> tuple[pd.DataFrame, dict[str, int]]:
     """Run the employer/occupation pipeline in place."""
     counts = {'normalized': 0, 'occ_fixed': 0, 'comm_filled': 0}

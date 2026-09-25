@@ -10,6 +10,7 @@ from fec.config.constants import (
 )
 
 
+# yield each donor's real employer names and counts
 def _donor_employer_groups(df: pd.DataFrame):
     """Yield (donor_key, real employers, counts) per donor."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
@@ -21,6 +22,7 @@ def _donor_employer_groups(df: pd.DataFrame):
         yield dk, real, grp['contributor_employer'].value_counts()
 
 
+# converge near-identical employer spellings for the same donor
 def _employer_typos(df: pd.DataFrame) -> int:
     """Same donor: near-identical employer spellings converge."""
     n_fixed = 0
@@ -52,16 +54,19 @@ _PARENT_BRAND_MIN_DONORS = 5     # a short name that this many people file on it
 _ACRONYM_STOP = {'OF', 'THE', 'AND', 'FOR', 'IN', 'AT', 'DE', 'LA', 'LLC', 'INC', 'LLP', 'CORP', 'LTD', 'PC', 'LP', 'PLLC'}
 
 
+# count distinct donors who file each employer name alone
 def _standalone_donor_counts(df: pd.DataFrame) -> dict:
     """employer -> number of distinct donors who file exactly that name."""
     indiv = df[(df['entity_type'] == 'INDIVIDUAL') & df['contributor_employer'].notna()]
     return indiv.groupby('contributor_employer')['donor_key'].nunique().to_dict()
 
 
+# check whether short appears as a whole word inside long_
 def _contains_as_words(short: str, long_: str) -> bool:
     return f' {short.upper()} ' in f' {long_.upper()} '
 
 
+# merge same-donor employer names, one a substring of the other
 def _employer_substring_variants(df: pd.DataFrame) -> int:
     """Same donor, one name inside the other as whole words (SYNERGY / SYNERGY HEALTH PARTNERS): one company.
 
@@ -93,12 +98,14 @@ def _employer_substring_variants(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# build acronyms of a name, with and without stopwords
 def _acronym_of(name: str) -> tuple[str, str]:
     tokens = re.findall(r'[A-Z0-9&]+', name.upper())
     return (''.join(t[0] for t in tokens if t not in _ACRONYM_STOP),
             ''.join(t[0] for t in tokens))
 
 
+# replace a donor's employer acronym with the matching full name
 def _employer_acronym_variants(df: pd.DataFrame) -> int:
     """Same donor, an acronym next to the name it abbreviates (WPCM / WHITE PINE CAPITAL MANAGEMENT): the full name wins."""
     n_fixed = 0

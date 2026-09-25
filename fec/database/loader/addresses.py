@@ -16,6 +16,7 @@ from ._base import _count, to_float_or_none, to_native
 logger = get_logger(__name__)
 
 
+# treat an empty string address part as null
 def _blank_to_none(value):
     """A missing address part is NULL, never '' (the CSV is read with keep_default_na=False)."""
     value = to_native(value)
@@ -24,6 +25,7 @@ def _blank_to_none(value):
     return value
 
 
+# load resolved, publishable employer locations from disk
 def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
     """Read resolved employer locations; empty address parts become None."""
     if frame is None:
@@ -63,18 +65,21 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
     return locations
 
 
+# treat an empty string value as null
 def _empty_to_none(value):
     """Native value with '' stored as NULL; _akey already maps both to ''."""
     value = to_native(value)
     return None if value == '' else value
 
 
+# normalized address key tuple used to match rows
 def _akey(st1, st2, city, state, z):
     """Normalized address tuple, '' for empty parts, matching the COALESCE(col,'') shape read back from addresses."""
     return (to_native(st1) or '', to_native(st2) or '', to_native(city) or '',
             to_native(state) or '', to_native(z) or '')
 
 
+# load the shared donor/employer address dimension table
 def load_address_dimension(
     conn: Any,
     cur: Any,
@@ -106,6 +111,7 @@ def load_address_dimension(
     return addr_dim_id
 
 
+# use given employer locations, or load them from disk
 def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
     """The given employer locations, else the ones on disk."""
     if employer_locations is None:
@@ -113,6 +119,7 @@ def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
     return employer_locations
 
 
+# one row per distinct donor or employer address
 def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
     """One row per distinct donor or employer address, with coordinates."""
     addr_dim = {}
@@ -138,6 +145,7 @@ def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
     return addr_dim
 
 
+# add an address, or backfill its missing coordinates
 def _add_address(addr_dim: dict, st1, st2, city, state, z, lat, lng) -> None:
     """Add one address, or fill a stored address's missing coordinates."""
     key = _akey(st1, st2, city, state, z)
@@ -151,6 +159,7 @@ def _add_address(addr_dim: dict, st1, st2, city, state, z, lat, lng) -> None:
         entry[5], entry[6] = lat, lng
 
 
+# load donor-address link rows and their lookup map
 def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
                          donor_key_to_id: dict, addr_dim_id: dict) -> dict:
     """Step 5: donor_addresses link rows; returns (donor_id, st1, st2, city, state, zip) -> donor_address_id."""
@@ -191,6 +200,7 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
     return addr_key_to_id
 
 
+# link each employer to its default location
 def link_employer_locations(
     conn: Any,
     cur: Any,
@@ -222,6 +232,7 @@ def link_employer_locations(
     _prune_orphan_addresses(conn, cur)
 
 
+# employer/address id pairs for each primary location
 def _primary_location_rows(locations, addr_dim_id: dict, get_employer_id) -> list[tuple]:
     """(employer_id, address_id) for each employer's primary location."""
     employer_rows = []
@@ -248,6 +259,7 @@ def _primary_location_rows(locations, addr_dim_id: dict, get_employer_id) -> lis
     return employer_rows
 
 
+# delete addresses no donor, employer, or employment uses
 def _prune_orphan_addresses(conn, cur) -> None:
     """Delete addresses no donor, employer or employment uses."""
     cur.execute("""

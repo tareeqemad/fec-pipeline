@@ -72,6 +72,7 @@ _RETIRED_SUFFIX_RE = re.compile(rf'[\s,;:/-]*\(?\s*{_RETIRED_WORD}\s*\)?$')
 _NAME_BEFORE_RETIRED_RE = re.compile(r'\b(?:OF|FOR|THE|AND|&)$')
 
 
+# strip a leading/trailing retirement marker from a value
 def _strip_retired_marker(upper: str) -> tuple[str, bool]:
     """Return (value without a leading/trailing retirement marker, marker found)."""
     stripped = _RETIRED_PREFIX_RE.sub('', upper, count=1)
@@ -85,6 +86,7 @@ def _strip_retired_marker(upper: str) -> tuple[str, bool]:
     return upper, False
 
 
+# collapse a slash-format value to its useful company side
 def _resolve_slash(s: str) -> str:
     """Collapse slash-format values: keep real brands, drop admin/self forms, prefer the company side; result still passes normalize_employer_display_name."""
     if not s:
@@ -104,6 +106,7 @@ def _resolve_slash(s: str) -> str:
     if any(part in _SLASH_SELF_WORDS for part in upper_parts):
         return ''
 
+    # a status word, sector-only term, or too short
     def _junk(u: str) -> bool:
         return (
             u in _SLASH_STATUS_WORDS
@@ -137,6 +140,7 @@ _CANONICAL_SYNONYM_NAMES = frozenset(
 )
 
 
+# true if the value carries no real previous-employer information
 def _is_null_previous(upper: str) -> bool:
     upper_nospace = _WS_RE.sub('', upper)
     return (
@@ -148,11 +152,13 @@ def _is_null_previous(upper: str) -> bool:
     )
 
 
+# true if the value explicitly states self-employment
 def _is_explicit_self(upper: str) -> bool:
     return (upper.startswith('SELF:') or upper.startswith('SELF EMPLOYED')
             or upper.startswith('SELF-EMPLOYED') or upper == 'SELF')
 
 
+# apply the previous_employer contract to a single value
 def normalize_previous_employer_value(v) -> str:
     """Contract for ONE value ('' clears it); self-employment is recognised FIRST because the display-name normalizer would clear 'SELF-EMPLOYED', a fact we keep."""
     text = _WS_RE.sub(' ', str(v)).strip()
@@ -190,6 +196,7 @@ def normalize_previous_employer_value(v) -> str:
     return _previous_company_name(text, upper)
 
 
+# resolve one real prior company to its canonical display form
 def _previous_company_name(text: str, upper: str) -> str:
     """One real prior company in its canonical display form ('' if none)."""
     # same synonym map as contributor_employer so a company collapses to ONE name
@@ -229,6 +236,7 @@ def _previous_company_name(text: str, upper: str) -> str:
     return normalized if is_real_employer(normalized) else ''
 
 
+# extract comparable name words, ignoring punctuation and initials
 def _name_words(value) -> frozenset[str]:
     """Comparable name words, ignoring punctuation and middle initials."""
     return frozenset(
@@ -237,6 +245,7 @@ def _name_words(value) -> frozenset[str]:
     )
 
 
+# keep an own-named legal company, reject a bare donor name
 def preserve_own_named_legal_employer(
     cleaned: str, original, contributor_name,
 ) -> str:
@@ -250,6 +259,7 @@ def preserve_own_named_legal_employer(
     return ''
 
 
+# apply the previous_employer contract to a whole dataframe
 def normalize_previous_employer_column(df: pd.DataFrame) -> int:
     """Apply the contract to a whole frame (idempotent, safe in both cleaning and resolve stages); also drops a previous_employer that is the donor's own name; returns rows changed."""
     if 'previous_employer' not in df.columns:

@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 _VAGUE_OCC_CATEGORIES = ("", "OTHER", "NOT EMPLOYED", "RETIRED")
 
 
+# build the individual record id for matching and key assignment
 def individual_record_id(name, city, state, suffix="", zip5="") -> str:
     """Build the individual record ID used by matching and key assignment (zip5 only for a ZIP-split name)."""
     base = f"{name or ''}|{city or ''}|{state or ''}"
@@ -31,21 +32,25 @@ def individual_record_id(name, city, state, suffix="", zip5="") -> str:
     return f"{base}|{suffix}" if suffix else base
 
 
+# hash the record id into the canonical donor_key
 def individual_donor_key(name, city, state, suffix="", zip5="") -> str:
     """Canonical donor_key (sha256 of record-id, first 12 hex); must stay identical to leadership_matcher's."""
     rid = individual_record_id(name, city, state, suffix, zip5)
     return hashlib.sha256(rid.encode()).hexdigest()[:12]
 
 
+# build the shared donor key used by organizations and committees
 def non_individual_donor_key(name) -> str:
     """Build the shared key used by organizations and committees."""
     normalized = normalize_committee_name(name)
     return hashlib.sha256(normalized.encode()).hexdigest()[:12]
 
 
+# assign each row its scored or fallback donor_key
 def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     """Apply scored donor_key: individuals take their cluster key from rid_to_key, silently falling back to a hash of their own rid when absent; non-individuals hash their normalized committee name instead."""
 
+    # look up or fall back to compute this row's donor_key
     def _get_key(row):
         if row["entity_type"] != "INDIVIDUAL":
             return non_individual_donor_key(row.get("contributor_name"))
@@ -69,6 +74,7 @@ def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     return df
 
 
+# merge donor_keys name-blocking split for the same person
 def merge_split_name_donors(df: pd.DataFrame) -> int:
     """Merge donor_keys split by name blocking: same sorted name tokens + same ZIP + no occupation conflict repoint to the dominant key; returns rows repointed."""
     ind = df["entity_type"] == "INDIVIDUAL"
@@ -129,6 +135,7 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
     return int(mask.sum())
 
 
+# repoint verified duplicate keys to their preferred key
 def apply_curated_key_merges(df: pd.DataFrame) -> int:
     """Repoint verified duplicate keys to their preferred key."""
     if "donor_key" not in df.columns or not KEY_MERGES:
@@ -141,6 +148,7 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     return n
 
 
+# give each held filing group its own key, outside anyone
 def hold_unproven_filings(df: pd.DataFrame) -> int:
     """Give each held filing group its own key, outside every person.
 
@@ -162,6 +170,7 @@ def hold_unproven_filings(df: pd.DataFrame) -> int:
     return int(held.sum())
 
 
+# reject a donor whose rows contain a verified separation pair
 def validate_separations(df: pd.DataFrame) -> None:
     """Reject a donor containing a verified separation pair."""
     columns = [

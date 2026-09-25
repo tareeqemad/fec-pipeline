@@ -36,6 +36,7 @@ logger = get_logger(__name__)
 EMPLOYMENT_KEY_COLUMNS = ("donor_id", "employer_id", "occupation", "employer_status")
 
 
+# build the dedup identity tuple for one employment row
 def employment_key(donor_id, employer_id, occupation, employer_status) -> tuple:
     """The identity of an employment; NaN becomes None so NULL equals NULL, like the constraint."""
     employer_id = to_native(employer_id)
@@ -47,6 +48,7 @@ def employment_key(donor_id, employer_id, occupation, employer_status) -> tuple:
     )
 
 
+# keep only the latest filing per raw employment and status
 def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
     """Keep the latest complete filing per raw employment and status."""
     keys = [
@@ -67,8 +69,10 @@ def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+# build a resolver mapping cleaned employer name to id
 def _make_employer_resolver(emp_name_to_id: dict):
     """Map a cleaned employer name exactly."""
+    # look up one employer name's database id, or None
     def _get_employer_id(emp_name):
         if pd.isna(emp_name):
             return None
@@ -80,6 +84,7 @@ def _make_employer_resolver(emp_name_to_id: dict):
     return _get_employer_id
 
 
+# insert unique individual employers and return name-to-id mapping
 def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     """Step 2: unique employers of INDIVIDUAL donors; returns name -> employer_id."""
     logger.info("\n-- 2/8 Loading employers --")
@@ -98,6 +103,7 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     return emp_name_to_id
 
 
+# bulk insert donor_employments rows, skipping duplicate keys
 def _insert_employments(conn: Any, cur: Any, rows: list[tuple]) -> None:
     """Insert donor_employments rows; a repeated key is skipped."""
     execute_values(cur,
@@ -110,6 +116,7 @@ def _insert_employments(conn: Any, cur: Any, rows: list[tuple]) -> None:
     conn.commit()
 
 
+# load donor_employments rows and return their key-to-id mapping
 def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                      occ_cat_map: dict, donor_prev_employer_id: dict,
                      get_employer_id, addr_dim_id: dict | None = None,
@@ -133,6 +140,7 @@ def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dic
     return empl_donor_emp_to_id
 
 
+# build one row per distinct employment from latest filings
 def _employment_rows(df: pd.DataFrame, donor_key_to_id: dict, occ_cat_map: dict,
                      donor_prev_employer_id: dict, get_employer_id,
                      addr_dim_id: dict | None, employer_locations: list[dict] | None,
@@ -189,6 +197,7 @@ def _employment_rows(df: pd.DataFrame, donor_key_to_id: dict, occ_cat_map: dict,
     return empl_rows
 
 
+# resolve a filing's current employer name and database id
 def _current_employer(emp_status, emp_val, donor_key, get_employer_id):
     """The filing's current employer name and its database id."""
     employer_name = current_employer_name(emp_status, emp_val)
@@ -204,6 +213,7 @@ def _current_employer(emp_status, emp_val, donor_key, get_employer_id):
     return employer_name, emp_id
 
 
+# resolve a retiree's previous employer id or self-employed flag
 def _previous_employment(emp_status, donor_key, donor_prev_employer_id, previous_self_employed):
     """A retiree's previous employer id or SELF-EMPLOYED flag, never both."""
     prev_emp_id = _previous_employer_id(
@@ -224,6 +234,7 @@ def _previous_employment(emp_status, donor_key, donor_prev_employer_id, previous
     return prev_emp_id, prev_self_employed
 
 
+# map each loaded employment's key to its database id
 def _employment_ids(cur) -> dict:
     """employment_key(...) -> donor_employment_id for every loaded row."""
     cur.execute(

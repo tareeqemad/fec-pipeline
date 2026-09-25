@@ -66,6 +66,7 @@ _ORDINAL_BUILDING_RE = re.compile(
 )
 
 
+# convert a matched spelled-out ordinal word into its numeral form
 def _ordinal_number(match: re.Match) -> str:
     number = (_ORDINAL_TENS.get((match.group(1) or "").upper(), 0)
               + _ORDINAL_WORDS[match.group(2).upper()])
@@ -73,6 +74,7 @@ def _ordinal_number(match: re.Match) -> str:
     return f"{number}{suffix}"
 
 
+# convert a spelled-out ordinal street name to numeral form
 def numbered_street(street: str) -> str:
     """'777 THIRD AVE' -> '777 3RD AVE'; any other street is returned unchanged."""
     if _ORDINAL_BUILDING_RE.search(street):
@@ -80,10 +82,12 @@ def numbered_street(street: str) -> str:
     return _ORDINAL_STREET_RE.sub(_ordinal_number, street)
 
 
+# vectorized numbered_street over a series of streets
 def _numbered_streets(streets: pd.Series) -> pd.Series:
     return streets.map(numbered_street)
 
 
+# strip building names and suite/floor/unit suffixes before geocoding
 def _clean_street_for_geocoding(street: str) -> str:
     """Strip a leading building name and suite/floor/unit suffixes that confuse Nominatim and Census."""
     cleaned = _BUILDING_NAME_RE.sub('', street)

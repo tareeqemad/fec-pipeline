@@ -37,19 +37,23 @@ PEOPLE_FIELDS = ENTITY_FIELDS + NAME_FIELDS + EMPLOYMENT_FIELDS
 _BLANK_TEXT = frozenset({"", "nan", "None", "<NA>"})
 
 
+# blank-like values become empty string for comparison
 def _text(series: pd.Series) -> pd.Series:
     values = series.astype(object).where(series.notna(), "").astype(str)
     return values.where(~values.isin(_BLANK_TEXT), "")
 
 
+# row keys: sub_id if present, else the index
 def _keys(df: pd.DataFrame):
     return df["sub_id"].to_numpy() if "sub_id" in df.columns else df.index.to_numpy()
 
 
+# build a series of one field indexed by key
 def _by_key(df: pd.DataFrame, field: str) -> pd.Series:
     return pd.Series(df[field].to_numpy(copy=True), index=_keys(df))
 
 
+# expand a constant, callable, or None to per-row values
 def _per_row(value, df: pd.DataFrame, keys) -> list:
     if value is None or isinstance(value, str):
         return [value] * len(keys)
@@ -60,17 +64,20 @@ def _per_row(value, df: pd.DataFrame, keys) -> list:
 class AuditTrail:
     """Track changes by sub_id and field."""
 
+    # init empty audit records and raw/expected value caches
     def __init__(self) -> None:
         self.records: list[dict] = []
         self._raw: dict[str, pd.Series] = {}
         self._expected: dict[str, dict] = {}
 
+    # snapshot each audited field's original value per key
     def start(self, df: pd.DataFrame) -> None:
         unique = df.drop_duplicates("sub_id", keep="first") if "sub_id" in df.columns else df
         for field in AUDITED_FIELDS:
             if field in unique.columns:
                 self._raw[field] = _by_key(unique, field)
 
+    # run a transform and record the fields it changed
     def run(
         self,
         df: pd.DataFrame,
@@ -91,6 +98,7 @@ class AuditTrail:
         self._record(after, before, step, reason, source)
         return result
 
+    # run a step and log its change counts
     def run_logged(self, df, transform, step, reason, fields, message, log, always=False):
         """Run one step; log its counts when it changed rows.
 
@@ -104,6 +112,7 @@ class AuditTrail:
             log(message.format(**values))
         return df
 
+    # diff before/after values and append audit rows for changes
     def _record(self, df, before, step, reason, source) -> None:
         for field, old in before.items():
             if field not in df.columns:
@@ -142,6 +151,7 @@ class AuditTrail:
                 )
                 expected_values[key] = new_value
 
+    # flag final values that differ from all tracked changes
     def finish(self, df: pd.DataFrame) -> int:
         """Record changes made outside tracked steps."""
         unexplained = 0
@@ -170,6 +180,7 @@ class AuditTrail:
                 unexplained += 1
         return unexplained
 
+    # sub_ids last changed in these fields by these steps
     def keys_set_by(self, steps, fields) -> set:
         """sub_ids whose surviving change to any of fields came from one of steps."""
         steps, fields = set(steps), set(fields)
@@ -178,6 +189,7 @@ class AuditTrail:
             if record["step"] in steps and record["field"] in fields
         }
 
+    # collapse each field's changes, dropping ones later undone
     def net_records(self) -> list[dict]:
         """Remove changes undone by a later step."""
         chains: dict[tuple, list[dict]] = {}
@@ -195,6 +207,7 @@ class AuditTrail:
         return [record for record in self.records if id(record) in keep]
 
 
+# tally record counts per step and reason
 def summarize(records: list[dict]) -> dict:
     """Count changes by step and reason."""
     steps: dict[str, dict] = {}
@@ -206,6 +219,7 @@ def summarize(records: list[dict]) -> dict:
     return steps
 
 
+# build one audit record dict
 def _row(key, field, before, after, step, reason, source=None) -> dict:
     return {
         "sub_id": str(key),
@@ -218,6 +232,7 @@ def _row(key, field, before, after, step, reason, source=None) -> dict:
     }
 
 
+# original text value for a key, blank-normalized
 def _raw_text(raw: pd.Series, key) -> str | None:
     if key not in raw.index:
         return None

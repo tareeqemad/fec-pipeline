@@ -8,6 +8,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# true if two employer names are the same company
 def _same_entity(a: str, b: str) -> bool:
     """Same company: canonical keys equal, or in a prefix relationship with the longer at most 2x the shorter (catches MORGAN LEWIS / MORGAN LEWIS BOCKIUS LLP, rejects unrelated prefixes)."""
     key_a, key_b = canonical_key(a), canonical_key(b)
@@ -21,6 +22,7 @@ def _same_entity(a: str, b: str) -> bool:
     return len(long_) <= 2 * len(short)
 
 
+# normalize a complete cached address
 def _address_key(entry: dict) -> str:
     """Normalize a complete cached address."""
     fields = (
@@ -37,6 +39,7 @@ def _address_key(entry: dict) -> str:
     )
 
 
+# rank a cache entry: has address, confidence, then method
 def _score(entry: dict) -> tuple:
     """Higher = better: has address, then confidence, then method - ai_*_search outranks closed-book (verified against live sources)."""
     has_address = 1 if entry.get('employer_address') else 0
@@ -55,6 +58,7 @@ def _score(entry: dict) -> tuple:
     return (has_address, confidence_rank, method_priority)
 
 
+# group eligible cache names by complete normalized address
 def _entries_by_address(data: dict) -> dict[str, list[str]]:
     """Group eligible cache names by complete normalized address."""
     grouped: dict[str, list[str]] = defaultdict(list)
@@ -73,6 +77,7 @@ def _entries_by_address(data: dict) -> dict[str, list[str]]:
     return grouped
 
 
+# cluster same-company spellings, preserving cache order
 def _cluster_company_names(names: list[str]) -> list[list[str]]:
     """Cluster same-company spellings while preserving cache order."""
     clusters: list[list[str]] = []
@@ -86,6 +91,7 @@ def _cluster_company_names(names: list[str]) -> list[list[str]]:
     return clusters
 
 
+# prefer the common filing spelling, then longest, then alphabetical
 def _canonical_name(cluster: list[str], frequency: dict) -> str:
     """Prefer the common filing spelling, then longest, then alphabetical."""
     return min(
@@ -94,6 +100,7 @@ def _canonical_name(cluster: list[str], frequency: dict) -> str:
     )
 
 
+# build variant-to-canonical alias mapping
 def _alias_mapping(
     grouped: dict[str, list[str]], frequency: dict,
 ) -> tuple[dict[str, str], int]:
@@ -114,6 +121,7 @@ def _alias_mapping(
     return mapping, groups
 
 
+# give each canonical name its strongest alias entry
 def _settle_canonical_entries(data: dict, mapping: dict[str, str]) -> None:
     """Give each canonical name the strongest entry among its aliases."""
     for variant, canonical in mapping.items():
@@ -121,6 +129,7 @@ def _settle_canonical_entries(data: dict, mapping: dict[str, str]) -> None:
             data[canonical] = data[variant]
 
 
+# keep every spelling resolvable without another lookup
 def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
     """Keep every spelling resolvable without triggering another lookup."""
     for variant, canonical in mapping.items():
@@ -134,6 +143,7 @@ def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
         data[variant] = alias
 
 
+# alias same-company entries resolved to the same address
 def dedup_by_resolved_address(
     addr_cache, freq: dict | None = None,
 ) -> tuple[int, int]:

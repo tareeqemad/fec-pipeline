@@ -37,6 +37,7 @@ _REVIEWED_STREET_SOURCES = STREET_LEVEL_SOURCES | {"manual_census"}
 _REVIEWED_POINT_LEVEL = "google"
 
 
+# decide which cached coordinates a key may publish
 def accepted_coordinates(key: str, entry: dict | None) -> tuple[float | None, float | None, str]:
     """(lat, lng, level) a cached result may publish, or (None, None, reason) when the key's own address rules it out.
 
@@ -70,6 +71,7 @@ def accepted_coordinates(key: str, entry: dict | None) -> tuple[float | None, fl
     return lat, lng, source
 
 
+# true if reviewed_points marks this cached point wrong
 def _reviewed_wrong_street(key: str, entry: dict, lat: float, lng: float) -> bool:
     """A cached street-level point at the spot reviewed_points shows wrong for the key.
 
@@ -77,6 +79,7 @@ def _reviewed_wrong_street(key: str, entry: dict, lat: float, lng: float) -> boo
     return entry.get("source") in _REVIEWED_STREET_SOURCES and is_reviewed_wrong(key, lat, lng)
 
 
+# unchecked cached street result far from its filed ZIP
 def _unchecked_outside_zip(key: str, entry: dict, lat: float, lng: float, zipcode: str) -> bool:
     """A cached street-level result outside its filed ZIP that no run and no reviewer has checked yet."""
     return (entry.get("source") in STREET_LEVEL_SOURCES
@@ -85,6 +88,7 @@ def _unchecked_outside_zip(key: str, entry: dict, lat: float, lng: float, zipcod
             and _street_far_from_zip(lat, lng, zipcode))
 
 
+# replace cached city-centroid fallbacks with the filed ZIP's centroid
 def prefer_zip_centroids(keys, cache: GeoCache) -> int:
     """Replace cached city-centroid fallbacks with the filed ZIP's centroid where _zip_replaces_city allows; returns entries changed."""
     changed = 0

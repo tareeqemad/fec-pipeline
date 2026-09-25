@@ -80,6 +80,7 @@ ORG_TITLE_ROLES = frozenset({
 _NO_INFO_OCCUPATIONS = frozenset({'EMPLOYED', 'NOT DISCLOSED', 'OTHER'})
 
 
+# build each row's filer name as written on the filing
 def _filer_names(df: pd.DataFrame) -> pd.Series:
     """The filer's name as written on each row (donor_key does not exist yet at this stage)."""
     if 'contributor_name' in df.columns:
@@ -92,6 +93,7 @@ def _filer_names(df: pd.DataFrame) -> pd.Series:
     return names.fillna('').astype(str).str.strip().str.upper()
 
 
+# find candidates whose occupation text is really an organization name
 def _occupation_names_no_job(df: pd.DataFrame, occ: pd.Series, candidates: pd.Series) -> pd.Series:
     """Candidate rows whose occupation text is no job at all, so it can only be the organisation.
 
@@ -127,6 +129,7 @@ def _occupation_names_no_job(df: pd.DataFrame, occ: pd.Series, candidates: pd.Se
     )
 
 
+# check whether the occupation box actually holds the company
 def occupation_holds_company(df: pd.DataFrame, occ: pd.Series, emp: pd.Series, candidates: pd.Series) -> pd.Series:
     """A role word sits in the employer box (candidates): does the occupation box hold the company?
 
@@ -138,6 +141,7 @@ def occupation_holds_company(df: pd.DataFrame, occ: pd.Series, emp: pd.Series, c
     return marker | _occupation_names_no_job(df, occ, org_title)
 
 
+# swap employer and occupation fields for the masked rows
 def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> None:
     """Swap contributor_employer <-> contributor_occupation where mask is True, optionally setting occupation_status."""
     old_emp = df.loc[mask, 'contributor_employer'].copy()
@@ -150,6 +154,7 @@ def _swap_occ_emp_fields(df: pd.DataFrame, mask: pd.Series, *, status=None) -> N
         df.loc[mask, 'occupation_status'] = status
 
 
+# set employer to SELF-EMPLOYED when it duplicates the occupation
 def _fix_employer_equals_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """U. Employer == occupation -> SELF-EMPLOYED, except real company names (donor works there, wrote it twice)."""
     emp = df['contributor_employer'].fillna('')
@@ -168,6 +173,7 @@ def _fix_employer_equals_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> in
     return n_fixed
 
 
+# fix employer field that actually holds an occupation word
 def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """V. Employer is an occupation word: swap with occupation or set SELF-EMPLOYED."""
     emp = df['contributor_employer'].fillna('')
@@ -212,6 +218,7 @@ def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> i
     return n_fixed
 
 
+# swap role in employer back when occupation holds a company
 def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
     """AD0. Emp holds a title while occ holds the company; MUST run before AD, whose SELF-EMPLOYED collapse would strand the company."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -237,6 +244,7 @@ def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# swap back or self-employ rows with a role/title as employer
 def _fix_role_as_employer(df: pd.DataFrame) -> int:
     """AD. Role/title in employer field: swap back if occ holds the company (marker, or no job at all beside an organisation title), else SELF-EMPLOYED."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -258,6 +266,7 @@ def _fix_role_as_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# clean self-employed rows whose employer is really an occupation word
 def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
     """AE. occ='SELF-EMPLOYED' rows: own-name employer -> SELF-EMPLOYED, occupation-word employer moved to occ."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'

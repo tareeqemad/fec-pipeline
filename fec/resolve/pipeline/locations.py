@@ -25,10 +25,12 @@ _CACHE_BLOCK_METHODS = frozenset({
 })
 
 
+# coerce a value to a stripped string
 def _text(value) -> str:
     return str(value or "").strip()
 
 
+# check whether a location dict carries a usable address
 def _usable(location: dict | None) -> bool:
     return bool(location and (
         _text(location.get("employer_address"))
@@ -40,6 +42,7 @@ def _usable(location: dict | None) -> bool:
     ))
 
 
+# check whether an address has auditable evidence
 def is_publishable_location(location: dict | None) -> bool:
     """Return whether an address has auditable evidence."""
     if not _usable(location):
@@ -48,10 +51,12 @@ def is_publishable_location(location: dict | None) -> bool:
     return method == "manual_override" or method.endswith("_search")
 
 
+# build an uppercase field tuple identifying one location
 def _signature(location: dict) -> tuple[str, ...]:
     return tuple(_text(location.get(field)).upper() for field in ADDRESS_FIELDS)
 
 
+# build a signature for a manual entry's primary address
 def _manual_signature(entry: dict) -> tuple[str, ...]:
     primary = location_candidates(entry)[0]
     street = _normalize_street(primary.get("employer_address"))
@@ -63,6 +68,7 @@ def _manual_signature(entry: dict) -> tuple[str, ...]:
     )
 
 
+# collect unique usable locations from one cache entry
 def location_candidates(entry: dict | None) -> list[dict]:
     """Return unique locations from one employer cache entry."""
     if not isinstance(entry, dict):
@@ -81,6 +87,7 @@ def location_candidates(entry: dict | None) -> list[dict]:
     return list(unique.values())
 
 
+# keep blockers, or return only an entry's publishable locations
 def _publishable_entry(entry: dict | None) -> dict | None:
     """Keep blockers or return only publishable locations."""
     if not isinstance(entry, dict):
@@ -119,6 +126,7 @@ def _publishable_entry(entry: dict | None) -> dict | None:
     return result
 
 
+# choose the best cache entry among exact and canonical matches
 def _preferred_entry(
     exact: dict | None,
     matches: list[dict],
@@ -155,6 +163,7 @@ def _preferred_entry(
     return None
 
 
+# index safe cache matches by exact name and canonical key
 def address_cache_lookup(
     entries: dict,
     *,
@@ -191,6 +200,7 @@ def address_cache_lookup(
     return lookup
 
 
+# read one cache match by exact name or canonical key
 def resolve_cache_entry(
     lookup: dict[str, dict],
     employer_name: str,
@@ -200,6 +210,7 @@ def resolve_cache_entry(
     return lookup.get(exact) or lookup.get(canonical_key(exact))
 
 
+# collect signatures of an entry's publishable locations
 def _publishable_signatures(entry: dict | None) -> set[tuple[str, ...]]:
     return {
         _signature(location)
@@ -208,6 +219,7 @@ def _publishable_signatures(entry: dict | None) -> set[tuple[str, ...]]:
     }
 
 
+# prefer the publishable cache entry over the full lookup's entry
 def publishable_first_entry(
     publishable_lookup: dict[str, dict],
     lookup: dict[str, dict],

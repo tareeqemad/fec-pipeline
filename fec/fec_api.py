@@ -23,10 +23,12 @@ class PullError(RuntimeError):
 class RateLimiter:
     """Keep request starts within the configured requests-per-minute limit."""
 
+    # set request interval in seconds from requests-per-minute
     def __init__(self, rpm: int = 15):
         self.interval = 60.0 / max(1, int(rpm))
         self.last_request = 0.0
 
+    # sleep as needed to respect the rate limit
     def wait(self) -> None:
         delay = self.last_request + self.interval - monotonic()
         if delay > 0:
@@ -34,6 +36,7 @@ class RateLimiter:
         self.last_request = monotonic()
 
 
+# read a required env var or raise pullerror
 def required_env(name: str) -> str:
     value = os.getenv(name)
     if not value:
@@ -41,6 +44,7 @@ def required_env(name: str) -> str:
     return value
 
 
+# build a requests session with standard headers
 def build_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(
@@ -52,6 +56,7 @@ def build_session() -> requests.Session:
     return session
 
 
+# compute retry delay from retry-after header or backoff
 def _retry_delay(attempt: int, response=None, cap: float = 60.0) -> float:
     retry_after = response.headers.get("Retry-After") if response is not None else None
     fallback = min(cap, 2 ** (attempt - 1))
@@ -63,6 +68,7 @@ def _retry_delay(attempt: int, response=None, cap: float = 60.0) -> float:
         return fallback
 
 
+# sleep and retry, or raise after max attempts
 def _retry_connection(error: Exception, attempt: int) -> None:
     if attempt == MAX_ATTEMPTS:
         raise PullError(f"FEC API unavailable after {attempt} attempts") from error
@@ -71,6 +77,7 @@ def _retry_connection(error: Exception, attempt: int) -> None:
     sleep(delay)
 
 
+# sleep through a rate-limit window, capped at max wait
 def _wait_for_rate_limit(response, attempt: int, waited: float) -> float:
     delay = max(1.0, _retry_delay(attempt, response, cap=120.0))
     if waited + delay > RATE_LIMIT_MAX_WAIT:
@@ -85,6 +92,7 @@ def _wait_for_rate_limit(response, attempt: int, waited: float) -> float:
     return waited
 
 
+# sleep and retry a transient server error
 def _retry_server_error(response, attempt: int) -> None:
     if attempt == MAX_ATTEMPTS:
         raise PullError(
@@ -95,6 +103,7 @@ def _retry_server_error(response, attempt: int) -> None:
     sleep(delay)
 
 
+# raise on api errors, else return parsed json
 def _response_data(response, params: dict) -> dict:
     if response.status_code == 403:
         raise PullError("FEC API key is invalid or expired")
@@ -111,6 +120,7 @@ def _response_data(response, params: dict) -> dict:
         raise PullError("FEC API returned invalid JSON") from error
 
 
+# fetch one page, retrying transient errors and rate limits
 def fetch_page(session, params: dict, limiter: RateLimiter) -> dict:
     """Fetch one page, waiting through an hourly FEC rate-limit window."""
     transient_attempts = 0

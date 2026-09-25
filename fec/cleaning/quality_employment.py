@@ -19,6 +19,7 @@ def _resolve_only_gate(key, df, required):
     }, None)]
 
 
+# quality gate: every occupation_category value must be a known one
 def _gate_valid_categories(df):
     if 'occupation_category' not in df.columns:
         return []
@@ -35,6 +36,7 @@ def _gate_valid_categories(df):
     }, issue)]
 
 
+# quality gate: occupation_category must match the occupation text
 def _gate_occupation_category_consistency(df):
     required = {'entity_type', 'contributor_occupation', 'occupation_category'}
     if not required.issubset(df.columns):
@@ -52,6 +54,7 @@ def _gate_occupation_category_consistency(df):
     }, issue)]
 
 
+# quality gate: self-employed fields and employer_status must agree
 def _gate_self_employed_status(df):
     """Self-employment fields and status must agree."""
     required = {
@@ -80,6 +83,7 @@ def _gate_self_employed_status(df):
     }, issue)]
 
 
+# quality gate: non-working occupations and employer_status must agree
 def _gate_not_employed_status(df):
     """Non-working occupations and status must agree."""
     required = {
@@ -108,6 +112,7 @@ def _gate_not_employed_status(df):
     }, issue)]
 
 
+# quality gate: previous_employer must only be set on retired rows
 def _gate_previous_employer_scope(df):
     """Previous employment belongs only to retired rows."""
     required = {'employer_status', 'previous_employer'}
@@ -124,6 +129,7 @@ def _gate_previous_employer_scope(df):
     }, issue)]
 
 
+# quality gate: RETIRED category must not coexist with active status
 def _gate_retired_active_sync(df):
     # RETIRED category with employer_status=active contradicts classify_employer_status
     required = {'entity_type', 'occupation_category', 'employer_status'}
@@ -143,6 +149,7 @@ def _gate_retired_active_sync(df):
     return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
 
 
+# quality gate: retired rows must carry the RETIRED employer marker
 def _gate_retired_employer_marker(df):
     """A retired occupation must finish with the canonical RETIRED employer marker."""
     required = {'entity_type', 'occupation_category', 'contributor_employer'}
@@ -159,6 +166,7 @@ def _gate_retired_employer_marker(df):
     return [('retired_employer_marker', {'passed': count == 0, 'count': count}, issue)]
 
 
+# quality gate: previous_employer must not still contain a slash composite
 def _gate_slash_previous_employer(df):
     # 'COMPANY/TITLE' composites are resolved by resolve.py (_normalize_previous_employer_column);
     # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted

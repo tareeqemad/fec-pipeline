@@ -6,6 +6,7 @@ from fec.database.loader.addresses import _akey, load_employer_locations
 from fec.resolve.pipeline.location_choice import select_location
 
 
+# index known employer locations by exact employer name
 def _location_index(
     employer_locations: list[dict] | None = None,
 ) -> dict[str, dict]:
@@ -30,6 +31,7 @@ def _location_index(
     return lookup
 
 
+# choose the address id attached to one employment
 def _employment_address_id(
     row,
     employer_name,
@@ -86,6 +88,7 @@ def _employment_address_id(
     return address_id
 
 
+# the employer whose location an employment row uses
 def _location_employer(row, emp_id, employer_name: str | None, emp_status) -> str | None:
     """The employer whose location an employment row takes: current, else the retiree's previous."""
     if emp_id:

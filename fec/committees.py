@@ -7,6 +7,7 @@ from functools import lru_cache
 from fec.env import COMMITTEES_CSV
 
 
+# load all committee rows from committees.csv, cached
 @lru_cache(maxsize=1)
 def load_committees() -> list[dict]:
     """All committee rows from committees.csv (cached). Empty strings -> None."""
@@ -17,6 +18,7 @@ def load_committees() -> list[dict]:
                 for row in csv.DictReader(fh)]
 
 
+# map FEC committee_number to committee_short name
 def committee_id_to_name() -> dict[str, str]:
     """{FEC committee_number -> committee_short}, only rows with an FEC number."""
     return {r["committee_number"]: r["committee_short"]

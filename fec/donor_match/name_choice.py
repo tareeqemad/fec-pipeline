@@ -34,10 +34,12 @@ _COMMA_SUFFIXES = frozenset(
 _LEADING_INITIAL_RE = re.compile(r"^([A-Z])(\.\s*|\s+)([A-Z][A-Z'\-]+(?:\s.*)?)$")
 
 
+# check whether a leading letter is really a surname particle
 def _is_particle(letter: str, rest: str) -> bool:
     return letter in "OD" or (letter == "L" and rest[:1] in "AEIOUH")
 
 
+# strip filer decoration from a first-name spelling
 def _first_core(value: str) -> str:
     """The first-name spelling with filer decoration removed (see above)."""
     text = value
@@ -60,6 +62,7 @@ def _first_core(value: str) -> str:
     return text
 
 
+# check whether decoration is only complete parenthetical groups
 def _only_balanced_parens(value: str) -> bool:
     """True when the spelling's only decoration is complete (...) groups."""
     if "(" not in value:
@@ -67,10 +70,12 @@ def _only_balanced_parens(value: str) -> bool:
     return _first_core(value) == " ".join(_PAREN_GROUP_RE.sub(" ", value).split())
 
 
+# extract uppercase name tokens from text
 def _name_tokens(text: str) -> tuple:
     return tuple(_NAME_TOKEN_RE.findall(text.upper()))
 
 
+# collect tokens the donor writes inside brackets across spellings
 def _parenthesized_tokens(values) -> set:
     """Tokens the donor writes inside brackets somewhere: asides, not name parts."""
     tokens = set()
@@ -80,6 +85,7 @@ def _parenthesized_tokens(values) -> set:
     return tokens
 
 
+# drop a trailing word that is really a cut surname
 def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) -> str:
     """'GLENN STUART CHRYSTA' -> 'GLENN STUART' when the surname is CHRYSTAL.
 
@@ -94,6 +100,7 @@ def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) 
     return first
 
 
+# pick the fullest, most-filed first name spelling
 def _choose_first(candidates: list[str]) -> str | None:
     """Fullest first name by its real letters, spelled the way the donor files it.
 
@@ -118,6 +125,7 @@ def _choose_first(candidates: list[str]) -> str | None:
         order.setdefault(value, position)
     asides = _parenthesized_tokens(order)
 
+    # strip decoration ignored when measuring a name's fullness
     def _core(value):
         words = _first_core(value).split()
         kept = words[:1] + [
@@ -151,6 +159,7 @@ def _choose_first(candidates: list[str]) -> str | None:
     return cores[ranked[0]]
 
 
+# map a surname variant to its shorter surname
 def _surname_parents(variants: list[str], firsts_by_last: dict) -> dict:
     """variant -> (shorter surname of the same donor it ends with, given name or None).
 
@@ -194,9 +203,11 @@ def _surname_parents(variants: list[str], firsts_by_last: dict) -> dict:
     return parents
 
 
+# pick the most filed surname, folding prefixed variants together
 def _choose_last(lasts: list[str], parents: dict) -> str:
     """Most filed surname once prefixed variants count toward the surname they end with; a tie still goes to the alphabetically first spelling (Series.mode order)."""
 
+    # follow prefixed variants to their root surname
     def _root(value):
         seen = set()
         while value in parents and value not in seen:

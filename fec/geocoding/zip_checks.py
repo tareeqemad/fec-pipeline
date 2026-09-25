@@ -30,6 +30,7 @@ _ZIP_NEIGHBOUR_RANK = 3
 _ZIP_AREA_NEIGHBOURS = 4
 
 
+# load and cache zip -> (lat, lng) centroids from CSV
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
     if not _ZIP_CENTROIDS.exists():
@@ -41,6 +42,7 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
     }
 
 
+# true if a point is far outside its ZIP's centroid
 def _far_from_zip(lat: float, lng: float, zipcode: str) -> bool:
     if not re.fullmatch(r"\d{5}", zipcode):
         return False
@@ -48,6 +50,7 @@ def _far_from_zip(lat: float, lng: float, zipcode: str) -> bool:
     return bool(centroid and _distance_km((lat, lng), centroid) > _ZIP_OUTLIER_KM)
 
 
+# all zip centroids as a radians array for distance math
 @lru_cache(maxsize=1)
 def _centroid_radians() -> np.ndarray:
     centroids = _zip_centroids()
@@ -56,6 +59,7 @@ def _centroid_radians() -> np.ndarray:
     return np.radians(np.array(list(centroids.values()), dtype=float))
 
 
+# distance to the ZIP's 3rd-nearest other centroid, a size estimate
 @lru_cache(maxsize=None)
 def _zip_neighbour_km(zipcode: str) -> float | None:
     """Distance from the ZIP's centroid to its 3rd-nearest other ZIP centroid (the ZIP's size)."""
@@ -73,6 +77,7 @@ def _zip_neighbour_km(zipcode: str) -> float | None:
     return float(distances[_ZIP_NEIGHBOUR_RANK - 1])
 
 
+# farthest a street-level result may sit from its ZIP centroid
 def street_zip_limit_km(zipcode: str) -> float | None:
     """Farthest a street-level result may sit from the filed ZIP's centroid; None when the ZIP has no centroid."""
     if not re.fullmatch(r"\d{5}", zipcode or ""):
@@ -83,6 +88,7 @@ def street_zip_limit_km(zipcode: str) -> float | None:
     return max(_STREET_ZIP_FLOOR_KM, _STREET_ZIP_SPREAD * size)
 
 
+# true when a street-level result lies outside its filed ZIP
 def _street_far_from_zip(lat: float, lng: float, zipcode: str) -> bool:
     """A street-level result outside its filed ZIP (threshold explained at STREET_LEVEL_SOURCES)."""
     centroid = _zip_centroids().get(zipcode) if re.fullmatch(r"\d{5}", zipcode or "") else None
@@ -95,6 +101,7 @@ def _street_far_from_zip(lat: float, lng: float, zipcode: str) -> bool:
     return limit is not None and distance > limit
 
 
+# the filed ZIP's centroid, if known and in state
 def _zip_point(zipcode: str, state: str) -> tuple[float, float] | None:
     """The filed ZIP's centroid, when it is a known 5-digit ZIP inside the filed state."""
     if not re.fullmatch(r"\d{5}", zipcode or ""):
@@ -105,6 +112,7 @@ def _zip_point(zipcode: str, state: str) -> tuple[float, float] | None:
     return point
 
 
+# where the filed ZIP lies: its centroid or nearby median
 def _zip_area_point(zipcode: str, state: str) -> tuple[float, float] | None:
     """Where the filed ZIP lies, to tell same-name towns apart: its centroid, or for a ZIP
     without one (PO-box-only and unique ZIPs: 94141, 78711, 20859) the median of the
@@ -126,6 +134,7 @@ def _zip_area_point(zipcode: str, state: str) -> tuple[float, float] | None:
             statistics.median(lng for _gap, _lat, lng in neighbours))
 
 
+# whether the ZIP's centroid is a better pin than city's
 def _zip_replaces_city(city_point: tuple[float, float], zip_point: tuple[float, float],
                        zipcode: str, po_box: bool) -> bool:
     """Whether the filed ZIP's centroid is a better approximate pin than the filed city's point.

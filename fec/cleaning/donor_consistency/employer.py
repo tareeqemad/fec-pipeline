@@ -25,6 +25,7 @@ _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
 
 
+# fill missing employer from donor's nearest other record
 def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     """AI. Fill NaN employer from same donor's other records (needs donor_key).
 
@@ -60,6 +61,7 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# pick employer filed closest in time to a given date
 def _employer_nearest_in_time(real_recs: pd.DataFrame, when) -> str:
     """The employer the donor filed last on or before `when`, else the first one after it.
 
@@ -76,6 +78,7 @@ def _employer_nearest_in_time(real_recs: pd.DataFrame, when) -> str:
     return real_recs['contributor_employer'].iloc[-1]
 
 
+# derive employer from a status-word occupation or category
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
     """AK. Empty employer + status-word occupation/category -> employer = that status."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -102,6 +105,7 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
     return n
 
 
+# fill any still-empty employer from the donor's raw filings
 def _fill_employer_from_raw_filings(df: pd.DataFrame) -> int:
     """AK2. A still-empty employer from the donor's own other raw filings."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -109,6 +113,7 @@ def _fill_employer_from_raw_filings(df: pd.DataFrame) -> int:
     return _fill_employer_from_raw(df, empty) if empty.any() else 0
 
 
+# load raw CSV, recover employer from donor's own sub_ids
 def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
     """Recover an employer from the same donor's own raw filings (their sub_ids).
 
@@ -157,6 +162,7 @@ _NEVER_RECOVERED = frozenset().union(
 )
 
 
+# pick donor's most common real employer, else a status word
 def _employer_from_raw_filings(emps: pd.Series):
     """One donor's most filed real raw employer, else status word."""
     emps_u = emps.str.upper()
@@ -189,6 +195,7 @@ _OWN_FIRM_TOKEN_RE = re.compile(
 _NO_FIELD = frozenset({'OTHER', 'SELF-EMPLOYED', 'EXECUTIVE / C-SUITE', 'BUSINESS / ENTREPRENEUR'})
 
 
+# move self-employed rows to donor's own firm by surname
 def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
     """AV. A donor who files both SELF-EMPLOYED and a firm carrying their own surname
     (SCOTT FANE CPA PA, SCHALL LAW FIRM, GENET PROPERTY GROUP) has one workplace: the firm.

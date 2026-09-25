@@ -29,6 +29,7 @@ _INSERT_SQL = """
 """
 
 
+# map donor and committee ids, raising when any don't resolve
 def _map_required_ids(df, donor_ids, committee_ids):
     """Return a private working frame and reject unmapped required keys."""
     rows = df.assign(
@@ -59,6 +60,7 @@ def _map_required_ids(df, donor_ids, committee_ids):
     return rows
 
 
+# map each row's donor address to its loaded address id
 def _map_address_ids(rows, address_ids):
     """Match the key produced by load_donor_addresses."""
     addresses = rows[_ADDRESS_COLUMNS].fillna("").astype(str)
@@ -70,6 +72,7 @@ def _map_address_ids(rows, address_ids):
     ]
 
 
+# map each row's employment to its loaded id, or raise
 def _map_employment_ids(rows, employment_ids, get_employer_id):
     """Match the (donor, employer, occupation, status) key produced by load_employments."""
     employer_ids = [
@@ -98,6 +101,7 @@ def _map_employment_ids(rows, employment_ids, get_employer_id):
         )
 
 
+# convert one row's values to native psycopg2-insertable types
 def _native_row(values):
     (sub_id, transaction_id, donor_id, committee_id, address_id, employment_id,
      amount, receipt_date, election_cycle, employment_source) = values
@@ -115,6 +119,7 @@ def _native_row(values):
     )
 
 
+# convert the working frame to native values accepted by psycopg2
 def _build_rows(rows):
     """Convert the working frame to native values accepted by psycopg2."""
     missing = rows["contribution_receipt_amount"].isna()
@@ -142,6 +147,7 @@ def _build_rows(rows):
     )))
 
 
+# step 7: load the contributions fact table
 def load_contributions(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                        comm_map: dict, addr_key_to_id: dict,
                        empl_donor_emp_to_id: dict, get_employer_id) -> None:

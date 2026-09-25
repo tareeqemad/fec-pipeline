@@ -31,22 +31,26 @@ _PAREN_RE = re.compile(r"\([^()]*\)?")
 _TOKEN_RE = re.compile(r"[A-Z]+")
 
 
+# extract the words of a first-name field, brackets/suffixes removed
 def given_tokens(first: str) -> tuple:
     """The words of a first-name field, brackets and suffixes left out."""
     text = _PAREN_RE.sub(" ", str(first or "").upper())
     return tuple(t for t in _TOKEN_RE.findall(text) if t not in NAME_SUFFIXES)
 
 
+# get the first-name part of a 'LAST, FIRST' composite name
 def first_of_name(name: str) -> str:
     """The first-name part of a 'LAST, FIRST' composite ('' when there is no comma)."""
     text = str(name or "")
     return text.split(",", 1)[1] if "," in text else ""
 
 
+# resolve a token to its nickname root form
 def _root(token: str) -> str:
     return NICKNAME_MAP.get(token, token)
 
 
+# extract words of a spelling that could name a partner
 def _partner_words(spelling: tuple, own_firsts: set) -> list:
     """Words of one spelling that could name a second person."""
     first = spelling[0]
@@ -63,6 +67,7 @@ def _partner_words(spelling: tuple, own_firsts: set) -> list:
     return words
 
 
+# check whether some spelling is this initial plus this word
 def _initial_form(initial: str, word: str, spellings) -> bool:
     """Some spelling is this initial followed by this word ("L ROGER")."""
     return any(
@@ -71,6 +76,7 @@ def _initial_form(initial: str, word: str, spellings) -> bool:
     )
 
 
+# check whether the word names the filer, not a co-filer
 def _is_own_word(first: str, word: str, spellings) -> bool:
     """The household files the word as the filer's own name, or the filer's
     name as the word-person's own: one person, not two.
@@ -84,6 +90,7 @@ def _is_own_word(first: str, word: str, spellings) -> bool:
     return _initial_form(first[0], word, spellings) or _initial_form(word[0], first, spellings)
 
 
+# find given-name roots of co-filers carried by a first-name spelling
 def joint_partners(spelling: tuple, own_spellings, household_spellings) -> frozenset:
     """Given-name roots of the co-filers a first-name spelling carries (empty for a solo filing).
 

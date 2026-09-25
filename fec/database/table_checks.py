@@ -36,6 +36,7 @@ _FOREIGN_KEYS = [
 ]
 
 
+# build a check for orphaned foreign-key references
 def _orphan_check(child, foreign_key, parent, primary_key) -> Check:
     return _zero(
         f"orphans: {child}.{foreign_key}",
@@ -51,6 +52,7 @@ def _orphan_check(child, foreign_key, parent, primary_key) -> Check:
     )
 
 
+# verify total contributions match summed donor stats
 def _money_conserved(cur):
     contributions = _scalar(
         cur, "SELECT COALESCE(SUM(amount), 0) FROM contributions"

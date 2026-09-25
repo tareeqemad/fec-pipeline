@@ -22,6 +22,7 @@ WORKERS = 5
 CACHE_NAME = "fec_address_cache.json"
 
 
+# query the FEC API for one donor's dominant real street
 def _fetch_one(name: str, state: str, key: str) -> dict | None:
     """Query the FEC API for one donor's dominant real street; miss = {'street': ''}, None = transient error so the donor is retried next run."""
     try:
@@ -66,6 +67,7 @@ def _fetch_one(name: str, state: str, key: str) -> dict | None:
     }
 
 
+# rows needing an FEC-recovered street: individuals with an unusable one
 def _recovery_target(df: pd.DataFrame) -> pd.Series:
     usable = _is_usable_street(df["contributor_street_1"])
     return (
@@ -76,6 +78,7 @@ def _recovery_target(df: pd.DataFrame) -> pd.Series:
     )
 
 
+# distinct (name, state) pairs among target rows not yet cached
 def _unknown_people(df: pd.DataFrame, target: pd.Series, cache) -> list[tuple]:
     people = (
         df.loc[target, ["contributor_name", "contributor_state"]]
@@ -87,6 +90,7 @@ def _unknown_people(df: pd.DataFrame, target: pd.Series, cache) -> list[tuple]:
     ]
 
 
+# fetch and cache addresses for every unknown donor, in parallel
 def _fetch_unknown_people(todo: list[tuple], key: str, cache) -> None:
     logger.info(
         f"    FEC address recovery: querying {len(todo)} donors ({len(cache)} cached)"
@@ -106,6 +110,7 @@ def _fetch_unknown_people(todo: list[tuple], key: str, cache) -> None:
     cache.save()
 
 
+# fill target rows' street/city/zip from cached FEC results
 def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
     n_filled = 0
     for idx in df[target].index:
@@ -132,6 +137,7 @@ def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
     return n_filled
 
 
+# fill unusable streets from the donor's cached FEC-wide history
 def recover_addresses_from_fec(df: pd.DataFrame, out_dir: str | None) -> int:
     """Fill unusable streets from the donor's cached FEC-wide history."""
     if not out_dir:

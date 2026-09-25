@@ -10,6 +10,7 @@ import pandas as pd
 _SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
 
 
+# rewrite each group's minority spellings to the dominant one
 def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
                           eligible: pd.Series, prefer_longest: bool = False) -> int:
     """Rewrite each group's minority spellings of col to the dominant one; returns rows rewritten."""
@@ -41,6 +42,7 @@ def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
     return n_fixed
 
 
+# collapse one donor's fingerprint-equal street spellings to one form
 def _unify_street_variants(df: pd.DataFrame, fingerprint, prefer_longest: bool = False) -> int:
     """Collapse fingerprint-equal spellings of one donor's street to the dominant form; returns rows rewritten."""
     # scoped to ONE donor (name + city + state): only spellings the same person
@@ -60,12 +62,14 @@ def _unify_street_variants(df: pd.DataFrame, fingerprint, prefer_longest: bool =
     return _collapse_to_dominant(df, 'contributor_street_1', group_key, eligible, prefer_longest)
 
 
+# merge word-order or lost-space street spelling variants
 def _unify_street_spellings(df: pd.DataFrame) -> int:
     """Merge word-order / lost-space street variants (fingerprint: sorted alphanumeric tokens)."""
     return _unify_street_variants(
         df, lambda street: ' '.join(sorted(re.findall(r'[A-Z0-9]+', street.upper()))))
 
 
+# merge spacing/punctuation-only street variants
 def _unify_street_spacing(df: pd.DataFrame) -> int:
     """Merge spacing/punctuation-only variants (fingerprint: non-alphanumerics dropped, order kept)."""
     # identical letters+digits in the same order is provably the same address,
@@ -86,6 +90,7 @@ _FLOOR_RE = re.compile(r'\b(?:FL|FLR|FLOOR)\b\.?', re.IGNORECASE)
 _BUILDING_RE = re.compile(r'\b(?:BLDG|BUILDING)\b\.?', re.IGNORECASE)
 
 
+# extract the bare unit id from a street_2 value
 def _unit_core(s: str) -> str:
     """Bare unit id of a street_2, unit words and punctuation removed; a floor or building keeps its kind."""
     # every designator starts a new id; inside one id spaces and punctuation
@@ -97,6 +102,7 @@ def _unit_core(s: str) -> str:
     return ' '.join(part for part in ids if part)
 
 
+# collapse one donor's same unit written with different designators
 def _unify_unit_designators(df: pd.DataFrame) -> int:
     """Collapse one donor's same unit written with different designators; returns rows rewritten."""
     # scoped to ONE donor at ONE (street_1, city, state, zip): only street_2
@@ -131,6 +137,7 @@ def _unify_unit_designators(df: pd.DataFrame) -> int:
 _TYPE_TOKENS = {'ST', 'AVE', 'RD', 'DR', 'BLVD', 'LN', 'CT', 'PL', 'CIR', 'TER', 'PKWY', 'HWY', 'SQ', 'WAY', 'TRL', 'PLZ', 'LOOP'}
 
 
+# fill a missing street type from the donor's fuller spelling
 def _unify_street_types(df: pd.DataFrame) -> int:
     """Give one donor's "103 STANTON" the type of their "103 STANTON AVE"; returns rows rewritten."""
     # a person does not live at both 103 Stanton and 103 Stanton Ave; the fuller

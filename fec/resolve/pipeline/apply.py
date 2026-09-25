@@ -27,12 +27,14 @@ class ResolveContext:
     dated_previous: dict = field(default_factory=dict)
 
 
+# build employer-name aliases from publishable cache entries
 def _address_aliases(addr_cache) -> dict:
     """Build aliases from publishable cache entries."""
     entries = getattr(addr_cache, "data", addr_cache)
     return address_cache_lookup(entries, publishable_only=True)
 
 
+# resolve every row and write results into DataFrame columns
 def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
     """Write resolved addresses to DataFrame columns."""
     prior_previous = df.get("previous_employer")
@@ -76,6 +78,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
     return df
 
 
+# keep build_employers' spelling when resolve found the same company
 def _preserve_previous_employer_display(
     df: pd.DataFrame,
     prior_previous: pd.Series | None,
@@ -98,6 +101,7 @@ def _preserve_previous_employer_display(
         df.loc[same_company, "previous_employer"] = prior[same_company]
 
 
+# build the shared per-row resolve result dict
 def _result(
     status: str,
     entry: dict | None = None,
@@ -125,6 +129,7 @@ def _result(
     }
 
 
+# return the donor's own address in employer-result form
 def _own_address(
     row: pd.Series,
     state: str,
@@ -147,6 +152,7 @@ def _own_address(
     )
 
 
+# find the first usable cached address for given keys
 def _cached_address(
     addr_cache,
     keys: tuple[str, ...],
@@ -170,6 +176,7 @@ def _cached_address(
     return None
 
 
+# resolve an active employer's address from the cache
 def _resolve_active(
     employer: str,
     state: str,
@@ -188,6 +195,7 @@ def _resolve_active(
     return _result("active", cached, method="ai_openai", method_prefix=prefix)
 
 
+# choose the best display spelling for a previous employer
 def _display_previous_employer(
     prev_name: str, prev_entry: dict, donor_name: str
 ) -> str:
@@ -203,6 +211,7 @@ def _display_previous_employer(
     return prev_name
 
 
+# resolve a retired filer's previous employer and its office
 def _resolve_retired(
     row: pd.Series,
     context: ResolveContext,
@@ -247,6 +256,7 @@ def _resolve_retired(
     )
 
 
+# dispatch one row to the resolver matching its employer status
 def _resolve_row(row: pd.Series, context: ResolveContext, index=None) -> dict:
     """Resolve one row."""
     entity = row.get("entity_type", "")

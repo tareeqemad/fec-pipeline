@@ -8,6 +8,7 @@ from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
 from fec.env import PROJECT_ROOT
 
 
+# clear employer field for committees/organizations after re-typing
 def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
     """AW. Non-individuals carry no employer -> clear it; must run after AU/AV re-type rows."""
     mask = (df['entity_type'].isin(('COMMITTEE/PAC', 'ORGANIZATION'))
@@ -18,6 +19,7 @@ def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
     return n
 
 
+# apply hand-curated entity_type corrections from overrides csv
 def _apply_entity_overrides(df: pd.DataFrame) -> int:
     """AV. Hand-curated entity_type corrections from data/database/entity_overrides.csv, keyed by contributor_name."""
     path = PROJECT_ROOT / 'data' / 'database' / 'entity_overrides.csv'
@@ -67,6 +69,7 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
     return n
 
 
+# re-enforce same-name donors share one entity_type
 def _reenforce_entity_consistency(df: pd.DataFrame) -> int:
     """AU. Re-enforce same-name -> same entity_type; must run after canonicalize_donor_names has unified names."""
     before = df['entity_type'].copy()

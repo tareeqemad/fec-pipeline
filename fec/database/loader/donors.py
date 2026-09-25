@@ -14,6 +14,7 @@ from ._base import to_native
 logger = get_logger(__name__)
 
 
+# insert one donors row per donor_key, return donor_key to donor_id
 def load_donors(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     """Step 1: one donors row per donor_key; returns donor_key -> donor_id."""
     logger.info("\n-- 1/8 Loading donors --")

@@ -42,6 +42,7 @@ _EMBEDDED_TITLE_RE = re.compile(
 _NAN_REPLACE = {'nan': np.nan, 'None': np.nan, '': np.nan}
 
 
+# remove stray punctuation noise from filed contributor names
 def _preclean_name_punctuation(df: pd.DataFrame) -> None:
     """Remove backticks, semicolons, stray dots, collapse double commas."""
     df['contributor_name'] = (
@@ -71,6 +72,7 @@ def _preclean_name_punctuation(df: pd.DataFrame) -> None:
     )
 
 
+# pull titles like DR/RABBI out of names into occupation
 def _extract_title_to_occupation(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Extract professional/religious titles from the name; enrich occupation if empty."""
     n_title_enriched = 0
@@ -100,6 +102,7 @@ def _extract_title_to_occupation(df: pd.DataFrame, is_individual: pd.Series) -> 
         logger.info("Enriched %d occupations from name titles (DR->DOCTOR, RABBI->RABBI, etc.)", n_title_enriched)
 
 
+# split multi-comma names with embedded titles into last/first
 def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Handle multi-comma names with embedded titles: WIENIR, MD, MICHAEL -> last=WIENIR, first=MICHAEL."""
     multi_comma_mask = is_individual & (df['contributor_name'].str.count(',') > 1)
@@ -115,6 +118,7 @@ def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> Non
                 df.at[idx, 'contributor_name'] = f"{clean_last}, {clean_first}"
 
 
+# split LAST, FIRST for rows missing first or last name
 def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Split LAST, FIRST for reclassified records missing first/last; also repair missing last_name."""
     needs_split = is_individual & df['contributor_first_name'].isna()
@@ -143,6 +147,7 @@ def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
             )
 
 
+# clear name fields and strip trailing junk for committee rows
 def _clean_committee_names(df: pd.DataFrame, is_committee: pd.Series) -> None:
     """Clear first/last for committees, strip trailing junk from committee names."""
     df.loc[is_committee, 'contributor_first_name'] = np.nan
@@ -157,6 +162,7 @@ def _clean_committee_names(df: pd.DataFrame, is_committee: pd.Series) -> None:
     )
 
 
+# strip titles/suffixes from names and fix email-in-last-name
 def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Strip titles from first_name, suffixes from last_name, handle email in last_name."""
     df.loc[is_individual, 'contributor_first_name'] = (

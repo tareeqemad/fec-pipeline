@@ -40,6 +40,7 @@ _GENERIC_SELF_TAILS = {'LAW OFFICE', 'COMPANY OWNER', 'PRIVATE CONTRACTOR', 'CON
 _OCC_NUM_TAIL_RE = re.compile(r'^[A-Z ]+\s+\d+$')
 _TRAILING_NUM_RE = re.compile(r'\s+\d+$')
 
+# run all final junk-cleaning passes on employer/occupation
 def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Final pass for junk that slipped through; returns (df, n_fixed)."""
     indiv_idx = _indiv_idx(df)
@@ -56,6 +57,7 @@ def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
+# blank employer values that are just x's
 def _clean_junk_employer_xxx(df: pd.DataFrame, ii: pd.Index) -> int:
     emp = _norm(df.loc[ii, 'contributor_employer'])
     xxx = ii[emp.isin({'XXX', 'XX', 'XXXX', 'X'})]
@@ -65,6 +67,7 @@ def _clean_junk_employer_xxx(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# blank employers matching structurally-junk patterns
 def _clean_junk_employer_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
     """Blank employers that are structurally not a company name (dates, numbers, masked digits)."""
     emp = _norm(df.loc[ii, 'contributor_employer'])
@@ -75,6 +78,7 @@ def _clean_junk_employer_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# blank occupations too short to be real
 def _clean_junk_short_occ(df: pd.DataFrame, ii: pd.Index) -> int:
     occ = _norm(df.loc[ii, 'contributor_occupation'])
     short = ii[(occ.str.len() <= 2) & (occ != '') & ~occ.isin(FINAL_SHORT_OCCUPATIONS)]
@@ -84,6 +88,7 @@ def _clean_junk_short_occ(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# blank structurally junk occupations, mark missing for refill
 def _clean_junk_occ_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
     """Blank structurally junk occupations; set MISSING so a later same-donor pass can refill."""
     occ = _norm(df.loc[ii, 'contributor_occupation'])
@@ -94,6 +99,7 @@ def _clean_junk_occ_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# strip a trailing number from an occupation
 def _clean_junk_number_tail(df: pd.DataFrame, ii: pd.Index) -> int:
     occ = _norm(df.loc[ii, 'contributor_occupation'])
     num_tail = ii[occ.str.contains(_OCC_NUM_TAIL_RE, na=False)]
@@ -103,6 +109,7 @@ def _clean_junk_number_tail(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# bare LLP occupation becomes attorney, legal category
 def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
     occ = _norm(df.loc[ii, 'contributor_occupation'])
     llp = ii[occ == 'LLP']
@@ -114,6 +121,7 @@ def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# mark occupation missing when text says not disclosed
 def _clean_junk_not_disclosed(df: pd.DataFrame, ii: pd.Index) -> int:
     nd_text = ii[
         (_norm(df.loc[ii, 'contributor_occupation']) == 'NOT DISCLOSED')
@@ -125,6 +133,7 @@ def _clean_junk_not_disclosed(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
+# fix several known employer/occupation swap and junk patterns
 def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     n_fixed = 0
     emp = _norm(df.loc[ii, 'contributor_employer'])
@@ -175,6 +184,7 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     return n_fixed
 
 
+# resolve NIST occupation: teacher if school employer, else missing
 def _clean_junk_nist(df: pd.DataFrame, ii: pd.Index) -> int:
     occ = _norm(df.loc[ii, 'contributor_occupation'])
     nist = ii[occ == 'NIST']
@@ -194,6 +204,7 @@ def _clean_junk_nist(df: pd.DataFrame, ii: pd.Index) -> int:
     return n_fixed
 
 
+# unify self-employed spelling variants to one form
 def _clean_self_employed_variants(df: pd.DataFrame) -> int:
     """Unify self-employed spellings to SELF-EMPLOYED; must run after restore_display_suffixes."""
     indiv_idx = _indiv_idx(df)
@@ -209,6 +220,7 @@ def _clean_self_employed_variants(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# null placeholder employer words normalization created late
 def _clean_junk_status_word_employer(df: pd.DataFrame) -> int:
     """Final sweep: null refusal/placeholder employers that normalization created late ("N A" -> "N/A")."""
     indiv_idx = _indiv_idx(df)

@@ -18,6 +18,7 @@ OBJECTS_SQL = """
 """
 
 
+# drop all owner-controlled objects, verify schema ends empty
 def reset_schema(conn: Any, cur: Any) -> None:
     """Drop owner-controlled objects and verify public is empty."""
     logger.info("\n  Dropping all objects in public schema...")

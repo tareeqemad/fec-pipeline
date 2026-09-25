@@ -9,6 +9,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# read employer rename rules from the csv file
 def _load_rules() -> dict[str, str]:
     """Read the single rules file."""
     if not EMPLOYER_NAME_RULES_CSV.exists():
@@ -35,6 +36,7 @@ def _load_rules() -> dict[str, str]:
 EMPLOYER_SYNONYMS = _load_rules()
 
 
+# rewrite each synonym key to the end of its chain
 def _flatten_synonym_chains() -> int:
     """Rewrite each key to the end of its chain - apply_employer_synonyms maps once, so A->B, B->C would strand A at B; cycles stay at one hop."""
     count = 0
@@ -53,6 +55,7 @@ def _flatten_synonym_chains() -> int:
     return count
 
 
+# normalize a string the way match-time lookups expect
 def _canonicalize_for_match(s: str) -> str:
     """Reduce a string to what apply_employer_synonyms sees at match time; mirrors the regex chain in normalize_employer_canonical - keep in sync."""
     s = (s or '').upper().strip()
@@ -63,6 +66,7 @@ def _canonicalize_for_match(s: str) -> str:
     return s.rstrip('.,').strip()
 
 
+# add each key's normalized form as an alias too
 def _expand_synonym_keys() -> int:
     """Register each key's post-normalize form as an alias, since matching happens after normalize_employer_canonical has run."""
     added = 0

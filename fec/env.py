@@ -12,6 +12,7 @@ DATABASE_OWNER = "fec_owner"
 DATABASE_READER = "fec_app"
 
 
+# parse a .env file and set any unset environment variables
 def load_env(env_path: Path | None = None) -> None:
     """Load .env file into os.environ (simple parser, no dependency)."""
     path = env_path or PROJECT_ROOT / ".env"
@@ -33,6 +34,7 @@ def load_env(env_path: Path | None = None) -> None:
                 os.environ[key] = value
 
 
+# read an environment variable, raising if required and missing
 def get_env(key: str, default: str | None = None, required: bool = False) -> str | None:
     """Read an environment variable with validation."""
     value = os.environ.get(key, default)
@@ -44,6 +46,7 @@ def get_env(key: str, default: str | None = None, required: bool = False) -> str
     return value
 
 
+# build PostgreSQL connection config from environment variables
 def get_db_config() -> dict:
     """Build PostgreSQL connection config from environment."""
     return {

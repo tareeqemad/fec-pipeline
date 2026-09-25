@@ -3,16 +3,19 @@ import numpy as np
 import pandas as pd
 
 
+# normalize a series for safe comparison
 def _norm(s: pd.Series) -> pd.Series:
     """Normalize a Series for safe comparison: NaN -> '', strip, upper."""
     return s.fillna('').astype(str).str.strip().str.upper()
 
 
+# return the index of all individual rows
 def _indiv_idx(df: pd.DataFrame) -> pd.Index:
     """Return the index of all INDIVIDUAL rows."""
     return df.index[df['entity_type'] == 'INDIVIDUAL']
 
 
+# mark rows as missing occupation
 def _set_missing(df: pd.DataFrame, idx) -> None:
     """Mark rows as missing occupation (NaN + MISSING status)."""
     df.loc[idx, 'contributor_occupation'] = np.nan
@@ -20,6 +23,7 @@ def _set_missing(df: pd.DataFrame, idx) -> None:
     df.loc[idx, 'occupation_status'] = 'MISSING'
 
 
+# compute levenshtein edit distance between two strings
 def levenshtein(a: str, b: str) -> int:
     """Levenshtein edit distance between two strings."""
     if len(a) < len(b):

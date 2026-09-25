@@ -82,11 +82,13 @@ _NAMELESS_ORG_RE = re.compile(
 )
 
 
+# true where the value is missing or whitespace-only
 def _blank(s: pd.Series) -> pd.Series:
     """True where the value is missing or whitespace-only."""
     return _norm(s) == ""
 
 
+# fix mistyped entity types and assign the 3-way entity_type
 def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     """Fix mistyped entity types in place; returns (n_to_individual, n_to_committee)."""
     name_str = df["contributor_name"].astype(str)
@@ -138,6 +140,7 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     return n_to_indiv, n_to_comm
 
 
+# reclassify committees whose name is really LASTNAME, FIRST
 def _reclass_committee_to_individual(
     df: pd.DataFrame,
     has_org_keywords: pd.Series,
@@ -150,6 +153,7 @@ def _reclass_committee_to_individual(
     return int(should.sum())
 
 
+# reclassify individuals with org keywords not looking like a person
 def _reclass_individual_to_committee_org(
     df: pd.DataFrame,
     has_org_keywords: pd.Series,
@@ -164,6 +168,7 @@ def _reclass_individual_to_committee_org(
     return n_changed
 
 
+# reclassify nameless individuals whose name looks like an org
 def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> int:
     """Individuals with no first/last name and an org-like name pattern."""
     no_names = _blank(df["contributor_first_name"]) & _blank(
@@ -181,6 +186,7 @@ def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> i
     return n_changed
 
 
+# reclassify individuals with no name, employer or occupation
 def _reclass_individual_ghost(df: pd.DataFrame) -> int:
     """Individuals with no name, no employer and no occupation are committees."""
     mask = (
@@ -197,6 +203,7 @@ def _reclass_individual_ghost(df: pd.DataFrame) -> int:
     return n_changed
 
 
+# reclassify names that are always committees regardless of type
 def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
     """Names that are always committees (FRIENDS OF, PEOPLE FOR, ...)."""
     mask = df["is_individual"] & name_str.str.contains(_DEFINITE_COMM_RE, na=False)
@@ -213,6 +220,7 @@ def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
     return n_changed
 
 
+# make same-name rows share one entity_type, ORGANIZATION wins
 def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
     """Same contributor_name -> same entity_type, ORGANIZATION winning over the COMMITTEE/PAC default; returns rows repointed."""
     org_names = set(

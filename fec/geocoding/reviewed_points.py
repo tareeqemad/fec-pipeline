@@ -160,17 +160,20 @@ REVIEWED_WRONG_POINTS: dict[str, tuple[float, float, str]] = {
 }
 
 
+# true for a key whose outside-ZIP point was hand-verified right
 def is_reviewed_zip_typo(key: str) -> bool:
     """True for a cache key whose outside-ZIP street point was checked by hand and is right."""
     return key in REVIEWED_ZIP_TYPO_KEYS
 
 
+# the hand-checked (lat, lng) published for key, or None
 def reviewed_point(key: str) -> tuple[float, float] | None:
     """The hand-checked (lat, lng) published for key, or None."""
     point = REVIEWED_POINTS.get(key)
     return None if point is None else (point[0], point[1])
 
 
+# true when the point is near a known-wrong one
 def is_reviewed_wrong(key: str, lat: float, lng: float) -> bool:
     """True when (lat, lng) is, or lies within REVIEWED_WRONG_KM of, the point shown wrong for key."""
     wrong = REVIEWED_WRONG_POINTS.get(key)

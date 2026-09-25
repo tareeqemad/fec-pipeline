@@ -14,6 +14,7 @@ CHAIN_MIN = 30
 CHAIN_CLUSTER_MIN = 4
 
 
+# fail if a final merge bypassed an identity safety rule
 def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
     """Fail if a final automatic merge bypassed an identity safety rule."""
     final_merges = [
@@ -69,6 +70,7 @@ def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
     }
 
 
+# build components, then eject weakly-chained members of large clusters
 def _build_and_validate_chains(
     uf: UnionFind,
     profiles: dict,
@@ -114,6 +116,7 @@ def _build_and_validate_chains(
     return components
 
 
+# fold every component containing one of rids into one
 def _merge_roots_of(components: dict, rids: list) -> int:
     """Fold every component containing one of rids into a single one; returns extra roots folded (0 when fewer than 2 distinct roots)."""
     roots = set()
@@ -134,6 +137,7 @@ def _merge_roots_of(components: dict, rids: list) -> int:
     return len(roots_list) - 1
 
 
+# apply verified name merges
 def _apply_force_merges(components: dict, profiles: dict) -> None:
     """Apply verified name merges."""
     for prefixes in NAME_MERGES.values():

@@ -12,6 +12,7 @@ from fec.donor_match.rules import resolve_donor_key
 from fec.resolve.pipeline.location_choice import select_location
 
 
+# resolve a curated donor_key, following merges, or insert one
 def find_or_create_donor(
     cur: Any,
     donor_key: str,
@@ -53,12 +54,14 @@ def find_or_create_donor(
     return new_id, "created"
 
 
+# find or insert an address and link to donor
 def upsert_donor_address(
     cur: Any, donor_id: int, street_1: str | None, street_2: str | None,
     city: str | None, state: str | None, zip_5: str | None = None,
     latitude: float | None = None, longitude: float | None = None,
 ) -> None:
     """Link one curated address."""
+    # blank strings become None so comparisons treat them as missing
     def _none_if_empty(s: str | None) -> str | None:
         return s.strip() if s and s.strip() else None
 
@@ -115,6 +118,7 @@ def upsert_donor_address(
     )
 
 
+# find or insert the employer office an employment uses
 def employment_address_id(
     cur: Any, employer: str, locations: dict | None,
     state: str | None = "", zip_5: str | None = "",
@@ -156,6 +160,7 @@ def employment_address_id(
     if row:
         return row[0]
 
+    # parse a coordinate string to float, or None if invalid/blank
     def _coordinate(value):
         try:
             return float(value) if str(value or "").strip() else None
@@ -175,6 +180,7 @@ def employment_address_id(
     return cur.fetchone()[0]
 
 
+# add roster employer/occupation only if donor has no FEC data
 def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
                              occupation: str | None = None, *,
                              state: str | None = "", zip_5: str | None = "",

@@ -30,6 +30,7 @@ class CensusUnavailable(RuntimeError):
     """Census Geocoder could not be reached."""
 
 
+# geocode a US street via Census Geocoder, retrying on failure
 def census(street: str, city: str, state: str, zipcode: str) -> tuple:
     """Geocode a US street with the official Census address ranges."""
     address = f"{street}, {city}, {state} {zipcode}, USA"
@@ -65,6 +66,7 @@ def census(street: str, city: str, state: str, zipcode: str) -> tuple:
     raise CensusUnavailable(last_error)
 
 
+# geocode a US address via Nominatim, structured then free-form
 def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
     """Geocode a US street address via Nominatim: structured query first, then free-form."""
     result = _nominatim_request(params={
@@ -82,6 +84,7 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
     })
 
 
+# search a street via Nominatim restricted to a bounding box
 def nominatim_within(street: str, city: str, state: str,
                      box: tuple[float, float, float, float]) -> tuple:
     """Search a US street in the filed city only inside box (south, west, north, east); asks whether the address exists in the filed ZIP at all."""
@@ -94,6 +97,7 @@ def nominatim_within(street: str, city: str, state: str,
     })
 
 
+# geocode via Nominatim with no country restriction, last resort
 def nominatim_international(street: str, city: str, state: str, zipcode: str) -> tuple:
     """Geocode via Nominatim with no country restriction (foreign addresses, and the last resort for US-labelled ones)."""
     query = ", ".join(part for part in (street, city, state) if part)
@@ -105,6 +109,7 @@ def nominatim_international(street: str, city: str, state: str, zipcode: str) ->
     })
 
 
+# geocode to the filed town's own point as a fallback
 def city_level(city: str, state: str, zipcode: str = "",
                near: tuple[float, float] | None = None) -> tuple:
     """The filed town's own point (PO boxes, or when street-level fails): (lat, lng, ISO-2 country) or Nones.
@@ -132,6 +137,7 @@ def city_level(city: str, state: str, zipcode: str = "",
     return lat, lng, country_code
 
 
+# run one Nominatim request and return its top coordinates
 def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
     """One Nominatim request, retried on 429/5xx/timeout only; returns (lat, lng, ISO-2 country) or Nones."""
     results = _nominatim_results(params, _retries)
@@ -143,6 +149,7 @@ def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
     return float(first_result["lat"]), float(first_result["lon"]), country_code
 
 
+# fetch all Nominatim results, retrying on rate limit or error
 def _nominatim_results(params: dict, _retries=NOMINATIM_RETRIES) -> list[dict]:
     """Every result of one Nominatim search, retried on 429/5xx/timeout only; [] when nothing is found."""
     params = {**params, "addressdetails": 1}

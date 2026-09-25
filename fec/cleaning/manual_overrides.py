@@ -25,6 +25,7 @@ _ROW_FIELDS = (
 )
 
 
+# build the override values for one row, honoring [CLEAR] markers
 def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     # "[CLEAR]" removes a filed value that is not this donor's (a committee
     # that typed another person's employer and address under the donor's name)
@@ -57,6 +58,7 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     return company_fields
 
 
+# load the overrides CSV into a sub_id -> fields mapping
 def _read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
     overrides = {}
     with OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
@@ -68,6 +70,7 @@ def _read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
     return overrides
 
 
+# write each override's fields onto its matching sub_id row
 def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
     changed = 0
@@ -84,6 +87,7 @@ def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int
     return changed, missing
 
 
+# apply per-row overrides matched on sub_id
 def apply_manual_employer_overrides(
     df,
     *,

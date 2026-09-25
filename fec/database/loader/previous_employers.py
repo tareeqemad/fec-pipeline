@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
 
 
+# look up previous employer id, only retired rows get one
 def _previous_employer_id(status, donor_key, employer_ids):
     """Previous companies belong to retired rows."""
     if status != "retired":
@@ -24,6 +25,7 @@ def _previous_employer_id(status, donor_key, employer_ids):
     return employer_ids.get(donor_key)
 
 
+# pick each donor's newest retired filing naming a previous employer
 def _latest_previous_employers(df: pd.DataFrame) -> pd.DataFrame:
     """Each donor's newest retired filing that names a previous employer."""
     if 'previous_employer' not in df.columns:
@@ -36,10 +38,12 @@ def _latest_previous_employers(df: pd.DataFrame) -> pd.DataFrame:
             .drop_duplicates('donor_key', keep='first'))
 
 
+# check whether a previous_employer value means self-employed
 def _is_previous_self_employed(name) -> bool:
     return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
 
 
+# find donors whose newest previous employer means self-employed
 def previous_self_employed_donors(df: pd.DataFrame) -> set[str]:
     """Donors whose newest previous employer is the contract's 'SELF-EMPLOYED'.
 
@@ -56,11 +60,13 @@ def previous_self_employed_donors(df: pd.DataFrame) -> set[str]:
     return donors
 
 
+# flag applies only to retired rows, like previous_employer_id
 def _previous_self_employed(status, donor_key, donors: set[str]) -> bool:
     """Like previous_employer_id, the flag belongs only to retired rows."""
     return status == "retired" and donor_key in donors
 
 
+# insert and link donors' exact previous-employer names to employers
 def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
                             emp_name_to_id: dict) -> dict[str, int]:
     """Step 3: link exact previous-employer names."""

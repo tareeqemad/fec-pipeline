@@ -29,11 +29,13 @@ FEC_PAGE_SIZE = 100
 FEC_MAX_PAGES = 20
 
 
+# split a value into uppercase alphanumeric words
 def _words(value) -> list[str]:
     """Return uppercase name/locality words without punctuation."""
     return re.findall(r"[A-Z0-9]+", _s(value).upper())
 
 
+# split a name into last, first and middle-initial parts
 def _name_parts(value) -> tuple[str, str, str]:
     """Return (last, first, middle initial) from an FEC-style name."""
     text = _s(value).strip()
@@ -51,11 +53,13 @@ def _name_parts(value) -> tuple[str, str, str]:
     return last, first, middle
 
 
+# extract the first 5 digits of a ZIP code
 def _zip5(value) -> str:
     digits = "".join(re.findall(r"\d", _s(value)))
     return digits[:5]
 
 
+# check name, locality and ZIP/city match before trusting a record
 def _same_fec_donor(person: dict, record: dict) -> bool:
     """Require matching identity and locality before trusting an FEC record."""
     expected = _name_parts(person.get("name"))
@@ -80,6 +84,7 @@ def _same_fec_donor(person: dict, record: dict) -> bool:
     return bool(expected_city and expected_city == reported_city)
 
 
+# list unresolved retired donors to search, largest first
 def _pending_fec_searches(
     df: pd.DataFrame,
     prev_cache,
@@ -116,6 +121,7 @@ def _pending_fec_searches(
     return searches
 
 
+# decide if a cached result needs a fuller FEC search
 def _fec_search_due(cached: dict | None) -> bool:
     """No answer yet, or a 'not found' from the old search that read only the first 100 filings."""
     if cached is None:
@@ -123,6 +129,7 @@ def _fec_search_due(cached: dict | None) -> bool:
     return cached.get("method") == "fec_api_not_found" and not cached.get("all_pages")
 
 
+# page through all FEC filings for a donor's identity
 def _fec_filings(person: dict, fec_key: str, request_get):
     """Every FEC filing under the donor's name and state, newest first, page by page.
 
@@ -153,6 +160,7 @@ def _fec_filings(person: dict, fec_key: str, request_get):
         params = {**params, **last}
 
 
+# find one donor's latest active-employment FEC filing
 def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
     """Fetch one donor's latest matching FEC filing and return its cache entry."""
     try:
@@ -190,6 +198,7 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
         return None, None
 
 
+# search the FEC API in parallel for retired donors
 def step_fec_api(
     df: pd.DataFrame,
     prev_cache,

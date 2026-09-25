@@ -28,6 +28,7 @@ from .phases import (
 from .rules import split_zip
 
 
+# a cell value as a stripped string, NaN -> ''
 def _s(val) -> str:
     """Cell value as a stripped string, NaN -> ''."""
     if pd.isna(val):
@@ -35,6 +36,7 @@ def _s(val) -> str:
     return str(val).strip()
 
 
+# build profiles by cleaned name, location, and generation suffix
 def build_profiles(indiv: pd.DataFrame) -> dict:
     """Build profiles by cleaned name, location, and generation suffix."""
     profiles = {}
@@ -85,6 +87,7 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
     return profiles
 
 
+# group profile ids by their normalized name
 def _build_name_groups(profiles: dict) -> dict:
     name_groups = defaultdict(list)
     for rid, profile in profiles.items():
@@ -92,6 +95,7 @@ def _build_name_groups(profiles: dict) -> dict:
     return name_groups
 
 
+# run every scoring phase in order over the match context
 def _run_matching_phases(
     context: MatchContext,
 ) -> None:
@@ -106,6 +110,7 @@ def _run_matching_phases(
         phase(context)
 
 
+# score-based donor matching; returns keys and an audit log
 def match_donors(df: pd.DataFrame) -> tuple[dict, list]:
     """Score-based donor matching; returns keys and an audit log."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"].copy()
