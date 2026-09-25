@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 
 OVERRIDES_CSV = PROJECT_ROOT / "data" / "manual_employer_overrides.csv"
 CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
+EMPTY_OCCUPATION_CATEGORY = "OTHER"  # the category every filing without an occupation gets
 _ROW_FIELDS = (
     "contributor_employer",
     "contributor_occupation",
@@ -43,10 +44,13 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     if not company_names_only:
         return fields
 
-    company_fields = {}
+    # a cleared cell stays cleared: the late pass undoes any refill from the
+    # donor's other filings (TUCHIN's occupation came back as ATTORNEY)
+    company_fields = {column: value for column, value in fields.items() if value is pd.NA}
+    if "contributor_occupation" in company_fields:
+        company_fields["occupation_category"] = EMPTY_OCCUPATION_CATEGORY
     employer = fields.get("contributor_employer")
-    if employer is pd.NA or (employer and employer.upper() not in NOT_REAL_EMPLOYER):
-        # a cleared employer stays cleared: the late pass undoes any refill
+    if employer is not pd.NA and employer and employer.upper() not in NOT_REAL_EMPLOYER:
         company_fields["contributor_employer"] = employer
     if "previous_employer" in fields:
         company_fields["previous_employer"] = fields["previous_employer"]

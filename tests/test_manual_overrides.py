@@ -224,3 +224,17 @@ def test_harry_greenspan_address_has_sources():
     assert row["contributor_street_2"] == "APT 1G"
     assert "fec.gov" in row["source"]
     assert "census.gov" in row["source"]
+
+
+def test_final_pass_keeps_a_cleared_occupation_cleared(override_file):
+    override_file([{"sub_id": "2", "contributor_employer": "[CLEAR]", "contributor_occupation": "[CLEAR]"}])
+    df = _frame()
+    df["occupation_category"] = ["OTHER", "LEGAL", "ENGINEERING"]
+    # the donor's other filings refilled the cleared cells (TUCHIN, MICHAEL)
+
+    mo.apply_manual_employer_overrides(df, company_names_only=True)
+
+    assert pd.isna(df.loc[1, "contributor_employer"])
+    assert pd.isna(df.loc[1, "contributor_occupation"])
+    assert df.loc[1, "occupation_category"] == "OTHER"
+    assert df.loc[2, "contributor_occupation"] == "ENGINEER"

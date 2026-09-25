@@ -143,7 +143,7 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4122120231813094010,BOARD OF EDUCATION,TEACHER,,"AUERBACH, HILARY - same-donor filings report TEACHER at BOARD OF EDUCATION"
 4062420241962024249,,,,"HERTOG, ROGER - official Hertog Foundation site identifies him as president; unify the FL cache spelling",HERTOG FOUNDATION
 4082220242014694210,,,,"HERTOG, ROGER - official Hertog Foundation site identifies him as president; unify the NY cache spelling",HERTOG FOUNDATION
-4122920221645232594,GOOD HEALTH,ASSISTANT CONTROLLER,,"KELLOGG, SARAH (BALDWIN PARK CA) - was 'STEPHEN SAMUEL'/'CEO': fields held the company CEO's name and title (GOOD HEALTH source batch); her role per her two other filings"
+4122920221645232594,[CLEAR],[CLEAR],,"KELLOGG, SARAH (BALDWIN PARK CA) - filed 'STEPHEN SAMUEL'/'CEO': the company CEO's name and title, not hers. Her role was once taken from two GOOD HEALTH filings that are not hers (filed as HEALTH, GOOD), so no employer or occupation is given"
 4122920221645231756,GOOD HEALTH,NOT DISCLOSED,,"CHENG, ALINA (BALDWIN PARK CA) - was 'STEPHEN SAMUEL'/'CEO': same source batch as the KELLOGG rows - employer held the CEO's name, occupation his title; her own title is in no filing"
 4122320221644863834,GOOD HEALTH,NOT DISCLOSED,,"CHENG, ALINA (BALDWIN PARK CA) - was 'STEPHEN SAMUEL'/'CEO': same source batch as the KELLOGG rows - employer held the CEO's name, occupation his title; her own title is in no filing"
 4092220251291771768,SELF-EMPLOYED,,,"LEVY, ED (CALABASAS CA) - was 'EDWARD LEVY': own name, formal form (ED = EDWARD); own-name safety net missed the nickname variant"
