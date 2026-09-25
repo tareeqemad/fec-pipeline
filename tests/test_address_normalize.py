@@ -1,5 +1,5 @@
 """_normalize_street regression tests: street-type preservation."""
-from fec.cleaning.addresses import _normalize_street as norm
+from fec.cleaning.street_text import _normalize_street as norm
 
 
 def test_trailing_street_type_with_period_is_kept():

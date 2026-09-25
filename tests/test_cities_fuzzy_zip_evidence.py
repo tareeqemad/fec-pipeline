@@ -5,7 +5,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.addresses import (
+from fec.cleaning.cities import (
     CITY_TABLE_FIXED,
     _auto_detect_city_typos,
     _swaps_place_qualifier,

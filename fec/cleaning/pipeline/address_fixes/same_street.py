@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.addresses import CITY_TABLE_FIXED
+from fec.cleaning.cities import CITY_TABLE_FIXED
 
 
 # count outside rows filing candidate city at the row's ZIP
