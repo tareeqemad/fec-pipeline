@@ -11,7 +11,7 @@ try:
 except ImportError:
     raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
-from fec.config.constants import NOT_REAL_EMPLOYER
+from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.cleaning.employer_status import (
     current_employer_name,
     is_real_employer,

@@ -7,10 +7,10 @@ import pandas as pd
 
 from fec.cleaning.occupations import _categorize, _categorize_final
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
-from fec.config.constants import (
-    SKIP_EMPLOYERS, SKIP_OCCUPATIONS, OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER,
-    JOB_TITLE_AS_EMPLOYER, SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE,
-    NOT_REAL_EMPLOYER,
+from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
+from fec.config.not_employers import (
+    OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER, JOB_TITLE_AS_EMPLOYER,
+    SELF_EMPLOYED_OCC_AS_EMP, LEGAL_SUFFIX_RE, NOT_REAL_EMPLOYER,
 )
 from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 

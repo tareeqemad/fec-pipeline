@@ -6,7 +6,8 @@ import pandas as pd
 
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
-from fec.config.constants import LEGAL_SUFFIX_RE, STATUS_CATEGORIES
+from fec.config.constants import STATUS_CATEGORIES
+from fec.config.not_employers import LEGAL_SUFFIX_RE
 
 _COMMITTEE_IN_NAME_RE = re.compile(
     r'FRIENDS TO ELECT|CITIZENS TO ELECT|COMMITTEE TO ELECT'

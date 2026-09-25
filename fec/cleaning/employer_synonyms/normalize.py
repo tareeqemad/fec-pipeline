@@ -5,8 +5,8 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx
 from fec.config.constants import EMPLOYER_STATUS_VALUES
-from fec.config.constants import LEGAL_SUFFIX_RE
-from fec.config.constants import OCCUPATION_AS_EMPLOYER
+from fec.config.not_employers import LEGAL_SUFFIX_RE
+from fec.config.not_employers import OCCUPATION_AS_EMPLOYER
 from fec.config.constants import SKIP_EMPLOYERS
 
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS

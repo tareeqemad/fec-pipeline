@@ -5,9 +5,11 @@ import pandas as pd
 
 from fec.cleaning.occupations import _categorize_final
 from fec.config.constants import (
-    SKIP_EMPLOYERS, RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP,
-    JUNK_EMPLOYER_RE, REFUSAL_EMPLOYERS, SECTOR_AS_EMPLOYER, ADMIN_NOTE_EMPLOYER_RE,
-    ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER, STATUS_WORDS,
+    SKIP_EMPLOYERS, RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP, JUNK_EMPLOYER_RE,
+    REFUSAL_EMPLOYERS, ADMIN_NOTE_EMPLOYER_RE, STATUS_WORDS,
+)
+from fec.config.not_employers import (
+    SECTOR_AS_EMPLOYER, ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER,
 )
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_CATEGORY,
