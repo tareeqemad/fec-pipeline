@@ -10,8 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import requests
 
-from fec.cleaning.pipeline.address_fixes.recovery import _is_usable_street
-from fec.cleaning.street_text import _normalize_street
+from fec.cleaning.addresses.fixes.recovery import _is_usable_street
+from fec.cleaning.addresses.street_text import _normalize_street
 from fec.log import get_logger
 from fec.resolve.pipeline.cache import Cache
 

@@ -1,7 +1,7 @@
 """_recover_nonstreet_from_donor fills fragment streets from the donor's own filings."""
 import pandas as pd
 
-from fec.cleaning.pipeline.address_fixes.recovery import _recover_nonstreet_from_donor
+from fec.cleaning.addresses.fixes.recovery import _recover_nonstreet_from_donor
 
 
 def _row(street, name="GHITIS, LEO", city="GOLDEN BEACH", state="FL", et="INDIVIDUAL"):

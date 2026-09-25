@@ -5,11 +5,11 @@ import os
 import pandas as pd
 
 from fec import env
+from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.audit import write_audit
-from fec.cleaning.foreign_addresses import foreign_address_mask
 from fec.cleaning.pipeline.core import clean_pipeline
-from fec.cleaning.quality import run_quality_gates, save_report
-from fec.cleaning.quality_scan import scan
+from fec.cleaning.quality.gates import run_quality_gates, save_report
+from fec.cleaning.quality.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.env import CLEANED_CSV, RAW_CSV

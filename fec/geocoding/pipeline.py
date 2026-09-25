@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.foreign_addresses import foreign_address_mask
+from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
 from fec.geocoding.accepted import (
     STREET_LEVEL_SOURCES,

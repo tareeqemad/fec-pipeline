@@ -1,17 +1,17 @@
-"""fec.cleaning.address_review: safe text fixes + review reports."""
+"""fec.cleaning.addresses.review: safe text fixes + review reports."""
 import csv
 
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.address_review import build_address_reports
-from fec.cleaning.pipeline.address_fixes.safe_text import (
+from fec.cleaning.addresses.fixes.safe_text import (
     _collapse_dup_words,
     _fix_house_number,
     apply_safe_fixes,
 )
-from fec.cleaning.pipeline.address_fixes.verified import apply_verified_address_fixes
-from fec.cleaning.addresses import clean_streets
+from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes
+from fec.cleaning.addresses.review import build_address_reports
+from fec.cleaning.addresses.streets import clean_streets
 
 
 def test_house_number_leading_symbol_and_zeros():
@@ -248,7 +248,7 @@ def test_state_zip_and_city_fragments_in_street2_are_emptied(tmp_path):
 
 
 def test_city_state_zip_tail_typed_into_street_is_dropped():
-    from fec.cleaning.pipeline.address_fixes.safe_text import _strip_city_state_tail as strip
+    from fec.cleaning.addresses.fixes.safe_text import _strip_city_state_tail as strip
     assert strip("3841 HAYVENHURST DR ENCINO CA", "ENCINO", "CA", "91436") == "3841 HAYVENHURST DR"
     assert strip("76 WALLACKS DR STAMFORD CT 0690", "STAMFORD", "CT", "06902") == "76 WALLACKS DR"
     assert strip("1904 BAY DR POMPANO BEACH FL", "POMPANO BEACH", "FL", "33062") == "1904 BAY DR"
@@ -262,14 +262,14 @@ def test_city_state_zip_tail_typed_into_street_is_dropped():
 
 
 def test_care_of_fragment_without_a_street_is_blanked():
-    from fec.cleaning.pipeline.address_fixes.safe_text import _strip_care_of
+    from fec.cleaning.addresses.fixes.safe_text import _strip_care_of
     assert _strip_care_of("C/O MCCARTER & ENGLISH, LLP, 100 M") is np.nan or pd.isna(_strip_care_of("C/O MCCARTER & ENGLISH, LLP, 100 M"))
     assert _strip_care_of("C/O ARMANINO, 437 MADISON AVE") == "437 MADISON AVE"
     assert _strip_care_of("C/O MOELIS") == "C/O MOELIS"
 
 
 def test_donor_street_with_and_without_type_unify():
-    from fec.cleaning.pipeline.address_fixes.unify import _unify_street_types
+    from fec.cleaning.addresses.fixes.unify import _unify_street_types
     df = pd.DataFrame([
         {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON AVE", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
         {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON AVE", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
@@ -281,7 +281,7 @@ def test_donor_street_with_and_without_type_unify():
 
 
 def test_typed_street_spelling_wins_even_as_a_minority():
-    from fec.cleaning.pipeline.address_fixes.unify import _unify_street_types
+    from fec.cleaning.addresses.fixes.unify import _unify_street_types
     df = pd.DataFrame([
         {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF", "contributor_city": "AURORA", "contributor_state": "CO"},
         {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF", "contributor_city": "AURORA", "contributor_state": "CO"},
@@ -293,7 +293,7 @@ def test_typed_street_spelling_wins_even_as_a_minority():
 
 def test_two_different_street_types_are_both_kept():
     # MAIN ST and MAIN AVE disagree: nothing proves which one is the typo
-    from fec.cleaning.pipeline.address_fixes.unify import _unify_street_types
+    from fec.cleaning.addresses.fixes.unify import _unify_street_types
     rows = [("100 MAIN ST",), ("100 MAIN ST",), ("100 MAIN AVE",), ("100 MAIN",)]
     df = pd.DataFrame([
         {"contributor_name": "DOE, JANE", "contributor_street_1": street, "contributor_city": "AUSTIN",
@@ -312,20 +312,20 @@ def _units(values):
 
 
 def test_a_floor_is_not_an_apartment():
-    from fec.cleaning.pipeline.address_fixes.unify import _unify_unit_designators
+    from fec.cleaning.addresses.fixes.unify import _unify_unit_designators
     df = _units(["APT 9", "APT 9", "FL 9"])
     assert _unify_unit_designators(df) == 0
     assert df.contributor_street_2.tolist() == ["APT 9", "APT 9", "FL 9"]
 
 
 def test_building_and_suite_numbers_stay_apart():
-    from fec.cleaning.pipeline.address_fixes.unify import _unify_unit_designators
+    from fec.cleaning.addresses.fixes.unify import _unify_unit_designators
     df = _units(["BLDG 1 STE 23", "BLDG 1 STE 23", "BLDG 12 STE 3"])
     assert _unify_unit_designators(df) == 0
 
 
 def test_the_same_unit_written_two_ways_still_unifies():
-    from fec.cleaning.pipeline.address_fixes.unify import _unify_unit_designators
+    from fec.cleaning.addresses.fixes.unify import _unify_unit_designators
     df = _units(["APT 15-03", "APT 15-03", "# 1503", "UNIT 15-03"])
     assert _unify_unit_designators(df) == 2
     assert set(df.contributor_street_2) == {"APT 15-03"}
@@ -333,7 +333,7 @@ def test_the_same_unit_written_two_ways_still_unifies():
 
 def test_a_space_inside_one_unit_id_does_not_split_it():
     # EPSTEIN filed APT 705N and # 705 N; FRIEDMANN PH 20 and APT PH20
-    from fec.cleaning.pipeline.address_fixes.unify import _unit_core
+    from fec.cleaning.addresses.fixes.unify import _unit_core
     assert _unit_core("APT 705N") == _unit_core("# 705 N")
     assert _unit_core("PH 20") == _unit_core("APT PH20")
     assert _unit_core("UNIT PH-3") == _unit_core("PH 3")

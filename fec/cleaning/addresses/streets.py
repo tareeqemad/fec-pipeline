@@ -3,10 +3,10 @@
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.house_number_zip import (
+from fec.cleaning.addresses.house_number_zip import (
     _split_house_number_zip,
 )
-from fec.cleaning.street_text import (
+from fec.cleaning.addresses.street_text import (
     _TRAILING_UNIT_RE,
     _extract_units,
     _normalize_street,

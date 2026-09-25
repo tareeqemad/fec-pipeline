@@ -10,9 +10,9 @@ from collections import defaultdict
 
 import pytest
 
-from fec.cleaning.pipeline.address_fixes.state_zip import _load_zcta_to_state
-from fec.env import DATA_DIR
+from fec.cleaning.addresses.fixes.state_zip import _load_zcta_to_state
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
+from fec.env import DATA_DIR
 from fec.geocoding.places import distance_km as _distance_km
 from fec.geocoding.zip_checks import _ZIP_CENTROIDS, _zip_centroids
 

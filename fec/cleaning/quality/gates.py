@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning.quality_employment import (
+from fec.cleaning.quality.employment_gates import (
     _gate_not_employed_status,
     _gate_occupation_category_consistency,
     _gate_previous_employer_scope,

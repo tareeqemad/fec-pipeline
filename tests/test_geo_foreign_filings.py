@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fec.cleaning.foreign_addresses import foreign_address_mask
+from fec.cleaning.addresses.foreign import foreign_address_mask
 
 RAW_CSV = Path(__file__).resolve().parents[1] / "data" / "contributions.csv"
 MISSED_SUB_IDS = {

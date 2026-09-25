@@ -4,12 +4,8 @@ import pandas as pd
 import pytest
 
 import fec.database.loader.employers as employer_loader
-from fec.resolve.pipeline.apply import ResolveContext, apply_results, _resolve_row
-from fec.resolve.pipeline.manual_overrides import (
-    load_manual_locations,
-    load_manual_previous_employers,
-)
-from fec.resolve.pipeline.steps.previous_employer import _cache_entry, step_cross_record
+from fec.cleaning.employer_status import current_employer_name
+from fec.cleaning.quality.gates import run_quality_gates
 from fec.database.loader.employers import (
     _latest_employment_rows,
     _make_employer_resolver,
@@ -17,8 +13,12 @@ from fec.database.loader.employers import (
 )
 from fec.database.loader.employment_locations import _employment_address_id
 from fec.database.loader.previous_employers import _previous_employer_id
-from fec.cleaning.quality import run_quality_gates
-from fec.cleaning.employer_status import current_employer_name
+from fec.resolve.pipeline.apply import ResolveContext, _resolve_row, apply_results
+from fec.resolve.pipeline.manual_overrides import (
+    load_manual_locations,
+    load_manual_previous_employers,
+)
+from fec.resolve.pipeline.steps.previous_employer import _cache_entry, step_cross_record
 
 
 class FakeCache(dict):

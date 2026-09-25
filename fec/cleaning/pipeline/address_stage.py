@@ -4,40 +4,40 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.address_review import (
+from fec.cleaning.addresses.cities import clean_cities
+from fec.cleaning.addresses.fixes.recovery import (
+    _recover_house_number_from_donor,
+    _recover_nonstreet_from_donor,
+    _recover_null_streets,
+    _trim_street_to_donor_short_form,
+)
+from fec.cleaning.addresses.fixes.safe_text import apply_safe_fixes
+from fec.cleaning.addresses.fixes.same_street import (
+    _recover_address_from_same_street,
+)
+from fec.cleaning.addresses.fixes.state_zip import (
+    _fix_impossible_city_states,
+    _fix_state_zip_mismatches,
+)
+from fec.cleaning.addresses.fixes.unify import (
+    _unify_street_spacing,
+    _unify_street_spellings,
+    _unify_street_types,
+    _unify_unit_designators,
+)
+from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes
+from fec.cleaning.addresses.review import (
     apply_street2_fixes,
 )
-from fec.cleaning.addresses import clean_streets
+from fec.cleaning.addresses.streets import clean_streets
+from fec.cleaning.addresses.zips import clean_zips
 from fec.cleaning.audit_trail import (
     ADDRESS_FIELDS,
     PLACE_FIELDS,
     STREET_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.cities import clean_cities
-from fec.cleaning.pipeline.address_fixes.recovery import (
-    _recover_house_number_from_donor,
-    _recover_nonstreet_from_donor,
-    _recover_null_streets,
-    _trim_street_to_donor_short_form,
-)
-from fec.cleaning.pipeline.address_fixes.safe_text import apply_safe_fixes
-from fec.cleaning.pipeline.address_fixes.same_street import (
-    _recover_address_from_same_street,
-)
-from fec.cleaning.pipeline.address_fixes.state_zip import (
-    _fix_impossible_city_states,
-    _fix_state_zip_mismatches,
-)
-from fec.cleaning.pipeline.address_fixes.unify import (
-    _unify_street_spacing,
-    _unify_street_spellings,
-    _unify_street_types,
-    _unify_unit_designators,
-)
-from fec.cleaning.pipeline.address_fixes.verified import apply_verified_address_fixes
 from fec.cleaning.pipeline.fec_recovery import recover_addresses_from_fec
-from fec.cleaning.zips import clean_zips
 
 
 # per-row street-normalize reason, flags email-in-street1 cases

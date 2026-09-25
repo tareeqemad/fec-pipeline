@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from fec.cleaning.quality import run_quality_gates
+from fec.cleaning.quality.gates import run_quality_gates
 from fec.resolve.pipeline import cli
 
 

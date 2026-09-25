@@ -9,9 +9,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.addresses import clean_streets
-from fec.cleaning.street_text import _normalize_street
-from fec.cleaning.pipeline.address_fixes.safe_text import apply_safe_fixes, is_state_zip_fragment
+from fec.cleaning.addresses.fixes.safe_text import (
+    apply_safe_fixes,
+    is_state_zip_fragment,
+)
+from fec.cleaning.addresses.street_text import _normalize_street
+from fec.cleaning.addresses.streets import clean_streets
 
 
 @pytest.mark.parametrize("raw, expected", [

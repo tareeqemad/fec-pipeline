@@ -7,7 +7,7 @@ both: the designator abbreviated and first, the identifier as written.
 """
 import pytest
 
-from fec.cleaning.street_text import _normalize_unit
+from fec.cleaning.addresses.street_text import _normalize_unit
 from fec.config.streets import usps_unit_designators
 
 

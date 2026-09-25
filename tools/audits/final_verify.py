@@ -119,7 +119,7 @@ def main() -> int:
 
     # addresses / geo
     print("== foreign rows (must equal raw):")
-    from fec.cleaning.foreign_addresses import foreign_address_mask
+    from fec.cleaning.addresses.foreign import foreign_address_mask
     rawfull = pd.read_csv("data/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip"], low_memory=False).set_index("sub_id")
     fm = foreign_address_mask(rawfull.reset_index()).to_numpy()
     nn = n.set_index("sub_id")

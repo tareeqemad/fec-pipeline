@@ -6,18 +6,23 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.cleaning.cities import clean_cities
-from fec.cleaning.street_text import _extract_units, _normalize_street, _normalize_unit
+from fec.cleaning.addresses.cities import clean_cities
+from fec.cleaning.addresses.street_text import (
+    _extract_units,
+    _normalize_street,
+    _normalize_unit,
+)
 from fec.cleaning.employer_status import current_employer_name, referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
 from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
 from fec.geocoding.accepted import accepted_coordinates
-from fec.geocoding.street_text import numbered_street
 from fec.geocoding.address_kind import is_foreign_address, is_po_box
 from fec.geocoding.reviewed_points import REVIEWED_POINTS
+from fec.geocoding.street_text import numbered_street
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
+from fec.resolve.pipeline.location_choice import zip_centroid
 from fec.resolve.pipeline.locations import (
     ADDRESS_FIELDS,
     PUBLISHABLE_ADDRESS_TRUST,
@@ -26,7 +31,6 @@ from fec.resolve.pipeline.locations import (
     publishable_first_entry,
     resolve_cache_entry,
 )
-from fec.resolve.pipeline.location_choice import zip_centroid
 
 logger = get_logger(__name__)
 

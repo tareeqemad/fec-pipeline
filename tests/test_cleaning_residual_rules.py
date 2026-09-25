@@ -1,7 +1,16 @@
 import pandas as pd
 
-from fec.cleaning.quality import run_quality_gates
-from fec.cleaning.quality_scan import scan_uncategorized_occupations
+from fec.cleaning.donor_consistency.employer import _fill_employer_from_donor
+from fec.cleaning.donor_consistency.occupation import (
+    _fill_occupation_from_donor,
+    _rederive_occupation_category,
+)
+from fec.cleaning.donor_consistency.retired import (
+    _fill_prev_employer_from_donor,
+    _settle_retired_employer,
+)
+from fec.cleaning.quality.gates import run_quality_gates
+from fec.cleaning.quality.scan import scan_uncategorized_occupations
 from fec.cleaning.safety_nets.addresses import _fix_foreign_addresses
 from fec.cleaning.safety_nets.employer import _fix_retired_typos
 from fec.cleaning.safety_nets.employer_swaps import (
@@ -11,15 +20,6 @@ from fec.cleaning.safety_nets.name_fields import _fix_occ_emp_both_swapped
 from fec.cleaning.safety_nets.occupation import (
     _fix_emp_occ_category_consistency,
     _fix_web_artifact_occupation,
-)
-from fec.cleaning.donor_consistency.employer import _fill_employer_from_donor
-from fec.cleaning.donor_consistency.occupation import (
-    _fill_occupation_from_donor,
-    _rederive_occupation_category,
-)
-from fec.cleaning.donor_consistency.retired import (
-    _fill_prev_employer_from_donor,
-    _settle_retired_employer,
 )
 
 

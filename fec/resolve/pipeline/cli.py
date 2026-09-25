@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning.quality import run_quality_gates
+from fec.cleaning.quality.gates import run_quality_gates
 from fec.config.cities import expand_city_abbreviations
 from fec.env import CLEANED_CSV, load_env
 from fec.io import read_pipeline_csv, write_json_atomic

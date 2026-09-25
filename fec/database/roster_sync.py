@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning.addresses import clean_streets
-from fec.cleaning.foreign_addresses import foreign_address_mask
+from fec.cleaning.addresses.foreign import foreign_address_mask
+from fec.cleaning.addresses.streets import clean_streets
 from fec.donor_match.rules import resolve_donor_key
 from fec.env import CLEANED_CSV, PROJECT_ROOT
 

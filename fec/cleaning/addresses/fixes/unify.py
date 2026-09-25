@@ -5,7 +5,6 @@ import re
 
 import pandas as pd
 
-
 # '10 17 GREENTREE DR': a house number cut in two by a space
 _SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
 

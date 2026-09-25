@@ -8,13 +8,18 @@ ALBANY NY, JAMAICA NY), while the filer's real city and ZIP sit in the street.
 import pandas as pd
 import pytest
 
-from fec.cleaning.addresses import clean_streets
-from fec.cleaning.zips import clean_zips
-from fec.cleaning.cities import clean_cities
-from fec.cleaning.street_text import _drop_repeated_street
-from fec.cleaning.audit_trail import PLACE_FIELDS, STREET_FIELDS, UNTRACKED_STEP, AuditTrail
-from fec.cleaning.pipeline.address_fixes import state_zip
-from fec.cleaning.pipeline.address_fixes.state_zip import is_zcta, zip_state
+from fec.cleaning.addresses.cities import clean_cities
+from fec.cleaning.addresses.fixes import state_zip
+from fec.cleaning.addresses.fixes.state_zip import is_zcta, zip_state
+from fec.cleaning.addresses.street_text import _drop_repeated_street
+from fec.cleaning.addresses.streets import clean_streets
+from fec.cleaning.addresses.zips import clean_zips
+from fec.cleaning.audit_trail import (
+    PLACE_FIELDS,
+    STREET_FIELDS,
+    UNTRACKED_STEP,
+    AuditTrail,
+)
 
 COLUMNS = [
     'sub_id', 'contributor_first_name', 'contributor_last_name',
