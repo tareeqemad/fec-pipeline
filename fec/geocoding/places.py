@@ -59,8 +59,11 @@ _WORD_FORMS = {
     "SAINT": "ST", "SAINTE": "STE", "FORT": "FT", "MOUNT": "MT",
     "NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W",
 }
+# a leading place-type marker to strip: "CITY OF ", "TOWN OF ", "THE "
 _TOWN_PREFIX_RE = re.compile(r"^(?:THE |(?:CITY|TOWN|VILLAGE|BOROUGH|TOWNSHIP) OF )")
+# a trailing "TOWNSHIP"/"TWP" to strip: "OXFORD TOWNSHIP"
 _TOWN_SUFFIX_RE = re.compile(r" (?:TOWNSHIP|TWP)$")
+# any township marker, leading or trailing: "TOWN OF X", "X TOWNSHIP"
 _TOWNSHIP_RE = re.compile(r"^TOWN(?:SHIP)? OF | (?:TOWNSHIP|TWP)$")
 
 

@@ -9,6 +9,7 @@ from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
 from fec.config.constants import STATUS_CATEGORIES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 
+# political-committee wording in a name: "FRIENDS OF SMITH", "SMITH FOR SENATE"
 _COMMITTEE_IN_NAME_RE = re.compile(
     r'(?:FRIENDS|CITIZENS|COMMITTEE) TO ELECT'
     r'|(?:FRIENDS OF|FRIENDS FOR|CITIZENS FOR|PEOPLE FOR) '
@@ -25,6 +26,7 @@ _COMMITTEE_IN_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+# a business legal suffix: "LLC", "INC", "P.C.", "P.A."
 _BUSINESS_SUFFIX_RE = re.compile(
     r'\b(?:LLC|LLP|L\.L\.C|L\.L\.P|INC|CORP|LTD|P\.?L\.?L\.?C)\b'
     r'|\bP\.?C\.?\b|\bP\.?A\.?\b',

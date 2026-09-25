@@ -32,6 +32,7 @@ RULE_TYPES = {
     "committee_name",
 }
 
+# a 5-digit ZIP code, e.g. "10001"
 _ZIP5_RE = re.compile(r"\d{5}")
 
 

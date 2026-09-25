@@ -17,6 +17,7 @@ _ETHNICITY_RE = re.compile(r'NOT OF HISPANIC|HISPANIC ORIGIN', re.IGNORECASE)
 
 # VI ZIPs: 00801-00851; PR ZIPs: 00600-00799, 00900-00999 (excluding VI range)
 _VI_ZIP_RE = re.compile(r'^008[0-4]\d$|^00850$|^00851$')
+# a Puerto Rico ZIP5: 006xx, 007xx, 009xx
 _PR_ZIP_RE = re.compile(r'^00[679]\d{2}$')
 
 

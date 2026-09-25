@@ -11,6 +11,7 @@ from .constants import (
 from .rules import identities_must_stay_separate
 from .scoring import compute_score, _are_cross_group_candidates, _is_surname_variant
 
+# one or more spaces/commas, to split a name into words
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 
 

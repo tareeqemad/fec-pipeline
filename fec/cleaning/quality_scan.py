@@ -34,7 +34,9 @@ _ABBR_NORM = {
     token: expansion for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion
 }
 
+# a run of letters/digits, used to tokenize a name into words
 _TOKEN_RE = re.compile(r"[A-Z0-9]+")
+# the same character repeated 3+ times, e.g. "AAAA", "XXXXX" (junk value)
 _REPEAT_RE = re.compile(r"(.)\1{2,}")
 
 

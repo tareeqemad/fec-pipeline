@@ -14,6 +14,7 @@ from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
 
+# a leading job title before the employer name: "CEO, ACME CORP"
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
     r'CHAIRMAN|CHAIRPERSON|CHAIR|FOUNDER|CO-FOUNDER|PARTNER|PRINCIPAL|OWNER|'

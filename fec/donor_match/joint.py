@@ -27,7 +27,9 @@ import re
 
 from .constants import NAME_SUFFIXES, NICKNAME_MAP
 
+# a parenthesized aside to drop: "(NICKNAME)", "(unclosed"
 _PAREN_RE = re.compile(r"\([^()]*\)?")
+# a run of letters, to split a name field into words
 _TOKEN_RE = re.compile(r"[A-Z]+")
 
 

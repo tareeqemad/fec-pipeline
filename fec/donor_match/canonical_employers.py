@@ -32,6 +32,7 @@ _EMP_DROP_TOKENS = frozenset(
 )
 
 
+# a run of letters/digits, to tokenize an employer name
 _EMP_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 

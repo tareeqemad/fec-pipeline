@@ -50,12 +50,15 @@ _SLASH_SECTOR_ONLY = frozenset({
     'REAL ESTATE AGENT', 'DEVELOPER R E', 'RETIRED LAWYER',
 })
 
+# a leading admin-request marker on a slash value: "LETTER SENT/ACME CORP"
 _SLASH_ADMIN_PREFIX_RE = re.compile(
     r'^(LETTER SENT|REQUESTED)\b',
     re.IGNORECASE,
 )
 
+# compiled structural-junk pattern: dates, digits-only, masked SSNs
 _JUNK_EMPLOYER_RE = re.compile(JUNK_EMPLOYER_RE)
+# one or more whitespace characters, to collapse runs to a single space
 _WS_RE = re.compile(r'\s+')
 
 # A retirement marker written around the company ("GOLDMAN SACHS-RETIRED",
@@ -63,9 +66,11 @@ _WS_RE = re.compile(r'\s+')
 # "RETIRED FROM X"). Whole word RETIRED only, so RETIREE / RETIREMENT
 # (ERICKSON RETIREMENT COMMUNITIES, RETIREE CHAPTER) are never touched.
 _RETIRED_WORD = r'(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY)[\s-]?)?RETIRED'
+# a leading retirement marker: "RETIRED FROM", "(SEMI RETIRED)"
 _RETIRED_PREFIX_RE = re.compile(
     rf'^\(?{_RETIRED_WORD}\b\)?(?:\s+FROM\b)?[\s,;:/-]*'
 )
+# a trailing retirement marker: "GOLDMAN SACHS-RETIRED", "(SEMI RETIRED)"
 _RETIRED_SUFFIX_RE = re.compile(rf'[\s,;:/-]*\(?\s*{_RETIRED_WORD}\s*\)?$')
 # "... ASSOCIATION OF RETIRED" (a name cut at the FEC's 38 characters) is a
 # name, not a marker

@@ -12,6 +12,7 @@ from fec.resolve.pipeline.ai_address_checks import (
     _clear_ai_hallucinated_addresses,
 )
 
+# a full-match US ZIP5 or ZIP+4: "10001", "10001-1234"
 _US_ZIP_RE = re.compile(r"^\d{5}(-\d{4})?$")
 
 

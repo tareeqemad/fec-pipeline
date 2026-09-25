@@ -87,6 +87,7 @@ _UNIT_DESIGNATOR_RE = re.compile(
 )
 # a floor or a building is other information than a unit: "FL 3" is not "APT 3"
 _FLOOR_RE = re.compile(r'\b(?:FL|FLR|FLOOR)\b\.?', re.IGNORECASE)
+# a building designator word: "BLDG 2", "BUILDING C"
 _BUILDING_RE = re.compile(r'\b(?:BLDG|BUILDING)\b\.?', re.IGNORECASE)
 
 

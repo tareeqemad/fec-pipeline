@@ -7,9 +7,11 @@ import pandas as pd
 from fec.cleaning.pipeline.address_fixes import _unit_core
 from fec.donor_match.components import UnionFind
 
+# a run of letters/digits, to tokenize a street address
 _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 
+# a PO box with its number captured: "PO BOX 123", "P.O. BOX #45"
 _POBOX_RE = re.compile(r"\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)")
 
 

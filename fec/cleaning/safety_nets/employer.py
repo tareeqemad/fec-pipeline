@@ -24,9 +24,12 @@ _RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
 
 # 'RETIRED <tail>': the tail is a previous employer or a profession word
 _RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
+# the leading "RETIRED" marker to strip, keeping the tail: "RETIRED - ACME"
 _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
 
+# the whole value is digits only, e.g. "12345"
 _DIGITS_ONLY_RE = re.compile(r'^\d+$')
+# the same character repeated 4+ times filling the whole value: "XXXXX"
 _REPEATED_CHAR_RE = re.compile(r'^(.)\1{3,}$')
 
 

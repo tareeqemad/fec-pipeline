@@ -141,9 +141,11 @@ _AI_STREET_STOPWORDS = frozenset(
 )
 
 
+# a whole uppercase word of 2+ letters, to pull significant address words
 _AI_WORD_RE = re.compile(r"\b[A-Z]{2,}\b")
 
 
+# a leading street number, captured: "123 MAIN ST" -> "123"
 _AI_NUM_RE = re.compile(r"^\s*(\d+)")
 
 

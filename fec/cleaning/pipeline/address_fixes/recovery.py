@@ -257,11 +257,14 @@ def _truncated_house_numbers(df: pd.DataFrame) -> int:
 # city or state fragment. The same person's other filings at the same ZIP hold
 # the clean short form (and its unit in street_2), which is the evidence used.
 _TRUNCATION_MIN_LEN = 30
+# a direction or street-type word, whole: "AVE", "NE" - not a stray tail fragment
 _NOT_A_FRAGMENT_RE = re.compile(
     r"^(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST|"
     r"ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|EXT)$"
 )
+# a proper unit value: keyword plus number/letters, e.g. "APT 4B", "STE 200"
 _REAL_UNIT_RE = re.compile(r"^(?:APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PH|PMB|LOT|SPC|BOX|TRLR|#)\s*[A-Z0-9-]+$")
+# a unit keyword anywhere in text: "APT 4", "# 5", "STE"
 _UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG)\b|#\d")
 
 

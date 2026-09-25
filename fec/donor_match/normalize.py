@@ -14,6 +14,7 @@ _EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
                    " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
 
 
+# a trailing title (REP/SEN/DR/JR/...) at the end of a name: "JOHN SMITH, JR."
 _COMM_SUFFIXES_RE = re.compile(
     r'\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)'
     r'\.?\s*$',

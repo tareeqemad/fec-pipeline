@@ -9,10 +9,13 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
+# trailing dotted P.C./P.A. suffix: "SMITH LAW, P.C."
 _DOTTED_SUFFIX_RE = re.compile(r',?\s*\b(P\.C\.?|P\.A\.?)\s*$')
+# trailing corporate suffix: "ACME INC", "WIDGETS, LLC"
 _CORP_SUFFIX_RE = re.compile(
     r',?\s*\b(INC|LLC|LLP|LTD|CORP|CORPORATION|COMPANY|CO|PC|PA|PLLC|LP)\s*$'
 )
+# a professional designation before PA/PC, kept as-is: "JOHN SMITH CPA PA"
 _PA_PC_PROTECT_RE = re.compile(
     r'\b(CPA|DPA|RPA|EPA|SEPA|SHERPA)\s+(PA|PC)\s*$',
     re.IGNORECASE,

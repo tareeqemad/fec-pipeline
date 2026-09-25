@@ -13,12 +13,15 @@ from fec.donor_match.scoring import _NAME_TOKEN_RE
 _PAREN_GROUP_RE = re.compile(r"\([^()]*\)")
 
 
+# an unclosed trailing parenthetical: "JOHN (NICK"
 _PAREN_OPEN_TAIL_RE = re.compile(r"\([^()]*$")
 
 
+# trailing spaces, commas or dashes to trim: "SMITH, "
 _TRAILING_NOISE_RE = re.compile(r"[\s,\-]+$")
 
 
+# a period after a whole word (3+ letters) to drop: "JOHN." -> "JOHN"
 _WORD_PERIOD_RE = re.compile(r"(?<=[A-Z]{3})\.+$")
 
 
