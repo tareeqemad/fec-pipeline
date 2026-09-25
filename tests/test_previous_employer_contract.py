@@ -287,7 +287,7 @@ def test_resolve_keeps_own_named_legal_company_and_is_idempotent():
 
 
 def test_fec_previous_employer_requires_matching_city_or_zip():
-    from fec.resolve.pipeline.steps.previous_employer import _same_fec_donor
+    from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor
 
     person = {
         "name": "JOHNSON, JAMES",
@@ -312,7 +312,7 @@ def test_fec_previous_employer_requires_matching_city_or_zip():
 
 
 def test_fec_previous_employer_rejects_conflicting_middle_initials():
-    from fec.resolve.pipeline.steps.previous_employer import _same_fec_donor
+    from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor
 
     person = {
         "name": "JOHNSON, JAMES R",

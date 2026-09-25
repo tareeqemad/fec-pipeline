@@ -8,13 +8,15 @@ from fec.resolve.pipeline.cli import _deduplicate_address_cache
 from fec.resolve.pipeline.constants import EMPLOYER_PROMPT_VERSION
 from fec.resolve.pipeline.dedup import dedup_by_resolved_address
 from fec.resolve.pipeline.steps.ai_employer import (
-    EmployerLookup,
     _is_explicit_unknown,
-    _needs_ai,
     _resolved_cache_entry,
+    step_ai_lookup,
+)
+from fec.resolve.pipeline.steps.employer_lookups import (
+    EmployerLookup,
+    _needs_ai,
     build_employer_prompt,
     collect_employer_lookups,
-    step_ai_lookup,
 )
 
 
@@ -389,7 +391,7 @@ def test_invalid_model_response_is_not_cached(monkeypatch):
         lambda: (object(), "model"),
     )
     monkeypatch.setattr(
-        "fec.resolve.pipeline.steps.ai_employer.ai_web_search_call",
+        "fec.resolve.pipeline.steps.web_search.ai_web_search_call",
         lambda *args: (invalid_response, 0.01),
     )
 

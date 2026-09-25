@@ -1,6 +1,7 @@
 """resolve keeps self-employment as work history and reads every FEC page before 'not found'."""
 import pandas as pd
 
+from fec.resolve.pipeline.steps import fec_previous_employer as fec_search
 from fec.resolve.pipeline.steps import previous_employer as step
 
 
@@ -48,7 +49,7 @@ PERSON = {"prev_key": "donor:D1", "name": "DOE, JANE", "state": "NY", "city": "N
 
 
 def test_the_employer_on_the_second_page_is_found(monkeypatch):
-    monkeypatch.setattr(step, "FEC_PAGE_SIZE", 2)
+    monkeypatch.setattr(fec_search, "FEC_PAGE_SIZE", 2)
     pages = [
         Response([_filing("RETIRED"), _filing("RETIRED")], {"last_index": "9"}),
         Response([_filing("ACME INDUSTRIES")]),
@@ -59,21 +60,21 @@ def test_the_employer_on_the_second_page_is_found(monkeypatch):
         calls.append(params)
         return pages[len(calls) - 1]
 
-    key, entry = step._fetch_fec_previous_employer(PERSON, "k", get)
+    key, entry = fec_search._fetch_fec_previous_employer(PERSON, "k", get)
 
     assert entry["employer"] == "ACME INDUSTRIES"
     assert calls[1]["last_index"] == "9"
 
 
 def test_not_found_is_recorded_only_after_the_last_page(monkeypatch):
-    monkeypatch.setattr(step, "FEC_PAGE_SIZE", 2)
+    monkeypatch.setattr(fec_search, "FEC_PAGE_SIZE", 2)
     pages = [Response([_filing("RETIRED"), _filing("RETIRED")], {"last_index": "9"}), Response([])]
-    key, entry = step._fetch_fec_previous_employer(PERSON, "k", lambda url, params, timeout: pages.pop(0))
+    key, entry = fec_search._fetch_fec_previous_employer(PERSON, "k", lambda url, params, timeout: pages.pop(0))
 
     assert entry == {"employer": "", "method": "fec_api_not_found", "all_pages": True}
 
 
 def test_an_old_first_page_only_not_found_is_searched_again():
-    assert step._fec_search_due({"employer": "", "method": "fec_api_not_found"})
-    assert not step._fec_search_due({"employer": "", "method": "fec_api_not_found", "all_pages": True})
-    assert not step._fec_search_due({"employer": "ACME", "method": "fec_api"})
+    assert fec_search._fec_search_due({"employer": "", "method": "fec_api_not_found"})
+    assert not fec_search._fec_search_due({"employer": "", "method": "fec_api_not_found", "all_pages": True})
+    assert not fec_search._fec_search_due({"employer": "ACME", "method": "fec_api"})

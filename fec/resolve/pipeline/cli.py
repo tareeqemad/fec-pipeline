@@ -24,7 +24,8 @@ from .manual_overrides import (
 )
 from .stats import show_stats
 from .steps.ai_employer import step_ai_lookup
-from .steps.previous_employer import step_cross_record, step_fec_api
+from .steps.previous_employer import step_cross_record
+from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
 
 logger = get_logger(__name__)
 

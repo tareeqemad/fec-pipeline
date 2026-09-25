@@ -605,7 +605,7 @@ def test_manual_location_keeps_its_evidence(tmp_path):
 
 
 def test_uncertain_manual_address_stays_in_review(tmp_path):
-    from fec.resolve.pipeline.steps.ai_employer import _needs_ai
+    from fec.resolve.pipeline.steps.employer_lookups import _needs_ai
 
     path = tmp_path / "manual_employer_addresses.csv"
     path.write_text(
@@ -687,7 +687,7 @@ def test_deleted_manual_locations_leave_the_cache(tmp_path):
 
 
 def test_invalid_manual_address_stays_blank(tmp_path):
-    from fec.resolve.pipeline.steps.ai_employer import _needs_ai
+    from fec.resolve.pipeline.steps.employer_lookups import _needs_ai
 
     path = tmp_path / "manual_employer_addresses.csv"
     path.write_text(
