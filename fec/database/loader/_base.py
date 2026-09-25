@@ -23,10 +23,12 @@ load_env()
 
 PG = get_db_config()
 
+# double-quote and escape a sql identifier
 def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
 
+# open a postgresql connection using .env credentials
 def connect(dbname: str | None = None) -> Any:
     """Connect to PostgreSQL using credentials from .env."""
     return psycopg2.connect(
@@ -40,6 +42,7 @@ def connect(dbname: str | None = None) -> Any:
 
 
 
+# convert a pandas/numpy value to plain python, nan to none
 def to_native(val: Any) -> Any:
     """Convert pandas value to Python-native (None for NaN)."""
     if pd.isna(val):
@@ -53,6 +56,7 @@ def to_native(val: Any) -> Any:
     return val
 
 
+# parse a value to float or none, raise on garbage
 def to_float_or_none(val: Any) -> float | None:
     """Native float, or None for None/NaN/empty (dtype=str frames); raises ValueError on unparseable garbage rather than dropping a value."""
     if val is None or pd.isna(val):
@@ -66,6 +70,7 @@ def to_float_or_none(val: Any) -> float | None:
         raise ValueError(f"to_float_or_none: cannot parse {stripped!r} as float")
 
 
+# parse a value to int or none, raise on garbage
 def to_int_or_none(val: Any) -> int | None:
     """Native int (psycopg2 can't take numpy.int64), or None for None/NaN/empty; raises ValueError on unparseable garbage."""
     if val is None or pd.isna(val):
@@ -81,6 +86,7 @@ def to_int_or_none(val: Any) -> int | None:
         raise ValueError(f"to_int_or_none: cannot parse {val!r} as int")
 
 
+# row count for a table, 0 if the query fails
 def _count(cur: Any, table: str) -> int:
     try:
         cur.execute(f"SELECT COUNT(*) FROM {table}")

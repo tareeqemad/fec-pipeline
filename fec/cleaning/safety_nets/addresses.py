@@ -20,6 +20,7 @@ _VI_ZIP_RE = re.compile(r'^008[0-4]\d$|^00850$|^00851$')
 _PR_ZIP_RE = re.compile(r'^00[679]\d{2}$')
 
 
+# fill a null contributor_city from a known ZIP lookup
 def _fill_null_city_from_zip(df: pd.DataFrame) -> int:
     """J. contributor_city NULL: fill from ZIP lookup."""
     null_city = df['contributor_city'].isna()
@@ -32,6 +33,7 @@ def _fill_null_city_from_zip(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# null a foreign city paired with a fake US state
 def _fix_foreign_addresses(df: pd.DataFrame) -> int:
     """AF. Foreign city with a fake US state (REHOVOT/CA) -> NaN city; ambiguous cities (LONDON, PARIS) only when the state doesn't match a US location of that name."""
     city = df['contributor_city'].fillna('').str.strip().str.upper()
@@ -52,6 +54,7 @@ def _fix_foreign_addresses(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# null garbage city names such as commas or ethnicity text
 def _fix_garbage_city_names(df: pd.DataFrame) -> int:
     """AG. Garbage city names ('WHITE, NOT OF HISPANIC ORIGIN', 'JERUSALEM, ISRAEL') -> NaN."""
     city = df['contributor_city'].fillna('')
@@ -65,6 +68,7 @@ def _fix_garbage_city_names(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# fix state to PR or VI to match the ZIP
 def _fix_pr_zip_wrong_state(df: pd.DataFrame) -> int:
     """AH. Puerto Rico/VI ZIP with wrong state -> fix state (006xx-009xx = PR, 00801-00851 = VI)."""
     zip5 = df['contributor_zip'].fillna('')

@@ -9,12 +9,14 @@ from fec.donor_match.phases import _TOKEN_SPLIT_RE, MatchContext, _merge_and_aud
 from fec.donor_match.scoring import compute_score
 
 
+# order-independent significant name tokens
 def _name_token_key(norm_name: str) -> frozenset:
     """Return the order-independent significant name tokens."""
     last, _, first = norm_name.partition("|")
     return frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
 
 
+# group normalized names by their token set
 def _norms_by_name_tokens(name_groups: dict) -> dict:
     grouped = defaultdict(set)
     for norm_name in name_groups:
@@ -26,6 +28,7 @@ def _norms_by_name_tokens(name_groups: dict) -> dict:
     return grouped
 
 
+# match same person written with a different name format
 def _score_name_variants(
     context: MatchContext,
 ) -> None:
@@ -69,6 +72,7 @@ def _score_name_variants(
                         )
 
 
+# index names by significant tokens and first-name tokens
 def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
     key_of: dict = {}
     first_of: dict = {}
@@ -92,6 +96,7 @@ def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
     return key_of, first_of, tok_index
 
 
+# find names sharing every one of these tokens
 def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
     candidates = None
     for token in tokens:
@@ -103,6 +108,7 @@ def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
     return candidates
 
 
+# check whether one name is a valid superset of another
 def _is_valid_superset(
     shorter_name: str,
     longer_name: str,
@@ -121,6 +127,7 @@ def _is_valid_superset(
     return bool(first_of[shorter_name] & longer_tokens)
 
 
+# match short and compound surnames on the same exact street
 def _score_surname_superset_variants(
     context: MatchContext,
 ) -> None:

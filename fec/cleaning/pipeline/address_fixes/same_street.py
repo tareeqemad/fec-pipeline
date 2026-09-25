@@ -6,6 +6,7 @@ import pandas as pd
 from fec.cleaning.addresses import CITY_TABLE_FIXED
 
 
+# count outside rows filing candidate city at the row's ZIP
 def _support_outside(key: pd.Series, cities: pd.Series, zips: pd.Series, candidate: pd.Series) -> pd.Series:
     """Per row: how many rows OUTSIDE the row's key group file the candidate city with the row's ZIP.
 
@@ -22,11 +23,13 @@ def _support_outside(key: pd.Series, cities: pd.Series, zips: pd.Series, candida
     return pd.Series(support.to_numpy(dtype=int), index=key.index)
 
 
+# strip the house number, leaving just the street name
 def _street_name(street: pd.Series) -> pd.Series:
     """Street without its house number: '620 MADISON AVE' -> 'MADISON AVE'."""
     return street.str.replace(r"^\d+[A-Z]?\s+", "", regex=True)
 
 
+# find each group's dominant value, its count and the row's
 def _dominant(vals: pd.Series, key: pd.Series, eligible: pd.Series) -> tuple[pd.Series, pd.Series, pd.Series]:
     """Per row: the group's dominant non-empty value, its count, and the count of the row's own value."""
     non_empty = eligible & (vals != "")
@@ -51,6 +54,7 @@ def _dominant(vals: pd.Series, key: pd.Series, eligible: pd.Series) -> tuple[pd.
     return key.map(dominant["v"]), key.map(dominant["cnt"]), row_count
 
 
+# fill blanks and fix minority address fields from same-street filings
 def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     """Fill blanks and fix minority city/state/ZIP typos across a person's filings from the same street."""
     # the street is the physical anchor: same donor + same exact street = same
@@ -80,6 +84,7 @@ def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     return out
 
 
+# align ZIP, city and state across one person's same-street filings
 def _align_same_street(df, street_key, street, eligible, out) -> None:
     """Align ZIP, city and state across one person's same-street filings."""
     # a row naming another city at a ZIP where the group's city is never
@@ -103,11 +108,13 @@ def _align_same_street(df, street_key, street, eligible, out) -> None:
     out["city"] += _adopt_attested_city(df, street_key, eligible)
 
 
+# read a column as text with blanks for missing values
 def _column_text(df: pd.DataFrame, col: str) -> pd.Series:
     """A column as text, blanks for missing values."""
     return df[col].fillna("").astype(str)
 
 
+# fill blanks/minority column values to the group's dominant value
 def _unify_to_dominant(df, col: str, key: pd.Series, eligible: pd.Series, keep: pd.Series | None = None) -> int:
     """Within each key group, fill blanks / fix minority values in col to the dominant non-empty value; rows in keep are never overwritten."""
     vals = _column_text(df, col)
@@ -127,6 +134,7 @@ def _unify_to_dominant(df, col: str, key: pd.Series, eligible: pd.Series, keep: 
     return n_fixed
 
 
+# flag rows whose city no outsider files at that ZIP
 def _foreign_city(df, key: pd.Series, eligible: pd.Series) -> pd.Series:
     """Rows whose filed city must not become the group's dominant city: nobody outside the group files that city with the row's ZIP."""
     cities, zips = _column_text(df, "contributor_city"), _column_text(df, "contributor_zip")
@@ -136,6 +144,7 @@ def _foreign_city(df, key: pd.Series, eligible: pd.Series) -> pd.Series:
     return differs & (_support_outside(key, cities, zips, dominant_city) == 0)
 
 
+# replace an unattested cut-off/guessed city with the donor's attested one
 def _adopt_attested_city(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) -> int:
     """Replace a cut-off or table-guessed city nobody else files with the row's ZIP by the one city the same home files with that ZIP that others do file.
 

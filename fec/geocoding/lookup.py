@@ -40,6 +40,7 @@ _ENGINES_AGREE_KM = 1.0
 class _Locality:
     """The filed city/state/ZIP of one address; each city-level query runs at most once."""
 
+    # store the filed city/state/ZIP and its zip-point lookups
     def __init__(self, city: str, state: str, zipcode: str):
         self.city = city
         self.state = state
@@ -48,6 +49,7 @@ class _Locality:
         self.zip_area = self.zip_point or _zip_area_point(zipcode, state)
         self._city_points: dict[str, tuple | None] = {}
 
+    # look up and cache the filed town's own point
     def city_point(self, zipcode: str = "") -> tuple | None:
         """(lat, lng, country) of the filed town itself (a settlement of that name, inside the filed state; see engines.city_level), optionally searched with the filed ZIP."""
         if zipcode not in self._city_points:
@@ -61,6 +63,7 @@ class _Locality:
         return self._city_points[zipcode]
 
 
+# check whether a street-level result lies inside the filed ZIP
 def _inside_filed_zip(lat: float, lng: float, locality: _Locality) -> bool:
     """A street-level result inside the filed ZIP (always true when the ZIP has no centroid to test against)."""
     if locality.zip_point is None:
@@ -69,6 +72,7 @@ def _inside_filed_zip(lat: float, lng: float, locality: _Locality) -> bool:
     return limit is None or _distance_km((lat, lng), locality.zip_point) <= limit
 
 
+# decide whether to accept a street-level geocoding result
 def _accept_street(lat: float, lng: float, locality: _Locality) -> bool:
     """Keep a street-level result inside the filed ZIP, or outside it when the filed ZIP contradicts the filed city (a ZIP typo 50+ km off) and the result lies in that city."""
     if _inside_filed_zip(lat, lng, locality):
@@ -81,6 +85,7 @@ def _accept_street(lat: float, lng: float, locality: _Locality) -> bool:
             and _distance_km((lat, lng), city_point) <= _ZIP_OUTLIER_KM)
 
 
+# compute a bounding box around the filed ZIP's centroid
 def _zip_search_box(locality: _Locality) -> tuple[float, float, float, float] | None:
     """(south, west, north, east) around the filed ZIP's centroid, as wide as the street-inside-ZIP limit."""
     limit = street_zip_limit_km(locality.zipcode) if locality.zip_point else None
@@ -92,6 +97,7 @@ def _zip_search_box(locality: _Locality) -> tuple[float, float, float, float] | 
     return lat - dlat, lng - dlng, lat + dlat, lng + dlng
 
 
+# search for the same street restricted to the ZIP's box
 def _street_in_filed_zip(street: str, locality: _Locality) -> tuple | None:
     """The same street in the filed city, searched only around the filed ZIP; a hit inside the ZIP, or None when the ZIP has no such street.
 
@@ -110,6 +116,7 @@ def _street_in_filed_zip(street: str, locality: _Locality) -> tuple | None:
     return lat, lng, country_code or "US", "nominatim"
 
 
+# check whether a point is near the filed city
 def _in_filed_city(lat: float, lng: float, locality: _Locality) -> bool:
     """A point within 50 km of the filed city's point; of the filed ZIP's centroid when the city is missing or unknown."""
     city = locality.city_point() if locality.city else None
@@ -117,6 +124,7 @@ def _in_filed_city(lat: float, lng: float, locality: _Locality) -> bool:
     return anchor is not None and _distance_km((lat, lng), anchor) <= _ZIP_OUTLIER_KM
 
 
+# decide whether an out-of-ZIP street match should still be trusted
 def _resolve_outside_zip(street: str, locality: _Locality, outside: list[tuple]) -> tuple | None:
     """Street results that landed outside the filed ZIP (engine order: census, nominatim).
 
@@ -143,6 +151,7 @@ def _resolve_outside_zip(street: str, locality: _Locality, outside: list[tuple])
     return None
 
 
+# fall back to city or ZIP when street geocoding fails
 def _fallback(locality: _Locality, require_zip_match: bool = False,
               po_box: bool = False) -> tuple | None:
     """City-level fallback: the filed ZIP's centroid when _zip_replaces_city allows, else the town's point; None on a city/ZIP conflict when require_zip_match.
@@ -174,6 +183,7 @@ def _fallback(locality: _Locality, require_zip_match: bool = False,
     return None
 
 
+# wrap _fallback to return a plain (lat, lng, country) tuple
 def _city_fallback(city: str, state: str, zipcode: str,
                    require_zip_match: bool = False) -> tuple:
     """(lat, lng, country) of the city-level fallback, or Nones."""
@@ -183,6 +193,7 @@ def _city_fallback(city: str, state: str, zipcode: str,
     return result[:3]
 
 
+# geocode one address through street, ZIP and city fallbacks
 def _geocode_one(street, city, state, zipcode):
     """Geocode one address; a foreign address only ever uses the international engine."""
     if is_foreign_address(state, zipcode):
@@ -241,6 +252,7 @@ def _geocode_one(street, city, state, zipcode):
     return _geocode_abroad_unless_us_zip(street, city, locality)
 
 
+# re-geocode a key whose cached point was flagged wrong
 def _geocode_reviewed_wrong(key_street: str, street: str, locality: _Locality) -> tuple:
     """A key whose cached street point was shown wrong: Census inside the filed ZIP, else the ZIP's centroid.
 
@@ -260,6 +272,7 @@ def _geocode_reviewed_wrong(key_street: str, street: str, locality: _Locality) -
     return result or (None, None, None, "not_found")
 
 
+# geocode a foreign address using only the international engine
 def _geocode_foreign(street, city, state, zipcode):
     """A foreign address (no US state, or a non-US postal code): international engine only, and only a non-US result is accepted."""
     queries = []
@@ -275,6 +288,7 @@ def _geocode_foreign(street, city, state, zipcode):
     return None, None, None, "not_found"
 
 
+# try international geocoding unless the filed ZIP matches the state
 def _geocode_abroad_unless_us_zip(street, city, locality: _Locality):
     """The international last resort, skipped when the filed ZIP lies in the filed state.
 
@@ -285,6 +299,7 @@ def _geocode_abroad_unless_us_zip(street, city, locality: _Locality):
     return _geocode_international(street, city)
 
 
+# last-resort international geocode, accepted only if confidently foreign
 def _geocode_international(street, city):
     """Last resort without a US restriction; accept only a confidently foreign result (non-US country AND coords outside the US), else not_found."""
     if not street and not city:

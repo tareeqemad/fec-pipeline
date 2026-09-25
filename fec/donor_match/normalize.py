@@ -24,6 +24,7 @@ _COMM_SUFFIXES_RE = re.compile(
 _GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
 
 
+# pull a JR/SR/roman-numeral suffix out of a name
 def extract_generational_suffix(name: str) -> str:
     """Return a JR/SR/roman suffix from either side of the comma."""
     text = str(name or "").strip().upper()
@@ -38,6 +39,7 @@ def extract_generational_suffix(name: str) -> str:
     return next(iter(found)) if len(found) == 1 else ""
 
 
+# normalize a name to LAST|FIRST for matching
 def normalize_name(name: str) -> str:
     """Normalize to LAST|FIRST (drop middle, suffixes, punctuation)."""
     name = str(name or "").strip().upper()
@@ -61,6 +63,7 @@ def normalize_name(name: str) -> str:
     return f"{last}|{first}"
 
 
+# extract middle name/initial from a full name
 def extract_middle(name: str) -> str:
     """Extract middle name/initial from full name."""
     name = str(name or "").strip().upper()
@@ -72,6 +75,7 @@ def extract_middle(name: str) -> str:
     return parts[1] if len(parts) > 1 else ""
 
 
+# normalize an employer name for comparison
 def normalize_employer(emp: str) -> str:
     """Normalize employer name for comparison."""
     emp = str(emp or "").strip().upper()
@@ -80,6 +84,7 @@ def normalize_employer(emp: str) -> str:
     return emp.strip()
 
 
+# normalize a committee contributor name to ORG|FIRST
 def normalize_committee_name(name: str) -> str:
     """Normalize a committee contributor name to ORG|FIRST for deduplication."""
     name = str(name or "").strip().upper()

@@ -11,6 +11,7 @@ from fec.cleaning.audit_trail import AUDITED_FIELDS, UNTRACKED_STEP, AuditTrail,
 CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'source']
 
 
+# write every audit artifact and return the summary dict
 def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
     """Write every cleaning audit artifact."""
     after = df_after.drop_duplicates('sub_id', keep='first').set_index('sub_id')
@@ -38,6 +39,7 @@ def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
     return summary
 
 
+# build the filtered, row-indexed audit changes dataframe
 def _frame(records, row_index):
     frame = pd.DataFrame.from_records(records, columns=CHANGE_COLUMNS)
     frame = frame[frame['field'].isin(AUDITED_FIELDS)]
@@ -46,6 +48,7 @@ def _frame(records, row_index):
     return frame[CHANGE_COLUMNS]
 
 
+# write informational flags for negative or zero contribution amounts
 def _write_amount_flags(df, row_idx, out_dir):
     """Flag negative/zero amounts (informational only; does not change data)."""
     path = os.path.join(out_dir, 'amount_flags.csv')

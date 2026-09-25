@@ -35,12 +35,14 @@ _EMP_DROP_TOKENS = frozenset(
 _EMP_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 
+# significant name tokens with legal suffixes removed
 def _emp_core_tokens(name: str) -> frozenset:
     """Significant tokens of an employer name (legal suffixes/connectors removed)."""
     toks = _EMP_TOKEN_RE.findall(name.upper())
     return frozenset(t for t in toks if t not in _EMP_DROP_TOKENS and len(t) > 1)
 
 
+# cluster near-duplicate employer names, map each to canonical
 def _employer_variant_map(names: list[str]) -> dict[str, str]:
     cores = {name: _emp_core_tokens(name) for name in names}
     union = UnionFind()
@@ -68,6 +70,7 @@ def _employer_variant_map(names: list[str]) -> dict[str, str]:
     return remap
 
 
+# rewrite each row's employer name using the variant map
 def _apply_employer_variants(df: pd.DataFrame, indexes, remap: dict) -> int:
     changed = 0
     for index in indexes:
@@ -78,6 +81,7 @@ def _apply_employer_variants(df: pd.DataFrame, indexes, remap: dict) -> int:
     return changed
 
 
+# unify employer name variants within each donor's history
 def canonicalize_donor_employers(df: pd.DataFrame) -> int:
     """Unify clear employer variants within each donor's history."""
     individuals = df["entity_type"] == "INDIVIDUAL"
@@ -99,6 +103,7 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
     return changed
 
 
+# rename org donors to match the donor-side company spelling
 def align_org_donor_company_names(df: pd.DataFrame) -> int:
     """Rename ORGANIZATION donors to the canonical employer spelling of the same company (reuses canonical_key, adds no new normalization); returns rows aligned."""
     # canonical display name per canonical_key = the donor-side spelling seen most
@@ -113,6 +118,7 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
         if k and k not in by_key:
             by_key[k] = name
 
+    # name plus its 'last, first' swapped comma form
     def _forms(n: str):
         out = [n]
         if "," in n:  # "CAPITAL, WHITE" -> "WHITE CAPITAL"
@@ -145,6 +151,7 @@ _ORG_LEGAL_TAIL_RE = re.compile(
 )
 
 
+# drop legal suffix when bare name is also filed
 def unify_org_donor_suffix_variants(df: pd.DataFrame) -> int:
     """ORGANIZATION donors whose name is another organization donor's name plus a trailing legal form (EATON STEEL CORPORATION next to EATON STEEL) take the suffix-free spelling; names only, donor_keys are untouched; returns rows renamed."""
     org = df["entity_type"] == "ORGANIZATION"

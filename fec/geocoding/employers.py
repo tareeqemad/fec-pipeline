@@ -20,6 +20,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# build a normalized cache key per employer address row
 def _employer_keys(frame: pd.DataFrame) -> pd.Series:
     """Cache key per row: STREET|CITY|STATE|ZIP, stripped, uppercased, ordinal streets numbered."""
     cols = frame[['employer_address', 'employer_city',
@@ -30,6 +31,7 @@ def _employer_keys(frame: pd.DataFrame) -> pd.Series:
             cols['employer_zip'].str.strip().str.upper())
 
 
+# geocode employer addresses not already cached
 def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
                                batch_size: int = 50):
     """Geocode employer addresses; skips empty rows, but RETIRED with a previous employer IS geocoded at the company address."""
@@ -54,6 +56,7 @@ def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
     _geocode_todo(todo, cache, batch_size)
 
 
+# fill lat/lng/geocode level from cached employer geocoding
 def apply_employer_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     """Map cached employer geocoding onto employer_latitude/longitude/geocode_level."""
     method = df.get(

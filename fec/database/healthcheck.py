@@ -22,11 +22,13 @@ REQUIRED_VIEWS = [
 REQUIRED_MATVIEWS = ["mv_donor_profile"]
 
 
+# run a query and return its single scalar result
 def _scalar(cur, sql):
     cur.execute(sql)
     return cur.fetchone()[0]
 
 
+# check required views, run shared registry, add live-only extras
 def run_checks(cur) -> list[tuple[str, str, str]]:
     """Return [(severity, name, detail)]: view existence first (so a missing view is reported by name, not as N query errors), then the shared registry, then live-only extras."""
     out = []
@@ -85,6 +87,7 @@ def run_checks(cur) -> list[tuple[str, str, str]]:
     return out
 
 
+# count INDIVIDUAL filings missing or differing from the DB
 def _employment_status_mismatches(csv_rows, db_status: dict[int, str | None]) -> tuple[int, int]:
     """(missing, differing) INDIVIDUAL filings: csv_rows yields (sub_id, entity_type, employer_status) strings."""
     missing = differing = 0
@@ -99,6 +102,7 @@ def _employment_status_mismatches(csv_rows, db_status: dict[int, str | None]) ->
     return missing, differing
 
 
+# verify each filing's DB employment status matches the CSV
 def _csv_employment_status_check(cur) -> tuple[str, str, str]:
     """Each INDIVIDUAL filing's donor_employments.employer_status equals its CSV employer_status (the check the (donor, employer, occupation) key used to fail); OK-skips when the CSV is absent."""
     name = "employment_status_vs_csv"
@@ -125,6 +129,7 @@ def _csv_employment_status_check(cur) -> tuple[str, str, str]:
         return (CRIT, name, f"error: {str(error).strip()}")
 
 
+# compare total contribution amount between DB and CSV
 def _csv_total_check(cur) -> tuple[str, str, str]:
     """Compare sum(contributions.amount) to the CSV with exact Decimals (sub-cent tolerance absorbs NUMERIC(15,2) rounding); OK-skips when the CSV is absent."""
     try:
@@ -145,6 +150,7 @@ def _csv_total_check(cur) -> tuple[str, str, str]:
         return (CRIT, "total_amount_vs_csv", f"error: {str(error).strip()}")
 
 
+# connect, run health checks, print results, and set exit code
 def main() -> int:
     try:
         conn = connect()

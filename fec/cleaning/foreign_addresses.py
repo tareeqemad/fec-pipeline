@@ -65,6 +65,7 @@ REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
 }
 
 
+# true for rows whose filed address is outside the US
 def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
     """True for rows whose filed address is outside the US."""
     city = _norm(df['contributor_city'])
@@ -84,6 +85,7 @@ def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
     return mask
 
 
+# snapshot foreign rows' raw address fields before cleaning runs
 def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
     """Raw address fields of every foreign row, indexed by sub_id (taken BEFORE cleaning)."""
     mask = foreign_address_mask(df)
@@ -96,6 +98,7 @@ def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+# put the filed address back on every snapshotted row
 def restore_foreign_addresses(df: pd.DataFrame, snapshot: pd.DataFrame) -> int:
     """Put the filed address back on every snapshotted row; returns cells restored."""
     if snapshot.empty or 'sub_id' not in df.columns:

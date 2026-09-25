@@ -28,6 +28,7 @@ _ZIP_PREFIX_STATES = {
 }
 
 
+# flag literal 'NAN' strings left in text columns
 def _gate_nan_strings(df):
     nan_count = 0
     for col in ['contributor_occupation', 'contributor_employer', 'contributor_name',
@@ -38,6 +39,7 @@ def _gate_nan_strings(df):
     return [('no_nan_strings', {'passed': nan_count == 0, 'count': nan_count}, issue)]
 
 
+# flag rows with a missing or unreadable contribution amount
 def _gate_amounts_readable(df):
     # every filing keeps a real dollar amount; blank or text is never $0
     if 'contribution_receipt_amount' not in df.columns:
@@ -48,6 +50,7 @@ def _gate_amounts_readable(df):
     return [('amounts_readable', {'passed': bad == 0, 'count': bad}, issue)]
 
 
+# flag when too many rows are missing a ZIP
 def _gate_zip_coverage(df):
     if 'contributor_zip' not in df.columns:
         return []
@@ -56,6 +59,7 @@ def _gate_zip_coverage(df):
     return [('zip_coverage', {'passed': pct < 50, 'pct_empty': round(pct, 2)}, issue)]
 
 
+# generic duplicate-id check for one column
 def _dup_id_check(df, col, key):
     if col not in df.columns:
         return []
@@ -64,14 +68,17 @@ def _dup_id_check(df, col, key):
     return [(key, {'passed': n_dup == 0, 'count': n_dup}, issue)]
 
 
+# flag duplicate sub_id values
 def _gate_dup_sub_id(df):
     return _dup_id_check(df, 'sub_id', 'no_duplicate_sub_id')
 
 
+# flag duplicate transaction_id values
 def _gate_dup_transaction_id(df):
     return _dup_id_check(df, 'transaction_id', 'no_duplicate_transaction_id')
 
 
+# flag contribution dates more than 60 days in the future
 def _gate_future_dates(df):
     if 'contribution_receipt_date' not in df.columns:
         return []
@@ -82,10 +89,12 @@ def _gate_future_dates(df):
     return [('no_future_dates', {'passed': n_future == 0, 'count': n_future}, issue)]
 
 
+# report the row count
 def _gate_row_count(df):
     return [('row_count', int(len(df)), None)]
 
 
+# flag ZIP codes whose prefix doesn't match the filed state
 def _gate_zip_state(df):
     if not ('contributor_zip' in df.columns and 'contributor_state' in df.columns):
         return []
@@ -103,6 +112,7 @@ def _gate_zip_state(df):
     return [('zip_state_match', {'passed': n_zip_mismatch < 100, 'count': n_zip_mismatch}, issue)]
 
 
+# flag email addresses stored in the street field
 def _gate_email_as_address(df):
     if 'contributor_street_1' not in df.columns:
         return []
@@ -111,6 +121,7 @@ def _gate_email_as_address(df):
     return [('no_email_as_address', {'passed': n_email_addr == 0, 'count': n_email_addr}, issue)]
 
 
+# flag special characters in first/last names
 def _gate_special_chars_names(df):
     n_special_chars = 0
     for col in ['contributor_first_name', 'contributor_last_name']:
@@ -120,6 +131,7 @@ def _gate_special_chars_names(df):
     return [('no_special_chars_in_names', {'passed': n_special_chars == 0, 'count': n_special_chars}, issue)]
 
 
+# flag literal 'NULL' surnames lost to NaN coercion
 def _gate_null_surname(df):
     # "NULL" is a real surname; pandas' default read coerces it to NaN, so if
     # contributor_name starts with "NULL," the surname must be the literal string
@@ -161,6 +173,7 @@ _QUALITY_GATES = [
 ]
 
 
+# run all quality gates and collect results
 def run_quality_gates(df: pd.DataFrame) -> dict:
     """Run quality checks. Returns {passed, checks, issues}."""
     checks, issues = {}, []
@@ -178,6 +191,7 @@ def run_quality_gates(df: pd.DataFrame) -> dict:
     return {'passed': passed, 'checks': checks, 'issues': issues}
 
 
+# save a DataFrame as CSV
 def save_report(df: pd.DataFrame, dir_path: str, name: str) -> None:
     """Save a DataFrame as CSV."""
     if df is None or df.empty:

@@ -6,14 +6,17 @@ from fec.donor_match.components import _donor_keys
 from fec.donor_match.rules import joint_name_exempt, resolve_donor_key
 
 
+# get a profile's given-name token spelling
 def _profile_spelling(profile: dict) -> tuple:
     return given_tokens(first_of_name(profile["name"]))
 
 
+# get a profile's normalized surname
 def _profile_last(profile: dict) -> str:
     return profile["norm_name"].partition("|")[0] if "|" in profile["norm_name"] else ""
 
 
+# find profiles whose first name also names a household co-filer
 def find_joint_filings(profiles: dict, components: dict) -> dict:
     """rid -> co-filer names, for profiles whose first name also names another person.
 
@@ -74,6 +77,7 @@ def find_joint_filings(profiles: dict, components: dict) -> dict:
     return signatures
 
 
+# split each joint filing into its own donor
 def split_joint_filings(components: dict, signatures: dict, profiles: dict) -> int:
     """Give each joint filing its own donor, apart from its filer's solo records.
 

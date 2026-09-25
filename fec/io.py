@@ -19,6 +19,7 @@ ID_DTYPES = {
 }
 
 
+# read a pipeline CSV with NULL-surname-safe defaults
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     """Read a pipeline CSV with NULL-surname-safe defaults."""
     # peek header to scope dtypes to present columns only

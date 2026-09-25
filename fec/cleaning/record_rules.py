@@ -111,6 +111,7 @@ _AUDITED_RULES = (
 )
 
 
+# restore employer display suffixes from the raw filings CSV
 def _restore_suffixes_from_raw(df: pd.DataFrame) -> int:
     """Restore employer display suffixes from the raw filings."""
     return restore_display_suffixes(df, RAW_CSV)
@@ -155,6 +156,7 @@ _LATE_STEPS = (
 )
 
 
+# run all audited, safety-net and late cleaning steps in order
 def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Apply all record-level rules."""
     log = logger.info
@@ -177,6 +179,7 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     return df
 
 
+# run each safety-net rule over its declared row scope
 def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str], None]) -> None:
     individuals = df['is_individual'].astype(bool)
     non_individuals = ~individuals
@@ -196,6 +199,7 @@ def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str]
         log(f"Safety rules: fixed {fixed:,} remaining inconsistencies")
 
 
+# run one declared step and log the fields it changed
 def _apply_step(
     df: pd.DataFrame,
     trail: AuditTrail,

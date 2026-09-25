@@ -32,6 +32,7 @@ from .address_fixes.safe_text import apply_safe_fixes
 from .address_fixes.verified import apply_verified_address_fixes
 from .fec_recovery import recover_addresses_from_fec
 
+# per-row street-normalize reason, flags email-in-street1 cases
 def _street_reason(df: pd.DataFrame) -> pd.Series:
     reasons = pd.Series("street_text_normalized_or_placeholder_nulled", index=df.index, dtype="object")
     if "_street_email_in_s1" in df.columns:
@@ -43,12 +44,14 @@ def _street_reason(df: pd.DataFrame) -> pd.Series:
     return reasons
 
 
+# per-row source label for verified address rule fixes
 def _address_rule_source(df: pd.DataFrame) -> pd.Series:
     if "_address_rule" not in df.columns:
         return pd.Series(pd.NA, index=df.index, dtype="object")
     return df["_address_rule"]
 
 
+# normalize street text, then apply safe deterministic fixes
 def _clean_street_text(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     """Normalize street text, then apply the safe text fixes."""
     df = trail.run_logged(
@@ -82,6 +85,7 @@ _STREET_RECOVERIES = (
 )
 
 
+# fill missing or broken streets from donor, then fec.gov
 def _recover_streets(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> None:
     """Fill missing or broken streets from the donor, then FEC."""
     for recovery, step, reason, message in _STREET_RECOVERIES:
@@ -94,6 +98,7 @@ def _recover_streets(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> None:
     )
 
 
+# normalize city names, then clean zip codes
 def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.DataFrame:
     """Normalize city names and ZIP codes."""
     df = trail.run_logged(
@@ -136,12 +141,14 @@ _ALIGN_STEPS = (
 )
 
 
+# align each donor's city, state, zip, and street spelling
 def _align_address_parts(df: pd.DataFrame, trail: AuditTrail, log) -> None:
     """Align each donor's city, state, ZIP and street spellings."""
     for transform, step, reason, fields, message in _ALIGN_STEPS:
         trail.run_logged(df, transform, step, reason, fields, message, log)
 
 
+# log counts of rows left for address review
 def log_review_queues(counts: dict, log) -> None:
     if counts["manual_review"] or counts["auto_fixed"] or counts["regeocode"]:
         log(
@@ -151,6 +158,7 @@ def log_review_queues(counts: dict, log) -> None:
         )
 
 
+# flag remaining street_2 issues for manual review
 def _report_address_issues(
     df: pd.DataFrame, trail: AuditTrail, log, reports: dict | None = None,
 ) -> pd.DataFrame:
@@ -166,6 +174,7 @@ def _report_address_issues(
     return df
 
 
+# run the full address cleaning stage end-to-end
 def clean_addresses(
     df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
 ) -> pd.DataFrame:

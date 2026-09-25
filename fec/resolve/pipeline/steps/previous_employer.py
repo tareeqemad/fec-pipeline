@@ -30,6 +30,7 @@ PROTECTED_METHODS = {
 }
 
 
+# return all individuals and the latest row per retired donor
 def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return all individuals and the latest row for every retired donor."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
@@ -46,6 +47,7 @@ def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return individuals, latest
 
 
+# apply the previous-employer contract to a single value
 def _clean_employer(value) -> str:
     """Apply the same previous-employer contract to every source."""
     cleaned = normalize_previous_employer_value(value)
@@ -53,6 +55,7 @@ def _clean_employer(value) -> str:
     return cleaned if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned) else ""
 
 
+# true only when the filer explicitly reported self-employment
 def _explicit_self_employment(value) -> bool:
     """True only when the filer explicitly reported self-employment."""
     upper = _s(value).strip().upper()
@@ -64,6 +67,7 @@ def _explicit_self_employment(value) -> bool:
     )
 
 
+# build one clean cache entry, keeping raw spelling as provenance
 def _cache_entry(
     raw_employer,
     *,
@@ -106,6 +110,7 @@ def _cache_entry(
     return entry
 
 
+# split retired donors into eligible and protected cache entries
 def _eligible_retired_donors(latest_retired: pd.DataFrame, prev_cache):
     donor_to_cache_key = {
         row["donor_key"]: _prev_key(row["donor_key"])
@@ -123,6 +128,7 @@ def _eligible_retired_donors(latest_retired: pd.DataFrame, prev_cache):
     return donor_to_cache_key, eligible, protected
 
 
+# find candidate previous-employer rows from local records per donor
 def _cross_record_candidates(individuals: pd.DataFrame, eligible: set):
     statuses = classify_employer_statuses(individuals)
     worked = statuses.isin(
@@ -157,6 +163,7 @@ def _cross_record_candidates(individuals: pd.DataFrame, eligible: set):
     return rows_by_donor, clean_employers, statuses
 
 
+# update the previous-employer cache from cross-record candidates
 def _refresh_cross_record_cache(
     rows_by_donor: dict,
     donor_to_cache_key: dict,
@@ -190,6 +197,7 @@ def _refresh_cross_record_cache(
     return found, refreshed, unchanged
 
 
+# drop cached entries later evidence shows are wrong
 def _clear_invalid_cross_records(
     individuals: pd.DataFrame,
     statuses,
@@ -237,6 +245,7 @@ def _clear_invalid_cross_records(
     return cleared
 
 
+# cache each retired donor's latest real employer from local records
 def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
     """Cache each retired donor's latest real employer from the loaded CSV."""
     individuals, latest_retired = _retired_donors(df)

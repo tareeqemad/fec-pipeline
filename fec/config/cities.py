@@ -172,11 +172,13 @@ _ABBR_FULL = {'ST': ('SAINT', 'Saint'), 'STE': ('SAINTE', 'Sainte'),
 _ABBR_RE = re.compile(r'\b(STE|ST|MT|FT)\.?(?=\s)', re.IGNORECASE)
 
 
+# expand saint/mount/fort abbreviations anywhere in a city name
 def expand_city_abbreviations(value):
     """Expand Saint/Sainte/Mount/Fort anywhere in a city name; no-op on blanks / non-strings."""
     if not isinstance(value, str) or not value:
         return value
 
+    # replacement text, casing matched to the abbreviation
     def _repl(m):
         upper, title = _ABBR_FULL[m.group(1).upper()]
         return upper if m.group(1).isupper() else title

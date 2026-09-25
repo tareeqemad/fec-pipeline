@@ -19,6 +19,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# drop internal working columns from the output
 def _drop_internal_cols(df):
     """Remove working columns."""
     internal = [column for column in df.columns if column.startswith('_')]
@@ -26,6 +27,7 @@ def _drop_internal_cols(df):
     return df.drop(columns=internal)
 
 
+# read output csv, run quality scan, write json report
 def _write_quality_scan(output_path, out_dir):
     """Write the quality scan."""
     df = pd.read_csv(
@@ -41,6 +43,7 @@ def _write_quality_scan(output_path, out_dir):
     return report
 
 
+# abort if any recipient committee is not recognized
 def _assert_known_committees(df):
     """Reject unknown recipients."""
     known = {
@@ -60,6 +63,7 @@ def _assert_known_committees(df):
     raise SystemExit(1)
 
 
+# normalize us zip codes to five digits, keep foreign ones
 def _ensure_zip_format(df):
     """Keep US ZIPs as five digits; a foreign postcode (SW1A 2AA) stays as filed."""
     us = ~foreign_address_mask(df)
@@ -85,6 +89,7 @@ def _ensure_zip_format(df):
     df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
 
 
+# log a summary of rows, donors, and quality
 def _print_summary(df, quality, output):
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
     committees = int(df['entity_type'].eq('COMMITTEE/PAC').sum())
@@ -124,6 +129,7 @@ def _print_summary(df, quality, output):
     logger.info('=' * 55)
 
 
+# entry point: clean the configured contributions file end-to-end
 def main():
     env.load_env()
 
@@ -158,6 +164,7 @@ def main():
     _print_summary(output, quality, output_path)
 
 
+# save cleaned csv only if quality gates pass
 def _save_if_gates_pass(output, out_dir, output_path) -> dict:
     """Save the cleaned CSV only when every quality gate passes."""
     # the gates check the output before it replaces the last good file
@@ -175,6 +182,7 @@ def _save_if_gates_pass(output, out_dir, output_path) -> dict:
     return quality
 
 
+# write audit, missing-field, and quality scan reports
 def _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path) -> None:
     """Write the audit, missing-field report and quality scan."""
     audit = write_audit(cleaned, original_rows, out_dir, trail)

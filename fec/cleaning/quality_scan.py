@@ -38,10 +38,12 @@ _TOKEN_RE = re.compile(r"[A-Z0-9]+")
 _REPEAT_RE = re.compile(r"(.)\1{2,}")
 
 
+# sorted first n items, for report examples
 def _ex(items, n=8):
     return sorted(items)[:n]
 
 
+# surface employers containing known abbreviation tokens
 def scan_employer_abbreviations(df: pd.DataFrame) -> dict:
     emp = df.loc[df["entity_type"] == "INDIVIDUAL", "contributor_employer"]
     distinct = {
@@ -59,6 +61,7 @@ def scan_employer_abbreviations(df: pd.DataFrame) -> dict:
     return {"distinct_employers_flagged": len(flagged), "by_token": per_token}
 
 
+# build a comparable fingerprint for an employer name
 def _emp_fp(name: str) -> str:
     # keep single-letter tokens (they split M&R from S&A); drop legal suffixes; normalize abbreviations
     tokens = [_ABBR_NORM.get(token, token) for token in _TOKEN_RE.findall(name.upper())]
@@ -66,6 +69,7 @@ def _emp_fp(name: str) -> str:
     return " ".join(sorted(tokens))
 
 
+# group employer strings that reduce to the same fingerprint
 def scan_employer_near_duplicates(df: pd.DataFrame) -> dict:
     """Distinct employer strings that reduce to the same fingerprint (same firm written differently)."""
     emp = df.loc[df["entity_type"] == "INDIVIDUAL", "contributor_employer"]
@@ -85,6 +89,7 @@ def scan_employer_near_duplicates(df: pd.DataFrame) -> dict:
     return {"groups": len(dupes), "examples": examples}
 
 
+# find contributor_name values that don't match the rebuilt canonical name
 def scan_name_composite_drift(df: pd.DataFrame) -> dict:
     """contributor_name that doesn't match the canonical "LAST, FIRST" rebuilt from first/last."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
@@ -108,11 +113,13 @@ def scan_name_composite_drift(df: pd.DataFrame) -> dict:
     }
 
 
+# build a token-set fingerprint for a street string
 def _street_fp(s: str) -> str:
     tokens = _TOKEN_RE.findall(s.upper())
     return (tokens[0] + "|" + " ".join(sorted(tokens[1:]))) if tokens else ""
 
 
+# find same-donor streets written in different word order
 def scan_address_order_variants(df: pd.DataFrame) -> dict:
     """Per donor: same ZIP + same token-set street written different ways."""
     individuals = df[
@@ -137,6 +144,7 @@ def scan_address_order_variants(df: pd.DataFrame) -> dict:
 _VOWELS = set("AEIOUY")
 
 
+# true only for globally rare values no categorization rule matched
 def _is_rare_uncategorized(value, counts, occ, cat, uncategorized) -> bool:
     """True only for globally rare values no categorization rule matched; anything else is real."""
     if not value or value in EMPLOYER_STATUS_VALUES or value in OK_SHORT_OCCUPATIONS:
@@ -146,6 +154,7 @@ def _is_rare_uncategorized(value, counts, occ, cat, uncategorized) -> bool:
     return bool((cat[occ == value].isin(uncategorized)).all())
 
 
+# flag rare uncategorized occupation values that look like keyboard mash
 def _shape_suspects(occ, categories, counts, uncategorized) -> dict[str, int]:
     suspects = {}
     for value, n_rows in counts.items():
@@ -169,6 +178,7 @@ def _shape_suspects(occ, categories, counts, uncategorized) -> dict[str, int]:
     return suspects
 
 
+# find donor history evidence for suspect occupation values
 def _occupation_history_evidence(
     individuals,
     occ,
@@ -208,6 +218,7 @@ def _occupation_history_evidence(
     return evidence
 
 
+# surface likely keyboard-mash occupations for review
 def scan_junk_occupations(df: pd.DataFrame) -> dict:
     """Surface likely keyboard-mash occupations for review."""
     if "contributor_occupation" not in df.columns:
@@ -260,6 +271,7 @@ def scan_junk_occupations(df: pd.DataFrame) -> dict:
     }
 
 
+# list nonblank occupations still uncategorized, by impact
 def scan_uncategorized_occupations(df: pd.DataFrame) -> dict:
     """List nonblank occupations still in OTHER, ordered by impact."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
@@ -281,6 +293,7 @@ def scan_uncategorized_occupations(df: pd.DataFrame) -> dict:
     }
 
 
+# run all data-quality scans and collect their results
 def scan(df: pd.DataFrame) -> dict:
     return {
         "rows": len(df),

@@ -16,10 +16,12 @@ _FOREIGN_POSTCODE_RE = re.compile(
 _PO_BOX_RE = re.compile(r"^PO\s+BOX", re.IGNORECASE)
 
 
+# true if the street starts with PO BOX
 def is_po_box(street: str) -> bool:
     return bool(_PO_BOX_RE.match(street.strip()))
 
 
+# true if the state or postcode indicates a non-US address
 def is_foreign_address(state: str, zipcode: str) -> bool:
     """True for a non-US state or province (CUNDINAMARCA), or no state with a non-US postcode (NW1 5DX, 6744316); a US state with a malformed ZIP ('MA', '2138') stays US."""
     state = str(state or "").strip().upper()
@@ -39,6 +41,7 @@ def is_foreign_address(state: str, zipcode: str) -> bool:
     return not _US_ZIP_RE.fullmatch(zipcode)
 
 
+# is_foreign_address for a STREET|CITY|STATE|ZIP cache key
 def is_foreign_key(key: str) -> bool:
     """is_foreign_address for a STREET|CITY|STATE|ZIP cache key."""
     parts = key.split("|")

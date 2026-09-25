@@ -18,15 +18,18 @@ REQUIRED_FIELDS = {
 }
 
 
+# uppercase and collapse whitespace
 def _normalize(value: str) -> str:
     return " ".join(str(value or "").upper().split())
 
 
+# build a name+place identity key
 def _identity(name: str, city: str, state: str, zip5: str = "") -> str:
     parts = (name, city, state, zip5) if zip5 else (name, city, state)
     return "|".join(map(_normalize, parts))
 
 
+# read and validate donor identity rules from CSV
 def _read_rules() -> list[dict[str, str]]:
     if not RULES_PATH.exists():
         raise FileNotFoundError(f"Missing donor identity rules: {RULES_PATH}")
@@ -55,6 +58,7 @@ def _read_rules() -> list[dict[str, str]]:
     return rows
 
 
+# load pairs of identities that must never merge
 def _load_separations(rows):
     """(name pairs, name+city+state pairs, names whose rules also give ZIP codes).
 
@@ -97,6 +101,7 @@ def _load_separations(rows):
     return name_pairs, identity_pairs, frozenset(zip_names)
 
 
+# load donor_key merge rules (drop -> keep)
 def _load_key_merges(rows) -> dict[str, str]:
     merges = {}
     for row in rows:
@@ -109,6 +114,7 @@ def _load_key_merges(rows) -> dict[str, str]:
     return merges
 
 
+# map sub_id to its hold group
 def _load_holds(rows) -> dict[str, str]:
     """sub_id -> hold group: filings no person is proven to own."""
     return {
@@ -118,6 +124,7 @@ def _load_holds(rows) -> dict[str, str]:
     }
 
 
+# group curated name-merge rules by their group label
 def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     groups = defaultdict(list)
     for row in rows:
@@ -131,11 +138,13 @@ def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     return {group: tuple(names) for group, names in groups.items()}
 
 
+# split a name into last name and first-name word tuple
 def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
     last, _, first = _normalize(name).partition(",")
     return last.strip(), tuple(re.findall(r"[A-Z]+", first))
 
 
+# longer names of verified merges exempt from the joint-filing guard
 def _load_joint_exemptions(rows) -> frozenset[str]:
     """Longer names of verified merge_keys pairs 'LAST, A' + 'LAST, A W...'.
 
@@ -169,6 +178,7 @@ _MERGED_NAME_PREFIXES = tuple(
 )
 
 
+# true when a verified rule owns this multi-word first name
 def joint_name_exempt(name: str) -> bool:
     """True when a verified rule says this multi-word first name is its filer's own.
 
@@ -182,16 +192,19 @@ def joint_name_exempt(name: str) -> bool:
     return text in _JOINT_EXEMPT_NAMES or text.startswith(_MERGED_NAME_PREFIXES)
 
 
+# true if this name pair is a curated separation rule
 def names_must_stay_separate(name_a: str, name_b: str) -> bool:
     pair = frozenset((_normalize(name_a), _normalize(name_b)))
     return pair in SEPARATE_NAMES
 
 
+# the ZIP5 to key a profile by, for split names
 def split_zip(name: str, zip_code: str) -> str:
     """The ZIP5 a profile of this name is also keyed by: only for names a ZIP-level rule splits."""
     return _normalize(zip_code)[:5] if _normalize(name) in ZIP_SPLIT_NAMES else ""
 
 
+# true if curated rules require these two donors stay separate
 def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
     if names_must_stay_separate(person_a["name"], person_b["name"]):
         return True
@@ -206,6 +219,7 @@ def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
     return pair in SEPARATE_IDENTITIES or zip_pair in SEPARATE_IDENTITIES
 
 
+# follow merge_keys rules to the surviving donor key
 def resolve_donor_key(key: str) -> str:
     """Follow verified merge_keys rules, including chains, to the key that survives."""
     seen = set()

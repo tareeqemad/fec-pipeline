@@ -9,6 +9,7 @@ S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
 
 
+# apply exact, externally verified address corrections to the frame
 def apply_verified_address_fixes(df: pd.DataFrame) -> int:
     """Apply exact, externally verified address corrections."""
     changed = 0
@@ -41,6 +42,7 @@ def apply_verified_address_fixes(df: pd.DataFrame) -> int:
     return changed
 
 
+# load the address rules CSV into a lookup dict
 def _read_address_rules() -> dict[tuple[str, str, str], tuple]:
     """Read exact address corrections."""
     if not ADDRESS_RULES_CSV.exists():

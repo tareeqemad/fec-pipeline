@@ -23,6 +23,7 @@ class MatchContext:
     component_suffixes: dict
 
 
+# check generational-suffix conflicts before allowing a merge
 def _suffixes_allow_merge(
     context: MatchContext, rid_a: str, rid_b: str
 ) -> tuple[bool, str]:
@@ -40,6 +41,7 @@ def _suffixes_allow_merge(
     return True, ""
 
 
+# union two records' components, merging their suffix sets
 def _join_components(context: MatchContext, rid_a: str, rid_b: str) -> bool:
     root_a = context.union_find.find(rid_a)
     root_b = context.union_find.find(rid_b)
@@ -53,6 +55,7 @@ def _join_components(context: MatchContext, rid_a: str, rid_b: str) -> bool:
     return True
 
 
+# score and merge one candidate pair
 def _merge_and_audit(
     context: MatchContext,
     rid_a: str,
@@ -85,6 +88,7 @@ def _merge_and_audit(
     )
 
 
+# score all candidate pairs within each name group
 def _score_within_groups(
     context: MatchContext,
 ) -> None:
@@ -112,6 +116,7 @@ def _score_within_groups(
                 )
 
 
+# group normalized names by shared last name
 def _norms_by_last_name(name_groups: dict) -> dict:
     grouped = defaultdict(set)
     for norm_name in name_groups:
@@ -120,6 +125,7 @@ def _norms_by_last_name(name_groups: dict) -> dict:
     return grouped
 
 
+# match first-name variants corroborated by street, ZIP, or employer
 def _score_cross_groups(
     context: MatchContext,
 ) -> None:
@@ -166,6 +172,7 @@ def _score_cross_groups(
                         )
 
 
+# group normalized names by shared first name
 def _norms_by_first_name(name_groups: dict) -> dict:
     grouped = defaultdict(set)
     for norm_name in name_groups:
@@ -177,6 +184,7 @@ def _norms_by_first_name(name_groups: dict) -> dict:
     return grouped
 
 
+# match surname typos sharing a street or a ZIP/employer
 def _score_surname_variants(
     context: MatchContext,
 ) -> None:

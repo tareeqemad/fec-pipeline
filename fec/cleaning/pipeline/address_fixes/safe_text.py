@@ -57,6 +57,7 @@ _CO_RE = re.compile(r"^C\s*/\s*O\b\.?\s*", re.IGNORECASE)
 # PO BOX / PMB: valid mail addresses with no precise physical point
 
 
+# strip junk prefix and leading zeros from house number
 def _fix_house_number(s):
     """Strip a leading non-alphanumeric char, then drop leading zeros from the house number (02393 -> 2393) unless all zeros."""
     if pd.isna(s):
@@ -68,6 +69,7 @@ def _fix_house_number(s):
     return text if text else np.nan
 
 
+# collapse an adjacent duplicate word in the string
 def _collapse_dup_words(s):
     """Collapse an adjacent exactly-equal duplicate word: 'E E' -> 'E'."""
     if pd.isna(s):
@@ -79,6 +81,7 @@ def _collapse_dup_words(s):
     return " ".join(out)
 
 
+# drop a duplicated house-number prefix repeated at the end
 def _drop_repeated_address_start(s):
     """Drop a repeated house-number prefix from the end."""
     if pd.isna(s):
@@ -89,6 +92,7 @@ def _drop_repeated_address_start(s):
     return f'{match.group("start")} {match.group("body")}'
 
 
+# recover the real street after a c/o prefix
 def _strip_care_of(s):
     """Recover the street after a 'C/O' prefix; a name-only C/O with no house number is left for the report."""
     if pd.isna(s):
@@ -112,6 +116,7 @@ _STREET_TYPE_WORDS = set(_SPLIT_TYPES) | {"HWY", "EXPY", "TPKE", "PATH", "RUN", 
 _DIRECTION_WORDS = {"N", "S", "E", "W", "NE", "NW", "SE", "SW"}
 
 
+# true if text looks like a real street address
 def _looks_like_street(street: str) -> bool:
     """House number followed by at least one real street-name word (not only a type or direction)."""
     tokens = str(street).upper().split()
@@ -121,6 +126,7 @@ def _looks_like_street(street: str) -> bool:
     return any(len(t) >= 2 for t in names)
 
 
+# drop the row's own city/state/zip typed into street_1
 def _strip_city_state_tail(street, city, state, zip_code):
     """Drop the row's own city / state / ZIP when the filer typed them into street_1.
 
@@ -157,6 +163,7 @@ def _strip_city_state_tail(street, city, state, zip_code):
     return candidate if _looks_like_street(candidate) else street
 
 
+# apply deterministic street text fixes and split trailing units
 def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Deterministic text fixes, applied; runs right after clean_streets so the cleaned values feed the per-donor dedup/recovery downstream."""
     counts = {"house_number": 0, "unit_split": 0, "care_of": 0}
@@ -225,6 +232,7 @@ _UNIT_WORDS = {"APT", "STE", "SUITE", "UNIT", "BLDG", "FL", "FLR", "FLOOR", "RM"
                "OFFICE", "OFF", "DEPT", "LOT", "SPC", "SPACE", "TRLR", "PMB", "NO", "BOX"}
 
 
+# true if value is a state/zip/country fragment, not a street
 def is_state_zip_fragment(value: str) -> bool:
     """'# NY1179', '# CA9213', '# NJU', 'ANTA GA3034', 'USA': a state/ZIP/country tail that a 34-char FEC street_1 spilled into street_2."""
     core = str(value or "").strip().upper().lstrip("#").strip()

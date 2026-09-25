@@ -35,6 +35,7 @@ RULE_TYPES = {
 _ZIP5_RE = re.compile(r"\d{5}")
 
 
+# validate and parse one first_name rule row into lookup keys
 def _first_name_rule(
     number: int, raw: str, corrected: str, zip_field: str
 ) -> tuple[list[tuple[str, str, str]], str]:
@@ -58,6 +59,7 @@ def _first_name_rule(
     return [(last, first, z) for z in zips], corrected
 
 
+# load and validate all name-correction rules from the CSV
 def _load_rules(path=CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
     if not path.exists():
         raise FileNotFoundError(f"Missing contributor name rules: {path}")

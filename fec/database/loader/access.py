@@ -12,6 +12,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# verify the reader role exists and is unprivileged, non-inheriting
 def _check_reader(cur: Any) -> None:
     cur.execute(
         """
@@ -36,6 +37,7 @@ def _check_reader(cur: Any) -> None:
         raise RuntimeError(f"{DATABASE_READER} must not inherit another role")
 
 
+# give the read-only role SELECT on tables and views only
 def grant_read_access(conn: Any, cur: Any) -> None:
     """Give fec_app SELECT on every table, view and materialized view, nothing else."""
     logger.info("\n-- Granting permissions --")

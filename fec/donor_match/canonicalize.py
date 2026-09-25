@@ -20,6 +20,7 @@ from .joint import given_tokens, joint_partners
 from .rules import joint_name_exempt
 
 
+# pick a donor's canonical last name and first name(s)
 def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
                            given_names: frozenset = frozenset(), by_row: bool = False):
     """(canonical last, canonical first) for one donor from its rows' (last, first) pairs.
@@ -63,6 +64,7 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
         for first in candidates
     ]
 
+    # pick the canonical first name for one candidate group
     def pick(group: list) -> str | None:
         return _pick_first(group, last_words, is_joint, moved_initial)
 
@@ -72,6 +74,7 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     return canon_last, _firsts_by_row(candidates, own, pick)
 
 
+# the canonical first name among one group's candidates
 def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | None) -> str | None:
     """The canonical first name among one group's candidates."""
     # candidates must carry a non-surname token: a reversed filing's
@@ -90,6 +93,7 @@ def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | Non
     return canon_first
 
 
+# one first name per row, unified within matching given-name groups
 def _firsts_by_row(candidates: list, own: set, pick) -> list:
     """One first name per row, unified only among rows with the same whole given names."""
     own = own | _parenthesized_tokens({first for first in candidates if first})
@@ -108,6 +112,7 @@ def _firsts_by_row(candidates: list, own: set, pick) -> list:
     return by_position
 
 
+# a dataframe column as trimmed, uppercased strings, '' for non-strings
 def _text_column(df: pd.DataFrame, column: str) -> pd.Series:
     if column not in df.columns:
         return pd.Series("", index=df.index)
@@ -115,6 +120,7 @@ def _text_column(df: pd.DataFrame, column: str) -> pd.Series:
     return values.where(values.map(lambda v: isinstance(v, str)), "").str.strip().str.upper()
 
 
+# each donor's own and same-household first-name spellings
 def _household_spellings(df: pd.DataFrame, ind: pd.Series) -> tuple[dict, dict]:
     """donor_key -> its own first-name spellings, and the spellings of the
     OTHER donors with the same surname at one of its streets or ZIPs."""
@@ -152,6 +158,7 @@ def _household_spellings(df: pd.DataFrame, ind: pd.Series) -> tuple[dict, dict]:
     return own, household
 
 
+# words at least two donors file as a first name
 def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
     """Words at least two donors file in their first-name field: real given names."""
     words = _text_column(df, "contributor_first_name")[ind].str.split()
@@ -160,6 +167,7 @@ def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
     return frozenset(per_word[per_word >= 2].index)
 
 
+# write each donor's canonical name across all its filings
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
     """Write one canonical last name and each filing's first name, plus a rebuilt LAST, FIRST composite; returns rows changed.
 
@@ -192,6 +200,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
             surnames = {last for last in lasts if last}
             verdicts: dict[str, bool] = {}
 
+            # true if this spelling names a co-filer, cached per spelling
             def is_joint(first, own=own, household=household, surnames=surnames,
                          verdicts=verdicts):
                 if first not in verdicts:
@@ -220,6 +229,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     return changed
 
 
+# merge a group into a fuller one its initials spell
 def _join_initial_groups(groups: dict, candidates: list) -> dict:
     """Join a group to a fuller one whose extra names its middle initials spell.
 
@@ -243,6 +253,7 @@ def _join_initial_groups(groups: dict, candidates: list) -> dict:
     return joined
 
 
+# key grouping a first name by nickname and extra words
 def _extra_given_words(first: str, own: set) -> tuple:
     """(initial of the first name, the whole names after it), the donor's own words aside.
 

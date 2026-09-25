@@ -20,6 +20,7 @@ from .employment_locations import _location_index
 logger = get_logger(__name__)
 
 
+# reset a table's serial PK sequence to its max value
 def _reset_id_sequence(conn: Any, cur: Any, table: str) -> None:
     """Reset the table's serial PK sequence to MAX(pk), discovering which column owns the sequence."""
     try:
@@ -47,12 +48,14 @@ def _reset_id_sequence(conn: Any, cur: Any, table: str) -> None:
         conn.rollback()
 
 
+# read a shared person field from either leadership CSV format
 def _person_value(row, field: str) -> str:
     """Read a shared person field from either leadership CSV format."""
     value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
     return value.strip()
 
 
+# extract name, first/last, city and state from either CSV format
 def _person_identity(row) -> tuple[str, str, str, str, str]:
     """Return name, first, last, city, and state from either CSV format."""
     name = _person_value(row, "name")
@@ -73,6 +76,7 @@ def _person_identity(row) -> tuple[str, str, str, str, str]:
     )
 
 
+# read a required boolean field, raising on a bad value
 def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
     """Read a required boolean."""
     value = (row.get(field) or "").strip().lower()
@@ -85,6 +89,7 @@ def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
     )
 
 
+# parse an optional hand-maintained coordinate value
 def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
     """Parse an optional hand-maintained coordinate, warning on bad text."""
     raw = (row.get(field) or "").strip()
@@ -100,6 +105,7 @@ def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
         return None
 
 
+# upsert a donor's image path
 def _upsert_image(cur: Any, row, donor_id: int) -> None:
     image_path = (row.get("image_path") or "").strip()
     if not image_path:
@@ -111,6 +117,7 @@ def _upsert_image(cur: Any, row, donor_id: int) -> None:
     )
 
 
+# upsert a donor's address from CSV row fields
 def _upsert_address(
     cur: Any,
     row,
@@ -138,6 +145,7 @@ def _upsert_address(
     )
 
 
+# load curated donor links
 def _load_donor_linked_csv(
     conn: Any, cur: Any, csv_filename: str, table: str, insert_row,
     validate_rows=None,
@@ -174,6 +182,7 @@ def _load_donor_linked_csv(
     )
 
 
+# link one roster row to its donor
 def _load_person(cur, row, csv_filename: str, locations, insert_row):
     """Link one roster row to its donor; return the match method."""
     name, first, last, city, state = _person_identity(row)

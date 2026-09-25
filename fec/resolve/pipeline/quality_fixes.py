@@ -15,6 +15,7 @@ from fec.resolve.pipeline.ai_address_checks import (
 _US_ZIP_RE = re.compile(r"^\d{5}(-\d{4})?$")
 
 
+# null employer fields for non-individual donors
 def _clear_nonindividual_employer(df: pd.DataFrame) -> None:
     """Null employer_* for non-individuals in-place - only individuals have an employer."""
     if "entity_type" not in df.columns:
@@ -38,6 +39,7 @@ def _clear_nonindividual_employer(df: pd.DataFrame) -> None:
     df.loc[non_individual, "resolve_confidence"] = "NONE"
 
 
+# fix known AI employer-resolution quality issues
 def _fix_employer_address_quality(df: pd.DataFrame) -> None:
     """Fix known AI resolution quality issues in-place."""
     # 1. Foreign addresses cleared ENTIRELY - a kept foreign city/zip would
@@ -94,6 +96,7 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
     _clear_ai_hallucinated_addresses(df)
 
 
+# apply the shared previous_employer normalization contract
 def _normalize_previous_employer_column(df: pd.DataFrame) -> None:
     """Apply the shared previous_employer contract (fec/cleaning/previous_employer.py) so every writer uses the same rules."""
     normalize_previous_employer_column(df)

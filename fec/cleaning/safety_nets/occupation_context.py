@@ -43,6 +43,7 @@ _MIN_PEOPLE = 3      # distinct colleagues needed before their industry is trust
 _MIN_SHARE = 0.6     # ...and that industry must cover 60% of ALL colleagues' filings
 
 
+# industry named by the employer's own name, or None
 def _employer_signal(employer: str) -> str | None:
     """Industry named by the employer itself, or None when the name is silent or says both."""
     e = (employer or '').upper()
@@ -55,6 +56,7 @@ def _employer_signal(employer: str) -> str | None:
     return None
 
 
+# map employer -> industry its other donors mostly report
 def _peer_signal(df: pd.DataFrame, vague: pd.Series) -> dict[str, str]:
     """employer -> industry that a clear majority of its OTHER donors (distinct people) report."""
     peers = df.loc[
@@ -76,6 +78,7 @@ def _peer_signal(df: pd.DataFrame, vague: pd.Series) -> dict[str, str]:
     return signal
 
 
+# specialize a vague DEVELOPER occupation using employer context
 def _disambiguate_vague_occupation(df: pd.DataFrame) -> int:
     """AS-2. Bare DEVELOPER -> REAL ESTATE DEVELOPER or SOFTWARE DEVELOPER, decided per filing by its employer."""
     occ = df['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()

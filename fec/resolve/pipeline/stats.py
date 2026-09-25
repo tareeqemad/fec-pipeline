@@ -10,6 +10,7 @@ from .constants import TIERS
 logger = get_logger(__name__)
 
 
+# log donor resolution counts and coverage per tier
 def show_stats(
     df: pd.DataFrame,
     prev_cache,

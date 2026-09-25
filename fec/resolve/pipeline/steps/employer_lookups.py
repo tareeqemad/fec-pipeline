@@ -26,11 +26,13 @@ class EmployerLookup:
     donor_locations: tuple[str, ...] = ()
     donor_occupations: tuple[str, ...] = ()
 
+    # uppercase employer name used as cache key
     @property
     def key(self) -> str:
         return self.name.upper()
 
 
+# true if a cache entry has a usable employer address
 def _has_usable_address(entry: dict | None) -> bool:
     if not isinstance(entry, dict):
         return False
@@ -43,6 +45,7 @@ def _has_usable_address(entry: dict | None) -> bool:
     )
 
 
+# retry legacy, stale, missing, and incomplete AI entries
 def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
     """Retry legacy, stale, missing, and incomplete AI entries."""
     if not isinstance(entry, dict):
@@ -66,6 +69,7 @@ def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
     return not current_version
 
 
+# record an employer's location, occupation, and priority context
 def _remember_context(
     lookup_names: dict[str, str],
     locations: dict[str, Counter],
@@ -92,10 +96,12 @@ def _remember_context(
         occupations[key][occupation] += 1
 
 
+# the most common context values, capped
 def _top_context(values: Counter) -> tuple[str, ...]:
     return tuple(value for value, _count in values.most_common(_CONTEXT_LIMIT))
 
 
+# return current cache misses with cleaned names and context
 def collect_employer_lookups(
     df: pd.DataFrame,
     prev_cache,
@@ -144,6 +150,7 @@ def collect_employer_lookups(
     ]
 
 
+# yield employer, row for active donors needing an AI lookup
 def _active_misses(individuals, addr_cache, resolver_tag):
     """Yield (employer, row) for active donors whose employer needs AI."""
     active = classify_employer_statuses(individuals).eq("active")
@@ -153,6 +160,7 @@ def _active_misses(individuals, addr_cache, resolver_tag):
             yield employer, row
 
 
+# yield previous employer, row for retirees needing an AI lookup
 def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
     """Yield (previous employer, row) for retirees whose old employer needs AI."""
     retired_mask = (
@@ -170,6 +178,7 @@ def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
             yield employer, row
 
 
+# build a small, injection-resistant AI prompt
 def build_employer_prompt(lookup: EmployerLookup) -> str:
     """Build a small, injection-resistant prompt from public FEC context."""
     payload = {

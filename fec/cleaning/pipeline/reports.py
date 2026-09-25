@@ -4,6 +4,7 @@ from __future__ import annotations
 import pandas as pd
 
 
+# check for unusual amounts and dates, returning warning strings
 def _sanity_check(df: pd.DataFrame) -> list[str]:
     """Check for unusual amounts and dates; returns warning strings (empty = all OK)."""
     warnings = []
@@ -32,6 +33,7 @@ def _sanity_check(df: pd.DataFrame) -> list[str]:
     return warnings
 
 
+# record missing occupation/employer before later steps fill them
 def _build_missing_report(df: pd.DataFrame) -> pd.DataFrame:
     """Report rows whose occupation/employer was missing in the ORIGINAL data; drops the temp _occ/_emp flags from df."""
     missing_mask = df['_occ_missing'] | df['_emp_missing']

@@ -7,6 +7,7 @@ from fec.cleaning.occupations import _categorize_final
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 
 
+# sync occupation_category to match each individual's final occupation
 def _rederive_occupation_category(df: pd.DataFrame) -> int:
     """AT. Make every individual's category match their final occupation."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -18,6 +19,7 @@ def _rederive_occupation_category(df: pd.DataFrame) -> int:
     return int(changed.sum())
 
 
+# find the donor's single confirmed role at this employer
 def _one_confirmed_role(df, donor_key, employer):
     """Return the donor's only real role at this employer, or None."""
     same_job = (
@@ -37,6 +39,7 @@ def _one_confirmed_role(df, donor_key, employer):
     return occupations[0] if len(occupations) == 1 else None
 
 
+# write a derived occupation, category, and status
 def _set_derived_occupation(df, rows, occupation):
     df.loc[rows, 'contributor_occupation'] = occupation
     df.loc[rows, 'occupation_category'] = _categorize_final(
@@ -45,6 +48,7 @@ def _set_derived_occupation(df, rows, occupation):
     df.loc[rows, 'occupation_status'] = 'DERIVED'
 
 
+# fill missing or placeholder occupations from the donor's other filings
 def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     """AJ. Recover a missing occupation from the same donor and employer.
 
@@ -76,6 +80,7 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# fill each empty occupation with the donor's most common one
 def _fill_missing_occupations(df: pd.DataFrame, missing_occ: pd.DataFrame) -> int:
     """Fill each empty occupation with the donor's most common one there."""
     n_fixed = 0
@@ -103,6 +108,7 @@ def _fill_missing_occupations(df: pd.DataFrame, missing_occ: pd.DataFrame) -> in
     return n_fixed
 
 
+# replace placeholder occupations with the donor's one confirmed role
 def _fill_placeholder_occupations(df: pd.DataFrame, placeholders: pd.DataFrame) -> int:
     """Replace placeholder occupations with the donor's one confirmed role."""
     n_fixed = 0
@@ -115,6 +121,7 @@ def _fill_placeholder_occupations(df: pd.DataFrame, placeholders: pd.DataFrame) 
     return n_fixed
 
 
+# unify a donor's overlapping same-job occupation spellings at one employer
 def _converge_occupation_within_employer(df: pd.DataFrame) -> int:
     """AU. One job, one spelling: a donor's occupations at ONE employer that fall in the same
     category and were filed over OVERLAPPING periods (PHYSICIAN in 2022-2024 next to CARDIOLOGIST
@@ -154,6 +161,7 @@ def _converge_occupation_within_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# replace vague SELF-EMPLOYED occupation with a real one from donor
 def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
     """AW. 'SELF-EMPLOYED' filed as the OCCUPATION says nothing about the job; when the same donor
     filed a real occupation elsewhere (at the same employer first, otherwise anywhere), that one is used."""

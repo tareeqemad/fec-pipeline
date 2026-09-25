@@ -10,6 +10,7 @@ from fec.config.constants import (
 )
 
 
+# map rows to the donor's latest real employer by date
 def dated_previous_employers(df: pd.DataFrame, rows: pd.Series) -> dict:
     """{row index: the donor's own latest real employer filed on or before that row's date}.
 
@@ -59,6 +60,7 @@ def dated_previous_employers(df: pd.DataFrame, rows: pd.Series) -> dict:
     return found
 
 
+# fill a retiree's prior employer from an earlier filing
 def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     """Fill a retiree's prior employer from an earlier filing."""
     if 'previous_employer' not in df.columns:
@@ -75,6 +77,7 @@ def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     return len(found)
 
 
+# move a recovered real employer into previous_employer, restore RETIRED
 def _settle_retired_employer(df: pd.DataFrame) -> int:
     """Move a final retired row's recovered company to previous_employer.
 
@@ -112,6 +115,7 @@ def _settle_retired_employer(df: pd.DataFrame) -> int:
     return count
 
 
+# delegate to the shared previous_employer normalization contract
 def _normalize_previous_employer(df: pd.DataFrame) -> int:
     """AX. Delegate to the shared contract in fec/cleaning/previous_employer.py; idempotent."""
     return normalize_previous_employer_column(df)

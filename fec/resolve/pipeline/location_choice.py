@@ -9,6 +9,7 @@ from fec.env import PROJECT_ROOT
 from fec.resolve.pipeline.locations import _signature, _text, location_candidates
 
 
+# load zip -> (lat, lng) centroids from csv, cached
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
     path = PROJECT_ROOT / "data" / "database" / "zip_centroids.csv"
@@ -25,11 +26,13 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
     return centroids
 
 
+# centroid coordinates for a 5-digit zip, if known
 def zip_centroid(zipcode: str) -> tuple[float, float] | None:
     """The 5-digit ZIP's centroid, or None when it has none."""
     return _zip_centroids().get(_text(zipcode)[:5])
 
 
+# great-circle distance in miles between two points
 def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
     """Great-circle distance in miles."""
     lat1, lon1 = map(math.radians, a)
@@ -42,6 +45,7 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
     return 3958.8 * 2 * math.asin(min(1.0, math.sqrt(value)))
 
 
+# pick the best employer location: same state, then nearest
 def select_location(
     entry: dict | None,
     donor_zip: str = "",

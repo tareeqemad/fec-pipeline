@@ -16,6 +16,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# reject a donor with conflicting jr/sr suffixes
 def _validate_generational_suffixes(df: pd.DataFrame) -> None:
     """Reject a donor containing different explicit generation suffixes."""
     people = df[df["entity_type"] == "INDIVIDUAL"]
@@ -27,6 +28,7 @@ def _validate_generational_suffixes(df: pd.DataFrame) -> None:
         raise ValueError(f"JR/SR identity guard rejected donor(s): {keys}")
 
 
+# assign each filing a donor_key and merge duplicate identities
 def identify_donors(
     df_clean: pd.DataFrame
 ) -> pd.DataFrame:

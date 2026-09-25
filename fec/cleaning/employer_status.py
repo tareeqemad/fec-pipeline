@@ -11,10 +11,12 @@ _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
 _NO_WORK_OCCUPATIONS = _NO_WORK_CATEGORIES | {"HOUSEWIFE", "UNEMPLOYED"}
 
 
+# uppercased, stripped text for a status field; '' if missing
 def _status_text(value) -> str:
     return "" if pd.isna(value) else str(value).strip().upper()
 
 
+# true if emp names a real company, not junk
 def is_real_employer(emp) -> bool:
     """True if emp names a real company (not RETIRED, SELF-EMPLOYED, junk)."""
     if pd.isna(emp):
@@ -25,6 +27,7 @@ def is_real_employer(emp) -> bool:
     return text.upper() not in NOT_REAL_EMPLOYER
 
 
+# classify one filing's work status without changing the reported company
 def classify_employer_status(employer, occupation="", category="") -> str:
     """Classify work status without changing the reported company."""
     emp = _status_text(employer)
@@ -45,6 +48,7 @@ def classify_employer_status(employer, occupation="", category="") -> str:
     return "active" if is_real_employer(employer) else "missing"
 
 
+# classify_employer_status applied across every row of a frame
 def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
     """Classify every row in a frame."""
     blank = pd.Series("", index=df.index)
@@ -59,6 +63,7 @@ def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
     ], index=df.index)
 
 
+# the real current company name, only when status allows
 def current_employer_name(status, employer) -> str:
     """Return a real current company only when the status permits one."""
     if status not in {"active", "self_employed"} or not is_real_employer(employer):
@@ -66,6 +71,7 @@ def current_employer_name(status, employer) -> str:
     return str(employer).strip()
 
 
+# every company name the final database must contain
 def referenced_employers(df: pd.DataFrame) -> set[str]:
     """Companies the final database must contain."""
     rows = df

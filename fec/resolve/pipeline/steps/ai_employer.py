@@ -41,11 +41,13 @@ _CONFIDENCE_LEVELS = frozenset({"HIGH", "MEDIUM"})
 _ZIP_RE = re.compile(r"^\d{5}$")
 
 
+# true if value is a valid http(s) url
 def _valid_source_url(value: str) -> bool:
     parsed = urlparse(value)
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
+# validate and normalize one sourced us employer location
 def _validated_location(result: dict, address_types: frozenset[str]) -> dict | None:
     """Validate one sourced US employer location."""
     address = _s(result.get("address")).strip()
@@ -79,6 +81,7 @@ def _validated_location(result: dict, address_types: frozenset[str]) -> dict | N
     }
 
 
+# validate an ai result into a cacheable location entry
 def _resolved_cache_entry(
     lookup: EmployerLookup,
     result: dict | None,
@@ -141,6 +144,7 @@ def _resolved_cache_entry(
     return entry
 
 
+# true if the ai explicitly said it doesn't know
 def _is_explicit_unknown(lookup: EmployerLookup, result: dict | None) -> bool:
     return (
         isinstance(result, dict)
@@ -149,6 +153,7 @@ def _is_explicit_unknown(lookup: EmployerLookup, result: dict | None) -> bool:
     )
 
 
+# cache entry recording an ai lookup with no result
 def _not_found_entry(resolver_tag: str) -> dict:
     return {
         "employer_address": "",
@@ -160,6 +165,7 @@ def _not_found_entry(resolver_tag: str) -> dict:
     }
 
 
+# resolve pending employer addresses via grounded ai web search
 def step_ai_lookup(
     df: pd.DataFrame,
     prev_cache,
@@ -194,6 +200,7 @@ def step_ai_lookup(
     if client is None:
         return 0
 
+    # cache a validated result, or an explicit not-found
     def store_result(lookup: EmployerLookup, result: dict | None) -> bool:
         entry = _resolved_cache_entry(lookup, result, resolver_tag)
         if entry:

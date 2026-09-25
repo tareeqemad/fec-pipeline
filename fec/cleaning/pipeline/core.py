@@ -47,6 +47,7 @@ from .reports import _build_missing_report, _sanity_check
 logger = get_logger(__name__)
 
 
+# dedupe, normalize state, mark missing occupation/employer, parse dates
 def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
     df["_generational_suffix"] = df["contributor_name"].map(
         extract_generational_suffix
@@ -87,11 +88,13 @@ def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
     return df
 
 
+# default reclassification reason when none was recorded
 def _reclassify_reason(df: pd.DataFrame) -> pd.Series:
     reasons = df["_reclass_reason"].astype(object)
     return reasons.where(reasons.notna(), "entity_type_from_business_or_committee_signal")
 
 
+# clean names, occupations, and reclassify misclassified entity types
 def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     trail.run(
         df,
@@ -133,6 +136,7 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     return df
 
 
+# attach committee names and build the missing-data report
 def _finish_records(df: pd.DataFrame, log):
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])
@@ -153,6 +157,7 @@ def _finish_records(df: pd.DataFrame, log):
     return df[columns], missing
 
 
+# clean contribution fields before donor matching
 def _clean_fields(
     df: pd.DataFrame,
     trail: AuditTrail,
@@ -173,6 +178,7 @@ def _clean_fields(
     return df, missing
 
 
+# clean every contribution record and reapply curated overrides
 def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
@@ -206,6 +212,7 @@ def clean_records(
     return df_clean, missing
 
 
+# make each donor consistent across filings
 def standardize_donors(
     df_clean: pd.DataFrame,
     out_dir: str | None = None,
@@ -215,6 +222,7 @@ def standardize_donors(
     return standardize(df_clean, out_dir, trail or AuditTrail())
 
 
+# write address review queues from the final cleaned rows
 def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_ids) -> None:
     """Write the address review queues from the final rows (read-only: edits nothing).
 
@@ -232,6 +240,7 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
     log_review_queues(queue_counts(review_df, regeocode_df), logger.info)
 
 
+# label each row's employer/occupation as filed or inferred
 def _employment_sources(df: pd.DataFrame, trail: AuditTrail) -> pd.Series:
     """'inferred' where the employer or occupation came from other filings, else 'filed'."""
     inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
@@ -243,6 +252,7 @@ def _employment_sources(df: pd.DataFrame, trail: AuditTrail) -> pd.Series:
     return pd.Series("filed", index=df.index).mask(from_others, "inferred")
 
 
+# run the complete cleaning pipeline end to end
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,

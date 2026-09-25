@@ -147,6 +147,7 @@ _AI_WORD_RE = re.compile(r"\b[A-Z]{2,}\b")
 _AI_NUM_RE = re.compile(r"^\s*(\d+)")
 
 
+# extract significant uppercase words, dropping street stopwords
 def _ai_words(value) -> set[str]:
     if pd.isna(value):
         return set()
@@ -157,6 +158,7 @@ def _ai_words(value) -> set[str]:
     }
 
 
+# extract the leading street number from an address string
 def _street_number(value) -> str:
     if pd.isna(value):
         return ""
@@ -164,6 +166,7 @@ def _street_number(value) -> str:
     return match.group(1) if match else ""
 
 
+# clear AI-fabricated employer addresses in place
 def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
     """Clear AI-fabricated employer_address rows in-place (method 'ai_hallucination_cleared')."""
     if "resolve_method" not in df.columns or "employer_address" not in df.columns:

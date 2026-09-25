@@ -23,6 +23,7 @@ _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 # -- the scoring engine ------------------------------------------------------
 
 
+# score shared street, employer, state, city, and zip
 def _shared_evidence(p1: dict, p2: dict) -> tuple:
     """Score shared address and employer facts."""
     score = 0
@@ -65,6 +66,7 @@ def _shared_evidence(p1: dict, p2: dict) -> tuple:
     return score, signals, has_geo, common_employers
 
 
+# score matching occupation category or retirement transition
 def _occupation_evidence(p1: dict, p2: dict) -> tuple:
     """Score a consistent career or a career-to-retirement transition."""
     score = 0
@@ -81,6 +83,7 @@ def _occupation_evidence(p1: dict, p2: dict) -> tuple:
     return score, signals
 
 
+# score middle-name agreement, hard-block on mismatch
 def _middle_name_evidence(m1: str, m2: str) -> tuple:
     """Score middle names and hard-block two different full names."""
     score = 0
@@ -110,6 +113,7 @@ def _middle_name_evidence(m1: str, m2: str) -> tuple:
     return score, signals, hard_block
 
 
+# true if a shared employer contains the donor's surname
 def _is_eponymous(p: dict, common_employers: set) -> bool:
     """Return whether a shared employer contains the donor's surname."""
     name = p.get("name", "")
@@ -120,6 +124,7 @@ def _is_eponymous(p: dict, common_employers: set) -> bool:
     )
 
 
+# cap score when no geography evidence backs a match
 def _apply_no_geo_safety(
     score: int,
     signals: list,
@@ -152,6 +157,7 @@ def _apply_no_geo_safety(
     return score
 
 
+# combine all evidence into a match score with signals
 def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     """Return the donor-match score and the evidence behind it."""
     score, signals, has_geo, common_employers = _shared_evidence(p1, p2)
@@ -198,6 +204,7 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     return score, signals
 
 
+# true if two name norms are likely the same person
 def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
     """True when two LAST|FIRST norms share the surname and the first names are a nickname pair, edit distance <= 1, or a distance-2 prefix truncation; blocked look-alike pairs never match."""
     if "|" not in norm1 or "|" not in norm2:
@@ -231,11 +238,13 @@ def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
     return False
 
 
+# remove spaces, hyphens, and dots from a surname
 def _squash(s: str) -> str:
     """Strip spaces, hyphens and dots for surname comparison."""
     return s.replace(" ", "").replace("-", "").replace(".", "")
 
 
+# true if two surnames look like spelling variants
 def _is_surname_variant(last1: str, last2: str) -> bool:
     """True for surname spelling variants (typo, squashed space/hyphen/dot, glued initial, truncation); the calling phase still demands strong geography before merging."""
     if not last1 or not last2 or last1 == last2:

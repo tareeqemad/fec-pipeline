@@ -107,6 +107,7 @@ GENERIC_WORDS_PROTECTED = frozenset({
 })
 
 
+# build alphanumeric-only uppercase key for brand matching
 def _brand_key(s: str) -> str:
     """Alphanumeric-only uppercase key so every raw variant of a brand matches one AMPERSAND_BRANDS entry."""
     s = s.upper()
@@ -118,11 +119,13 @@ def _brand_key(s: str) -> str:
 _AMPERSAND_BRAND_LOOKUP = {_brand_key(brand): brand for brand in AMPERSAND_BRANDS}
 
 
+# look up the canonical ampersand form of a known brand
 def _preserve_brand(upper_value: str) -> str | None:
     """Return the canonical `&` form if `upper_value` matches a known brand."""
     return _AMPERSAND_BRAND_LOOKUP.get(_brand_key(upper_value))
 
 
+# repeatedly strip trailing truncation-stump connector words
 def _strip_trailing_connectors(s: str) -> str:
     prev = None
     while prev != s:
@@ -131,6 +134,7 @@ def _strip_trailing_connectors(s: str) -> str:
     return s
 
 
+# build employer_name_normalized column for grouping/matching
 def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Add employer_name_normalized (legal suffixes stripped, &/AND and whitespace normalized) for grouping, not display; returns (df, n_normalized)."""
     indiv_idx = _indiv_idx(df)
@@ -180,6 +184,7 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
+# normalize an ad-hoc employer value like the main column
 def normalize_employer_display_name(name) -> str | None:
     """Apply contributor_employer's normalization to an ad-hoc value (e.g. resolve-stage previous_employer); None for missing/status values."""
     if name is None:
@@ -227,6 +232,7 @@ def normalize_employer_display_name(name) -> str | None:
     return text or None
 
 
+# clean up legal-suffix punctuation style without stripping it
 def restyle_legal_suffix(name: str) -> str:
     """Style-only suffix cleanup (', INC' -> ' INC', 'P.C' -> 'PC'); never strips, so it can never merge two companies."""
     if name.rstrip('.').endswith('A.L.P'):   # a.l.p. Lighting, not a partnership

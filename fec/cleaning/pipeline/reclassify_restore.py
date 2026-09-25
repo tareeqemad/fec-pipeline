@@ -16,6 +16,7 @@ from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
 from .reclassify import _ORG_BUSINESS_RE
 
 
+# restore raw occupations for committees reclassified as individuals
 def _restore_individual_occupations(
     df: pd.DataFrame,
     raw_occupations: pd.Series,
@@ -57,6 +58,7 @@ def _restore_individual_occupations(
     )
 
 
+# restore raw employer when a reclassified individual's employer is missing
 def _restore_individual_employers(
     df: pd.DataFrame,
     reclassified: pd.Series,
@@ -81,6 +83,7 @@ def _restore_individual_employers(
         df.loc[restored.index, "contributor_employer"] = restored
 
 
+# clear short junk work-field values left on individuals
 def _clear_individual_residue(df: pd.DataFrame) -> None:
     is_individual = df["is_individual"]
 
@@ -109,6 +112,7 @@ def _clear_individual_residue(df: pd.DataFrame) -> None:
             df.loc[junk, column] = np.nan
 
 
+# restore work fields for committee rows reclassified as individuals
 def _restore_reclassified_committees(
     df: pd.DataFrame,
     raw_occ_backup: pd.Series,

@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 _REVIEW_MARKERS = ("MEDIUM", "LIKELY", "UNCERTAIN", "VERIFY")
 
 
+# pick manual_review or manual_override based on note certainty
 def _manual_method(note: str) -> str:
     """Keep explicitly uncertain research in the review queue."""
     upper = note.upper()
@@ -27,6 +28,7 @@ def _manual_method(note: str) -> str:
     return "manual_override"
 
 
+# build a cache location entry from one manual csv row
 def _address_entry(row: dict) -> dict | None:
     address = (row.get("address") or "").strip()
     city = expand_city_abbreviations((row.get("city") or "").strip())
@@ -53,6 +55,7 @@ def _address_entry(row: dict) -> dict | None:
     return entry
 
 
+# read manual locations csv into primary/extra groups by name
 def _read_location_groups(csv_path: Path) -> dict:
     rows_by_name = {}
     with csv_path.open(encoding="utf-8", newline="") as handle:
@@ -70,6 +73,7 @@ def _read_location_groups(csv_path: Path) -> dict:
     return rows_by_name
 
 
+# merge manual curated locations into an existing cache entry
 def _merge_manual_locations(existing: dict, manual: dict) -> dict:
     primary = manual["primary"]
     # INVALID says the company has no public office: no AI address of it stays
@@ -96,6 +100,7 @@ def _merge_manual_locations(existing: dict, manual: dict) -> dict:
     return replacement
 
 
+# drop manual cache entries no longer in the source csv
 def _remove_deleted_locations(addr_cache, current_names: set[str]) -> int:
     entries = getattr(addr_cache, "data", addr_cache)
     removed = 0
@@ -130,6 +135,7 @@ def _remove_deleted_locations(addr_cache, current_names: set[str]) -> int:
     return removed
 
 
+# load curated employer locations from csv into the address cache
 def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
     """Load primary and additional employer locations into one cache entry."""
     if not csv_path.exists():
@@ -159,6 +165,7 @@ def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
     return added, updated
 
 
+# read manual previous-employer overrides keyed by donor
 def _read_previous_employers(csv_path: Path, df: pd.DataFrame) -> dict:
     rows = df.assign(_sub_id=df["sub_id"].astype(str).str.strip()).set_index(
         "_sub_id",
@@ -191,6 +198,7 @@ def _read_previous_employers(csv_path: Path, df: pd.DataFrame) -> dict:
     return entries
 
 
+# write previous-employer overrides into the cache, tracking changes
 def _store_previous_employers(prev_cache, entries: dict) -> tuple[int, int]:
     added = 0
     updated = 0
@@ -206,6 +214,7 @@ def _store_previous_employers(prev_cache, entries: dict) -> tuple[int, int]:
     return added, updated
 
 
+# protect curated work history from later cache discovery
 def load_manual_previous_employers(
     csv_path: Path,
     df: pd.DataFrame,

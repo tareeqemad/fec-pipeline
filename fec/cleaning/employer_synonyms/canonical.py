@@ -41,6 +41,7 @@ _CORP_SUFFIXES = (
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
 
 
+# normalize an employer name into a strict grouping key
 def canonical_key(name: str) -> str:
     """Strict grouping key: whitespace/punctuation/TLD/legal-suffix/THE/ampersand variants collapse to one key (KIRKLAND & ELLIS LLP -> KIRKLANDELLIS)."""
     key = name.strip().upper()
@@ -66,6 +67,7 @@ def canonical_key(name: str) -> str:
     return key
 
 
+# restore each employer's most-common raw display form from raw CSV
 def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     """End-of-cleaning pass: restore each employer's most-common raw suffix-bearing form (per canonical_key) so the saved CSV reads naturally; idempotent."""
     if not Path(raw_csv_path).exists():
@@ -119,6 +121,7 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     return n_changed
 
 
+# prefer the spacing variant filers actually wrote over raw mode
 def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) -> None:
     """Keep the display form's word breaks consistent with occ_canonicalize_employers: a raw mode 'TWINCITY FAN' yields to 'TWIN CITY FAN' when the same filers write 'TWIN CITY FAN COMPANIES LTD'."""
     if "contributor_name" not in raw.columns:
@@ -147,6 +150,7 @@ def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) ->
         )
 
 
+# tally employer name occurrences across given columns for individuals
 def _employer_counts(df: pd.DataFrame, indiv_idx, columns: list[str]):
     series = []
     current_counts = pd.Series(dtype="int64")
@@ -162,6 +166,7 @@ def _employer_counts(df: pd.DataFrame, indiv_idx, columns: list[str]):
     return all_names.value_counts(), current_counts
 
 
+# build variant-to-canonical-name mapping grouped by canonical key
 def _canonical_employer_mapping(counts, current_counts) -> dict:
     groups = defaultdict(list)
     for name in counts.index:
@@ -189,6 +194,7 @@ def _canonical_employer_mapping(counts, current_counts) -> dict:
     return mapping
 
 
+# apply the variant-to-canonical mapping to each employer column
 def _apply_employer_mapping(
     df: pd.DataFrame,
     columns: list[str],
@@ -204,6 +210,7 @@ def _apply_employer_mapping(
     return changed
 
 
+# merge employer variants that later cleaning steps introduced
 def _recanonicalize_employers(df: pd.DataFrame) -> int:
     """Unify employer variants created by later cleaning steps."""
     columns = [

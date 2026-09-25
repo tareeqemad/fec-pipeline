@@ -103,6 +103,7 @@ _REPORT_COLUMNS = (
 )
 
 
+# slice df to report columns, tag rows with a reason
 def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
     keep = [column for column in _REPORT_COLUMNS if column in df.columns]
     out = df.loc[mask, keep].copy()
@@ -110,6 +111,7 @@ def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
     return out
 
 
+# flag near-duplicate street spellings for the same donor/location
 def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
     """Return one representative row per near street spelling; never edits data.
 
@@ -161,11 +163,13 @@ def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+# append a subset report if any rows match
 def _append_report(reports, df, mask, reason) -> None:
     if mask.any():
         reports.append(_df_subset(df, mask, reason))
 
 
+# detect street_2 values that are a truncated city prefix
 def _is_city_prefix(s2_upper: pd.Series, city: pd.Series) -> pd.Series:
     """'ATLA' under ATLANTA, 'ENGL' under ENGLEWOOD: the start of the city name, cut off by the FEC field limit."""
     core = s2_upper.str.lstrip("#").str.strip()
@@ -180,6 +184,7 @@ def _is_city_prefix(s2_upper: pd.Series, city: pd.Series) -> pd.Series:
     )
 
 
+# find and empty clearly bad street_2 values, reporting each one
 def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
     reports = []
     s2_upper = s2.str.strip().str.upper()
@@ -205,6 +210,7 @@ def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
     return reports, int(bad2.sum())
 
 
+# split street_1 problems into review and regeocode queues
 def _review_street1(
     df: pd.DataFrame,
     s1: pd.Series,
@@ -252,10 +258,12 @@ def _review_street1(
     return review, regeocode
 
 
+# concatenate report fragments into one dataframe
 def _combine_reports(reports: list) -> pd.DataFrame:
     return pd.concat(reports, ignore_index=True) if reports else pd.DataFrame()
 
 
+# insert a status column into a report
 def _with_status(report: pd.DataFrame, status: str) -> pd.DataFrame:
     if report.empty:
         return report
@@ -264,6 +272,7 @@ def _with_status(report: pd.DataFrame, status: str) -> pd.DataFrame:
     return report
 
 
+# empty clearly bad street_2 values, the module's only edit
 def apply_street2_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, int]:
     """Empty clearly bad street_2 values (the only edit of the address_review step).
 
@@ -275,6 +284,7 @@ def apply_street2_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, i
     return df, _combine_reports(reports), emptied
 
 
+# keep only auto-fixed rows whose street_2 wasn't later restored
 def _still_emptied(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
     """Drop auto-fixed rows whose street_2 a later step put back (a foreign filing restored as filed)."""
     if auto_fixed.empty or "sub_id" not in auto_fixed.columns or "sub_id" not in df.columns:
@@ -286,6 +296,7 @@ def _still_emptied(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
     return auto_fixed[now.notna() & now.ne(before)]
 
 
+# attach the final donor_key/entity_type to a report's rows
 def _add_donor_key(report: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
     """Attach the final donor_key (and entity_type) to rows captured before donors were identified."""
     if report.empty or "sub_id" not in report.columns or "sub_id" not in df.columns:
@@ -299,6 +310,7 @@ def _add_donor_key(report: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
     return report[order + [c for c in report.columns if c not in order]]
 
 
+# build the manual-review and regeocode queues from the frame
 def build_review_queues(
     df: pd.DataFrame,
     auto_fixed: pd.DataFrame | None = None,
@@ -335,12 +347,14 @@ def build_review_queues(
     return review_df, _combine_reports(regeocode)
 
 
+# write the two review queues to CSV
 def write_review_queues(out_dir, review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> None:
     out_path = Path(out_dir)
     review_df.to_csv(out_path / MANUAL_REVIEW_CSV, index=False, na_rep="")
     regeocode_df.to_csv(out_path / REGEOCODE_CSV, index=False, na_rep="")
 
 
+# summarize row counts per review queue status
 def queue_counts(review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> dict:
     status = review_df["status"] if "status" in review_df.columns else pd.Series(dtype=object)
     return {
@@ -350,6 +364,7 @@ def queue_counts(review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> dict:
     }
 
 
+# run the street_2 fix and build review reports at once
 def build_address_reports(
     df: pd.DataFrame, out_dir: str | None
 ) -> tuple[pd.DataFrame, dict]:

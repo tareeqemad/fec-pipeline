@@ -52,6 +52,7 @@ VIEWS = [
 MAT_VIEWS = ["mv_donor_profile"]
 
 
+# split schema.sql into individual non-empty statements
 def _read_schema_statements() -> list[str]:
     if not SCHEMA_SQL.exists():
         logger.error(f"{SCHEMA_SQL} not found")
@@ -65,6 +66,7 @@ def _read_schema_statements() -> list[str]:
     ]
 
 
+# classify a sql statement as table/index/view/function
 def _schema_object_kind(statement: str) -> str:
     upper = statement.upper()
     if "CREATE TABLE" in upper:
@@ -82,6 +84,7 @@ def _schema_object_kind(statement: str) -> str:
     return ""
 
 
+# run one schema statement inside a savepoint
 def _execute_schema_statement(conn: Any, cur: Any, idx: int, statement: str) -> bool:
     savepoint = f"sp_{idx}"
     try:
@@ -104,6 +107,7 @@ def _execute_schema_statement(conn: Any, cur: Any, idx: int, statement: str) -> 
         ) from error
 
 
+# raise if any expected table is missing after creation
 def _verify_tables(cur: Any) -> None:
     cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
     actual = {row[0] for row in cur.fetchall()}
@@ -116,6 +120,7 @@ def _verify_tables(cur: Any) -> None:
     logger.info(f"  all {len(TABLES)} expected tables present")
 
 
+# create the schema from sql, then verify it
 def create_schema(conn: Any, cur: Any) -> None:
     """Create and verify the database schema."""
     logger.info(f"\n-- Creating schema from {SCHEMA_SQL.name} --")
@@ -137,6 +142,7 @@ def create_schema(conn: Any, cur: Any) -> None:
     _verify_schema_integrity(cur)
 
 
+# true if definition is the loader's employment unique key
 def _is_employment_key(definition: str) -> bool:
     """True for UNIQUE NULLS NOT DISTINCT over exactly the loader's employment key."""
     match = re.fullmatch(r"UNIQUE NULLS NOT DISTINCT \((.*)\)", definition.strip())
@@ -146,6 +152,7 @@ def _is_employment_key(definition: str) -> bool:
     return columns == EMPLOYMENT_KEY_COLUMNS
 
 
+# assert schema v1.2 invariants: views, constraints, no legacy columns
 def _verify_schema_integrity(cur: Any) -> None:
     """Assert v1.2 invariants: views/matviews exist, leader_committees junction, donor_employments unique key, no legacy donor pointer columns."""
     _require_names(cur, "SELECT viewname FROM pg_views WHERE schemaname='public'",
@@ -171,6 +178,7 @@ def _verify_schema_integrity(cur: Any) -> None:
     )
 
 
+# raise if the query's results miss any expected name
 def _require_names(cur: Any, query: str, expected, label: str) -> None:
     """Raise when the query's names lack any expected one."""
     cur.execute(query)
@@ -180,6 +188,7 @@ def _require_names(cur: Any, query: str, expected, label: str) -> None:
         raise RuntimeError(f"Schema: missing {label} {missing}")
 
 
+# check donor_employments has its unique key and column
 def _verify_employments_table(cur: Any) -> None:
     """donor_employments has its unique key and self-employed column."""
     cur.execute("""
@@ -206,6 +215,7 @@ def _verify_employments_table(cur: Any) -> None:
         )
 
 
+# raise if donors still has legacy pointer columns
 def _reject_legacy_columns(cur: Any) -> None:
     """Raise when donors still has old denormalized pointer columns."""
     cur.execute("""
@@ -221,6 +231,7 @@ def _reject_legacy_columns(cur: Any) -> None:
         )
 
 
+# require needed postgres extensions before a destructive reset
 def verify_extensions(cur: Any) -> None:
     """Require extensions before destructive reset."""
     required = {

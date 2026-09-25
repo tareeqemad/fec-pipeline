@@ -33,6 +33,7 @@ from .steps.previous_employer import step_cross_record
 logger = get_logger(__name__)
 
 
+# parse CLI args, require --apply to proceed
 def _parse_args():
     parser = argparse.ArgumentParser(
         description="Resolve employer addresses"
@@ -44,6 +45,7 @@ def _parse_args():
     return args
 
 
+# load caches, the cleaned CSV, and donor totals
 def _load_data(csv_path: str):
     data_dir = os.path.dirname(csv_path) or "."
     previous = Cache(os.path.join(data_dir, PREV_EMPLOYER_CACHE))
@@ -64,6 +66,7 @@ def _load_data(csv_path: str):
     return data_dir, df, totals, previous, employers
 
 
+# create address-cache aliases from resolved employer addresses
 def _deduplicate_address_cache(df: pd.DataFrame, addr_cache) -> None:
     logger.info("\n-- Step 3b: Address-cache aliases --")
     frequencies = df["contributor_employer"].value_counts().to_dict()
@@ -73,6 +76,7 @@ def _deduplicate_address_cache(df: pd.DataFrame, addr_cache) -> None:
     logger.info(f"    created {aliases:,} aliases across {groups:,} groups")
 
 
+# run the resolve pipeline's stages in order
 def _run_steps(
     df,
     donor_totals,
@@ -118,6 +122,7 @@ def _run_steps(
 QUALITY_GATES_JSON = "quality_gates.json"
 
 
+# write the resolve stage's quality-gate report to disk
 def _write_quality_gates(quality: dict, data_dir: str, csv_written: bool) -> None:
     """Replace clean.py's gate report with the one run on the resolved data.
 
@@ -132,6 +137,7 @@ def _write_quality_gates(quality: dict, data_dir: str, csv_written: bool) -> Non
     os.replace(temporary, destination)
 
 
+# apply results, check quality gates, and write the final CSV
 def _write_results(
     df: pd.DataFrame,
     csv_path: str,
@@ -161,6 +167,7 @@ def _write_results(
     return df
 
 
+# entry point: run the resolve pipeline and write results
 def main() -> None:
     _parse_args()
     load_env()

@@ -25,6 +25,7 @@ _PURE_TITLE = {'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.', 'DR', 'DR.',
                'DDS', 'DVM', 'JR', 'JR.', 'SR', 'SR.'}
 
 
+# a name cell as text; NaN/None/pd.NA become ''
 def _text(value) -> str:
     """A name cell as text; NaN / None / pd.NA (all truthy or ambiguous) become ''."""
     if value is None or (not isinstance(value, str) and pd.isna(value)):
@@ -32,6 +33,7 @@ def _text(value) -> str:
     return str(value).strip()
 
 
+# fix a verified keyboard-error first name for one filer
 def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Fix a verified keyboard error in ONE filer's first name (FISHER, JEFREY -> JEFFREY).
 
@@ -73,6 +75,7 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
 _GIVEN_WORD_RE = re.compile(r"[A-Z][A-Z'-]+")
 
 
+# keep given names the filed name has beyond first_name
 def _keep_filed_given_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Keep given names the filed name has beyond the first-name field.
 
@@ -92,6 +95,7 @@ def _keep_filed_given_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
             df.at[index, 'contributor_first_name'] = filed_first.at[index]
 
 
+# true if the filed first part adds given names
 def _adds_given_names(first: str, filed_first: str) -> bool:
     """The filed first part is the field plus whole name words."""
     field_words, filed_words = first.split(), filed_first.split()
@@ -108,6 +112,7 @@ def _adds_given_names(first: str, filed_first: str) -> bool:
     )
 
 
+# clear first_name when it is actually a title
 def _fix_title_as_first_name(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Clear first_name when it is actually a title (MRS, DR., MD, etc.)."""
     title_as_first = (
@@ -118,6 +123,7 @@ def _fix_title_as_first_name(df: pd.DataFrame, is_individual: pd.Series) -> None
         df.loc[title_as_first, 'contributor_first_name'] = np.nan
 
 
+# split a two-word last name into first and last
 def _fix_compound_last_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Split compound last names: BRIAN KROST becomes first=BRIAN, last=KROST."""
     compound_last = (
@@ -135,6 +141,7 @@ def _fix_compound_last_names(df: pd.DataFrame, is_individual: pd.Series) -> None
                 df.at[idx, 'contributor_name'] = f"{parts[1]}, {parts[0]}"
 
 
+# rebuild contributor_name from clean first/last so the fields agree
 def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Rebuild contributor_name from clean first/last so the fields agree."""
     has_both = (
@@ -174,6 +181,7 @@ NAME_STEPS = (
 )
 
 
+# run every name-cleaning step in place, tracked in audit trail
 def _clean_names(df: pd.DataFrame, trail=None) -> None:
     """Clean names in place, rebuild contributor_name."""
     trail = trail or AuditTrail()

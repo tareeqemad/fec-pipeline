@@ -18,6 +18,7 @@ from fec.config.occupation_rules.rules import (
 )
 
 
+# employer equal to donor's own name becomes self-employed
 def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
     """AE2. Employer is the donor's own FULL name -> SELF-EMPLOYED; a shared surname alone is often a real firm, so both names required."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -36,6 +37,7 @@ def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
     return len(hits)
 
 
+# occupation that is really a known employer name, swap fields
 def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
     """AK. emp='SELF-EMPLOYED' but occ is a frequent employer name in the dataset -> occ is the real employer; the occupation is left empty.
 
@@ -69,6 +71,7 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# swap employer/occupation when employer is a job title
 def _fix_swapped_emp_occ_company(df: pd.DataFrame) -> int:
     """AL. emp=job title, occ=company name -> swap them."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
@@ -86,6 +89,7 @@ def _fix_swapped_emp_occ_company(df: pd.DataFrame) -> int:
     return n_fixed
 
 
+# swap curated company from occupation when employer is a job
 def _fix_occ_emp_both_swapped(df: pd.DataFrame) -> int:
     """AO. Swap a curated company from occupation only when employer is a job."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'

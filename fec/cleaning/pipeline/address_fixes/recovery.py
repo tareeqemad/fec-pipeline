@@ -21,6 +21,7 @@ _STREET_TYPE_RE = re.compile(
 )
 
 
+# fill null streets from rows with same name/city/state
 def _recover_null_streets(df: pd.DataFrame) -> int:
     """Fill NULL streets (e.g. nulled emails) from other records of the same (name, city, state)."""
     null_street = df["contributor_street_1"].isna()
@@ -52,6 +53,7 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
     return n_recovered
 
 
+# check whether street_1 values look geocodable
 def _is_usable_street(s: pd.Series) -> pd.Series:
     """Vectorised: True where street_1 looks geocodable; a floor alone ("3RD FLOOR") is a unit, not a street."""
     upper = s.fillna("").astype(str).str.upper()
@@ -62,6 +64,7 @@ def _is_usable_street(s: pd.Series) -> pd.Series:
     ) & ~upper.str.strip().str.match(FLOOR_ONLY_RE)
 
 
+# replace an unusable street with the donor's real street
 def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     """Replace a non-usable street_1 (place-name / fragment) with the same donor's real street."""
     # individuals only; only a non-usable value is overwritten, a good street never
@@ -113,6 +116,7 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     return n_recovered
 
 
+# backfill a missing house number from the donor's numbered filing
 def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     """Backfill a missing house number from the same donor's numbered filing of the same street."""
     # a typed-but-unnumbered street ("FAIRWAY DR") passes _is_usable_street yet
@@ -136,6 +140,7 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     if numbered.empty:
         return 0
 
+    # drop a leading house number from a street string
     def _strip_num(x: str) -> str:
         return re.sub(r"^\d+\s+", "", str(x).upper().strip())
 
@@ -168,6 +173,7 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     return n_filled
 
 
+# fill a blank street from the donor's one matching street
 def _recover_missing_streets(df: pd.DataFrame) -> int:
     """Fill a blank street from the donor's only street in the same place."""
     keys = ["donor_key", "contributor_city", "contributor_state", "contributor_zip"]
@@ -198,6 +204,7 @@ def _recover_missing_streets(df: pd.DataFrame) -> int:
     return recovered
 
 
+# decide if one house number is a truncation of another
 def _house_number_replacement(first, second, counts) -> tuple | None:
     first_parts = str(first).split(" ", 1)
     second_parts = str(second).split(" ", 1)
@@ -221,6 +228,7 @@ def _house_number_replacement(first, second, counts) -> tuple | None:
     return None
 
 
+# replace a rare truncated house number with donor's common form
 def _truncated_house_numbers(df: pd.DataFrame) -> int:
     """Replace a rare truncated house number with the donor's common form."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
@@ -257,6 +265,7 @@ _REAL_UNIT_RE = re.compile(r"^(?:APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PH|PMB|LOT|
 _UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG)\b|#\d")
 
 
+# trim a long street to donor's shorter same-ZIP form
 def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
     """Replace a long street_1 that extends a shorter street the same donor filed at the same ZIP."""
     name = df["contributor_name"].fillna("").astype(str)

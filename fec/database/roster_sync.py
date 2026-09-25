@@ -58,6 +58,7 @@ class SyncResult:
     broken: list[tuple[str, str]] = field(default_factory=list)              # (name, key) must link, cannot
 
 
+# one row per donor_key: the newest filing
 def latest_filings(cleaned: pd.DataFrame) -> pd.DataFrame:
     """One row per donor_key: the newest filing (latest receipt date, then highest sub_id)."""
     df = cleaned[_CLEANED_COLUMNS].copy()
@@ -66,6 +67,7 @@ def latest_filings(cleaned: pd.DataFrame) -> pd.DataFrame:
     return df.set_index("donor_key")
 
 
+# one filing cell as a synced-roster string, trimmed and formatted
 def _fec_value(filing: pd.Series, column: str) -> str:
     value = filing[column]
     if pd.isna(value):
@@ -78,6 +80,7 @@ def _fec_value(filing: pd.Series, column: str) -> str:
     return value
 
 
+# format a coordinate to 7 decimals, stripping float noise
 def _coordinate(value: str) -> str:
     """7 decimals (about 1 cm): strips float noise such as 38.90248020000001."""
     try:
@@ -86,10 +89,12 @@ def _coordinate(value: str) -> str:
         return value
 
 
+# a value as text, '' for NaN
 def _cell(value) -> str:
     return "" if pd.isna(value) else str(value)
 
 
+# run one street pair through the pipeline's own street cleaner
 def pipeline_streets(street_1: str, street_2: str, first: str = "", last: str = "") -> tuple[str, str]:
     """Run one street through clean_streets, the step every FEC filing goes through.
 
@@ -106,6 +111,7 @@ def pipeline_streets(street_1: str, street_2: str, first: str = "", last: str = 
     return _cell(frame.at[0, "contributor_street_1"]), _cell(frame.at[0, "contributor_street_2"])
 
 
+# (first, last) from the roster's own columns, else the name
 def _person_names(row: dict, prefix: str) -> tuple[str, str]:
     """(first, last) from the roster's own columns, else from 'LAST, FIRST'."""
     first = (row.get(f"{prefix}_first_name") or "").strip()
@@ -117,6 +123,7 @@ def _person_names(row: dict, prefix: str) -> tuple[str, str]:
     return first, last
 
 
+# true if a roster row's address lies outside the US
 def is_foreign_row(row: dict, prefix: str) -> bool:
     """A roster address outside the US: a country other than US, or the cleaning's own foreign test."""
     country = (row.get(f"{prefix}_country") or "").strip().upper()
@@ -130,6 +137,7 @@ def is_foreign_row(row: dict, prefix: str) -> bool:
     }])).iloc[0])
 
 
+# street cells an editorial row's cleaning pass would rewrite
 def editorial_street_changes(row: dict, prefix: str) -> dict[str, str]:
     """{column: pipeline-style value} for the street cells clean_streets would rewrite."""
     if is_foreign_row(row, prefix):
@@ -140,6 +148,7 @@ def editorial_street_changes(row: dict, prefix: str) -> dict[str, str]:
     return {column: value for column, before, value in zip(columns, old, new) if before != value}
 
 
+# add a missing occupation column to an old roster's rows
 def _ensure_columns(rows: list[dict], fieldnames: list[str], prefix: str) -> list[str]:
     """Add `<prefix>_occupation` right after `<prefix>_employer` when the roster predates it."""
     occupation = f"{prefix}_occupation"
@@ -150,6 +159,7 @@ def _ensure_columns(rows: list[dict], fieldnames: list[str], prefix: str) -> lis
     return fieldnames
 
 
+# sync each row to its donor's latest filing or street
 def sync_rows(rows: list[dict], fieldnames: list[str], prefix: str,
               latest: pd.DataFrame, filename: str = "") -> SyncResult:
     """Return the rows with every FEC-linked row set to its donor's newest filing
@@ -179,6 +189,7 @@ def sync_rows(rows: list[dict], fieldnames: list[str], prefix: str,
     return result
 
 
+# keep the file's own line endings (CRLF rosters stay CRLF)
 def _line_terminator(path: Path) -> str:
     """Keep the file's own line endings (the rosters are checked out with CRLF)."""
     if path.exists() and b"\r\n" in path.read_bytes():
@@ -186,12 +197,14 @@ def _line_terminator(path: Path) -> str:
     return "\n"
 
 
+# read a roster CSV's rows and its field names
 def read_roster(path: Path) -> tuple[list[dict], list[str]]:
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         return list(reader), list(reader.fieldnames or [])
 
 
+# write a roster's rows back to CSV, keeping line endings
 def write_roster(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
     terminator = _line_terminator(path)          # before open("w"): opening truncates the file
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -200,6 +213,7 @@ def write_roster(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
         writer.writerows(rows)
 
 
+# sync, or with check=True only diff, both rosters against data
 def sync_rosters(check: bool = False, cleaned_csv: Path = CLEANED_CSV,
                  roster_dir: Path = ROSTER_DIR) -> list[SyncResult]:
     """Sync (or, with check=True, only diff) both rosters against the cleaned data."""
@@ -219,6 +233,7 @@ def sync_rosters(check: bool = False, cleaned_csv: Path = CLEANED_CSV,
     return results
 
 
+# print sync results; return 1 on broken key or drift
 def report(results: list[SyncResult], check: bool) -> int:
     """Print what changed; return 1 on a broken donor_key, or in check mode when a roster drifted."""
     drifted = False

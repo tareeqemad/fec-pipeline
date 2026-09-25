@@ -37,6 +37,7 @@ from .reviewed_points import (
 logger = get_logger(__name__)
 
 
+# the per-row geocoding cache key: street|city|state|zip
 def _contributor_keys(df: pd.DataFrame) -> pd.Series:
     """Cache key per row: street|city|state|zip, NaN as empty, ordinal streets numbered."""
     cols = df[['contributor_street_1', 'contributor_city',
@@ -51,10 +52,12 @@ def _contributor_keys(df: pd.DataFrame) -> pd.Series:
 _TOWN_CHECK = "town_check"
 
 
+# true if a key must be looked up this run
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
     return _lookup_reason(key, cache) is not None
 
 
+# why a key needs another lookup, or None if cached
 def _lookup_reason(key: str, cache: GeoCache) -> str | None:
     """Why a key is looked up (again) this run, or None when its cached entry stands."""
     if reviewed_point(key) is not None:
@@ -106,6 +109,7 @@ def _lookup_reason(key: str, cache: GeoCache) -> str | None:
     return None
 
 
+# true when a cached town pin needs its one-time re-check
 def _town_check_due(entry: dict, state: str, zipcode: str) -> bool:
     """A town-level pin cached before the settlement-only town search, in a ZIP without a centroid to hold it.
 
@@ -122,6 +126,7 @@ def _town_check_due(entry: dict, state: str, zipcode: str) -> bool:
             and _zip_point(zipcode, state) is None)
 
 
+# geocode every unique address in df, skipping already-cached keys
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
                       batch_size: int = 50):
     """Geocode every unique address in df, skipping cached keys and saving the cache every batch_size lookups."""
@@ -145,6 +150,7 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
     _geocode_todo(todo, cache, batch_size)
 
 
+# replace city centroids with ZIP centroids, logging the count
 def _prefer_zip_centroids_logged(keys, cache: GeoCache) -> None:
     changed = prefer_zip_centroids(keys, cache)
     if changed:
@@ -152,12 +158,14 @@ def _prefer_zip_centroids_logged(keys, cache: GeoCache) -> None:
         logger.info(f"  City centroids replaced by the filed ZIP's centroid: {changed:,}")
 
 
+# map cached results onto latitude/longitude/geocode_level columns
 def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     """Map cached results onto latitude/longitude/geocode_level (vectorized)."""
     keys = _contributor_keys(df)
 
     # re-validate cached coords against the key's own address (state box, ZIP,
     # foreign office) so a stale wrong cache entry is dropped
+    # re-validate one cached key's coordinates against its own address rules
     def _lookup(key):
         entry = cache.get(key)
         lat, lng, level = accepted_coordinates(key, entry)
@@ -182,6 +190,7 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     return df
 
 
+# run the geocoding engine over todo keys, saving progress
 def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     """Run the engine chain over todo keys, saving the cache and logging an ETA every batch_size lookups."""
     stats = {
@@ -243,6 +252,7 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     _print_summary(todo, stats, time.time() - start)
 
 
+# log the final geocoding run summary
 def _print_summary(todo: list, stats: dict, elapsed: float) -> None:
     logger.info("\n\n  -- Geocoding Done --")
     logger.info(f"  Processed:   {len(todo):,} in {int(elapsed//60)}m {int(elapsed%60)}s")

@@ -16,6 +16,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
+# map committee_short to committee_id from the loaded committees table
 def committee_lookup(cur: Any) -> dict[str, int]:
     """committee_short -> committee_id, read from the committees table the loader just filled.
 
@@ -28,6 +29,7 @@ def committee_lookup(cur: Any) -> dict[str, int]:
     return {short: committee_id for short, committee_id in cur.fetchall()}
 
 
+# resolve one committee_short to its id, or raise if unknown
 def resolve_committee(
     short: str, committees: dict[str, int], csv_filename: str, who: str,
 ) -> int:
@@ -41,6 +43,7 @@ def resolve_committee(
     return committee_id
 
 
+# parse leaders.csv's committee_ids array field into committee ids
 def leader_committee_ids(
     raw: str | None, committees: dict[str, int], who: str,
 ) -> list[int]:
@@ -62,6 +65,7 @@ def leader_committee_ids(
     return ids
 
 
+# parse key_accomplices.csv's committee_id field, blank means none
 def accomplice_committee_id(
     raw: str | None, committees: dict[str, int], who: str,
 ) -> int | None:
@@ -72,16 +76,19 @@ def accomplice_committee_id(
     return resolve_committee(short, committees, "key_accomplices.csv", who)
 
 
+# load leaders.csv into leaders plus the leader_committees junction
 def load_leadership(conn: Any, cur: Any) -> None:
     """Load leaders.csv into leaders (donor_id) plus the leader_committees M:N junction."""
     committees = committee_lookup(cur)
 
+    # verify every row's committee_ids resolve before inserting any
     def _validate(rows):
         for _, row in rows.iterrows():
             leader_committee_ids(
                 row.get("committee_ids"), committees, (row.get("leader_name") or "").strip(),
             )
 
+    # upsert one leader and rebuild its committee links
     def _insert(cur, row, donor_id):
         kept = leader_committee_ids(
             row.get("committee_ids"), committees, (row.get("leader_name") or "").strip(),
@@ -110,20 +117,24 @@ def load_leadership(conn: Any, cur: Any) -> None:
     _load_donor_linked_csv(conn, cur, "leaders.csv", "leaders", _insert, _validate)
 
 
+# load key_accomplices.csv into key_accomplices with its committee FK
 def load_key_accomplices(conn: Any, cur: Any) -> None:
     """Load key_accomplices.csv into key_accomplices (donor_id FK + card fields)."""
     committees = committee_lookup(cur)
 
+    # blank editorial field becomes None
     def _txt(row, col):
         value = (row.get(col) or "").strip()
         return value or None
 
+    # verify every row's committee_id resolves before inserting any
     def _validate(rows):
         for _, row in rows.iterrows():
             accomplice_committee_id(
                 row.get("committee_id"), committees, (row.get("accomplice_name") or "").strip(),
             )
 
+    # upsert one key accomplice card
     def _insert(cur, row, donor_id):
         # Ignore blank editorial fields.
         who = (row.get("accomplice_name") or "").strip()

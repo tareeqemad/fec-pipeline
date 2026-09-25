@@ -37,6 +37,7 @@ _WORD_DIGITS_RE = r'(\b[A-Z]{3,})\d+\b'
 EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOYERS)
 
 
+# clean, dedupe-normalize a text column, optionally collapsing retired
 def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
                     digits_only_before: frozenset | set | None = None) -> tuple[pd.Series, int]:
     """Strip/uppercase, fix entities and junk, optionally collapse RETIRE* to RETIRED, then apply normalize_map; returns (cleaned, n_changed).
@@ -92,6 +93,7 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     return result, n_changed
 
 
+# assign occupation category by override then first matching regex
 def _categorize(occupation_series: pd.Series) -> pd.Series:
     """Assign an occupation category: explicit overrides first, then first matching regex wins."""
     result = pd.Series('OTHER', index=occupation_series.index)
@@ -109,6 +111,7 @@ def _categorize(occupation_series: pd.Series) -> pd.Series:
     return result
 
 
+# categorize final occupations using overrides, exact map, and regex
 def _categorize_final(occupation_series: pd.Series) -> pd.Series:
     """Categorize final cleaned occupations using every configured rule."""
     occupation = occupation_series.fillna('').astype(str).str.strip().str.upper()
@@ -126,6 +129,7 @@ def _categorize_final(occupation_series: pd.Series) -> pd.Series:
     return result
 
 
+# classify committee names into sub-types by keyword match
 def _classify_committee_names(names: pd.Series) -> pd.Series:
     """Classify committee names into sub-types by keyword match."""
     result = pd.Series('POLITICAL COMMITTEE', index=names.index)
@@ -140,6 +144,7 @@ def _classify_committee_names(names: pd.Series) -> pd.Series:
     return result
 
 
+# apply curated occupation fixes and return original values changed
 def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
     """Apply OCCUPATION_FIXES; return original changed values."""
     original = df.loc[rows, 'contributor_occupation']

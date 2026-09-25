@@ -6,16 +6,19 @@ import os
 
 class GeoCache:
 
+    # load the cache from disk into memory
     def __init__(self, path: str):
         self.path = path
         self.data: dict = {}
         self._load()
 
+    # load cached entries from the JSON file if present
     def _load(self):
         if os.path.exists(self.path):
             with open(self.path, "r", encoding="utf-8") as handle:
                 self.data = json.load(handle)
 
+    # write cache to disk atomically via a temp file
     def save(self):
         """Write cache to disk atomically via a temp file."""
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
@@ -24,9 +27,11 @@ class GeoCache:
             json.dump(self.data, handle, ensure_ascii=False)
         os.replace(temp_path, self.path)
 
+    # look up a cached entry by key
     def get(self, key: str) -> dict | None:
         return self.data.get(key)
 
+    # true if the key is uncached or failed transiently
     def needs_retry(self, key: str) -> bool:
         """True if the key is uncached or failed transiently."""
         entry = self.data.get(key)
@@ -34,6 +39,7 @@ class GeoCache:
             return True
         return entry.get("source") == "transient_fail"
 
+    # store a successful geocode hit
     def put(
         self,
         key: str,
@@ -58,11 +64,13 @@ class GeoCache:
         if town_checked:
             self.data[key]["town_checked"] = True
 
+    # keep a cached point the town search couldn't improve on
     def mark_town_checked(self, key: str):
         """Keep a cached point that the settlement-only town search could not improve on."""
         if key in self.data:
             self.data[key]["town_checked"] = True
 
+    # mark an address as genuinely not geocodable
     def put_failed(self, key: str, validated: bool = False):
         """Mark an address as genuinely not geocodable (never retried)."""
         self.data[key] = {
@@ -72,13 +80,16 @@ class GeoCache:
             "validated": validated,
         }
 
+    # keep a temporary failure retryable
     def put_transient(self, key: str):
         """Keep a temporary failure retryable."""
         self.data[key] = {"lat": None, "lng": None, "source": "transient_fail"}
 
+    # number of cached entries
     def __len__(self):
         return len(self.data)
 
+    # summarize cache hits, misses, and sources
     def stats(self) -> dict:
         found = sum(1 for entry in self.data.values() if entry["lat"] is not None)
         by_source: dict[str, int] = {}
