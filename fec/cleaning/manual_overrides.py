@@ -18,8 +18,10 @@ logger = get_logger(__name__)
 OVERRIDES_CSV = PROJECT_ROOT / "data" / "manual_employer_overrides.csv"
 CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
 EMPTY_OCCUPATION_CATEGORY = "OTHER"  # the category every filing without an occupation gets
-# set on rows whose override brought an employer or occupation the filing never named
-WORK_FROM_OUTSIDE = "_work_from_outside_filing"
+FILED_WORK_FIELDS = (
+    "sub_id", "contributor_employer", "contributor_occupation",
+    "contributor_first_name", "contributor_last_name",
+)
 _WORK_FIELDS = ("contributor_employer", "contributor_occupation")
 _NAME_FIELDS = ("contributor_first_name", "contributor_last_name")
 _ROW_FIELDS = (
@@ -116,6 +118,20 @@ def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
     return False
 
 
+# sub_ids whose override names work their raw filing never did
+def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
+    """filed holds the raw FILED_WORK_FIELDS, taken before any cleaning step."""
+    if not OVERRIDES_CSV.exists():
+        return set()
+    overrides = _read_overrides(company_names_only=False)
+    rows = filed[filed["sub_id"].astype(str).str.strip().isin(overrides)]
+    return {
+        str(sub_id).strip()
+        for sub_id, row in zip(rows["sub_id"], rows.itertuples(index=False))
+        if _brings_outside_work(pd.DataFrame([row._asdict()]), overrides[str(sub_id).strip()])
+    }
+
+
 # write each override's fields onto its matching sub_id row
 def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
@@ -126,8 +142,6 @@ def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int
         if not mask.any():
             missing += 1
             continue
-        if _brings_outside_work(df.loc[mask].reindex(columns=[*_WORK_FIELDS, *_NAME_FIELDS]), fields):
-            df.loc[mask, WORK_FROM_OUTSIDE] = True
         for column, value in fields.items():
             if column in df.columns:
                 df.loc[mask, column] = value

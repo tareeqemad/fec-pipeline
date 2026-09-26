@@ -24,8 +24,9 @@ from fec.cleaning.audit_trail import (
 )
 from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
 from fec.cleaning.manual_overrides import (
-    WORK_FROM_OUTSIDE,
+    FILED_WORK_FIELDS,
     apply_manual_employer_overrides,
+    outside_work_sub_ids,
 )
 from fec.cleaning.occupations import clean_employer_occupation
 from fec.cleaning.pipeline.address_stage import clean_addresses, log_review_queues
@@ -243,17 +244,16 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
 
 
 # label each row's employer/occupation as filed or inferred
-def _employment_sources(df: pd.DataFrame, trail: AuditTrail) -> pd.Series:
-    """'inferred' where the employer or occupation came from other filings, else 'filed'."""
+def _employment_sources(df: pd.DataFrame, trail: AuditTrail, filed_work: pd.DataFrame) -> pd.Series:
+    """'inferred' where the employer or occupation came from other filings or a
+    manual override naming work the filing never did, else 'filed'."""
     inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
+    inferred |= outside_work_sub_ids(filed_work)
     has_work = (
         df["contributor_employer"].fillna("").astype(str).ne("")
         | df["contributor_occupation"].fillna("").astype(str).ne("")
     )
-    from_others = df["sub_id"].astype(str).isin(inferred)
-    if WORK_FROM_OUTSIDE in df.columns:
-        from_others |= df[WORK_FROM_OUTSIDE].eq(True)
-    from_others &= has_work
+    from_others = df["sub_id"].astype(str).isin(inferred) & has_work
     return pd.Series("filed", index=df.index).mask(from_others, "inferred")
 
 
@@ -266,6 +266,8 @@ def clean_pipeline(
     trail = AuditTrail()
     # foreign filings are kept exactly as filed: remember them before any repair
     foreign = snapshot_foreign_addresses(df)
+    # what each filing itself said about work, to tell filed from inferred later
+    filed_work = df.reindex(columns=list(FILED_WORK_FIELDS)).fillna("").astype(str)
     address_reports: dict = {}
     df_clean, missing = clean_records(
         df, trail, out_dir=out_dir, address_reports=address_reports,
@@ -283,7 +285,7 @@ def clean_pipeline(
     if out_dir:
         _write_address_queues(df_clean, out_dir, address_reports, foreign.index)
     unexplained = trail.finish(df_clean)
-    df_clean["employment_source"] = _employment_sources(df_clean, trail)
+    df_clean["employment_source"] = _employment_sources(df_clean, trail, filed_work)
     if unexplained:
         logger.warning(
             "  Audit: %s field values changed outside tracked steps", f"{unexplained:,}"
