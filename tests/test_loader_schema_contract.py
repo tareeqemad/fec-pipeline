@@ -7,7 +7,10 @@ import pytest
 from fec.database import healthcheck
 from fec.database.healthcheck import _employment_status_mismatches
 from fec.database.loader.employers import EMPLOYMENT_KEY_COLUMNS
-from fec.database.loader.schema_create import _is_employment_key, _verify_schema_integrity
+from fec.database.loader.schema_create import (
+    _is_employment_key,
+    _verify_schema_integrity,
+)
 from fec.database.query_checks import CHECKS
 from fec.env import SCHEMA_SQL
 
@@ -125,12 +128,13 @@ class ScalarCursor:
         return (self.value,)
 
 
-def test_dedup_check_uses_the_status_key():
-    check = _check("dedup: donor_employments (donor,employer,occupation,status)")
+def test_dedup_check_uses_the_loader_employment_key():
+    check = _check("dedup: donor_employments (donor,employer,occupation,status,previous employer)")
     cursor = ScalarCursor(0)
 
     assert check.run(cursor) == (True, "0 duplicate employment group(s)")
-    assert "GROUP BY donor_id, employer_id, occupation, employer_status" in cursor.sql[0]
+    group_by = " ".join(cursor.sql[0].split("GROUP BY", 1)[1].split("HAVING", 1)[0].split())
+    assert tuple(column.strip() for column in group_by.split(",")) == EMPLOYMENT_KEY_COLUMNS
     assert not any(c.name == "dedup: donor_employments (donor,employer,occupation)" for c in CHECKS)
 
 

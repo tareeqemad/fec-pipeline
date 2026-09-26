@@ -25,7 +25,6 @@ from fec.database.loader.employers import (
 from fec.database.loader.leadership import load_key_accomplices, load_leadership
 from fec.database.loader.previous_employers import (
     link_previous_employers,
-    previous_self_employed_donors,
 )
 from fec.database.loader.reference import load_lookups, load_reference_tables
 from fec.database.loader.schema_create import (
@@ -73,8 +72,7 @@ def load_all(
 
     donor_key_to_id = load_donors(conn, cur, df)
     emp_name_to_id = load_employers(conn, cur, df)
-    donor_prev_employer_id = link_previous_employers(conn, cur, df, emp_name_to_id)
-    prev_self_employed = previous_self_employed_donors(df)
+    link_previous_employers(conn, cur, df, emp_name_to_id)
     get_employer_id = _make_employer_resolver(emp_name_to_id)
 
     addr_dim_id = load_address_dimension(conn, cur, df, employer_locations)
@@ -85,11 +83,9 @@ def load_all(
         df,
         donor_key_to_id,
         occ_cat_map,
-        donor_prev_employer_id,
         get_employer_id,
         addr_dim_id,
         employer_locations,
-        prev_self_employed,
     )
     load_contributions(
         conn,

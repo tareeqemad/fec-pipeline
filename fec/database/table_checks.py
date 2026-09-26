@@ -113,13 +113,15 @@ INTEGRITY_CHECKS += [
         "duplicate committee_number(s)",
     ),
     _zero(
-        "dedup: donor_employments (donor,employer,occupation,status)",
+        "dedup: donor_employments (donor,employer,occupation,status,previous employer)",
         _sql("""
             SELECT COUNT(*)
             FROM (
-                SELECT donor_id, employer_id, occupation, employer_status
+                SELECT donor_id, employer_id, occupation, employer_status,
+                       previous_employer_id, previous_self_employed
                 FROM donor_employments
-                GROUP BY donor_id, employer_id, occupation, employer_status
+                GROUP BY donor_id, employer_id, occupation, employer_status,
+                         previous_employer_id, previous_self_employed
                 HAVING COUNT(*) > 1
             ) AS duplicates
         """),

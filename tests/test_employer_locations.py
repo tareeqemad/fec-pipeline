@@ -12,7 +12,7 @@ from fec.database.loader.employers import (
     load_employers,
 )
 from fec.database.loader.employment_locations import _employment_address_id
-from fec.database.loader.previous_employers import _previous_employer_id
+from fec.database.loader.previous_employers import filing_previous
 from fec.resolve.pipeline.apply import ResolveContext, _resolve_row, apply_results
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
@@ -417,12 +417,12 @@ def test_not_employed_never_gets_a_work_address():
 
 
 def test_previous_employer_belongs_only_to_retired_rows():
-    employer_ids = {"donor-1": 42}
+    get_id = {"BIG FIRM": 42}.get
 
-    assert _previous_employer_id("retired", "donor-1", employer_ids) == 42
-    assert _previous_employer_id("not_employed", "donor-1", employer_ids) is None
-    assert _previous_employer_id("self_employed", "donor-1", employer_ids) is None
-    assert _previous_employer_id("active", "donor-1", employer_ids) is None
+    assert filing_previous("retired", "BIG FIRM", get_id) == (42, False)
+    assert filing_previous("not_employed", "BIG FIRM", get_id) == (None, False)
+    assert filing_previous("self_employed", "BIG FIRM", get_id) == (None, False)
+    assert filing_previous("active", "BIG FIRM", get_id) == (None, False)
 
 
 def test_student_school_is_removed_from_previous_employer_cache():

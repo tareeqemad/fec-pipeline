@@ -10,6 +10,7 @@ from psycopg2.extras import execute_values
 from fec.cleaning.employer_status import current_employer_name
 from fec.database.loader._base import _count, to_float_or_none, to_int_or_none
 from fec.database.loader.employers import employment_key
+from fec.database.loader.previous_employers import filing_previous
 from fec.env import CLEANED_CSV
 from fec.log import get_logger
 
@@ -73,20 +74,25 @@ def _map_address_ids(rows, address_ids):
 
 # map each row's employment to its loaded id, or raise
 def _map_employment_ids(rows, employment_ids, get_employer_id):
-    """Match the (donor, employer, occupation, status) key produced by load_employments."""
+    """Match the employment key load_employments produced, previous employer included."""
     employer_ids = [
         get_employer_id(current_employer_name(status, employer))
         for status, employer in rows[[
             "employer_status", "contributor_employer",
         ]].itertuples(index=False)
     ]
+    previous_names = rows["previous_employer"] if "previous_employer" in rows else [None] * len(rows)
+    previous = [
+        filing_previous(status, name, get_employer_id)
+        for status, name in zip(rows["employer_status"], previous_names)
+    ]
     rows["_employment_id"] = [
         employment_ids.get(employment_key(
-            donor_id, to_int_or_none(employer_id), occupation, status,
+            donor_id, to_int_or_none(employer_id), occupation, status, *filing_previous_ids,
         ))
-        for donor_id, employer_id, occupation, status in zip(
+        for donor_id, employer_id, occupation, status, filing_previous_ids in zip(
             rows["_donor_id"], employer_ids,
-            rows["contributor_occupation"], rows["employer_status"],
+            rows["contributor_occupation"], rows["employer_status"], previous,
         )
     ]
 

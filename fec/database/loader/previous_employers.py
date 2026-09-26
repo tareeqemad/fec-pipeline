@@ -1,4 +1,4 @@
-"""Link each donor employment to the employer the donor left."""
+"""Each retired filing's own previous employer: a company id or the SELF-EMPLOYED flag."""
 from __future__ import annotations
 
 from typing import Any
@@ -17,98 +17,49 @@ logger = get_logger(__name__)
 PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
 
 
-# look up previous employer id, only retired rows get one
-def _previous_employer_id(status, donor_key, employer_ids):
-    """Previous companies belong to retired rows."""
-    if status != "retired":
-        return None
-    return employer_ids.get(donor_key)
-
-
-# pick each donor's newest retired filing naming a previous employer
-def _latest_previous_employers(df: pd.DataFrame) -> pd.DataFrame:
-    """Each donor's newest retired filing that names a previous employer."""
-    if 'previous_employer' not in df.columns:
-        return df.iloc[0:0]
-    prev_emp = df[
-        df['previous_employer'].notna()
-        & df['employer_status'].eq('retired')
-    ]
-    return (prev_emp.sort_values('contribution_receipt_date', ascending=False)
-            .drop_duplicates('donor_key', keep='first'))
-
-
 # check whether a previous_employer value means self-employed
 def _is_previous_self_employed(name) -> bool:
     return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
 
 
-# find donors whose newest previous employer means self-employed
-def previous_self_employed_donors(df: pd.DataFrame) -> set[str]:
-    """Donors whose newest previous employer is the contract's 'SELF-EMPLOYED'.
+# the previous employer one filing names: (company id, self-employed flag)
+def filing_previous(status, name, get_employer_id) -> tuple[int | None, bool]:
+    """Only a retired filing has one; it is a company or SELF-EMPLOYED, never both.
 
-    Same donor-level selection as link_previous_employers, so a donor gets
-    either a previous company or this flag, never both.
+    Each filing keeps its own value, so a donor who retired in 2022 and named a
+    clinic only in 2026 keeps an empty previous employer on the 2022 filing.
     """
-    latest = _latest_previous_employers(df)
-    if len(latest) == 0:
-        return set()
-    flagged = latest['previous_employer'].map(_is_previous_self_employed)
-    donors = set(latest.loc[flagged, 'donor_key'])
-    if donors:
-        logger.info(f"  previous_employer: {len(donors):,} donors previously self-employed")
-    return donors
+    if status != "retired" or pd.isna(name) or not str(name).strip():
+        return None, False
+    if _is_previous_self_employed(name):
+        return None, True
+    return get_employer_id(str(name).strip()), False
 
 
-# flag applies only to retired rows, like previous_employer_id
-def _previous_self_employed(status, donor_key, donors: set[str]) -> bool:
-    """Like previous_employer_id, the flag belongs only to retired rows."""
-    return status == "retired" and donor_key in donors
-
-
-# insert and link donors' exact previous-employer names to employers
-def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame,
-                            emp_name_to_id: dict) -> dict[str, int]:
-    """Step 3: link exact previous-employer names."""
+# insert every company a retired filing names as its previous employer
+def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame, emp_name_to_id: dict) -> None:
+    """Step 3: give each retired filing's previous company an employers row."""
     logger.info("\n-- 3/8 Linking previous employers --")
+    if 'previous_employer' not in df.columns:
+        return
+    retired = df['employer_status'].eq('retired') & df['previous_employer'].notna()
+    names = {str(name).strip() for name in df.loc[retired, 'previous_employer']} - {""}
 
-    donor_prev_employer_id: dict[str, int] = {}
-    prev_latest = _latest_previous_employers(df)
-    if len(prev_latest) == 0:
-        return donor_prev_employer_id
-
-    prev_names = set()
-    dropped: set[str] = set()
-    for name in prev_latest['previous_employer']:
-        employer_name = str(name).strip()
-        if not is_real_employer(employer_name):
-            # SELF-EMPLOYED is stored as previous_self_employed; anything
-            # else breaks the previous_employer contract and is not stored.
-            if not _is_previous_self_employed(employer_name):
-                dropped.add(employer_name)
-            continue
-        if employer_name not in emp_name_to_id:
-            prev_names.add(employer_name)
+    dropped = {name for name in names if not is_real_employer(name) and not _is_previous_self_employed(name)}
     if dropped:
+        # SELF-EMPLOYED is stored as previous_self_employed; anything else
+        # breaks the previous_employer contract and is not stored.
         logger.warning(
             "  previous_employer: %d non-company value(s) not stored: %s",
             len(dropped), ", ".join(repr(name) for name in sorted(dropped)[:10]),
         )
-    if prev_names:
+    new_names = {name for name in names if is_real_employer(name) and name not in emp_name_to_id}
+    if new_names:
         execute_values(cur,
             "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
-            [(prev_name,) for prev_name in prev_names], page_size=1000)
+            [(name,) for name in sorted(new_names)], page_size=1000)
         conn.commit()
         cur.execute("SELECT employer_id, name FROM employers")
         emp_name_to_id.clear()
         emp_name_to_id.update({row[1]: row[0] for row in cur.fetchall()})
-
-    for _, row in prev_latest.iterrows():
-        donor_key = row['donor_key']
-        employer_name = str(row['previous_employer']).strip()
-        emp_id = emp_name_to_id.get(employer_name)
-        if donor_key and emp_id:
-            donor_prev_employer_id[donor_key] = emp_id
-    if donor_prev_employer_id:
-        logger.info(f"  previous_employer: {len(donor_prev_employer_id):,} donors mapped")
-    return donor_prev_employer_id
+    logger.info(f"  previous_employer: {int(retired.sum()):,} retired filings name one")
