@@ -4,7 +4,8 @@ RETIRED, SELF-EMPLOYED (no company), NOT EMPLOYED and blank employers all
 resolve to employer_id NULL, so the employment identity must include
 employer_status (audit: 38 filings of 14 donors showed another status).  A
 retiree whose previous employer is the contract literal 'SELF-EMPLOYED' keeps
-that fact in donor_employments.previous_self_employed (audit: 247 filings).
+that fact in donor_employments.previous_self_employed (audit: 247 filings), and
+each retired filing keeps its own previous employer (MARGOLIN, RUTH).
 """
 import re
 
@@ -21,10 +22,7 @@ from fec.database.loader.employers import (
     employment_key,
     load_employments,
 )
-from fec.database.loader.previous_employers import (
-    link_previous_employers,
-    previous_self_employed_donors,
-)
+from fec.database.loader.previous_employers import filing_previous, link_previous_employers
 from fec.env import SCHEMA_SQL
 
 
@@ -101,14 +99,13 @@ def _filing(sub_id, date, employer, occupation, status, previous=None, donor="D1
 HOME = {("1 HOME ST", "", "SOMEWHERE", "CA", "94104"): 17}
 
 
-def _load(db, filings, previous_ids=None, previous_self=None, employers=None):
+def _load(db, filings, employers=None):
     """Run load_employments + the contributions lookup; return each filing's linked row."""
     frame = pd.DataFrame(filings)
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
     get_employer_id = _make_employer_resolver(employers or {})
     employment_ids = load_employments(
-        db, db, frame, donor_ids, {"LEGAL": 1}, previous_ids or {},
-        get_employer_id, HOME, [], previous_self,
+        db, db, frame, donor_ids, {"LEGAL": 1}, get_employer_id, HOME, [],
     )
     rows = frame.assign(_donor_id=frame["donor_key"].map(donor_ids))
     _map_employment_ids(rows, employment_ids, get_employer_id)
@@ -123,8 +120,9 @@ def test_schema_unique_key_is_the_loader_key():
 
 
 def test_employment_key_treats_nan_as_null():
-    assert employment_key(1.0, np.nan, np.nan, "retired") == (1, None, None, "retired")
-    assert employment_key(np.int64(2), 5.0, "ATTORNEY", "active") == (2, 5, "ATTORNEY", "active")
+    assert employment_key(1.0, np.nan, np.nan, "retired") == (1, None, None, "retired", None, False)
+    assert employment_key(np.int64(2), 5.0, "ATTORNEY", "active") == (2, 5, "ATTORNEY", "active", None, False)
+    assert employment_key(1, None, None, "retired", 7.0) == (1, None, None, "retired", 7, False)
     assert employment_key(1, None, None, "retired") != employment_key(1, None, None, "self_employed")
 
 
@@ -153,7 +151,6 @@ def test_retired_filing_keeps_previous_employer_self_employed_does_not(db):
                     previous="BAG INVESTMENTS"),
             _filing("2", "2026-07-30", "SELF-EMPLOYED", "MANAGING MEMBER", "self_employed"),
         ],
-        previous_ids={"D1": 42},
         employers={"BAG INVESTMENTS": 42},
     )
 
@@ -197,14 +194,11 @@ def test_filings_with_the_same_raw_text_but_another_status_get_a_row():
 
 
 def test_self_employed_previous_employer_is_a_flag_on_retired_rows(db):
-    filings = [
+    linked = _load(db, [
         _filing("1", "2024-01-01", "RETIRED", "RETIRED", "retired", previous="SELF-EMPLOYED"),
         _filing("2", "2025-01-01", "NOT EMPLOYED", "NOT EMPLOYED", "not_employed"),
-    ]
-    flagged = previous_self_employed_donors(pd.DataFrame(filings))
-    linked = _load(db, filings, previous_self=flagged)
+    ])
 
-    assert flagged == {"D1"}
     assert linked["1"]["previous_self_employed"] is True
     assert linked["1"]["previous_employer_id"] is None
     assert linked["2"]["previous_self_employed"] is False
@@ -216,37 +210,45 @@ def test_rows_default_to_not_previously_self_employed(db):
     assert linked["1"]["previous_self_employed"] is False
 
 
-def test_newest_previous_employer_decides_company_or_self_employed():
-    older_self = pd.DataFrame([
-        _filing("1", "2020-01-01", "RETIRED", "RETIRED", "retired", previous="SELF-EMPLOYED"),
-        _filing("2", "2024-01-01", "RETIRED", "RETIRED", "retired", previous="ACME"),
-    ])
-    newer_self = pd.DataFrame([
-        _filing("1", "2020-01-01", "RETIRED", "RETIRED", "retired", previous="ACME"),
-        _filing("2", "2024-01-01", "RETIRED", "RETIRED", "retired", previous="SELF-EMPLOYED"),
-    ])
+def test_each_retired_filing_keeps_its_own_previous_employer(db):
+    """MARGOLIN, RUTH: retired in 2022 with none named; named her clinic in 2026."""
+    linked = _load(
+        db,
+        [
+            _filing("1", "2022-02-02", "RETIRED", "RETIRED", "retired"),
+            _filing("2", "2022-09-28", "RETIRED", "RETIRED", "retired"),
+            _filing("3", "2026-05-03", "RETIRED", "RETIRED", "retired", previous="CLINIC"),
+        ],
+        employers={"CLINIC": 9},
+    )
 
-    assert previous_self_employed_donors(older_self) == set()
-    assert previous_self_employed_donors(newer_self) == {"D1"}
-
-
-def test_previous_self_employed_ignores_non_retired_rows():
-    frame = pd.DataFrame([
-        _filing("1", "2024-01-01", "SELF-EMPLOYED", "ATTORNEY", "self_employed",
-                previous="SELF-EMPLOYED"),
-    ])
-
-    assert previous_self_employed_donors(frame) == set()
+    assert len(db.rows) == 2
+    assert linked["1"]["previous_employer_id"] is None
+    assert linked["2"] is linked["1"]
+    assert linked["3"]["previous_employer_id"] == 9
 
 
-def test_previous_employer_cannot_be_both_kinds(db):
-    with pytest.raises(RuntimeError, match="both a company and SELF-EMPLOYED"):
-        _load(
-            db,
-            [_filing("1", "2024-01-01", "RETIRED", "RETIRED", "retired", previous="ACME")],
-            previous_ids={"D1": 42},
-            previous_self={"D1"},
-        )
+def test_a_company_and_self_employment_on_different_filings_stay_apart(db):
+    linked = _load(
+        db,
+        [
+            _filing("1", "2020-01-01", "RETIRED", "RETIRED", "retired", previous="SELF-EMPLOYED"),
+            _filing("2", "2024-01-01", "RETIRED", "RETIRED", "retired", previous="ACME"),
+        ],
+        employers={"ACME": 3},
+    )
+
+    assert (linked["1"]["previous_self_employed"], linked["1"]["previous_employer_id"]) == (True, None)
+    assert (linked["2"]["previous_self_employed"], linked["2"]["previous_employer_id"]) == (False, 3)
+
+
+def test_only_a_retired_filing_has_a_previous_employer():
+    get_id = {"ACME": 3}.get
+    assert filing_previous("retired", "ACME", get_id) == (3, False)
+    assert filing_previous("retired", "SELF-EMPLOYED", get_id) == (None, True)
+    assert filing_previous("self_employed", "SELF-EMPLOYED", get_id) == (None, False)
+    assert filing_previous("active", "ACME", get_id) == (None, False)
+    assert filing_previous("retired", np.nan, get_id) == (None, False)
 
 
 class EmployerCursor:
@@ -276,10 +278,11 @@ def test_self_employed_never_becomes_an_employer_row(monkeypatch):
                 previous="ACME", donor="D2"),
     ])
 
-    mapped = link_previous_employers(cursor, cursor, frame, {})
+    names = {}
+    link_previous_employers(cursor, cursor, frame, names)
 
     assert cursor.names == ["ACME"]
-    assert mapped == {"D2": 1}
+    assert names == {"ACME": 1}
 
 
 def test_other_non_company_previous_values_are_reported(monkeypatch, caplog):
@@ -290,6 +293,6 @@ def test_other_non_company_previous_values_are_reported(monkeypatch, caplog):
     ])
 
     with caplog.at_level("WARNING"):
-        assert link_previous_employers(cursor, cursor, frame, {}) == {}
+        link_previous_employers(cursor, cursor, frame, {})
 
     assert "non-company value(s) not stored: 'RETIRED'" in caplog.text

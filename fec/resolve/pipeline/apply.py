@@ -24,6 +24,8 @@ class ResolveContext:
     address_lookup: dict
     # row index -> the donor's own latest employer on or before that retired filing
     dated_previous: dict = field(default_factory=dict)
+    # (donor_key, employer) -> the first date the donor filed that employer
+    first_filed: dict = field(default_factory=dict)
 
 
 # build employer-name aliases from publishable cache entries
@@ -51,14 +53,16 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
         "previous_employer": [],
     }
 
-    dated = {}
+    dated, first_filed = {}, {}
     if {"entity_type", "donor_key", "contribution_receipt_date"}.issubset(df.columns):
         retired_rows = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].eq("RETIRED")
         dated = dated_previous_employers(df, retired_rows)
+        first_filed = _first_filed_employers(df)
     context = ResolveContext(
         previous_cache=prev_cache,
         address_lookup=_address_aliases(addr_cache),
         dated_previous=dated,
+        first_filed=first_filed,
     )
     for index, row in df.iterrows():
         result = _resolve_row(row, context, index)
@@ -210,6 +214,32 @@ def _display_previous_employer(
     return prev_name
 
 
+# each donor's first filing date for every employer they filed
+def _first_filed_employers(df: pd.DataFrame) -> dict:
+    dates = pd.to_datetime(df["contribution_receipt_date"], errors="coerce")
+    working = df["entity_type"].eq("INDIVIDUAL") & dates.notna()
+    employers = df.loc[working, "contributor_employer"].fillna("").astype(str).str.strip().str.upper()
+    frame = pd.DataFrame({"donor": df.loc[working, "donor_key"], "employer": employers, "date": dates[working]})
+    frame = frame[frame["employer"].ne("")]
+    return frame.groupby(["donor", "employer"])["date"].min().to_dict()
+
+
+# a cache entry learned from a filing dated after this one
+def _learned_later(entry: dict, row: pd.Series, first_filed: dict) -> bool:
+    """True when the entry's own source date, or the first date the donor filed
+    its employer, is after this filing; an entry with neither date stays usable."""
+    filed = pd.to_datetime(row.get("contribution_receipt_date"), errors="coerce")
+    if pd.isna(filed):
+        return False
+    source = pd.to_datetime(entry.get("source_date"), errors="coerce")
+    if pd.notna(source):
+        return source > filed
+    donor = row.get("donor_key", "")
+    names = {str(entry.get(key) or "").strip().upper() for key in ("employer", "employer_source")} - {""}
+    firsts = [first_filed[(donor, name)] for name in names if (donor, name) in first_filed]
+    return bool(firsts) and min(firsts) > filed
+
+
 # resolve a retired filer's previous employer and its office
 def _resolve_retired(
     row: pd.Series,
@@ -224,11 +254,16 @@ def _resolve_retired(
     retired, went back to work and retired again (RUDY, RICHARD: BASCO INC, then
     KINZIE HOUSE DESIGNS in 2026) needs each filing's own: the latest employer
     the donor filed on or before that date. A hand-set cache entry still wins.
+    With no earlier employer, a cache entry learned from a later filing does not
+    apply: MARGOLIN, RUTH retired in 2022 and only filed her clinic in 2024.
     """
     prev_entry = context.previous_cache.get(_prev_key(row.get("donor_key", "")))
+    protected = bool(prev_entry) and prev_entry.get("method") in PROTECTED_METHODS
     dated = context.dated_previous.get(index)
-    if dated and not (prev_entry and prev_entry.get("method") in PROTECTED_METHODS):
+    if dated and not protected:
         prev_entry = {"employer": dated, "method": "cross_record"}
+    elif prev_entry and not protected and _learned_later(prev_entry, row, context.first_filed):
+        prev_entry = None
     prev_name, address_keys = _previous_employer_identity(prev_entry)
     if not prev_name:
         return _result("retired")

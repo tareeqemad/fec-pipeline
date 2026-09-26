@@ -83,6 +83,8 @@ def run_checks(cur) -> list[tuple[str, str, str]]:
     out.append(_csv_total_check(cur))
     # every filing's employment row carries the status that filing reported
     out.append(_csv_employment_status_check(cur))
+    # every retired filing's employment row names that filing's own previous employer
+    out.append(_csv_previous_employer_check(cur))
 
     return out
 
@@ -125,6 +127,38 @@ def _csv_employment_status_check(cur) -> tuple[str, str, str]:
         detail = ("every filing keeps its status" if ok else
                   f"{differing:,} filing(s) with another status, {missing:,} without an employment")
         return (OK if ok else CRIT, name, detail)
+    except (psycopg2.Error, OSError, KeyError, ValueError) as error:
+        return (CRIT, name, f"error: {str(error).strip()}")
+
+
+# each retired filing's previous employer in the DB equals its CSV value
+def _csv_previous_employer_check(cur) -> tuple[str, str, str]:
+    """A later filing's previous employer must not reach an earlier one (MARGOLIN, RUTH);
+    OK-skips when the CSV is absent."""
+    name = "previous_employer_vs_csv"
+    try:
+        if not CLEANED_CSV.exists():
+            return (OK, name, "cleaned CSV not present - skipped")
+        csv = pd.read_csv(CLEANED_CSV, usecols=["sub_id", "employer_status", "previous_employer"],
+                          dtype=str, keep_default_na=False)
+        cur.execute("""
+            SELECT c.sub_id,
+                   COALESCE(employer.name,
+                            CASE WHEN e.previous_self_employed THEN 'SELF-EMPLOYED' END, '')
+            FROM contributions c
+            JOIN donor_employments e ON e.donor_employment_id = c.donor_employment_id
+            LEFT JOIN employers employer ON employer.employer_id = e.previous_employer_id
+            WHERE e.employer_status = 'retired'
+        """)
+        db_previous = {int(sub_id): previous for sub_id, previous in cur.fetchall()}
+        retired = csv[csv["employer_status"].str.strip() == "retired"]
+        differing = sum(
+            db_previous.get(int(sub_id), "") != previous.strip()
+            for sub_id, previous in zip(retired["sub_id"], retired["previous_employer"])
+        )
+        detail = ("every retired filing keeps its own" if not differing
+                  else f"{differing:,} retired filing(s) with another previous employer")
+        return (OK if not differing else CRIT, name, detail)
     except (psycopg2.Error, OSError, KeyError, ValueError) as error:
         return (CRIT, name, f"error: {str(error).strip()}")
 

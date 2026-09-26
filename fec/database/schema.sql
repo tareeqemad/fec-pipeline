@@ -44,8 +44,9 @@
 --      - REPLACED the single `leadership.committee_id` with the `leaders`
 --        table + M:N `leader_committees` junction (FKs enforced both sides)
 --      - ADDED `UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation,
---        employer_status)` on `donor_employments` (employer_status joined the
---        key so a filing's own status survives; see the table note)
+--        employer_status, previous_employer_id, previous_self_employed)` on
+--        `donor_employments` (status and previous employer joined the key so
+--        each filing's own survive; see the table note)
 --      - ADDED `donor_employments.previous_self_employed` for retirees whose
 --        previous employer is the contract literal 'SELF-EMPLOYED' (not a
 --        company, so it has no employers row); v_donor_profile shows it
@@ -153,7 +154,7 @@ CREATE TABLE donor_addresses (
 );
 
 
--- Every distinct (donor, employer, occupation, employer_status) tuple.
+-- Every distinct (donor, employer, occupation, employer_status, previous employer) tuple.
 -- `employer_id` is NULL when the donor is RETIRED / NOT EMPLOYED /
 -- SELF-EMPLOYED / HOMEMAKER / STUDENT / (committee).
 -- For RETIRED rows, `previous_employer_id` points at their prior
@@ -204,8 +205,11 @@ CREATE TABLE donor_employments (
     -- the newest status and previous employer. The loader's seen-set and the
     -- contributions lookup use this same key (loader/employers.py
     -- EMPLOYMENT_KEY_COLUMNS). Career progression (ASSOCIATE -> PARTNER) still
-    -- yields separate rows because the occupation differs.
-    UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation, employer_status)
+    -- yields separate rows because the occupation differs. The previous employer
+    -- is in the key too: a retiree's 2022 filing that names none and a 2026
+    -- filing that names a clinic are two rows, so the clinic never reaches 2022.
+    UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation, employer_status,
+                               previous_employer_id, previous_self_employed)
 );
 
 
@@ -574,7 +578,7 @@ COMMENT ON TABLE donors                IS 'Unique donors (individuals + contribu
 COMMENT ON TABLE addresses             IS 'Shared address dimension — one source of truth for donor and employer locations, geocoded once.';
 COMMENT ON TABLE employers             IS 'Unique companies. address_id is the default known location; donor_employments may select a closer office.';
 COMMENT ON TABLE donor_addresses       IS 'Link: donor ↔ address. The "when" (first/last donation here) is NOT stored — it is derived from contributions (MIN/MAX receipt_date).';
-COMMENT ON TABLE donor_employments     IS 'Link: each distinct (donor, employer, occupation, employer_status), so every filing keeps its own status. employer_id is NULL for retired / self-employed / not-employed / committee donors.';
+COMMENT ON TABLE donor_employments     IS 'Link: each distinct (donor, employer, occupation, employer_status, previous employer), so every filing keeps its own status and a retired filing its own previous employer. employer_id is NULL for retired / self-employed / not-employed / committee donors.';
 COMMENT ON TABLE contributions         IS 'Fact table — one row per FEC filing. Foreign keys only, no denormalized copies. The largest table.';
 COMMENT ON TABLE key_accomplices       IS 'Curated editorial content for the dashboard cards (sign/subtitle/body/image/order). Identity comes from donor_id → donors; NOT derived from FEC data.';
 COMMENT ON TABLE leaders               IS 'Curated roster of org leadership (AIPAC / DMFI / …). Identity from donor_id → donors; committee memberships in leader_committees. NOT derived from FEC data.';
