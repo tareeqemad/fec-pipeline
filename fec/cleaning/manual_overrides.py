@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import csv
+import re
 
 import pandas as pd
 
+from fec.cleaning._helpers import levenshtein
+from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
 from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
@@ -15,6 +18,10 @@ logger = get_logger(__name__)
 OVERRIDES_CSV = PROJECT_ROOT / "data" / "manual_employer_overrides.csv"
 CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
 EMPTY_OCCUPATION_CATEGORY = "OTHER"  # the category every filing without an occupation gets
+# set on rows whose override brought an employer or occupation the filing never named
+WORK_FROM_OUTSIDE = "_work_from_outside_filing"
+_WORK_FIELDS = ("contributor_employer", "contributor_occupation")
+_NAME_FIELDS = ("contributor_first_name", "contributor_last_name")
 _ROW_FIELDS = (
     "contributor_employer",
     "contributor_occupation",
@@ -70,6 +77,45 @@ def _read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
     return overrides
 
 
+# words of two letters or more, plus a run of single letters joined ("F A" -> "FA")
+def _words(text: str) -> list[str]:
+    tokens = re.findall(r"[A-Z0-9]+", str(text).upper())
+    joined = "".join(token for token in tokens if len(token) == 1)
+    return [token for token in tokens if len(token) > 1] + ([joined] if len(joined) > 1 else [])
+
+
+# same word, or a close spelling: one edit from four letters, two from six
+def _same_word(a: str, b: str) -> bool:
+    shorter = min(len(a), len(b))
+    return a == b or (shorter >= 4 and levenshtein(a, b) <= (2 if shorter >= 6 else 1))
+
+
+# the value spells out the filing's abbreviation: SFSS -> SAN FRANCISCO SPINE SURGEONS
+def _is_initialism(value_words: list[str], filed_words: list[str]) -> bool:
+    initials = "".join(word[0] for word in value_words)
+    return len(initials) > 1 and initials in filed_words
+
+
+# an override names an employer or occupation the filing's work fields never did
+def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
+    """True when a new employer or occupation shares no word (or initials) with the
+    employer and occupation this filing reported. The filer's own name is not a
+    work detail (GIVNER filed as the employer names no firm), nor are statuses
+    such as SELF-EMPLOYED or cleared cells."""
+    text = lambda columns: " ".join(filed.reindex(columns=list(columns)).fillna("").astype(str).to_numpy().ravel())
+    own_name = set(_words(text(_NAME_FIELDS)))
+    filed_words = [word for word in _words(text(_WORK_FIELDS)) if word not in own_name]
+    for column in _WORK_FIELDS:
+        value = fields.get(column)
+        if value is pd.NA or not value or value.upper() in EMPLOYER_STATUS_VALUES | STATUS_WORDS:
+            continue
+        value_words = _words(value)
+        if not any(_same_word(a, b) for a in value_words for b in filed_words) \
+                and not _is_initialism(value_words, filed_words):
+            return True
+    return False
+
+
 # write each override's fields onto its matching sub_id row
 def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
@@ -80,6 +126,8 @@ def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int
         if not mask.any():
             missing += 1
             continue
+        if _brings_outside_work(df.loc[mask].reindex(columns=[*_WORK_FIELDS, *_NAME_FIELDS]), fields):
+            df.loc[mask, WORK_FROM_OUTSIDE] = True
         for column, value in fields.items():
             if column in df.columns:
                 df.loc[mask, column] = value

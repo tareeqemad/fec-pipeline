@@ -65,5 +65,16 @@ check('Foldes $100: SELF-EMPLOYED kept', by.at['4102420231807010022', 'contribut
 check('Chrystal: no garbled name', not b.contributor_name.str.contains('GLENN STUART CHRYSTA').any())
 check('S. Wolf Harris name kept', 'WOLF' in by.at['4081920251218698011', 'contributor_name'])
 check('T Alison Robbins name kept', 'ALISON' in by.at['4111420241068713232', 'contributor_name'])
+# second recheck, 2026-09-25
+held = ['4011420231698184106', '4011420231698186281', '4072420241978928304', '4060420241953433739', '4052120241949843793']
+check('HEALTH, GOOD and WINN joint filings held', all(by.at[s, 'identity_status'] == 'held' for s in held),
+      str({s: by.at[s, 'identity_status'] for s in held}))
+check('WINN joint filings off Tamara and Sarah', not {key(s) for s in held[2:]} & (keys_of('WINN, TAMARA') | keys_of('WINN, SARAH')))
+inferred = {'4032520241885655983': 'Blatt', '4112020241071383083': 'Green', '4080620251215493429': 'Eckstein',
+            '4122120231813094010': 'Auerbach'}
+for sub, who in inferred.items():
+    check(f'{who}: work taken from other filings marked inferred', by.at[sub, 'employment_source'] == 'inferred')
+check('Givner: firm named only by own surname marked inferred',
+      (b.loc[b.contributor_name == 'GIVNER, JOEY', 'employment_source'] == 'inferred').any())
 print('\n', 'ALL OK' if not fails else f'{len(fails)} FAILED: {fails}')
 sys.exit(1 if fails else 0)
