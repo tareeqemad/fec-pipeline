@@ -23,7 +23,10 @@ from fec.cleaning.audit_trail import (
     AuditTrail,
 )
 from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
-from fec.cleaning.manual_overrides import apply_manual_employer_overrides
+from fec.cleaning.manual_overrides import (
+    WORK_FROM_OUTSIDE,
+    apply_manual_employer_overrides,
+)
 from fec.cleaning.occupations import clean_employer_occupation
 from fec.cleaning.pipeline.address_stage import clean_addresses, log_review_queues
 from fec.cleaning.pipeline.donor_identity import identify_donors
@@ -247,7 +250,10 @@ def _employment_sources(df: pd.DataFrame, trail: AuditTrail) -> pd.Series:
         df["contributor_employer"].fillna("").astype(str).ne("")
         | df["contributor_occupation"].fillna("").astype(str).ne("")
     )
-    from_others = df["sub_id"].astype(str).isin(inferred) & has_work
+    from_others = df["sub_id"].astype(str).isin(inferred)
+    if WORK_FROM_OUTSIDE in df.columns:
+        from_others |= df[WORK_FROM_OUTSIDE].eq(True)
+    from_others &= has_work
     return pd.Series("filed", index=df.index).mask(from_others, "inferred")
 
 

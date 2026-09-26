@@ -564,7 +564,7 @@ CREATE INDEX idx_lc_committee ON leader_committees (committee_id);
 -- columns.
 
 -- Columns: how sure the data is
-COMMENT ON COLUMN donors.identity_status IS 'confirmed = one person as identified; held = filings a hold rule keeps apart because no person is proven to own them; unresolved = a filing under a network name whose donor is unknown. Only confirmed donors are people.';
+COMMENT ON COLUMN donors.identity_status IS 'confirmed = the matcher and the identity rules found one person and no open question is recorded (not an outside proof of who the person is); held = filings a hold rule keeps apart because no person is proven to own them; unresolved = a filing under a network name whose donor is unknown. Only confirmed donors are people.';
 COMMENT ON COLUMN contributions.employment_source IS 'filed = the employer and occupation come from this filing; inferred = at least one was filled from the same donor''s other filings, not filed here.';
 
 -- Tables
