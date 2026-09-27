@@ -29,6 +29,7 @@ Thumbs.db
 *.log
 *.bak
 *.bak_*
+data/_*
 data/reports/review/
 .tmp/
 
