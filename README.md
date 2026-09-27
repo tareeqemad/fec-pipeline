@@ -74,14 +74,21 @@ accepts one committee ID:
 python pull.py C00797670
 python pull.py C00797670 --period 2024
 python pull.py C00797670 --period 2024 --full
+python pull.py C00797670 --period 2024 --backfill-source
 ```
 
 - The first command updates the current FEC period.
 - `--period` selects an election period.
 - `--full` rechecks that entire period.
+- `--backfill-source` fills FEC's own `fec_entity_type` and `fec_contributor_id`
+  for rows already pulled. A row is matched by `sub_id`, or, when FEC now returns
+  the transaction under a newer `sub_id`, by one exact match on committee,
+  transaction id, date and amount; never by name. It appends nothing and reports
+  the rows it could not match. Run it once per committee and period.
 
 Normal updates start again from the latest saved date so late filings from that
-date are included. Existing rows are skipped by `sub_id`.
+date are included. Existing rows are skipped by `sub_id`, so `--full` alone does
+not fill new fields on them.
 
 ## Output files
 

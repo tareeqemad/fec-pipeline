@@ -24,6 +24,7 @@ from fec.cleaning.donor_consistency.employer_variants import (
 )
 from fec.cleaning.donor_consistency.entity import (
     _apply_entity_overrides,
+    _apply_source_entity_types,
     _clear_nonindividual_employer_field,
     _reenforce_entity_consistency,
 )
@@ -78,6 +79,8 @@ CONSISTENCY_FIXES = (
      "refusal_placeholder_employer_nulled", None),
     ("enforce entity consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
      "entity_type_unified_by_name", None),
+    ("apply fec source entity type", _apply_source_entity_types, ENTITY_AND_WORK,
+     "entity_type_as_fec_reports_it", None),
     ("apply entity overrides", _apply_entity_overrides, ENTITY_AND_WORK,
      "curated_entity_type_override", "data/database/entity_overrides.csv"),
     ("sync employer and occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,

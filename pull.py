@@ -9,6 +9,7 @@ from datetime import date
 from fec.committees import committee_id_to_name
 from fec.log import get_logger
 from fec.fec_api import PullError
+from fec.pull import backfill_source
 from fec.pull import run as pull_run
 
 logger = get_logger(__name__)
@@ -34,6 +35,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Recheck the complete period instead of starting at the latest date.",
     )
+    ap.add_argument(
+        "--backfill-source",
+        action="store_true",
+        help="Fill FEC's own entity type and contributor id for rows already pulled "
+             "(matched by sub_id, else one exact transaction match; never by name). Appends nothing.",
+    )
     args = ap.parse_args(argv)
 
     from fec import env
@@ -49,17 +56,25 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     period = _current_period(args.period)
+    if args.backfill_source and args.full:
+        ap.error("--backfill-source and --full do different things; run them separately")
 
     logger.info("=" * 60)
     logger.info(
         "  FEC pull - %s, period %s, %s",
         committee_id,
         period,
-        "full period" if args.full else "new records",
+        "backfill FEC source fields" if args.backfill_source else "full period" if args.full else "new records",
     )
     logger.info("=" * 60)
 
     try:
+        if args.backfill_source:
+            stats = backfill_source(committee_id, period)
+            if stats["unmatched"] or stats["ambiguous"]:
+                logger.warning("  %s rows left without FEC source fields (see counts above)",
+                               f"{stats['unmatched'] + stats['ambiguous']:,}")
+            return 0
         pull_run(
             committee_id=committee_id,
             period=period,

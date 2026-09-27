@@ -25,6 +25,7 @@ from fec.cleaning.audit_trail import (
     AuditTrail,
 )
 from fec.cleaning.donor_consistency.steps import INFERRED_WORK_STEPS
+from fec.cleaning.entity_source import ensure_source_columns
 from fec.cleaning.manual_overrides import (
     FILED_WORK_FIELDS,
     apply_manual_employer_overrides,
@@ -90,6 +91,7 @@ def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
         log("Sanity: all amounts & dates OK")
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
+    ensure_source_columns(df)
     return df
 
 

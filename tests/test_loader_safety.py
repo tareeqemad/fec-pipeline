@@ -217,7 +217,7 @@ def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
         "contribution_receipt_date": "2024-01-01",
         "contribution_receipt_amount": "500", "previous_employer": "",
         "donor_key": "donor-1", "latitude": "40.7", "longitude": "-74.0",
-        "employer_status": "active",
+        "employer_status": "active", "fec_entity_type": "IND", "fec_contributor_id": "",
     }])
     locations = pd.DataFrame([{
         "employer_name": "ACME INC", "employer_address": "2 WORK ST",
