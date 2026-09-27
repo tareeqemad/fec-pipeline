@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pandas as pd
 
@@ -15,6 +16,7 @@ from fec.cleaning.addresses.review import (
     queue_counts,
     write_review_queues,
 )
+from fec.cleaning.addresses.review_cases import REVIEW_CASES_CSV, build_review_cases
 from fec.cleaning.audit_trail import (
     ADDRESS_FIELDS,
     ENTITY_FIELDS,
@@ -226,7 +228,7 @@ def standardize_donors(
 
 
 # write address review queues from the final cleaned rows
-def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_ids) -> None:
+def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail) -> None:
     """Write the address review queues from the final rows (read-only: edits nothing).
 
     Written here rather than in the address stage so donor-stage repairs are
@@ -241,6 +243,10 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
     )
     write_review_queues(out_dir, review_df, regeocode_df)
     log_review_queues(queue_counts(review_df, regeocode_df), logger.info)
+    cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
+    cases.to_csv(Path(out_dir) / REVIEW_CASES_CSV, index=False)
+    logger.info("  Address review cases: %s (%s high priority)",
+                f"{len(cases):,}", f"{int(cases['priority'].eq('high').sum()):,}")
 
 
 # label each row's employer/occupation as filed or inferred
@@ -281,6 +287,8 @@ def clean_pipeline(
     foreign = snapshot_foreign_addresses(df)
     # what each filing itself said about work, to tell filed from inferred later
     filed_work = df.reindex(columns=list(FILED_WORK_FIELDS)).fillna("").astype(str)
+    # each filing's address as filed, the review cases' evidence
+    filed_addresses = df.reindex(columns=["sub_id", *ADDRESS_FIELDS]).fillna("").astype(str)
     address_reports: dict = {}
     df_clean, missing = clean_records(
         df, trail, out_dir=out_dir, address_reports=address_reports,
@@ -296,7 +304,7 @@ def clean_pipeline(
         f"{len(foreign):,}", f"{n_foreign:,}",
     )
     if out_dir:
-        _write_address_queues(df_clean, out_dir, address_reports, foreign.index)
+        _write_address_queues(df_clean, out_dir, address_reports, foreign.index, filed_addresses, trail)
     unexplained = trail.finish(df_clean)
     df_clean["employment_source"] = _employment_sources(df_clean, trail, filed_work)
     if unexplained:
