@@ -7,6 +7,7 @@ import pandas as pd
 from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
 from fec.config.constants import STATUS_CATEGORIES
+from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 
 # political-committee wording in a name: "FRIENDS OF SMITH", "SMITH FOR SENATE"
@@ -125,11 +126,17 @@ def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame,
     return df, n_fixed
 
 
+# a committee name ending in FOR and a state code: "ROB FOR PA"
+_FOR_STATE_RE = re.compile(r'\bFOR (?:' + '|'.join(sorted(US_STATES)) + r')$')
+
+
 # strip legal suffixes from non-individual contributor names
 def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Strip legal suffixes (LLC, LLP, INC) from non-individual contributor names."""
-    mask = df['entity_type'] != 'INDIVIDUAL'
-    names = df.loc[mask, 'contributor_name'].fillna('')
+    names = df['contributor_name'].fillna('')
+    # ROB FOR PA is a campaign for Pennsylvania, not a professional association
+    mask = (df['entity_type'] != 'INDIVIDUAL') & ~names.str.contains(_FOR_STATE_RE)
+    names = names[mask]
     cleaned = names.str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
     changed = (cleaned != names) & (cleaned != '')
     n_fixed = changed.sum()
