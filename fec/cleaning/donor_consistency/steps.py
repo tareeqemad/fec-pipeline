@@ -38,6 +38,7 @@ from fec.cleaning.donor_consistency.retired import (
     _normalize_previous_employer,
     _settle_retired_employer,
 )
+from fec.cleaning.manual_overrides import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.record_junk import _clean_junk_status_word_employer
 from fec.cleaning.safety_nets.occupation_category import (
     _fix_emp_occ_category_consistency,
@@ -115,4 +116,13 @@ def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> int:
         count = trail.run(df, fix, step, reason, fields, source=source)
         total += count
         log_count(logger, label, count)
+        # a value a manual override rejected is put back at once, so no later
+        # step builds on it (SANDBERG's cleared employer fed her previous one)
+        trail.run(df, _keep_overrides, "manual_overrides_kept", "curated_row_override",
+                  OVERRIDE_FIELDS, source="data/manual_employer_overrides.csv")
     return total
+
+
+# re-apply the manual overrides' cleared cells and company names
+def _keep_overrides(df: pd.DataFrame) -> int:
+    return apply_manual_employer_overrides(df, company_names_only=True)

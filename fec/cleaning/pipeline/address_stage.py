@@ -79,6 +79,13 @@ def _clean_street_text(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame
     )
 
 
+# steps that take a street from other filings or FEC's API: the result is
+# not evidence two filings are one person (donor matching ignores it)
+INFERRED_STREET_STEPS = frozenset({
+    "streets_recover_null", "streets_recover_nonstreet", "streets_recover_house_number",
+    "streets_trim_truncated", "streets_recover_fec_api",
+})
+
 # Street recoveries from the donor's own filings, in order
 _STREET_RECOVERIES = (
     (_recover_null_streets, "streets_recover_null",

@@ -178,6 +178,14 @@ def overridden_employer_sub_ids() -> set[str]:
     }
 
 
+# every field an override row can set, for the audit trail
+OVERRIDE_FIELDS = (
+    "contributor_employer", "contributor_occupation", "occupation_category",
+    "contributor_city", "contributor_street_1", "contributor_street_2",
+    "contributor_zip", "previous_employer",
+)
+
+
 # apply per-row overrides matched on sub_id
 def apply_manual_employer_overrides(
     df,

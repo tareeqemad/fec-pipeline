@@ -16,7 +16,7 @@ from fec.cleaning.audit_trail import (
 from fec.cleaning.donor_consistency.steps import apply_donor_consistency
 from fec.cleaning.employer_synonyms.apply import finalize_employer_names
 from fec.cleaning.entity_classification import apply_name_corrections
-from fec.cleaning.manual_overrides import apply_manual_employer_overrides
+from fec.cleaning.manual_overrides import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.donor_match.canonical_addresses import (
     canonicalize_donor_addresses,
     canonicalize_donor_pobox_typos,
@@ -183,10 +183,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
 
     protected = trail.run(
         df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
-        "curated_employer_names", "curated_row_override",
-        ("contributor_employer", "contributor_occupation", "occupation_category",
-         "contributor_city", "contributor_street_1", "contributor_street_2",
-         "contributor_zip", "previous_employer"),
+        "curated_employer_names", "curated_row_override", OVERRIDE_FIELDS,
         source="data/manual_employer_overrides.csv",
     )
     log_count(logger, "curated employer names", protected)
