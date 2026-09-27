@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-import build_employers
+from fec.geocoding import employer_locations
 from fec.geocoding.pipeline import _contributor_keys
 from fec.geocoding.employers import _employer_keys
 from fec.geocoding.street_text import numbered_street
@@ -50,7 +50,7 @@ def test_every_geocode_key_builder_uses_the_numbered_street():
     }])
     assert _contributor_keys(donors).tolist() == [expected]
     assert _employer_keys(employers).tolist() == [expected]
-    assert build_employers._address_key({
+    assert employer_locations._address_key({
         "employer_address": "777 Third Ave", "employer_city": "New York",
         "employer_state": "NY", "employer_zip": "10017",
     }) == tuple(expected.split("|"))

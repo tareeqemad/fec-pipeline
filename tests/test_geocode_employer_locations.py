@@ -6,7 +6,7 @@ import sys
 import pandas as pd
 from geo_patch import patch_geo
 
-import build_employers
+from fec.geocoding import employer_locations
 import geocode
 from fec import io
 from fec.geocoding import employers
@@ -135,7 +135,7 @@ def test_employer_mode_builds_location_file(tmp_path, monkeypatch):
         lambda df, _cache, _data_dir: (df, True),
     )
     monkeypatch.setattr(geocode, "_write_output", lambda *_args: calls.append("write"))
-    monkeypatch.setattr(build_employers, "build", lambda: calls.append("build"))
+    monkeypatch.setattr(employer_locations, "build", lambda: calls.append("build"))
     # the run and column checks have their own tests
     for name in ("check_same_run", "check_input", "record"):
         monkeypatch.setattr(geocode, name, lambda *_args: None)

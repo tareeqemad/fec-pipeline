@@ -94,14 +94,14 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dic
     return df
 
 
-# keep build_employers' spelling when resolve found the same company
+# keep employer_locations' spelling when resolve found the same company
 def _preserve_previous_employer_display(
     df: pd.DataFrame,
     prior_previous: pd.Series | None,
 ) -> None:
-    """Keep build_employers' spelling when resolve found the same company.
+    """Keep employer_locations' spelling when resolve found the same company.
 
-    Resolve may replace the identity; build_employers owns its display spelling.
+    Resolve may replace the identity; employer_locations owns its display spelling.
     This boundary prevents suffix/style churn on pipeline-tail reruns.
     """
     if prior_previous is None or "previous_employer" not in df.columns:

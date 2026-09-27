@@ -10,7 +10,7 @@ import json
 
 import pandas as pd
 
-import build_employers
+from fec.geocoding import employer_locations
 
 RAW = "20900 N.E. 30th Avenue, Suite 203"
 PLACE = "AVENTURA|FL|33180"
@@ -29,10 +29,10 @@ def _build(tmp_path, monkeypatch, geocodes):
     }}
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
-    build_employers.build()
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
+    employer_locations.build()
     return pd.read_csv(output, dtype=str, keep_default_na=False, na_values=[]).iloc[0]
 
 
@@ -89,7 +89,7 @@ def test_a_point_its_own_key_rejects_is_never_taken(tmp_path, monkeypatch):
 
 def test_a_hand_checked_point_counts_without_a_cache_entry(tmp_path, monkeypatch):
     # the prune step deletes unused cache keys; a reviewed point lives in the code
-    monkeypatch.setattr(build_employers, "REVIEWED_POINTS", {
+    monkeypatch.setattr(employer_locations, "REVIEWED_POINTS", {
         f"20900 NE 30TH AVE|{PLACE}": (25.97, -80.145, "checked by hand"),
     })
     monkeypatch.setattr("fec.geocoding.accepted.reviewed_point", lambda key: (

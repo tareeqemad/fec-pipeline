@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import pytest
 
-import build_employers
+from fec.geocoding import employer_locations
 
 
 def test_build_rejects_unfinished_resolve_output(tmp_path, monkeypatch):
@@ -13,10 +13,10 @@ def test_build_rejects_unfinished_resolve_output(tmp_path, monkeypatch):
     pd.DataFrame({
         "resolve_method": ["pending"],
     }).to_csv(cleaned, index=False)
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
 
     with pytest.raises(ValueError, match="geocode.py --employer-only"):
-        build_employers.build()
+        employer_locations.build()
 
 
 def test_builds_primary_and_additional_locations(tmp_path, monkeypatch):
@@ -71,11 +71,11 @@ def test_builds_primary_and_additional_locations(tmp_path, monkeypatch):
     )
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
 
     locations = pd.read_csv(output, keep_default_na=False)
     assert locations["employer_name"].tolist() == ["BIG FIRM", "BIG FIRM"]
@@ -87,7 +87,7 @@ def test_builds_primary_and_additional_locations(tmp_path, monkeypatch):
     assert "employer_address" not in slim.columns
     assert "employer_latitude" not in slim.columns
 
-    build_employers.build()
+    employer_locations.build()
     rerun = pd.read_csv(output, keep_default_na=False)
     pd.testing.assert_frame_equal(locations, rerun)
 
@@ -106,11 +106,11 @@ def test_build_never_rewrites_cleaned_employer_names(tmp_path, monkeypatch):
     (tmp_path / "resolve_employer_addr.json").write_text("{}", encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
 
     result = pd.read_csv(cleaned, keep_default_na=False)
     assert result["contributor_employer"].tolist() == names
@@ -118,7 +118,7 @@ def test_build_never_rewrites_cleaned_employer_names(tmp_path, monkeypatch):
 
 
 def test_uncertain_manual_address_is_not_marked_verified():
-    source, trust = build_employers._trust(
+    source, trust = employer_locations._trust(
         "manual_review", "NY", {"NY"},
     )
 
@@ -139,11 +139,11 @@ def test_build_ignores_company_text_on_not_employed_rows(tmp_path, monkeypatch):
     (tmp_path / "resolve_employer_addr.json").write_text("{}", encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
 
     assert pd.read_csv(output).empty
     result = pd.read_csv(cleaned, keep_default_na=False)
@@ -183,16 +183,16 @@ def test_build_withdraws_an_invalidated_address(tmp_path, monkeypatch):
     )
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
     first = pd.read_csv(output, keep_default_na=False)
     assert first.loc[0, "employer_name"] == "ACME"
     assert first.loc[0, "employer_address"] == ""
 
-    build_employers.build()
+    employer_locations.build()
     second = pd.read_csv(output, keep_default_na=False)
     pd.testing.assert_frame_equal(first, second)
 
@@ -236,11 +236,11 @@ def test_manual_canonical_address_beats_old_exact_ai(tmp_path, monkeypatch):
     )
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
 
     result = pd.read_csv(output, keep_default_na=False)
     assert set(result["employer_state"]) == {"IL", "MO"}
@@ -256,7 +256,7 @@ def test_build_reports_missing_resolve_columns(tmp_path, monkeypatch):
         "previous_employer": "",
         "contributor_state": "NY",
     }]).to_csv(cleaned, index=False)
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
 
     with pytest.raises(ValueError, match="resolve.py --apply"):
-        build_employers.build()
+        employer_locations.build()

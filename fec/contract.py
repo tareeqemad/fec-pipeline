@@ -3,7 +3,7 @@
 Stages run in this order and each rewrites the cleaned CSV:
 
     clean.py -> geocode.py -> resolve.py --apply -> geocode.py --employer-only
-    (which ends with build_employers)
+    (which ends by building employer_locations.csv)
 
 A stage checks the file it reads (check_input) and the frame it is about to
 write (check_output); the loader accepts only LOADED_COLUMNS, exactly.
@@ -56,7 +56,7 @@ STAGES = {
         adds=EMPLOYER_COORDINATES, drops=RESOLVE_WORKING,
     ),
     'employers': Stage(
-        'build_employers',
+        'geocode.py --employer-only (employer locations)',
         needs=CLEAN_COLUMNS + EMPLOYER_ADDRESS + EMPLOYER_COORDINATES + ('employer_status',),
         drops=EMPLOYER_ADDRESS + EMPLOYER_COORDINATES,
     ),
