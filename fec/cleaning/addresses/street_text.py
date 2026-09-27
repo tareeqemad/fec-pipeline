@@ -214,6 +214,11 @@ def _strip_named_unit(streets: pd.Series) -> pd.Series:
     return stripped.str.rstrip(',').str.strip()
 
 
+# audit reasons for each unit leftover removed from street_1
+UNIT_REPEATED_REASON = "street_1_unit_repeating_street_2_dropped"
+DOUBLED_HASH_REASON = "doubled_hash_unit_moved_to_street_2"
+FLOOR_ORDINAL_REASON = "floor_ordinal_left_in_street_1_dropped"
+
 # a street_2 that is only a floor: "FL 4", "FLOOR 4"
 _FLOOR_UNIT_RE = re.compile(r'^(?:FL|FLR|FLOOR)\.?\s+(\d{1,3})$')
 # an ordinal right after the street type: "1555 BROADWAY ST 4TH"
@@ -221,12 +226,19 @@ _FLOOR_ECHO_RE = re.compile(r'(\s(?:ST|AVE|RD|DR|LN|CT|PL|WAY|BLVD|CIR|TER|HWY|P
 
 
 # pull named and hash units from street_1 into empty street_2
-def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, pd.Series, int]:
-    """Move unit info embedded in street_1 into empty street_2; returns (s1, s2, n_extracted)."""
+def _extract_units(
+    street1: pd.Series, street2: pd.Series,
+) -> tuple[pd.Series, pd.Series, int, pd.Series]:
+    """Move unit info embedded in street_1 into empty street_2.
+
+    Returns (s1, s2, n_extracted, leftovers): leftovers names, per row, the
+    unit leftover removed from street_1 ('' for none), for the audit trail.
+    """
     s1 = street1.fillna('').astype(str).replace({'nan': ''})
     s2 = street2.fillna('').astype(str).replace({'nan': ''})
     s2_blank = s2.str.strip().eq('')
     n_extracted = 0
+    leftovers = pd.Series('', index=s1.index, dtype=object)
 
     # named units (APT, STE, UNIT, ...)
     named_unit = s1.str.extract(UNIT_EXTRACT)[0]
@@ -250,10 +262,12 @@ def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, p
     repeated = hash_unit.notna() & ~s2_blank & hash_unit.fillna('').map(_unit_number).eq(s2.map(_unit_number))
     if repeated.any():
         s1 = s1.where(~repeated, s1.str.replace(HASH_EXTRACT, '', regex=True).str.strip())
+        leftovers[repeated] = UNIT_REPEATED_REASON
 
     # hash units (#5A, # 200)
     match_hash = s1.str.extract(HASH_EXTRACT)
     has_hash = match_hash[0].notna() & s2_blank
+    leftovers[has_hash & s1.str.contains('##', regex=False)] = DOUBLED_HASH_REASON
     if has_hash.any():
         n_extracted += int(has_hash.sum())
         s2 = s2.where(~has_hash, match_hash[0].str.strip())
@@ -268,8 +282,9 @@ def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, p
     drop_echo = floor.notna() & floor.eq(echo)
     if drop_echo.any():
         s1 = s1.where(~drop_echo, s1.str.replace(_FLOOR_ECHO_RE, r'\1', regex=True))
+        leftovers[drop_echo] = FLOOR_ORDINAL_REASON
 
-    return s1.replace({'': np.nan}), s2.replace({'': np.nan}), n_extracted
+    return s1.replace({'': np.nan}), s2.replace({'': np.nan}), n_extracted, leftovers
 
 
 # the number of a unit, without its word: "APT 1" -> "1", "#1" -> "1"

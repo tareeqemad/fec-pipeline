@@ -49,6 +49,9 @@ def _street_reason(df: pd.DataFrame) -> pd.Series:
         nulled = df["_street_nulled_email"].fillna(False).astype(bool)
         reasons[flagged & swapped] = "street_swap_due_to_email_in_street1"
         reasons[flagged & nulled] = "street_nulled_due_to_email_in_street1"
+    if "_street_unit_leftover" in df.columns:
+        leftover = df["_street_unit_leftover"].fillna("").astype(str)
+        reasons = reasons.mask(leftover.ne(""), leftover)
     return reasons
 
 
