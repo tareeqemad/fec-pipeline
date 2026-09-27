@@ -4,7 +4,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-FIELDS = [
+RAW_FIELDS = [
     "sub_id",
     "transaction_id",
     "two_year_transaction_period",
@@ -25,8 +25,20 @@ FIELDS = [
 ]
 
 
-# contributor_year preserves the existing raw CSV contract.
-COLUMNS = FIELDS[:-1] + ["contributor_year"] + FIELDS[-1:]
+# What FEC itself says about the contributor, kept apart from what clean
+# decides: raw column -> FEC API field. entity_type is IND, ORG, COM, PAC,
+# PTY, CCM or CAN; contributor_id is the FEC id of a committee contributor.
+SOURCE_FIELDS = {
+    "fec_entity_type": "entity_type",
+    "fec_contributor_id": "contributor_id",
+}
+
+# the FEC API fields one pull asks for
+FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
+
+# contributor_year preserves the existing raw CSV contract; the source
+# fields come last so older files gain them as trailing columns.
+COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:] + list(SOURCE_FIELDS)
 
 
 # parse a value into a Decimal, default zero on failure
@@ -58,7 +70,8 @@ def build_row(result: dict[str, Any]) -> list | None:
         return None
 
     receipt_date = _date(result.get("contribution_receipt_date"))
-    values = {field: result.get(field) for field in FIELDS}
+    values = {field: result.get(field) for field in RAW_FIELDS}
+    values.update(source_values(result))
     values["sub_id"] = sub_id
     values["contribution_receipt_date"] = receipt_date
     values["contributor_year"] = _year(receipt_date)
@@ -66,3 +79,11 @@ def build_row(result: dict[str, Any]) -> list | None:
         result.get("contribution_receipt_amount")
     )
     return [values.get(column) for column in COLUMNS]
+
+
+# the source fields of one FEC API result, by raw column
+def source_values(result: dict[str, Any]) -> dict[str, str]:
+    return {
+        column: str(result.get(field) or "").strip().upper()
+        for column, field in SOURCE_FIELDS.items()
+    }

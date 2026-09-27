@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
+from fec.cleaning.entity_source import source_entity_type
 from fec.config.data import INDIV_NAME_RE, ORG_KEYWORDS
 
 # Name-token signals for the ORGANIZATION vs COMMITTEE/PAC split: US legal and
@@ -128,6 +129,7 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     df["entity_type"] = np.select(
         [indiv, is_org], ["INDIVIDUAL", "ORGANIZATION"], default="COMMITTEE/PAC"
     )
+    _apply_source_entity_type(df)
 
     # a name that is ORGANIZATION in any row makes all its non-individual rows
     # ORGANIZATION (COMMITTEE/PAC is only a default, never a positive id)
@@ -138,6 +140,23 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
         "POLITICAL COMMITTEE"
     )
     return n_to_indiv, n_to_comm
+
+
+# FEC's own entity type wins over the name-based guess
+def _apply_source_entity_type(df: pd.DataFrame) -> int:
+    """Rows FEC typed take that type; a row the guess made a committee and FEC
+    calls a person is reclassified like any committee_to_individual row, so
+    its work fields are restored."""
+    source = source_entity_type(df)
+    differs = source.ne("") & source.ne(df["entity_type"])
+    if not differs.any():
+        return 0
+    to_person = differs & source.eq("INDIVIDUAL")
+    df.loc[to_person, "_reclass_reason"] = "committee_to_individual_fec_source"
+    df.loc[differs & ~to_person, "_reclass_reason"] = "fec_source_entity_type"
+    df.loc[differs, "entity_type"] = source[differs]
+    df.loc[differs, "is_individual"] = to_person[differs]
+    return int(differs.sum())
 
 
 # set class and reason on masked rows; return the count
@@ -221,9 +240,10 @@ def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
     )
     if not org_names:
         return 0
+    # a row FEC itself typed keeps that type
     fix = (df["entity_type"] == "COMMITTEE/PAC") & df["contributor_name"].isin(
         org_names
-    )
+    ) & source_entity_type(df).eq("")
     n_changed = int(fix.sum())
     if n_changed:
         df.loc[fix, "entity_type"] = "ORGANIZATION"
