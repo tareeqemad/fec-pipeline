@@ -11,12 +11,12 @@ from fec.cleaning._helpers import levenshtein
 from fec.cleaning.occupations.normalize import _categorize
 from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
 from fec.config.not_employers import NOT_REAL_EMPLOYER
-from fec.env import PROJECT_ROOT
+from fec.env import MANUAL_EMPLOYER_OVERRIDES_CSV
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-OVERRIDES_CSV = PROJECT_ROOT / "data" / "manual_employer_overrides.csv"
+OVERRIDES_CSV = MANUAL_EMPLOYER_OVERRIDES_CSV
 CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
 EMPTY_OCCUPATION_CATEGORY = "OTHER"  # the category every filing without an occupation gets
 FILED_WORK_FIELDS = (

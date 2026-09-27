@@ -34,11 +34,12 @@ from fec.resolve.pipeline.apply import apply_results  # noqa: E402
 
 mode = sys.argv[1] if len(sys.argv) > 1 else "dry"
 DATA = REPO / "data"
+CACHE = DATA / "cache"
 kw = dict(dtype=str, keep_default_na=False, na_values=[])
 
 
 def load(name):
-    return json.loads((DATA / name).read_text(encoding="utf-8"))
+    return json.loads((CACHE / name).read_text(encoding="utf-8"))
 
 
 class DictCache(dict):
@@ -53,10 +54,10 @@ addr = load("resolve_employer_addr.json")
 prev = load("resolve_prev_employer.json")
 fecaddr = load("fec_address_cache.json")
 
-df = read_pipeline_csv(str(DATA / "contributions_cleaned.csv"))
-raw = pd.read_csv(DATA / "contributions.csv", usecols=["contributor_name", "contributor_state"], **kw)
-emp_loc = pd.read_csv(DATA / "employer_locations.csv", **kw)
-manual = pd.read_csv(DATA / "manual_employer_addresses.csv", **kw)
+df = read_pipeline_csv(str(DATA / "output" / "contributions_cleaned.csv"))
+raw = pd.read_csv(DATA / "raw" / "contributions.csv", usecols=["contributor_name", "contributor_state"], **kw)
+emp_loc = pd.read_csv(DATA / "output" / "employer_locations.csv", **kw)
+manual = pd.read_csv(DATA / "rules" / "manual_employer_addresses.csv", **kw)
 
 # ---------- resolve_prev_employer.json ----------
 donor_keys = set(df["donor_key"].dropna().astype(str))
@@ -86,7 +87,12 @@ def candidates(entries, frame):
     tmp = OUT / "tmp_addr"
     tmp.mkdir(parents=True, exist_ok=True)
     (tmp / "resolve_employer_addr.json").write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
-    rows = geocode_script._all_employer_addresses(frame, str(tmp))
+    saved = geocode_script.CACHE_DIR
+    geocode_script.CACHE_DIR = tmp
+    try:
+        rows = geocode_script._all_employer_addresses(frame)
+    finally:
+        geocode_script.CACHE_DIR = saved
     mask = rows["employer_address"].notna() & (rows["employer_address"] != "")
     return rows.loc[mask], set(gp._employer_keys(rows.loc[mask]))
 
@@ -134,21 +140,25 @@ for name, (before, after) in report.items():
     print(f"{name}: {before} -> {after}  (remove {before - after})")
 
 # ---------- build_employers with the pruned geocode cache ----------
-import build_employers  # noqa: E402
+from fec.geocoding import employer_locations as build_employers  # noqa: E402
 
 
 def built(geo_data):
     tmp = OUT / "tmp_build"
     tmp.mkdir(parents=True, exist_ok=True)
-    for name in ("resolve_employer_addr.json", "manual_employer_addresses.csv", "employer_locations.csv"):
-        shutil.copy(DATA / name, tmp / name)
+    shutil.copy(CACHE / "resolve_employer_addr.json", tmp / "resolve_employer_addr.json")
+    shutil.copy(DATA / "rules" / "manual_employer_addresses.csv", tmp / "manual_employer_addresses.csv")
+    shutil.copy(DATA / "output" / "employer_locations.csv", tmp / "employer_locations.csv")
     (tmp / "geocode_cache.json").write_text(json.dumps(geo_data, ensure_ascii=False), encoding="utf-8")
-    saved = build_employers.DATA_DIR, build_employers.EMPLOYER_LOCATIONS_CSV
-    build_employers.DATA_DIR, build_employers.EMPLOYER_LOCATIONS_CSV = tmp, tmp / "employer_locations.csv"
+    names = ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR", "EMPLOYER_LOCATIONS_CSV")
+    saved = [getattr(build_employers, name) for name in names]
+    for name, value in zip(names, (tmp, tmp, tmp, tmp / "employer_locations.csv")):
+        setattr(build_employers, name, value)
     try:
         locations, _review = build_employers.build_locations(df.copy())
     finally:
-        build_employers.DATA_DIR, build_employers.EMPLOYER_LOCATIONS_CSV = saved
+        for name, value in zip(names, saved):
+            setattr(build_employers, name, value)
     return locations
 
 
@@ -187,7 +197,7 @@ outputs = {"geocode_cache.json": geo_keep, "resolve_employer_addr.json": addr_ke
            "resolve_prev_employer.json": prev_keep, "fec_address_cache.json": fec_keep}
 for name, data in outputs.items():
     # same format as each cache's own writer: GeoCache/Cache use json.dump defaults, ensure_ascii=False
-    original = (DATA / name).read_text(encoding="utf-8")
+    original = (CACHE / name).read_text(encoding="utf-8")
     indent = 2 if original.startswith("{\n") else None
     (target / name).write_text(json.dumps(data, ensure_ascii=False, indent=indent), encoding="utf-8")
 
@@ -197,8 +207,8 @@ if mode == "apply":
     backup = OUT / "backup"
     backup.mkdir(parents=True, exist_ok=True)
     for name in outputs:
-        shutil.copy(DATA / name, backup / name)
-        shutil.copy(target / name, DATA / name)
+        shutil.copy(CACHE / name, backup / name)
+        shutil.copy(target / name, CACHE / name)
     print("applied; backups in", backup)
 
 if not same_build:

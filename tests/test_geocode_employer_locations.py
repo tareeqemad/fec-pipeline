@@ -52,7 +52,7 @@ def test_contributor_geocode_keeps_cleaned_address(tmp_path):
     assert result["latitude"].notna().all()
 
 
-def test_unassigned_office_is_included(tmp_path):
+def test_unassigned_office_is_included(tmp_path, monkeypatch):
     rows = pd.DataFrame([{
         "entity_type": "INDIVIDUAL",
         "contributor_employer": "BIG FIRM",
@@ -83,7 +83,8 @@ def test_unassigned_office_is_included(tmp_path):
         json.dumps(cache), encoding="utf-8",
     )
 
-    result = geocode._all_employer_addresses(rows, str(tmp_path))
+    monkeypatch.setattr(geocode, "CACHE_DIR", tmp_path)
+    result = geocode._all_employer_addresses(rows)
 
     assert "2 BRANCH ST" in set(result["employer_address"])
 
@@ -132,7 +133,7 @@ def test_employer_mode_builds_location_file(tmp_path, monkeypatch):
     monkeypatch.setattr(
         geocode,
         "_geocode_employers",
-        lambda df, _cache, _data_dir: (df, True),
+        lambda df, _cache: (df, True),
     )
     monkeypatch.setattr(geocode, "_write_output", lambda *_args: calls.append("write"))
     monkeypatch.setattr(employer_locations, "build", lambda: calls.append("build"))

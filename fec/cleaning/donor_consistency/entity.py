@@ -6,7 +6,7 @@ import pandas as pd
 
 from fec.cleaning.entity_source import deciding_source_type
 from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
-from fec.env import PROJECT_ROOT
+from fec.env import RULES_DIR
 
 
 # clear employer field for committees/organizations after re-typing
@@ -22,7 +22,7 @@ def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
 
 # apply hand-curated entity_type corrections from overrides csv
 def _apply_entity_overrides(df: pd.DataFrame) -> int:
-    """AV. Hand-curated entity_type corrections from data/database/entity_overrides.csv, keyed by contributor_name.
+    """AV. Hand-curated entity_type corrections from data/rules/entity_overrides.csv, keyed by contributor_name.
 
     Runs after FEC's own type is re-applied, so a documented correction
     overrules a filing that typed itself wrong.
@@ -43,7 +43,7 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
 
 # contributor_name -> entity_type from the curated overrides file
 def read_entity_overrides() -> dict[str, str]:
-    path = PROJECT_ROOT / 'data' / 'database' / 'entity_overrides.csv'
+    path = RULES_DIR / 'entity_overrides.csv'
     if not path.exists():
         return {}
     overrides: dict[str, str] = {}

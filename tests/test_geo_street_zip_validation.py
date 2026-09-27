@@ -12,6 +12,7 @@ Harbour's 33154) and a street point in the filed city is kept.
 import pytest
 from geo_patch import patch_geo
 
+from fec.env import GEOCODE_CACHE_JSON
 from fec.geocoding import accepted, zip_checks
 from fec.geocoding import pipeline as geo
 from fec.geocoding.cache import GeoCache
@@ -227,7 +228,7 @@ def test_every_reviewed_key_still_needs_its_exemption(real_centroids):
 
     from fec.geocoding.reviewed_points import REVIEWED_ZIP_TYPO_KEYS
 
-    path = zip_checks._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
+    path = GEOCODE_CACHE_JSON
     if not path.exists():
         pytest.skip("geocode_cache.json not present")
     cache = json.loads(path.read_text(encoding="utf-8"))

@@ -6,7 +6,7 @@ and `final` {status, employer, occupation, office_kind, office{...},
 current_address_assessment, confidence, role_sources, office_sources, ...}.
 
 Rules
-- Only rows whose donor_key has NO filing in data/contributions_cleaned.csv are
+- Only rows whose donor_key has NO filing in data/output/contributions_cleaned.csv are
   touched (FEC-linked rows are owned by sync_rosters.py).
 - Employer / occupation are written when the record is not low confidence.
   The employer is matched to the spelling already used in the cleaned data
@@ -18,7 +18,7 @@ Rules
   Home addresses are never researched. A US office street is written in the
   pipeline's own style (clean_streets via roster_sync.pipeline_streets: AVE,
   BLVD, suite in street_2); a foreign office is kept exactly as sourced.
-- Every change is written to data/_review/roster_editorial_verification.csv
+- Every change is written to data/reports/review/roster_editorial_verification.csv
   (old value, new value, sources, confidence) so any row can be reverted.
 
     python tools/roster_editorial_apply.py results.json [--dry-run]
@@ -45,9 +45,9 @@ from fec.database.roster_sync import (  # noqa: E402
 from fec.env import CLEANED_CSV, PROJECT_ROOT  # noqa: E402
 from fec.geocoding import engines
 
-ROSTER_DIR = PROJECT_ROOT / "data" / "database"
+ROSTER_DIR = PROJECT_ROOT / "data" / "rules"
 PREFIX = {"leaders": "leader", "key_accomplices": "accomplice"}
-REVIEW = PROJECT_ROOT / "data" / "_review" / "roster_editorial_verification.csv"
+REVIEW = PROJECT_ROOT / "data" / "reports" / "review" / "roster_editorial_verification.csv"
 
 
 def _employer_vocabulary() -> dict[str, str]:

@@ -11,7 +11,15 @@ import pandas as pd
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.config.cities import expand_city_abbreviations
 from fec.contract import check_input, check_output
-from fec.env import CLEANED_CSV, RAW_CSV, load_env
+from fec.env import (
+    CACHE_DIR,
+    CLEANED_CSV,
+    MANUAL_EMPLOYER_ADDRESSES_CSV,
+    MANUAL_EMPLOYER_OVERRIDES_CSV,
+    RAW_CSV,
+    REPORTS_DIR,
+    load_env,
+)
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 from fec.pipeline_run import check_same_run, record
@@ -47,9 +55,8 @@ def _parse_args():
 
 # load caches, the cleaned CSV, and donor totals
 def _load_data(csv_path: str):
-    data_dir = os.path.dirname(csv_path) or "."
-    previous = Cache(os.path.join(data_dir, PREV_EMPLOYER_CACHE))
-    employers = Cache(os.path.join(data_dir, EMPLOYER_ADDR_CACHE))
+    previous = Cache(os.path.join(CACHE_DIR, PREV_EMPLOYER_CACHE))
+    employers = Cache(os.path.join(CACHE_DIR, EMPLOYER_ADDR_CACHE))
 
     df = read_pipeline_csv(csv_path)
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
@@ -63,7 +70,7 @@ def _load_data(csv_path: str):
         )
     df["contribution_receipt_amount"] = amounts
     totals = _compute_donor_totals(df)
-    return data_dir, df, totals, previous, employers
+    return df, totals, previous, employers
 
 
 # create address-cache aliases from resolved employer addresses
@@ -80,18 +87,13 @@ def _deduplicate_address_cache(df: pd.DataFrame, addr_cache) -> None:
 def _run_steps(
     df,
     donor_totals,
-    data_dir,
     prev_cache,
     addr_cache,
 ) -> bool:
     """Run the resolve stages; return whether AI stopped early."""
     logger.info("\n-- Step 0: Manual overrides --")
-    load_manual_locations(
-        Path(data_dir) / "manual_employer_addresses.csv", addr_cache
-    )
-    load_manual_previous_employers(
-        Path(data_dir) / "manual_employer_overrides.csv", df, prev_cache,
-    )
+    load_manual_locations(MANUAL_EMPLOYER_ADDRESSES_CSV, addr_cache)
+    load_manual_previous_employers(MANUAL_EMPLOYER_OVERRIDES_CSV, df, prev_cache)
 
     logger.info("\n-- Step 1: Cross-record previous employers --")
     step_cross_record(df, prev_cache)
@@ -123,14 +125,14 @@ QUALITY_GATES_JSON = "quality_gates.json"
 
 
 # write the resolve stage's quality-gate report to disk
-def _write_quality_gates(quality: dict, data_dir: str, csv_written: bool) -> None:
+def _write_quality_gates(quality: dict, csv_written: bool) -> None:
     """Replace clean.py's gate report with the one run on the resolved data.
 
     clean.py writes the report before resolve adds employer_status, so four
     gates read not_run there; this is the report of the final file.
     """
     report = {**quality, "stage": "resolve", "csv_written": csv_written}
-    write_json_atomic(Path(data_dir) / QUALITY_GATES_JSON, report, indent=2)
+    write_json_atomic(Path(REPORTS_DIR) / QUALITY_GATES_JSON, report, indent=2)
 
 
 # each filing's employer as filed, from the raw file
@@ -152,11 +154,9 @@ def _write_results(
 ) -> pd.DataFrame:
     logger.info(f"\n-- Writing results -> {csv_path} --")
     df = apply_results(df, prev_cache, addr_cache, _filed_employers())
-    data_dir = os.path.dirname(csv_path) or "."
-
     quality = run_quality_gates(df)
     if not quality["passed"]:
-        _write_quality_gates(quality, data_dir, csv_written=False)
+        _write_quality_gates(quality, csv_written=False)
         details = "; ".join(quality["issues"]) or "quality gate failed"
         raise ValueError(f"Resolved CSV was not written: {details}")
 
@@ -167,7 +167,7 @@ def _write_results(
     write_csv_atomic(df, csv_path, index=False)
     record("resolve", csv_path)
     # the gates read no employer_city, so the report above describes this file
-    _write_quality_gates(quality, data_dir, csv_written=True)
+    _write_quality_gates(quality, csv_written=True)
     logger.info(f"  Written {len(df):,} rows")
     return df
 
@@ -184,7 +184,7 @@ def main() -> None:
 
     check_same_run(csv_path)
     data = _load_data(csv_path)
-    data_dir, df, donor_totals, prev_cache, addr_cache = data
+    df, donor_totals, prev_cache, addr_cache = data
     check_input("resolve", df.columns)
     input_columns = list(df.columns)
 
@@ -197,7 +197,6 @@ def main() -> None:
     ai_incomplete = _run_steps(
         df,
         donor_totals,
-        data_dir,
         prev_cache,
         addr_cache,
     )

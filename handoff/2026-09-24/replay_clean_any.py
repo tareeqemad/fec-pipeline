@@ -16,7 +16,9 @@ if os.path.commonpath([out_dir, os.path.join(REPO, "data")]) == os.path.join(REP
 sys.path.insert(0, REPO)
 os.chdir(REPO)
 os.makedirs(out_dir, exist_ok=True)
-cache = os.path.join(REPO, "data", "fec_address_cache.json")
+# data/cache/ since the data folders were split; data/ in older checkouts
+cache = next((path for path in (os.path.join(REPO, "data", "cache", "fec_address_cache.json"),
+                                os.path.join(REPO, "data", "fec_address_cache.json")) if os.path.exists(path)), "")
 if os.path.exists(cache) and not os.path.exists(os.path.join(out_dir, "fec_address_cache.json")):
     shutil.copy(cache, out_dir)
 os.environ.pop("FEC_API_KEY", None)

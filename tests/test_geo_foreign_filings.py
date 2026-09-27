@@ -14,7 +14,7 @@ import pytest
 
 from fec.cleaning.addresses.foreign import foreign_address_mask
 
-RAW_CSV = Path(__file__).resolve().parents[1] / "data" / "contributions.csv"
+RAW_CSV = Path(__file__).resolve().parents[1] / "data" / "raw" / "contributions.csv"
 MISSED_SUB_IDS = {
     "4072420241978925325",   # ENRICH, POL - Madrid
     "4072420241978925343",   # ENRICH, POL - Madrid
@@ -65,7 +65,7 @@ def test_mask_works_without_a_sub_id_column():
 
 def test_the_raw_filings_behind_the_audit_are_flagged():
     if not RAW_CSV.exists():
-        pytest.skip("data/contributions.csv not present")
+        pytest.skip("data/raw/contributions.csv not present")
     raw = pd.read_csv(RAW_CSV, dtype=str, keep_default_na=False)
     present = raw[raw["sub_id"].isin(MISSED_SUB_IDS)]
     if present.empty:

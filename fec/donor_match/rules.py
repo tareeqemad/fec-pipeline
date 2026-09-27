@@ -4,10 +4,10 @@ import csv
 import re
 from collections import defaultdict
 
-from fec.env import DATA_DIR
+from fec.env import RULES_DIR
 
 
-RULES_PATH = DATA_DIR / "database" / "donor_identity_rules.csv"
+RULES_PATH = RULES_DIR / "donor_identity_rules.csv"
 VALID_ACTIONS = {"merge_keys", "merge_names", "separate", "hold"}
 VALID_REVIEW_STATUSES = {"verified_fec", "verified_web"}
 REQUIRED_FIELDS = {

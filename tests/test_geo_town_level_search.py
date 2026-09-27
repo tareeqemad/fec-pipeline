@@ -13,6 +13,7 @@ looked up once more.
 import pytest
 from geo_patch import patch_geo
 
+from fec.env import GEOCODE_CACHE_JSON
 from fec.geocoding import engines, places, zip_checks
 from fec.geocoding import pipeline as geo
 from fec.geocoding.cache import GeoCache
@@ -405,7 +406,7 @@ AUDIT_WRONG_TOWN_PINS = {
 
 def test_audit_wrong_town_pins_are_rechecked_or_fixed():
     """Each wrong pin is either due for the re-check or, once re-checked, at its town and off the wrong spot."""
-    path = zip_checks._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
+    path = GEOCODE_CACHE_JSON
     if not path.exists() or not zip_checks._ZIP_CENTROIDS.exists():
         pytest.skip("geocode_cache.json or zip_centroids.csv not present")
     cache = GeoCache(str(path))

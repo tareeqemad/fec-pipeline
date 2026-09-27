@@ -29,7 +29,9 @@ def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypat
     })
     monkeypatch.setattr(cli, 'CLEANED_CSV', output)
     monkeypatch.setattr(cli, 'read_pipeline_csv', lambda path: cleaned.copy())
-    monkeypatch.setattr(cli, 'clean_pipeline', lambda df, out_dir: (df, pd.DataFrame(), None))
+    monkeypatch.setattr(cli, 'REPORTS_DIR', tmp_path)
+    monkeypatch.setattr(cli, 'CACHE_DIR', tmp_path)
+    monkeypatch.setattr(cli, 'clean_pipeline', lambda df, **_dirs: (df, pd.DataFrame(), None))
     monkeypatch.setattr(cli, 'run_quality_gates', lambda df: {
         'passed': False, 'checks': {}, 'issues': ['1 rows with a missing amount']})
 

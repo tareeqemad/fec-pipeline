@@ -12,7 +12,7 @@ import pytest
 
 from fec.cleaning.addresses.fixes.state_zip import _load_zcta_to_state
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
-from fec.env import DATA_DIR
+from fec.env import GEOCODE_CACHE_JSON
 from fec.geocoding.places import distance_km as _distance_km
 from fec.geocoding.zip_checks import _ZIP_CENTROIDS, _zip_centroids
 
@@ -47,7 +47,7 @@ def test_every_centroid_lies_in_its_zip_state(centroids):
 
 
 def test_centroids_agree_with_verified_street_geocodes(centroids):
-    cache_path = DATA_DIR / 'geocode_cache.json'
+    cache_path = GEOCODE_CACHE_JSON
     if not cache_path.exists():
         pytest.skip('geocode_cache.json not present')
     cache = json.loads(cache_path.read_text(encoding='utf-8'))
@@ -76,7 +76,7 @@ def test_centroids_agree_with_verified_street_geocodes(centroids):
 
 def test_centroids_agree_with_authoritative_rooftop_geocodes(centroids):
     """A single Census-Bureau rooftop hit is authoritative: the ZIP centroid cannot be 100+ km from it (99503 was 447 km off)."""
-    cache_path = DATA_DIR / 'geocode_cache.json'
+    cache_path = GEOCODE_CACHE_JSON
     if not cache_path.exists():
         pytest.skip('geocode_cache.json not present')
     cache = json.loads(cache_path.read_text(encoding='utf-8'))

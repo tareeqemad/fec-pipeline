@@ -9,7 +9,7 @@ from psycopg2.extras import execute_values
 
 from fec.committees import load_committees
 from fec.database.loader._base import _count
-from fec.env import CLEANED_CSV, PROJECT_ROOT
+from fec.env import CLEANED_CSV, RULES_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -35,8 +35,8 @@ NOT_NULL_COLS = {
 
 # load us_states/zcta/zip_centroids reference tables from csv files
 def load_reference_tables(conn: Any, cur: Any) -> None:
-    """Load reference tables from data/database/*.csv files."""
-    db_dir = PROJECT_ROOT / "data" / "database"
+    """Load reference tables from data/rules/*.csv files."""
+    db_dir = RULES_DIR
     if not db_dir.exists():
         logger.info(f"\n  {db_dir} not found -- skipping reference tables")
         return

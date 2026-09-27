@@ -1,11 +1,11 @@
 import csv
 import re
 
-from fec.env import DATA_DIR
+from fec.env import RULES_DIR
 
 
 def _rows(filename):
-    path = DATA_DIR / "database" / filename
+    path = RULES_DIR / filename
     with path.open(encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
 

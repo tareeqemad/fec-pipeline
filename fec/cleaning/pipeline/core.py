@@ -172,6 +172,7 @@ def _clean_fields(
     trail: AuditTrail,
     out_dir: str | None = None,
     address_reports: dict | None = None,
+    cache_dir: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Clean contribution fields before donor matching."""
     start = time.time()
@@ -180,7 +181,7 @@ def _clean_fields(
     df = _prepare_records(df, log)
     trail.start(df)
     df = _clean_people(df, trail, log)
-    df = clean_addresses(df, trail, out_dir, log, reports=address_reports)
+    df = clean_addresses(df, trail, out_dir, log, reports=address_reports, cache_dir=cache_dir)
     df, missing = _finish_records(df, log)
     elapsed = time.time() - start
     log(f"Done: {len(df):,} rows in {elapsed:.1f}s")
@@ -193,6 +194,7 @@ def clean_records(
     trail: AuditTrail,
     out_dir: str | None = None,
     address_reports: dict | None = None,
+    cache_dir: str | None = None,
 ):
     """Clean every contribution record.
 
@@ -200,7 +202,7 @@ def clean_records(
     review queues, so the caller can write them later.
     """
     df_clean, missing = _clean_fields(
-        df, trail, out_dir=out_dir, address_reports=address_reports,
+        df, trail, out_dir=out_dir, address_reports=address_reports, cache_dir=cache_dir,
     )
 
     logger.info("\n-- Record rules --")
@@ -213,7 +215,7 @@ def clean_records(
         df_clean, apply_manual_employer_overrides, "manual_overrides",
         "curated_row_override", WORK_FIELDS + ("previous_employer",
         "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
-        source="data/manual_employer_overrides.csv",
+        source="data/rules/manual_employer_overrides.csv",
     )
     if n_overrides:
         logger.info(f"  Manual employer overrides applied: {n_overrides:,} rows")
@@ -271,8 +273,12 @@ def _employment_sources(df: pd.DataFrame, trail: AuditTrail, filed_work: pd.Data
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
+    cache_dir: str | None = None,
 ):
     """Run the complete cleaning pipeline.
+
+    Reports go to ``out_dir``; the FEC address cache is read from ``cache_dir``
+    (``out_dir`` when not given).
 
     Stages, in order, and the fields each may change:
       1. clean_records: each filing on its own (names, entity type, addresses,
@@ -296,6 +302,7 @@ def clean_pipeline(
     address_reports: dict = {}
     df_clean, missing = clean_records(
         df, trail, out_dir=out_dir, address_reports=address_reports,
+        cache_dir=cache_dir or out_dir,
     )
     # a street taken from another filing is not evidence for matching it to that filing
     df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(

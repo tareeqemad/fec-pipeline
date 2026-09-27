@@ -53,6 +53,7 @@ def test_resolve_writes_the_final_gate_report(tmp_path, monkeypatch):
     (tmp_path / "quality_gates.json").write_text(
         json.dumps({**run_quality_gates(_clean_stage_frame()), "stage": "clean"}), encoding="utf-8")
     monkeypatch.setattr(resolve_cli, "apply_results", _apply)
+    monkeypatch.setattr(resolve_cli, "REPORTS_DIR", tmp_path)
 
     start_run(csv_path)
     frame = _resolved_frame()
@@ -79,6 +80,7 @@ def test_resolve_records_a_failed_gate_and_writes_no_csv(tmp_path, monkeypatch):
     bad = _resolved_frame()
     bad.loc[0, "previous_employer"] = "OLD CO"          # previous employer on an active row
     monkeypatch.setattr(resolve_cli, "apply_results", _apply)
+    monkeypatch.setattr(resolve_cli, "REPORTS_DIR", tmp_path)
 
     with pytest.raises(ValueError, match="Previous employer on non-retired rows"):
         resolve_cli._write_results(bad, str(csv_path), None, None, bad.columns)

@@ -16,7 +16,7 @@ from fec.cleaning.employer_status import current_employer_name, referenced_emplo
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
 from fec.contract import check_output
-from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
+from fec.env import CACHE_DIR, CLEANED_CSV, EMPLOYER_LOCATIONS_CSV, REPORTS_DIR, RULES_DIR
 from fec.geocoding.accepted import accepted_coordinates
 from fec.geocoding.address_kind import is_foreign_address, is_po_box
 from fec.geocoding.reviewed_points import REVIEWED_POINTS
@@ -153,7 +153,7 @@ def _trust(method: str, state: str, donor_states: set[str]) -> tuple[str, str]:
 
 def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
     """Cached coordinates the key's own address accepts, with their level (a foreign office never takes a US match)."""
-    cache = _read_json(DATA_DIR / "geocode_cache.json")
+    cache = _read_json(CACHE_DIR / "geocode_cache.json")
     # a hand-checked point counts even when its key has no cache entry
     keys = {**{key: None for key in REVIEWED_POINTS}, **cache}
     coordinates = {}
@@ -293,7 +293,7 @@ def _cache_rows(
     address can be a stale or namesake office (WILLIAMS & CONNOLLY moved in 2022).
     Each row carries the geocode key of its text as resolved in '_raw_key'.
     """
-    cache = _read_json(DATA_DIR / EMPLOYER_ADDR_CACHE)
+    cache = _read_json(CACHE_DIR / EMPLOYER_ADDR_CACHE)
     trusted_lookup = address_cache_lookup(cache, publishable_only=True)
     lookup = address_cache_lookup(cache)
     if donor_states is None:
@@ -542,7 +542,7 @@ def _city_level_point(city: str, state: str, zipcode: str) -> tuple[object, obje
 
 def office_premises_employers(path=None) -> set[str]:
     """Employers whose manual row is marked OFFICE_PREMISES_NOTE: never withheld as a home."""
-    path = path or DATA_DIR / "manual_employer_addresses.csv"
+    path = path or RULES_DIR / "manual_employer_addresses.csv"
     if not path.exists():
         return set()
     manual = pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[])
@@ -648,7 +648,7 @@ def build() -> tuple[int, int]:
     locations, review = build_locations(df)
 
     write_csv_atomic(locations, EMPLOYER_LOCATIONS_CSV, index=False, na_rep="")
-    write_csv_atomic(review, DATA_DIR / REVIEW_CSV, index=False, na_rep="")
+    write_csv_atomic(review, REPORTS_DIR / REVIEW_CSV, index=False, na_rep="")
     has_address = locations["employer_address"].fillna("").ne("")
     publishable = (
         has_address

@@ -14,4 +14,4 @@ The flow (clean.py -> identify_donors -> here):
     dedup_review.build_donor_dedup_review  detect-only report for human triage
 
 constants.py holds matching weights and nickname rules. Every human identity
-decision lives in data/database/donor_identity_rules.csv."""
+decision lives in data/rules/donor_identity_rules.csv."""

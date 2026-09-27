@@ -29,7 +29,7 @@ Thumbs.db
 *.log
 *.bak
 *.bak_*
-data/_*
+data/reports/review/
 .tmp/
 
 # Database dumps pulled from the dev server (contain donor data; can be large)
@@ -43,12 +43,12 @@ AGENTS.md
 CLAUDE.md
 
 # Address review reports (regenerated each clean run)
-data/address_manual_review.csv
-data/address_regeocode_suspects.csv
+data/reports/address_manual_review.csv
+data/reports/address_regeocode_suspects.csv
 
 # Cleaning audit (regenerated each run)
-data/audit_changes.csv
+data/reports/audit_changes.csv
 
 
 # Run id and file hashes of the last pipeline run on this machine
-data/pipeline_run.json
+data/output/pipeline_run.json

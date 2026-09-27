@@ -1,4 +1,4 @@
-"""Committee identities come from data/database/committees.csv (single source of truth); to track a new committee, add a row there - no code change."""
+"""Committee identities come from data/rules/committees.csv (single source of truth); to track a new committee, add a row there - no code change."""
 from __future__ import annotations
 
 import csv

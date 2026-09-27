@@ -138,16 +138,16 @@ def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
 
 
 # fill unusable streets from the donor's cached FEC-wide history
-def recover_addresses_from_fec(df: pd.DataFrame, out_dir: str | None) -> int:
+def recover_addresses_from_fec(df: pd.DataFrame, cache_dir: str | None) -> int:
     """Fill unusable streets from the donor's cached FEC-wide history."""
-    if not out_dir:
+    if not cache_dir:
         return 0
 
     target = _recovery_target(df)
     if not target.any():
         return 0
 
-    cache = Cache(os.path.join(out_dir, CACHE_NAME))
+    cache = Cache(os.path.join(cache_dir, CACHE_NAME))
     todo = _unknown_people(df, target, cache)
     key = os.environ.get("FEC_API_KEY", "").strip()
     if todo and not key:

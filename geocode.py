@@ -10,7 +10,7 @@ import pandas as pd
 
 from fec.cleaning.employer_status import referenced_employers
 from fec.contract import RESOLVE_WORKING, STAGES, check_input, check_output
-from fec.env import CLEANED_CSV, EMPLOYER_LOCATIONS_CSV
+from fec.env import CACHE_DIR, CLEANED_CSV, EMPLOYER_LOCATIONS_CSV, GEOCODE_CACHE_JSON
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.employers import (
     apply_employer_to_dataframe,
@@ -37,9 +37,9 @@ def _find_csv() -> str:
     sys.exit(1)
 
 
-def _all_employer_addresses(df: pd.DataFrame, data_dir: str) -> pd.DataFrame:
+def _all_employer_addresses(df: pd.DataFrame) -> pd.DataFrame:
     """Include every published employer location."""
-    path = os.path.join(data_dir, EMPLOYER_ADDR_CACHE)
+    path = os.path.join(CACHE_DIR, EMPLOYER_ADDR_CACHE)
     if not os.path.exists(path):
         return df
 
@@ -86,14 +86,13 @@ def _geocode_contributors(
 def _geocode_employers(
     df: pd.DataFrame,
     cache: GeoCache,
-    data_dir: str,
 ) -> tuple[pd.DataFrame, bool]:
     if "employer_address" not in df.columns:
         logger.info("\n  No employer_address column - run resolve.py --apply first")
         return df, False
 
     logger.info("\n-- Employer Addresses --")
-    addresses = _all_employer_addresses(df, data_dir)
+    addresses = _all_employer_addresses(df)
     geocode_employer_addresses(addresses, cache)
     df = apply_employer_to_dataframe(df, cache)
 
@@ -123,9 +122,7 @@ def main():
     args = _parse_args()
 
     csv_path = _find_csv()
-    data_dir = os.path.dirname(csv_path) or "."
-    cache_path = os.path.join(data_dir, "geocode_cache.json")
-    cache = GeoCache(cache_path)
+    cache = GeoCache(str(GEOCODE_CACHE_JSON))
 
     logger.info("=" * 60)
     logger.info("  FEC Geocoder")
@@ -145,7 +142,7 @@ def main():
         df = _geocode_contributors(df, cache)
         changed = True
     else:
-        df, changed = _geocode_employers(df, cache, data_dir)
+        df, changed = _geocode_employers(df, cache)
 
     if changed:
         _write_output(df, csv_path, stage, input_columns)

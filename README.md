@@ -7,7 +7,7 @@ pull -> clean -> geocode donors -> resolve employers -> geocode employers -> Pos
 ```
 
 It tracks the committees configured in
-[`data/database/committees.csv`](data/database/committees.csv).
+[`data/rules/committees.csv`](data/rules/committees.csv).
 
 ## Setup
 
@@ -50,16 +50,16 @@ python -m fec.database.healthcheck
 `pull.py` is needed only when new FEC data is available. The other commands
 rebuild the cleaned data, resolve work locations, and reload the database.
 
-`sync_rosters.py` rewrites the FEC-linked rows of `data/database/leaders.csv` and
-`data/database/key_accomplices.csv` from each donor's newest cleaned filing
+`sync_rosters.py` rewrites the FEC-linked rows of `data/rules/leaders.csv` and
+`data/rules/key_accomplices.csv` from each donor's newest cleaned filing
 (address, employer, occupation); `--check` only reports drift. Editorial-only rows
 are never touched.
 In both rosters committees are written by their short name (`{AIPAC,DMFI}`, `ZOA`),
 never by number; the loader stops on an unknown name.
 
-Each stage rewrites `data/contributions_cleaned.csv` and checks it against
+Each stage rewrites `data/output/contributions_cleaned.csv` and checks it against
 `fec/contract.py`: the columns it needs, adds and drops. The loader takes only
-the finished column set. `clean.py` starts a run in `data/pipeline_run.json`;
+the finished column set. `clean.py` starts a run in `data/output/pipeline_run.json`;
 every later stage records the files it writes, and a stage or the loader stops
 on a file that is not what this run last wrote (edited by hand, restored from
 an older run, or left from before the last `clean.py`). Rerun from the stage
@@ -68,14 +68,14 @@ the message names.
 Cleaning always processes the complete raw file. Donor matching groups filings
 under `donor_key`; it never combines or removes contribution rows.
 
-External lookups are cached in `data/*.json`. If AI credits run out, resolve
+External lookups are cached in `data/cache/*.json`. If AI credits run out, resolve
 writes the cached results and leaves unresolved employers blank. Add credits and
 run the same command again.
 
 ## Pull committee data
 
 The committee must exist in
-[`data/database/committees.csv`](data/database/committees.csv). Each command
+[`data/rules/committees.csv`](data/rules/committees.csv). Each command
 accepts one committee ID:
 
 ```bash
@@ -88,33 +88,41 @@ python pull.py C00797670 --period 2024 --backfill-source
 - The first command updates the current FEC period.
 - `--period` selects an election period.
 - `--full` rechecks that entire period.
-- `--backfill-source` fills `data/fec_source_fields.csv` for rows already pulled:
+- `--backfill-source` fills `data/raw/fec_source_fields.csv` for rows already pulled:
   FEC's own `fec_entity_type`, `fec_contributor_id` and `fec_image_number` (the
   filing page) per `sub_id`. A row is matched by `sub_id`, or, when FEC now returns
   the transaction under a newer `sub_id`, by one exact match on committee,
   transaction id, date and amount; never by name. It reads
-  `data/contributions.csv` and never writes it, and reports the rows it could not
+  `data/raw/contributions.csv` and never writes it, and reports the rows it could not
   match. Run it once per committee and period.
 
-`data/contributions.csv` is only ever appended to by a pull; nothing rewrites
-it. A pull writes each new row's source fields to `data/fec_source_fields.csv`.
+`data/raw/contributions.csv` is only ever appended to by a pull; nothing rewrites
+it. A pull writes each new row's source fields to `data/raw/fec_source_fields.csv`.
 Normal updates start again from the latest saved date so late filings from that
 date are included. Existing rows are skipped by `sub_id`, so `--full` alone does
 not fill source fields for them.
 
-## Output files
+## Data folders
 
-- `data/contributions.csv`: raw FEC filings.
-- `data/contributions_cleaned.csv`: one cleaned row per filing.
-- `data/employer_locations.csv`: resolved employer locations.
-- `data/database/committees.csv`: committee identities and display names.
-- `data/*.json`: persistent lookup caches and quality reports.
-- `data/audit_changes.csv`: every net cleaning change with its step, reason,
-  and source. It is regenerated each run outside Git.
-- `data/audit_summary.json`: change counts per cleaning step.
+- `data/raw/`: what FEC sent. `contributions.csv` (only appended by `pull.py`) and
+  `fec_source_fields.csv`.
+- `data/rules/`: what people curate: committees, identity/name/address/employer
+  rules, entity overrides, manual employer overrides and addresses, the two
+  rosters, and the ZIP/state reference tables.
+- `data/cache/`: external lookups (geocoder, FEC API, AI resolve). Costly to
+  rebuild; keep them.
+- `data/output/`: what the pipeline builds: `contributions_cleaned.csv`,
+  `employer_locations.csv`, and `pipeline_run.json` (the run id; not in Git).
+- `data/reports/`: audits, quality gates and review queues. `audit_changes.csv`
+  holds every net cleaning change with its step, reason and source; it and the
+  address review queues are regenerated each run outside Git.
+  `data/reports/review/` holds the audit tools' output (not in Git).
 
-Manual rules, overrides, and caches under `data/` are real project inputs. Keep
-them in Git and do not replace them with an older snapshot after a pipeline run.
+Rules and caches are real project inputs. Keep them in Git and do not replace
+them with an older snapshot after a pipeline run.
+
+After pulling the commit that split `data/`, run `python tools/move_data_layout.py`
+once: Git moves the files it tracks, the tool moves the rest and never overwrites.
 
 ## Database views
 
@@ -188,7 +196,7 @@ or login role exists, or if `fec_app` can write.
 - Negative amounts are refunds or redesignations.
 - Occupations stay as filed; `occupation_category` groups them.
 - Verified contributor address corrections live in
-  `data/database/address_rules.csv`; generic address normalization stays in code.
+  `data/rules/address_rules.csv`; generic address normalization stays in code.
 - Geocode only adds coordinates; it never edits a cleaned address. US streets
   use the Census Geocoder first, then Nominatim. A street-level failure cannot
   fall back to a city that conflicts with the ZIP.
@@ -215,6 +223,6 @@ python -m fec.database.healthcheck
 
 - Root scripts are the command-line entry points.
 - `fec/` contains the pipeline logic.
-- `data/` contains inputs, outputs, caches, and reviewed rules.
+- `data/` holds `raw/`, `rules/`, `cache/`, `output/` and `reports/` (see Data folders).
 - `tests/` protects cleaning, matching, resolving, and loading behavior.
 - `tools/audits/` holds the raw-vs-cleaned audits (addresses, names, self-employed) and the final verification; run them after every pipeline run.

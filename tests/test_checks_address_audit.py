@@ -79,10 +79,11 @@ def test_zip_contradictions_catch_the_swaps_and_spare_supported_changes():
 def _write_data(tmp_path, rows, changes):
     raw, cln = _frames(rows)
     data = tmp_path / "data"
-    data.mkdir()
-    raw.to_csv(data / "contributions.csv", index=False)
-    cln.to_csv(data / "contributions_cleaned.csv", index=False)
-    pd.DataFrame(changes, columns=["sub_id", "field", "step"]).to_csv(data / "audit_changes.csv", index=False)
+    for folder in ("raw", "output", "reports"):
+        (data / folder).mkdir(parents=True)
+    raw.to_csv(data / "raw" / "contributions.csv", index=False)
+    cln.to_csv(data / "output" / "contributions_cleaned.csv", index=False)
+    pd.DataFrame(changes, columns=["sub_id", "field", "step"]).to_csv(data / "reports" / "audit_changes.csv", index=False)
 
 
 def test_audit_lists_zip_swaps_in_full_and_exits_1(tmp_path, monkeypatch, capsys):
@@ -106,7 +107,7 @@ def test_audit_lists_zip_swaps_in_full_and_exits_1(tmp_path, monkeypatch, capsys
     flags = pd.read_csv(tmp_path / "out" / "address_audit_flags.csv", dtype=str, keep_default_na=False)
     assert set(flags.loc[flags.flag == "contributor_city_not_filed_with_zip", "sub_id"]) == {"h1", "n1", "n2", "c1", "a1"}
     assert (tmp_path / "out" / "address_audit_zip_city.csv").exists()
-    assert not (tmp_path / "data" / "_review").exists()      # --out-dir keeps data/ read-only
+    assert not (tmp_path / "data" / "reports" / "review").exists()      # --out-dir keeps data/ read-only
 
 
 def test_audit_passes_when_cities_agree_with_their_zip(tmp_path, monkeypatch, capsys):
@@ -140,11 +141,12 @@ def test_each_street_part_that_may_move_the_place_is_its_own_flag(tmp_path, monk
                          "contributor_street_1": c, "contributor_street_2": d, "contributor_city": "X",
                          "contributor_state": "NY", "contributor_zip": "10001"} for s, _, _, c, d in streets])
     data = tmp_path / "data"
-    data.mkdir()
-    raw.to_csv(data / "contributions.csv", index=False)
-    cln.to_csv(data / "contributions_cleaned.csv", index=False)
+    for folder in ("raw", "output", "reports"):
+        (data / folder).mkdir(parents=True)
+    raw.to_csv(data / "raw" / "contributions.csv", index=False)
+    cln.to_csv(data / "output" / "contributions_cleaned.csv", index=False)
     pd.DataFrame([(s, "contributor_street_1", "streets_normalize") for s, *_ in streets],
-                 columns=["sub_id", "field", "step"]).to_csv(data / "audit_changes.csv", index=False)
+                 columns=["sub_id", "field", "step"]).to_csv(data / "reports" / "audit_changes.csv", index=False)
     monkeypatch.chdir(tmp_path)
 
     _audit().main(["--out-dir", str(tmp_path / "out")])
