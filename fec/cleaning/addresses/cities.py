@@ -1,6 +1,5 @@
 """Clean city names: table fixes, place qualifiers, detected typos."""
 import difflib
-import json
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +15,7 @@ from fec.config.cities import (
     CITY_ZIP3_NORMALIZE,
     expand_city_abbreviations,
 )
+from fec.io import write_json_atomic
 from fec.config.streets import (
     STATE_IN_CITY,
 )
@@ -164,8 +164,7 @@ def _fix_detected_city_typos(df: pd.DataFrame, states: pd.Series, zip5, report_d
             for (state, city, zip_code), fix in sorted(auto_fixes.items())
         ]
         report_path = Path(report_dir) / 'auto_city_fixes.json'
-        with open(report_path, 'w', encoding='utf-8') as handle:
-            json.dump(report, handle, indent=2, ensure_ascii=False)
+        write_json_atomic(report_path, report, indent=2, ensure_ascii=False)
     return changed, fixed_rows
 
 

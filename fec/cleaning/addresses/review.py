@@ -37,6 +37,7 @@ from fec.cleaning.addresses.street_reviews import (
     _review_street1,
     _review_street2,
 )
+from fec.io import write_csv_atomic
 
 MANUAL_REVIEW_CSV = "address_manual_review.csv"
 REGEOCODE_CSV = "address_regeocode_suspects.csv"
@@ -139,8 +140,8 @@ def build_review_queues(
 # write the two review queues to CSV
 def write_review_queues(out_dir, review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> None:
     out_path = Path(out_dir)
-    review_df.to_csv(out_path / MANUAL_REVIEW_CSV, index=False, na_rep="")
-    regeocode_df.to_csv(out_path / REGEOCODE_CSV, index=False, na_rep="")
+    write_csv_atomic(review_df, out_path / MANUAL_REVIEW_CSV, index=False, na_rep="")
+    write_csv_atomic(regeocode_df, out_path / REGEOCODE_CSV, index=False, na_rep="")
 
 
 # summarize row counts per review queue status

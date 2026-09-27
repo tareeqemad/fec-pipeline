@@ -46,3 +46,13 @@ def write_json_atomic(path: str | Path, data, **dump_options) -> None:
     with open(temp_path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, **dump_options)
     os.replace(temp_path, path)
+
+
+# write a DataFrame as CSV through a temp file and an atomic rename
+def write_csv_atomic(df, path: str | Path, **to_csv_options) -> None:
+    """A reader never sees half a file: a failed write leaves the old one."""
+    path = str(path)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    temp_path = path + ".tmp"
+    df.to_csv(temp_path, **to_csv_options)
+    os.replace(temp_path, path)

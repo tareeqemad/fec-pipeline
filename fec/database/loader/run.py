@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from fec.database.loader._base import PG, _count, connect, stage
+from fec.database.loader._base import PG, _count, connect, load_transaction, stage
 from fec.database.loader.access import _check_reader, grant_read_access
 from fec.database.loader.addresses import (
     link_employer_locations,
@@ -157,23 +157,25 @@ def main() -> None:
     logger.info(f"\n-- Reading {CLEANED_CSV.name} --")
     logger.info(f"  {len(df):,} rows, {df['donor_key'].nunique():,} donors")
 
-    # each stage commits whole or rolls back (_base.stage); nothing else commits
-    with stage(conn, "schema"):
-        reset_schema(conn, cur)
-        create_schema(conn, cur)
-    with stage(conn, "lookups"):
-        load_lookups(conn, cur)
-    load_all(conn, cur, df, employer_locations)
-    with stage(conn, "reference tables"):
-        load_reference_tables(conn, cur)
-    with stage(conn, "leaders and accomplices"):
-        load_leadership(conn, cur)
-        load_key_accomplices(conn, cur)
-    with stage(conn, "statistics and views"):
-        _analyze_tables(conn, cur)
-        refresh_materialized_views(conn, cur)
-    with stage(conn, "read access"):
-        grant_read_access(conn, cur)
+    # one transaction from the drop to the grants (_base.load_transaction):
+    # a failure anywhere leaves the previous load in place
+    with load_transaction(conn):
+        with stage(conn, "schema"):
+            reset_schema(conn, cur)
+            create_schema(conn, cur)
+        with stage(conn, "lookups"):
+            load_lookups(conn, cur)
+        load_all(conn, cur, df, employer_locations)
+        with stage(conn, "reference tables"):
+            load_reference_tables(conn, cur)
+        with stage(conn, "leaders and accomplices"):
+            load_leadership(conn, cur)
+            load_key_accomplices(conn, cur)
+        with stage(conn, "statistics and views"):
+            _analyze_tables(conn, cur)
+            refresh_materialized_views(conn, cur)
+        with stage(conn, "read access"):
+            grant_read_access(conn, cur)
 
     elapsed = time.time() - total_start
     minutes, seconds = divmod(int(elapsed), 60)

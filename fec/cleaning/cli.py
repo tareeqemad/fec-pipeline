@@ -1,5 +1,4 @@
 """Clean the configured FEC contributions file."""
-import json
 import os
 
 import pandas as pd
@@ -13,7 +12,7 @@ from fec.cleaning.quality.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.env import CLEANED_CSV, RAW_CSV
-from fec.io import read_pipeline_csv
+from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -38,8 +37,7 @@ def _write_quality_scan(output_path, out_dir):
     )
     report = scan(df)
     path = os.path.join(out_dir, 'quality_scan.json')
-    with open(path, 'w', encoding='utf-8') as handle:
-        json.dump(report, handle, indent=2, ensure_ascii=False)
+    write_json_atomic(path, report, indent=2, ensure_ascii=False)
     return report
 
 
@@ -171,14 +169,13 @@ def _save_if_gates_pass(output, out_dir, output_path) -> dict:
     # (the gates that need employer_status read not_run here; resolve.py
     # --apply reruns every gate and overwrites quality_gates.json)
     quality = run_quality_gates(output)
-    with open(os.path.join(out_dir, 'quality_gates.json'), 'w') as handle:
-        json.dump({**quality, 'stage': 'clean'}, handle, indent=2)
+    write_json_atomic(os.path.join(out_dir, 'quality_gates.json'), {**quality, 'stage': 'clean'}, indent=2)
     if not quality['passed']:
         logger.error("  ABORT - quality gates failed, %s kept as it was:", output_path)
         for issue in quality['issues']:
             logger.error("    %s", issue)
         raise SystemExit(1)
-    output.to_csv(output_path, index=False)
+    write_csv_atomic(output, output_path, index=False)
     return quality
 
 

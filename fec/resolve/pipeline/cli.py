@@ -11,7 +11,7 @@ import pandas as pd
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.config.cities import expand_city_abbreviations
 from fec.env import CLEANED_CSV, RAW_CSV, load_env
-from fec.io import read_pipeline_csv, write_json_atomic
+from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 from fec.resolve.pipeline.ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
 from fec.resolve.pipeline.apply import apply_results
@@ -160,10 +160,7 @@ def _write_results(
     # Expand Saint/Mount/Fort in resolved employer cities, matching clean.py.
     df["employer_city"] = df["employer_city"].map(expand_city_abbreviations)
 
-    destination = Path(csv_path)
-    temporary = destination.with_suffix(f"{destination.suffix}.tmp")
-    df.to_csv(temporary, index=False)
-    os.replace(temporary, destination)
+    write_csv_atomic(df, csv_path, index=False)
     # the gates read no employer_city, so the report above describes this file
     _write_quality_gates(quality, data_dir, csv_written=True)
     logger.info(f"  Written {len(df):,} rows")

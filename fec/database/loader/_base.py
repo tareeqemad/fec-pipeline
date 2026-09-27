@@ -88,17 +88,29 @@ def to_int_or_none(val: Any) -> int | None:
         raise ValueError(f"to_int_or_none: cannot parse {val!r} as int")
 
 
-# commit one load stage, or roll it all back and re-raise
+# the whole reload in one transaction: all of it is saved, or none of it
 @contextmanager
-def stage(conn: Any, name: str) -> Iterator[None]:
-    """The only place the loader commits: each stage is saved whole or not at all."""
+def load_transaction(conn: Any) -> Iterator[None]:
+    """The only place the loader commits. A failure at any stage, even after
+    the old tables were dropped, rolls everything back: the database keeps
+    the previous load exactly as it was."""
     try:
         yield
     except BaseException:
         conn.rollback()
-        logger.error("  stage '%s' failed: rolled back", name)
+        logger.error("  load failed: rolled back, the database is unchanged")
         raise
     conn.commit()
+
+
+# name the stage a failure happened in; the transaction decides the rest
+@contextmanager
+def stage(conn: Any, name: str) -> Iterator[None]:
+    try:
+        yield
+    except BaseException:
+        logger.error("  stage '%s' failed", name)
+        raise
 
 
 # undo only the statements inside the block when it fails

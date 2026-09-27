@@ -1,12 +1,12 @@
 """Write the audit files."""
 import gc
-import json
 import os
 
 import numpy as np
 import pandas as pd
 
 from fec.cleaning.audit_trail import AUDITED_FIELDS, UNTRACKED_STEP, AuditTrail, summarize
+from fec.io import write_csv_atomic, write_json_atomic
 
 CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'source']
 
@@ -23,15 +23,14 @@ def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
 
     net = trail.net_records()
     changes = _frame(net, row_index)
-    changes.to_csv(os.path.join(out_dir, 'audit_changes.csv'), index=False)
+    write_csv_atomic(changes, os.path.join(out_dir, 'audit_changes.csv'), index=False)
     summary = {
         'changes': int(len(changes)),
         'changed_cells': int(changes[['sub_id', 'field']].drop_duplicates().shape[0]),
         'untracked_changes': sum(record['step'] == UNTRACKED_STEP for record in net),
         'steps': summarize([record for record in net if record['field'] in AUDITED_FIELDS]),
     }
-    with open(os.path.join(out_dir, 'audit_summary.json'), 'w', encoding='utf-8') as handle:
-        json.dump(summary, handle, indent=2, ensure_ascii=False)
+    write_json_atomic(os.path.join(out_dir, 'audit_summary.json'), summary, indent=2, ensure_ascii=False)
     _write_amount_flags(after, row_index, out_dir)
 
     after = changes = net = None
@@ -55,13 +54,13 @@ def _write_amount_flags(df, row_idx, out_dir):
     empty_cols = ['sub_id', 'row_index', 'contribution_receipt_amount', 'flag', 'evidence']
 
     if 'contribution_receipt_amount' not in df.columns:
-        pd.DataFrame(columns=empty_cols).to_csv(path, index=False)
+        write_csv_atomic(pd.DataFrame(columns=empty_cols), path, index=False)
         return
 
     amounts = pd.to_numeric(df['contribution_receipt_amount'], errors='coerce')
     mask = amounts.lt(0) | amounts.eq(0)
     if not mask.any():
-        pd.DataFrame(columns=empty_cols).to_csv(path, index=False)
+        write_csv_atomic(pd.DataFrame(columns=empty_cols), path, index=False)
         return
 
     flags = pd.DataFrame({
@@ -71,4 +70,4 @@ def _write_amount_flags(df, row_idx, out_dir):
         'flag': np.where(amounts[mask].lt(0), 'refund_or_adjustment', 'zero_amount_void_or_refund'),
         'evidence': np.where(amounts[mask].lt(0), 'negative_amount', 'zero_amount'),
     })
-    flags.to_csv(path, index=False)
+    write_csv_atomic(flags, path, index=False)

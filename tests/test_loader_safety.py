@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from fec.database.loader import validate
-from fec.database.loader._base import stage
+from fec.database.loader._base import load_transaction, stage
 from fec.database.loader.access import grant_read_access
 from fec.database.loader.addresses import load_employer_locations
 from fec.database.loader.schema_create import verify_extensions
@@ -130,11 +130,33 @@ def test_reset_rolls_back_every_drop():
     tables = (("donors", DATABASE_OWNER), ("addresses", DATABASE_OWNER))
     cur = ResetCursor(tables=tables, fail_drop=2)
 
-    with pytest.raises(RuntimeError, match="Schema reset failed"), stage(conn, "schema"):
+    with pytest.raises(RuntimeError, match="Schema reset failed"), load_transaction(conn), stage(conn, "schema"):
         reset_schema(conn, cur)
 
     assert conn.commits == 0
     assert conn.rollbacks == 1
+
+
+def test_a_stage_never_commits_only_the_whole_load_does():
+    conn = Connection()
+    with load_transaction(conn):
+        with stage(conn, "schema"):
+            pass
+        assert conn.commits == 0
+        with stage(conn, "contributions"):
+            pass
+        assert conn.commits == 0
+    assert conn.commits == 1
+
+
+def test_a_late_failure_rolls_back_the_drop_too():
+    conn = Connection()
+    with pytest.raises(ValueError), load_transaction(conn):
+        with stage(conn, "schema"):
+            pass  # the old tables are gone inside the transaction
+        with stage(conn, "contributions"):
+            raise ValueError("bad row")
+    assert conn.commits == 0 and conn.rollbacks == 1
 
 
 def test_reset_drops_owned_objects():
@@ -156,7 +178,7 @@ def test_reader_gets_select_only():
     conn = Connection()
     cur = PermissionCursor()
 
-    with stage(conn, "read access"):
+    with load_transaction(conn), stage(conn, "read access"):
         grant_read_access(conn, cur)
 
     sql = "\n".join(cur.queries)

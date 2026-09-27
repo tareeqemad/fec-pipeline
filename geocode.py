@@ -16,6 +16,7 @@ from fec.geocoding.employers import (
     geocode_employer_addresses,
 )
 from fec.geocoding.pipeline import apply_to_dataframe, geocode_addresses
+from fec.io import write_csv_atomic
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
@@ -109,7 +110,7 @@ def _write_output(df: pd.DataFrame, csv_path: str) -> None:
 
     df = df.drop(columns=INTERNAL_OUTPUT_COLUMNS, errors="ignore")
     logger.info(f"\n  Writing -> {csv_path}")
-    df.to_csv(csv_path, index=False)
+    write_csv_atomic(df, csv_path, index=False)
 
 
 def main():
