@@ -88,6 +88,17 @@ def main() -> int:
     print("== roster sync --check exit:", chk.returncode, "|", chk.stdout.strip().splitlines()[0] if chk.stdout.strip() else chk.stderr[-300:])
     if chk.returncode:
         problems.append(f"sync_rosters.py --check exited {chk.returncode}")
+    # a manual override is the final word: every value it sets is in the final file
+    from fec.cleaning.manual_overrides import _read_overrides
+    nn_ = n.set_index("sub_id")
+    overridden = [
+        (sid, col) for sid, fields in _read_overrides(company_names_only=False).items() if sid in nn_.index
+        for col, val in fields.items() if col in nn_.columns
+        and nn_.at[sid, col].strip().upper() != ("" if val is pd.NA else str(val)).strip().upper()
+    ]
+    print("== manual overrides not in the final file:", len(overridden), overridden[:5])
+    if overridden:
+        problems.append(f"{len(overridden)} manual override value(s) changed by a later step: {overridden[:5]}")
     # every reviewed identity case still holds on this file
     cases = subprocess.run([sys.executable, S + "/identity_cases.py", "data/contributions_cleaned.csv"],
                            capture_output=True, text=True, encoding="utf-8",

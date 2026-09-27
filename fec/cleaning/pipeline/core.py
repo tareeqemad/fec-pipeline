@@ -262,7 +262,20 @@ def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
 ):
-    """Run the complete cleaning pipeline."""
+    """Run the complete cleaning pipeline.
+
+    Stages, in order, and the fields each may change:
+      1. clean_records: each filing on its own (names, entity type, addresses,
+         employer and occupation), then the manual overrides' first pass.
+      2. identify_donors: donor_key and identity_status only.
+      3. standardize_donors: one donor's filings made consistent (names,
+         employer, addresses, fills from the donor's other filings); held and
+         unresolved filings stay as filed. It ends with the overrides' late
+         pass, so a hand-set employer or a [CLEAR] cell is the final word.
+      4. foreign_address_restore: a foreign filing gets its filed address back.
+    A manual override is final for every field it sets; final_verify.py fails
+    when a later step changed one.
+    """
     trail = AuditTrail()
     # foreign filings are kept exactly as filed: remember them before any repair
     foreign = snapshot_foreign_addresses(df)
