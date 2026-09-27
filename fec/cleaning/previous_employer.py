@@ -135,6 +135,8 @@ def _resolve_slash(s: str) -> str:
 _NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOYED'}) | {
     # keyboard junk / bare-status stumps seen only in previous_employer
     'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'XXN', 'NOT',
+    # a degree or a pronoun names no company: MD (LAWRENCE HAAS), ME (MARTA BRAND)
+    'MD', 'M.D', 'M.D.', 'ME', 'PHD', 'DDS', 'DO',
 }
 _SE_PREV = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER
 # whitespace-stripped forms so spacing-mangled statuses ("NOTEMPLOYED",

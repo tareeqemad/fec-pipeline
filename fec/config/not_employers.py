@@ -169,6 +169,8 @@ NOT_REAL_EMPLOYER = frozenset({
     "UNKNOWN",
     "MR AND MRS", "MR. AND MRS.", "DR AND MS", "DR. AND MS", "DR. AND MS.",
     "INFORMATION REQUESTED", "INFORMATION REQUESTED PER BEST EFFORTS",
+    # a request for the donor's details, not a company
+    "MORE INFO NEEDED", "MORE INFORMATION NEEDED", "MORE INFO REQUESTED", "INFO NEEDED", "NEED MORE INFO",
     "DISABLED",
     # status / housewife variants
     "RETIREE", "RETIEED", "RETIRE", "HOUSEWIFE", "HOUSWIFE", "HOUSE WIFE",
