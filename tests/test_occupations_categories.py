@@ -152,3 +152,26 @@ def test_counselor_second_pass_no_longer_guesses_medical():
     counselor the LEGAL substring used to claim; kinds are decided in pass 1."""
     patterns = ' '.join(pattern for pattern, _ in RECLASSIFY_CATEGORY_RULES)
     assert 'COUNSELOR' not in patterns
+
+
+# 27-Sep occupation review: a broad word no longer beats a narrower title,
+# and a title that does not say its field is not given one
+@pytest.mark.parametrize('occupation, category', [
+    ('REAL ESTATE BROKER', 'REAL ESTATE'),
+    ('COMMERCIAL REAL ESTATE BROKER', 'REAL ESTATE'),
+    ('MORTGAGE BROKER', FIN),
+    ('DATA ANALYST', 'TECHNOLOGY'),
+    ('DATA ANALYST MANAGER', 'TECHNOLOGY'),
+    ('WEB ANALYST', 'TECHNOLOGY'),
+    ('IT ANALYST', 'TECHNOLOGY'),
+    ('FINANCIAL ANALYST', FIN),
+    ('SENIOR WEALTH ADVISOR', FIN),
+    ('ASSOCIATE WEALTH ADVISOR', FIN),
+    ('WEALTH ADVISORY', FIN),
+    ('HEDGE FUND MANAGER', FIN),
+    ('PUBLIC ADJUSTER', 'INSURANCE'),
+    ('PACKAGE HANDLER', 'OTHER'),
+    ('SENIOR ASSOCIATE', 'OTHER'),
+])
+def test_occupation_review_categories(occupation, category):
+    assert _cat(occupation) == category

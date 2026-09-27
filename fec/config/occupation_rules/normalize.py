@@ -48,9 +48,8 @@ OCCUPATION_NORMALIZE = {
     'C.E.O': 'CEO',
     'CHIEF EXECUTIVE OFFICER': 'CEO',
     'CHIEF EXECUTIVE': 'CEO',
-    'CDO': 'CHIEF DEVELOPMENT OFFICER',
-    'CMO': 'CHIEF MARKETING OFFICER',
-    'CIO': 'CHIEF INVESTMENT OFFICER',
+    # CIO, CMO and CDO stay as filed: each has more than one reading
+    # (investment or information, marketing or medical, data or development)
     'CFP': 'CERTIFIED FINANCIAL PLANNER',
     'DDS': 'DENTIST',
 
