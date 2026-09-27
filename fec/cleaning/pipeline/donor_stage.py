@@ -13,22 +13,22 @@ from fec.cleaning.audit_trail import (
     STREET_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.donor_consistency import apply_donor_consistency
-from fec.cleaning.employer_synonyms import finalize_employer_names
+from fec.cleaning.donor_consistency.steps import apply_donor_consistency
+from fec.cleaning.employer_synonyms.apply import finalize_employer_names
 from fec.cleaning.entity_classification import apply_name_corrections
 from fec.cleaning.manual_overrides import apply_manual_employer_overrides
-from fec.donor_match import (
-    build_donor_dedup_review,
+from fec.donor_match.canonical_addresses import (
     canonicalize_donor_addresses,
-    canonicalize_donor_employers,
-    canonicalize_donor_names,
     canonicalize_donor_pobox_typos,
     canonicalize_donor_units,
 )
 from fec.donor_match.canonical_employers import (
     align_org_donor_company_names,
+    canonicalize_donor_employers,
     unify_org_donor_suffix_variants,
 )
+from fec.donor_match.canonicalize import canonicalize_donor_names
+from fec.donor_match.dedup_review import build_donor_dedup_review
 from fec.donor_match.keys import non_individual_donor_key
 from fec.log import get_logger, log_count
 

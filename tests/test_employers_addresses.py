@@ -9,9 +9,9 @@ from fec.cleaning.addresses.fixes.recovery import (
     _recover_null_streets,
 )
 from fec.cleaning.addresses.street_text import (
-    _normalize_street,
     _normalize_unit,
     _split_fused_house_number,
+    normalize_street,
 )
 from fec.cleaning.addresses.streets import clean_streets
 
@@ -60,7 +60,7 @@ def test_leading_ordinal_is_not_split_but_a_fused_house_number_is():
     assert _split_fused_house_number('12THOMPSON ST') == '12 THOMPSON ST'
     # 12 takes TH, so ST here is SAINT after a fused house number
     assert _split_fused_house_number('12ST JAMES PL') == '12 ST JAMES PL'
-    assert _normalize_street('3RD FLOOR') == '3RD FLOOR'
+    assert normalize_street('3RD FLOOR') == '3RD FLOOR'
 
 
 def test_floor_only_street1_moves_to_an_empty_street2():

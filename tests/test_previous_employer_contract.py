@@ -1,12 +1,14 @@
 """previous_employer has one contract shared by every writer (post-merge steps and resolve)."""
 import pandas as pd
 
+from fec.cleaning.donor_consistency.retired import _normalize_previous_employer
+from fec.cleaning.employer_status import referenced_employers
 from fec.cleaning.previous_employer import (
-    normalize_previous_employer_value as V,
     normalize_previous_employer_column,
 )
-from fec.cleaning.employer_status import referenced_employers
-from fec.cleaning.donor_consistency import _normalize_previous_employer
+from fec.cleaning.previous_employer import (
+    normalize_previous_employer_value as V,
+)
 from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
 
 

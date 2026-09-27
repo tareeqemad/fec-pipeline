@@ -1,9 +1,9 @@
 """Employer-name hygiene: legal-suffix restyle, canonical key, display name."""
 import pandas as pd
 
-from fec.cleaning.employer_synonyms import (
-    canonical_key,
-    finalize_employer_names,
+from fec.cleaning.employer_synonyms.apply import finalize_employer_names
+from fec.cleaning.employer_synonyms.canonical import canonical_key
+from fec.cleaning.employer_synonyms.normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
 )

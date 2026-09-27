@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 import pandas as pd
 import psycopg2
 
-from fec.database.loader import connect
+from fec.database.loader._base import connect
 from fec.database.query_checks import CHECKS
 from fec.database.query_checks import CRIT as QC_CRIT
 from fec.env import CLEANED_CSV

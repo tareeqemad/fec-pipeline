@@ -26,9 +26,9 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "."))
 
 import geocode as geocode_script  # noqa: E402  (only helper functions are used; main() is not called)
-from fec.cleaning.employer_synonyms import canonical_key  # noqa: E402  (the same one resolve's lookup uses)
-from fec.geocoding import pipeline as gp  # noqa: E402
-from fec.geocoding import reviewed_points  # noqa: E402
+from fec.cleaning.employer_synonyms.canonical import canonical_key
+from fec.geocoding import pipeline as gp
+from fec.geocoding import reviewed_points
 from fec.io import read_pipeline_csv  # noqa: E402
 from fec.resolve.pipeline.apply import apply_results  # noqa: E402
 

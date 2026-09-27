@@ -13,7 +13,7 @@ from fec.cleaning.addresses.fixes.safe_text import (
     apply_safe_fixes,
     is_state_zip_fragment,
 )
-from fec.cleaning.addresses.street_text import _normalize_street
+from fec.cleaning.addresses.street_text import normalize_street
 from fec.cleaning.addresses.streets import clean_streets
 
 
@@ -32,7 +32,7 @@ from fec.cleaning.addresses.streets import clean_streets
     ("SOUTH ST", "SOUTH ST"),                      # no house number: DIR_PREFIX obeys the same rule
 ])
 def test_direction_word_that_is_the_street_name_is_kept(raw, expected):
-    assert _normalize_street(raw) == expected
+    assert normalize_street(raw) == expected
 
 
 @pytest.mark.parametrize("raw, expected", [
@@ -51,19 +51,19 @@ def test_direction_word_that_is_the_street_name_is_kept(raw, expected):
     ("101 WESTON LN S", "101 WESTON LN S"),
 ])
 def test_ordinary_directions_are_still_abbreviated(raw, expected):
-    assert _normalize_street(raw) == expected
+    assert normalize_street(raw) == expected
 
 
 def test_normalizing_twice_changes_nothing():
     for raw in ("650 WEST AVE", "5555 SOUTH ST, STE. 200", "123 NORTH MAIN ST", "2100 WEST LOOP S"):
-        once = _normalize_street(raw)
-        assert _normalize_street(once) == once
+        once = normalize_street(raw)
+        assert normalize_street(once) == once
 
 
 def test_sreet_misspelling_keeps_the_direction_name():
     # AGUS, RAANAN files "200 WEST ST" 18 times and "200 WEST SREET" once
-    assert _normalize_street("200 WEST SREET") == "200 WEST ST"
-    assert _normalize_street("19 THATCHER SREET APARTMENT 4") == "19 THATCHER ST APARTMENT 4"
+    assert normalize_street("200 WEST SREET") == "200 WEST ST"
+    assert normalize_street("19 THATCHER SREET APARTMENT 4") == "19 THATCHER ST APARTMENT 4"
 
 
 def _frame(streets):

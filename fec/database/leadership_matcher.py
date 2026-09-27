@@ -5,9 +5,8 @@ from typing import Any
 
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize_final
-
 from fec.cleaning.employer_status import classify_employer_status, is_real_employer
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.donor_match.rules import resolve_donor_key
 from fec.resolve.pipeline.location_choice import select_location
 
@@ -216,7 +215,7 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
 
     occ_cat_id = None
     if occ:
-        category = _categorize_final(pd.Series([occ])).iloc[0]
+        category = categorize_final(pd.Series([occ])).iloc[0]
         cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
         found = cur.fetchone()
         occ_cat_id = found[0] if found else None

@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.cleaning.employer_synonyms import canonical_key
+from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.components import UnionFind
 

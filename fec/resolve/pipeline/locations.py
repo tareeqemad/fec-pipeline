@@ -1,8 +1,8 @@
 """Choose the closest known employer location."""
 from __future__ import annotations
 
-from fec.cleaning.addresses.street_text import _normalize_street
-from fec.cleaning.employer_synonyms import canonical_key
+from fec.cleaning.addresses.street_text import normalize_street
+from fec.cleaning.employer_synonyms.canonical import canonical_key
 
 ADDRESS_FIELDS = (
     "employer_address",
@@ -58,7 +58,7 @@ def _signature(location: dict) -> tuple[str, ...]:
 # build a signature for a manual entry's primary address
 def _manual_signature(entry: dict) -> tuple[str, ...]:
     primary = location_candidates(entry)[0]
-    street = _normalize_street(primary.get("employer_address"))
+    street = normalize_street(primary.get("employer_address"))
     return (
         _text(street).upper(),
         _text(primary.get("employer_city")).upper(),

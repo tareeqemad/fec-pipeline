@@ -20,7 +20,7 @@ import re
 
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import SKIP_EMPLOYERS
 
 VAGUE_WORD = 'DEVELOPER'
@@ -95,6 +95,6 @@ def _disambiguate_vague_occupation(df: pd.DataFrame) -> int:
             continue
         new_text = SPECIFIC_TEXT[industry]
         df.at[idx, 'contributor_occupation'] = new_text
-        df.at[idx, 'occupation_category'] = _categorize_final(pd.Series([new_text])).iloc[0]
+        df.at[idx, 'occupation_category'] = categorize_final(pd.Series([new_text])).iloc[0]
         n_fixed += 1
     return n_fixed

@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.unify import _unit_core
+from fec.cleaning.addresses.fixes.unify import unit_core
 from fec.donor_match.components import UnionFind
 
 # a run of letters/digits, to tokenize a street address
@@ -69,7 +69,7 @@ def _street_bucket(df: pd.DataFrame, i, street: str):
 
 # same street_1, ZIP and unit number
 def _unit_bucket(df: pd.DataFrame, i, unit: str):
-    core = _unit_core(unit)
+    core = unit_core(unit)
     if not core:
         return None
     street = df.at[i, "contributor_street_1"]

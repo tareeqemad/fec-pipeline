@@ -35,11 +35,15 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fec.cleaning.employer_synonyms import canonical_key  # noqa: E402
+from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS  # noqa: E402
-from fec.database.roster_sync import pipeline_streets, read_roster, write_roster  # noqa: E402
+from fec.database.roster_sync import (  # noqa: E402
+    pipeline_streets,
+    read_roster,
+    write_roster,
+)
 from fec.env import CLEANED_CSV, PROJECT_ROOT  # noqa: E402
-from fec.geocoding import engines  # noqa: E402
+from fec.geocoding import engines
 
 ROSTER_DIR = PROJECT_ROOT / "data" / "database"
 PREFIX = {"leaders": "leader", "key_accomplices": "accomplice"}

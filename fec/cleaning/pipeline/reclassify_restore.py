@@ -5,8 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize, _normalize_text, map_occupation_fixes
-from fec.cleaning.occupations.normalize import EMPLOYER_STATUS_TEXT
+from fec.cleaning.occupations.normalize import (
+    EMPLOYER_STATUS_TEXT,
+    _categorize,
+    _normalize_text,
+    map_occupation_fixes,
+)
 from fec.cleaning.pipeline.reclassify import _ORG_BUSINESS_RE
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES

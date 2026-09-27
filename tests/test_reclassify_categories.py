@@ -4,8 +4,7 @@ from collections import defaultdict
 import pandas as pd
 import pytest
 
-from fec.cleaning.occupations import _categorize_final
-from fec.cleaning.occupations.normalize import _normalize_text
+from fec.cleaning.occupations.normalize import _normalize_text, categorize_final
 from fec.config.occupation_rules.categories import (
     RECLASSIFY_CATEGORY_RULES,
     VALID_CATEGORIES,
@@ -72,4 +71,4 @@ def test_verified_occupation_audit_rules(raw, cleaned, category):
     normalized, _ = _normalize_text(pd.Series([raw]), OCCUPATION_NORMALIZE)
 
     assert normalized.iloc[0] == cleaned
-    assert _categorize_final(normalized).iloc[0] == category
+    assert categorize_final(normalized).iloc[0] == category

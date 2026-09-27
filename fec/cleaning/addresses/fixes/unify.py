@@ -91,7 +91,7 @@ _BUILDING_RE = re.compile(r'\b(?:BLDG|BUILDING)\b\.?', re.IGNORECASE)
 
 
 # extract the bare unit id from a street_2 value
-def _unit_core(s: str) -> str:
+def unit_core(s: str) -> str:
     """Bare unit id of a street_2, unit words and punctuation removed; a floor or building keeps its kind."""
     # every designator starts a new id; inside one id spaces and punctuation
     # go ("705 N" = "705N", "15-03" = "1503"), while two ids stay apart
@@ -122,7 +122,7 @@ def _unify_unit_designators(df: pd.DataFrame) -> int:
     if not eligible.any():
         return 0
 
-    core = st2.map(_unit_core)
+    core = st2.map(unit_core)
     # a bare designator with no number reduces to '' and is left alone
     # (can't prove it's the same unit)
     eligible = eligible & (core != '')

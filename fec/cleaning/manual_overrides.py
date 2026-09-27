@@ -8,7 +8,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
-from fec.cleaning.occupations import _categorize
+from fec.cleaning.occupations.normalize import _categorize
 from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
 from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.env import PROJECT_ROOT

@@ -1,6 +1,6 @@
 """Quality gates for employment status, categories and previous employers."""
 from fec.cleaning.employer_status import classify_employer_statuses
-from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import SLASH_BRAND_EMPLOYERS
 from fec.config.occupation_rules.categories import VALID_CATEGORIES
 
@@ -43,7 +43,7 @@ def _gate_occupation_category_consistency(df):
         return []
 
     is_indiv = df['entity_type'].eq('INDIVIDUAL')
-    expected = _categorize_final(df.loc[is_indiv, 'contributor_occupation'])
+    expected = categorize_final(df.loc[is_indiv, 'contributor_occupation'])
     actual = df.loc[is_indiv, 'occupation_category'].fillna('')
     mismatched = actual.ne(expected)
     count = int(mismatched.sum())

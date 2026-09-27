@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from fec.cleaning.employer_status import classify_employer_statuses
-from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.resolve.pipeline import cli as resolve_cli
 
@@ -32,7 +32,7 @@ def _resolved_frame():
         "previous_employer": ["", "BOEING"],
         "employer_city": ["ST LOUIS", ""],
     })
-    df["occupation_category"] = _categorize_final(df["contributor_occupation"]).to_numpy()
+    df["occupation_category"] = categorize_final(df["contributor_occupation"]).to_numpy()
     df["employer_status"] = classify_employer_statuses(df).to_numpy()
     return df
 

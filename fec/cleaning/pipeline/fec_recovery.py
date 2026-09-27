@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 
 from fec.cleaning.addresses.fixes.recovery import _is_usable_street
-from fec.cleaning.addresses.street_text import _normalize_street
+from fec.cleaning.addresses.street_text import normalize_street
 from fec.log import get_logger
 from fec.resolve.pipeline.cache import Cache
 
@@ -119,7 +119,7 @@ def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
         hit = cache.get(f"{name}|{state}")
         if not hit or not hit.get("street"):
             continue
-        street = _normalize_street(hit["street"])
+        street = normalize_street(hit["street"])
         if not street or pd.isna(street):
             continue
         our_city = str(df.at[idx, "contributor_city"] or "").strip().upper()

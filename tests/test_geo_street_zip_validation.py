@@ -10,12 +10,11 @@ no street of that name, the ZIP is the typo (3750 S DIXIE HWY MIAMI filed with B
 Harbour's 33154) and a street point in the filed city is kept.
 """
 import pytest
-
-from fec.geocoding import GeoCache
-from fec.geocoding import pipeline as geo
-from fec.geocoding import accepted
 from geo_patch import patch_geo
-from fec.geocoding import zip_checks
+
+from fec.geocoding import accepted, zip_checks
+from fec.geocoding import pipeline as geo
+from fec.geocoding.cache import GeoCache
 
 
 @pytest.fixture
@@ -225,6 +224,7 @@ def test_reviewed_zip_typo_keeps_its_cached_point(tmp_path, real_centroids):
 def test_every_reviewed_key_still_needs_its_exemption(real_centroids):
     """A reviewed key must be a real, cached street point outside its filed ZIP; otherwise the entry is stale."""
     import json
+
     from fec.geocoding.reviewed_points import REVIEWED_ZIP_TYPO_KEYS
 
     path = zip_checks._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"

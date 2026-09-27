@@ -4,14 +4,14 @@ import json
 import sys
 
 import pandas as pd
+from geo_patch import patch_geo
 
 import build_employers
 import geocode
 from fec import io
-from fec.geocoding import GeoCache
-from fec.geocoding import pipeline as geocoding_pipeline
 from fec.geocoding import employers
-from geo_patch import patch_geo
+from fec.geocoding import pipeline as geocoding_pipeline
+from fec.geocoding.cache import GeoCache
 from fec.geocoding.engines import NominatimUnavailable
 
 

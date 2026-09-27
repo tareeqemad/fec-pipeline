@@ -11,12 +11,11 @@ filed state, is a town, and the cached pins in ZIPs without a centroid are
 looked up once more.
 """
 import pytest
-
-from fec.geocoding import GeoCache
-from fec.geocoding import engines, places
-from fec.geocoding import pipeline as geo
 from geo_patch import patch_geo
-from fec.geocoding import zip_checks
+
+from fec.geocoding import engines, places, zip_checks
+from fec.geocoding import pipeline as geo
+from fec.geocoding.cache import GeoCache
 from fec.geocoding.engines import NominatimUnavailable
 
 

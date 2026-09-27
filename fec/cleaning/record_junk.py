@@ -4,8 +4,8 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _norm, _indiv_idx, _set_missing
-from fec.cleaning.occupations import _categorize
+from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
+from fec.cleaning.occupations.normalize import _categorize
 from fec.config.constants import JUNK_EMPLOYER_RE
 from fec.config.occupation_rules.rules import (
     FINAL_JUNK_EMPLOYERS,
