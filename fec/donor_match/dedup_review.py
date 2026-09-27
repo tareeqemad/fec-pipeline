@@ -141,6 +141,13 @@ def _review_candidates(
     return rows
 
 
+# donor_keys a hold rule or the network step already decided
+def _decided_keys(individuals: pd.DataFrame) -> set[str]:
+    if "identity_status" not in individuals.columns:
+        return set()
+    return set(individuals.loc[individuals["identity_status"].ne("confirmed"), "donor_key"])
+
+
 # write likely duplicate donor pairs for human review; never merge
 def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
     """Write likely duplicate donor pairs for human review; never merge."""
@@ -155,6 +162,9 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
     ).fillna(0)
     work = df.assign(_amt=amount).loc[individuals.index]
     rows = _review_candidates(individuals, _review_summary(work))
+    # a held or unresolved filing is already decided: it stays out of every person
+    decided = _decided_keys(individuals)
+    rows = [row for row in rows if not {row["donor_key_a"], row["donor_key_b"]} & decided]
     path = Path(out_dir) / "donor_dedup_review.csv"
     if not rows:
         path.unlink(missing_ok=True)
