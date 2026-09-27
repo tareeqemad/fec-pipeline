@@ -137,9 +137,9 @@ OUTPUT_COLUMNS = [
     # exists and is load-bearing: dropping it would overstate that donor's net
     'contribution_receipt_date',
     'contribution_receipt_amount',
-    # what FEC itself says about the contributor, kept as pulled beside the
-    # final entity_type (fec/cleaning/entity_source.py)
-    'fec_entity_type', 'fec_contributor_id',
+    # what FEC itself says about the contributor (data/fec_source_fields.csv),
+    # beside the final entity_type (fec/cleaning/entity_source.py)
+    'fec_entity_type', 'fec_contributor_id', 'fec_image_number',
 ]
 
 # Working/provenance columns that must never reach the cleaned CSV — every

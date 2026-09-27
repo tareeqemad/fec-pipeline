@@ -80,15 +80,19 @@ python pull.py C00797670 --period 2024 --backfill-source
 - The first command updates the current FEC period.
 - `--period` selects an election period.
 - `--full` rechecks that entire period.
-- `--backfill-source` fills FEC's own `fec_entity_type` and `fec_contributor_id`
-  for rows already pulled. A row is matched by `sub_id`, or, when FEC now returns
+- `--backfill-source` fills `data/fec_source_fields.csv` for rows already pulled:
+  FEC's own `fec_entity_type`, `fec_contributor_id` and `fec_image_number` (the
+  filing page) per `sub_id`. A row is matched by `sub_id`, or, when FEC now returns
   the transaction under a newer `sub_id`, by one exact match on committee,
-  transaction id, date and amount; never by name. It appends nothing and reports
-  the rows it could not match. Run it once per committee and period.
+  transaction id, date and amount; never by name. It reads
+  `data/contributions.csv` and never writes it, and reports the rows it could not
+  match. Run it once per committee and period.
 
+`data/contributions.csv` is only ever appended to by a pull; nothing rewrites
+it. A pull writes each new row's source fields to `data/fec_source_fields.csv`.
 Normal updates start again from the latest saved date so late filings from that
 date are included. Existing rows are skipped by `sub_id`, so `--full` alone does
-not fill new fields on them.
+not fill source fields for them.
 
 ## Output files
 

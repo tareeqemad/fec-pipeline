@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.entity_source import source_entity_type
+from fec.cleaning.entity_source import deciding_source_type, source_entity_type
 from fec.config.data import INDIV_NAME_RE, ORG_KEYWORDS
 
 # Name-token signals for the ORGANIZATION vs COMMITTEE/PAC split: US legal and
@@ -147,7 +147,7 @@ def _apply_source_entity_type(df: pd.DataFrame) -> int:
     """Rows FEC typed take that type; a row the guess made a committee and FEC
     calls a person is reclassified like any committee_to_individual row, so
     its work fields are restored."""
-    source = source_entity_type(df)
+    source = deciding_source_type(df)
     differs = source.ne("") & source.ne(df["entity_type"])
     if not differs.any():
         return 0

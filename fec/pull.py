@@ -12,44 +12,53 @@ from typing import Any, Iterator
 
 from tqdm import tqdm
 
-from fec.env import RAW_CSV
+from fec.env import FEC_SOURCE_CSV, RAW_CSV
 from fec.fec_api import RateLimiter, build_session, fetch_page, required_env
-from fec.pull_rows import COLUMNS, FIELDS, build_row, source_values
+from fec.pull_rows import COLUMNS, FIELDS, SOURCE_COLUMNS, build_row, source_values
 
 log = logging.getLogger(__name__)
 
 
-# give an older raw file the columns this pull writes
-def ensure_columns(csv_path: Path) -> int:
-    """Rewrite the file with any missing trailing columns, empty; returns rows.
-
-    A raw file written before the FEC source fields existed has every other
-    column in the same order: they are only added, nothing else changes.
-    Any other difference in the header stops the pull.
-    """
-    if not csv_path.exists():
-        return 0
-    with open(csv_path, newline="", encoding="utf-8-sig") as handle:
-        header = next(csv.reader(handle), [])
-    if header == COLUMNS:
-        return 0
-    if header != COLUMNS[:len(header)]:
-        raise ValueError(f"{csv_path} header is not a prefix of {COLUMNS}: {header}")
-    with open(csv_path, newline="", encoding="utf-8-sig") as handle:
-        rows = list(csv.DictReader(handle))
-    _write_rows(csv_path, rows)
-    log.info("[COLUMNS] added %s to %s (%s rows)", ", ".join(COLUMNS[len(header):]), csv_path, f"{len(rows):,}")
-    return len(rows)
+# data/fec_source_fields.csv beside the raw file it describes
+def source_path(csv_path: Path) -> Path:
+    return csv_path.parent / FEC_SOURCE_CSV.name
 
 
-# write raw rows to the CSV in place, atomically
-def _write_rows(csv_path: Path, rows: list[dict]) -> None:
-    tmp = csv_path.with_suffix(csv_path.suffix + ".tmp")
+# FEC source fields already saved, by raw sub_id
+def read_source_fields(path: Path) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    with open(path, newline="", encoding="utf-8-sig") as handle:
+        return {row["sub_id"]: row for row in csv.DictReader(handle) if row.get("sub_id")}
+
+
+# add source records to the file, writing its header when new
+def append_source_fields(path: Path, records: list[dict]) -> None:
+    if not records:
+        return
+    new = not path.exists() or path.stat().st_size == 0
+    with open(path, "a", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SOURCE_COLUMNS, restval="")
+        if new:
+            writer.writeheader()
+        writer.writerows(records)
+
+
+# replace the source file with these records, atomically
+def write_source_fields(path: Path, records: dict[str, dict]) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=COLUMNS, restval="")
+        writer = csv.DictWriter(handle, fieldnames=SOURCE_COLUMNS, restval="", extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(rows)
-    os.replace(tmp, csv_path)
+        writer.writerows(records[sub_id] for sub_id in sorted(records))
+    os.replace(tmp, path)
+
+
+# one source record for a raw row, from FEC's result
+def _source_record(sub_id: str, result: dict, matched_by: str) -> dict:
+    fec_sub_id = str(result.get("sub_id") or "").strip()
+    return {"sub_id": sub_id, **source_values(result), "matched_by": matched_by,
+            "fec_sub_id": fec_sub_id if fec_sub_id != sub_id else ""}
 
 
 # load existing sub_ids and latest date for a committee period
@@ -170,6 +179,7 @@ def _pull_pages(
                 if progress:
                     progress.update(1)
 
+                sources = []
                 for result in data.get("results", []):
                     row = build_row(result)
                     if row is None:
@@ -179,8 +189,10 @@ def _pull_pages(
                     else:
                         writer.writerow(row)
                         existing_ids.add(str(row[0]))
+                        sources.append(_source_record(str(row[0]), result, "pulled"))
                         stats["new_rows"] += 1
                 handle.flush()
+                append_source_fields(source_path(csv_path), sources)
     finally:
         if progress:
             progress.close()
@@ -211,7 +223,6 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
     api_key = required_env("FEC_API_KEY")
     RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
     csv_path = RAW_CSV
-    ensure_columns(csv_path)
     existing_ids, latest_date = read_committee_state(
         csv_path,
         committee_id,
@@ -295,16 +306,17 @@ def _transaction_key(row: dict) -> tuple:
     )
 
 
-# fill the FEC source fields of rows already in the raw file
-def fill_source_fields(rows: list[dict], results: list[dict], committee_id: str, period: int) -> dict:
-    """Give each existing row of this committee period FEC's own entity type and contributor id.
+# match the rows already in the raw file to FEC's current results
+def match_source_fields(rows: list[dict], results: list[dict], committee_id: str,
+                        period: int) -> tuple[dict[str, dict], dict]:
+    """FEC's own entity type and contributor id for each raw row of this committee period.
 
     A row is matched by its sub_id; when FEC now returns that transaction
     under a newer sub_id (an amended report), by one exact match on
     committee, transaction id, date and amount, on both sides. Never by
-    name. Nothing is appended: new filings come from a normal pull.
+    name. The raw rows are only read.
     """
-    stats = {"by_sub_id": 0, "by_transaction": 0, "changed": 0, "unmatched": 0, "ambiguous": 0}
+    stats = {"by_sub_id": 0, "by_transaction": 0, "ambiguous": 0, "unmatched": 0}
     by_sub_id = {str(result.get("sub_id") or "").strip(): result for result in results}
     mine = [row for row in rows if row.get("committee_id") == committee_id
             and row.get("two_year_transaction_period") == str(period)]
@@ -313,54 +325,54 @@ def fill_source_fields(rows: list[dict], results: list[dict], committee_id: str,
     for sub_id, result in by_sub_id.items():
         if sub_id and sub_id not in known:
             loose.setdefault(_transaction_key(result), []).append(result)
+    records: dict[str, dict] = {}
     unmatched: dict[tuple, list] = {}
     for row in mine:
-        if row.get("sub_id") in by_sub_id:
-            _set_source(row, by_sub_id[row["sub_id"]], stats)
+        sub_id = row.get("sub_id", "")
+        if sub_id in by_sub_id:
+            records[sub_id] = _source_record(sub_id, by_sub_id[sub_id], "sub_id")
             stats["by_sub_id"] += 1
         else:
             unmatched.setdefault(_transaction_key(row), []).append(row)
     for key, group in unmatched.items():
         candidates = loose.get(key, [])
         if len(group) == 1 and len(candidates) == 1 and key[1]:
-            _set_source(group[0], candidates[0], stats)
+            sub_id = group[0]["sub_id"]
+            records[sub_id] = _source_record(sub_id, candidates[0], "transaction")
             stats["by_transaction"] += 1
         else:
             stats["ambiguous" if candidates else "unmatched"] += len(group)
-    return stats
+    return records, stats
 
 
-# copy one result's source fields onto a row, counting real changes
-def _set_source(row: dict, result: dict, stats: dict) -> None:
-    values = source_values(result)
-    if any(row.get(column) and row.get(column) != value for column, value in values.items()):
-        stats["changed"] += 1
-    row.update(values)
-
-
-# walk a whole committee period and fill the source fields of existing rows
+# walk a whole committee period and save the source fields of existing rows
 def backfill_source(committee_id: str, period: int) -> dict:
-    """Fill fec_entity_type / fec_contributor_id for rows already in contributions.csv."""
+    """Write fec_source_fields.csv for rows already in contributions.csv, which is only read."""
     api_key = required_env("FEC_API_KEY")
     csv_path = RAW_CSV
     if not csv_path.exists():
         raise FileNotFoundError(csv_path)
-    ensure_columns(csv_path)
     params = _pull_params(api_key, committee_id, period, None, full=True)
     session = build_session()
     limiter = RateLimiter(rpm=int(os.getenv("FEC_RPM", "15")))
     results: list[dict] = []
-    log.info("[BACKFILL] %s / %s: reading every page (nothing is appended)", committee_id, period)
+    log.info("[BACKFILL] %s / %s: reading every page (the raw file is not changed)", committee_id, period)
     for data in iter_pages(session, params, limiter):
         results.extend(data.get("results", []))
     with open(csv_path, newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
-    stats = fill_source_fields(rows, results, committee_id, period)
-    _write_rows(csv_path, rows)
+    records, stats = match_source_fields(rows, results, committee_id, period)
+    path = source_path(csv_path)
+    saved = read_source_fields(path)
+    stats["changed"] = sum(
+        1 for sub_id, record in records.items()
+        if sub_id in saved and any(saved[sub_id].get(k, "") != record[k] for k in ("fec_entity_type", "fec_contributor_id"))
+    )
+    write_source_fields(path, {**saved, **records})
     log.info(
         "[BACKFILL] %s / %s: %s results | by sub_id %s | by transaction %s | changed %s | "
-        "ambiguous %s | unmatched %s",
+        "ambiguous %s | unmatched %s -> %s",
         committee_id, period, f"{len(results):,}", *(f"{stats[k]:,}" for k in
-        ("by_sub_id", "by_transaction", "changed", "ambiguous", "unmatched")),
+        ("by_sub_id", "by_transaction", "changed", "ambiguous", "unmatched")), path,
     )
     return stats

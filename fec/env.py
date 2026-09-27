@@ -60,6 +60,8 @@ def get_db_config() -> dict:
 
 # file paths
 RAW_CSV = PROJECT_ROOT / "data" / "contributions.csv"
+# FEC's own entity type and contributor id per sub_id; the raw file is never rewritten
+FEC_SOURCE_CSV = PROJECT_ROOT / "data" / "fec_source_fields.csv"
 CLEANED_CSV = PROJECT_ROOT / "data" / "contributions_cleaned.csv"
 SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 DATA_DIR = PROJECT_ROOT / "data"

@@ -25,20 +25,26 @@ RAW_FIELDS = [
 ]
 
 
-# What FEC itself says about the contributor, kept apart from what clean
-# decides: raw column -> FEC API field. entity_type is IND, ORG, COM, PAC,
-# PTY, CCM or CAN; contributor_id is the FEC id of a committee contributor.
+# What FEC itself says about the contributor, kept in data/fec_source_fields.csv
+# (never in the raw file): column -> FEC API field. entity_type is IND, ORG,
+# COM, PAC, PTY, CCM or CAN; contributor_id is the FEC id of a committee contributor.
 SOURCE_FIELDS = {
     "fec_entity_type": "entity_type",
     "fec_contributor_id": "contributor_id",
+    # the filing page: https://docquery.fec.gov/cgi-bin/fecimg/?<image_number>
+    "fec_image_number": "image_number",
 }
 
 # the FEC API fields one pull asks for
 FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
 
-# contributor_year preserves the existing raw CSV contract; the source
-# fields come last so older files gain them as trailing columns.
-COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:] + list(SOURCE_FIELDS)
+# contributor_year preserves the existing raw CSV contract.
+COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
+
+# data/fec_source_fields.csv: one row per raw sub_id. matched_by says how it
+# was tied to FEC's row (pulled, sub_id, transaction); fec_sub_id is FEC's
+# current sub_id when it differs (an amended report).
+SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
 # parse a value into a Decimal, default zero on failure
@@ -71,7 +77,6 @@ def build_row(result: dict[str, Any]) -> list | None:
 
     receipt_date = _date(result.get("contribution_receipt_date"))
     values = {field: result.get(field) for field in RAW_FIELDS}
-    values.update(source_values(result))
     values["sub_id"] = sub_id
     values["contribution_receipt_date"] = receipt_date
     values["contributor_year"] = _year(receipt_date)
