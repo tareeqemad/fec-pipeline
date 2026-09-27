@@ -12,7 +12,7 @@ from fec.cleaning.addresses.review import (
     build_review_queues,
     queue_counts,
 )
-from fec.cleaning.audit_trail import AuditTrail
+from fec.cleaning.audit_trail import ADDRESS_FIELDS, AuditTrail
 from fec.cleaning.pipeline.address_stage import _report_address_issues
 from fec.cleaning.pipeline.core import _write_address_queues
 
@@ -114,12 +114,17 @@ def test_address_stage_defers_queues_when_the_pipeline_collects_them(tmp_path):
     assert df.set_index("sub_id").loc[["1", "2", "4"], "contributor_street_2"].isna().all()
 
     final = df.assign(donor_key=["k1", "k2", "k3", "k4", "c5", "k6"])
-    _write_address_queues(final, str(tmp_path), reports, pd.Index(["4"]))
+    filed = _address_stage_frame().reindex(columns=["sub_id", *ADDRESS_FIELDS]).fillna("")
+    _write_address_queues(final, str(tmp_path), reports, pd.Index(["4"]), filed, AuditTrail())
     review = list(csv.DictReader(open(tmp_path / "address_manual_review.csv", encoding="utf-8")))
     regeo = list(csv.DictReader(open(tmp_path / "address_regeocode_suspects.csv", encoding="utf-8")))
     assert {r["sub_id"] for r in review if r["status"] == AUTO_FIXED} == {"1", "2"}
     assert all(r["donor_key"] for r in review + regeo)
     assert {r["sub_id"] for r in regeo if "PO Box" in r["review_reason"]} == {"6"}
+    cases = list(csv.DictReader(open(tmp_path / "address_review_cases.csv", encoding="utf-8")))
+    open_items = {r["sub_id"] for r in review if r["status"] == "open"}
+    assert {sid for case in cases for sid in case["sub_ids"].split(";")} >= open_items
+    assert all(case["decision"] == "pending" for case in cases)
 
 
 def test_street2_step_edits_are_recorded_under_address_review():
