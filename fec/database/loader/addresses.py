@@ -97,7 +97,6 @@ def load_address_dimension(
            VALUES %s""",
         [tuple(addr_dim[key]) for key in addr_keys], page_size=5000,
         template="(%s, %s, %s, %s, %s, %s::float8, %s::float8)")
-    conn.commit()
 
     # Match nullable fields.
     cur.execute("""SELECT address_id, COALESCE(street_1,''), COALESCE(street_2,''),
@@ -183,7 +182,6 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
     execute_values(cur,
         "INSERT INTO donor_addresses (donor_id, address_id) VALUES %s",
         donor_address_rows, page_size=5000)
-    conn.commit()
 
     # Build donor-address lookup.
     cur.execute("""
@@ -224,7 +222,6 @@ def link_employer_locations(
         employer_rows,
         template="(%s::int, %s::int)",
         page_size=5000)
-    conn.commit()
     cur.execute("SELECT COUNT(*) FROM employers WHERE address_id IS NOT NULL")
     linked = cur.fetchone()[0]
     logger.info(f"  employers with location: {linked:,} ({time.time()-start:.1f}s)")
@@ -268,6 +265,5 @@ def _prune_orphan_addresses(conn, cur) -> None:
           AND NOT EXISTS (SELECT 1 FROM donor_employments de WHERE de.address_id = a.address_id)
     """)
     n_orphan = cur.rowcount
-    conn.commit()
     if n_orphan:
         logger.info(f"  pruned {n_orphan:,} orphan addresses")

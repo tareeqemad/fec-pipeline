@@ -1,6 +1,8 @@
 """Connection, credentials, and low-level value/count helpers."""
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import numpy as np
@@ -86,12 +88,37 @@ def to_int_or_none(val: Any) -> int | None:
         raise ValueError(f"to_int_or_none: cannot parse {val!r} as int")
 
 
+# commit one load stage, or roll it all back and re-raise
+@contextmanager
+def stage(conn: Any, name: str) -> Iterator[None]:
+    """The only place the loader commits: each stage is saved whole or not at all."""
+    try:
+        yield
+    except BaseException:
+        conn.rollback()
+        logger.error("  stage '%s' failed: rolled back", name)
+        raise
+    conn.commit()
+
+
+# undo only the statements inside the block when it fails
+@contextmanager
+def savepoint(cur: Any, name: str) -> Iterator[None]:
+    cur.execute(f"SAVEPOINT {name}")
+    try:
+        yield
+    except BaseException:
+        cur.execute(f"ROLLBACK TO SAVEPOINT {name}")
+        raise
+    cur.execute(f"RELEASE SAVEPOINT {name}")
+
+
 # row count for a table, 0 if the query fails
 def _count(cur: Any, table: str) -> int:
     try:
-        cur.execute(f"SELECT COUNT(*) FROM {table}")
-        return cur.fetchone()[0]
+        with savepoint(cur, "count_rows"):
+            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            return cur.fetchone()[0]
     except Exception as error:
-        cur.connection.rollback()
         logger.warning("_count(%s) failed -- returning 0: %s", table, error)
         return 0

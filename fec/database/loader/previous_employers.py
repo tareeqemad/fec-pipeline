@@ -58,7 +58,6 @@ def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame, emp_name_to_i
         execute_values(cur,
             "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
             [(name,) for name in sorted(new_names)], page_size=1000)
-        conn.commit()
         cur.execute("SELECT employer_id, name FROM employers")
         emp_name_to_id.clear()
         emp_name_to_id.update({row[1]: row[0] for row in cur.fetchall()})

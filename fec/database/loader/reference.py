@@ -88,7 +88,6 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
             execute_values(cur,
                 f"INSERT INTO {table_name} ({cols_str}) VALUES %s ON CONFLICT DO NOTHING",
                 rows, page_size=5000)
-            conn.commit()
 
         logger.info(f"  {table_name}: {_count(cur, table_name):,} ({time.time()-start:.1f}s)")
 
@@ -103,7 +102,6 @@ def load_lookups(conn: Any, cur: Any) -> None:
     rows = [(category,) for category in categories]
     execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING",
                    rows, page_size=50)
-    conn.commit()
     logger.info("  occupation_categories: %d", _count(cur, 'occupation_categories'))
 
     for committee in load_committees():
@@ -128,5 +126,4 @@ def load_lookups(conn: Any, cur: Any) -> None:
                 "WHERE NOT EXISTS (SELECT 1 FROM committees WHERE committee_name = %s)",
                 vals + (committee['committee_name'],))
 
-    conn.commit()
     logger.info("  committees: %d", _count(cur, 'committees'))

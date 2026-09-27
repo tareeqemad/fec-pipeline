@@ -165,7 +165,6 @@ def load_contributions(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: d
     _map_employment_ids(rows, empl_donor_emp_to_id, get_employer_id)
 
     execute_values(cur, _INSERT_SQL, _build_rows(rows), page_size=5000)
-    conn.commit()
 
     total = _count(cur, "contributions")
     logger.info("  contributions: %s (%0.1fs)", f"{total:,}", time.time() - start)

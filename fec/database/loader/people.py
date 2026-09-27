@@ -12,6 +12,7 @@ from fec.database.leadership_matcher import (
     upsert_donor_address,
     upsert_leader_employment,
 )
+from fec.database.loader._base import savepoint
 from fec.database.loader.employment_locations import _location_index
 from fec.env import PROJECT_ROOT
 from fec.log import get_logger
@@ -23,28 +24,33 @@ logger = get_logger(__name__)
 def _reset_id_sequence(conn: Any, cur: Any, table: str) -> None:
     """Reset the table's serial PK sequence to MAX(pk), discovering which column owns the sequence."""
     try:
-        cur.execute(
-            """
-            SELECT a.attname
-            FROM pg_attribute a
-            JOIN pg_class c ON c.oid = a.attrelid
-            WHERE c.relname = %s AND a.attnum > 0 AND NOT a.attisdropped
-              AND pg_get_serial_sequence(c.relname, a.attname) IS NOT NULL
-            LIMIT 1
-            """,
-            (table,),
-        )
-        row = cur.fetchone()
-        if not row:
-            return
-        column = row[0]
-        cur.execute(
-            f"SELECT setval(pg_get_serial_sequence('{table}', '{column}'), "
-            f"COALESCE(MAX({column}), 1)) FROM {table}"
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
+        with savepoint(cur, "reset_sequence"):
+            _set_sequence_to_max(cur, table)
+    except Exception as error:
+        logger.warning("  %s: sequence not reset: %s", table, error)
+
+
+# set a table's serial sequence to its current max id
+def _set_sequence_to_max(cur: Any, table: str) -> None:
+    cur.execute(
+        """
+        SELECT a.attname
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        WHERE c.relname = %s AND a.attnum > 0 AND NOT a.attisdropped
+          AND pg_get_serial_sequence(c.relname, a.attname) IS NOT NULL
+        LIMIT 1
+        """,
+        (table,),
+    )
+    row = cur.fetchone()
+    if not row:
+        return
+    column = row[0]
+    cur.execute(
+        f"SELECT setval(pg_get_serial_sequence('{table}', '{column}'), "
+        f"COALESCE(MAX({column}), 1)) FROM {table}"
+    )
 
 
 # read a shared person field from either leadership CSV format
@@ -173,7 +179,6 @@ def _load_donor_linked_csv(
         match_counts[method] += 1
         inserted += 1
 
-    conn.commit()
     _reset_id_sequence(conn, cur, table)
     logger.info(
         f"  {table}: {inserted} rows ({skipped} skipped), "

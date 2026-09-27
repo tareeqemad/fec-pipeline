@@ -56,9 +56,7 @@ def grant_read_access(conn: Any, cur: Any) -> None:
     try:
         for statement in statements:
             cur.execute(statement)
-        conn.commit()
     except Exception as error:
-        conn.rollback()
         raise RuntimeError(f"Permission update failed: {error}") from error
 
     # ALL TABLES covers tables, views and materialized views
