@@ -1,9 +1,9 @@
-"""build_employers publishes what resolve's apply step resolves, and nothing without a source.
+"""employer_locations publishes what resolve's apply step resolves, and nothing without a source.
 
 Audit 2026-09-24 (employer-format-dupes / employer-accuracy):
 * F1: 67 employers got no published office although apply's publishable lookup
   already picked a grounded canonical sibling ('SCOTT FANE,CPA PA' -> 'SCOTT FANE CPA
-  PA'); build_employers used the full lookup, where the exact closed-book answer hid it.
+  PA'); employer_locations used the full lookup, where the exact closed-book answer hid it.
   A sibling address in no donor's state goes to the review list instead (WILLIAMS &
   CONNOLLY's grounded sibling is its pre-2022 office).
 * 32 rows kept from the previous employer_locations.csv without any cache or manual
@@ -13,7 +13,7 @@ import json
 
 import pandas as pd
 
-import build_employers
+from fec.geocoding import employer_locations
 from fec.resolve.pipeline.locations import (
     address_cache_lookup,
     publishable_first_entry,
@@ -35,12 +35,12 @@ def _build(tmp_path, monkeypatch, filings, cache, geocodes=None, previous=None):
         pd.DataFrame(previous).to_csv(output, index=False)
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes or {}), encoding="utf-8")
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
-    build_employers.build()
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
+    employer_locations.build()
     locations = pd.read_csv(output, dtype=str, keep_default_na=False, na_values=[])
-    review_csv = tmp_path / build_employers.REVIEW_CSV
+    review_csv = tmp_path / employer_locations.REVIEW_CSV
     review = (pd.read_csv(review_csv, dtype=str, keep_default_na=False, na_values=[])
               if review_csv.exists() else pd.DataFrame(columns=["reason", "employer_address"]))
     return locations, review
@@ -89,7 +89,7 @@ def test_a_sibling_outside_the_donor_states_goes_to_review(tmp_path, monkeypatch
     assert _published(locations).empty
     # the full lookup's own answer stays, as before (closed-book: not published)
     assert locations["employer_state"].tolist() == ["MD"]
-    assert review["reason"].tolist() == [build_employers.REVIEW_ALIAS_OUTSIDE_DONOR_STATES]
+    assert review["reason"].tolist() == [employer_locations.REVIEW_ALIAS_OUTSIDE_DONOR_STATES]
     assert review.loc[0, "employer_address"] == "725 Twelfth Street, N.W"
     assert review.loc[0, "donor_states"] == "MD"
 
@@ -133,10 +133,10 @@ def test_a_carried_over_row_without_a_source_is_not_published(tmp_path, monkeypa
     assert _published(first).empty
     assert first.loc[0, "address_trust"] == "uncorroborated"
     assert first.loc[0, "employer_address"] == "3700 W TOUHY AVE"   # kept for reference only
-    assert review["reason"].tolist() == [build_employers.REVIEW_NO_CURRENT_SOURCE]
+    assert review["reason"].tolist() == [employer_locations.REVIEW_NO_CURRENT_SOURCE]
     assert review.loc[0, "method"] == "previous:verified"
 
     # the next build keeps it unpublished and still lists it
     second, second_review = _build(tmp_path, monkeypatch, filings, {})
     pd.testing.assert_frame_equal(first, second)
-    assert second_review["reason"].tolist() == [build_employers.REVIEW_NO_CURRENT_SOURCE]
+    assert second_review["reason"].tolist() == [employer_locations.REVIEW_NO_CURRENT_SOURCE]

@@ -11,7 +11,7 @@ import json
 
 import pandas as pd
 
-import build_employers
+from fec.geocoding import employer_locations
 
 HOME = "905 Enfield Chase"
 CITY, STATE, ZIP = "Virginia Beach", "VA", "23452"
@@ -40,12 +40,12 @@ def _build(tmp_path, monkeypatch, filings, office=HOME, method="ai_openai_search
     }}
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
-    build_employers.build()
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
+    employer_locations.build()
     location = pd.read_csv(output, dtype=str, keep_default_na=False, na_values=[]).iloc[0]
-    review_csv = tmp_path / build_employers.REVIEW_CSV
+    review_csv = tmp_path / employer_locations.REVIEW_CSV
     review = (pd.read_csv(review_csv, dtype=str, keep_default_na=False, na_values=[])
               if review_csv.exists() else pd.DataFrame(columns=["reason", "employer_address"]))
     return location, review
@@ -60,7 +60,7 @@ def test_the_owner_s_home_is_published_as_a_town_only(tmp_path, monkeypatch):
     assert location["address_trust"] == "grounded"
     # the house's own point is gone; the ZIP's centroid stands in
     assert location["employer_latitude"] != "36.8"
-    assert review["reason"].tolist() == [build_employers.REVIEW_HOME_OFFICE]
+    assert review["reason"].tolist() == [employer_locations.REVIEW_HOME_OFFICE]
     assert review.loc[0, "employer_address"] == "905 ENFIELD CHASE"
 
 
@@ -102,7 +102,7 @@ def test_a_flat_is_still_the_owner_s_home(tmp_path, monkeypatch):
     location, review = _build(tmp_path, monkeypatch, [_filing(street_2="APT 7E")])
 
     assert location["employer_address"] == ""
-    assert review["reason"].tolist() == [build_employers.REVIEW_HOME_OFFICE]
+    assert review["reason"].tolist() == [employer_locations.REVIEW_HOME_OFFICE]
 
 
 def test_several_filers_or_donors_keep_the_street(tmp_path, monkeypatch):
@@ -132,4 +132,4 @@ def test_a_manual_row_marked_office_premises_keeps_its_street(tmp_path, monkeypa
     location, review = _build(tmp_path, monkeypatch, [_filing()], method="manual_override")
 
     assert location["employer_address"] == "905 ENFIELD CHASE"
-    assert build_employers.REVIEW_HOME_OFFICE not in review["reason"].tolist()
+    assert employer_locations.REVIEW_HOME_OFFICE not in review["reason"].tolist()

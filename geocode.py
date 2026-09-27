@@ -150,7 +150,7 @@ def main():
     if changed:
         _write_output(df, csv_path, stage, input_columns)
         if args.employer_only:
-            from build_employers import build
+            from fec.geocoding.employer_locations import build
 
             logger.info("\n-- Building employer locations --")
             build()

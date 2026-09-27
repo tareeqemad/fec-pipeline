@@ -8,7 +8,7 @@ import json
 
 import pandas as pd
 
-import build_employers
+from fec.geocoding import employer_locations
 
 
 def _frame(rows):
@@ -25,7 +25,7 @@ def test_us_addresses_take_the_donor_form():
         ("SOME FIRM", "11610 Ash Street, Suite 200", "St. Louis", "MO", "63101-1234"),
     ])
 
-    result = build_employers.normalize_location_addresses(frame)
+    result = employer_locations.normalize_location_addresses(frame)
 
     assert result[["employer_address", "employer_city", "employer_zip"]].values.tolist() == [
         ["1211 AVE OF THE AMERICAS", "NEW YORK", "10036"],
@@ -45,7 +45,7 @@ def test_editorial_notes_in_parentheses_are_dropped():
          "Washington", "DC", "20001"),
     ])
 
-    streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
+    streets = employer_locations.normalize_location_addresses(frame)["employer_address"].tolist()
 
     assert streets == ["PO BOX 1000", "200 LIBERTY ST FL 6", "1211 SW 5TH AVE STE 2700",
                        "400 N CAPITOL ST NW"]
@@ -57,7 +57,7 @@ def test_nothing_in_front_of_the_suite_is_lost():
         ("SUN CAPITAL PARTNERS", "666 Third Avenue, Floor 24, Suite 2402", "New York", "NY", "10017"),
     ])
 
-    streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
+    streets = employer_locations.normalize_location_addresses(frame)["employer_address"].tolist()
 
     assert streets == ["ONE KENDALL SQ BUILDING 600 STE 380", "666 THIRD AVE FL 24 STE 2402"]
 
@@ -69,7 +69,7 @@ def test_foreign_addresses_stay_exactly_as_given():
         ("STANTON SAS", "Km 25 Via a Sibate", "Sibate", "CUNDINAMARCA", ""),
     ])
 
-    result = build_employers.normalize_location_addresses(frame)
+    result = employer_locations.normalize_location_addresses(frame)
 
     pd.testing.assert_frame_equal(result, frame)
 
@@ -81,8 +81,8 @@ def test_normalising_twice_changes_nothing():
         ("CITY", "City Hall", "New York", "NY", "10007"),
         ("", "", "", "", ""),
     ])
-    once = build_employers.normalize_location_addresses(frame)
-    pd.testing.assert_frame_equal(build_employers.normalize_location_addresses(once), once)
+    once = employer_locations.normalize_location_addresses(frame)
+    pd.testing.assert_frame_equal(employer_locations.normalize_location_addresses(once), once)
 
 
 def test_build_shares_one_spelling_and_keeps_the_original_geocode_key(tmp_path, monkeypatch):
@@ -113,11 +113,11 @@ def test_build_shares_one_spelling_and_keeps_the_original_geocode_key(tmp_path, 
     }}
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(resolve_cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
 
     locations = pd.read_csv(output, dtype=str, keep_default_na=False)
     assert locations["employer_name"].tolist() == ["OCTAGON", "STEWARD PARTNERS"]
@@ -138,7 +138,7 @@ def test_street_and_building_names_ending_in_office_are_not_units():
         ("NYS SENATE", "State Capitol Building, Legislative Office Building", "Albany", "NY", "12247"),
     ])
 
-    streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
+    streets = employer_locations.normalize_location_addresses(frame)["employer_address"].tolist()
 
     assert not any(" OFF " in f" {street} " for street in streets), streets
     assert streets[:3] == ["700 OFFICE PKWY", "1 POST OFFICE SQ", "10 POST OFFICE SQ"]
@@ -146,7 +146,7 @@ def test_street_and_building_names_ending_in_office_are_not_units():
 
 
 def test_real_unit_codes_are_still_abbreviated():
-    abbreviate = build_employers._abbreviate_trailing_unit
+    abbreviate = employer_locations._abbreviate_trailing_unit
     assert abbreviate("1 LETTERMAN DR BUILDING C") == "1 LETTERMAN DR BLDG C"
     assert abbreviate("7030 S YALE AVE SUITE E-100") == "7030 S YALE AVE STE E-100"
     assert abbreviate("848 BRICKELL AVE SUITE 2A") == "848 BRICKELL AVE STE 2A"
@@ -170,7 +170,7 @@ def test_unit_designators_take_the_usps_form():
         ("I", "1 Suite St", "Albany", "NY", "12207"),
     ])
 
-    streets = build_employers.normalize_location_addresses(frame)["employer_address"].tolist()
+    streets = employer_locations.normalize_location_addresses(frame)["employer_address"].tolist()
 
     assert streets == [
         "450 SEVENTH AVE FL 10",

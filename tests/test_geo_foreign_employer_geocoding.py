@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from geo_patch import patch_geo
 
-import build_employers
+from fec.geocoding import employer_locations
 from fec.geocoding import accepted, employers, engines
 from fec.geocoding import pipeline as geo
 from fec.geocoding.cache import GeoCache
@@ -143,11 +143,11 @@ def test_build_keeps_the_foreign_office_text_and_drops_its_us_coordinates(tmp_pa
     }
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(resolve_cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
-    monkeypatch.setattr(build_employers, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(build_employers, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(build_employers, "EMPLOYER_LOCATIONS_CSV", output)
+    monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
+    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
-    build_employers.build()
+    employer_locations.build()
 
     locations = pd.read_csv(output, dtype=str, keep_default_na=False).set_index("employer_name")
     kifo, stanton = locations.loc["KIFO"], locations.loc["STANTON SAS"]
