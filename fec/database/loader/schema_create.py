@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from collections import Counter
@@ -9,7 +10,6 @@ from typing import Any
 
 import sqlparse
 
-from fec.database.loader._base import PG
 from fec.database.loader.employers import EMPLOYMENT_KEY_COLUMNS
 from fec.env import SCHEMA_SQL
 from fec.log import get_logger
@@ -228,6 +228,12 @@ def _reject_legacy_columns(cur: Any) -> None:
         )
 
 
+# the database this cursor is connected to, for messages
+def _database_name(cur: Any) -> str:
+    connection = getattr(cur, "connection", None)
+    return getattr(getattr(connection, "info", None), "dbname", None) or os.getenv("PG_DBNAME", "fec_db")
+
+
 # require needed postgres extensions before a destructive reset
 def verify_extensions(cur: Any) -> None:
     """Require extensions before destructive reset."""
@@ -256,5 +262,5 @@ def verify_extensions(cur: Any) -> None:
     raise RuntimeError(
         f"Missing PostgreSQL extensions: {details}\n"
         "Run as a PostgreSQL superuser before loader.py --reset:\n"
-        f'  sudo -u postgres psql -d {PG["dbname"]} -c "{sql}"'
+        f'  sudo -u postgres psql -d {_database_name(cur)} -c "{sql}"'
     )
