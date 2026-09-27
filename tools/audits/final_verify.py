@@ -70,7 +70,7 @@ def main() -> int:
     a = json.load(open("data/audit_summary.json"))
     print("== audit: changes", a["changes"], "| untracked", a["untracked_changes"])
     for step in ["enh_normalize_occupation_style", "enh_occupation_typo_fixes", "enh_employer_synonyms_final", "foreign_address_restore",
-                 "safety_disambiguate_vague_occupation", "streets_trim_truncated", "donor_converge_occupation_within_employer"]:
+                 "safety_disambiguate_vague_occupation", "streets_trim_truncated"]:
         print(f"   {step}: {a['steps'].get(step, {}).get('changes')}")
     summed = a["changes"] == sum(v["changes"] for v in a["steps"].values())
     print("   summary total == sum of steps:", summed)

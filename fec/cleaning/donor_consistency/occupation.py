@@ -1,7 +1,6 @@
 """Occupation, occupation_status and occupation_category fixes that need donor_key."""
 import pandas as pd
 
-from fec.cleaning._helpers import _norm
 from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
@@ -118,46 +117,6 @@ def _fill_placeholder_occupations(df: pd.DataFrame, placeholders: pd.DataFrame) 
             continue
         _set_derived_occupation(df, rows.index, occupation)
         n_fixed += len(rows)
-    return n_fixed
-
-
-# unify a donor's overlapping same-job occupation spellings at one employer
-def _converge_occupation_within_employer(df: pd.DataFrame) -> int:
-    """AU. One job, one spelling: a donor's occupations at ONE employer that fall in the same
-    category and were filed over OVERLAPPING periods (PHYSICIAN in 2022-2024 next to CARDIOLOGIST
-    in 2023-2026, ATTORNEY next to LAWYER) are the same job written two ways, so every row takes
-    the spelling filed most often (ties: the most recent). A different category (CEO next to
-    PHYSICIAN) or non-overlapping periods (ASSOCIATE then PARTNER) is a real change and is kept."""
-    is_job = (
-        df['entity_type'].eq('INDIVIDUAL')
-        & _norm(df['contributor_employer']).ne('')
-        & ~df['contributor_employer'].isin(SKIP_EMPLOYERS)
-        & _norm(df['contributor_occupation']).ne('')
-        & ~df['contributor_occupation'].isin(SKIP_OCCUPATIONS)
-    )
-    jobs = df.loc[is_job, ['donor_key', 'contributor_employer', 'contributor_occupation',
-                           'occupation_category', 'contribution_receipt_date']].copy()
-    jobs['date'] = pd.to_datetime(jobs['contribution_receipt_date'], errors='coerce')
-    multi = jobs.groupby(['donor_key', 'contributor_employer'])['contributor_occupation'].transform('nunique') > 1
-    jobs = jobs[multi]
-    if jobs.empty:
-        return 0
-
-    n_fixed = 0
-    for (donor_key, employer), group in jobs.groupby(['donor_key', 'contributor_employer']):
-        if group['occupation_category'].fillna('').nunique() != 1:
-            continue
-        spans = group.groupby('contributor_occupation')['date'].agg(['min', 'max', 'size']).sort_values('min')
-        if spans['min'].isna().any():
-            continue
-        # every spelling must overlap the one before it in time; a gap means a real change of job
-        if any(spans['min'].iloc[i + 1] > spans['max'].iloc[i] for i in range(len(spans) - 1)):
-            continue
-        dominant = spans.sort_values(['size', 'max'], ascending=[False, False]).index[0]
-        rows = group.index[group['contributor_occupation'] != dominant]
-        if len(rows):
-            df.loc[rows, 'contributor_occupation'] = dominant
-            n_fixed += len(rows)
     return n_fixed
 
 

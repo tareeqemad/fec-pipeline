@@ -28,7 +28,6 @@ from fec.cleaning.donor_consistency.entity import (
     _reenforce_entity_consistency,
 )
 from fec.cleaning.donor_consistency.occupation import (
-    _converge_occupation_within_employer,
     _fill_occupation_from_donor,
     _fill_self_employed_occupation_from_donor,
     _rederive_occupation_category,
@@ -81,8 +80,6 @@ CONSISTENCY_FIXES = (
      "entity_type_unified_by_name", None),
     ("apply entity overrides", _apply_entity_overrides, ENTITY_AND_WORK,
      "curated_entity_type_override", "data/database/entity_overrides.csv"),
-    ("converge occupation within employer", _converge_occupation_within_employer, WORK_FIELDS,
-     "same_job_spelling_unified_to_donor_dominant", None),
     ("sync employer and occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
      "employer_occupation_category_consistency_fixed", None),
     ("rebuild occupation category", _rederive_occupation_category, WORK_FIELDS,
