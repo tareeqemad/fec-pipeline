@@ -11,7 +11,7 @@ The flow (clean.py -> identify_donors -> here):
     canonicalize (+ name_choice)      one official name per donor
     canonical_employers               one employer name per donor
     canonical_addresses               one street/unit/PO Box per donor
-    keys.build_donor_dedup_review     detect-only report for human triage
+    dedup_review.build_donor_dedup_review  detect-only report for human triage
 
 constants.py holds matching weights and nickname rules. Every human identity
 decision lives in data/database/donor_identity_rules.csv.
