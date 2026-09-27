@@ -72,7 +72,7 @@ def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df['contributor_street_2'] = df['contributor_street_2'].apply(_normalize_unit)
 
     # move units embedded in street_1 into empty street_2
-    s1, s2, n_extracted = _extract_units(
+    s1, s2, n_extracted, df['_street_unit_leftover'] = _extract_units(
         df['contributor_street_1'], df['contributor_street_2']
     )
     df['contributor_street_1'] = s1
