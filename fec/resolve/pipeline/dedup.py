@@ -2,7 +2,7 @@
 import re
 from collections import defaultdict
 
-from fec.cleaning.employer_synonyms import canonical_key
+from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.log import get_logger
 
 logger = get_logger(__name__)

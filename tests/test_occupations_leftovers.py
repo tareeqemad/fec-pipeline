@@ -20,8 +20,7 @@ import pytest
 
 from fec.cleaning.donor_consistency.occupation import _fill_occupation_from_donor
 from fec.cleaning.manual_overrides import OVERRIDES_CSV
-from fec.cleaning.occupations import _categorize_final
-from fec.cleaning.occupations.normalize import _normalize_text
+from fec.cleaning.occupations.normalize import _normalize_text, categorize_final
 from fec.cleaning.occupations.style import normalize_occupation_style_step
 from fec.cleaning.safety_nets.employer import _null_sector_as_employer
 from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
@@ -39,7 +38,7 @@ MED = 'MEDICAL / HEALTHCARE'
 
 
 def _cat(occupation: str) -> str:
-    return _categorize_final(pd.Series([occupation])).iloc[0]
+    return categorize_final(pd.Series([occupation])).iloc[0]
 
 
 def _normalized(raw: str) -> str:

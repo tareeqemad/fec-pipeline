@@ -9,10 +9,11 @@ a real pattern from data/contributions.csv (joint-name audit 2026-09-23).
 import pandas as pd
 import pytest
 
-from fec.donor_match import apply_donor_key, match_donors
 from fec.donor_match import matcher as M
 from fec.donor_match.canonicalize import canonicalize_donor_names
 from fec.donor_match.joint import given_tokens, joint_partners
+from fec.donor_match.keys import apply_donor_key
+from fec.donor_match.matcher import match_donors
 
 
 def _t(*names):

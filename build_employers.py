@@ -9,8 +9,8 @@ import pandas as pd
 from fec.cleaning.addresses.cities import clean_cities
 from fec.cleaning.addresses.street_text import (
     _extract_units,
-    _normalize_street,
     _normalize_unit,
+    normalize_street,
 )
 from fec.cleaning.employer_status import current_employer_name, referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
@@ -172,7 +172,7 @@ def normalize_us_streets(streets: pd.Series) -> pd.Series:
     """Employer street text in the donor-address form: notes in parentheses dropped, then the donor street normaliser (uppercase, USPS street types and directions) and USPS unit designators ('10TH FLOOR' -> 'FL 10', 'SUITE 200' -> 'STE 200'). The suite/floor stays on the line: employer addresses have no street_2, and the donor unit split would drop a 'BUILDING 600' in front of the suite."""
     text = streets.fillna("").astype(str).str.replace(_EDITORIAL_NOTE_RE, " ", regex=True)
     text = text.str.split().str.join(" ")
-    normalized = text.map(_normalize_street)
+    normalized = text.map(normalize_street)
     # a text the street normaliser reads as junk (a bare number) is kept, uppercased
     keep = normalized.notna() & normalized.astype(str).ne("")
     streets = normalized.where(keep, text.str.upper()).astype(str).str.strip()

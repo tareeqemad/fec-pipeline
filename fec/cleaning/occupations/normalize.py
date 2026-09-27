@@ -113,7 +113,7 @@ def _categorize(occupation_series: pd.Series) -> pd.Series:
 
 
 # categorize final occupations using overrides, exact map, and regex
-def _categorize_final(occupation_series: pd.Series) -> pd.Series:
+def categorize_final(occupation_series: pd.Series) -> pd.Series:
     """Categorize final cleaned occupations using every configured rule."""
     occupation = occupation_series.fillna('').astype(str).str.strip().str.upper()
     result = _categorize(occupation)

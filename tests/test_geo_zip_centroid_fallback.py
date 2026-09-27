@@ -8,11 +8,11 @@ pin stays unless it lies outside the filed ZIP (a rural ZIP's centroid can be 28
 out of San Angelo).
 """
 import pytest
-
-from fec.geocoding import GeoCache
-from fec.geocoding import pipeline as geo
 from geo_patch import patch_geo
+
+from fec.geocoding import pipeline as geo
 from fec.geocoding import zip_checks
+from fec.geocoding.cache import GeoCache
 
 BOCA_CITY = (26.3586885, -80.0830984)
 Z33496 = (26.4033, -80.1639)       # west Boca Raton, 9 km from the city pin

@@ -22,13 +22,13 @@ from fec.cleaning.audit_trail import (
     WORK_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.donor_consistency import INFERRED_WORK_STEPS
+from fec.cleaning.donor_consistency.steps import INFERRED_WORK_STEPS
 from fec.cleaning.manual_overrides import (
     FILED_WORK_FIELDS,
     apply_manual_employer_overrides,
     outside_work_sub_ids,
 )
-from fec.cleaning.occupations import clean_employer_occupation
+from fec.cleaning.occupations.clean import clean_employer_occupation
 from fec.cleaning.pipeline.address_stage import clean_addresses, log_review_queues
 from fec.cleaning.pipeline.donor_identity import identify_donors
 from fec.cleaning.pipeline.donor_stage import standardize

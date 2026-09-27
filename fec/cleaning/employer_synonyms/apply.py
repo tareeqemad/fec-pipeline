@@ -5,10 +5,10 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm
 from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
-from fec.cleaning.employer_synonyms.canonical import _recanonicalize_employers
+from fec.cleaning.employer_synonyms.canonical import recanonicalize_employers
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
-from fec.cleaning.occupations import _categorize
+from fec.cleaning.occupations.normalize import _categorize
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 from fec.config.not_employers import (
@@ -158,7 +158,7 @@ def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame,
         df, changed = trail.run(df, fix, step, reason, ('contributor_employer',))
         total += changed
     total += trail.run(
-        df, _recanonicalize_employers, 'final_employer_recanonicalize',
+        df, recanonicalize_employers, 'final_employer_recanonicalize',
         'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,
     )
     return df, total

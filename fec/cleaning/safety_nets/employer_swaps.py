@@ -6,8 +6,11 @@ import re
 import pandas as pd
 
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
-from fec.cleaning.occupations import _categorize, _categorize_final
-from fec.cleaning.occupations.normalize import swap_employer_and_occupation
+from fec.cleaning.occupations.normalize import (
+    _categorize,
+    categorize_final,
+    swap_employer_and_occupation,
+)
 from fec.cleaning.safety_nets.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 from fec.config.not_employers import (
@@ -97,7 +100,7 @@ def _filer_names(df: pd.DataFrame) -> pd.Series:
 def _occupation_names_no_job(df: pd.DataFrame, occ: pd.Series, candidates: pd.Series) -> pd.Series:
     """Candidate rows whose occupation text is no job at all, so it can only be the organisation.
 
-    All of: no category rule, fix or override recognises it (_categorize_final
+    All of: no category rule, fix or override recognises it (categorize_final
     gives OTHER); it is not a known title, status, placeholder or non-company
     word; and nobody else files it as an occupation (the one filer who swapped
     the boxes is the only source; a word two filers use, like STRATEGY, is a
@@ -114,7 +117,7 @@ def _occupation_names_no_job(df: pd.DataFrame, occ: pd.Series, candidates: pd.Se
 
     uncategorised = pd.Series(False, index=occ.index)
     cand_occ = occ[candidates]
-    uncategorised.loc[cand_occ.index] = _categorize_final(cand_occ).eq('OTHER').to_numpy()
+    uncategorised.loc[cand_occ.index] = categorize_final(cand_occ).eq('OTHER').to_numpy()
     upper = occ.str.upper()
     return (
         candidates

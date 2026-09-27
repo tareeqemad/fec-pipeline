@@ -1,7 +1,7 @@
 """Entity reclassification (committee detection) and employer synonyms."""
 import pandas as pd
-
 from test_record_rules import _make_df
+
 from fec.cleaning.audit_trail import AuditTrail
 from fec.cleaning.pipeline.core import _clean_people
 from fec.cleaning.pipeline.names import _clean_names
@@ -56,7 +56,7 @@ class TestCommitteeReclassification:
 
 class TestEmployerSynonyms:
     def test_jpmorgan_variants(self):
-        from fec.cleaning.employer_synonyms import apply_employer_synonyms
+        from fec.cleaning.employer_synonyms.apply import apply_employer_synonyms
         df = _make_df([
             {'contributor_employer': 'JP MORGAN'},
             {'contributor_employer': 'JPMORGAN'},
@@ -67,14 +67,14 @@ class TestEmployerSynonyms:
         assert all(df['contributor_employer'] == 'JPMORGAN CHASE')
 
     def test_unknown_employer_untouched(self):
-        from fec.cleaning.employer_synonyms import apply_employer_synonyms
+        from fec.cleaning.employer_synonyms.apply import apply_employer_synonyms
         df = _make_df([{'contributor_employer': 'SOME RANDOM COMPANY'}])
         df, n = apply_employer_synonyms(df)
         assert n == 0
         assert df['contributor_employer'].iloc[0] == 'SOME RANDOM COMPANY'
 
     def test_goldman_sachs(self):
-        from fec.cleaning.employer_synonyms import apply_employer_synonyms
+        from fec.cleaning.employer_synonyms.apply import apply_employer_synonyms
         df = _make_df([{'contributor_employer': 'GOLDMAN SACHS AND CO'}])
         df, n = apply_employer_synonyms(df)
         assert n == 1

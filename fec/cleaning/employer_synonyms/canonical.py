@@ -211,7 +211,7 @@ def _apply_employer_mapping(
 
 
 # merge employer variants that later cleaning steps introduced
-def _recanonicalize_employers(df: pd.DataFrame) -> int:
+def recanonicalize_employers(df: pd.DataFrame) -> int:
     """Unify employer variants created by later cleaning steps."""
     columns = [
         column

@@ -10,13 +10,12 @@ import pandas as pd
 
 from fec.cleaning.employer_status import referenced_employers
 from fec.env import CLEANED_CSV
-from fec.geocoding import (
-    GeoCache,
+from fec.geocoding.cache import GeoCache
+from fec.geocoding.employers import (
     apply_employer_to_dataframe,
-    apply_to_dataframe,
-    geocode_addresses,
     geocode_employer_addresses,
 )
+from fec.geocoding.pipeline import apply_to_dataframe, geocode_addresses
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (

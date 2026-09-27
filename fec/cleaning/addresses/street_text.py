@@ -108,7 +108,7 @@ def _tidy_periods(s: str) -> str:
 
 
 # run all cleanup and abbreviation steps on one street string
-def _normalize_street(s: str) -> str:
+def normalize_street(s: str) -> str:
     """Normalize a single street address string."""
     if pd.isna(s) or not str(s).strip():
         return np.nan

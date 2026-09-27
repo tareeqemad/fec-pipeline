@@ -4,6 +4,25 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from fec.cleaning.audit_trail import (
+    EMPLOYMENT_FIELDS,
+    ENTITY_FIELDS,
+    NAME_FIELDS,
+    WORK_FIELDS,
+    AuditTrail,
+)
+from fec.cleaning.employer_synonyms.apply import (
+    apply_employer_synonyms,
+    expand_employer_abbreviations,
+    expand_employer_associates,
+    fix_normalized_mid_suffix,
+    fix_occupation_as_employer,
+)
+from fec.cleaning.employer_synonyms.canonical import (
+    recanonicalize_employers,
+    restore_display_suffixes,
+)
+from fec.cleaning.employer_synonyms.normalize import normalize_employer_canonical
 from fec.cleaning.entity_classification import (
     apply_name_corrections,
     fix_credential_in_name,
@@ -14,16 +33,6 @@ from fec.cleaning.entity_classification import (
     fix_remaining_misclassified,
     normalize_business_names,
     normalize_name_periods,
-)
-from fec.cleaning.employer_synonyms import (
-    _recanonicalize_employers,
-    apply_employer_synonyms,
-    expand_employer_abbreviations,
-    expand_employer_associates,
-    fix_normalized_mid_suffix,
-    fix_occupation_as_employer,
-    normalize_employer_canonical,
-    restore_display_suffixes,
 )
 from fec.cleaning.occupations.clean import (
     fix_remaining_swapped_occ_emp,
@@ -38,18 +47,7 @@ from fec.cleaning.record_junk import (
     _clean_self_employed_variants,
     clean_remaining_junk,
 )
-from fec.cleaning.audit_trail import (
-    EMPLOYMENT_FIELDS,
-    ENTITY_FIELDS,
-    NAME_FIELDS,
-    WORK_FIELDS,
-    AuditTrail,
-)
-from fec.cleaning.safety_nets import (
-    ALL_ROWS,
-    INDIVIDUALS,
-    SAFETY_RULES,
-)
+from fec.cleaning.safety_nets.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
 from fec.env import RAW_CSV
 from fec.log import get_logger
 
@@ -128,7 +126,7 @@ _LATE_STEPS = (
     (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
      "Fixed {n:,} curated occupation typos/abbreviations"),
-    (_recanonicalize_employers, 'employer_recanonicalize',
+    (recanonicalize_employers, 'employer_recanonicalize',
      'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,
      "Re-canonicalized {n:,} employer variants"),
     (_restore_suffixes_from_raw, 'employer_restore_suffixes',

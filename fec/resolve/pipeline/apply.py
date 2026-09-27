@@ -6,7 +6,10 @@ import pandas as pd
 
 from fec.cleaning.donor_consistency.retired import dated_previous_employers
 from fec.cleaning.employer_status import classify_employer_status
-from fec.cleaning.employer_synonyms import _recanonicalize_employers, canonical_key
+from fec.cleaning.employer_synonyms.canonical import (
+    canonical_key,
+    recanonicalize_employers,
+)
 from fec.cleaning.previous_employer import preserve_own_named_legal_employer
 from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
 from fec.resolve.pipeline.location_choice import select_location
@@ -74,7 +77,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
 
     _fix_employer_address_quality(df)
     _preserve_previous_employer_display(df, prior_previous)
-    _recanonicalize_employers(df)
+    recanonicalize_employers(df)
     # A committee/org IS the entity - its address is already the donor address,
     # so don't duplicate it into employer_*.
     _clear_nonindividual_employer(df)

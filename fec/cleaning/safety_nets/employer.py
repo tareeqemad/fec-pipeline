@@ -6,8 +6,11 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize, _categorize_final
-from fec.cleaning.occupations.normalize import swap_employer_and_occupation
+from fec.cleaning.occupations.normalize import (
+    _categorize,
+    categorize_final,
+    swap_employer_and_occupation,
+)
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
     OK_SHORT_EMPLOYERS,
@@ -181,7 +184,7 @@ def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Ser
         name.ne('')
         & ~name.isin(_NOT_A_COMPANY_NAME)
         & ~upper[entity].isin(_NOT_A_COMPANY_NAME)
-        & _categorize_final(name).eq('OTHER')
+        & categorize_final(name).eq('OTHER')
     )
     result.loc[named.index] = named.to_numpy()
     return result

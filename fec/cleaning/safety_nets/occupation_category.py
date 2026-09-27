@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize, _categorize_final
+from fec.cleaning.occupations.normalize import _categorize, categorize_final
 from fec.config.constants import NOT_EMPLOYED_VARIANTS, SKIP_EMPLOYERS
 
 # (status employer, occupations that already mean it), applied in this order
@@ -104,7 +104,7 @@ def _reclassify_other_category(df: pd.DataFrame) -> int:
     if not is_other.any():
         return 0
 
-    new_categories = _categorize_final(
+    new_categories = categorize_final(
         df.loc[is_other, 'contributor_occupation']
     )
     improved = new_categories.ne('OTHER')

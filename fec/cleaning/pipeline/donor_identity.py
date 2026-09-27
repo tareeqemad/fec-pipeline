@@ -3,14 +3,14 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.donor_match import (
+from fec.donor_match.keys import (
     apply_curated_key_merges,
     apply_donor_key,
     hold_unproven_filings,
-    match_donors,
     merge_split_name_donors,
     validate_separations,
 )
+from fec.donor_match.matcher import match_donors
 from fec.log import get_logger
 
 logger = get_logger(__name__)

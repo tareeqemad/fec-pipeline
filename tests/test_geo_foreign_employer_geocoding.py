@@ -9,14 +9,12 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
+from geo_patch import patch_geo
 
 import build_employers
-from fec.geocoding import GeoCache
-from fec.geocoding import engines
+from fec.geocoding import accepted, employers, engines
 from fec.geocoding import pipeline as geo
-from fec.geocoding import employers
-from fec.geocoding import accepted
-from geo_patch import patch_geo
+from fec.geocoding.cache import GeoCache
 
 KIFO_KEY = "YORK GATE, 100 MARYLEBONE ROAD|LONDON||NW1 5DX"
 SHOPPERAI_KEY = "65 YIGAL ALON STREET|TEL AVIV||6744316"

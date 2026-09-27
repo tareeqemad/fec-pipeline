@@ -2,8 +2,8 @@
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.employer_synonyms import canonical_key
-from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.employer_synonyms.canonical import canonical_key
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 
 
@@ -11,7 +11,7 @@ from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 def _rederive_occupation_category(df: pd.DataFrame) -> int:
     """AT. Make every individual's category match their final occupation."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    expected = _categorize_final(df.loc[is_indiv, 'contributor_occupation'])
+    expected = categorize_final(df.loc[is_indiv, 'contributor_occupation'])
     current = df.loc[is_indiv, 'occupation_category'].fillna('')
     changed = current.ne(expected)
 
@@ -42,7 +42,7 @@ def _one_confirmed_role(df, donor_key, employer):
 # write a derived occupation, category, and status
 def _set_derived_occupation(df, rows, occupation):
     df.loc[rows, 'contributor_occupation'] = occupation
-    df.loc[rows, 'occupation_category'] = _categorize_final(
+    df.loc[rows, 'occupation_category'] = categorize_final(
         pd.Series(occupation, index=rows)
     )
     df.loc[rows, 'occupation_status'] = 'DERIVED'
@@ -183,6 +183,6 @@ def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
         if new is None or new == 'SELF-EMPLOYED':
             continue
         df.at[idx, 'contributor_occupation'] = new
-        df.at[idx, 'occupation_category'] = _categorize_final(pd.Series([new])).iloc[0]
+        df.at[idx, 'occupation_category'] = categorize_final(pd.Series([new])).iloc[0]
         n_fixed += 1
     return n_fixed

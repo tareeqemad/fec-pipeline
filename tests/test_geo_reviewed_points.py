@@ -9,13 +9,11 @@ import json
 import re
 
 import pytest
-
-from fec.geocoding import GeoCache
-from fec.geocoding import pipeline as geo
-from fec.geocoding import accepted
 from geo_patch import patch_geo
-from fec.geocoding import street_text
-from fec.geocoding import zip_checks
+
+from fec.geocoding import accepted, street_text, zip_checks
+from fec.geocoding import pipeline as geo
+from fec.geocoding.cache import GeoCache
 from fec.geocoding.engines import CensusUnavailable
 from fec.geocoding.places import distance_km
 from fec.geocoding.reviewed_points import (

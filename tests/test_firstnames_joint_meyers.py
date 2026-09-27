@@ -22,7 +22,8 @@ import pandas as pd
 
 from fec.cleaning.entity_classification import apply_name_corrections
 from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS
-from fec.donor_match import apply_donor_key, match_donors, merge_split_name_donors
+from fec.donor_match.keys import apply_donor_key, merge_split_name_donors
+from fec.donor_match.matcher import match_donors
 
 JOINT = ('MEYERS, STUART SARA', 'MEYERS, SARA STUART')
 

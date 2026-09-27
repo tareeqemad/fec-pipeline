@@ -8,7 +8,7 @@ from fec.cleaning.pipeline.donor_stage import (
     _classify_network_organizations,
 )
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS
-from fec.donor_match import canonicalize_donor_names
+from fec.donor_match.canonicalize import canonicalize_donor_names
 from fec.donor_match.normalize import extract_generational_suffix
 
 

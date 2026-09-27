@@ -9,7 +9,7 @@ SECRETARY inside DEPUTY SECRETARY OF DEFENSE.
 import pandas as pd
 import pytest
 
-from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.occupation_rules.categories import (
     CATEGORY_RULES,
     RECLASSIFY_CATEGORY_RULES,
@@ -27,7 +27,7 @@ EXEC = 'EXECUTIVE / C-SUITE'
 
 
 def _cat(occupation: str) -> str:
-    return _categorize_final(pd.Series([occupation])).iloc[0]
+    return categorize_final(pd.Series([occupation])).iloc[0]
 
 
 @pytest.mark.parametrize(('occupation', 'category'), [

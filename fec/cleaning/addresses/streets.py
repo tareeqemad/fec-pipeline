@@ -9,8 +9,8 @@ from fec.cleaning.addresses.house_number_zip import (
 from fec.cleaning.addresses.street_text import (
     _TRAILING_UNIT_RE,
     _extract_units,
-    _normalize_street,
     _normalize_unit,
+    normalize_street,
 )
 from fec.config.streets import (
     FLOOR_ONLY_RE,
@@ -66,7 +66,7 @@ def clean_streets(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     n_house_zip = _split_house_number_zip(df)
 
     before = df['contributor_street_1'].copy()
-    df['contributor_street_1'] = df['contributor_street_1'].apply(_normalize_street)
+    df['contributor_street_1'] = df['contributor_street_1'].apply(normalize_street)
     n_normalized = int((before.fillna('') != df['contributor_street_1'].fillna('')).sum())
 
     df['contributor_street_2'] = df['contributor_street_2'].apply(_normalize_unit)

@@ -3,13 +3,20 @@ import re
 
 import pandas as pd
 
-from fec.cleaning.occupations import _categorize_final
+from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import (
-    SKIP_EMPLOYERS, RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP, JUNK_EMPLOYER_RE,
-    REFUSAL_EMPLOYERS, ADMIN_NOTE_EMPLOYER_RE, STATUS_WORDS,
+    ADMIN_NOTE_EMPLOYER_RE,
+    JUNK_EMPLOYER_RE,
+    RAW_JUNK_EMPLOYERS,
+    RAW_STATUS_MAP,
+    REFUSAL_EMPLOYERS,
+    SKIP_EMPLOYERS,
+    STATUS_WORDS,
 )
 from fec.config.not_employers import (
-    SECTOR_AS_EMPLOYER, ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER,
+    OCCUPATION_AS_EMPLOYER,
+    ROLE_AS_EMPLOYER,
+    SECTOR_AS_EMPLOYER,
 )
 from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_CATEGORY,
@@ -225,7 +232,7 @@ def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
         # the field of each filing's own occupation (a SELF-EMPLOYED filing's
         # category still reads SELF-EMPLOYED here, so it cannot be compared)
         occupation = df.loc[donor_rows, 'contributor_occupation'].fillna('')
-        field = _categorize_final(occupation)
+        field = categorize_final(occupation)
         firm_fields = set(field[df.loc[donor_rows, 'contributor_employer'] == firms[0]]) - _NO_FIELD
         same_field = occupation.eq('') | field.isin(_NO_FIELD) | field.isin(firm_fields)
         if not firm_fields:

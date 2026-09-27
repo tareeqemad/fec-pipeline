@@ -7,7 +7,7 @@ import pandas as pd
 from fec.cleaning.addresses.fixes.state_zip import is_zcta, zip_state
 from fec.cleaning.addresses.street_text import (
     _drop_repeated_street,
-    _normalize_street,
+    normalize_street,
 )
 from fec.cleaning.addresses.zips import _clean_zip_raw
 from fec.config.streets import (
@@ -117,7 +117,7 @@ class _FiledPlaces:
         if not set(rest.split()) - _STREET_WORDS_ONLY:
             return ''
         fits = {
-            own for own in map(_normalize_street, set(self._own_rows(person, city, zip5)['street']))
+            own for own in map(normalize_street, set(self._own_rows(person, city, zip5)['street']))
             if isinstance(own, str) and own.startswith(house + ' ') and own.endswith(' ' + rest)
         }
         return fits.pop() if len(fits) == 1 else ''
@@ -210,7 +210,7 @@ def _split_house_number_zip(df: pd.DataFrame) -> int:
         # the street typed twice and cut by the field ('11425 TWINING LN 11425
         # TWINING L'); a word the filing dropped ('12230 HOLLOW ROAD') comes back
         # from the person's own filings of the same house at that city and ZIP
-        new_street1 = _drop_repeated_street(_normalize_street(new_street1))
+        new_street1 = _drop_repeated_street(normalize_street(new_street1))
         new_street1 = places.own_street(person[index], city, zip5, new_street1) or new_street1
         fixes[index] = (new_street1, clear_street2, city, state, zip5)
 
