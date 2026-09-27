@@ -10,6 +10,8 @@ import pytest
 from fec.cleaning.employer_status import classify_employer_statuses
 from fec.cleaning.occupations.normalize import categorize_final
 from fec.cleaning.quality.gates import run_quality_gates
+from fec.contract import STAGES
+from fec.pipeline_run import check_same_run, start_run
 from fec.resolve.pipeline import cli as resolve_cli
 
 REPO = Path(__file__).resolve().parents[1]
@@ -37,6 +39,11 @@ def _resolved_frame():
     return df
 
 
+# stand-in for apply_results: adds the columns resolve adds, values untouched
+def _apply(df, *_caches):
+    return df.assign(**{column: "" for column in STAGES["resolve"].adds if column not in df})
+
+
 def _clean_stage_frame():
     return _resolved_frame().drop(columns=["employer_status", "previous_employer", "employer_city"])
 
@@ -45,9 +52,11 @@ def test_resolve_writes_the_final_gate_report(tmp_path, monkeypatch):
     csv_path = tmp_path / "contributions_cleaned.csv"
     (tmp_path / "quality_gates.json").write_text(
         json.dumps({**run_quality_gates(_clean_stage_frame()), "stage": "clean"}), encoding="utf-8")
-    monkeypatch.setattr(resolve_cli, "apply_results", lambda df, *_caches: df)
+    monkeypatch.setattr(resolve_cli, "apply_results", _apply)
 
-    resolve_cli._write_results(_resolved_frame(), str(csv_path), None, None)
+    start_run(csv_path)
+    frame = _resolved_frame()
+    resolve_cli._write_results(frame, str(csv_path), None, None, frame.columns)
 
     report = json.loads((tmp_path / "quality_gates.json").read_text(encoding="utf-8"))
     assert report["stage"] == "resolve" and report["csv_written"] is True
@@ -60,6 +69,7 @@ def test_resolve_writes_the_final_gate_report(tmp_path, monkeypatch):
     assert report["checks"]["row_count"] == 2
     assert pd.read_csv(csv_path)["employer_city"].tolist()[0] == "SAINT LOUIS"
     assert not (tmp_path / "quality_gates.json.tmp").exists()
+    check_same_run(csv_path)
     assert _final_verify().quality_gate_problems(report, rows=2) == []
 
 
@@ -68,10 +78,10 @@ def test_resolve_records_a_failed_gate_and_writes_no_csv(tmp_path, monkeypatch):
     csv_path.write_text("untouched\n", encoding="utf-8")
     bad = _resolved_frame()
     bad.loc[0, "previous_employer"] = "OLD CO"          # previous employer on an active row
-    monkeypatch.setattr(resolve_cli, "apply_results", lambda df, *_caches: df)
+    monkeypatch.setattr(resolve_cli, "apply_results", _apply)
 
     with pytest.raises(ValueError, match="Previous employer on non-retired rows"):
-        resolve_cli._write_results(bad, str(csv_path), None, None)
+        resolve_cli._write_results(bad, str(csv_path), None, None, bad.columns)
 
     report = json.loads((tmp_path / "quality_gates.json").read_text(encoding="utf-8"))
     assert report["passed"] is False and report["csv_written"] is False

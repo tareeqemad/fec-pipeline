@@ -14,6 +14,7 @@ import pytest
 psycopg2 = pytest.importorskip("psycopg2")
 
 from fec.database.loader import run, validate  # noqa: E402
+from fec.pipeline_run import record, start_run  # noqa: E402
 
 TEST_DB = os.getenv("FEC_TEST_PG_DBNAME", "")
 pytestmark = pytest.mark.skipif(
@@ -29,7 +30,8 @@ ROW = {
     "contributor_state": "NY", "contributor_zip": "10001", "contributor_employer": "ACME INC",
     "contributor_occupation": "CEO", "occupation_category": "EXECUTIVE / C-SUITE",
     "contribution_receipt_date": "2024-01-01", "contribution_receipt_amount": "500",
-    "previous_employer": "", "donor_key": "donor-1", "latitude": "40.7", "longitude": "-74.0",
+    "previous_employer": "", "identity_status": "confirmed", "employment_source": "filed",
+    "donor_key": "donor-1", "latitude": "40.7", "longitude": "-74.0",
     "employer_status": "active",
 }
 LOCATION = {
@@ -50,6 +52,8 @@ def test_database(tmp_path, monkeypatch):
     cleaned, locations = tmp_path / "contributions_cleaned.csv", tmp_path / "employer_locations.csv"
     pd.DataFrame([ROW]).to_csv(cleaned, index=False)
     pd.DataFrame([LOCATION]).to_csv(locations, index=False)
+    start_run(cleaned)
+    record("employers", cleaned, locations)
     monkeypatch.setattr(validate, "CLEANED_CSV", cleaned)
     monkeypatch.setattr(validate, "EMPLOYER_LOCATIONS_CSV", locations)
     monkeypatch.setattr(sys, "argv", ["loader.py", "--reset"])

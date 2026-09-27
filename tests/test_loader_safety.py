@@ -238,6 +238,7 @@ def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
         "occupation_category": "EXECUTIVE / C-SUITE",
         "contribution_receipt_date": "2024-01-01",
         "contribution_receipt_amount": "500", "previous_employer": "",
+        "identity_status": "confirmed", "employment_source": "filed",
         "donor_key": "donor-1", "latitude": "40.7", "longitude": "-74.0",
         "employer_status": "active",
     }])
