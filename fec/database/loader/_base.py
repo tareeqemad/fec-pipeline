@@ -21,9 +21,12 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-load_env()
 
-PG = get_db_config()
+# the connection settings, read from .env when a connection is made (not on import)
+def db_config() -> dict:
+    load_env()
+    return get_db_config()
+
 
 # double-quote and escape a sql identifier
 def _quote_identifier(value: str) -> str:
@@ -33,12 +36,13 @@ def _quote_identifier(value: str) -> str:
 # open a postgresql connection using .env credentials
 def connect(dbname: str | None = None) -> Any:
     """Connect to PostgreSQL using credentials from .env."""
+    config = db_config()
     return psycopg2.connect(
-        host=PG["host"],
-        port=PG["port"],
-        dbname=dbname or PG["dbname"],
-        user=PG["user"],
-        password=PG["password"],
+        host=config["host"],
+        port=config["port"],
+        dbname=dbname or config["dbname"],
+        user=config["user"],
+        password=config["password"],
     )
 
 

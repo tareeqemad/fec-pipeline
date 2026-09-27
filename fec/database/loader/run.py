@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from fec.database.loader._base import PG, _count, connect, load_transaction, stage
+from fec.database.loader._base import _count, connect, load_transaction, stage
 from fec.database.loader.access import _check_reader, grant_read_access
 from fec.database.loader.addresses import (
     link_employer_locations,
@@ -146,7 +146,7 @@ def main() -> None:
 
     logger.info(f"\n{'=' * 60}")
     logger.info("  FEC Database v1.2 -- Normalized Schema")
-    logger.info(f"  Database: {PG['dbname']}")
+    logger.info(f"  Database: {conn.info.dbname}")
     logger.info(f"{'=' * 60}")
 
     _check_reader(cur)
