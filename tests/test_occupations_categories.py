@@ -215,3 +215,38 @@ def test_general_words_do_not_decide_the_field(occupation, category):
 ])
 def test_executive_is_a_rank_not_every_title_containing_it(occupation, category):
     assert _cat(occupation) == category
+
+
+# 27-Sep clean review: a narrower title decides before BROKER, ANALYST, DIRECTOR, PRINCIPAL
+@pytest.mark.parametrize('occupation, category', [
+    ('FUNERAL DIRECTOR', 'OTHER'),
+    ('FUNERAL DIRECTOR/EMBALMER', 'OTHER'),
+    ('PRINCIPAL SOLUTIONS ENGINEER', 'TECHNOLOGY'),
+    ('PRINCIPAL', EXEC),
+    ('TV COMMERCIAL DIRECTOR', ARTS),
+    ('MUSIC DIRECTOR', ARTS),
+    ('DIRECTOR/EDITOR', ARTS),
+    ('AUDIOBOOK PRODUCER/DIRECTOR, EDITOR', ARTS),
+    ('COMMERCIAL DIRECTOR', EXEC),
+    ('SALES EXECUTIVE', 'SALES / MARKETING'),
+    ('NATIONAL ACCOUNT SALES EXECUTIVE', 'SALES / MARKETING'),
+    ('INSURANCE ADVISOR & BROKER', 'INSURANCE'),
+    ('HEALTH INSURANCE BROKER', 'INSURANCE'),
+    ('REAL ESTATE OWNER/BROKER', 'REAL ESTATE'),
+    ('ASSOCIATE BROKER', 'REAL ESTATE'),
+    ('MORTGAGE BROKER', FIN),
+    ('ANALYST', 'OTHER'),
+    ('BUSINESS ANALYST', 'OTHER'),
+    ('RESEARCH ANALYST', 'OTHER'),
+    ('FINANCIAL ANALYST', FIN),
+    ('EQUITY RESEARCH ANALYST', FIN),
+    ('BUY SIDE RESEARCH ANALYST', FIN),
+    ('DIRECTOR OF ENGINEERING', EXEC),
+])
+def test_a_narrower_title_decides_before_a_broad_word(occupation, category):
+    assert _cat(occupation) == category
+
+
+def test_executive_asiatant_is_an_assistant():
+    from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
+    assert OCCUPATION_NORMALIZE['EXECUTIVE ASIATANT'] == 'EXECUTIVE ASSISTANT'
