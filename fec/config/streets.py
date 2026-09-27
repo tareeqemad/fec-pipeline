@@ -35,7 +35,8 @@ FLOOR_ONLY_RE = re.compile(
 )
 
 # Hash units at end of street_1 (#5A, # 200, BLVD#300, ...)
-HASH_EXTRACT = re.compile(r'(?:\s+|(?<=\w))(#\s*[\w\-\/\.]+\s*)$')
+# a doubled hash (BLVD ##266) keeps one
+HASH_EXTRACT = re.compile(r'(?:\s+|(?<=\w))#*(#\s*[\w\-\/\.]+\s*)$')
 
 # State code stuck at end of city name ("ENCINO, CA"); sorted so the compiled
 # pattern is identical across interpreter runs (frozenset order is not)

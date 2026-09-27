@@ -12,6 +12,7 @@ from fec.cleaning.addresses.review import (
     build_review_queues,
     queue_counts,
 )
+from fec.cleaning.addresses.street_reviews import CARE_OF_WITH_STREET_REASON
 from fec.cleaning.audit_trail import ADDRESS_FIELDS, AuditTrail
 from fec.cleaning.pipeline.address_stage import _report_address_issues
 from fec.cleaning.pipeline.core import _write_address_queues
@@ -134,3 +135,13 @@ def test_street2_step_edits_are_recorded_under_address_review():
     _report_address_issues(df, trail, lambda _msg: None, {})
     changed = {(r["sub_id"], r["field"], r["step"], r["after"]) for r in trail.records}
     assert changed == {(s, "contributor_street_2", "address_review", "") for s in ("1", "2", "4")}
+
+
+def test_care_of_with_the_street_in_street_2_is_not_a_missing_street():
+    rows = [_row("1", "RANDY FINE FOR CONGRESS", "C/O RED CURVE SOLUTIONS LLC", "138 CONANT ST, STE 401",
+                 city="BEVERLY", state="MA", zip_="01915"),
+            _row("2", "SOME PAC", "C/O JANE DOE", city="SALEM", state="MA", zip_="01970")]
+    review, _ = build_review_queues(pd.DataFrame(rows))
+    reasons = dict(zip(review["sub_id"], review["review_reason"]))
+    assert reasons["1"] == CARE_OF_WITH_STREET_REASON
+    assert reasons["2"] == "care-of name (no street to recover)"

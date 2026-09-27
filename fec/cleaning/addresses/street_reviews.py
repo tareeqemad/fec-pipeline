@@ -13,6 +13,7 @@ S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
 
 PO_BOX_REASON = "PO Box (no precise physical point)"
+CARE_OF_WITH_STREET_REASON = "care-of name in street_1, street in street_2 (keep both as filed)"
 PMB_REASON = "PMB private mailbox (no precise physical point)"
 
 # leading PO box marker: "PO BOX 123", "P.O. BOX 45", "Post Office Box 9"
@@ -218,6 +219,8 @@ def _review_street1(
         | s1.str.contains("FORMERLY", regex=False)
     )
     care_of = s1.str.match(_CO_RE)
+    # C/O in street_1 with the street itself in street_2: a full mail address
+    street_in_s2 = df[S2].fillna("").astype(str).str.match(r"^\s*\d") if S2 in df.columns else False
     entity = (
         has1 & ~starts_num & ~is_pobox & ~is_pmb & ~has_type & ~descriptive & ~care_of
     )
@@ -232,7 +235,8 @@ def _review_street1(
     _append_report(regeocode, df, partial, "partial / truncated city")
 
     _append_report(review, df, descriptive, "descriptive / intersection address")
-    _append_report(review, df, care_of, "care-of name (no street to recover)")
+    _append_report(review, df, care_of & ~street_in_s2, "care-of name (no street to recover)")
+    _append_report(review, df, care_of & street_in_s2, CARE_OF_WITH_STREET_REASON)
     _append_report(review, df, entity, "entity / non-address in street_1")
     _append_report(review, df, bad_state, "missing / non-US state (out of schema)")
     return review, regeocode

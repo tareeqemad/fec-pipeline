@@ -214,6 +214,12 @@ def _strip_named_unit(streets: pd.Series) -> pd.Series:
     return stripped.str.rstrip(',').str.strip()
 
 
+# a street_2 that is only a floor: "FL 4", "FLOOR 4"
+_FLOOR_UNIT_RE = re.compile(r'^(?:FL|FLR|FLOOR)\.?\s+(\d{1,3})$')
+# an ordinal right after the street type: "1555 BROADWAY ST 4TH"
+_FLOOR_ECHO_RE = re.compile(r'(\s(?:ST|AVE|RD|DR|LN|CT|PL|WAY|BLVD|CIR|TER|HWY|PKWY))\s+(\d{1,3})(?:ST|ND|RD|TH)$')
+
+
 # pull named and hash units from street_1 into empty street_2
 def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, pd.Series, int]:
     """Move unit info embedded in street_1 into empty street_2; returns (s1, s2, n_extracted)."""
@@ -239,6 +245,12 @@ def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, p
     if same_named.any():
         s1 = s1.where(~same_named, _strip_named_unit(s1))
 
+    # a hash unit repeating street_2's: "2711 SAKLAN INDIAN #1" + "APT 1"
+    hash_unit = s1.str.extract(HASH_EXTRACT)[0]
+    repeated = hash_unit.notna() & ~s2_blank & hash_unit.fillna('').map(_unit_number).eq(s2.map(_unit_number))
+    if repeated.any():
+        s1 = s1.where(~repeated, s1.str.replace(HASH_EXTRACT, '', regex=True).str.strip())
+
     # hash units (#5A, # 200)
     match_hash = s1.str.extract(HASH_EXTRACT)
     has_hash = match_hash[0].notna() & s2_blank
@@ -250,4 +262,17 @@ def _extract_units(street1: pd.Series, street2: pd.Series) -> tuple[pd.Series, p
             s1.str.replace(HASH_EXTRACT, '', regex=True).str.strip()
         )
 
+    # the ordinal of a floor left behind: "1555 BROADWAY ST 4TH" + "FLOOR 4"
+    floor = s2.str.extract(_FLOOR_UNIT_RE)[0]
+    echo = s1.str.extract(_FLOOR_ECHO_RE)[1]
+    drop_echo = floor.notna() & floor.eq(echo)
+    if drop_echo.any():
+        s1 = s1.where(~drop_echo, s1.str.replace(_FLOOR_ECHO_RE, r'\1', regex=True))
+
     return s1.replace({'': np.nan}), s2.replace({'': np.nan}), n_extracted
+
+
+# the number of a unit, without its word: "APT 1" -> "1", "#1" -> "1"
+def _unit_number(unit: str) -> str:
+    unit = re.sub(r'^\s*(?:(?:APT|UNIT|STE|SUITE|RM|FL|FLOOR)\b|#)', '', str(unit).upper())
+    return re.sub(r'[^A-Z0-9]', '', unit) or '-'
