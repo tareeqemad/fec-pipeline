@@ -21,6 +21,7 @@ from fec.cleaning.audit_trail import (
     ADDRESS_FIELDS,
     ENTITY_FIELDS,
     NAME_FIELDS,
+    STREET_FIELDS,
     WORK_FIELDS,
     AuditTrail,
 )
@@ -32,7 +33,7 @@ from fec.cleaning.manual_overrides import (
     outside_work_sub_ids,
 )
 from fec.cleaning.occupations.clean import clean_employer_occupation
-from fec.cleaning.pipeline.address_stage import clean_addresses, log_review_queues
+from fec.cleaning.pipeline.address_stage import INFERRED_STREET_STEPS, clean_addresses, log_review_queues
 from fec.cleaning.pipeline.donor_identity import identify_donors
 from fec.cleaning.pipeline.donor_stage import standardize
 from fec.cleaning.pipeline.name_parsing import _preclean_name_punctuation
@@ -294,6 +295,10 @@ def clean_pipeline(
     address_reports: dict = {}
     df_clean, missing = clean_records(
         df, trail, out_dir=out_dir, address_reports=address_reports,
+    )
+    # a street taken from another filing is not evidence for matching it to that filing
+    df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(
+        trail.keys_set_by(INFERRED_STREET_STEPS, STREET_FIELDS)
     )
     df_clean = identify_donors(df_clean)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)

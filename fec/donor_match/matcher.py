@@ -70,7 +70,8 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
         p = profiles[rid]
         p["record_count"] += 1
 
-        street = _s(row.get("contributor_street_1")).upper()
+        # a street recovered from another filing proves nothing about who filed this one
+        street = "" if row.get("_street_inferred") is True else _s(row.get("contributor_street_1")).upper()
         if street and street != "NAN":
             p["streets"].add(street)
 
