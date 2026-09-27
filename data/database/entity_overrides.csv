@@ -17,3 +17,7 @@ contributor_name,entity_type,note
 "NOT EMPLOYED",INDIVIDUAL,"filer put the employment status in the NAME field — a $500 Atlanta GA donor with occupation=employer=NOT EMPLOYED. The name is unrecoverable, but it is plainly a person, not a committee; leaving it COMMITTEE/PAC pollutes committee totals"
 "FERRNCZ",INDIVIDUAL,"bare-surname individual mistyped as COMMITTEE/PAC"
 "LISA LEHMAN TRUST",ORGANIZATION,"living trust misparsed as INDIVIDUAL — filed as 'LEHMAN TRUST, LISA' (surname=LEHMAN TRUST), renamed by _NAME_CORRECTIONS"
+"AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE",ORGANIZATION,"the parent organization paying its PAC, not a committee: FEC returns entity_type ORG for all 8 rows (e.g. docquery 202410189698745485); the recipient committee_id C00797670 is not evidence the donor is one"
+"DEMOCRATIC MAJORITY FOR ISRAEL",ORGANIZATION,"the organization, separate from DMFI PAC (C00710848): FEC returns entity_type ORG for all 7 rows (e.g. docquery 202410249710503666)"
+"DEMOCRACY ENGINE",ORGANIZATION,"filed as DEMOCRACY ENGINE, LLC, a payment processor: FEC returns entity_type ORG (docquery 202603309856884852)"
+"HDS HERCULES",ORGANIZATION,"FEC returns entity_type ORG (docquery 202608209899671209); was COMMITTEE/PAC only because no identity token was found"
