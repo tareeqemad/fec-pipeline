@@ -46,7 +46,12 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
         )
         street = street_lookup.get(key)
         if street:
+            # the unit the filing named stays with it: "RING HOUSE APT # 431 ..." keeps APT 431
+            unit = _unit_text(df.at[idx, "contributor_street_1"])
             df.at[idx, "contributor_street_1"] = street
+            second = df.at[idx, "contributor_street_2"] if "contributor_street_2" in df.columns else ""
+            if unit and (pd.isna(second) or not str(second).strip()):
+                df.at[idx, "contributor_street_2"] = unit
             n_recovered += 1
 
     return n_recovered
@@ -109,10 +114,36 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
             (name, df.at[idx, "contributor_city"], state)
         ) or by_state_single.get((name, state))
         if street:
+            # the unit the filing named stays with it: "RING HOUSE APT # 431 ..." keeps APT 431
+            unit = _unit_text(df.at[idx, "contributor_street_1"])
             df.at[idx, "contributor_street_1"] = street
+            second = df.at[idx, "contributor_street_2"] if "contributor_street_2" in df.columns else ""
+            if unit and (pd.isna(second) or not str(second).strip()):
+                df.at[idx, "contributor_street_2"] = unit
             n_recovered += 1
 
     return n_recovered
+
+
+# every unit a text names, as KEYWORD NUMBER: "STE 103 PMB 132", "#374 LOS ANGELES" -> "# 374"
+def _units_text(text) -> str:
+    units = [
+        f"# {match.group(3)}" if match.group(3) else f"{'STE' if match.group(1) == 'SUITE' else match.group(1)} {match.group(2)}"
+        for match in _UNIT_TEXT_RE.finditer(str(text or "").upper())
+    ]
+    return " ".join(dict.fromkeys(units))
+
+
+# the first unit a text names
+def _unit_text(text) -> str:
+    units = _units_text(text)
+    match = _UNIT_TEXT_RE.search(units)
+    return match.group(0) if match else ""
+
+
+# a unit's numbers and letters without its keywords: "STE 374" and "# 374" -> "374"
+def _unit_key(text) -> str:
+    return re.sub(r"[^A-Z0-9]", "", re.sub(r"\b(?:APT|STE|SUITE|UNIT|RM)\b|#", "", str(text).upper()))
 
 
 # fill a blank street from the donor's one matching street
@@ -160,7 +191,11 @@ _NOT_A_FRAGMENT_RE = re.compile(
 # a proper unit value: keyword plus number/letters, e.g. "APT 4B", "STE 200"
 _REAL_UNIT_RE = re.compile(r"^(?:APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PH|PMB|LOT|SPC|BOX|TRLR|#)\s*[A-Z0-9-]+$")
 # a unit keyword anywhere in text: "APT 4", "# 5", "STE"
-_UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG)\b|#\d")
+_UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PMB|BOX)\b|#\d")
+# the first unit in a text, keyword and number: "RING HOUSE APT # 431 1801 E JE" -> "APT 431"
+_UNIT_TEXT_RE = re.compile(r"\b(APT|STE|SUITE|UNIT|RM|PMB)\b\s*#?\s*([A-Z0-9][A-Z0-9-]*)\b|#\s*([A-Z0-9][A-Z0-9-]*)\b")
+# a tail that starts a new street address: house number, then a name word ("233 E BAY")
+_SECOND_ADDRESS_RE = re.compile(r"^\d+\s+(?:[NSEW]\s+)?[A-Z]{3,}")
 
 
 # trim a long street to donor's shorter same-ZIP form
@@ -208,8 +243,19 @@ def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
         fragment = long_street[len(short_street):].strip(" ,.")
         if len(fragment) < 3 or _NOT_A_FRAGMENT_RE.match(fragment.split()[0]):
             continue  # "4715 CAMBRIDGE APPROACH CIR NE": the tail is part of the street, not a fragment
-        if _UNIT_IN_FRAGMENT_RE.search(fragment) and not unit and not street_2.at[idx]:
-            continue  # the fragment carries a unit nobody else filed: keep it rather than lose it
+        if _SECOND_ADDRESS_RE.match(fragment) and fragment.split()[0] != short_street.split()[0]:
+            continue  # "1125 BLACKSTONE BLDG 233 E BAY": a second address, not a cut-off copy
+        own_units = _units_text(fragment)
+        if own_units:
+            # the filing's own units ("STE 103 PMB 132") go to street_2 and the
+            # city tail is dropped; never the donor's usual unit in their place.
+            # A different unit already in street_2 leaves the row as filed.
+            if street_2.at[idx] and _unit_key(street_2.at[idx]) != _unit_key(own_units):
+                continue
+            df.at[idx, "contributor_street_1"] = short_street
+            df.at[idx, "contributor_street_2"] = street_2.at[idx] or own_units
+            n_fixed += 1
+            continue
         df.at[idx, "contributor_street_1"] = short_street
         if not street_2.at[idx] and unit:
             df.at[idx, "contributor_street_2"] = unit
