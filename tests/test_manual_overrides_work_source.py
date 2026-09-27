@@ -38,3 +38,10 @@ def test_an_abbreviation_the_filing_wrote_stays_filed():
 def test_statuses_and_cleared_cells_are_not_work_details():
     assert not _brings_outside_work(_filing("CLARA MILLER", "INVESTOR"), {"contributor_employer": "SELF-EMPLOYED"})
     assert not _brings_outside_work(_filing("ACME", "CEO"), {"contributor_employer": pd.NA})
+
+
+def test_a_job_word_in_the_occupation_names_no_firm():
+    filing = _filing("GREEN", "PHYSICIAN", first="LESLIE", last="GREEN")
+    assert _brings_outside_work(filing, {"contributor_employer": "EYE PHYSICIANS OF ORANGE COUNTY PC"})
+    filing = _filing("JACOB", "PHYSICIAN", first="ALLAN", last="JACOB")
+    assert _brings_outside_work(filing, {"contributor_employer": "PHYSICIANS DIALYSIS"})
