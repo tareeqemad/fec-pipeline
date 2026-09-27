@@ -88,6 +88,14 @@ def main() -> int:
     print("== roster sync --check exit:", chk.returncode, "|", chk.stdout.strip().splitlines()[0] if chk.stdout.strip() else chk.stderr[-300:])
     if chk.returncode:
         problems.append(f"sync_rosters.py --check exited {chk.returncode}")
+    # every reviewed identity case still holds on this file
+    cases = subprocess.run([sys.executable, S + "/identity_cases.py", "data/contributions_cleaned.csv"],
+                           capture_output=True, text=True, encoding="utf-8",
+                           env={**os.environ, "PYTHONPATH": ".", "PYTHONIOENCODING": "utf-8"})
+    print("== identity cases exit:", cases.returncode, "|", (cases.stdout.strip().splitlines() or ["?"])[-1].strip())
+    if cases.returncode:
+        failed = [line for line in cases.stdout.splitlines() if line.startswith("FAIL")]
+        problems.append(f"identity_cases.py: {len(failed)} case(s) failed: " + "; ".join(line[6:].strip() for line in failed[:5]))
 
     # donor identity rules all applied
     rules = list(csv.DictReader(open("data/database/donor_identity_rules.csv", encoding="utf-8-sig", newline="")))
