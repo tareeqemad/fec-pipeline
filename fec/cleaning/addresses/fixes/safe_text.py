@@ -167,6 +167,10 @@ def _strip_city_state_tail(street, city, state, zip_code):
     return candidate if _looks_like_street(candidate) else street
 
 
+# marks a row whose care-of street was blanked (internal, never written)
+CARE_OF_BLANKED = "_care_of_blanked"
+
+
 # apply deterministic street text fixes and split trailing units
 def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Deterministic text fixes, applied; runs right after clean_streets so the cleaned values feed the per-donor dedup/recovery downstream."""
@@ -180,6 +184,9 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df[S1] = df[S1].map(_drop_repeated_address_start)
     still_care_of = df[S1].fillna("").astype(str).str.match(_CO_RE)
     counts["care_of"] = int((was_care_of & ~still_care_of).sum())
+    # the filing named another place (an office "C/O ..."), cut too short to keep:
+    # its city is not realigned to the donor's home (KOTT, DAVID: NEWARK, not LIVINGSTON)
+    df[CARE_OF_BLANKED] = was_care_of & df[S1].isna()
 
     df[S1] = [
         _strip_city_state_tail(s, c, st, z)
