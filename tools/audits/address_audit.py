@@ -3,6 +3,10 @@
   1. Is every cleaned street / city / state / zip grounded in the donor's OWN raw filings?
      (a value from nowhere or from another person is the thing we must never do)
   2. Did a unification erase a genuine move: a different house/street, or a different apartment number?
+     Each changed street is compared part by part (fec/cleaning/addresses/compare.py) and gets one
+     flag per part that may move the place: house number, direction, street type (changed or added),
+     unit changed / removed / added, PO box number, or a street put where the filing named none.
+     STREET -> ST, NORTH -> N and a unit moved from street_1 to street_2 are formatting, not flagged.
   3. ZIP check, every entity type and every step (format steps included): a cleaned city that
      differs from the filed one and that NO other filing pairs with the row's ZIP5 (EAST HARTFORD
      -> WEST HARTFORD at 06128; MANHATTAN BEACH -> LOS ANGELES at 90266). The donor-history test
@@ -21,6 +25,9 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from fec.cleaning.addresses.compare import street_changes  # noqa: E402
 
 ADDR = ["contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip"]
 _ABBR = {
@@ -238,10 +245,11 @@ def main(argv=None):
                               f"{raw.at[sid, 'contributor_street_1']} | {raw.at[sid, 'contributor_street_2']}",
                               f"{cln.at[sid, 'contributor_street_1']} | {cln.at[sid, 'contributor_street_2']}",
                               "; ".join(sorted({surname_of_key.get(o, '') for o in others}))))
-        if row.r_unit and row.c_unit and row.r_unit != row.c_unit:
-            flags.append((sid, k, row["name"], "unit_number_changed", kind, steps,
-                          f"{raw.at[sid, 'contributor_street_1']} | {raw.at[sid, 'contributor_street_2']}",
-                          f"{cln.at[sid, 'contributor_street_1']} | {cln.at[sid, 'contributor_street_2']}", ""))
+        filed_street = (raw.at[sid, "contributor_street_1"], raw.at[sid, "contributor_street_2"])
+        cleaned_street = (cln.at[sid, "contributor_street_1"], cln.at[sid, "contributor_street_2"])
+        for change in street_changes(*filed_street, *cleaned_street):  # one flag per part that may move the place
+            flags.append((sid, k, row["name"], change, kind, steps,
+                          " | ".join(filed_street), " | ".join(cleaned_street), ""))
         for c in ["contributor_city", "contributor_state", "contributor_zip"]:
             fv, rv = row["c_" + c], row["r_" + c]
             if fv and fv != rv and fv not in own["r_" + c].get(k, set()):

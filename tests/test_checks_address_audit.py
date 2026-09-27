@@ -127,3 +127,29 @@ def test_zip_scoped_review_entry_covers_only_its_zip():
     raw, cln = _frames(rows)
     z = audit.zip_city_contradictions(raw.set_index("sub_id"), cln.set_index("sub_id"))
     assert z.reviewed_same_place.to_dict() == {"l1": True, "l2": False}
+
+
+def test_each_street_part_that_may_move_the_place_is_its_own_flag(tmp_path, monkeypatch):
+    streets = [  # sub_id, filed street_1, filed street_2, cleaned street_1, cleaned street_2
+        ("s1", "123 N MAIN ST APT 5", "", "132 S MAIN RD", ""),
+        ("s2", "123 NORTH MAIN STREET APT 5", "", "123 N MAIN ST", "APT 5"),
+    ]
+    raw = pd.DataFrame([{"sub_id": s, "contributor_street_1": a, "contributor_street_2": b, "contributor_city": "X",
+                         "contributor_state": "NY", "contributor_zip": "10001"} for s, a, b, _, _ in streets])
+    cln = pd.DataFrame([{"sub_id": s, "donor_key": "k", "entity_type": "INDIVIDUAL", "contributor_name": "DOE, J",
+                         "contributor_street_1": c, "contributor_street_2": d, "contributor_city": "X",
+                         "contributor_state": "NY", "contributor_zip": "10001"} for s, _, _, c, d in streets])
+    data = tmp_path / "data"
+    data.mkdir()
+    raw.to_csv(data / "contributions.csv", index=False)
+    cln.to_csv(data / "contributions_cleaned.csv", index=False)
+    pd.DataFrame([(s, "contributor_street_1", "streets_normalize") for s, *_ in streets],
+                 columns=["sub_id", "field", "step"]).to_csv(data / "audit_changes.csv", index=False)
+    monkeypatch.chdir(tmp_path)
+
+    _audit().main(["--out-dir", str(tmp_path / "out")])
+
+    flags = pd.read_csv(tmp_path / "out" / "address_audit_flags.csv", dtype=str, keep_default_na=False)
+    assert set(flags.loc[flags.sub_id == "s1", "flag"]) >= {
+        "house_number_changed", "street_direction_changed", "street_type_changed", "unit_removed"}
+    assert "s2" not in set(flags.sub_id)  # spelled-out words and a unit moved to street_2 are formatting
