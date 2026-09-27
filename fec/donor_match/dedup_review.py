@@ -9,6 +9,7 @@ from fec.donor_match.joint import given_tokens, joint_partners
 from fec.donor_match.rules import (
     names_must_stay_separate,
 )
+from fec.io import write_csv_atomic
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -171,6 +172,6 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
         return 0
 
     rows.sort(key=lambda row: -row["combined_amount"])
-    pd.DataFrame(rows).to_csv(path, index=False, na_rep="")
+    write_csv_atomic(pd.DataFrame(rows), path, index=False, na_rep="")
     logger.info(f"  Donor-dedup review -> {path} ({len(rows):,} candidate pairs)")
     return len(rows)

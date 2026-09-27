@@ -20,6 +20,7 @@ foreign address by fec/cleaning/addresses/foreign) are kept exactly as written.
 from __future__ import annotations
 
 import csv
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -206,11 +207,13 @@ def read_roster(path: Path) -> tuple[list[dict], list[str]]:
 
 # write a roster's rows back to CSV, keeping line endings
 def write_roster(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
-    terminator = _line_terminator(path)          # before open("w"): opening truncates the file
-    with path.open("w", encoding="utf-8", newline="") as handle:
+    terminator = _line_terminator(path)
+    temp = path.with_suffix(path.suffix + ".tmp")  # a failed write leaves the roster as it was
+    with temp.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator=terminator)
         writer.writeheader()
         writer.writerows(rows)
+    os.replace(temp, path)
 
 
 # sync, or with check=True only diff, both rosters against data

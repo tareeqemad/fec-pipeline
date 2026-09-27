@@ -28,6 +28,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from fec.cleaning.addresses.compare import street_changes  # noqa: E402
+from fec.io import write_csv_atomic  # noqa: E402
 
 ADDR = ["contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip"]
 _ABBR = {
@@ -262,8 +263,8 @@ def main(argv=None):
                       f"{z.raw_city} {z.zip5}", f"{z.cleaned_city} {z.zip5}",
                       ("REVIEWED same place; " if z.reviewed_same_place else "") + f"filed at this ZIP: {z.cities_filed_at_zip}"))
     flags = pd.DataFrame(flags, columns=["sub_id", "donor_key", "name", "flag", "kind", "steps", "raw", "cleaned", "other_donors_filing_this_address"])
-    flags.to_csv(out_dir / "address_audit_flags.csv", index=False)
-    zipcheck.to_csv(out_dir / "address_audit_zip_city.csv")
+    write_csv_atomic(flags, out_dir / "address_audit_flags.csv", index=False)
+    write_csv_atomic(zipcheck, out_dir / "address_audit_zip_city.csv")
     print("\n== row-level flags (final value NOT found in the donor's own raw filings; ZIP check = all entity types), by kind of step:")
     print(flags.groupby(["kind", "flag"]).size().to_string() if len(flags) else "   none")
     print("\n== HISTORY/RULE-step flags in full (these are the ones that could be another person's address):")
@@ -288,7 +289,7 @@ def main(argv=None):
             if len(r_units) > 1 and len(r_units) > len(c_units):
                 moves.append((k, d["name"].iloc[0], len(d), f"units at {s[0]} {s[1]}: raw {sorted(r_units)}", f"cleaned {sorted(c_units)}"))
     moves = pd.DataFrame(moves, columns=["donor_key", "name", "rows", "raw_addresses_lost", "cleaned_addresses"])
-    moves.to_csv(out_dir / "address_audit_moves.csv", index=False)
+    write_csv_atomic(moves, out_dir / "address_audit_moves.csv", index=False)
     print(f"\n== donors whose distinct raw addresses / apartment numbers were reduced beyond cosmetic variants: {len(moves)}")
     if len(moves):
         print(moves.to_string(index=False))

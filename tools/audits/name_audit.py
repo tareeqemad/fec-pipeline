@@ -15,6 +15,7 @@ import pandas as pd
 
 sys.path.insert(0, ".")
 from fec.donor_match.constants import NICKNAME_MAP  # noqa: E402
+from fec.io import write_csv_atomic  # noqa: E402
 
 _SUFFIX = {"JR", "SR", "II", "III", "IV", "V", "MD", "PHD", "ESQ", "DDS", "CPA", "DO", "DVM", "JD", "RN", "PE", "MBA"}
 _TITLE = {"DR", "MR", "MRS", "MS", "MISS", "RABBI", "HON", "REV", "SIR", "DAME", "PROF", "CAPT", "COL", "GEN", "SEN", "REP"}
@@ -97,7 +98,7 @@ def main():
         elif row.c_first and not first_variant(row.c_first, row.r_first):
             flags.append((sid, k, "first_name_changed_to_another_of_donors_own", steps, raw.at[sid, "contributor_name"], cln.at[sid, "contributor_name"]))
     flags = pd.DataFrame(flags, columns=["sub_id", "donor_key", "flag", "steps", "raw_name", "cleaned_name"])
-    flags.to_csv("data/_review/name_audit_flags.csv", index=False)
+    write_csv_atomic(flags, "data/_review/name_audit_flags.csv", index=False)
     print("\n== row-level flags:")
     print(flags.groupby(["flag", "steps"]).size().sort_values(ascending=False).to_string() if len(flags) else "   none")
     pd.set_option("display.width", 250); pd.set_option("display.max_colwidth", 60); pd.set_option("display.max_rows", 300)
@@ -117,7 +118,7 @@ def main():
                            " | ".join(sorted(set(raw.loc[d.index, "contributor_name"]))),
                            "; ".join(f"{a}/{b}" for a, b in bad_last), "; ".join(f"{a}/{b}" for a, b in bad_first)))
     donors = pd.DataFrame(donors, columns=["donor_key", "cleaned_name", "rows", "raw_names", "surname_conflicts", "first_name_conflicts"])
-    donors.to_csv("data/_review/name_audit_donors.csv", index=False)
+    write_csv_atomic(donors, "data/_review/name_audit_donors.csv", index=False)
     print(f"\n== donor keys holding raw names that are not variants of each other: {len(donors)}")
     print(donors[["cleaned_name", "rows", "raw_names", "surname_conflicts", "first_name_conflicts"]].to_string(index=False) if len(donors) else "   none")
 

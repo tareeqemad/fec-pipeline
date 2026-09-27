@@ -20,6 +20,7 @@ from fec.geocoding.accepted import accepted_coordinates
 from fec.geocoding.address_kind import is_foreign_address, is_po_box
 from fec.geocoding.reviewed_points import REVIEWED_POINTS
 from fec.geocoding.street_text import numbered_street
+from fec.io import write_csv_atomic
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.location_choice import zip_centroid
@@ -645,8 +646,8 @@ def build() -> tuple[int, int]:
         )
     locations, review = build_locations(df)
 
-    locations.to_csv(EMPLOYER_LOCATIONS_CSV, index=False, na_rep="")
-    review.to_csv(DATA_DIR / REVIEW_CSV, index=False, na_rep="")
+    write_csv_atomic(locations, EMPLOYER_LOCATIONS_CSV, index=False, na_rep="")
+    write_csv_atomic(review, DATA_DIR / REVIEW_CSV, index=False, na_rep="")
     has_address = locations["employer_address"].fillna("").ne("")
     publishable = (
         has_address
@@ -661,6 +662,6 @@ def build() -> tuple[int, int]:
         logger.info(f"  {REVIEW_CSV}: {counts}")
 
     slim = df.drop(columns=[column for column in ADDRESS_COLUMNS if column in df.columns])
-    slim.to_csv(CLEANED_CSV, index=False, na_rep="")
+    write_csv_atomic(slim, CLEANED_CSV, index=False, na_rep="")
     logger.info(f"  contributions_cleaned.csv: {len(slim.columns)} columns")
     return len(locations), len(slim.columns)

@@ -13,6 +13,7 @@ from fec.cleaning.quality.employment_gates import (
     _gate_slash_previous_employer,
     _gate_valid_categories,
 )
+from fec.io import write_csv_atomic
 
 _ZIP_PREFIX_STATES = {
     '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
@@ -198,4 +199,4 @@ def save_report(df: pd.DataFrame, dir_path: str, name: str) -> None:
         return
     base = Path(dir_path) / name
     base.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(base.with_suffix('.csv'), index=False)
+    write_csv_atomic(df, base.with_suffix('.csv'), index=False)

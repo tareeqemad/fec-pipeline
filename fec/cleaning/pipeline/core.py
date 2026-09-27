@@ -49,6 +49,7 @@ from fec.committees import committee_id_to_name
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
 from fec.config.geography import US_STATES
 from fec.donor_match.normalize import extract_generational_suffix
+from fec.io import write_csv_atomic
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -247,7 +248,7 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
     write_review_queues(out_dir, review_df, regeocode_df)
     log_review_queues(queue_counts(review_df, regeocode_df), logger.info)
     cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
-    cases.to_csv(Path(out_dir) / REVIEW_CASES_CSV, index=False)
+    write_csv_atomic(cases, Path(out_dir) / REVIEW_CASES_CSV, index=False)
     logger.info("  Address review cases: %s (%s high priority)",
                 f"{len(cases):,}", f"{int(cases['priority'].eq('high').sum()):,}")
 
