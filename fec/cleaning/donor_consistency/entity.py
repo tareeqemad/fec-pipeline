@@ -4,7 +4,7 @@ import csv
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.entity_source import source_entity_type
+from fec.cleaning.entity_source import deciding_source_type
 from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
 from fec.env import PROJECT_ROOT
 
@@ -27,17 +27,7 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
     Runs after FEC's own type is re-applied, so a documented correction
     overrules a filing that typed itself wrong.
     """
-    path = PROJECT_ROOT / 'data' / 'database' / 'entity_overrides.csv'
-    if not path.exists():
-        return 0
-
-    overrides: dict[str, str] = {}
-    with path.open(encoding='utf-8', newline='') as f:
-        for row in csv.DictReader(f):
-            nm = (row.get('contributor_name') or '').strip().upper()
-            et = (row.get('entity_type') or '').strip().upper()
-            if nm and et:
-                overrides[nm] = et
+    overrides = read_entity_overrides()
     if not overrides:
         return 0
 
@@ -51,11 +41,26 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
     return n
 
 
+# contributor_name -> entity_type from the curated overrides file
+def read_entity_overrides() -> dict[str, str]:
+    path = PROJECT_ROOT / 'data' / 'database' / 'entity_overrides.csv'
+    if not path.exists():
+        return {}
+    overrides: dict[str, str] = {}
+    with path.open(encoding='utf-8', newline='') as f:
+        for row in csv.DictReader(f):
+            nm = (row.get('contributor_name') or '').strip().upper()
+            et = (row.get('entity_type') or '').strip().upper()
+            if nm and et:
+                overrides[nm] = et
+    return overrides
+
+
 # re-apply FEC's own entity type where a later step changed it
 def _apply_source_entity_types(df: pd.DataFrame) -> int:
     """A safety net or name rule may retype a row after classification; the
     type FEC gave wins again here, before the documented overrides."""
-    source = source_entity_type(df)
+    source = deciding_source_type(df)
     n = 0
     for et in sorted(set(source) - {''}):
         mask = source.eq(et) & df['entity_type'].ne(et)
