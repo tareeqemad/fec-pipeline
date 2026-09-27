@@ -10,7 +10,7 @@ import pandas as pd
 
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.config.cities import expand_city_abbreviations
-from fec.env import CLEANED_CSV, load_env
+from fec.env import CLEANED_CSV, RAW_CSV, load_env
 from fec.io import read_pipeline_csv, write_json_atomic
 from fec.log import get_logger
 from fec.resolve.pipeline.ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
@@ -131,6 +131,15 @@ def _write_quality_gates(quality: dict, data_dir: str, csv_written: bool) -> Non
     write_json_atomic(Path(data_dir) / QUALITY_GATES_JSON, report, indent=2)
 
 
+# each filing's employer as filed, from the raw file
+def _filed_employers() -> dict:
+    """sub_id -> the raw employer text; empty when the raw file is absent."""
+    if not RAW_CSV.exists():
+        return {}
+    raw = pd.read_csv(RAW_CSV, dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_employer"])
+    return dict(zip(raw["sub_id"].str.strip(), raw["contributor_employer"]))
+
+
 # apply results, check quality gates, and write the final CSV
 def _write_results(
     df: pd.DataFrame,
@@ -139,7 +148,7 @@ def _write_results(
     addr_cache,
 ) -> pd.DataFrame:
     logger.info(f"\n-- Writing results -> {csv_path} --")
-    df = apply_results(df, prev_cache, addr_cache)
+    df = apply_results(df, prev_cache, addr_cache, _filed_employers())
     data_dir = os.path.dirname(csv_path) or "."
 
     quality = run_quality_gates(df)

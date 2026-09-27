@@ -10,7 +10,10 @@ from fec.cleaning.employer_synonyms.canonical import (
     canonical_key,
     recanonicalize_employers,
 )
-from fec.cleaning.previous_employer import preserve_own_named_legal_employer
+from fec.cleaning.previous_employer import (
+    normalize_previous_employer_value,
+    preserve_own_named_legal_employer,
+)
 from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
 from fec.resolve.pipeline.location_choice import select_location
 from fec.resolve.pipeline.locations import address_cache_lookup
@@ -27,6 +30,8 @@ class ResolveContext:
     address_lookup: dict
     # row index -> the donor's own latest employer on or before that retired filing
     dated_previous: dict = field(default_factory=dict)
+    # sub_id -> the employer the filing itself wrote (the raw file)
+    filed_employers: dict = field(default_factory=dict)
     # (donor_key, employer) -> the first date the donor filed that employer
     first_filed: dict = field(default_factory=dict)
 
@@ -39,8 +44,12 @@ def _address_aliases(addr_cache) -> dict:
 
 
 # resolve every row and write results into DataFrame columns
-def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
-    """Write resolved addresses to DataFrame columns."""
+def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dict | None = None) -> pd.DataFrame:
+    """Write resolved addresses to DataFrame columns.
+
+    ``filed_employers`` (sub_id -> the employer as filed) lets a retired
+    filing keep the previous employer it wrote itself.
+    """
     prior_previous = df.get("previous_employer")
     if prior_previous is not None:
         prior_previous = prior_previous.copy()
@@ -66,6 +75,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache) -> pd.DataFrame:
         address_lookup=_address_aliases(addr_cache),
         dated_previous=dated,
         first_filed=first_filed,
+        filed_employers=filed_employers or {},
     )
     for index, row in df.iterrows():
         result = _resolve_row(row, context, index)
@@ -243,6 +253,18 @@ def _learned_later(entry: dict, row: pd.Series, first_filed: dict) -> bool:
     return bool(firsts) and min(firsts) > filed
 
 
+# the previous employer this filing wrote itself, as a cache-style entry
+def _filed_previous(row: pd.Series, filed_employers: dict) -> dict | None:
+    """The clean stage's previous_employer when it is the filing's own employer."""
+    text = str(row.get("previous_employer") or "").strip()
+    previous = normalize_previous_employer_value(text)
+    filed = normalize_previous_employer_value(filed_employers.get(str(row.get("sub_id", "")), ""))
+    if previous and filed and canonical_key(previous) == canonical_key(filed):
+        # the text as set keeps an own-named firm's legal form: AMY N DEAN PA
+        return {"employer": previous, "employer_source": text, "method": "filed"}
+    return None
+
+
 # resolve a retired filer's previous employer and its office
 def _resolve_retired(
     row: pd.Series,
@@ -259,14 +281,28 @@ def _resolve_retired(
     the donor filed on or before that date. A hand-set cache entry still wins.
     With no earlier employer, a cache entry learned from a later filing does not
     apply: MARGOLIN, RUTH retired in 2022 and only filed her clinic in 2024.
+
+    A previous employer the filing wrote itself (STEIN: UNIVERSITY OF
+    CONNECTICUT / RETIRED) is kept unless a hand-set entry says otherwise;
+    one taken from other filings keeps the date barrier above. A held or
+    unresolved filing keeps only its own: its donor_key may group more than
+    one person.
     """
-    prev_entry = context.previous_cache.get(_prev_key(row.get("donor_key", "")))
-    protected = bool(prev_entry) and prev_entry.get("method") in PROTECTED_METHODS
-    dated = context.dated_previous.get(index)
-    if dated and not protected:
-        prev_entry = {"employer": dated, "method": "cross_record"}
-    elif prev_entry and not protected and _learned_later(prev_entry, row, context.first_filed):
-        prev_entry = None
+    own_entry = _filed_previous(row, context.filed_employers)
+    if row.get("identity_status", "confirmed") != "confirmed":
+        prev_entry = own_entry
+    else:
+        prev_entry = context.previous_cache.get(_prev_key(row.get("donor_key", "")))
+        protected = bool(prev_entry) and prev_entry.get("method") in PROTECTED_METHODS
+        dated = context.dated_previous.get(index)
+        if protected:
+            pass
+        elif own_entry:
+            prev_entry = own_entry
+        elif dated:
+            prev_entry = {"employer": dated, "method": "cross_record"}
+        elif prev_entry and _learned_later(prev_entry, row, context.first_filed):
+            prev_entry = None
     prev_name, address_keys = _previous_employer_identity(prev_entry)
     if not prev_name:
         return _result("retired")

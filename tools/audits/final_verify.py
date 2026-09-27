@@ -99,6 +99,16 @@ def main() -> int:
     print("== manual overrides not in the final file:", len(overridden), overridden[:5])
     if overridden:
         problems.append(f"{len(overridden)} manual override value(s) changed by a later step: {overridden[:5]}")
+    # a previous employer belongs to a retired filing only, and never to a placeholder
+    from fec.cleaning.employer_status import is_real_employer
+    prev = n.previous_employer.str.strip()
+    not_retired = int((prev.ne("") & n.employer_status.ne("retired")).sum())
+    placeholder = sorted({v for v in prev.unique() if v and v != "SELF-EMPLOYED" and not is_real_employer(v)})
+    print("== previous employer on a non-retired filing:", not_retired, "| non-company values:", placeholder[:5])
+    if not_retired:
+        problems.append(f"{not_retired} non-retired filing(s) carry a previous employer")
+    if placeholder:
+        problems.append(f"previous employer values that are not companies: {placeholder[:5]}")
     # every reviewed identity case still holds on this file
     cases = subprocess.run([sys.executable, S + "/identity_cases.py", "data/contributions_cleaned.csv"],
                            capture_output=True, text=True, encoding="utf-8",
