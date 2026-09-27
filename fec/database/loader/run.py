@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from fec.database.loader._base import PG, _count, connect
+from fec.database.loader._base import PG, _count, connect, stage
 from fec.database.loader.access import _check_reader, grant_read_access
 from fec.database.loader.addresses import (
     link_employer_locations,
@@ -70,41 +70,28 @@ def load_all(
     )
     committee_map = {row[1]: row[0] for row in cur.fetchall()}
 
-    donor_key_to_id = load_donors(conn, cur, df)
-    emp_name_to_id = load_employers(conn, cur, df)
-    link_previous_employers(conn, cur, df, emp_name_to_id)
+    with stage(conn, "donors"):
+        donor_key_to_id = load_donors(conn, cur, df)
+    with stage(conn, "employers"):
+        emp_name_to_id = load_employers(conn, cur, df)
+        link_previous_employers(conn, cur, df, emp_name_to_id)
     get_employer_id = _make_employer_resolver(emp_name_to_id)
 
-    addr_dim_id = load_address_dimension(conn, cur, df, employer_locations)
-    addr_key_to_id = load_donor_addresses(conn, cur, df, donor_key_to_id, addr_dim_id)
-    empl_donor_emp_to_id = load_employments(
-        conn,
-        cur,
-        df,
-        donor_key_to_id,
-        occ_cat_map,
-        get_employer_id,
-        addr_dim_id,
-        employer_locations,
-    )
-    load_contributions(
-        conn,
-        cur,
-        df,
-        donor_key_to_id,
-        committee_map,
-        addr_key_to_id,
-        empl_donor_emp_to_id,
-        get_employer_id,
-    )
-
-    link_employer_locations(
-        conn,
-        cur,
-        addr_dim_id,
-        get_employer_id,
-        employer_locations,
-    )
+    with stage(conn, "addresses"):
+        addr_dim_id = load_address_dimension(conn, cur, df, employer_locations)
+        addr_key_to_id = load_donor_addresses(conn, cur, df, donor_key_to_id, addr_dim_id)
+    with stage(conn, "employments"):
+        empl_donor_emp_to_id = load_employments(
+            conn, cur, df, donor_key_to_id, occ_cat_map, get_employer_id,
+            addr_dim_id, employer_locations,
+        )
+    with stage(conn, "contributions"):
+        load_contributions(
+            conn, cur, df, donor_key_to_id, committee_map, addr_key_to_id,
+            empl_donor_emp_to_id, get_employer_id,
+        )
+    with stage(conn, "employer locations"):
+        link_employer_locations(conn, cur, addr_dim_id, get_employer_id, employer_locations)
 
 
 # refresh materialized views concurrently
@@ -114,7 +101,6 @@ def refresh_materialized_views(conn: Any, cur: Any) -> None:
     start = time.time()
 
     cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
-    conn.commit()
     cur.execute("ANALYZE mv_donor_profile")
     logger.info(
         f"  mv_donor_profile: {_count(cur, 'mv_donor_profile'):,} rows ({time.time() - start:.1f}s)"
@@ -143,7 +129,6 @@ def _analyze_tables(conn, cur) -> None:
     for table in TABLES:
         if _count(cur, table) > 0:
             cur.execute(f"ANALYZE {table}")
-    conn.commit()
     logger.info("  ANALYZE complete")
 
 
@@ -172,22 +157,23 @@ def main() -> None:
     logger.info(f"\n-- Reading {CLEANED_CSV.name} --")
     logger.info(f"  {len(df):,} rows, {df['donor_key'].nunique():,} donors")
 
-    reset_schema(conn, cur)
-    create_schema(conn, cur)
-
-    load_lookups(conn, cur)
+    # each stage commits whole or rolls back (_base.stage); nothing else commits
+    with stage(conn, "schema"):
+        reset_schema(conn, cur)
+        create_schema(conn, cur)
+    with stage(conn, "lookups"):
+        load_lookups(conn, cur)
     load_all(conn, cur, df, employer_locations)
-
-    load_reference_tables(conn, cur)
-
-    load_leadership(conn, cur)
-    load_key_accomplices(conn, cur)
-
-    _analyze_tables(conn, cur)
-
-    refresh_materialized_views(conn, cur)
-
-    grant_read_access(conn, cur)
+    with stage(conn, "reference tables"):
+        load_reference_tables(conn, cur)
+    with stage(conn, "leaders and accomplices"):
+        load_leadership(conn, cur)
+        load_key_accomplices(conn, cur)
+    with stage(conn, "statistics and views"):
+        _analyze_tables(conn, cur)
+        refresh_materialized_views(conn, cur)
+    with stage(conn, "read access"):
+        grant_read_access(conn, cur)
 
     elapsed = time.time() - total_start
     minutes, seconds = divmod(int(elapsed), 60)

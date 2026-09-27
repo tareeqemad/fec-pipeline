@@ -102,7 +102,6 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
     execute_values(cur,
         "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
         employer_rows, page_size=5000)
-    conn.commit()
 
     cur.execute("SELECT employer_id, name FROM employers")
     emp_name_to_id = {row[1]: row[0] for row in cur.fetchall()}
@@ -120,7 +119,6 @@ def _insert_employments(conn: Any, cur: Any, rows: list[tuple]) -> None:
             address_id)
            VALUES %s ON CONFLICT DO NOTHING""",
         rows, page_size=5000)
-    conn.commit()
 
 
 # load donor_employments rows and return their key-to-id mapping

@@ -37,7 +37,6 @@ def load_donors(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
         "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) "
         "VALUES %s",
         donor_rows, page_size=5000)
-    conn.commit()
 
     cur.execute("SELECT donor_id, donor_key FROM donors")
     donor_key_to_id = {row[1]: row[0] for row in cur.fetchall()}

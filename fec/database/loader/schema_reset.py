@@ -65,7 +65,6 @@ def reset_schema(conn: Any, cur: Any) -> None:
             names = ", ".join(f"{kind} {name}" for name, kind, _ in leftover[:5])
             raise RuntimeError(f"Schema reset left objects: {names}")
     except Exception as error:
-        conn.rollback()
         raise RuntimeError(f"Schema reset failed: {error}") from error
 
     logger.info("  Dropped %s objects", len(objects))

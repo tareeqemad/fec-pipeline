@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from fec.database.loader import validate
+from fec.database.loader._base import stage
 from fec.database.loader.access import grant_read_access
 from fec.database.loader.addresses import load_employer_locations
 from fec.database.loader.schema_create import verify_extensions
@@ -129,7 +130,7 @@ def test_reset_rolls_back_every_drop():
     tables = (("donors", DATABASE_OWNER), ("addresses", DATABASE_OWNER))
     cur = ResetCursor(tables=tables, fail_drop=2)
 
-    with pytest.raises(RuntimeError, match="Schema reset failed"):
+    with pytest.raises(RuntimeError, match="Schema reset failed"), stage(conn, "schema"):
         reset_schema(conn, cur)
 
     assert conn.commits == 0
@@ -155,7 +156,8 @@ def test_reader_gets_select_only():
     conn = Connection()
     cur = PermissionCursor()
 
-    grant_read_access(conn, cur)
+    with stage(conn, "read access"):
+        grant_read_access(conn, cur)
 
     sql = "\n".join(cur.queries)
     assert f'GRANT SELECT ON ALL TABLES IN SCHEMA public TO "{DATABASE_READER}"' in sql

@@ -100,7 +100,6 @@ def _execute_schema_statement(conn: Any, cur: Any, idx: int, statement: str) -> 
         preview = statement[:200].replace("\n", " ")
         logger.error(f"Schema creation failed at statement #{idx + 1}: {first_line}")
         logger.error(f"  Statement preview: {preview}...")
-        conn.rollback()
         raise RuntimeError(
             f"Schema aborted at statement #{idx + 1}: {first_line}"
         ) from error
@@ -131,7 +130,6 @@ def create_schema(conn: Any, cur: Any) -> None:
             if kind:
                 counts[kind] += 1
 
-    conn.commit()
     logger.info(
         f"  {counts['tables']} tables, {counts['indexes']} indexes, "
         f"{counts['views']} views, {counts['functions']} functions"
