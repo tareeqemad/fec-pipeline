@@ -28,7 +28,7 @@ _PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.IGNORECASE)
 
 # Street-type tokens: a street_1 with none of these (and no leading house number
 # or PO BOX) is likely an entity name, not a street. Deliberately BROADER than
-# address_fixes._STREET_TYPE_RE: this runs on pre-normalized text, so it also
+# fixes.recovery._STREET_TYPE_RE: this runs on pre-normalized text, so it also
 # carries the full words (STREET, AVENUE) and unit keywords (APT, STE). Do not merge.
 _STREET_TYPES = (
     "ST AVE RD BLVD DR LN CT CIR PL PKWY HWY TER TPKE EXPY SQ WAY TRL XING JCT "

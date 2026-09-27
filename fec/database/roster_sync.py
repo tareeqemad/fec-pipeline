@@ -11,10 +11,10 @@ becomes a phantom address with no contributions behind it.
 contribution_receipt_date, then highest sub_id) and leaves every other column
 as the editors wrote it. An unlinked (editorial-only) row keeps its address,
 but its street_1/street_2 are run through the cleaning step's own street
-normaliser (fec/cleaning/addresses.clean_streets), so the loader stores one
+normaliser (fec/cleaning/addresses/streets.clean_streets), so the loader stores one
 spelling per place ('1211 AVE OF THE AMERICAS', suite in street_2) whether the
 address came from an FEC filing or an editor. Foreign rows (a country, or a
-foreign address by fec/cleaning/foreign_addresses) are kept exactly as written.
+foreign address by fec/cleaning/addresses/foreign) are kept exactly as written.
 `--check` only reports the drift and fails, so it can run as a quality check.
 """
 from __future__ import annotations
