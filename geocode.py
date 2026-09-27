@@ -9,7 +9,8 @@ import sys
 import pandas as pd
 
 from fec.cleaning.employer_status import referenced_employers
-from fec.env import CLEANED_CSV
+from fec.contract import RESOLVE_WORKING, STAGES, check_input, check_output
+from fec.env import CLEANED_CSV, EMPLOYER_LOCATIONS_CSV
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.employers import (
     apply_employer_to_dataframe,
@@ -18,6 +19,7 @@ from fec.geocoding.employers import (
 from fec.geocoding.pipeline import apply_to_dataframe, geocode_addresses
 from fec.io import write_csv_atomic
 from fec.log import get_logger
+from fec.pipeline_run import check_same_run, record
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
 from fec.resolve.pipeline.locations import (
     address_cache_lookup,
@@ -105,12 +107,16 @@ def _geocode_employers(
     return df, True
 
 
-def _write_output(df: pd.DataFrame, csv_path: str) -> None:
+def _write_output(df: pd.DataFrame, csv_path: str, stage: str, input_columns) -> None:
     from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 
-    df = df.drop(columns=INTERNAL_OUTPUT_COLUMNS, errors="ignore")
+    # resolve's working columns stay until the employer stage has read them
+    kept = set(RESOLVE_WORKING) - set(STAGES[stage].drops)
+    df = df.drop(columns=[c for c in INTERNAL_OUTPUT_COLUMNS if c not in kept], errors="ignore")
+    check_output(stage, input_columns, df.columns)
     logger.info(f"\n  Writing -> {csv_path}")
     write_csv_atomic(df, csv_path, index=False)
+    record(stage, csv_path)
 
 
 def main():
@@ -128,7 +134,11 @@ def main():
 
     from fec.io import read_pipeline_csv
 
+    stage = "employer_geocode" if args.employer_only else "geocode"
+    check_same_run(csv_path)
     df = read_pipeline_csv(csv_path)
+    check_input(stage, df.columns)
+    input_columns = list(df.columns)
     logger.info(f"  Rows: {len(df):,}")
 
     if not args.employer_only:
@@ -138,12 +148,13 @@ def main():
         df, changed = _geocode_employers(df, cache, data_dir)
 
     if changed:
-        _write_output(df, csv_path)
+        _write_output(df, csv_path, stage, input_columns)
         if args.employer_only:
             from build_employers import build
 
             logger.info("\n-- Building employer locations --")
             build()
+            record("employers", csv_path, EMPLOYER_LOCATIONS_CSV)
 
     logger.info("=" * 60)
 

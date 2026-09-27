@@ -10,9 +10,11 @@ import pandas as pd
 
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.config.cities import expand_city_abbreviations
+from fec.contract import check_input, check_output
 from fec.env import CLEANED_CSV, RAW_CSV, load_env
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
+from fec.pipeline_run import check_same_run, record
 from fec.resolve.pipeline.ai_client import PROVIDER, AIQuotaExhausted, get_ai_model
 from fec.resolve.pipeline.apply import apply_results
 from fec.resolve.pipeline.cache import Cache
@@ -146,6 +148,7 @@ def _write_results(
     csv_path: str,
     prev_cache,
     addr_cache,
+    input_columns,
 ) -> pd.DataFrame:
     logger.info(f"\n-- Writing results -> {csv_path} --")
     df = apply_results(df, prev_cache, addr_cache, _filed_employers())
@@ -160,7 +163,9 @@ def _write_results(
     # Expand Saint/Mount/Fort in resolved employer cities, matching clean.py.
     df["employer_city"] = df["employer_city"].map(expand_city_abbreviations)
 
+    check_output("resolve", input_columns, df.columns)
     write_csv_atomic(df, csv_path, index=False)
+    record("resolve", csv_path)
     # the gates read no employer_city, so the report above describes this file
     _write_quality_gates(quality, data_dir, csv_written=True)
     logger.info(f"  Written {len(df):,} rows")
@@ -177,8 +182,11 @@ def main() -> None:
         logger.info("Error: no cleaned CSV found")
         sys.exit(1)
 
+    check_same_run(csv_path)
     data = _load_data(csv_path)
     data_dir, df, donor_totals, prev_cache, addr_cache = data
+    check_input("resolve", df.columns)
+    input_columns = list(df.columns)
 
     logger.info(f"\n{'=' * 60}")
     logger.info("  FEC Resolve - Employer Addresses")
@@ -194,7 +202,7 @@ def main() -> None:
         addr_cache,
     )
 
-    df = _write_results(df, csv_path, prev_cache, addr_cache)
+    df = _write_results(df, csv_path, prev_cache, addr_cache, input_columns)
 
     minutes, seconds = divmod(int(time.time() - total_start), 60)
     logger.info(f"\n  Time: {minutes}m {seconds}s")

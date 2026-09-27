@@ -11,9 +11,11 @@ from fec.cleaning.quality.gates import run_quality_gates, save_report
 from fec.cleaning.quality.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
+from fec.contract import check_output
 from fec.env import CLEANED_CSV, RAW_CSV
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
+from fec.pipeline_run import record, start_run
 
 logger = get_logger(__name__)
 
@@ -175,7 +177,11 @@ def _save_if_gates_pass(output, out_dir, output_path) -> dict:
         for issue in quality['issues']:
             logger.error("    %s", issue)
         raise SystemExit(1)
+    check_output('clean', (), output.columns)
     write_csv_atomic(output, output_path, index=False)
+    # a new run starts only once its cleaned file is in place
+    start_run(output_path)
+    record('clean', output_path)
     return quality
 
 

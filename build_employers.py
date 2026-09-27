@@ -15,6 +15,7 @@ from fec.cleaning.addresses.street_text import (
 from fec.cleaning.employer_status import current_employer_name, referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
+from fec.contract import check_output
 from fec.env import CLEANED_CSV, DATA_DIR, EMPLOYER_LOCATIONS_CSV
 from fec.geocoding.accepted import accepted_coordinates
 from fec.geocoding.address_kind import is_foreign_address, is_po_box
@@ -662,6 +663,7 @@ def build() -> tuple[int, int]:
         logger.info(f"  {REVIEW_CSV}: {counts}")
 
     slim = df.drop(columns=[column for column in ADDRESS_COLUMNS if column in df.columns])
+    check_output("employers", df.columns, slim.columns)
     write_csv_atomic(slim, CLEANED_CSV, index=False, na_rep="")
     logger.info(f"  contributions_cleaned.csv: {len(slim.columns)} columns")
     return len(locations), len(slim.columns)

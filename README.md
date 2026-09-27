@@ -57,6 +57,14 @@ are never touched.
 In both rosters committees are written by their short name (`{AIPAC,DMFI}`, `ZOA`),
 never by number; the loader stops on an unknown name.
 
+Each stage rewrites `data/contributions_cleaned.csv` and checks it against
+`fec/contract.py`: the columns it needs, adds and drops. The loader takes only
+the finished column set. `clean.py` starts a run in `data/pipeline_run.json`;
+every later stage records the files it writes, and a stage or the loader stops
+on a file that is not what this run last wrote (edited by hand, restored from
+an older run, or left from before the last `clean.py`). Rerun from the stage
+the message names.
+
 Cleaning always processes the complete raw file. Donor matching groups filings
 under `donor_key`; it never combines or removes contribution rows.
 

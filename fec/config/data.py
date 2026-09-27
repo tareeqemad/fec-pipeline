@@ -161,15 +161,3 @@ INTERNAL_OUTPUT_COLUMNS = [
     'fec_contributor_id',
     'fec_image_number',
 ]
-
-# Final cleaned CSV contract.
-FINAL_OUTPUT_COLUMNS = [
-    column for column in OUTPUT_COLUMNS
-    if column not in INTERNAL_OUTPUT_COLUMNS
-] + [
-    'previous_employer',
-    'donor_key',
-    'latitude',
-    'longitude',
-    'employer_status',
-]

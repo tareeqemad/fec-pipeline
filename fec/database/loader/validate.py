@@ -5,7 +5,7 @@ import pandas as pd
 
 from fec.cleaning.employer_status import referenced_employers
 from fec.cleaning.quality.gates import run_quality_gates
-from fec.config.data import FINAL_OUTPUT_COLUMNS
+from fec.contract import check_loadable
 from fec.database.loader.addresses import (
     load_employer_locations,
 )
@@ -15,10 +15,11 @@ from fec.env import (
     EMPLOYER_LOCATIONS_CSV,
 )
 from fec.io import read_pipeline_csv
+from fec.log import get_logger
+from fec.pipeline_run import check_same_run
 from fec.resolve.pipeline.locations import ADDRESS_TRUST_VALUES
 
-_REQUIRED_COLUMNS = set(FINAL_OUTPUT_COLUMNS)
-
+logger = get_logger(__name__)
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -34,11 +35,9 @@ _LOCATION_COLUMNS = {
 }
 
 
-# check required columns are present and quality gates pass
+# check the columns are exactly the loaded ones and gates pass
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
-    missing = sorted(_REQUIRED_COLUMNS - set(df.columns))
-    if missing:
-        raise ValueError(f"{CLEANED_CSV.name}: missing columns: {', '.join(missing)}")
+    check_loadable(df.columns)
 
     quality = run_quality_gates(df)
     if not quality["passed"]:
@@ -132,6 +131,9 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
             "run geocode.py --employer-only"
         )
 
+    # both files must come from the same run, untouched since it wrote them
+    run_id = check_same_run(CLEANED_CSV, EMPLOYER_LOCATIONS_CSV)
+    logger.info(f"  pipeline run {run_id}")
     df = read_pipeline_csv(CLEANED_CSV)
     locations = pd.read_csv(
         EMPLOYER_LOCATIONS_CSV,
