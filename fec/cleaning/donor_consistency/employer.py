@@ -3,6 +3,7 @@ import re
 
 import pandas as pd
 
+from fec.cleaning.manual_overrides import overridden_employer_sub_ids
 from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
@@ -139,6 +140,13 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
         keep_default_na=False,
     )
     raw_employer = raw.drop_duplicates('sub_id').set_index('sub_id')['contributor_employer']
+
+    # a filing whose employer a manual override cleared or replaced is neither
+    # refilled nor evidence: the override says the filed employer is not this
+    # donor's (SANDBERG, ADELE filed her husband's EYE SURGERY ASSOCIATES)
+    overridden = overridden_employer_sub_ids()
+    empty_mask = empty_mask & ~df['sub_id'].astype(str).isin(overridden)
+    raw_employer = raw_employer[~raw_employer.index.isin(overridden)]
 
     donors = set(df.loc[empty_mask, 'donor_key'].dropna())
     own = df[df['donor_key'].isin(donors)]

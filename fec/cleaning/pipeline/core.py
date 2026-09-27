@@ -25,8 +25,7 @@ from fec.cleaning.audit_trail import (
     AuditTrail,
 )
 from fec.cleaning.donor_consistency.steps import INFERRED_WORK_STEPS
-from fec.cleaning.donor_consistency.entity import read_entity_overrides
-from fec.cleaning.entity_source import attach_source_fields, entity_type_sources
+from fec.cleaning.entity_source import attach_source_fields
 from fec.cleaning.manual_overrides import (
     FILED_WORK_FIELDS,
     apply_manual_employer_overrides,
@@ -310,10 +309,6 @@ def clean_pipeline(
         _write_address_queues(df_clean, out_dir, address_reports, foreign.index, filed_addresses, trail)
     unexplained = trail.finish(df_clean)
     df_clean["employment_source"] = _employment_sources(df_clean, trail, filed_work)
-    df_clean["entity_type_source"] = entity_type_sources(
-        df_clean, set(read_entity_overrides()),
-        trail.keys_set_by({"donor_apply_entity_overrides"}, ("entity_type",)),
-    )
     if unexplained:
         logger.warning(
             "  Audit: %s field values changed outside tracked steps", f"{unexplained:,}"

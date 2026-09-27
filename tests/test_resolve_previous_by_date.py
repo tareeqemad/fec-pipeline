@@ -102,9 +102,10 @@ def test_a_request_for_information_is_not_a_previous_employer():
 
 def test_a_degree_or_pronoun_is_not_a_previous_employer():
     from fec.cleaning.previous_employer import normalize_previous_employer_value
-    for value in ("MD", "ME", "M.D.", "MORE INFO NEEDED"):
+    for value in ("MD", "ME", "M.D.", "MORE INFO NEEDED", "NOT EMPLYED"):
         assert normalize_previous_employer_value(value) == ""
     assert normalize_previous_employer_value("SELF-EMPLOYED") == "SELF-EMPLOYED"
+    assert normalize_previous_employer_value("SSELF") == "SELF-EMPLOYED"  # SIMON, SHULAMITH
 
 
 def test_an_own_named_firm_keeps_its_legal_form():

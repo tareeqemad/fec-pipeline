@@ -18,6 +18,9 @@ from fec.resolve.pipeline.constants import RETIRED
 from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
 
 logger = get_logger(__name__)
+# cache entries built from the loaded CSV itself, rebuilt on every run
+LOCAL_METHODS = frozenset({"cross_record", "cleaned_previous"})
+
 PROTECTED_METHODS = {
     "manual_clear",
     "manual_override",
@@ -234,7 +237,10 @@ def _clear_invalid_cross_records(
             cached.get("method") == "cleaned_previous"
             and cached_name in self_by_donor.get(donor_key, set())
         )
-        if invalid_cross_record or invalid_self_occupation:
+        # an entry read from the local file whose evidence is gone (a manual
+        # override cleared the filing it came from) is not kept to come back
+        evidence_gone = cached.get("method") in LOCAL_METHODS
+        if invalid_cross_record or invalid_self_occupation or evidence_gone:
             prev_cache.discard(cache_key)
             cleared += 1
     return cleared
