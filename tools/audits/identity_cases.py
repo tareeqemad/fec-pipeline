@@ -82,5 +82,11 @@ check('Morris joint Ellen+Stu filings: one held group, $11,200',
       and round(joint.amt.sum()) == 11200 and joint.contributor_name.str.contains('STU').all(),
       f'{len(joint)} filings, {joint.donor_key.nunique()} keys, ${joint.amt.sum():,.0f}')
 check('Stuart Morris alone $15,709', round(b.loc[b.contributor_name == 'MORRIS, STUART', 'amt'].sum()) == 15709)
+# entity recheck, 2026-09-27: FEC returns entity_type ORG for these payers
+for org, n in [('AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE', 8), ('DEMOCRATIC MAJORITY FOR ISRAEL', 7),
+               ('DEMOCRACY ENGINE LLC', 5), ('HDS HERCULES', 1)]:
+    rows = names(org)
+    check(f'{org}: {n} filings are ORGANIZATION', len(rows) == n and set(rows.entity_type) == {'ORGANIZATION'},
+          f'{len(rows)} filings, {sorted(set(rows.entity_type))}')
 print('\n', 'ALL OK' if not fails else f'{len(fails)} FAILED: {fails}')
 sys.exit(1 if fails else 0)
