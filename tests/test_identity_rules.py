@@ -218,6 +218,20 @@ def test_review_writes_related_names_with_totals(monkeypatch, tmp_path):
     assert report.loc[0, "combined_amount"] == 350
 
 
+def test_review_leaves_out_pairs_already_held(monkeypatch, tmp_path):
+    monkeypatch.setattr(dedup_review, "names_must_stay_separate", lambda *_: False)
+    monkeypatch.setattr(dedup_review, "NICKNAME_MAP", {})
+    rows = pd.DataFrame([
+        _person("alex", "MEYERS, ALEX", "ALEX"),
+        _person("alexander", "MEYERS, ALEXANDER", "ALEXANDER"),
+    ])
+    rows["contribution_receipt_amount"] = ["100", "250"]
+    rows["identity_status"] = ["confirmed", "held"]
+
+    assert dedup_review.build_donor_dedup_review(rows, tmp_path) == 0
+    assert not (tmp_path / "donor_dedup_review.csv").exists()
+
+
 def test_resolve_donor_key_follows_chains_and_stops_on_cycles(monkeypatch):
     monkeypatch.setattr(R, "KEY_MERGES", {"a": "b", "b": "c", "x": "y", "y": "x"})
 
