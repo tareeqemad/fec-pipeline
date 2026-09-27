@@ -162,6 +162,12 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     )
     log_count(logger, "political-network filings kept unresolved", organizations)
 
+    # a held or unresolved group is not a person: each filing stays as filed
+    undecided = df["identity_status"].ne("confirmed") if "identity_status" in df.columns \
+        else pd.Series(False, index=df.index)
+    group_keys = df.loc[undecided, "donor_key"].copy()
+    df.loc[undecided, "donor_key"] = group_keys + "|" + df.loc[undecided, "sub_id"].astype(str)
+
     canonical_updates = _canonicalize(df, trail)
 
     df, manual_updates = trail.run(
@@ -193,6 +199,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
         "non_individual_person_names_cleared", NAME_FIELDS,
     )
     log_count(logger, "non-individual names cleared", cleared)
+    df.loc[group_keys.index, "donor_key"] = group_keys
 
     logger.info(
         "  %s canonical updates, %s consistency updates",

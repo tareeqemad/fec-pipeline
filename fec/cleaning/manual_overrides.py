@@ -8,6 +8,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
+from fec.cleaning.occupations import _categorize
 from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
 from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.env import PROJECT_ROOT
@@ -98,6 +99,20 @@ def _is_initialism(value_words: list[str], filed_words: list[str]) -> bool:
     return len(initials) > 1 and initials in filed_words
 
 
+# the filed text that can name an employer
+def _employer_evidence(filed: pd.DataFrame) -> str:
+    """The employer field, plus the occupation field only when it holds no known job:
+    KIMCO filed as the occupation names the firm, PHYSICIAN does not name
+    EYE PHYSICIANS OF ORANGE COUNTY PC."""
+    employer, occupation = (
+        " ".join(filed.reindex(columns=[column]).fillna("").astype(str).to_numpy().ravel())
+        for column in _WORK_FIELDS
+    )
+    if occupation.strip() and _categorize(pd.Series([occupation.strip().upper()])).iloc[0] == "OTHER":
+        return f"{employer} {occupation}"
+    return employer
+
+
 # an override names an employer or occupation the filing's work fields never did
 def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
     """True when a new employer or occupation shares no word (or initials) with the
@@ -106,11 +121,15 @@ def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
     such as SELF-EMPLOYED or cleared cells."""
     text = lambda columns: " ".join(filed.reindex(columns=list(columns)).fillna("").astype(str).to_numpy().ravel())
     own_name = set(_words(text(_NAME_FIELDS)))
-    filed_words = [word for word in _words(text(_WORK_FIELDS)) if word not in own_name]
+    evidence = {
+        "contributor_employer": _employer_evidence(filed),
+        "contributor_occupation": text(_WORK_FIELDS),
+    }
     for column in _WORK_FIELDS:
         value = fields.get(column)
         if value is pd.NA or not value or value.upper() in EMPLOYER_STATUS_VALUES | STATUS_WORDS:
             continue
+        filed_words = [word for word in _words(evidence[column]) if word not in own_name]
         value_words = _words(value)
         if not any(_same_word(a, b) for a in value_words for b in filed_words) \
                 and not _is_initialism(value_words, filed_words):

@@ -76,5 +76,11 @@ for sub, who in inferred.items():
     check(f'{who}: work taken from other filings marked inferred', by.at[sub, 'employment_source'] == 'inferred')
 check('Givner: firm named only by own surname marked inferred',
       (b.loc[b.contributor_name == 'GIVNER, JOEY', 'employment_source'] == 'inferred').any())
+joint = b[b.donor_key == key('4011620261302587003')]  # MORRIS, ELLEN STU filed 2025
+check('Morris joint Ellen+Stu filings: one held group, $11,200',
+      len(joint) == 15 and joint.donor_key.nunique() == 1 and set(joint.identity_status) == {'held'}
+      and round(joint.amt.sum()) == 11200 and joint.contributor_name.str.contains('STU').all(),
+      f'{len(joint)} filings, {joint.donor_key.nunique()} keys, ${joint.amt.sum():,.0f}')
+check('Stuart Morris alone $15,709', round(b.loc[b.contributor_name == 'MORRIS, STUART', 'amt'].sum()) == 15709)
 print('\n', 'ALL OK' if not fails else f'{len(fails)} FAILED: {fails}')
 sys.exit(1 if fails else 0)
