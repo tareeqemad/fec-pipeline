@@ -1,8 +1,8 @@
 """Keep the editorial rosters in step with the cleaned FEC data.
 
-`data/database/leaders.csv` and `data/database/key_accomplices.csv` are
+`data/rules/leaders.csv` and `data/rules/key_accomplices.csv` are
 hand-maintained, but every row that carries a donor_key present in
-`data/contributions_cleaned.csv` must show that donor's NEWEST filed address,
+`data/output/contributions_cleaned.csv` must show that donor's NEWEST filed address,
 employer and occupation: the loader links a roster address to the donor only
 when it matches one of the donor's FEC addresses exactly, and anything else
 becomes a phantom address with no contributions behind it.
@@ -29,9 +29,9 @@ import pandas as pd
 from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.addresses.streets import clean_streets
 from fec.donor_match.rules import resolve_donor_key
-from fec.env import CLEANED_CSV, PROJECT_ROOT
+from fec.env import CLEANED_CSV, RULES_DIR
 
-ROSTER_DIR = PROJECT_ROOT / "data" / "database"
+ROSTER_DIR = RULES_DIR
 ROSTERS = {"leaders.csv": "leader", "key_accomplices.csv": "accomplice"}
 
 # roster column suffix -> column in contributions_cleaned.csv

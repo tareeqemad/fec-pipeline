@@ -104,13 +104,13 @@ _STREET_RECOVERIES = (
 
 
 # fill missing or broken streets from donor, then fec.gov
-def _recover_streets(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> None:
+def _recover_streets(df: pd.DataFrame, trail: AuditTrail, cache_dir, log) -> None:
     """Fill missing or broken streets from the donor, then FEC."""
     for recovery, step, reason, message in _STREET_RECOVERIES:
         trail.run_logged(df, recovery, step, reason, STREET_FIELDS, message, log)
 
     trail.run_logged(
-        df, lambda frame: recover_addresses_from_fec(frame, out_dir),
+        df, lambda frame: recover_addresses_from_fec(frame, cache_dir),
         "streets_recover_fec_api", "address_recovered_from_fec_api_other_committees",
         ADDRESS_FIELDS, "Streets: recovered {n:,} from FEC.gov (other committees, cached)", log,
     )
@@ -195,6 +195,7 @@ def _report_address_issues(
 # run the full address cleaning stage end-to-end
 def clean_addresses(
     df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
+    cache_dir=None,
 ) -> pd.DataFrame:
     """Run the whole address stage.
 
@@ -203,7 +204,7 @@ def clean_addresses(
     from the final rows.
     """
     df = _clean_street_text(df, trail, log)
-    _recover_streets(df, trail, out_dir, log)
+    _recover_streets(df, trail, cache_dir, log)
     df = _clean_city_zip(df, trail, out_dir, log)
     verified = trail.run(
         df, apply_verified_address_fixes, "address_verified_rules",

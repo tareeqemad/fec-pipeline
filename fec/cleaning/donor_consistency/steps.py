@@ -83,7 +83,7 @@ CONSISTENCY_FIXES = (
     ("apply fec source entity type", _apply_source_entity_types, ENTITY_AND_WORK,
      "entity_type_as_fec_reports_it", None),
     ("apply entity overrides", _apply_entity_overrides, ENTITY_AND_WORK,
-     "curated_entity_type_override", "data/database/entity_overrides.csv"),
+     "curated_entity_type_override", "data/rules/entity_overrides.csv"),
     ("sync employer and occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
      "employer_occupation_category_consistency_fixed", None),
     ("rebuild occupation category", _rederive_occupation_category, WORK_FIELDS,
@@ -119,7 +119,7 @@ def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> int:
         # a value a manual override rejected is put back at once, so no later
         # step builds on it (SANDBERG's cleared employer fed her previous one)
         trail.run(df, _keep_overrides, "manual_overrides_kept", "curated_row_override",
-                  OVERRIDE_FIELDS, source="data/manual_employer_overrides.csv")
+                  OVERRIDE_FIELDS, source="data/rules/manual_employer_overrides.csv")
     return total
 
 

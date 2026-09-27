@@ -58,20 +58,35 @@ def get_db_config() -> dict:
     }
 
 
-# file paths
-RAW_CSV = PROJECT_ROOT / "data" / "contributions.csv"
-# FEC's own entity type and contributor id per sub_id; the raw file is never rewritten
-FEC_SOURCE_CSV = PROJECT_ROOT / "data" / "fec_source_fields.csv"
-CLEANED_CSV = PROJECT_ROOT / "data" / "contributions_cleaned.csv"
-SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
+# data folders: what FEC sent, what people curate, what lookups cached,
+# what the pipeline builds, and what it reports
 DATA_DIR = PROJECT_ROOT / "data"
-# single source of truth for committee identities; add a row for every new committee
-COMMITTEES_CSV = PROJECT_ROOT / "data" / "database" / "committees.csv"
+RAW_DIR = DATA_DIR / "raw"
+RULES_DIR = DATA_DIR / "rules"
+CACHE_DIR = DATA_DIR / "cache"
+OUTPUT_DIR = DATA_DIR / "output"
+REPORTS_DIR = DATA_DIR / "reports"
+# audits and hand reviews; not in git
+REVIEW_DIR = REPORTS_DIR / "review"
+
+# raw FEC data; pull.py appends, nothing rewrites it
+RAW_CSV = RAW_DIR / "contributions.csv"
+# FEC's own entity type and contributor id per sub_id; the raw file is never rewritten
+FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
+CLEANED_CSV = OUTPUT_DIR / "contributions_cleaned.csv"
 # Known employer offices, built by geocode.py --employer-only
-EMPLOYER_LOCATIONS_CSV = PROJECT_ROOT / "data" / "employer_locations.csv"
+EMPLOYER_LOCATIONS_CSV = OUTPUT_DIR / "employer_locations.csv"
+SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
+# single source of truth for committee identities; add a row for every new committee
+COMMITTEES_CSV = RULES_DIR / "committees.csv"
 # Curated employer spelling rules
-EMPLOYER_NAME_RULES_CSV = PROJECT_ROOT / "data" / "database" / "employer_name_rules.csv"
+EMPLOYER_NAME_RULES_CSV = RULES_DIR / "employer_name_rules.csv"
 # Curated contributor name rules
-CONTRIBUTOR_NAME_RULES_CSV = PROJECT_ROOT / "data" / "database" / "contributor_name_rules.csv"
+CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
 # Curated contributor address corrections
-ADDRESS_RULES_CSV = PROJECT_ROOT / "data" / "database" / "address_rules.csv"
+ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
+# Hand-set employer, occupation and previous employer per filing
+MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
+# Hand-checked employer office addresses
+MANUAL_EMPLOYER_ADDRESSES_CSV = RULES_DIR / "manual_employer_addresses.csv"
+GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"

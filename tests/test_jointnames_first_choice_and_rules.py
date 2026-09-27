@@ -1,6 +1,6 @@
 """Canonical first name: equally full spellings go to the donor's majority, not
 to filing order; plus the curated identity rules added by the joint-name audit
-of 2026-09-23. Fixtures are the real filing counts from data/contributions.csv.
+of 2026-09-23. Fixtures are the real filing counts from data/raw/contributions.csv.
 """
 import pandas as pd
 

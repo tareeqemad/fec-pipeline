@@ -172,7 +172,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
 
     df, manual_updates = trail.run(
         df, apply_name_corrections, "curated_name_corrections", "manual_correction", NAME_FIELDS,
-        source="data/database/contributor_name_rules.csv",
+        source="data/rules/contributor_name_rules.csv",
     )
     log_count(logger, "curated name corrections", manual_updates)
 
@@ -184,7 +184,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     protected = trail.run(
         df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
         "curated_employer_names", "curated_row_override", OVERRIDE_FIELDS,
-        source="data/manual_employer_overrides.csv",
+        source="data/rules/manual_employer_overrides.csv",
     )
     log_count(logger, "curated employer names", protected)
     canonical_updates += protected

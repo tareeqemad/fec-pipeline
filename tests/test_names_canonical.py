@@ -1,6 +1,6 @@
 """Canonical display names per donor: surname choice, first-name decoration, initials.
 
-Every case is a real filing pattern from data/contributions.csv (audit of
+Every case is a real filing pattern from data/raw/contributions.csv (audit of
 2026-09-23); donor_key never changes here, only the display name.
 """
 
@@ -257,12 +257,11 @@ def test_org_alignment_sees_entity_overrides_and_final_employer(tmp_path, monkey
     from fec.cleaning.donor_consistency import entity
     from fec.cleaning.pipeline.core import standardize_donors
 
-    (tmp_path / "data" / "database").mkdir(parents=True)
-    (tmp_path / "data" / "database" / "entity_overrides.csv").write_text(
+    (tmp_path / "entity_overrides.csv").write_text(
         'contributor_name,entity_type,note\n"PACHULSKI STANG ZIEHL & JONES",ORGANIZATION,law firm\n',
         encoding="utf-8",
     )
-    monkeypatch.setattr(entity, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(entity, "RULES_DIR", tmp_path)
 
     firm = "PACHULSKI, STANG, ZIEHL & JONES"
     rows = [_person(str(i), name, firm) for i, name in enumerate(

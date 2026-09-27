@@ -25,7 +25,7 @@ RAW_FIELDS = [
 ]
 
 
-# What FEC itself says about the contributor, kept in data/fec_source_fields.csv
+# What FEC itself says about the contributor, kept in data/raw/fec_source_fields.csv
 # (never in the raw file): column -> FEC API field. entity_type is IND, ORG,
 # COM, PAC, PTY, CCM or CAN; contributor_id is the FEC id of a committee contributor.
 SOURCE_FIELDS = {
@@ -41,7 +41,7 @@ FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
 # contributor_year preserves the existing raw CSV contract.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 
-# data/fec_source_fields.csv: one row per raw sub_id. matched_by says how it
+# data/raw/fec_source_fields.csv: one row per raw sub_id. matched_by says how it
 # was tied to FEC's row (pulled, sub_id, transaction); fec_sub_id is FEC's
 # current sub_id when it differs (an amended report).
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]

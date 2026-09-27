@@ -1,11 +1,11 @@
 """What FEC itself says a contributor is, before any guess from the name.
 
-data/fec_source_fields.csv keeps FEC's entity_type (fec_entity_type) and
+data/raw/fec_source_fields.csv keeps FEC's entity_type (fec_entity_type) and
 contributor id (fec_contributor_id) per raw sub_id; the raw file itself is
 never rewritten (pull.py writes the file, --backfill-source fills it for
 rows pulled before it existed). Where FEC gave a type, it decides the
 contributor's entity_type over every name-based guess; a documented
-correction in data/database/entity_overrides.csv can still overrule it
+correction in data/rules/entity_overrides.csv can still overrule it
 when the filing itself is wrong. Where FEC gave none (rows pulled before
 these fields existed, not yet backfilled), the name-based rules decide.
 

@@ -114,7 +114,7 @@ COMM_TAIL_RE = re.compile(r',\s+(?!INC|LLC|LLP|CORP|JR|SR|PA\s*$)[A-Z][A-Z.\s]{0
 RETIRE_RE = re.compile(r'RETIRE', re.IGNORECASE)
 
 # Output column order. recipient_committee is the PAC that RECEIVED the money,
-# resolved from the FEC committee_id via data/database/committees.csv.
+# resolved from the FEC committee_id via data/rules/committees.csv.
 OUTPUT_COLUMNS = [
     # ids
     'sub_id', 'transaction_id', 'two_year_transaction_period', 'recipient_committee',
@@ -137,7 +137,7 @@ OUTPUT_COLUMNS = [
     # exists and is load-bearing: dropping it would overstate that donor's net
     'contribution_receipt_date',
     'contribution_receipt_amount',
-    # what FEC itself says about the contributor (data/fec_source_fields.csv),
+    # what FEC itself says about the contributor (data/raw/fec_source_fields.csv),
     # beside the final entity_type (fec/cleaning/entity_source.py)
     'fec_entity_type', 'fec_contributor_id', 'fec_image_number',
 ]
@@ -155,7 +155,7 @@ INTERNAL_OUTPUT_COLUMNS = [
     'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived
     'employer_geocode_level',  # how the employer coordinate was derived
-    # FEC's own type and contributor id: read from data/fec_source_fields.csv
+    # FEC's own type and contributor id: read from data/raw/fec_source_fields.csv
     # while cleaning, never written out
     'fec_entity_type',
     'fec_contributor_id',

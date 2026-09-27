@@ -94,7 +94,7 @@ CITY_NORMALIZE = {
     # 'NY' names a borough only through its ZIP: see CITY_ZIP3_NORMALIZE
     # single-record garbage cities ('A', 'GA', 'HOWARD COUNTY', 'LOS W') and
     # ambiguous two-letter initials ('SM', 'PB', 'GV', 'KP') are fixed per
-    # sub_id in data/manual_employer_overrides.csv, not here: a global rule
+    # sub_id in data/rules/manual_employer_overrides.csv, not here: a global rule
     # would silently misfix other donors in future pulls
 
     # variant spellings — target is the official form (verified by state/ZIP)
@@ -151,7 +151,7 @@ CITY_STATE_NORMALIZE = {
 # the city is NEW YORK only for Manhattan ZIPs; the USPS city of the other
 # boroughs is the borough itself. Queens ZIPs are named by neighbourhood
 # (FLUSHING, FAR ROCKAWAY, ...), so a Queens 'NY' stays as filed and is fixed
-# per sub_id in data/manual_employer_overrides.csv.
+# per sub_id in data/rules/manual_employer_overrides.csv.
 CITY_ZIP3_NORMALIZE = {
     ('NY', 'NY', '100'): 'NEW YORK',
     ('NY', 'NY', '101'): 'NEW YORK',

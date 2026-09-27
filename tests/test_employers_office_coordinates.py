@@ -30,7 +30,8 @@ def _build(tmp_path, monkeypatch, geocodes):
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+        monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
     employer_locations.build()
     return pd.read_csv(output, dtype=str, keep_default_na=False, na_values=[]).iloc[0]

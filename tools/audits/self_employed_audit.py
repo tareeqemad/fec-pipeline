@@ -4,8 +4,8 @@ import pandas as pd
 
 cols = ["sub_id", "donor_key", "entity_type", "contributor_name", "contributor_employer", "contributor_occupation",
         "occupation_category", "employer_status", "previous_employer"]
-n = pd.read_csv("data/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False, usecols=cols)
-r = pd.read_csv("data/contributions.csv", dtype=str, keep_default_na=False, low_memory=False,
+n = pd.read_csv("data/output/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False, usecols=cols)
+r = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, low_memory=False,
                 usecols=["sub_id", "contributor_employer", "contributor_occupation"]).set_index("sub_id")
 ind = n[n.entity_type == "INDIVIDUAL"].copy()
 ind["raw_emp"] = ind.sub_id.map(r.contributor_employer).str.upper().str.strip()

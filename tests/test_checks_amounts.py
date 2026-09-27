@@ -27,7 +27,7 @@ def test_resolve_stops_on_an_unreadable_amount(tmp_path):
 
 
 def test_readable_amounts_load_as_numbers(tmp_path):
-    _dir, df, *_rest = cli._load_data(_write(tmp_path, ["250", "-50.5"]))
+    df, *_rest = cli._load_data(_write(tmp_path, ["250", "-50.5"]))
     assert df["contribution_receipt_amount"].tolist() == [250.0, -50.5]
 
 

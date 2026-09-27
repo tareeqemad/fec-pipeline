@@ -12,7 +12,7 @@ from fec.cleaning.quality.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.contract import check_output
-from fec.env import CLEANED_CSV, RAW_CSV
+from fec.env import CACHE_DIR, CLEANED_CSV, RAW_CSV, REPORTS_DIR
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 from fec.pipeline_run import record, start_run
@@ -59,7 +59,7 @@ def _assert_known_committees(df):
     logger.error("  ABORT - %s rows have an unknown recipient:", f"{len(unknown):,}")
     for committee, count in unknown.value_counts().items():
         logger.error("    %-14s %s rows", committee, f"{count:,}")
-    logger.error("  Add each recipient to data/database/committees.csv.")
+    logger.error("  Add each recipient to data/rules/committees.csv.")
     raise SystemExit(1)
 
 
@@ -135,8 +135,9 @@ def main():
 
     input_path = str(RAW_CSV)
     output_path = str(CLEANED_CSV)
-    out_dir = os.path.dirname(output_path) or '.'
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = str(REPORTS_DIR)
+    for folder in (out_dir, CACHE_DIR, CLEANED_CSV.parent):
+        os.makedirs(folder, exist_ok=True)
 
     logger.info('=' * 55)
     logger.info('  FEC Contributions Cleaner')
@@ -153,6 +154,7 @@ def main():
     cleaned, missing, trail = clean_pipeline(
         df,
         out_dir=out_dir,
+        cache_dir=str(CACHE_DIR),
     )
     output = _drop_internal_cols(cleaned).copy()
 

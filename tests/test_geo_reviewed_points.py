@@ -11,7 +11,8 @@ import re
 import pytest
 from geo_patch import patch_geo
 
-from fec.geocoding import accepted, street_text, zip_checks
+from fec.env import GEOCODE_CACHE_JSON
+from fec.geocoding import accepted, street_text
 from fec.geocoding import pipeline as geo
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.engines import CensusUnavailable
@@ -95,7 +96,7 @@ def test_every_reviewed_point_names_its_source_key():
 
 
 def _real_cache() -> dict:
-    path = zip_checks._ZIP_CENTROIDS.parents[1] / "geocode_cache.json"
+    path = GEOCODE_CACHE_JSON
     if not path.exists():
         pytest.skip("geocode_cache.json not present")
     return json.loads(path.read_text(encoding="utf-8"))

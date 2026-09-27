@@ -4,7 +4,7 @@ A joint filing ("SPELLMAN, MARC MELISSA") stays as filed on its own donor_key;
 the partner's given name is never written onto the filer's solo filings.
 Whether a second word is a co-filer or the filer's own middle name is decided
 from the household's own filings (fec/donor_match/joint.py). Every fixture is
-a real pattern from data/contributions.csv (joint-name audit 2026-09-23).
+a real pattern from data/raw/contributions.csv (joint-name audit 2026-09-23).
 """
 import pandas as pd
 import pytest

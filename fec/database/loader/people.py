@@ -14,7 +14,7 @@ from fec.database.leadership_matcher import (
 )
 from fec.database.loader._base import savepoint
 from fec.database.loader.employment_locations import _location_index
-from fec.env import PROJECT_ROOT
+from fec.env import RULES_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -156,7 +156,7 @@ def _load_donor_linked_csv(
     validate_rows=None,
 ) -> None:
     """Load curated donor links."""
-    csv_path = PROJECT_ROOT / "data" / "database" / csv_filename
+    csv_path = RULES_DIR / csv_filename
     if not csv_path.exists():
         logger.info(f"  {csv_path.name} not found -- skipping {table}")
         return

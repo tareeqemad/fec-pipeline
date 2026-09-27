@@ -2,15 +2,15 @@
 import re
 import statistics
 from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from fec.env import RULES_DIR
 from fec.geocoding.places import distance_km as _distance_km
 from fec.geocoding.places import valid_for_state as _valid_for_state
 
-_ZIP_CENTROIDS = Path(__file__).resolve().parents[2] / "data" / "database" / "zip_centroids.csv"
+_ZIP_CENTROIDS = RULES_DIR / "zip_centroids.csv"
 
 
 # a city-level point and the filed ZIP farther apart than this contradict each other

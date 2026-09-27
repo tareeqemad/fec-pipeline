@@ -1,6 +1,6 @@
 """Read curated contributor name rules.
 
-One CSV (data/database/contributor_name_rules.csv) holds four rule kinds:
+One CSV (data/rules/contributor_name_rules.csv) holds four rule kinds:
 
 - ``exact_name``: a whole contributor_name as filed -> its correction.
 - ``sub_id``: one FEC row (by sub_id) -> its corrected contributor_name.

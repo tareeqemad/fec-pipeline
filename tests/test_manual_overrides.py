@@ -186,7 +186,7 @@ def test_no_override_reinstates_a_known_truncation():
             for row in csv.DictReader(handle)
             if row["source"] == "manual"
         }
-    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+    with open("data/rules/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
     clashes = [
@@ -199,7 +199,7 @@ def test_no_override_reinstates_a_known_truncation():
 
 def test_greglevine_domain_is_kept_as_a_company():
     """The reported domain belongs to an active Florida corporation."""
-    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+    with open("data/rules/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
         rows = {row["sub_id"]: row for row in csv.DictReader(f)}
 
     assert rows["4011420251130090696"]["contributor_employer"] == "GREGLEVINE.COM INC"
@@ -207,7 +207,7 @@ def test_greglevine_domain_is_kept_as_a_company():
 
 def test_robert_namoff_student_filing_is_repaired():
     """Official records confirm he chaired the Miami chemical company."""
-    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+    with open("data/rules/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
         rows = {row["sub_id"]: row for row in csv.DictReader(f)}
 
     row = rows["4062420241962022446"]
@@ -216,7 +216,7 @@ def test_robert_namoff_student_filing_is_repaired():
 
 
 def test_harry_greenspan_address_has_sources():
-    with open("data/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
+    with open("data/rules/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
         rows = {row["sub_id"]: row for row in csv.DictReader(f)}
 
     row = rows["4072420241978922446"]

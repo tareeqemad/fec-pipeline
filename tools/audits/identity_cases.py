@@ -6,7 +6,7 @@ import sys
 
 import pandas as pd
 
-path = sys.argv[1] if len(sys.argv) > 1 else "data/contributions_cleaned.csv"
+path = sys.argv[1] if len(sys.argv) > 1 else "data/output/contributions_cleaned.csv"
 b = pd.read_csv(path, dtype=str, keep_default_na=False)
 b['amt'] = pd.to_numeric(b.contribution_receipt_amount)
 by = b.set_index('sub_id')

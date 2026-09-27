@@ -1,6 +1,6 @@
-"""Final handover verification of data/contributions_cleaned.csv and its companions.
+"""Final handover verification of data/output/contributions_cleaned.csv and its companions.
 
-Exits 1 when data/quality_gates.json shows a gate that failed or never ran. resolve.py --apply
+Exits 1 when data/reports/quality_gates.json shows a gate that failed or never ran. resolve.py --apply
 writes that report on the final data; clean.py's preliminary report (4 gates not_run, because
 employer_status does not exist yet) or a report for a different row count fails here.
 """
@@ -16,7 +16,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 S = "tools/audits"
-QUALITY_GATES_JSON = "data/quality_gates.json"
+QUALITY_GATES_JSON = "data/reports/quality_gates.json"
 
 
 def quality_gate_problems(report: dict, rows: int | None = None) -> list[str]:
@@ -53,9 +53,9 @@ def check_quality_gates(path: str = QUALITY_GATES_JSON, rows: int | None = None)
 
 
 def main() -> int:
-    n = pd.read_csv("data/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False)
+    n = pd.read_csv("data/output/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False)
     n["amt"] = pd.to_numeric(n.contribution_receipt_amount, errors="coerce").fillna(0)
-    raw = pd.read_csv("data/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "committee_id", "contribution_receipt_date"], low_memory=False)
+    raw = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "committee_id", "contribution_receipt_date"], low_memory=False)
     problems = []  # every check that must hold; any entry makes the exit code 1
     same_ids, dup_ids = set(n.sub_id) == set(raw.sub_id), int(n.sub_id.duplicated().sum())
     print("== rows: cleaned", len(n), "| raw", len(raw), "| same sub_ids:", same_ids, "| dup sub_id:", dup_ids)
@@ -67,7 +67,7 @@ def main() -> int:
     print("== latest date per committee:", raw.assign(d=d).groupby("committee_id").d.max().dt.date.to_dict())
 
     gate_problems = check_quality_gates(QUALITY_GATES_JSON, rows=len(n))
-    a = json.load(open("data/audit_summary.json"))
+    a = json.load(open("data/reports/audit_summary.json"))
     print("== audit: changes", a["changes"], "| untracked", a["untracked_changes"])
     for step in ["enh_normalize_occupation_style", "enh_occupation_typo_fixes", "enh_employer_synonyms_final", "foreign_address_restore",
                  "safety_disambiguate_vague_occupation", "streets_trim_truncated"]:
@@ -110,7 +110,7 @@ def main() -> int:
     if placeholder:
         problems.append(f"previous employer values that are not companies: {placeholder[:5]}")
     # every reviewed identity case still holds on this file
-    cases = subprocess.run([sys.executable, S + "/identity_cases.py", "data/contributions_cleaned.csv"],
+    cases = subprocess.run([sys.executable, S + "/identity_cases.py", "data/output/contributions_cleaned.csv"],
                            capture_output=True, text=True, encoding="utf-8",
                            env={**os.environ, "PYTHONPATH": ".", "PYTHONIOENCODING": "utf-8"})
     print("== identity cases exit:", cases.returncode, "|", (cases.stdout.strip().splitlines() or ["?"])[-1].strip())
@@ -119,7 +119,7 @@ def main() -> int:
         problems.append(f"identity_cases.py: {len(failed)} case(s) failed: " + "; ".join(line[6:].strip() for line in failed[:5]))
 
     # donor identity rules all applied
-    rules = list(csv.DictReader(open("data/database/donor_identity_rules.csv", encoding="utf-8-sig", newline="")))
+    rules = list(csv.DictReader(open("data/rules/donor_identity_rules.csv", encoding="utf-8-sig", newline="")))
     merges = [r for r in rules if r["action"].lower() == "merge_keys"]
     keys = set(n.donor_key)
     dropped_present = [r["donor_key_b"] for r in merges if r["donor_key_b"] in keys]
@@ -149,7 +149,7 @@ def main() -> int:
     # addresses / geo
     print("== foreign rows (must equal raw):")
     from fec.cleaning.addresses.foreign import foreign_address_mask
-    rawfull = pd.read_csv("data/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip"], low_memory=False).set_index("sub_id")
+    rawfull = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip"], low_memory=False).set_index("sub_id")
     fm = foreign_address_mask(rawfull.reset_index()).to_numpy()
     nn = n.set_index("sub_id")
     ok = sum(1 for i in rawfull.index[fm] if all(str(rawfull.at[i, c]).strip() == str(nn.at[i, c]).strip() for c in ["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]))
@@ -158,14 +158,14 @@ def main() -> int:
     if ok != int(fm.sum()) or foreign_coords:
         problems.append(f"foreign rows: {int(fm.sum()) - ok} changed from the raw filing, {foreign_coords} geocoded")
     print("== contributor coords:", int((ind.latitude != "").sum()), "/", len(ind))
-    addr = json.load(open("data/resolve_employer_addr.json"))
+    addr = json.load(open("data/cache/resolve_employer_addr.json"))
     manual = [k for k, v in addr.items() if str(v.get("method", "")).startswith("manual")]
     act = ind[ind.employer_status == "active"]
     has = act.contributor_employer.map(lambda x: bool((addr.get(x) or {}).get("employer_address")))
     print("== employer cache:", len(addr), "entries | manual:", len(manual), "| active rows with street address:", int(has.sum()), "/", len(act), f"({has.mean()*100:.1f}%)")
-    e = pd.read_csv("data/employer_locations.csv", dtype=str, keep_default_na=False)
+    e = pd.read_csv("data/output/employer_locations.csv", dtype=str, keep_default_na=False)
     print("== employer_locations:", len(e), "rows | with coords:", int((e.employer_latitude != "").sum()))
-    mrows = list(csv.DictReader(open("data/manual_employer_addresses.csv", encoding="utf-8", newline="")))
+    mrows = list(csv.DictReader(open("data/rules/manual_employer_addresses.csv", encoding="utf-8", newline="")))
     print("== manual_employer_addresses.csv:", len(mrows), "rows | header ok:", list(mrows[0].keys())[0] == "name")
 
     problems += [f"quality gates ({QUALITY_GATES_JSON}, rerun resolve.py --apply): {p}" for p in gate_problems]

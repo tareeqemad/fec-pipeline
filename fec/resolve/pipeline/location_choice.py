@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 from functools import lru_cache
 
-from fec.env import PROJECT_ROOT
+from fec.env import RULES_DIR
 from fec.geocoding.places import EARTH_RADIUS_MILES, great_circle
 from fec.resolve.pipeline.locations import _signature, _text, location_candidates
 
@@ -12,7 +12,7 @@ from fec.resolve.pipeline.locations import _signature, _text, location_candidate
 # load zip -> (lat, lng) centroids from csv, cached
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
-    path = PROJECT_ROOT / "data" / "database" / "zip_centroids.csv"
+    path = RULES_DIR / "zip_centroids.csv"
     if not path.exists():
         return {}
 

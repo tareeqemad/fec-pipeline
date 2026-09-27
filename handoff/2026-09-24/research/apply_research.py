@@ -14,7 +14,7 @@ import pandas as pd
 
 R = Path(__file__).resolve().parent
 REPO = Path("/home/user/fec-pipeline")
-MANUAL = REPO / "data" / "manual_employer_addresses.csv"
+MANUAL = REPO / "data" / "rules" / "manual_employer_addresses.csv"
 TODAY = "2026-09-24"
 kw = dict(dtype=str, keep_default_na=False, na_values=[])
 FIELDS = ["verdict", "organisation", "address", "city", "state", "zip", "source_name", "source_url", "note"]

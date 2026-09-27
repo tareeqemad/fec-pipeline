@@ -144,7 +144,8 @@ def test_build_keeps_the_foreign_office_text_and_drops_its_us_coordinates(tmp_pa
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(resolve_cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    monkeypatch.setattr(employer_locations, "DATA_DIR", tmp_path)
+    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+        monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
     employer_locations.build()

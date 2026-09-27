@@ -442,7 +442,7 @@ CREATE INDEX idx_mvdp_earth         ON mv_donor_profile USING gist (ll_to_earth(
 
 
 -- ----------------------------------------------------------
--- 10. Reference tables (loaded from data/database/*.csv)
+-- 10. Reference tables (loaded from data/rules/*.csv)
 -- ----------------------------------------------------------
 
 CREATE TABLE us_states (

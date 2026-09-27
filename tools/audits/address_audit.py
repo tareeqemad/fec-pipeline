@@ -15,7 +15,7 @@
      A pure abbreviation expansion (MOUNTAIN BRK -> MOUNTAIN BROOK, MAYFIELD HTS -> HEIGHTS) is the
      same name and is not a contradiction; filings of the abbreviated form count as support.
 Outputs <out-dir>/address_audit_flags.csv, address_audit_moves.csv and address_audit_zip_city.csv
-(default out-dir data/_review), prints a summary.
+(default out-dir data/reports/review), prints a summary.
 Usage: python tools/audits/address_audit.py [--out-dir DIR]
 """
 import argparse
@@ -191,20 +191,20 @@ def _print_zip_check(z: pd.DataFrame, expansions: pd.Series) -> int:
 
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Raw-vs-cleaned address audit (read-only on data/).")
-    parser.add_argument("--out-dir", default="data/_review", help="where the audit CSVs go (default data/_review)")
+    parser.add_argument("--out-dir", default="data/reports/review", help="where the audit CSVs go (default data/reports/review)")
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     out_dir = Path(_parse_args(argv).out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    raw_all = pd.read_csv("data/contributions.csv", dtype=str, keep_default_na=False, na_values=[], low_memory=False,
+    raw_all = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, na_values=[], low_memory=False,
                           usecols=["sub_id", *ADDR]).set_index("sub_id")
-    cln_all = pd.read_csv("data/contributions_cleaned.csv", dtype=str, keep_default_na=False, na_values=[], low_memory=False,
+    cln_all = pd.read_csv("data/output/contributions_cleaned.csv", dtype=str, keep_default_na=False, na_values=[], low_memory=False,
                           usecols=["sub_id", "donor_key", "entity_type", "contributor_name", *ADDR]).set_index("sub_id")
     cln = cln_all[cln_all.entity_type == "INDIVIDUAL"]
     raw = raw_all.loc[cln.index]
-    chg_all = pd.read_csv("data/audit_changes.csv", dtype=str, keep_default_na=False, na_values=[], low_memory=False, usecols=["sub_id", "field", "step"])
+    chg_all = pd.read_csv("data/reports/audit_changes.csv", dtype=str, keep_default_na=False, na_values=[], low_memory=False, usecols=["sub_id", "field", "step"])
     chg_all = chg_all[chg_all.field.isin(ADDR)]
     chg = chg_all[chg_all.sub_id.isin(cln.index)]
     steps_of = chg.groupby("sub_id").step.agg(lambda s: ", ".join(sorted(set(s))))

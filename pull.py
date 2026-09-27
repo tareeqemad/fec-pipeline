@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pull raw FEC contributions into data/contributions.csv."""
+"""Pull raw FEC contributions into data/raw/contributions.csv."""
 from __future__ import annotations
 
 import argparse
@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     committees = committee_id_to_name()
     if committee_id not in committees:
         ap.error(
-            f"{committee_id} is not configured in data/database/committees.csv"
+            f"{committee_id} is not configured in data/rules/committees.csv"
         )
 
     period = _current_period(args.period)

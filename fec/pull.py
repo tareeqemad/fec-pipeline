@@ -19,7 +19,7 @@ from fec.pull_rows import COLUMNS, FIELDS, SOURCE_COLUMNS, build_row, source_val
 log = logging.getLogger(__name__)
 
 
-# data/fec_source_fields.csv beside the raw file it describes
+# data/raw/fec_source_fields.csv beside the raw file it describes
 def source_path(csv_path: Path) -> Path:
     return csv_path.parent / FEC_SOURCE_CSV.name
 

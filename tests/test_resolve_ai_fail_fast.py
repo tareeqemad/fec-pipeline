@@ -150,6 +150,8 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     monkeypatch.setattr(resolve_cli, "apply_results", apply_cached)
     monkeypatch.setattr(resolve_cli, "CLEANED_CSV", csv_path)
     monkeypatch.setattr("sys.argv", ["resolve.py", "--apply"])
+    monkeypatch.setattr(resolve_cli, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(resolve_cli, "REPORTS_DIR", tmp_path)
     # the run and column checks have their own tests
     for name in ("check_same_run", "check_input", "check_output", "record"):
         monkeypatch.setattr(resolve_cli, name, lambda *_args: None)
