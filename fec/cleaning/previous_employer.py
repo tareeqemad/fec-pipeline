@@ -137,6 +137,8 @@ _NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOY
     'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'XXN', 'NOT',
     # a degree or a pronoun names no company: MD (LAWRENCE HAAS), ME (MARTA BRAND)
     'MD', 'M.D', 'M.D.', 'ME', 'PHD', 'DDS', 'DO',
+    # NOT EMPLOYED mistyped (PHYLLIS JOHNSON)
+    'NOT EMPLYED', 'NOT EMPOLYED', 'NOT EMPLOYEED', 'NOT EMPLOYD', 'NOT EMLOYED',
 }
 _SE_PREV = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER
 # whitespace-stripped forms so spacing-mangled statuses ("NOTEMPLOYED",
@@ -162,7 +164,7 @@ def _is_null_previous(upper: str) -> bool:
 # true if the value explicitly states self-employment
 def _is_explicit_self(upper: str) -> bool:
     return (upper.startswith('SELF:') or upper.startswith('SELF EMPLOYED')
-            or upper.startswith('SELF-EMPLOYED') or upper == 'SELF')
+            or upper.startswith('SELF-EMPLOYED') or upper in ('SELF', 'SSELF', 'SELFF'))
 
 
 # apply the previous_employer contract to a single value

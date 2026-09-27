@@ -196,3 +196,22 @@ def test_occupation_review_categories(occupation, category):
 ])
 def test_general_words_do_not_decide_the_field(occupation, category):
     assert _cat(occupation) == category
+
+
+# EXECUTIVE as a rank is C-suite; followed by the job itself it is that job
+@pytest.mark.parametrize('occupation, category', [
+    ('EXECUTIVE', EXEC),
+    ('EXECUTIVE DIRECTOR', EXEC),
+    ('EXECUTIVE VICE PRESIDENT', EXEC),
+    ('CPO', EXEC),
+    ('EXECUTIVE ASSISTANT', 'MANAGEMENT'),
+    ('EXECUTIVE COACH', 'OTHER'),
+    ('EXECUTIVE SEARCH', 'SALES / MARKETING'),
+    ('EXECUTIVE CHEF', 'FOOD / HOSPITALITY'),
+    ('EXECUTIVE PRODUCER', ARTS),
+    ('COMMUNITY BUILDING', 'OTHER'),
+    ('COMMUNITY BUILDER', 'OTHER'),
+    ('BUILDER', 'CONSTRUCTION / TRADES'),
+])
+def test_executive_is_a_rank_not_every_title_containing_it(occupation, category):
+    assert _cat(occupation) == category

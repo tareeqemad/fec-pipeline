@@ -502,3 +502,25 @@ def test_a_retiree_who_filed_no_as_employer_gets_no_previous_employer():
     _settle_retired_employer(df)
     assert df.loc[0, 'contributor_employer'] == 'RETIRED'
     assert pd.isna(df.loc[0, 'previous_employer'])
+
+
+def test_an_employer_an_override_cleared_is_neither_refilled_nor_evidence(tmp_path, monkeypatch):
+    # SANDBERG, ADELE filed her husband's EYE SURGERY ASSOCIATES once; the override clears it
+    from fec.cleaning.donor_consistency import employer as employer_module
+
+    raw = tmp_path / 'contributions.csv'
+    pd.DataFrame({
+        'sub_id': ['wrong', 'later'],
+        'contributor_employer': ['EYE SURGERY ASSOCIATES', ''],
+    }).to_csv(raw, index=False)
+    monkeypatch.setattr(employer_module, 'RAW_CSV', raw)
+    monkeypatch.setattr(employer_module, 'overridden_employer_sub_ids', lambda: {'wrong'})
+    df = pd.DataFrame({
+        'sub_id': ['wrong', 'later'],
+        'donor_key': ['adele', 'adele'],
+        'contributor_employer': [pd.NA, pd.NA],
+        'occupation_status': ['DISCLOSED', 'EMPLOYER_MISSING'],
+    })
+
+    assert employer_module._fill_employer_from_raw(df, df['contributor_employer'].isna()) == 0
+    assert df['contributor_employer'].isna().all()

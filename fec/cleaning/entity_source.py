@@ -66,16 +66,3 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
     if "identity_status" in df.columns:
         undecided |= df["identity_status"].fillna("confirmed").ne("confirmed")
     return source.where(~undecided, "")
-
-
-# where each row's final entity_type came from: fec, override or rule
-def entity_type_sources(df: pd.DataFrame, overridden_names: set[str], overridden_sub_ids: set[str]) -> pd.Series:
-    """overridden_sub_ids: rows the override step retyped (the audit trail);
-    a name may change after the override matched it (DEMOCRACY ENGINE LLC)."""
-    names = df["contributor_name"].fillna("").astype(str).str.strip().str.upper()
-    source = deciding_source_type(df)
-    decided_by_fec = source.ne("") & source.eq(df["entity_type"])
-    result = pd.Series("rule", index=df.index, dtype=object)
-    result[decided_by_fec] = "fec"
-    result[names.isin(overridden_names) | df["sub_id"].astype(str).isin(overridden_sub_ids)] = "override"
-    return result

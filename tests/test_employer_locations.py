@@ -718,3 +718,41 @@ def test_explicit_not_found_is_not_replaced_by_an_alias():
 
     assert result.loc[0, "employer_address"] == ""
     assert result.loc[0, "resolve_method"] == "pending"
+
+
+def test_a_local_entry_whose_evidence_is_gone_is_removed():
+    # SANDBERG, ADELE: the override cleared the filing EYE SURGERY ASSOCIATES came from
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "D1",
+            "contributor_name": "SANDBERG, ADELE", "contributor_state": "FL",
+            "contributor_employer": "RETIRED", "contributor_occupation": "RETIRED",
+            "occupation_category": "RETIRED", "previous_employer": "",
+            "contribution_receipt_date": "2024-03-06",
+        },
+    ])
+    cache = FakeCache({
+        "donor:D1": {"employer": "EYE SURGERY ASSOCIATES", "method": "cleaned_previous",
+                     "source_date": "2024-03-06"},
+    })
+
+    step_cross_record(rows, cache)
+
+    assert "donor:D1" not in cache
+
+
+def test_an_fec_entry_stays_without_local_evidence():
+    rows = pd.DataFrame([
+        {
+            "entity_type": "INDIVIDUAL", "donor_key": "D1",
+            "contributor_name": "DOE, JANE", "contributor_state": "FL",
+            "contributor_employer": "RETIRED", "contributor_occupation": "RETIRED",
+            "occupation_category": "RETIRED", "previous_employer": "",
+            "contribution_receipt_date": "2024-03-06",
+        },
+    ])
+    cache = FakeCache({"donor:D1": {"employer": "ACME", "method": "fec_api"}})
+
+    step_cross_record(rows, cache)
+
+    assert cache["donor:D1"]["employer"] == "ACME"

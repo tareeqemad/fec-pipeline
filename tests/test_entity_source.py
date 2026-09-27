@@ -3,7 +3,7 @@ import pandas as pd
 
 from fec.cleaning.donor_consistency.entity import _apply_source_entity_types
 from fec.cleaning.donor_consistency.steps import CONSISTENCY_FIXES
-from fec.cleaning.entity_source import attach_source_fields, entity_type_sources, source_entity_type
+from fec.cleaning.entity_source import attach_source_fields, source_entity_type
 from fec.cleaning.pipeline.reclassify import _reclassify_entities
 
 
@@ -74,16 +74,6 @@ def test_a_held_or_unresolved_filing_keeps_its_classification():
     df["identity_status"] = ["unresolved", "held"]
     assert _apply_source_entity_types(df) == 0
     assert list(df["entity_type"]) == ["ORGANIZATION", "INDIVIDUAL"]
-    assert list(entity_type_sources(df, set(), set())) == ["rule", "rule"]
-
-
-def test_each_row_says_where_its_type_came_from():
-    df = _frame([("AIPAC ORG", False, "ORG"), ("HDS HERCULES", False, ""), ("ACME LLC", False, "")])
-    df["entity_type"] = ["ORGANIZATION", "ORGANIZATION", "ORGANIZATION"]
-    df["identity_status"] = "confirmed"
-    assert list(entity_type_sources(df, {"HDS HERCULES"}, set())) == ["fec", "override", "rule"]
-    # renamed after the override matched it: the audit trail still says override
-    assert list(entity_type_sources(df, set(), {"s2"})) == ["fec", "rule", "override"]
 
 
 def test_a_campaign_for_a_state_keeps_the_state():

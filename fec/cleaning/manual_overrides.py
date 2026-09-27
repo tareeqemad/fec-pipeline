@@ -168,6 +168,16 @@ def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int
     return changed, missing
 
 
+# sub_ids whose employer a manual override clears or replaces
+def overridden_employer_sub_ids() -> set[str]:
+    if not OVERRIDES_CSV.exists():
+        return set()
+    return {
+        sub_id for sub_id, fields in _read_overrides(company_names_only=False).items()
+        if "contributor_employer" in fields
+    }
+
+
 # apply per-row overrides matched on sub_id
 def apply_manual_employer_overrides(
     df,

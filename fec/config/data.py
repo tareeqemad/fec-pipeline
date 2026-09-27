@@ -155,6 +155,11 @@ INTERNAL_OUTPUT_COLUMNS = [
     'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived
     'employer_geocode_level',  # how the employer coordinate was derived
+    # FEC's own type and contributor id: read from data/fec_source_fields.csv
+    # while cleaning, never written out
+    'fec_entity_type',
+    'fec_contributor_id',
+    'fec_image_number',
 ]
 
 # Final cleaned CSV contract.
