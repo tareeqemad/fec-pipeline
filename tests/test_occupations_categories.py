@@ -175,3 +175,24 @@ def test_counselor_second_pass_no_longer_guesses_medical():
 ])
 def test_occupation_review_categories(occupation, category):
     assert _cat(occupation) == category
+
+
+# a word that does not say the field gets no field: general or OTHER, title kept
+@pytest.mark.parametrize('occupation, category', [
+    ('CLERK', 'OTHER'),
+    ('OFFICE STAFF', 'OTHER'),
+    ('PROGRAM SPECIALIST', 'OTHER'),
+    ('LAW CLERK', LEGAL),
+    ('TREATMENT TECHNICIAN', 'OTHER'),
+    ('TECHNOLOGIST', 'OTHER'),
+    ('TECHNICAL WRITER', ARTS),
+    ('RANGE OPS TECH', 'OTHER'),
+    ('PHARMACY TECHNICIAN', MED),
+    ('COMPUTER TECHNICIAN', 'TECHNOLOGY'),
+    ('IT TECHNICIAN', 'TECHNOLOGY'),
+    ('TECH SALES', 'TECHNOLOGY'),
+    ('BIOTECH', 'TECHNOLOGY'),
+    ('INFORMATION TECHNOLOGY', 'TECHNOLOGY'),
+])
+def test_general_words_do_not_decide_the_field(occupation, category):
+    assert _cat(occupation) == category
