@@ -5,6 +5,7 @@ from itertools import combinations
 
 import pandas as pd
 
+from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.normalize import normalize_committee_name
 from fec.donor_match.rules import (
     HELD_FILINGS,
@@ -20,6 +21,8 @@ logger = get_logger(__name__)
 
 # occupation categories too vague to prove two same-name donors are different people
 _VAGUE_OCC_CATEGORIES = ("", "OTHER", "NOT EMPLOYED", "RETIRED")
+# employer words that name no workplace
+_STATUS_EMPLOYERS = frozenset(EMPLOYER_STATUS_VALUES) | {"", "NONE", "N/A", "HOMEMAKER", "INFORMATION REQUESTED"}
 
 
 # build the individual record id for matching and key assignment
@@ -95,6 +98,8 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
         "name": df.loc[eligible, "contributor_name"].fillna(""),
         "occ": df.loc[eligible, "occupation_category"].fillna(""),
         "suffix": suffix[eligible],
+        "street": _filed_streets(df)[eligible],
+        "employer": _real_employers(df)[eligible],
     })
     names_by_key = work.groupby("key")["name"].agg(set).to_dict()
     suffixes_by_key = work.groupby("key")["suffix"].agg(
@@ -121,6 +126,10 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
         real_occs = {o for o in grp["occ"].unique() if o not in _VAGUE_OCC_CATEGORIES}
         if len(real_occs) > 1:
             continue
+        # a name and a ZIP are not proof: every key must share a filed street or
+        # an employer with another key of the group
+        if not _keys_share_evidence(grp, keys):
+            continue
         # winner = key with the most contribution rows
         winner = grp["key"].value_counts().idxmax()
         for k in keys:
@@ -132,6 +141,32 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
     mask = df["donor_key"].isin(remap)
     df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(remap)
     return int(mask.sum())
+
+
+# each row's filed street, '' when it was taken from another filing
+def _filed_streets(df: pd.DataFrame) -> pd.Series:
+    street = df.get("contributor_street_1", pd.Series("", index=df.index)).fillna("").astype(str).str.upper().str.strip()
+    if "_street_inferred" in df.columns:
+        street = street.where(~df["_street_inferred"].fillna(False).astype(bool), "")
+    return street
+
+
+# each row's employer, '' for a status word (RETIRED, SELF-EMPLOYED, ...)
+def _real_employers(df: pd.DataFrame) -> pd.Series:
+    employer = df.get("contributor_employer", pd.Series("", index=df.index)).fillna("").astype(str).str.upper().str.strip()
+    return employer.where(~employer.isin(_STATUS_EMPLOYERS), "")
+
+
+# true when every key shares a filed street or employer with another key
+def _keys_share_evidence(grp: pd.DataFrame, keys) -> bool:
+    evidence = {
+        key: ({("street", s) for s in rows["street"] if s} | {("employer", e) for e in rows["employer"] if e})
+        for key, rows in grp.groupby("key")
+    }
+    return all(
+        any(evidence[key] & evidence[other] for other in keys if other != key)
+        for key in keys
+    )
 
 
 # repoint verified duplicate keys to their preferred key
