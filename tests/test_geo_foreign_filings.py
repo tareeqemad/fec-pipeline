@@ -72,3 +72,21 @@ def test_the_raw_filings_behind_the_audit_are_flagged():
         pytest.skip("audit rows not in this pull")
     flagged = set(present.loc[foreign_address_mask(present), "sub_id"])
     assert flagged == set(present["sub_id"])
+
+
+
+def test_a_reviewed_self_contradicting_filing_is_kept_as_filed():
+    """LIDAWER: a Scottsdale street filed with Highland Park, IL and its ZIP."""
+    import pandas as pd
+    from fec.cleaning.addresses.foreign import kept_as_filed_mask, kept_as_filed_reason
+
+    rows = pd.DataFrame({
+        "sub_id": ["4060420241953437845", "1"],
+        "contributor_street_1": ["10329 EAST STAR OF THE DESERT DRIV", "1 MAIN ST"],
+        "contributor_street_2": ["", ""],
+        "contributor_city": ["HIGHLAND PARK", "HIGHLAND PARK"],
+        "contributor_state": ["AZ", "IL"],
+        "contributor_zip": ["600353654", "60035"],
+    })
+    assert kept_as_filed_mask(rows).tolist() == [True, False]
+    assert kept_as_filed_reason(rows).iloc[0] == "street_and_city_zip_name_two_states_kept_as_filed"

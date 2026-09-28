@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.addresses.foreign import foreign_address_mask
+from fec.cleaning.addresses.foreign import kept_as_filed_mask
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
 from fec.geocoding.accepted import (
     STREET_LEVEL_SOURCES,
@@ -127,7 +127,7 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache,
                       batch_size: int = 50):
     """Geocode every unique address in df, skipping cached keys and saving the cache every batch_size lookups."""
     keys_series = _contributor_keys(df)
-    keys_series = keys_series[~foreign_address_mask(df)]
+    keys_series = keys_series[~kept_as_filed_mask(df)]
     all_keys = set(keys_series[keys_series != '|||'].unique())
     _prefer_zip_centroids_logged(all_keys, cache)
 
@@ -176,8 +176,9 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     df["latitude"] = results.apply(lambda result: result[0])
     df["longitude"] = results.apply(lambda result: result[1])
     df["geocode_level"] = results.apply(lambda result: result[3])
-    # a foreign filing (REHOVOT / CA, JERUSALEM, ISRAEL / NY) has no US coordinate
-    foreign = foreign_address_mask(df)
+    # a foreign filing (REHOVOT / CA, JERUSALEM, ISRAEL / NY) has no US coordinate,
+    # nor does a filing kept as filed because its address contradicts itself
+    foreign = kept_as_filed_mask(df)
     if foreign.any():
         df.loc[foreign, ["latitude", "longitude"]] = np.nan
         df.loc[foreign, "geocode_level"] = "foreign_not_geocoded"
