@@ -1,6 +1,6 @@
 {
-  "changes": 861184,
-  "changed_cells": 833777,
+  "changes": 860862,
+  "changed_cells": 833439,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -183,9 +183,9 @@
       }
     },
     "streets_normalize": {
-      "changes": 52632,
+      "changes": 52631,
       "reasons": {
-        "street_text_normalized_or_placeholder_nulled": 52555,
+        "street_text_normalized_or_placeholder_nulled": 52554,
         "street_nulled_due_to_email_in_street1": 62,
         "street_1_unit_repeating_street_2_dropped": 3,
         "floor_ordinal_left_in_street_1_dropped": 4,
@@ -235,9 +235,9 @@
       }
     },
     "zips_normalize": {
-      "changes": 117153,
+      "changes": 117152,
       "reasons": {
-        "zip_reduced_to_five_digits_or_invalid_nulled": 117153
+        "zip_reduced_to_five_digits_or_invalid_nulled": 117152
       }
     },
     "address_verified_rules": {
@@ -253,9 +253,9 @@
       }
     },
     "address_zip_state_conflict": {
-      "changes": 51,
+      "changes": 50,
       "reasons": {
-        "state_fixed_or_zip_nulled_by_city_witness": 51
+        "state_fixed_or_zip_nulled_by_city_witness": 50
       }
     },
     "streets_unify_spelling": {
@@ -583,9 +583,9 @@
       }
     },
     "donor_canonical_names": {
-      "changes": 13638,
+      "changes": 13300,
       "reasons": {
-        "donor_name_unified_to_modal_last_and_longest_first": 13638
+        "donor_name_unified_to_modal_last_and_longest_first": 13300
       }
     },
     "donor_canonical_employers": {
@@ -649,9 +649,9 @@
       }
     },
     "donor_own_firm_absorbs_self_employed": {
-      "changes": 834,
+      "changes": 835,
       "reasons": {
-        "self_employed_rows_moved_to_donors_own_firm": 834
+        "self_employed_rows_moved_to_donors_own_firm": 835
       }
     },
     "donor_fill_employer_from_donor": {
@@ -673,9 +673,9 @@
       }
     },
     "donor_fill_employer_from_occupation": {
-      "changes": 157,
+      "changes": 159,
       "reasons": {
-        "employer_derived_from_occupation_or_category": 157
+        "employer_derived_from_occupation_or_category": 159
       }
     },
     "donor_fill_employer_from_raw_filings": {
@@ -715,9 +715,9 @@
       }
     },
     "donor_rebuild_occupation_category": {
-      "changes": 113,
+      "changes": 129,
       "reasons": {
-        "occupation_category_rederived_from_final_occupation": 113
+        "occupation_category_rederived_from_final_occupation": 129
       }
     },
     "donor_settle_retired_employer": {

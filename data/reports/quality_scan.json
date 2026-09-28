@@ -72,8 +72,8 @@
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 171,
-    "rows": 444,
+    "distinct": 170,
+    "rows": 443,
     "examples": [
       {
         "value": "ANALYST",
