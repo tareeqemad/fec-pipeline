@@ -270,3 +270,18 @@ def test_a_hold_rule_needs_a_sub_id(monkeypatch, tmp_path):
     monkeypatch.setattr(R, "RULES_PATH", path)
     with pytest.raises(ValueError, match="sub_id"):
         R._read_rules()
+
+
+def test_split_name_merge_needs_a_shared_street_or_employer():
+    """Same name tokens and ZIP are not proof; a filed street or employer in common is."""
+    def row(key, name, first, street, employer):
+        return {**_person(key, name, first), "contributor_street_1": street, "contributor_employer": employer}
+
+    apart = pd.DataFrame([row("a", "MEYERS, DAVID", "DAVID", "1 MAIN ST", "RETIRED"),
+                          row("b", "MEYERS, DAVID A", "DAVID", "9 ELM ST", "RETIRED")])
+    assert K.merge_split_name_donors(apart) == 0
+    same_street = pd.DataFrame([row("a", "MEYERS, DAVID", "DAVID", "1 MAIN ST", "RETIRED"),
+                                row("a", "MEYERS, DAVID", "DAVID", "1 MAIN ST", "RETIRED"),
+                                row("b", "MEYERS, DAVID A", "DAVID", "1 MAIN ST", "RETIRED")])
+    assert K.merge_split_name_donors(same_street) == 1
+    assert set(same_street["donor_key"]) == {"a"}
