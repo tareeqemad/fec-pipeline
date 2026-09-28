@@ -18,9 +18,25 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 3,
-    "rows": 3,
+    "distinct": 6,
+    "rows": 8,
     "examples": [
+      {
+        "value": "OFFICE STAFF",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 17x OFFICE MANAGER"
+        ]
+      },
+      {
+        "value": "SECURITY ANALYST",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 26x CEO/CHAIRMAN"
+        ]
+      },
       {
         "value": "STATISTICAL ENVIRONMENTALIST",
         "rows": 1,
@@ -44,15 +60,47 @@
         "evidence": [
           "1x vs 9x REAL ESTATE/REAL ESTATE EXECUTIVE"
         ]
+      },
+      {
+        "value": "COMMUNITY BUILDER",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 19x CEO/COMMUNITY BUILDING"
+        ]
       }
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 147,
-    "rows": 180,
+    "distinct": 171,
+    "rows": 444,
     "examples": [
       {
+        "value": "ANALYST",
+        "rows": 144
+      },
+      {
+        "value": "SELF EMPLOYED, EXECUTIVE COACH",
+        "rows": 25
+      },
+      {
+        "value": "TECHNOLOGIST",
+        "rows": 25
+      },
+      {
+        "value": "FUNERAL DIRECTOR",
+        "rows": 13
+      },
+      {
+        "value": "EXECUTIVE COACH",
+        "rows": 11
+      },
+      {
         "value": "INVESTIGATOR",
+        "rows": 7
+      },
+      {
+        "value": "COMMUNITY BUILDING",
         "rows": 7
       },
       {
@@ -61,10 +109,26 @@
       },
       {
         "value": "STRATEGY",
+        "rows": 6
+      },
+      {
+        "value": "PROGRAM SPECIALIST",
         "rows": 5
       },
       {
-        "value": "STRATEGY ASSOCIATE",
+        "value": "SENIOR ANALYST",
+        "rows": 4
+      },
+      {
+        "value": "SENIOR ASSOCIATE",
+        "rows": 4
+      },
+      {
+        "value": "BUSINESS ANALYST",
+        "rows": 4
+      },
+      {
+        "value": "TECHNICAL LEADER",
         "rows": 3
       },
       {
@@ -92,64 +156,24 @@
         "rows": 2
       },
       {
+        "value": "STRATEGY ASSOCIATE",
+        "rows": 2
+      },
+      {
+        "value": "CLERK",
+        "rows": 2
+      },
+      {
         "value": "ADVOCATE",
+        "rows": 2
+      },
+      {
+        "value": "SECURITY ANALYST",
         "rows": 2
       },
       {
         "value": "PA",
         "rows": 2
-      },
-      {
-        "value": "PROFESSIONAL NURTURER",
-        "rows": 2
-      },
-      {
-        "value": "SERVICES",
-        "rows": 2
-      },
-      {
-        "value": "REPRESENTATIVE",
-        "rows": 2
-      },
-      {
-        "value": "LEARNING AND DEVELOPMENT",
-        "rows": 1
-      },
-      {
-        "value": "SR. MARKET REP ASSOCIATE",
-        "rows": 1
-      },
-      {
-        "value": "BRANDED SIGNS AND PROMOTIONS",
-        "rows": 1
-      },
-      {
-        "value": "MEMBERSHIP",
-        "rows": 1
-      },
-      {
-        "value": "EXTERNAL ENGAGEMENT",
-        "rows": 1
-      },
-      {
-        "value": "INFRASTRUCTURE",
-        "rows": 1
-      },
-      {
-        "value": "NEELY FOR NEVADA AD9",
-        "rows": 1
-      },
-      {
-        "value": "RURAL AND APPALACHIAN HEALTH LEAD",
-        "rows": 1
-      },
-      {
-        "value": "SPEAKER",
-        "rows": 1
-      },
-      {
-        "value": "POSITION",
-        "rows": 1
       }
     ]
   }
