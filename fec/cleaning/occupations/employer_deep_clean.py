@@ -11,7 +11,7 @@ from fec.config.constants import (
     SELF_EMPLOYED_TYPOS,
 )
 from fec.config.data import MISSING_VALUES
-from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES
+from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES, OCCUPATION_FIXES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
 
 # a leading job title before the employer name: "CEO, ACME CORP"
@@ -217,9 +217,12 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> int:
         df.loc[short_emp, 'contributor_employer'] = np.nan
 
     occ_now = df['contributor_occupation']
+    # a short value the occupation fixes expand (DR -> DOCTOR, VC -> VENTURE
+    # CAPITAL) is an abbreviation, not a cut-off word: the fixes decide it
     short_occ = (
         occ_now.str.len().le(2) & occ_now.notna()
         & ~occ_now.isin(OK_SHORT_OCCUPATIONS) & ~occ_now.isin(MISSING_VALUES)
+        & ~occ_now.isin(OCCUPATION_FIXES)
     )
     if short_occ.any():
         n_changed += int(short_occ.sum())
