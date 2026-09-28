@@ -1,6 +1,7 @@
 """Choose a donor's first and last name from the spellings it files."""
 import re
 from collections import Counter
+from contextlib import contextmanager
 
 from fec.donor_match.scoring import _NAME_TOKEN_RE
 
@@ -103,6 +104,59 @@ def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) 
     return first
 
 
+# true when two words differ by one letter added, dropped, swapped or changed
+def _one_edit_apart(a: str, b: str) -> bool:
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        diffs = [i for i, (x, y) in enumerate(zip(a, b)) if x != y]
+        return len(diffs) == 1 or (
+            len(diffs) == 2 and diffs[1] == diffs[0] + 1
+            and a[diffs[0]] == b[diffs[1]] and a[diffs[1]] == b[diffs[0]]
+        )
+    short, long = sorted((a, b), key=len)
+    return any(long[:i] + long[i + 1:] == short for i in range(len(long)))
+
+
+# first names filed at most twice in the whole dataset, set per cleaning run
+_RARE_SPELLINGS: frozenset[str] = frozenset()
+
+
+# make the dataset's rare first-name spellings known while choosing names
+@contextmanager
+def rare_spellings(words):
+    """A one-letter variant is a slip only when the dataset barely knows it:
+    LAWERENCE (filed once) is, STEVEN (3,561 filings) beside STEVE is not."""
+    global _RARE_SPELLINGS
+    previous, _RARE_SPELLINGS = _RARE_SPELLINGS, frozenset(words)
+    try:
+        yield
+    finally:
+        _RARE_SPELLINGS = previous
+
+
+# drop first names that are a one-letter slip of a name filed more often
+def _drop_misspellings(candidates: list[str]) -> list[str]:
+    """LAWERENCE once next to LAWRENCE ten times is a typo, not a fuller name.
+
+    Measured on the first word, at least 4 letters long, rare in the whole
+    dataset (rare_spellings) and filed less often by this donor than the
+    spelling one letter away; common names (STEVEN / STEVE, MARC / MARK) stay.
+    """
+    firsts = Counter(_first_core(value).split()[0] for value in candidates if _first_core(value).split())
+    slips = {
+        word for word in firsts
+        if len(word) >= 4 and word in _RARE_SPELLINGS and any(
+            firsts[other] > firsts[word] and _one_edit_apart(word, other) for other in firsts
+        )
+    }
+    kept = [
+        value for value in candidates
+        if not (_first_core(value).split() and _first_core(value).split()[0] in slips)
+    ]
+    return kept or candidates
+
+
 # pick the fullest, most-filed first name spelling
 def _choose_first(candidates: list[str]) -> str | None:
     """Fullest first name by its real letters, spelled the way the donor files it.
@@ -122,6 +176,7 @@ def _choose_first(candidates: list[str]) -> str | None:
     """
     if not candidates:
         return None
+    candidates = _drop_misspellings(candidates)
     counts = Counter(candidates)
     order: dict[str, int] = {}
     for position, value in enumerate(candidates):

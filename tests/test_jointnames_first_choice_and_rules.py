@@ -114,3 +114,18 @@ def test_separation_check_fails_when_a_joint_row_shares_the_filers_key():
         assert "MORRIS, ELLEN" in str(err)
     else:
         raise AssertionError("a verified joint pair on one key must fail")
+
+
+def test_a_one_letter_slip_is_not_a_fuller_first_name():
+    """LAWERENCE filed once beside LAWRENCE filed ten times is a typo, not a longer name;
+    only a spelling the whole dataset barely knows counts as a slip."""
+    from fec.donor_match.name_choice import _choose_first, rare_spellings
+
+    with rare_spellings({"LAWERENCE", "LAWRRENCE", "ADDM"}):
+        assert _choose_first(["LAWRENCE"] * 10 + ["LARRY", "LAWRRENCE"]) == "LAWRENCE"
+        assert _choose_first(["LAWRENCE"] * 10 + ["LAWERENCE"]) == "LAWRENCE"
+        assert _choose_first(["ADAM"] * 5 + ["ADDM"]) == "ADAM"
+        # common names one letter apart are both real: the fuller one still wins
+        assert _choose_first(["STEVE"] * 8 + ["STEVEN"] * 2) == "STEVEN"
+    # outside a cleaning run nothing is a slip
+    assert _choose_first(["LAWRENCE"] * 10 + ["LAWERENCE"]) == "LAWERENCE"
