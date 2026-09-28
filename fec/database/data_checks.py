@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.addresses.foreign import foreign_address_mask
+from fec.cleaning.addresses.foreign import REVIEWED_AS_FILED_SUB_IDS, foreign_address_mask
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 from fec.database.check_kinds import WARN, Check, _none, _sql, _zero
+from fec.env import CLEANED_CSV
 from fec.geocoding.address_kind import is_foreign_address
 
 _STATUS_WORDS = ",".join(f"'{word}'" for word in sorted(SKIP_EMPLOYERS) if word)
@@ -15,16 +16,30 @@ _EMPLOYER_ABBREVIATIONS = "|".join(EMPLOYER_ABBREVIATIONS)
 _ADDRESS_COLUMNS = "street_1, street_2, city, state_code, zip_code"
 
 
-# addresses abroad, by the pipeline's own rules; they are kept as filed
+# the filed addresses of filings reviewed and kept as filed (street, city, state, zip)
+def _reviewed_as_filed() -> set[tuple]:
+    if not REVIEWED_AS_FILED_SUB_IDS or not CLEANED_CSV.exists():
+        return set()
+    columns = ["sub_id", "contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]
+    rows = pd.read_csv(CLEANED_CSV, usecols=columns, dtype=str, keep_default_na=False)
+    rows = rows[rows["sub_id"].isin(REVIEWED_AS_FILED_SUB_IDS)]
+    return set(rows[columns[1:]].itertuples(index=False, name=None))
+
+
+# addresses kept as filed by the pipeline's own rules: abroad, or reviewed by hand
 def _foreign(rows: list[tuple]) -> list[bool]:
     frame = pd.DataFrame(rows, columns=[
         "contributor_street_1", "contributor_street_2", "contributor_city",
         "contributor_state", "contributor_zip",
     ]).fillna("")
     filed_abroad = foreign_address_mask(frame)
+    reviewed = _reviewed_as_filed()
     return [
-        abroad or is_foreign_address(state, zipcode)
-        for abroad, state, zipcode in zip(filed_abroad, frame["contributor_state"], frame["contributor_zip"])
+        abroad or is_foreign_address(state, zipcode) or (street, city, state, zipcode) in reviewed
+        for abroad, street, city, state, zipcode in zip(
+            filed_abroad, frame["contributor_street_1"], frame["contributor_city"],
+            frame["contributor_state"], frame["contributor_zip"],
+        )
     ]
 
 

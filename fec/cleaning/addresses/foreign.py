@@ -65,6 +65,31 @@ REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
 }
 
 
+# Single US filings whose address contradicts itself, reviewed by hand: no repair
+# can know which part is the donor's, so the filing keeps its address as filed
+# and is not geocoded. The value is the reason written to the audit.
+REVIEWED_AS_FILED_SUB_IDS: dict[str, str] = {
+    # street in Scottsdale, AZ (Star of the Desert Dr) filed with Highland Park, IL
+    # and its ZIP 60035: moving the state to IL built an address that does not exist
+    '4060420241953437845': 'street_and_city_zip_name_two_states_kept_as_filed',
+}
+
+
+# true for rows kept as filed: abroad, or reviewed as self-contradicting
+def kept_as_filed_mask(df: pd.DataFrame) -> pd.Series:
+    """foreign_address_mask plus REVIEWED_AS_FILED_SUB_IDS."""
+    mask = foreign_address_mask(df)
+    if 'sub_id' in df.columns:
+        mask |= _norm(df['sub_id']).isin(REVIEWED_AS_FILED_SUB_IDS)
+    return mask
+
+
+# the audit reason for putting a filed address back
+def kept_as_filed_reason(df: pd.DataFrame) -> pd.Series:
+    reasons = df['sub_id'].astype(str).str.strip().map(REVIEWED_AS_FILED_SUB_IDS)
+    return reasons.fillna('foreign_address_kept_as_filed')
+
+
 # true for rows whose filed address is outside the US
 def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
     """True for rows whose filed address is outside the US."""
@@ -87,8 +112,8 @@ def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
 
 # snapshot foreign rows' raw address fields before cleaning runs
 def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
-    """Raw address fields of every foreign row, indexed by sub_id (taken BEFORE cleaning)."""
-    mask = foreign_address_mask(df)
+    """Raw address fields of every row kept as filed, indexed by sub_id (taken BEFORE cleaning)."""
+    mask = kept_as_filed_mask(df)
     if not mask.any():
         return pd.DataFrame(columns=list(ADDRESS_FIELDS))
     return (

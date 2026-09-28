@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from fec.cleaning.addresses.foreign import (
+    kept_as_filed_reason,
     restore_foreign_addresses,
     snapshot_foreign_addresses,
 )
@@ -312,7 +313,7 @@ def clean_pipeline(
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
     n_foreign = trail.run(
         df_clean, lambda frame: restore_foreign_addresses(frame, foreign),
-        "foreign_address_restore", "foreign_address_kept_as_filed", ADDRESS_FIELDS,
+        "foreign_address_restore", kept_as_filed_reason, ADDRESS_FIELDS,
     )
     logger.info(
         "  Foreign addresses: %s rows kept as filed (%s cells restored)",
