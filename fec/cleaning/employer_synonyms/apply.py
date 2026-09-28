@@ -58,6 +58,15 @@ _EMPLOYER_ABBREV = [
 ]
 
 
+# expand the verified abbreviations in employer names (MFG. -> MANUFACTURING)
+def expand_abbreviation_text(values: pd.Series) -> pd.Series:
+    """The same expansion clean.py gives filed employers, for names from elsewhere."""
+    new = values
+    for regex, replacement in _EMPLOYER_ABBREV:
+        new = new.str.replace(regex, replacement, regex=True)
+    return new.str.replace(r'\s+', ' ', regex=True).str.strip().str.rstrip('.,').str.strip()
+
+
 # expand unambiguous employer abbreviations, must run last
 def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Expand unambiguous abbreviations (MGMT -> MANAGEMENT, ...); must run LAST, after synonyms, so abbreviations a synonym target reintroduces get expanded too."""
@@ -69,10 +78,7 @@ def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         return df, 0
 
     vals = emp[has_emp]
-    new = vals
-    for regex, replacement in _EMPLOYER_ABBREV:
-        new = new.str.replace(regex, replacement, regex=True)
-    new = new.str.replace(r'\s+', ' ', regex=True).str.strip().str.rstrip('.,').str.strip()
+    new = expand_abbreviation_text(vals)
 
     changed = new != vals
     if changed.any():

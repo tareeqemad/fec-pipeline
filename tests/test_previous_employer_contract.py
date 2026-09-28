@@ -371,3 +371,14 @@ def test_a_hand_set_previous_employer_still_wins_over_the_filing_history():
     resolved = apply_results(_rudy(), cache, {})
 
     assert resolved["previous_employer"].tolist()[1::2] == ["ACME INDUSTRIES", "ACME INDUSTRIES"]
+
+
+def test_resolve_expands_abbreviations_in_a_previous_employer_from_the_fec_api():
+    """A previous employer another filer wrote (RTI INTL METALS) gets clean.py's expansion."""
+    for cached, expected in (("RTI INTL METALS", "RTI INTERNATIONAL METALS"),
+                             ("CHILO MFG. & PLATING CO", "CHILO MANUFACTURING & PLATING CO"),
+                             ("EAST BAY DERMATOLOGY MEDICAL GRP", "EAST BAY DERMATOLOGY MEDICAL GROUP")):
+        first = _resolved_retiree("", cached)
+        assert first["previous_employer"].iloc[0] == expected
+        again = _resolved_retiree(expected, cached)
+        assert again["previous_employer"].iloc[0] == expected

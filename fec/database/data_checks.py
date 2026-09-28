@@ -1,12 +1,48 @@
 """Cleaned values follow the cleaning contract and fall in sane ranges."""
 from __future__ import annotations
 
+import pandas as pd
+
+from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
-from fec.database.check_kinds import WARN, Check, _sql, _zero
+from fec.database.check_kinds import WARN, Check, _none, _sql, _zero
+from fec.geocoding.address_kind import is_foreign_address
 
 _STATUS_WORDS = ",".join(f"'{word}'" for word in sorted(SKIP_EMPLOYERS) if word)
 _EMPLOYER_ABBREVIATIONS = "|".join(EMPLOYER_ABBREVIATIONS)
+
+_ADDRESS_COLUMNS = "street_1, street_2, city, state_code, zip_code"
+
+
+# addresses abroad, by the pipeline's own rules; they are kept as filed
+def _foreign(rows: list[tuple]) -> list[bool]:
+    frame = pd.DataFrame(rows, columns=[
+        "contributor_street_1", "contributor_street_2", "contributor_city",
+        "contributor_state", "contributor_zip",
+    ]).fillna("")
+    filed_abroad = foreign_address_mask(frame)
+    return [
+        abroad or is_foreign_address(state, zipcode)
+        for abroad, state, zipcode in zip(filed_abroad, frame["contributor_state"], frame["contributor_zip"])
+    ]
+
+
+# pass when no US address matches the query; a foreign one is kept as filed
+def _no_us_address(name, query, label, severity=WARN):
+    """The query selects street_1, street_2, city, state_code, zip_code."""
+
+    # drop foreign addresses and list the US ones that remain
+    def fn(cur, query=query, label=label):
+        cur.execute(query)
+        rows = cur.fetchall()
+        us = [row for row, abroad in zip(rows, _foreign(rows) if rows else []) if not abroad]
+        shown = "; ".join(" ".join(str(part) for part in row if part) for row in us[:5])
+        detail = f"{len(us):,} {label}" + (f": {shown}" if us else "")
+        return not us, detail
+
+    return Check(name, severity, fn)
+
 
 # Cleaned values follow the cleaning contract
 CLEANING_CHECKS: list[Check] = [
@@ -57,12 +93,13 @@ CLEANING_CHECKS: list[Check] = [
         "active row(s) without an employer",
         WARN,
     ),
-    _zero(
+    _none(
         "employer names not abbreviated",
         _sql(rf"""
-            SELECT COUNT(DISTINCT name)
+            SELECT DISTINCT name
             FROM employers
             WHERE name ~ '\m({_EMPLOYER_ABBREVIATIONS})\M'
+            ORDER BY name
         """),
         "employer(s) still abbreviated (same table quality_scan surfaces)",
         WARN,
@@ -89,16 +126,15 @@ VALUE_CHECKS: list[Check] = [
         "bad election_cycle row(s)",
         WARN,
     ),
-    _zero(
+    _no_us_address(
         "zip codes are 5 digits",
-        _sql(r"""
-            SELECT COUNT(*)
+        _sql(rf"""
+            SELECT {_ADDRESS_COLUMNS}
             FROM addresses
             WHERE COALESCE(zip_code, '') <> ''
-              AND zip_code !~ '^[0-9]{5}$'
+              AND zip_code !~ '^[0-9]{{5}}$'
         """),
-        "non-5-digit zip(s)",
-        WARN,
+        "non-5-digit US zip(s)",
     ),
     _zero(
         "coordinates in valid lat/lng range",
@@ -145,10 +181,10 @@ VALUE_CHECKS: list[Check] = [
         "code(s) not in us_states (territories, expected)",
         WARN,
     ),
-    _zero(
+    _no_us_address(
         "zip agrees with state",
         _sql("""
-            SELECT COUNT(*)
+            SELECT address.street_1, address.street_2, address.city, address.state_code, address.zip_code
             FROM addresses AS address
             JOIN zcta_state_rel AS zip_state
               ON zip_state.zcta5 = address.zip_code
@@ -157,7 +193,6 @@ VALUE_CHECKS: list[Check] = [
             WHERE COALESCE(address.state_code, '') <> ''
               AND address.state_code <> state.code
         """),
-        "zip/state mismatch(es)",
-        WARN,
+        "US zip/state mismatch(es)",
     ),
 ]
