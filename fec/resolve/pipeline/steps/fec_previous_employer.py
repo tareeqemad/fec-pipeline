@@ -53,6 +53,32 @@ def _name_parts(value) -> tuple[str, str, str]:
     return last, first, middle
 
 
+# "SANDBERG, ADELE AND JOEL", "COHEN, ANN & BOB": one filing naming two people
+_JOINT_GIVEN_RE = re.compile(r"\bAND\b|&|/|\+")
+
+
+# true for a filing name that carries two people
+def _joint_name(value) -> bool:
+    """Its work details may be either person's, so they prove nothing about one."""
+    text = _s(value).upper()
+    given = text.split(",", 1)[1] if "," in text else text
+    return bool(_JOINT_GIVEN_RE.search(given))
+
+
+# drop cached FEC answers taken from a two-person filing
+def drop_joint_source_entries(prev_cache) -> int:
+    """A previous employer read off a joint filing is the household's, not the donor's."""
+    data = getattr(prev_cache, "data", prev_cache)
+    joint = [
+        key for key, entry in data.items()
+        if isinstance(entry, dict) and str(entry.get("method", "")).startswith("fec_api")
+        and _joint_name(entry.get("source_name"))
+    ]
+    for key in joint:
+        data.pop(key, None)
+    return len(joint)
+
+
 # extract the first 5 digits of a ZIP code
 def _zip5(value) -> str:
     digits = "".join(re.findall(r"\d", _s(value)))
@@ -62,6 +88,8 @@ def _zip5(value) -> str:
 # check name, locality and ZIP/city match before trusting a record
 def _same_fec_donor(person: dict, record: dict) -> bool:
     """Require matching identity and locality before trusting an FEC record."""
+    if _joint_name(record.get("contributor_name")) and not _joint_name(person.get("name")):
+        return False
     expected = _name_parts(person.get("name"))
     reported = _name_parts(record.get("contributor_name"))
     if not all(expected[:2]) or expected[:2] != reported[:2]:
@@ -205,6 +233,10 @@ def step_fec_api(
     donor_totals: pd.DataFrame,
 ) -> int:
     """Find remaining retired donors' latest real employer through the FEC API."""
+    dropped = drop_joint_source_entries(prev_cache)
+    if dropped:
+        prev_cache.save()
+        logger.info(f"    FEC API: dropped {dropped:,} cached answer(s) read off a two-person filing")
 
     fec_key = os.environ.get("FEC_API_KEY", "").strip()
     if not fec_key:
