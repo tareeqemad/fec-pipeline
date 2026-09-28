@@ -20,7 +20,6 @@ foreign address by fec/cleaning/addresses/foreign) are kept exactly as written.
 from __future__ import annotations
 
 import csv
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -30,6 +29,7 @@ from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.addresses.streets import clean_streets
 from fec.donor_match.rules import resolve_donor_key
 from fec.env import CLEANED_CSV, RULES_DIR
+from fec.io import replace_file
 
 ROSTER_DIR = RULES_DIR
 ROSTERS = {"leaders.csv": "leader", "key_accomplices.csv": "accomplice"}
@@ -213,7 +213,7 @@ def write_roster(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator=terminator)
         writer.writeheader()
         writer.writerows(rows)
-    os.replace(temp, path)
+    replace_file(str(temp), str(path))
 
 
 # sync, or with check=True only diff, both rosters against data
