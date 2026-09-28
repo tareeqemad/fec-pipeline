@@ -1,51 +1,50 @@
 rule_type,raw_value,corrected_value,source,zip5
 exact_name,"DE TOLEDO, PHILLIP","DE TOLEDO, PHILIP",https://harrt.ucla.edu/wp-content/uploads/2015/12/Philip-de-Toledo-Bio-Capital-Group-Final.pdf,
-exact_name,"CHALME'', RAYMOND","CHALME, RAYMOND",manual,
-exact_name,"JACOBSON, JON","JACOBSON, JONATHON",manual,
-exact_name,"GOLDHABER, MARKTHE WALL TILE","GOLDHABER, MARK",manual,
-exact_name,"OVES, LYNNOVES","OVES, LYNN",manual,
-exact_name,"BORENSTEIN, JON","BORENSTEIN, JONATHAN",manual,
-exact_name,"LUTTWAK, JON","LUTTWAK, JONATHAN",manual,
-exact_name,"WEINBACH, JONATHAN","WEINBACH, JON",manual,
-exact_name,"KARP, ROBERTRKARP","KARP, ROBERT",manual,
-exact_name,"CHENEY, D AVID","CHENEY, DAVID",manual,
-exact_name,"BANK, FIRST CENTRAL",FIRST CENTRAL SAVINGS BANK,manual,
-exact_name,"CAPITAL, WHITE",WHITE LAKE REAL ESTATE CAPITAL LLC,manual,
-exact_name,"KAHAN TRUST, DAVID",DAVID KAHAN TRUST,manual,
-exact_name,"LEHMAN TRUST, LISA",LISA LEHMAN TRUST,manual,
-first_name,"FISHER, JEFREY",JEFFREY,manual,10021
-first_name,"SHPALL, ROBERTB",ROBERT,manual,90034
-first_name,"ROSENBERG, PETGER",PETER,manual,19072
-first_name,"DAVIS, DORUS",DORIS,manual,95032
-first_name,"WEINTRAUB, RICHAR",RICHARD,manual,90264
-first_name,"SILBERGLIED, RUSELL",RUSSELL,manual,19806
-first_name,"LEITNER, MARRISSA",MARISSA,manual,91436
-first_name,"BROOKS, STWART",STEWART,manual,91311
-first_name,"MILLMAN, MQRY",MARY,manual,10075
-first_name,"BASS, RHONDS",RHONDA,manual,77401
-first_name,"GAFFEN, YEHDUI",YEHUDI,manual,92131
-first_name,"KUPIETZKY, ARLEBE",ARLENE,manual,90067
-first_name,"ADLER, ERVI",ERVIN,manual,90254
-first_name,"DROR, BRIA",BRIAN,manual,90036
-first_name,"GOODMAN, CECIIA",CECILIA,manual,92660
-first_name,"FOX, WILIAM",WILLIAM,manual,21208
-first_name,"ROSS, MATTHWE",MATTHEW,manual,90272
-first_name,"ROSS, MATTHW",MATTHEW,manual,90272
-first_name,"ALBERS, DWNNIS",DENNIS,manual,81611
-first_name,"SHICHMAN, CAROLL",CAROL,manual,07076
-first_name,"KAGAN, ERR",ERRAN,manual,11021
-first_name,"STREIT, AURI",AURIEL,manual,90025
-first_name,"DIAMOND, JOIN",JON,manual,33154
-first_name,"GINDI, ISSAC",ISAAC,manual,10280
-first_name,"ELLIS, JONAATHAN",JONATHAN,manual,33629
-first_name,"GLIKSBERG, JILLIN",JILLIAN,manual,33312
+exact_name,"CHALME'', RAYMOND","CHALME, RAYMOND","same donor files CHALME, RAYMOND 13 times (checked 2026-09-28)",
+exact_name,"JACOBSON, JON","JACOBSON, JONATHON","same donor files JACOBSON, JONATHON 9 times (checked 2026-09-28)",
+exact_name,"GOLDHABER, MARKTHE WALL TILE","GOLDHABER, MARK","same donor files GOLDHABER, MARK 25 times (checked 2026-09-28)",
+exact_name,"OVES, LYNNOVES","OVES, LYNN","same donor files OVES, LYNN 12 times (checked 2026-09-28)",
+exact_name,"BORENSTEIN, JON","BORENSTEIN, JONATHAN","same donor files BORENSTEIN, JONATHAN 2 times (checked 2026-09-28)",
+exact_name,"LUTTWAK, JON","LUTTWAK, JONATHAN","same donor files LUTTWAK, JONATHAN 1 times (checked 2026-09-28)",
+sub_id,4080120261540163966,"WEINBACH, JON","filed as WEINBACH, JONATHAN: same street and ZIP, SKYDANCE SPORTS, PRESIDENT as WEINBACH, JON's own filings (checked 2026-09-28); the Larchmont JONATHAN is another filer",
+exact_name,"KARP, ROBERTRKARP","KARP, ROBERT","same donor files KARP, ROBERT 6 times (checked 2026-09-28)",
+exact_name,"CHENEY, D AVID","CHENEY, DAVID","same donor files CHENEY, DAVID 1 times (checked 2026-09-28)",
+exact_name,"BANK, FIRST CENTRAL",FIRST CENTRAL SAVINGS BANK,"filed with the words reversed; First Central Savings Bank, Glen Cove NY 11542 (checked 2026-09-28)",
+exact_name,"CAPITAL, WHITE",WHITE LAKE REAL ESTATE CAPITAL LLC,"filed as a truncated name; White Lake Real Estate Capital LLC, Greenwich CT 06831 (checked 2026-09-28)",
+exact_name,"KAHAN TRUST, DAVID",DAVID KAHAN TRUST,a trust filed in person-name order (checked 2026-09-28),
+exact_name,"LEHMAN TRUST, LISA",LISA LEHMAN TRUST,a trust filed in person-name order (checked 2026-09-28),
+first_name,"FISHER, JEFREY",JEFFREY,same surname and ZIP file JEFFREY 301 times (checked 2026-09-28),10021
+first_name,"SHPALL, ROBERTB",ROBERT,same surname and ZIP file ROBERT 31 times (checked 2026-09-28),90034
+first_name,"ROSENBERG, PETGER",PETER,same surname and ZIP file PETER 25 times (checked 2026-09-28),19072
+first_name,"DAVIS, DORUS",DORIS,same surname and ZIP file DORIS 30 times (checked 2026-09-28),95032
+first_name,"WEINTRAUB, RICHAR",RICHARD,same surname and ZIP file RICHARD 27 times (checked 2026-09-28),90264
+first_name,"SILBERGLIED, RUSELL",RUSSELL,same surname and ZIP file RUSSELL 27 times (checked 2026-09-28),19806
+first_name,"LEITNER, MARRISSA",MARISSA,same surname and ZIP file MARISSA 21 times (checked 2026-09-28),91436
+first_name,"BROOKS, STWART",STEWART,same surname and ZIP file STEWART 13 times (checked 2026-09-28),91311
+first_name,"MILLMAN, MQRY",MARY,same surname and ZIP file MARY 6 times (checked 2026-09-28),10075
+first_name,"BASS, RHONDS",RHONDA,same surname and ZIP file RHONDA 20 times (checked 2026-09-28),77401
+first_name,"GAFFEN, YEHDUI",YEHUDI,same surname and ZIP file YEHUDI 6 times (checked 2026-09-28),92131
+first_name,"KUPIETZKY, ARLEBE",ARLENE,same surname and ZIP file ARLENE 5 times (checked 2026-09-28),90067
+first_name,"ADLER, ERVI",ERVIN,same surname and ZIP file ERVIN 7 times (checked 2026-09-28),90254
+first_name,"DROR, BRIA",BRIAN,same surname and ZIP file BRIAN 29 times (checked 2026-09-28),90036
+first_name,"GOODMAN, CECIIA",CECILIA,same surname and ZIP file CECILIA 17 times (checked 2026-09-28),92660
+first_name,"FOX, WILIAM",WILLIAM,same surname and ZIP file WILLIAM 17 times (checked 2026-09-28),21208
+first_name,"ROSS, MATTHWE",MATTHEW,same surname and ZIP file MATTHEW 9 times (checked 2026-09-28),90272
+first_name,"ROSS, MATTHW",MATTHEW,same surname and ZIP file MATTHEW 9 times (checked 2026-09-28),90272
+first_name,"ALBERS, DWNNIS",DENNIS,same surname and ZIP file DENNIS 69 times (checked 2026-09-28),81611
+first_name,"SHICHMAN, CAROLL",CAROL,same surname and ZIP file CAROL 14 times (checked 2026-09-28),07076
+first_name,"KAGAN, ERR",ERRAN,same surname and ZIP file ERRAN 24 times (checked 2026-09-28),11021
+first_name,"STREIT, AURI",AURIEL,same surname and ZIP file AURIEL 9 times (checked 2026-09-28),90025
+first_name,"DIAMOND, JOIN",JON,same surname and ZIP file JON 11 times (checked 2026-09-28),33154
+first_name,"GINDI, ISSAC",ISAAC,same surname and ZIP file ISAAC 10 times (checked 2026-09-28),10280
+first_name,"ELLIS, JONAATHAN",JONATHAN,same surname and ZIP file JONATHAN 2 times (checked 2026-09-28),33629
+first_name,"GLIKSBERG, JILLIN",JILLIAN,same surname and ZIP file JILLIAN 10 times (checked 2026-09-28),33312
 first_name,"KUPOR, LARYL",LARY,https://docquery.fec.gov/pdf/785/202410159698202785/202410159698202785.pdf | https://www.macholhouston.org/about-us,77401
-first_name,"HANNAN, JUDITY",JUDITH,manual,11201
-first_name,"COHEN, PHILIP.",PHILIP,manual,33139
-committee_name,BELLFORMISSOURI,BELL FOR MISSOURI,manual,
-committee_name,SOLOW AND CO,SOLOW & CO.,manual,
-committee_name,SOLOW AND CO INC,SOLOW & CO.,manual,
-committee_name,RAUL RUIZ FOR CONGRESS,DR RAUL RUIZ FOR CONGRESS,manual,
+first_name,"HANNAN, JUDITY",JUDITH,same surname and ZIP file JUDITH 3 times (checked 2026-09-28),11201
+first_name,"COHEN, PHILIP.",PHILIP,same surname and ZIP file PHILIP 36 times (checked 2026-09-28),33139
+committee_name,BELLFORMISSOURI,BELL FOR MISSOURI,committee name as registered with the FEC (checked 2026-09-28),
+committee_name,SOLOW AND CO,SOLOW & CO.,committee name as registered with the FEC (checked 2026-09-28),
+committee_name,RAUL RUIZ FOR CONGRESS,DR RAUL RUIZ FOR CONGRESS,committee name as registered with the FEC (checked 2026-09-28),
 sub_id,4060420241953435334,"HYMAN, DANIEL",https://mpirealestate.com/agent/elliot-dvorin/ | https://chicagorealtor.com/team/daniel-hyman/,
 sub_id,4011620261302588095,"DAITCH, MATTHEW","filed as U, MATTHEW: same street and ZIP, SCOR, COO as DAITCH, MATTHEW's own filings (checked 2026-09-28)",
 sub_id,4011620261302592469,"EISENBERG, JAY","filed as E, JAY: same street and ZIP, EISENBERG GROUP, EXECUTIVE as EISENBERG, JAY's own filings (checked 2026-09-28)",
