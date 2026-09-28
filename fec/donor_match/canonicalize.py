@@ -84,6 +84,9 @@ def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | Non
         solo = [f for f in fcands if not is_joint(f)]
         if solo:
             fcands = solo
+    # the surname repeated in the first-name field ("STEVE FADER") is not a
+    # fuller first name: drop it before measuring, so STEVEN still wins
+    fcands = [" ".join(w for w in f.split() if w.upper() not in last_words) for f in fcands]
     canon_first = _choose_first(fcands)
     if canon_first:
         kept = [w for w in canon_first.split() if w.upper() not in last_words]

@@ -227,3 +227,14 @@ def test_a_real_middle_name_that_starts_the_surname_stays():
     )
 
     assert first == "MARY JOHN"
+
+
+def test_the_surname_repeated_as_a_first_name_word_is_not_a_fuller_name():
+    from fec.donor_match.canonicalize import _canonical_person_name
+
+    # 'FADER, STEVE FADER' once must not outrank STEVEN filed twenty times
+    last, first = _canonical_person_name(
+        ["FADER"] * 22, ["STEVEN"] * 20 + ["STEVE", "STEVE FADER"],
+    )
+
+    assert (last, first) == ("FADER", "STEVEN")
