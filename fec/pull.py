@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from fec.env import FEC_SOURCE_CSV, RAW_CSV
 from fec.fec_api import RateLimiter, build_session, fetch_page, required_env
+from fec.io import replace_file
 from fec.pull_rows import COLUMNS, FIELDS, SOURCE_COLUMNS, build_row, source_values
 
 log = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ def write_source_fields(path: Path, records: dict[str, dict]) -> None:
         writer = csv.DictWriter(handle, fieldnames=SOURCE_COLUMNS, restval="", extrasaction="ignore")
         writer.writeheader()
         writer.writerows(records[sub_id] for sub_id in sorted(records))
-    os.replace(tmp, path)
+    replace_file(str(tmp), str(path))
 
 
 # one source record for a raw row, from FEC's result
