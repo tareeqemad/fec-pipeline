@@ -382,3 +382,24 @@ def test_resolve_expands_abbreviations_in_a_previous_employer_from_the_fec_api()
         assert first["previous_employer"].iloc[0] == expected
         again = _resolved_retiree(expected, cached)
         assert again["previous_employer"].iloc[0] == expected
+
+
+def test_a_two_person_filing_is_not_the_donor_s_work_history():
+    """SANDBERG, ADELE AND JOEL: the ophthalmology practice was Joel's, not Adele's."""
+    from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor, drop_joint_source_entries
+
+    person = {"name": "SANDBERG, ADELE", "state": "OH", "city": "CINCINNATI", "zip": "45208"}
+    joint = {"contributor_name": "SANDBERG, ADELE AND JOEL", "contributor_state": "OH",
+             "contributor_city": "CINCINNATI", "contributor_zip": "45208"}
+    assert not _same_fec_donor(person, joint)
+    assert _same_fec_donor(person, {**joint, "contributor_name": "SANDBERG, ADELE"})
+    assert _same_fec_donor({**person, "name": "ANDERSON, ANDREW"},
+                           {**joint, "contributor_name": "ANDERSON, ANDREW"})
+
+    cache = {
+        "donor:a": {"employer": "EYE SURGERY ASSOCIATES", "method": "fec_api", "source_name": "SANDBERG, ADELE AND JOEL"},
+        "donor:b": {"employer": "ACME", "method": "fec_api", "source_name": "DOE, JANE"},
+        "donor:c": {"employer": "ACME", "method": "manual_override", "source_name": "X, A & B"},
+    }
+    assert drop_joint_source_entries(cache) == 1
+    assert set(cache) == {"donor:b", "donor:c"}
