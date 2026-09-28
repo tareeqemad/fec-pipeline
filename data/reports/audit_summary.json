@@ -1,6 +1,6 @@
 {
-  "changes": 860800,
-  "changed_cells": 833457,
+  "changes": 860794,
+  "changed_cells": 833444,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -313,9 +313,9 @@
       }
     },
     "enh_name_corrections": {
-      "changes": 83,
+      "changes": 93,
       "reasons": {
-        "manual_correction": 83
+        "manual_correction": 93
       }
     },
     "enh_fix_apostrophes": {
@@ -583,9 +583,9 @@
       }
     },
     "donor_canonical_names": {
-      "changes": 13282,
+      "changes": 13266,
       "reasons": {
-        "donor_name_unified_to_modal_last_and_longest_first": 13282
+        "donor_name_unified_to_modal_last_and_longest_first": 13266
       }
     },
     "donor_canonical_employers": {
