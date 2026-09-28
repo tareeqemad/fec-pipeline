@@ -6,6 +6,7 @@ import pandas as pd
 
 from fec.cleaning.donor_consistency.retired import dated_previous_employers
 from fec.cleaning.employer_status import classify_employer_status
+from fec.cleaning.employer_synonyms.apply import expand_abbreviation_text
 from fec.cleaning.employer_synonyms.canonical import (
     canonical_key,
     recanonicalize_employers,
@@ -87,11 +88,21 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dic
 
     _fix_employer_address_quality(df)
     _preserve_previous_employer_display(df, prior_previous)
+    _expand_previous_employer_abbreviations(df)
     recanonicalize_employers(df)
     # A committee/org IS the entity - its address is already the donor address,
     # so don't duplicate it into employer_*.
     _clear_nonindividual_employer(df)
     return df
+
+
+# a previous employer from the FEC API or a cache is spelled as another filer wrote it
+def _expand_previous_employer_abbreviations(df: pd.DataFrame) -> None:
+    """Give it the abbreviation expansion clean.py gives filed employers (RTI INTL METALS)."""
+    previous = df["previous_employer"].fillna("").astype(str)
+    named = previous.str.strip().ne("")
+    if named.any():
+        df.loc[named, "previous_employer"] = expand_abbreviation_text(previous[named])
 
 
 # keep employer_locations' spelling when resolve found the same company
