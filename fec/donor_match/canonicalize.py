@@ -1,6 +1,6 @@
 """Per-donor name, employer, street, unit, and PO-box canonicalization."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import pandas as pd
 
@@ -15,6 +15,7 @@ from fec.donor_match.name_choice import (
     _name_tokens,
     _parenthesized_tokens,
     _surname_parents,
+    rare_spellings,
 )
 from fec.donor_match.rules import joint_name_exempt
 
@@ -179,13 +180,20 @@ def canonicalize_donor_names(df: pd.DataFrame) -> int:
     if not ind.any():
         return 0
 
-    changed = 0
     fn_col = "contributor_first_name"
-    ln_col = "contributor_last_name"
-    cn_col = "contributor_name"
     own_spellings, household_spellings = _household_spellings(df, ind)
     given_names = _shared_given_names(df, ind)
+    first_words = Counter(
+        words[0] for words in _text_column(df, fn_col)[ind].str.split() if words
+    )
+    with rare_spellings(word for word, count in first_words.items() if count <= 2):
+        return _write_canonical_names(df, ind, own_spellings, household_spellings, given_names)
 
+
+# choose and write each donor's canonical name, returning rows changed
+def _write_canonical_names(df, ind, own_spellings, household_spellings, given_names) -> int:
+    changed = 0
+    fn_col, ln_col, cn_col = "contributor_first_name", "contributor_last_name", "contributor_name"
     for donor_key, idx in df[ind].groupby("donor_key").groups.items():
         rows = df.loc[idx]
         lasts = [v.strip() if isinstance(v, str) else "" for v in rows[ln_col]]
