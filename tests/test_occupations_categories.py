@@ -74,7 +74,7 @@ def _cat(occupation: str) -> str:
     ('INVESTOR', FIN),
     ('INVESTMENTS', FIN),
     ('INVESTMENT BANKER', FIN),
-    ('REAL ESTATE INVESTOR', FIN),
+    ('REAL ESTATE INVESTOR', 'REAL ESTATE'),
     ('CHIEF INVESTMENT OFFICER', FIN),
     # public offices, one category however they are written
     ('SENATOR', GOV),
@@ -262,3 +262,16 @@ def test_a_narrower_title_decides_before_a_broad_word(occupation, category):
 def test_executive_asiatant_is_an_assistant():
     from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
     assert OCCUPATION_NORMALIZE['EXECUTIVE ASIATANT'] == 'EXECUTIVE ASSISTANT'
+
+
+@pytest.mark.parametrize('title, category', [
+    ('REAL ESTATE FINANCE', 'REAL ESTATE'),
+    ('PRIVATE EQUITY REAL ESTATE', 'REAL ESTATE'),
+    ('REAL ESTATE LENDING', 'REAL ESTATE'),
+    ('FINANCE AND REAL ESTATE', 'FINANCE / INVESTMENT'),
+    ('ATTORNEY AND REAL ESTATE INVESTMENTS', 'LEGAL'),
+    ('INVESTOR', 'FINANCE / INVESTMENT'),
+])
+def test_investing_in_real_estate_is_real_estate(title, category):
+    """The field names the domain; two roles joined by AND still go to the first."""
+    assert categorize_final(pd.Series([title])).iloc[0] == category

@@ -79,7 +79,7 @@ def test_ambiguous_short_forms_are_not_globally_rewritten(ambiguous):
 
 @pytest.mark.parametrize(('typo', 'category_before', 'category_after'), [
     ('COMMERCIAL REAL ESTAE OWNER', 'BUSINESS / ENTREPRENEUR', 'REAL ESTATE'),
-    ('REAL ESTATE INVESTMENT & MANAGMENT', FIN, FIN),
+    ('REAL ESTATE INVESTMENT & MANAGMENT', 'REAL ESTATE', 'REAL ESTATE'),
     ('SENIOR ASSOCIATE, PUBIC ACCOUNTING', 'ACCOUNTING / TAX', 'ACCOUNTING / TAX'),
 ])
 def test_misspelled_words_inside_titles(typo, category_before, category_after):

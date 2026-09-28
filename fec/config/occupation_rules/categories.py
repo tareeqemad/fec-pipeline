@@ -86,6 +86,12 @@ CATEGORY_RULES = [
     ('HOMEMAKER', r'^HOMEMAKER\b'),
     ('INSURANCE', r'\bINSURANCE\b.*\bBROKER|\bBROKER\b.*\bINSURANCE\b'),
     ('REAL ESTATE', r'\bREAL ESTATE\b.*\bBROKER|\bREALTY BROKER|^ASSOCIATE BROKER$'),
+    # investing, lending or financing in real estate is real estate work: the field
+    # names the domain, the word after it the activity (two roles joined by AND or /
+    # still go to the first one)
+    ('REAL ESTATE',
+     r'\bREAL ESTATE (?:INVEST\w*|FINANC\w*|PRIVATE EQUITY|LENDING|LENDER|CAPITAL|FUNDS?)\b'
+     r'|\bPRIVATE EQUITY REAL ESTATE\b'),
     ('TECHNOLOGY',
      r'\b(?:DATA|WEB|IT|SOFTWARE|SYSTEMS?|BUSINESS INTELLIGENCE|COMPUTER|NETWORK) ANALYST'),
 
