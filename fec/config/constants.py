@@ -74,6 +74,9 @@ REFUSAL_EMPLOYERS = frozenset({
 OK_SHORT_EMPLOYERS = frozenset({
     '3M', 'HP', 'BP', 'GE', 'GM', 'LG', 'EY', 'PW',
     'BJ', 'C3', 'AT', 'QC',
+    # F5 (the company), UW (University of Washington, filed by a professor),
+    # KP (Kaiser Permanente, filed by a physician): kept as filed
+    'F5', 'UW', 'KP',
 })
 
 # occupations and credentials that are real, not truncated garbage
