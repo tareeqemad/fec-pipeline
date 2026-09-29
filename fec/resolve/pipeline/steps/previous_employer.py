@@ -61,7 +61,7 @@ def _explicit_self_employment(value) -> bool:
     return (
         upper == "SELF"
         or upper.startswith(("SELF:", "SELF (", "SELF /"))
-        or compact.startswith("SELFEMPLOYED")
+        or compact.startswith("SELFEMPLOY")
     )
 
 

@@ -165,7 +165,7 @@ JUNK_EMPLOYER_RE = (
 ADMIN_NOTE_EMPLOYER_RE = (
     r'^(?:'
     r'(?:PER\s+)?BEST\s+EFFORTS?'
-    r'|(?:INFO(?:RMATION)?\s+)?REQUEST(?:ED)?(?:\s+(?:SENT|MADE|PENDING|PER\s+BEST\s+EFFORTS?))?'
+    r'|(?:INFO(?:RMATION)?\s+)?REQUEST(?:ED)?(?:\s+(?:SENT|MADE|PENDING|PER\s+BEST\s+EFFORTS?|VIA\s+E?-?MAIL))?'
     r'|INFO\s+REQ(?:UEST)?|REQ\s+SENT'
     r'|NO\s+RESPONSE|NO\s+REPLY'
     r'|(?:WILL|TO)\s+(?:BE\s+)?PROVIDED?'

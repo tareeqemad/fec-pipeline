@@ -40,13 +40,15 @@ def test_self_employed_is_kept_not_cleared():
     # The shared normalizer preserves the legacy title contract. FEC cache
     # ingestion separately requires an explicit self-employment marker.
     assert V("ATTORNEY") == "SELF-EMPLOYED"
+    assert V("SELF - EMPLOYED") == V("SELF EMPLOYEED") == "SELF-EMPLOYED"
 
 
 def test_non_companies_are_cleared():
     for junk in ("RETIRED", "HOMEMAKER", "NOT EMPLOYED", "NOTEMPLOYED",
                  "STUDENT", "VOLUNTEER", "NON-PROFIT VOLUNTEER", "N/A",
                  "REAL ESTATE", "HEALTHCARE",
-                 "someone@example.com", "XXN"):
+                 "someone@example.com", "XXN",
+                 "DECLINE", "DECLINED", "REQUESTED VIA MAIL", "HOME MANAGER"):
         assert V(junk) == "", junk
 
 
@@ -288,7 +290,7 @@ def test_resolve_keeps_own_named_legal_company_and_is_idempotent():
     assert second["previous_employer"].iloc[0] == first_name
 
 
-def test_fec_previous_employer_requires_matching_city_or_zip():
+def test_fec_previous_employer_requires_a_zip_the_donor_files_from():
     from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor
 
     person = {
@@ -311,6 +313,27 @@ def test_fec_previous_employer_requires_matching_city_or_zip():
 
     assert _same_fec_donor(person, same_person)
     assert not _same_fec_donor(person, different_person)
+    # the same city is not enough: two RICHARD GOLDSTEINs file from Boca Raton
+    assert not _same_fec_donor(person, {**same_person, "contributor_zip": "94939"})
+    # any ZIP the donor files from counts, not only the latest
+    assert _same_fec_donor({**person, "zips": {"94904", "94939"}},
+                           {**same_person, "contributor_zip": "94939"})
+
+
+def test_a_cached_fec_answer_from_a_zip_the_donor_never_uses_is_dropped():
+    import pandas as pd
+    from fec.resolve.pipeline.steps.fec_previous_employer import drop_unproven_source_entries
+
+    df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * 2, "donor_key": ["A", "B"],
+                       "contributor_zip": ["33432", "10024-1234"]})
+    cache = {
+        "donor:A": {"employer": "HANGLEY ARONCHICK", "method": "fec_api", "source_zip": "334317148"},
+        "donor:B": {"employer": "ACME", "method": "fec_api", "source_zip": "10024"},
+        "donor:C": {"employer": "OLD", "method": "fec_api"},
+    }
+
+    assert drop_unproven_source_entries(cache, df) == 1
+    assert sorted(cache) == ["donor:B", "donor:C"]
 
 
 def test_fec_previous_employer_rejects_conflicting_middle_initials():

@@ -102,14 +102,44 @@ def _same_fec_donor(person: dict, record: dict) -> bool:
     if expected_state and reported_state and expected_state != reported_state:
         return False
 
-    expected_zip = _zip5(person.get("zip"))
+    # the filing must come from a ZIP the donor files from: a name and a city
+    # are not proof (two RICHARD GOLDSTEINs file from Boca Raton 33431/33432)
     reported_zip = _zip5(record.get("contributor_zip"))
-    if expected_zip and expected_zip == reported_zip:
-        return True
+    return bool(reported_zip) and reported_zip in _person_zips(person)
 
-    expected_city = _words(person.get("city"))
-    reported_city = _words(record.get("contributor_city"))
-    return bool(expected_city and expected_city == reported_city)
+
+# the ZIP5s a donor files from: all of them when known, else the latest
+def _person_zips(person: dict) -> set[str]:
+    zips = {_zip5(value) for value in person.get("zips") or ()}
+    zips.add(_zip5(person.get("zip")))
+    return zips - {""}
+
+
+# every ZIP5 each donor files from
+def _donor_zips(df: pd.DataFrame) -> dict[str, set[str]]:
+    people = df[df["entity_type"] == "INDIVIDUAL"]
+    zips = people["contributor_zip"].fillna("").astype(str).str.replace(r"\D", "", regex=True).str[:5]
+    frame = pd.DataFrame({"key": people["donor_key"], "zip": zips})
+    frame = frame[frame["zip"].str.len() == 5]
+    return frame.groupby("key")["zip"].agg(set).to_dict()
+
+
+# drop cached FEC answers read off a filing from a ZIP the donor never files from
+def drop_unproven_source_entries(prev_cache, df: pd.DataFrame) -> int:
+    """Such an answer may be another person with the same name in the same city."""
+    data = getattr(prev_cache, "data", prev_cache)
+    donor_zips = _donor_zips(df)
+    unproven = []
+    for key, entry in data.items():
+        if not (isinstance(entry, dict) and entry.get("method") == "fec_api"):
+            continue
+        source_zip = _zip5(entry.get("source_zip"))
+        zips = donor_zips.get(key.split(":", 1)[-1])
+        if source_zip and zips and source_zip not in zips:
+            unproven.append(key)
+    for key in unproven:
+        data.pop(key, None)
+    return len(unproven)
 
 
 # list unresolved retired donors to search, largest first
@@ -121,6 +151,7 @@ def _pending_fec_searches(
     """Return unresolved retired donors, largest donors first."""
     _, latest_retired = _retired_donors(df)
     tier_keys = set(donor_totals["donor_key"])
+    donor_zips = _donor_zips(df)
     donor_info = {
         row["donor_key"]: {
             "prev_key": _prev_key(row["donor_key"]),
@@ -128,6 +159,7 @@ def _pending_fec_searches(
             "state": row.get("contributor_state", ""),
             "city": row.get("contributor_city", ""),
             "zip": row.get("contributor_zip", ""),
+            "zips": donor_zips.get(row["donor_key"], set()),
         }
         for _, row in latest_retired.iterrows()
     }
@@ -237,6 +269,10 @@ def step_fec_api(
     if dropped:
         prev_cache.save()
         logger.info(f"    FEC API: dropped {dropped:,} cached answer(s) read off a two-person filing")
+    unproven = drop_unproven_source_entries(prev_cache, df)
+    if unproven:
+        prev_cache.save()
+        logger.info(f"    FEC API: dropped {unproven:,} cached answer(s) filed from a ZIP the donor never uses")
 
     fec_key = os.environ.get("FEC_API_KEY", "").strip()
     if not fec_key:
