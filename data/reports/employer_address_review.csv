@@ -41,12 +41,11 @@ SIROTE & PERMUTT,carried_over_without_source,2311 HIGHLAND AVE S,BIRMINGHAM,AL,3
 SKG,carried_over_without_source,1668 CREST DR,ENCINITAS,CA,92024,True,manual,previous:uncorroborated,,,
 SOUTHERN WINE & SPIRITS,carried_over_without_source,6200 S ORANGE BLOSSOM TRL,ORLANDO,FL,32809,True,ai,previous:uncorroborated,,,
 THE BENIDA GROUP,carried_over_without_source,200 PARK AVE SOUTH STE 1102,NEW YORK,NY,10003,True,ai,previous:uncorroborated,,,
-THE BOEING COMPANY,carried_over_without_source,100 N RIVERSIDE,CHICAGO,IL,60606,True,ai,previous:uncorroborated,,,
 THE BUCKINGHAM RESEARCH GROUP,carried_over_without_source,1000 N WEST ST,WILMINGTON,DE,19801,True,ai,previous:uncorroborated,,,
 THIRD AVENUE FUND MANAGEMENT,carried_over_without_source,622 THIRD AVE FL 32,NEW YORK,NY,10017,True,ai,previous:uncorroborated,,,
 WENDY'S INTERNATIONAL,carried_over_without_source,ONE DAVE THOMAS BLVD,DUBLIN,OH,43017,True,ai,previous:uncorroborated,,,
 WILLIAM MORRIS AGENCY,carried_over_without_source,9601 WILSHIRE BLVD FL 9,BEVERLY HILLS,CA,90210,True,ai,previous:uncorroborated,,,
-BDO USA PC,grounded_alias_outside_donor_states,"330 North Wabash Avenue, Suite 3200",Chicago,IL,60611,True,,ai_openai_search,GA;OH,,
+BDO USA PC,grounded_alias_outside_donor_states,"330 North Wabash Avenue, Suite 3200",Chicago,IL,60611,True,,ai_openai_search,FL;GA;OH,,
 BOULEVARD HEALTHCARE MANAGEMENT LLC,grounded_alias_outside_donor_states,"6400 Shafer Ct, Suite 600",Rosemont,IL,60018,True,,ai_openai_search,NY,,
 CUNEO GILBERT & LADUCA LLP,grounded_alias_outside_donor_states,"1001 Pennsylvania Avenue NW, Suite 1300S",Washington,DC,20004,True,,ai_openai_search,FL,,
 DEREK SMITH LAW GROUP PLLC,grounded_alias_outside_donor_states,"The Nelson Tower, 450 7th Avenue, 30th Floor",New York,NY,10123,True,,ai_openai_search,FL;PA,,
@@ -58,7 +57,7 @@ LONESTAR DATA HOLDINGS INC,grounded_alias_outside_donor_states,450 8th Ave SE,St
 MAJOR BRANDS INC,grounded_alias_outside_donor_states,6701 Southwest Ave,St. Louis,MO,63143,True,,ai_openai_search,KS,,
 MEDICALLY HOME GROUP INC,grounded_alias_outside_donor_states,133 Brookline Ave,Boston,MA,02215,True,,ai_openai_search,PA,,
 METRON INC,grounded_alias_outside_donor_states,"1818 Library Street, Suite 600",Reston,VA,20190,True,,ai_openai_search,MD,,
-MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Philadelphia,PA,19103,True,,ai_openai_search,DC;MA;MD;VA,,
+MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Philadelphia,PA,19103,True,,ai_openai_search,DC;MA;MD;NY;VA,,
 NATIONAL COLLECTOR''S MINT INC,grounded_alias_outside_donor_states,"2975 Westchester Ave, Suite 300",Purchase,NY,10577,True,,ai_openai_search,CT,,
 RIMON PC,grounded_alias_outside_donor_states,355 S Grand Ave Suite 2450,Los Angeles,CA,90071,True,,ai_openai_search,NY,,
 TAYLOR MORRISON NW LLC,grounded_alias_outside_donor_states,"3620 1st Ave S, Suite 300",Seattle,WA,98134,True,,ai_openai_search,OR,,
@@ -118,7 +117,6 @@ HOME EXPRESSIONS INC,home_office_street_withheld,195 RARITAN CENTER PKWY,EDISON,
 INNOVATIONS IN EDUCATION LLC,home_office_street_withheld,10400 HARDWOOD CT,WOODSTOCK,MD,21163,True,manual,,,1,1
 J.M. EDBERG INVESTMENT MANAGEMENT,home_office_street_withheld,6206 LANDON LN,BETHESDA,MD,20817,True,ai,,,1,1
 KAWESCH LAW GROUP,home_office_street_withheld,6 GARNER ST,NEWTON CENTER,MA,02459,True,ai,,,1,2
-KEYES AUTOMOTIVE GROUP,home_office_street_withheld,5855 VAN NUYS BLVD,VAN NUYS,CA,91401,True,manual,,,3,2
 LAUDER PARTNERS,home_office_street_withheld,88 MERCEDES LN,ATHERTON,CA,94027,False,ai,,,2,1
 LAVITSKY COMPUTER LABORATORIES INC,home_office_street_withheld,865 SHERWOOD RD,BRIDGEWATER,NJ,08807,True,manual,,,1,1
 LEIFER CAPITAL ADVISERS LLC,home_office_street_withheld,86 CLEMENTS RD,NEWTON,MA,02458,True,ai,,,2,2
@@ -144,7 +142,7 @@ SEGAL MANAGEMENT LLC,home_office_street_withheld,2220 CAPE COD PL,MINNETONKA,MN,
 SHP REALTY INC,home_office_street_withheld,2141 MALLARD DR,NORTHBROOK,IL,60062,True,ai,,,1,1
 SONCO,home_office_street_withheld,2050 E DEVON AVE,ELK GROVE VILLAGE,IL,60007,True,ai,,,1,1
 STEIN ADVISORS LLC,home_office_street_withheld,42 RIVER WIND RD,NEW CANAAN,CT,06840,True,manual,,,1,1
-SURRY INVESTMENT ADVISORS,home_office_street_withheld,56 SURRY DAM RD,SURRY,NH,03431,True,manual,,,1,2
+SURRY INVESTMENT ADVISORS,home_office_street_withheld,56 SURRY DAM RD,SURRY,NH,03431,True,manual,,,2,2
 THE LIVELY FOUNDATION,home_office_street_withheld,550 MOUNTAIN VIEW AVE,MOUNTAIN VIEW,CA,94041,True,ai,,,1,1
 THE MINKOFF GROUP,home_office_street_withheld,6272 VIRGO RD,OAKLAND,CA,94611,True,ai,,,2,2
 THE ROBERTS COMPANIES,home_office_street_withheld,2886 COLORADO AVE,SANTA MONICA,CA,90404,True,ai,,,1,1
