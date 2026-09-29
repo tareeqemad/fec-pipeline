@@ -31,8 +31,8 @@ def test_a_retirees_self_employment_is_kept_when_the_cache_is_empty():
 
 
 class Response:
-    def __init__(self, results, last_indexes=None):
-        self.status_code = 200
+    def __init__(self, results, last_indexes=None, status_code=200):
+        self.status_code = status_code
         self._body = {"results": results, "pagination": {"last_indexes": last_indexes}}
 
     def json(self):
@@ -78,3 +78,25 @@ def test_an_old_first_page_only_not_found_is_searched_again():
     assert fec_search._fec_search_due({"employer": "", "method": "fec_api_not_found"})
     assert not fec_search._fec_search_due({"employer": "", "method": "fec_api_not_found", "all_pages": True})
     assert not fec_search._fec_search_due({"employer": "ACME", "method": "fec_api"})
+
+
+def test_a_spent_hourly_quota_stops_the_search_and_records_nothing(monkeypatch):
+    monkeypatch.setattr(fec_search, "RATE_LIMIT_WAIT_SECONDS", 0)
+    monkeypatch.setenv("FEC_API_KEY", "k")
+    calls = []
+
+    def limited(url, params, timeout):
+        calls.append(params["contributor_name"])
+        return Response([], status_code=429)
+
+    monkeypatch.setattr(fec_search.requests, "get", limited)
+    people = [{**PERSON, "prev_key": f"donor:D{i}", "total": 0} for i in range(40)]
+    monkeypatch.setattr(fec_search, "_pending_fec_searches", lambda df, cache, totals: people)
+    cache = FakeCache()
+
+    found = fec_search.step_fec_api(pd.DataFrame({"entity_type": [], "donor_key": [], "contributor_zip": []}),
+                                    cache, pd.DataFrame({"donor_key": []}))
+
+    assert found == 0 and cache == {}
+    # the first searches may already be running; the rest are never sent
+    assert len(calls) < 2 * len(people)
