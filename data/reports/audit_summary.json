@@ -1,6 +1,6 @@
 {
-  "changes": 860794,
-  "changed_cells": 833444,
+  "changes": 860797,
+  "changed_cells": 833447,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -367,9 +367,9 @@
       }
     },
     "enh_employer_synonyms": {
-      "changes": 7019,
+      "changes": 7023,
       "reasons": {
-        "verified_same_company": 7019
+        "verified_same_company": 7023
       }
     },
     "enh_fix_occ_as_employer": {
@@ -631,9 +631,9 @@
       }
     },
     "donor_employer_typos": {
-      "changes": 154,
+      "changes": 153,
       "reasons": {
-        "employer_spelling_converged_to_donor_dominant": 154
+        "employer_spelling_converged_to_donor_dominant": 153
       }
     },
     "donor_employer_substring_variants": {
