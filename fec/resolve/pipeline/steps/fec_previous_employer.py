@@ -1,6 +1,7 @@
 """Find a retired donor's previous employer in their older FEC filings."""
 import os
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -27,6 +28,14 @@ FEC_PAGE_SIZE = 100
 
 # 2,000 filings under one name and state: past that the search is given up as not found
 FEC_MAX_PAGES = 20
+
+
+# a 429 is retried once after this wait; a second 429 means the hourly quota is spent
+RATE_LIMIT_WAIT_SECONDS = 5
+
+
+# the FEC answered 429 twice: the key's hourly quota is used up
+RATE_LIMITED = object()
 
 
 # split a value into uppercase alphanumeric words
@@ -207,7 +216,11 @@ def _fec_filings(person: dict, fec_key: str, request_get):
     for _page in range(FEC_MAX_PAGES):
         response = request_get(f"{FEC_BASE}/schedules/schedule_a/", params=params, timeout=15)
         if response.status_code == 429:
-            time.sleep(5)
+            time.sleep(RATE_LIMIT_WAIT_SECONDS)
+            response = request_get(f"{FEC_BASE}/schedules/schedule_a/", params=params, timeout=15)
+            if response.status_code == 429:
+                yield RATE_LIMITED
+                return
         if response.status_code != 200:
             yield None
             return
@@ -225,6 +238,8 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
     """Fetch one donor's latest matching FEC filing and return its cache entry."""
     try:
         for record in _fec_filings(person, fec_key, request_get):
+            if record is RATE_LIMITED:
+                return None, RATE_LIMITED
             if record is None:
                 return None, None
             if not _same_fec_donor(person, record):
@@ -287,18 +302,29 @@ def step_fec_api(
 
     logger.info(f"    FEC API: {len(searches):,} retired donors to search")
     found = 0
+    quota_spent = threading.Event()
+
+    # skip the search once the quota is spent: the donor stays for the next run
+    def search(person):
+        if quota_spent.is_set():
+            return None, None
+        return _fetch_fec_previous_employer(person, fec_key, requests.get)
+
     with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = [
-            pool.submit(_fetch_fec_previous_employer, person, fec_key, requests.get)
-            for person in searches
-        ]
+        futures = [pool.submit(search, person) for person in searches]
         for done, future in enumerate(as_completed(futures), 1):
             cache_key, result = future.result()
+            if result is RATE_LIMITED:
+                if not quota_spent.is_set():
+                    logger.info(f"    FEC API: hourly request limit reached after {done:,} donors; "
+                                "the rest are searched on the next run")
+                quota_spent.set()
+                continue
             if cache_key and result:
                 prev_cache.put(cache_key, result)
                 if result.get("employer"):
                     found += 1
-            if done % 50 == 0:
+            if done % 50 == 0 and not quota_spent.is_set():
                 prev_cache.save()
                 logger.info(f"      ... {done}/{len(searches)} ({found:,} found)")
 
