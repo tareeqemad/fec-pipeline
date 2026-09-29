@@ -11,7 +11,12 @@ from fec.cleaning.employer_synonyms.normalize import (
     restyle_legal_suffix,
 )
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
-from fec.config.constants import JUNK_EMPLOYER_RE, SLASH_BRAND_EMPLOYERS, STATUS_WORDS
+from fec.config.constants import (
+    ADMIN_NOTE_EMPLOYER_RE,
+    JUNK_EMPLOYER_RE,
+    SLASH_BRAND_EMPLOYERS,
+    STATUS_WORDS,
+)
 from fec.config.data import MISSING_VALUES
 from fec.config.not_employers import (
     LEGAL_SUFFIX_RE,
@@ -163,8 +168,10 @@ def _is_null_previous(upper: str) -> bool:
 
 # true if the value explicitly states self-employment
 def _is_explicit_self(upper: str) -> bool:
-    return (upper.startswith('SELF:') or upper.startswith('SELF EMPLOYED')
-            or upper.startswith('SELF-EMPLOYED') or upper in ('SELF', 'SSELF', 'SELFF'))
+    # letters only, so "SELF - EMPLOYED" and "SELF EMPLOYEED" count as well
+    letters = re.sub(r'[^A-Z]', '', upper)
+    return (upper.startswith('SELF:') or letters.startswith('SELFEMPLOY')
+            or upper in ('SELF', 'SSELF', 'SELFF'))
 
 
 # apply the previous_employer contract to a single value
@@ -191,6 +198,9 @@ def normalize_previous_employer_value(v) -> str:
     # explicit self-employment markers
     if _is_explicit_self(upper):
         return 'SELF-EMPLOYED'
+    # an admin note or refusal written instead of a company (DECLINE, REQUESTED VIA MAIL)
+    if re.match(ADMIN_NOTE_EMPLOYER_RE, upper):
+        return ''
     # not a real prior company: email, industry word, status/volunteer, junk
     # (upper_nospace collapses whitespace so spacing variants match their canonical form)
     if _is_null_previous(upper):
