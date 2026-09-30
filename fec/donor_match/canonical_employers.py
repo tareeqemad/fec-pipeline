@@ -6,7 +6,6 @@ import pandas as pd
 
 from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.config.constants import EMPLOYER_STATUS_VALUES
-from fec.donor_match.components import UnionFind
 
 # legal suffixes/connectors carry no identity when comparing employer names
 _EMP_DROP_TOKENS = frozenset(
@@ -43,31 +42,29 @@ def _emp_core_tokens(name: str) -> frozenset:
     return frozenset(t for t in toks if t not in _EMP_DROP_TOKENS and len(t) > 1)
 
 
-# cluster near-duplicate employer names, map each to canonical
+# map each employer name to the one fuller name it is a short form of
 def _employer_variant_map(names: list[str]) -> dict[str, str]:
-    cores = {name: _emp_core_tokens(name) for name in names}
-    union = UnionFind()
-    for left_index in range(len(names)):
-        for right_index in range(left_index + 1, len(names)):
-            left = names[left_index]
-            right = names[right_index]
-            left_core = cores[left]
-            right_core = cores[right]
-            if len(left_core & right_core) >= 2 and (
-                left_core <= right_core or right_core <= left_core
-            ):
-                union.union(left, right)
+    """A name whose words all appear in exactly one fuller name of the donor becomes that name.
 
-    clusters = defaultdict(list)
+    Names with the same words (spelling or suffix variants) share the longest
+    spelling. A short name contained in two fuller names that are not one
+    another's short form (WELLS FARGO beside WELLS FARGO ADVISORS and WELLS
+    FARGO PRIVATE BANK) stays as filed, and the two fuller names are never
+    joined through it.
+    """
+    cores = {name: _emp_core_tokens(name) for name in names}
+    by_core = defaultdict(list)
     for name in names:
-        clusters[union.find(name)].append(name)
+        by_core[cores[name]].append(name)
+    # one display name per word set: the longest spelling
+    display = {core: max(members, key=len) for core, members in by_core.items()}
 
     remap = {}
-    for members in clusters.values():
-        if len(members) < 2:
-            continue
-        canonical = max(members, key=lambda name: (len(cores[name]), len(name)))
-        remap.update({name: canonical for name in members if name != canonical})
+    for core, members in by_core.items():
+        fuller = [other for other in by_core if other > core and len(core & other) >= 2]
+        widest = [other for other in fuller if not any(other < more for more in fuller)]
+        target = display[widest[0]] if len(widest) == 1 else display[core]
+        remap.update({name: target for name in members if name != target})
     return remap
 
 
