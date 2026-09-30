@@ -339,3 +339,14 @@ def test_a_space_inside_one_unit_id_does_not_split_it():
     assert unit_core("UNIT PH-3") == unit_core("PH 3")
     assert unit_core("BLDG 1 STE 23") != unit_core("BLDG 12 STE 3")
     assert unit_core("FL 9") != unit_core("APT 9")
+
+
+def test_a_city_typed_after_a_comma_in_the_street_is_dropped():
+    from fec.cleaning.addresses.fixes.safe_text import _strip_city_state_tail as strip
+
+    assert strip("16661 HUERTA RD ENCINO", "ENCINO,", "CA", "91436") == "16661 HUERTA RD"
+    assert strip("15564 COLINA STRADA, LOS ANGELES", "LOS ANGELES", "CA", "90077") == "15564 COLINA STRADA"
+    assert strip("5341 GENESTA AVE ENCINO CA", "ENCINO, CA", "CA", "91316") == "5341 GENESTA AVE"
+    # Parkway Calabasas is the street's own name; a comma alone changes nothing
+    assert strip("5000 PKWY CALABASAS", "CALABASAS", "CA", "91302") == "5000 PKWY CALABASAS"
+    assert strip("12 MAIN ST, APT 4", "RYE", "NY", "10580") == "12 MAIN ST, APT 4"
