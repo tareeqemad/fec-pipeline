@@ -238,3 +238,12 @@ def test_the_surname_repeated_as_a_first_name_word_is_not_a_fuller_name():
     )
 
     assert (last, first) == ("FADER", "STEVEN")
+
+
+def test_a_short_employer_name_does_not_join_two_different_fuller_names():
+    from fec.donor_match.canonical_employers import _employer_variant_map
+
+    # ADVISORS and PRIVATE BANK are two units: WELLS FARGO must not bridge them
+    assert _employer_variant_map(["WELLS FARGO", "WELLS FARGO ADVISORS", "WELLS FARGO PRIVATE BANK"]) == {}
+    # one fuller name still absorbs its short forms
+    assert _employer_variant_map(["KIRKLAND ELLIS", "KIRKLAND & ELLIS LLP"]) == {"KIRKLAND ELLIS": "KIRKLAND & ELLIS LLP"}
