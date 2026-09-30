@@ -113,8 +113,11 @@ def _same_fec_donor(person: dict, record: dict) -> bool:
 
     # the filing must come from a ZIP the donor files from: a name and a city
     # are not proof (two RICHARD GOLDSTEINs file from Boca Raton 33431/33432)
+    # nor is a ZIP another donor of the same name also files from: the filing
+    # could be either (RICHARD GOLDSTEIN, retiree and attorney, both in 33432)
     reported_zip = _zip5(record.get("contributor_zip"))
-    return bool(reported_zip) and reported_zip in _person_zips(person)
+    return (bool(reported_zip) and reported_zip in _person_zips(person)
+            and reported_zip not in (person.get("shared_zips") or ()))
 
 
 # the ZIP5s a donor files from: all of them when known, else the latest
@@ -133,18 +136,39 @@ def _donor_zips(df: pd.DataFrame) -> dict[str, set[str]]:
     return frame.groupby("key")["zip"].agg(set).to_dict()
 
 
+# per donor, the ZIPs another donor of the same name also files from
+def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
+    if not {"contributor_name", "contributor_first_name", "contributor_last_name"} <= set(df.columns):
+        return {}
+    people = df[(df["entity_type"] == "INDIVIDUAL") & ~df["contributor_name"].map(_joint_name)]
+    given = people["contributor_first_name"].fillna("").astype(str).str.upper().str.split()
+    # a second whole given name ("STUART SARA") is a couple filing together, not a namesake
+    people = people[given.map(lambda words: all(len(w.strip(".")) <= 1 for w in words[1:]))]
+    first = given[people.index].str[0].fillna("")
+    frame = pd.DataFrame({
+        "key": people["donor_key"],
+        "name": people["contributor_last_name"].fillna("").astype(str).str.upper() + "|" + first,
+        "zip": people["contributor_zip"].fillna("").astype(str).str.replace(r"\D", "", regex=True).str[:5],
+    }).drop_duplicates()
+    frame = frame[(frame["zip"].str.len() == 5) & ~frame["name"].str.endswith("|")]
+    keys_per_place = frame.groupby(["name", "zip"])["key"].transform("nunique")
+    shared = frame[keys_per_place > 1]
+    return shared.groupby("key")["zip"].agg(set).to_dict()
+
+
 # drop cached FEC answers read off a filing from a ZIP the donor never files from
 def drop_unproven_source_entries(prev_cache, df: pd.DataFrame) -> int:
-    """Such an answer may be another person with the same name in the same city."""
+    """Such an answer, or one from a ZIP another same-name donor files from, may be another person."""
     data = getattr(prev_cache, "data", prev_cache)
-    donor_zips = _donor_zips(df)
+    donor_zips, shared_zips = _donor_zips(df), _shared_zips(df)
     unproven = []
     for key, entry in data.items():
         if not (isinstance(entry, dict) and entry.get("method") == "fec_api"):
             continue
         source_zip = _zip5(entry.get("source_zip"))
-        zips = donor_zips.get(key.split(":", 1)[-1])
-        if source_zip and zips and source_zip not in zips:
+        donor_key = key.split(":", 1)[-1]
+        zips = donor_zips.get(donor_key)
+        if source_zip and zips and (source_zip not in zips or source_zip in shared_zips.get(donor_key, ())):
             unproven.append(key)
     for key in unproven:
         data.pop(key, None)
@@ -160,7 +184,7 @@ def _pending_fec_searches(
     """Return unresolved retired donors, largest donors first."""
     _, latest_retired = _retired_donors(df)
     tier_keys = set(donor_totals["donor_key"])
-    donor_zips = _donor_zips(df)
+    donor_zips, shared_zips = _donor_zips(df), _shared_zips(df)
     donor_info = {
         row["donor_key"]: {
             "prev_key": _prev_key(row["donor_key"]),
@@ -169,6 +193,7 @@ def _pending_fec_searches(
             "city": row.get("contributor_city", ""),
             "zip": row.get("contributor_zip", ""),
             "zips": donor_zips.get(row["donor_key"], set()),
+            "shared_zips": shared_zips.get(row["donor_key"], set()),
         }
         for _, row in latest_retired.iterrows()
     }
