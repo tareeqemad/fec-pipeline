@@ -170,6 +170,8 @@ def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series
         .str.replace('`', '', regex=False)
         .str.replace(';', '', regex=False)
         .str.replace(TITLE_RE, '', regex=True)
+        # an initial glued to the name it abbreviates before: "W.DAVID" -> "W. DAVID"
+        .str.replace(r'\b([A-Z])\.(?=[A-Z]{2})', r'\1. ', regex=True)
         .str.strip()
         .replace(_NAN_REPLACE)
     )

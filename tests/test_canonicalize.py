@@ -247,3 +247,14 @@ def test_a_short_employer_name_does_not_join_two_different_fuller_names():
     assert _employer_variant_map(["WELLS FARGO", "WELLS FARGO ADVISORS", "WELLS FARGO PRIVATE BANK"]) == {}
     # one fuller name still absorbs its short forms
     assert _employer_variant_map(["KIRKLAND ELLIS", "KIRKLAND & ELLIS LLP"]) == {"KIRKLAND ELLIS": "KIRKLAND & ELLIS LLP"}
+
+
+def test_an_initial_glued_to_the_name_after_it_gets_its_space():
+    import pandas as pd
+    from fec.cleaning.pipeline.name_parsing import _strip_individual_titles_suffixes
+
+    df = pd.DataFrame({"contributor_name": ["WEINER, W.DAVID", "HELLER, J. DAVID", "DOE, J.R."],
+                       "contributor_first_name": ["W.DAVID", "J. DAVID", "J.R."],
+                       "contributor_last_name": ["WEINER", "HELLER", "DOE"]})
+    _strip_individual_titles_suffixes(df, pd.Series([True, True, True]))
+    assert df["contributor_first_name"].tolist() == ["W. DAVID", "J. DAVID", "J.R."]
