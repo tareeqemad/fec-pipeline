@@ -1,4 +1,5 @@
 """Find a retired donor's previous employer in their older FEC filings."""
+import csv
 import os
 import re
 import threading
@@ -11,6 +12,8 @@ import requests
 from fec.cleaning.employer_status import (
     classify_employer_status,
 )
+from fec.cleaning.previous_employer import normalize_previous_employer_value
+from fec.env import MANUAL_EMPLOYER_OVERRIDES_CSV, RAW_CSV
 from fec.log import get_logger
 from fec.resolve.pipeline.helpers import (
     _prev_key,
@@ -156,8 +159,32 @@ def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
     return shared.groupby("key")["zip"].agg(set).to_dict()
 
 
+# per donor, filed employers a manual override removed as another person's
+def cleared_employers(df: pd.DataFrame) -> dict[str, set[str]]:
+    """A committee that typed a spouse's firm under the donor (SANDBERG, ADELE) sent FEC the
+    same filing, so FEC's copy must not bring that firm back as the donor's work history."""
+    if not (MANUAL_EMPLOYER_OVERRIDES_CSV.exists() and RAW_CSV.exists()) or "sub_id" not in df.columns:
+        return {}
+    with MANUAL_EMPLOYER_OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
+        cleared = {
+            (row.get("sub_id") or "").strip() for row in csv.DictReader(handle)
+            if (row.get("contributor_employer") or "").strip().upper() == "[CLEAR]"
+        }
+    if not cleared:
+        return {}
+    raw = pd.read_csv(RAW_CSV, usecols=["sub_id", "contributor_employer"], dtype=str, keep_default_na=False)
+    raw = raw[raw["sub_id"].isin(cleared)]
+    keys = df.assign(sub_id=df["sub_id"].astype(str)).set_index("sub_id")["donor_key"]
+    out: dict[str, set[str]] = {}
+    for sub_id, employer in zip(raw["sub_id"], raw["contributor_employer"]):
+        name = normalize_previous_employer_value(employer).upper()
+        if name and sub_id in keys.index:
+            out.setdefault(str(keys.loc[sub_id]), set()).add(name)
+    return out
+
+
 # drop cached FEC answers read off a filing from a ZIP the donor never files from
-def drop_unproven_source_entries(prev_cache, df: pd.DataFrame) -> int:
+def drop_unproven_source_entries(prev_cache, df: pd.DataFrame, cleared: dict | None = None) -> int:
     """Such an answer, or one from a ZIP another same-name donor files from, may be another person."""
     data = getattr(prev_cache, "data", prev_cache)
     donor_zips, shared_zips = _donor_zips(df), _shared_zips(df)
@@ -169,6 +196,8 @@ def drop_unproven_source_entries(prev_cache, df: pd.DataFrame) -> int:
         donor_key = key.split(":", 1)[-1]
         zips = donor_zips.get(donor_key)
         if source_zip and zips and (source_zip not in zips or source_zip in shared_zips.get(donor_key, ())):
+            unproven.append(key)
+        elif str(entry.get("employer", "")).upper() in (cleared or {}).get(donor_key, ()):
             unproven.append(key)
     for key in unproven:
         data.pop(key, None)
@@ -286,7 +315,7 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
                 source_city=record.get("contributor_city", ""),
                 source_zip=record.get("contributor_zip", ""),
             )
-            if entry.get("employer"):
+            if entry.get("employer") and entry["employer"].upper() not in person.get("cleared_employers", ()):
                 return person["prev_key"], entry
 
         return person["prev_key"], {
@@ -309,7 +338,8 @@ def step_fec_api(
     if dropped:
         prev_cache.save()
         logger.info(f"    FEC API: dropped {dropped:,} cached answer(s) read off a two-person filing")
-    unproven = drop_unproven_source_entries(prev_cache, df)
+    cleared = cleared_employers(df)
+    unproven = drop_unproven_source_entries(prev_cache, df, cleared)
     if unproven:
         prev_cache.save()
         logger.info(f"    FEC API: dropped {unproven:,} cached answer(s) filed from a ZIP the donor never uses")
@@ -321,6 +351,8 @@ def step_fec_api(
         return 0
 
     searches = _pending_fec_searches(df, prev_cache, donor_totals)
+    for person in searches:
+        person["cleared_employers"] = cleared.get(person["prev_key"].split(":", 1)[-1], set())
     if not searches:
         logger.info("    FEC API: 0 retired donors to search")
         return 0
