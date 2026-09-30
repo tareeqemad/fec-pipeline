@@ -426,3 +426,29 @@ def test_a_two_person_filing_is_not_the_donor_s_work_history():
     }
     assert drop_joint_source_entries(cache) == 1
     assert set(cache) == {"donor:b", "donor:c"}
+
+
+def test_a_zip_another_same_name_donor_files_from_proves_nothing():
+    import pandas as pd
+    from fec.resolve.pipeline.steps.fec_previous_employer import (
+        _same_fec_donor, _shared_zips, drop_unproven_source_entries)
+
+    # a retiree and a working attorney, both RICHARD GOLDSTEIN in Boca Raton 33432
+    df = pd.DataFrame({
+        "entity_type": ["INDIVIDUAL"] * 4,
+        "donor_key": ["RET", "ATTY", "SPOUSES", "COUPLE"],
+        "contributor_name": ["GOLDSTEIN, RICHARD", "GOLDSTEIN, RICHARD", "GOLDSTEIN, RICHARD AND JANE",
+                             "GOLDSTEIN, RICHARD JANE"],
+        "contributor_last_name": ["GOLDSTEIN"] * 4,
+        "contributor_first_name": ["RICHARD", "RICHARD", "RICHARD AND JANE", "RICHARD JANE"],
+        "contributor_zip": ["33432", "33432-2944", "33496", "33432"],
+    })
+    shared = _shared_zips(df)
+    assert shared == {"RET": {"33432"}, "ATTY": {"33432"}}
+
+    person = {"name": "GOLDSTEIN, RICHARD", "state": "FL", "zip": "33432", "shared_zips": shared["RET"]}
+    record = {"contributor_name": "GOLDSTEIN, RICHARD", "contributor_state": "FL", "contributor_zip": "334322944"}
+    assert not _same_fec_donor(person, record)
+
+    cache = {"donor:RET": {"employer": "NIXON PEABODY", "method": "fec_api", "source_zip": "334322944"}}
+    assert drop_unproven_source_entries(cache, df) == 1
