@@ -19,7 +19,7 @@ from fec.config.streets import (
 # placeholder values that mean "no address"
 _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
                  'UNKNOWN', 'X', 'XX', 'XXX', 'NOT PROVIDED',
-                 'UNITED STATES OF AMERICA', 'USA'}
+                 'UNITED STATES OF AMERICA', 'USA', 'NO ADDRESS'}
 
 # the same placeholders in street_2, except a bare X: "UNIT X" is written "X" there
 _JUNK_UNITS = (_JUNK_STREETS - {'X'}) | {'NULL', 'N.A', 'N.A.'}
