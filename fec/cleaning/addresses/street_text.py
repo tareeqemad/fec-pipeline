@@ -22,7 +22,7 @@ _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
                  'UNITED STATES OF AMERICA', 'USA', 'NO ADDRESS'}
 
 # the same placeholders in street_2, except a bare X: "UNIT X" is written "X" there
-_JUNK_UNITS = (_JUNK_STREETS - {'X'}) | {'NULL', 'N.A', 'N.A.'}
+_JUNK_UNITS = (_JUNK_STREETS - {'X'}) | {'NULL', 'N.A', 'N.A.', 'ADDR 2', 'ADDRESS 2', 'ADDRESS LINE 2'}
 
 
 # true when a street_2 value has no letters or digits

@@ -210,6 +210,11 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         )
     counts["house_number"] = int((before.fillna("") != df[S1].fillna("")).sum())
 
+    # street_2 that repeats street_1 ("3400 GULLEY RD" in both) holds no unit
+    same = df[S2].notna() & (df[S2].astype(str).str.strip() != "") \
+        & (df[S2].astype(str).str.strip() == df[S1].fillna("").astype(str).str.strip())
+    df.loc[same, S2] = np.nan
+
     # split a trailing floor / bare unit-number into an empty street_2
     df[S2] = df[S2].astype(
         object

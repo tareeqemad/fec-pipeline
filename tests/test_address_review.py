@@ -350,3 +350,15 @@ def test_a_city_typed_after_a_comma_in_the_street_is_dropped():
     # Parkway Calabasas is the street's own name; a comma alone changes nothing
     assert strip("5000 PKWY CALABASAS", "CALABASAS", "CA", "91302") == "5000 PKWY CALABASAS"
     assert strip("12 MAIN ST, APT 4", "RYE", "NY", "10580") == "12 MAIN ST, APT 4"
+
+
+def test_street_2_repeating_street_1_or_a_field_label_is_no_unit():
+    import pandas as pd
+    from fec.cleaning.addresses.fixes.safe_text import apply_safe_fixes
+    from fec.cleaning.addresses.street_text import _normalize_unit
+
+    df = pd.DataFrame({"contributor_street_1": ["3400 GULLEY RD"], "contributor_street_2": ["3400 GULLEY RD"],
+                       "contributor_city": ["TAYLOR"], "contributor_state": ["MI"], "contributor_zip": ["48180"]})
+    df, _ = apply_safe_fixes(df)
+    assert pd.isna(df.loc[0, "contributor_street_2"])
+    assert pd.isna(_normalize_unit("ADDR 2"))
