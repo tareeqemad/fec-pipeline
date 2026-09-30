@@ -12,7 +12,6 @@ match_street,match_state,match_zip,street,unit,city,state,zip,source
 704C 13TH ST E,MT,59937,704C E 13TH ST,STE 260,,,,manual_verified
 42 W E 48TH ST,NY,10017,42 W 48TH ST,STE 706-707,,,10036,manual_verified
 159 W 159 W,NY,10023,159 W 74TH ST,APT GR,,,,manual_verified
-200 W SREET,NY,10282,200 W ST,,,,,census
 235 DEERCROFT DR,VA,24069,235 DEERCROFT DR,,,,24060,census
 240 MPARK LN,CA,92027,240 PARK LN,,,,94027,census
 437 MADISON AVE ST,NY,10022,437 MADISON AVE,,,,,census
