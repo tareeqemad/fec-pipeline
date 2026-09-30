@@ -1,12 +1,12 @@
 {
-  "changes": 860832,
-  "changed_cells": 833463,
+  "changes": 860709,
+  "changed_cells": 833396,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
-      "changes": 22,
+      "changes": 30,
       "reasons": {
-        "name_punctuation_cleaned": 22
+        "name_punctuation_cleaned": 30
       }
     },
     "occ_normalize_text": {
@@ -147,9 +147,9 @@
       }
     },
     "names_titles_suffixes": {
-      "changes": 134,
+      "changes": 142,
       "reasons": {
-        "title_or_suffix_stripped_or_surname_from_email": 134
+        "title_or_suffix_stripped_or_surname_from_email": 142
       }
     },
     "names_garbled_first": {
@@ -301,9 +301,9 @@
       }
     },
     "enh_normalize_name_periods": {
-      "changes": 843,
+      "changes": 838,
       "reasons": {
-        "remove_periods_from_initials": 843
+        "remove_periods_from_initials": 838
       }
     },
     "enh_fix_credential_in_name": {
@@ -313,9 +313,9 @@
       }
     },
     "enh_name_corrections": {
-      "changes": 93,
+      "changes": 97,
       "reasons": {
-        "manual_correction": 93
+        "manual_correction": 97
       }
     },
     "enh_fix_apostrophes": {
@@ -367,9 +367,9 @@
       }
     },
     "enh_employer_synonyms": {
-      "changes": 7023,
+      "changes": 6890,
       "reasons": {
-        "verified_same_company": 7023
+        "verified_same_company": 6890
       }
     },
     "enh_fix_occ_as_employer": {
@@ -457,9 +457,9 @@
       }
     },
     "safety_fix_own_name_as_employer": {
-      "changes": 170,
+      "changes": 168,
       "reasons": {
-        "own_name_employer_self_employed": 170
+        "own_name_employer_self_employed": 168
       }
     },
     "safety_fix_garbage_city_names": {
@@ -529,15 +529,15 @@
       }
     },
     "employer_recanonicalize": {
-      "changes": 362,
+      "changes": 360,
       "reasons": {
-        "employer_variant_unified_by_canonical_key": 362
+        "employer_variant_unified_by_canonical_key": 360
       }
     },
     "employer_restore_suffixes": {
-      "changes": 1846,
+      "changes": 1800,
       "reasons": {
-        "employer_display_form_restored_from_raw": 1846
+        "employer_display_form_restored_from_raw": 1800
       }
     },
     "enh_employer_synonyms_final": {
@@ -571,9 +571,9 @@
       }
     },
     "manual_overrides": {
-      "changes": 150,
+      "changes": 152,
       "reasons": {
-        "curated_row_override": 150
+        "curated_row_override": 152
       }
     },
     "network_organization_classification": {
@@ -583,15 +583,15 @@
       }
     },
     "donor_canonical_names": {
-      "changes": 13266,
+      "changes": 13260,
       "reasons": {
-        "donor_name_unified_to_modal_last_and_longest_first": 13266
+        "donor_name_unified_to_modal_last_and_longest_first": 13260
       }
     },
     "donor_canonical_employers": {
-      "changes": 1408,
+      "changes": 1401,
       "reasons": {
-        "donor_employer_variant_merged_to_fullest_name": 1408
+        "donor_employer_variant_merged_to_fullest_name": 1401
       }
     },
     "donor_canonical_units": {
@@ -637,21 +637,21 @@
       }
     },
     "donor_employer_substring_variants": {
-      "changes": 526,
+      "changes": 542,
       "reasons": {
-        "employer_short_form_merged_into_full_name_same_donor": 526
+        "employer_short_form_merged_into_full_name_same_donor": 542
       }
     },
     "donor_employer_acronym_variants": {
-      "changes": 84,
+      "changes": 120,
       "reasons": {
-        "employer_acronym_expanded_same_donor": 84
+        "employer_acronym_expanded_same_donor": 120
       }
     },
     "donor_own_firm_absorbs_self_employed": {
-      "changes": 838,
+      "changes": 836,
       "reasons": {
-        "self_employed_rows_moved_to_donors_own_firm": 838
+        "self_employed_rows_moved_to_donors_own_firm": 836
       }
     },
     "donor_fill_employer_from_donor": {
@@ -661,9 +661,9 @@
       }
     },
     "donor_fill_occupation_from_donor": {
-      "changes": 637,
+      "changes": 643,
       "reasons": {
-        "occupation_derived_from_donor_same_employer": 637
+        "occupation_derived_from_donor_same_employer": 643
       }
     },
     "donor_fill_self_employed_occupation_from_donor": {
