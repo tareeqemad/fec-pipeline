@@ -452,3 +452,23 @@ def test_a_zip_another_same_name_donor_files_from_proves_nothing():
 
     cache = {"donor:RET": {"employer": "NIXON PEABODY", "method": "fec_api", "source_zip": "334322944"}}
     assert drop_unproven_source_entries(cache, df) == 1
+
+
+def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_path, monkeypatch):
+    import pandas as pd
+    import fec.resolve.pipeline.steps.fec_previous_employer as step
+
+    overrides = tmp_path / "overrides.csv"
+    overrides.write_text("sub_id,contributor_employer,contributor_occupation,note\n"
+                         "S1,[CLEAR],[CLEAR],her husband's practice\n", encoding="utf-8")
+    raw = tmp_path / "raw.csv"
+    raw.write_text("sub_id,contributor_employer\nS1,EYE SURGERY ASSOCIATES\nS2,RETIRED\n", encoding="utf-8")
+    monkeypatch.setattr(step, "MANUAL_EMPLOYER_OVERRIDES_CSV", overrides)
+    monkeypatch.setattr(step, "RAW_CSV", raw)
+    df = pd.DataFrame({"sub_id": ["S1", "S2"], "donor_key": ["ADELE", "ADELE"], "entity_type": ["INDIVIDUAL"] * 2,
+                       "contributor_zip": ["33179", "33179"]})
+
+    cleared = step.cleared_employers(df)
+    assert cleared == {"ADELE": {"EYE SURGERY ASSOCIATES"}}
+    cache = {"donor:ADELE": {"employer": "EYE SURGERY ASSOCIATES", "method": "fec_api", "source_zip": "331794324"}}
+    assert step.drop_unproven_source_entries(cache, df, cleared) == 1
