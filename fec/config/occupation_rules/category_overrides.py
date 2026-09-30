@@ -309,7 +309,8 @@ CATEGORY_OVERRIDES = {
 
     # science
     "MEMBER OF RESEARCH STAFF": "SCIENCE / RESEARCH",
-    "PSYCHOLOGY": "SCIENCE / RESEARCH",
+    # filed bare by self-employed practitioners: a psychology practice
+    "PSYCHOLOGY": "MEDICAL / HEALTHCARE",
 
     # batch 3: final stragglers
     "DEVELOPMENT": "NONPROFIT / PHILANTHROPY",  # fundraising context in this data
