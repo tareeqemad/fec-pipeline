@@ -140,9 +140,12 @@ def _strip_city_state_tail(street, city, state, zip_code):
     remainder must still look like a street ("5000 PKWY CALABASAS" is Parkway Calabasas, kept)."""
     if pd.isna(street):
         return street
-    tokens = str(street).strip().split()
-    city_tokens = str(city or "").upper().split()
-    state_code = str(state or "").upper().strip()
+    # a comma the filer typed ("HUERTA ROAD, ENCINO", city "ENCINO,") does not hide the tail
+    tokens = [t for t in (t.strip(",") for t in str(street).strip().split()) if t]
+    state_code = str(state or "").upper().strip(" ,")
+    city_tokens = [t for t in (t.strip(",") for t in str(city or "").upper().split()) if t]
+    if len(city_tokens) > 1 and city_tokens[-1] == state_code:  # city "ENCINO, CA"
+        city_tokens = city_tokens[:-1]
     zip5 = re.sub(r"\D", "", str(zip_code or ""))[:5]
     original = list(tokens)
     if len(tokens) >= 3 and tokens[-1].isdigit() and 3 <= len(tokens[-1]) <= 5 and zip5.startswith(tokens[-1]):
@@ -150,11 +153,12 @@ def _strip_city_state_tail(street, city, state, zip_code):
         stripped_zip = True
     else:
         stripped_zip = False
-    ends_with_city = len(city_tokens) >= 1 and len(city_tokens[0]) >= 4 and len(tokens) > len(city_tokens) \
+    city_long_enough = len("".join(city_tokens)) >= 4
+    ends_with_city = city_long_enough and len(tokens) > len(city_tokens) \
         and [t.upper() for t in tokens[-len(city_tokens):]] == city_tokens
     if len(tokens) >= 3 and state_code and tokens[-1].upper() == state_code:
         before = tokens[:-1]
-        before_ends_with_city = len(city_tokens) >= 1 and len(city_tokens[0]) >= 4 and len(before) > len(city_tokens) \
+        before_ends_with_city = city_long_enough and len(before) > len(city_tokens) \
             and [t.upper() for t in before[-len(city_tokens):]] == city_tokens
         if stripped_zip or before_ends_with_city or before[-1].upper() in _STREET_TYPE_WORDS:
             tokens = before
