@@ -108,33 +108,13 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
 
     remap: dict[str, str] = {}
     for _, grp in work.groupby(["fp", "z"]):
-        keys = grp["key"].unique()
-        if len(keys) < 2:
+        if grp["key"].nunique() < 2:
             continue
-        signatures = {suffixes_by_key[key] for key in keys}
-        if len(signatures) > 1:
-            continue
-        blocked = any(
-            names_must_stay_separate(name_a, name_b)
-            for key_a, key_b in combinations(keys, 2)
-            for name_a in names_by_key[key_a]
-            for name_b in names_by_key[key_b]
-        )
-        if blocked:
-            continue
-        # >1 distinct real occupation category: could be two people, skip
-        real_occs = {o for o in grp["occ"].unique() if o not in _VAGUE_OCC_CATEGORIES}
-        if len(real_occs) > 1:
-            continue
-        # a name and a ZIP are not proof: every key must share a filed street or
-        # an employer with another key of the group
-        if not _keys_share_evidence(grp, keys):
-            continue
-        # winner = key with the most contribution rows
-        winner = grp["key"].value_counts().idxmax()
-        for k in keys:
-            if k != winner:
-                remap[k] = winner
+        # a name and a ZIP are not proof: keys join only through a shared filed
+        # street or employer, and each group joined that way merges on its own
+        # (A and B share one street, C and D another: two donors, not one)
+        for keys in _evidence_groups(grp):
+            remap.update(_merge_target(grp[grp["key"].isin(keys)], keys, names_by_key, suffixes_by_key))
 
     if not remap:
         return 0
@@ -157,16 +137,50 @@ def _real_employers(df: pd.DataFrame) -> pd.Series:
     return employer.where(~employer.isin(_STATUS_EMPLOYERS), "")
 
 
-# true when every key shares a filed street or employer with another key
-def _keys_share_evidence(grp: pd.DataFrame, keys) -> bool:
-    evidence = {
-        key: ({("street", s) for s in rows["street"] if s} | {("employer", e) for e in rows["employer"] if e})
-        for key, rows in grp.groupby("key")
-    }
-    return all(
-        any(evidence[key] & evidence[other] for other in keys if other != key)
-        for key in keys
-    )
+# keys linked by a shared filed street or employer, one set per connected group
+def _evidence_groups(grp: pd.DataFrame) -> list[set]:
+    """Connected groups of keys, two keys linked when they share a filed street or employer."""
+    owners: dict[tuple, set] = {}
+    for key, street, employer in grp[["key", "street", "employer"]].itertuples(index=False):
+        for item in (("street", street), ("employer", employer)):
+            if item[1]:
+                owners.setdefault(item, set()).add(key)
+    parent = {key: key for key in grp["key"].unique()}
+
+    # the group's representative key
+    def find(key):
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return parent[key]
+
+    for linked in owners.values():
+        first, *rest = sorted(linked)
+        for other in rest:
+            parent[find(other)] = find(first)
+    groups: dict[str, set] = {}
+    for key in parent:
+        groups.setdefault(find(key), set()).add(key)
+    return [keys for keys in groups.values() if len(keys) > 1]
+
+
+# the key each of a linked group's keys repoints to, {} when they may be two people
+def _merge_target(rows: pd.DataFrame, keys: set, names_by_key: dict, suffixes_by_key: dict) -> dict:
+    if len({suffixes_by_key[key] for key in keys}) > 1:
+        return {}
+    if any(
+        names_must_stay_separate(name_a, name_b)
+        for key_a, key_b in combinations(sorted(keys), 2)
+        for name_a in names_by_key[key_a]
+        for name_b in names_by_key[key_b]
+    ):
+        return {}
+    # >1 distinct real occupation category: could be two people, skip
+    if len({o for o in rows["occ"].unique() if o not in _VAGUE_OCC_CATEGORIES}) > 1:
+        return {}
+    # winner = key with the most contribution rows
+    winner = rows["key"].value_counts().idxmax()
+    return {key: winner for key in keys if key != winner}
 
 
 # repoint verified duplicate keys to their preferred key

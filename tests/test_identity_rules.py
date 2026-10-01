@@ -285,3 +285,15 @@ def test_split_name_merge_needs_a_shared_street_or_employer():
                                 row("b", "MEYERS, DAVID A", "DAVID", "1 MAIN ST", "RETIRED")])
     assert K.merge_split_name_donors(same_street) == 1
     assert set(same_street["donor_key"]) == {"a"}
+
+
+def test_split_name_merge_joins_each_linked_group_on_its_own():
+    """A and B share one street, C and D another: two donors, never one."""
+    def row(key, street):
+        return {**_person(key, "MEYERS, DAVID", "DAVID"), "contributor_street_1": street,
+                "contributor_employer": "RETIRED"}
+
+    df = pd.DataFrame([row("a", "1 MAIN ST"), row("a", "1 MAIN ST"), row("b", "1 MAIN ST"),
+                       row("c", "9 ELM ST"), row("c", "9 ELM ST"), row("d", "9 ELM ST")])
+    assert K.merge_split_name_donors(df) == 2
+    assert df["donor_key"].tolist() == ["a", "a", "a", "c", "c", "c"]
