@@ -482,7 +482,7 @@ def test_a_short_status_word_stays_exact():
 
 def test_a_job_title_names_no_company():
     # BERMAN filed ADVISOR/RETIRED, PROPP COMPUTER ANALIST: a title, no employer
-    for title in ("ADVISOR", "ADVISOR/RETIRED", "COMPUTER ANALIST", "SENIOR SYSTEMS ANALYST"):
+    for title in ("ADVISOR", "ADVISOR/RETIRED", "COMPUTER ANALIST", "SENIOR SYSTEMS ANALYST", "TREASURER"):
         assert V(title) == "", title
     # a company name carries a word no title has, a number, or a plural
     for company in ("01 ADVISORS", "WELLS FARGO ADVISORS", "COMPUTER ASSOCIATES",
