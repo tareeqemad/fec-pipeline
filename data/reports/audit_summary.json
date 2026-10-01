@@ -1,6 +1,6 @@
 {
-  "changes": 860712,
-  "changed_cells": 833397,
+  "changes": 861092,
+  "changed_cells": 833630,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -183,9 +183,9 @@
       }
     },
     "streets_normalize": {
-      "changes": 52633,
+      "changes": 52636,
       "reasons": {
-        "street_text_normalized_or_placeholder_nulled": 52556,
+        "street_text_normalized_or_placeholder_nulled": 52559,
         "street_nulled_due_to_email_in_street1": 62,
         "street_1_unit_repeating_street_2_dropped": 3,
         "floor_ordinal_left_in_street_1_dropped": 4,
@@ -241,9 +241,9 @@
       }
     },
     "address_verified_rules": {
-      "changes": 94,
+      "changes": 447,
       "reasons": {
-        "verified_postal_correction": 94
+        "verified_postal_correction": 447
       }
     },
     "address_city_state_conflict": {
@@ -283,9 +283,9 @@
       }
     },
     "streets_unify_units": {
-      "changes": 437,
+      "changes": 448,
       "reasons": {
-        "unit_designator_unified_to_donor_dominant": 437
+        "unit_designator_unified_to_donor_dominant": 448
       }
     },
     "address_review": {
@@ -462,12 +462,6 @@
         "own_name_employer_self_employed": 168
       }
     },
-    "safety_fix_garbage_city_names": {
-      "changes": 1,
-      "reasons": {
-        "garbage_city_name_nulled": 1
-      }
-    },
     "safety_fix_pr_zip_wrong_state": {
       "changes": 2,
       "reasons": {
@@ -571,9 +565,9 @@
       }
     },
     "manual_overrides": {
-      "changes": 152,
+      "changes": 166,
       "reasons": {
-        "curated_row_override": 152
+        "curated_row_override": 166
       }
     },
     "network_organization_classification": {
