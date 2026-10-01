@@ -49,6 +49,8 @@ python -m fec.database.healthcheck
 
 `pull.py` is needed only when new FEC data is available. The other commands
 rebuild the cleaned data, resolve work locations, and reload the database.
+`resolve.py --apply` runs only on a fresh `clean.py` output: it reads
+`previous_employer` as what the donor filed, so it refuses a file it already resolved.
 
 `sync_rosters.py` rewrites the FEC-linked rows of `data/rules/leaders.csv` and
 `data/rules/key_accomplices.csv` from each donor's newest cleaned filing

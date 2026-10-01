@@ -168,7 +168,7 @@ def main() -> int:
     mrows = list(csv.DictReader(open("data/rules/manual_employer_addresses.csv", encoding="utf-8", newline="")))
     print("== manual_employer_addresses.csv:", len(mrows), "rows | header ok:", list(mrows[0].keys())[0] == "name")
 
-    problems += [f"quality gates ({QUALITY_GATES_JSON}, rerun resolve.py --apply): {p}" for p in gate_problems]
+    problems += [f"quality gates ({QUALITY_GATES_JSON}, rerun from clean.py through resolve.py --apply): {p}" for p in gate_problems]
     if problems:
         print(f"\nFAIL: {len(problems)} problem(s):")
         for problem in problems:
