@@ -7,6 +7,7 @@ import pandas as pd
 from fec.cleaning.employer_status import (
     classify_employer_statuses,
     is_real_employer,
+    single_letters,
 )
 from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.cleaning.previous_employer import (
@@ -57,7 +58,7 @@ def _clean_employer(value) -> str:
 def _explicit_self_employment(value) -> bool:
     """True only when the filer explicitly reported self-employment."""
     upper = _s(value).strip().upper()
-    compact = re.sub(r"[^A-Z]", "", upper)
+    compact = single_letters(re.sub(r"[^A-Z]", "", upper))
     return (
         upper == "SELF"
         or upper.startswith(("SELF:", "SELF (", "SELF /"))
