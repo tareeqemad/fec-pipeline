@@ -33,6 +33,12 @@ def single_letters(text: str) -> str:
 _STATUS_SPELLINGS = frozenset(
     single_letters(value) for value in EMPLOYER_STATUS_VALUES if len(value) >= 4
 )
+# a one-word status with its letters out of order ('RETRIED', 'RETIERD') is
+# still the status; only words of six letters or more, so no short word matches
+_STATUS_LETTERS = frozenset(
+    "".join(sorted(value)) for value in EMPLOYER_STATUS_VALUES
+    if len(value) >= 6 and value.isalpha()
+)
 
 
 # true if emp names a real company, not junk
@@ -44,7 +50,11 @@ def is_real_employer(emp) -> bool:
     if text.lower() in ('nan', 'none', 'n/a', 'na', ''):
         return False
     upper = text.upper()
-    return upper not in NOT_REAL_EMPLOYER and single_letters(upper) not in _STATUS_SPELLINGS
+    return (
+        upper not in NOT_REAL_EMPLOYER
+        and single_letters(upper) not in _STATUS_SPELLINGS
+        and "".join(sorted(upper)) not in _STATUS_LETTERS
+    )
 
 
 # classify one filing's work status without changing the reported company
