@@ -1,8 +1,11 @@
 """Classify each filing's employer as active, retired, self-employed or not working."""
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
+from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.not_employers import NOT_REAL_EMPLOYER
 
 _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
@@ -16,6 +19,22 @@ def _status_text(value) -> str:
     return "" if pd.isna(value) else str(value).strip().upper()
 
 
+# a run of one letter, typed twice or more
+_DOUBLED_LETTER_RE = re.compile(r"([A-Z])\1+")
+
+
+# the text with every doubled letter typed once ('NNONE' -> 'NONE')
+def single_letters(text: str) -> str:
+    return _DOUBLED_LETTER_RE.sub(r"\1", text)
+
+
+# a status word typed with a doubled letter is still the status, never a company;
+# short ones stay exact (NAAN is a bakery, not NAN)
+_STATUS_SPELLINGS = frozenset(
+    single_letters(value) for value in EMPLOYER_STATUS_VALUES if len(value) >= 4
+)
+
+
 # true if emp names a real company, not junk
 def is_real_employer(emp) -> bool:
     """True if emp names a real company (not RETIRED, SELF-EMPLOYED, junk)."""
@@ -24,7 +43,8 @@ def is_real_employer(emp) -> bool:
     text = str(emp).strip()
     if text.lower() in ('nan', 'none', 'n/a', 'na', ''):
         return False
-    return text.upper() not in NOT_REAL_EMPLOYER
+    upper = text.upper()
+    return upper not in NOT_REAL_EMPLOYER and single_letters(upper) not in _STATUS_SPELLINGS
 
 
 # classify one filing's work status without changing the reported company

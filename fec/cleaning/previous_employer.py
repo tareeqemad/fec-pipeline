@@ -5,7 +5,7 @@ import re
 
 import pandas as pd
 
-from fec.cleaning.employer_status import is_real_employer
+from fec.cleaning.employer_status import is_real_employer, single_letters
 from fec.cleaning.employer_synonyms.normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
@@ -168,8 +168,9 @@ def _is_null_previous(upper: str) -> bool:
 
 # true if the value explicitly states self-employment
 def _is_explicit_self(upper: str) -> bool:
-    # letters only, so "SELF - EMPLOYED" and "SELF EMPLOYEED" count as well
-    letters = re.sub(r'[^A-Z]', '', upper)
+    # letters only, each typed once, so "SELF - EMPLOYED", "SELF EMPLOYEED" and
+    # "SELFF EMPLOYED" count as well
+    letters = single_letters(re.sub(r'[^A-Z]', '', upper))
     return (upper.startswith('SELF:') or letters.startswith('SELFEMPLOY')
             or upper in ('SELF', 'SSELF', 'SELFF'))
 

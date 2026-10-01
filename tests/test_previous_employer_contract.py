@@ -40,7 +40,7 @@ def test_self_employed_is_kept_not_cleared():
     # The shared normalizer preserves the legacy title contract. FEC cache
     # ingestion separately requires an explicit self-employment marker.
     assert V("ATTORNEY") == "SELF-EMPLOYED"
-    assert V("SELF - EMPLOYED") == V("SELF EMPLOYEED") == "SELF-EMPLOYED"
+    assert V("SELF - EMPLOYED") == V("SELF EMPLOYEED") == V("SELFF EMPLOYED") == "SELF-EMPLOYED"
 
 
 def test_non_companies_are_cleared():
@@ -48,7 +48,8 @@ def test_non_companies_are_cleared():
                  "STUDENT", "VOLUNTEER", "NON-PROFIT VOLUNTEER", "N/A",
                  "REAL ESTATE", "HEALTHCARE",
                  "someone@example.com", "XXN",
-                 "DECLINE", "DECLINED", "REQUESTED VIA MAIL", "HOME MANAGER"):
+                 "DECLINE", "DECLINED", "REQUESTED VIA MAIL", "HOME MANAGER",
+                 "NNONE", "RETIIRED", "NOT EMPLLOYED"):
         assert V(junk) == "", junk
 
 
@@ -472,3 +473,8 @@ def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_
     assert cleared == {"ADELE": {"EYE SURGERY ASSOCIATES"}}
     cache = {"donor:ADELE": {"employer": "EYE SURGERY ASSOCIATES", "method": "fec_api", "source_zip": "331794324"}}
     assert step.drop_unproven_source_entries(cache, df, cleared) == 1
+
+
+def test_a_short_status_word_stays_exact():
+    # NAAN collapses to NAN, but it is a bakery's name, not a placeholder
+    assert V("NAAN") == "NAAN"
