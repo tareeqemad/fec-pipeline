@@ -143,6 +143,10 @@ def _resolve_slash(s: str) -> str:
 _NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOYED'}) | {
     # keyboard junk / bare-status stumps seen only in previous_employer
     'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'XXN', 'NOT',
+    # a kind of work, not a workplace (GLUCK, TIKVA in an old FEC filing); kept
+    # out of SECTOR_AS_EMPLOYER, where a filed BUSINESS employer would start
+    # the current-employer inference
+    'BUSINESS',
     # a degree or a pronoun names no company: MD (LAWRENCE HAAS), ME (MARTA BRAND)
     'MD', 'M.D', 'M.D.', 'ME', 'PHD', 'DDS', 'DO',
     # NOT EMPLOYED mistyped (PHYLLIS JOHNSON)
@@ -172,6 +176,20 @@ def _is_null_previous(upper: str) -> bool:
 # "SELF EMPLOYED" written after the filer's own name or trade
 # ("JEFFREY FRANKEL - SELF EMPLOYED", "CONSULTING, SELF-EMPLOYED")
 SELF_EMPLOYED_TAIL_RE = re.compile(r'[-,/(:]\s*SELF[\s-]*EMPLOY\w*\W*$')
+# a word that makes the text before the marker a firm, not the filer's name
+_FIRM_WORD_RE = re.compile(
+    r'\b(?:GROUP|INC|LLC|LLP|LTD|CORP|CORPORATION|CO|COMPANY|ASSOCIATES|PARTNERS'
+    r'|FIRM|PC|PA|PLLC|ENTERPRISES|CONSULTING|SERVICES|STUDIO|AGENCY)\b'
+)
+
+
+# the firm before a trailing SELF EMPLOYED ('THE LOEB GROUP (SELF-EMPLOYED)'), '' if none
+def _firm_before_self_marker(upper: str) -> str:
+    match = SELF_EMPLOYED_TAIL_RE.search(upper)
+    if not match:
+        return ''
+    firm = upper[:match.start()].strip(' -,/(:')
+    return firm if _FIRM_WORD_RE.search(firm) else ''
 
 
 # true if the value explicitly states self-employment
@@ -184,13 +202,20 @@ def _is_explicit_self(upper: str) -> bool:
 
 
 # a title word, or a job word with one letter typed wrong ('ANALIST'); a
-# letter added or dropped is another word ('ADVISORS', 'OFFICE')
+# letter added or dropped counts only on a long word ('THERAPISTE'), never a
+# plural ('ADVISORS') or a short word ('OFFICE' is not OFFICER)
 def _title_word(word: str, last: bool) -> bool:
     if word in JOB_TITLE_HEADS or (not last and word in JOB_TITLE_MODIFIERS):
         return True
-    return last and len(word) >= 6 and any(
-        len(head) == len(word) and levenshtein(word, head) == 1 for head in JOB_TITLE_HEADS
-    )
+    if not last or len(word) < 6:
+        return False
+    for head in JOB_TITLE_HEADS:
+        if len(head) == len(word) and levenshtein(word, head) == 1:
+            return True
+        if len(head) >= 8 and word != head + 'S' and abs(len(head) - len(word)) == 1 \
+                and levenshtein(word, head) == 1:
+            return True
+    return False
 
 
 # true when the value is a job title, not a company ('ADVISOR', 'COMPUTER ANALIST')
@@ -223,6 +248,10 @@ def normalize_previous_employer_value(v) -> str:
         # title into SELF-EMPLOYED (FEC-cache ingestion only keeps
         # SELF-EMPLOYED when the filer wrote it outright)
         return '' if cleaned == 'SELF-EMPLOYED' else cleaned
+    # a firm the filer ran on their own keeps its name ("THE LOEB GROUP (SELF-EMPLOYED)")
+    firm = _firm_before_self_marker(upper)
+    if firm:
+        return normalize_previous_employer_value(firm) or 'SELF-EMPLOYED'
     # explicit self-employment markers
     if _is_explicit_self(upper):
         return 'SELF-EMPLOYED'
