@@ -12,19 +12,18 @@ from fec.cleaning.addresses.street_text import (
     _normalize_unit,
     normalize_street,
 )
-from fec.cleaning.employer_status import current_employer_name, referenced_employers
+from fec.cleaning.employer_status import referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
 from fec.contract import check_output
 from fec.env import CACHE_DIR, CLEANED_CSV, EMPLOYER_LOCATIONS_CSV, REPORTS_DIR, RULES_DIR
 from fec.geocoding.accepted import accepted_coordinates
-from fec.geocoding.address_kind import is_foreign_address, is_po_box
+from fec.geocoding.address_kind import is_foreign_address
 from fec.geocoding.reviewed_points import REVIEWED_POINTS
 from fec.geocoding.street_text import numbered_street
 from fec.io import write_csv_atomic
 from fec.log import get_logger
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE
-from fec.resolve.pipeline.location_choice import zip_centroid
 from fec.resolve.pipeline.locations import (
     ADDRESS_FIELDS,
     PUBLISHABLE_ADDRESS_TRUST,
@@ -66,22 +65,11 @@ REVIEW_COLUMNS = [
     "address_source",
     "method",
     "donor_states",
-    "employer_donors",
-    "filers_at_address",
 ]
 # a grounded address the full lookup did not choose (a canonical sibling's) in no donor's state
 REVIEW_ALIAS_OUTSIDE_DONOR_STATES = "grounded_alias_outside_donor_states"
 # a row kept from the previous employer_locations.csv whose cache or manual source is gone
 REVIEW_NO_CURRENT_SOURCE = "carried_over_without_source"
-# a home-based business: the office is an employee's own filing address
-REVIEW_HOME_OFFICE = "home_office_street_withheld"
-# a home-based business: at most this many donors file at the address, and the
-# employer has at most this many donors (owner decision 2026-09-24)
-HOME_OFFICE_MAX_FILERS = 2
-HOME_OFFICE_MAX_DONORS = 3
-# a manual row whose note starts with this was checked to be a business's own premises
-# (a dealership, a casino, a headquarters its owner also files), so its street stays
-OFFICE_PREMISES_NOTE = "OFFICE PREMISES:"
 # how precise a cached point is: a hand-checked point beats a street point, which
 # beats a ZIP centroid, which beats a town's point ('nominatim_city'); any other
 # level accepted_coordinates returns is an engine's street point
@@ -96,14 +84,6 @@ _EDITORIAL_NOTE_RE = re.compile(r"\s*\([^()]*\)")
 _ZIP_PLUS_FOUR_RE = re.compile(r"^(\d{5})-?\d{4}$")
 # a unit number: a single letter, or a code with at least one digit (700, 2A, E-100, 12/B)
 _UNIT_CODE_RE = re.compile(r"[A-Z]|(?=[A-Z0-9\-/.]*\d)[A-Z0-9][A-Z0-9\-/.]*", re.IGNORECASE)
-# a unit anywhere on the line (the donor split moves only the last one to street_2)
-_ANY_UNIT_RE = re.compile(
-    r"#|\b(?:STE|SUITE|FL|FLR|FLOOR|APT|APARTMENT|UNIT|RM|ROOM|BLDG|BUILDING|PH|PENTHOUSE"
-    r"|PMB|LOT|SPC|SPACE|DEPT|OFC)\b"
-)
-# a unit of a home: a flat, a penthouse, a mobile-home lot; any other unit (STE, FL,
-# RM, BLDG, UNIT, '#', PMB) may be an office's
-_HOME_UNIT_RE = re.compile(r"(?:APT|APARTMENT|PH|PENTHOUSE|LOT|SPC|SPACE)\b")
 _TRAILING_UNIT_WORD_RE = re.compile(r"\s+(?:APT|UNIT|STE|SUITE)\s*$")
 
 
@@ -467,149 +447,6 @@ def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
             .reset_index(drop=True))
 
 
-def _street_match_key(street) -> str:
-    """One building's street for comparing an office with a filing address: units, punctuation and ordinal spelling ignored."""
-    street = numbered_street(str(street or "").strip().upper())
-    street = _bare_street(street)
-    return " ".join(re.sub(r"[^A-Z0-9 ]", " ", street).split())
-
-
-def _has_office_unit(street: str) -> bool:
-    """A unit on a street_1 other than a home's ('10 MAIN ST STE 5' yes, '10 MAIN ST APT 5' no)."""
-    return any(not _HOME_UNIT_RE.match(match.group(0)) for match in _ANY_UNIT_RE.finditer(street))
-
-
-def _employee_addresses(df: pd.DataFrame) -> tuple[dict, dict, dict, set]:
-    """Who works where and who files where, by building (street key, ZIP5).
-
-    Returns (employer -> {building: employee donors filing there}, employer -> employee
-    donors, building -> donors filing there, buildings some filing gives a unit).
-    An employee is a donor whose filing names the employer the way referenced_employers
-    reads it: the current employer of an active or self-employed filing, the previous
-    employer of a retired one. A building some filing gives an office unit is not a
-    home: a donor who files '55 HUDSON YARDS' / 'FL 50' files an office floor. A flat
-    ('APT 7E', 'PH') is still a home: the building's street without the unit is the
-    owner's home street.
-    """
-    work = df.reindex(columns=[
-        "entity_type", "employer_status", "contributor_employer", "previous_employer",
-        "donor_key", "contributor_street_1", "contributor_street_2", "contributor_zip",
-    ]).fillna("").astype(str)
-    work["_street"] = work["contributor_street_1"].map(_street_match_key)
-    work["_zip5"] = work["contributor_zip"].str.strip().str[:5]
-    filed = work[work["_street"].ne("") & work["donor_key"].ne("")]
-    filers = filed.groupby(["_street", "_zip5"])["donor_key"].agg(set).to_dict()
-    # the street_1 itself may still hold a unit the donor split could not move
-    street_2 = filed["contributor_street_2"].str.strip().str.upper()
-    has_unit = ((street_2.ne("") & ~street_2.str.match(_HOME_UNIT_RE))
-                | filed["contributor_street_1"].str.upper().map(_has_office_unit))
-    with_units = set(zip(filed.loc[has_unit, "_street"], filed.loc[has_unit, "_zip5"]))
-
-    individuals = work[work["entity_type"].eq("INDIVIDUAL")] if "entity_type" in df.columns else work
-    pairs = individuals[["employer_status", "contributor_employer"]].drop_duplicates()
-    current = {
-        (status, employer): current_employer_name(status, employer)
-        for status, employer in pairs.itertuples(index=False)
-    }
-    names = [current[(status, employer)] or (previous.strip() if status == "retired" else "")
-             for status, employer, previous in individuals[
-                 ["employer_status", "contributor_employer", "previous_employer"]
-             ].itertuples(index=False)]
-    individuals = individuals.assign(_employer=names)
-    individuals = individuals[individuals["_employer"].ne("") & individuals["donor_key"].ne("")]
-
-    donors = individuals.groupby("_employer")["donor_key"].agg(set).to_dict()
-    addresses: dict[str, dict] = defaultdict(dict)
-    for employer, street, zip5, donor in individuals[
-        ["_employer", "_street", "_zip5", "donor_key"]
-    ].itertuples(index=False):
-        if street:
-            addresses[employer].setdefault((street, zip5), set()).add(donor)
-    return addresses, donors, filers, with_units
-
-
-def _city_level_point(city: str, state: str, zipcode: str) -> tuple[object, object]:
-    """The ZIP's centroid for an office published without its street, when it lies in the office's state."""
-    point = zip_centroid(zipcode)
-    if point is None:
-        return None, None
-    key = "|".join(("", city, state, zipcode)).upper()
-    latitude, longitude, _level = accepted_coordinates(
-        key, {"lat": point[0], "lng": point[1], "source": "zip_centroid"},
-    )
-    return latitude, longitude
-
-
-def office_premises_employers(path=None) -> set[str]:
-    """Employers whose manual row is marked OFFICE_PREMISES_NOTE: never withheld as a home."""
-    path = path or RULES_DIR / "manual_employer_addresses.csv"
-    if not path.exists():
-        return set()
-    manual = pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[])
-    marked = manual["note"].str.strip().str.upper().str.startswith(OFFICE_PREMISES_NOTE)
-    return set(manual.loc[marked, "name"].str.strip().str.upper())
-
-
-def withhold_home_streets(
-    frame: pd.DataFrame, df: pd.DataFrame, premises: set[str] = frozenset(),
-) -> tuple[pd.DataFrame, list[dict]]:
-    """A home-based business is published with its city, state and ZIP only (owner decision 2026-09-24).
-
-    A published US office is a home when it is the filing address (street without
-    unit + ZIP5) of a donor who works there, has no office unit (a suite, a floor),
-    at most HOME_OFFICE_MAX_FILERS donors file at that address (any number when the
-    office is a flat: 255 E 74TH ST APT 24A) and the employer has at most
-    HOME_OFFICE_MAX_DONORS donors. Whatever the source (AI or manual), the street and
-    its pin are withheld; the ZIP's centroid stands in. A PO box is a mailbox, not a
-    home, and a storefront with a suite or several employees keeps its street, as
-    does an employer in `premises` (a manual row checked to be the business's premises).
-    """
-    frame = frame.copy()
-    addresses, donors, filers, with_units = _employee_addresses(df)
-    streets = frame["employer_address"].fillna("").astype(str)
-    candidates = (
-        streets.str.strip().ne("")
-        & frame["address_trust"].isin(PUBLISHABLE_ADDRESS_TRUST)
-        & ~_foreign_mask(frame)
-        & ~streets.map(is_po_box)
-        & ~streets.str.upper().map(_has_office_unit)
-    )
-    review = []
-    for index in frame.index[candidates]:
-        row = frame.loc[index]
-        employer = row["employer_name"]
-        if str(employer).strip().upper() in premises:
-            continue
-        employer_donors = donors.get(employer, set())
-        if not employer_donors or len(employer_donors) > HOME_OFFICE_MAX_DONORS:
-            continue
-        place = (_street_match_key(row["employer_address"]), str(row["employer_zip"]).strip()[:5])
-        if not place[0] or place in with_units or place not in addresses.get(employer, {}):
-            continue
-        filing_donors = filers.get(place, set())
-        # a flat pins one household however many neighbours file from the building
-        is_flat = bool(_ANY_UNIT_RE.search(str(row["employer_address"]).upper()))
-        if len(filing_donors) > HOME_OFFICE_MAX_FILERS and not is_flat:
-            continue
-        review.append(_review_row(
-            employer, row.to_dict(), REVIEW_HOME_OFFICE,
-            employer_donors=len(employer_donors), filers_at_address=len(filing_donors),
-        ))
-        latitude, longitude = _city_level_point(
-            str(row["employer_city"]), str(row["employer_state"]), str(row["employer_zip"]),
-        )
-        frame.at[index, "employer_address"] = ""
-        frame.at[index, "employer_latitude"] = latitude
-        frame.at[index, "employer_longitude"] = longitude
-
-    if review:
-        # an office that is now only a town may repeat another row of the employer
-        frame = (frame.sort_values(["employer_name", "is_primary"], ascending=[True, False], kind="stable")
-                 .drop_duplicates(["employer_name", *ADDRESS_FIELDS])
-                 .reset_index(drop=True))
-    return frame, review
-
-
 def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """(employer_locations rows, review rows) from the cleaned filings, the caches and the previous CSV."""
     employers = referenced_employers(df)
@@ -621,11 +458,7 @@ def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         if row["employer_name"] not in managed
     ])
     locations = _deduplicate(cache_rows + preserved, employers)
-    locations, home_offices = withhold_home_streets(locations, df, office_premises_employers())
-    review_frame = pd.DataFrame(review + unsourced + home_offices, columns=REVIEW_COLUMNS)
-    # counts stay whole numbers where other reasons leave them blank ('2', not '2.0')
-    for column in ("employer_donors", "filers_at_address"):
-        review_frame[column] = review_frame[column].astype("Int64")
+    review_frame = pd.DataFrame(review + unsourced, columns=REVIEW_COLUMNS)
     review_frame = review_frame.sort_values(["reason", "employer_name"], kind="stable").reset_index(drop=True)
     return locations, review_frame
 
