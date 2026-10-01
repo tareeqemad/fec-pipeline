@@ -134,3 +134,24 @@ def test_a_manual_row_marked_office_premises_keeps_its_street(tmp_path, monkeypa
 
     assert location["employer_address"] == "905 ENFIELD CHASE"
     assert employer_locations.REVIEW_HOME_OFFICE not in review["reason"].tolist()
+
+
+def test_an_office_at_a_flat_is_a_home_however_many_neighbours_file(tmp_path, monkeypatch):
+    # the family foundation's filed address is the owner's flat in a tower
+    # many other donors file from (255 E 74TH ST APT 24A)
+    filings = [_filing(street_2="APT 7E"),
+               _filing(employer="OTHER CO", donor="d2", street_2="APT 2B"),
+               _filing(employer="OTHER CO", donor="d3", street_2="APT 9C")]
+
+    location, review = _build(tmp_path, monkeypatch, filings, office="905 Enfield Chase Apt 7E")
+
+    assert location["employer_address"] == ""
+    assert review["reason"].tolist() == [employer_locations.REVIEW_HOME_OFFICE]
+
+
+def test_an_office_with_a_suite_in_a_busy_building_keeps_its_street(tmp_path, monkeypatch):
+    filings = [_filing(), _filing(employer="OTHER CO", donor="d2"), _filing(employer="OTHER CO", donor="d3")]
+
+    location, _review = _build(tmp_path, monkeypatch, filings, office="905 Enfield Chase Ste 2")
+
+    assert location["employer_address"] == "905 ENFIELD CHASE STE 2"
