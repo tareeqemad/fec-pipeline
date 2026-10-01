@@ -199,6 +199,10 @@ def drop_unproven_source_entries(prev_cache, df: pd.DataFrame, cleared: dict | N
             unproven.append(key)
         elif str(entry.get("employer", "")).upper() in (cleared or {}).get(donor_key, ()):
             unproven.append(key)
+        # an answer the current contract no longer reads as a company (ADVISOR,
+        # COMPUTER ANALIST: a job title): searched again for a real employer
+        elif not normalize_previous_employer_value(entry.get("employer", "")):
+            unproven.append(key)
     for key in unproven:
         data.pop(key, None)
     return len(unproven)

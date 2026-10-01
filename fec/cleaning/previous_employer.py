@@ -5,6 +5,7 @@ import re
 
 import pandas as pd
 
+from fec.cleaning._helpers import levenshtein
 from fec.cleaning.employer_status import is_real_employer, single_letters
 from fec.cleaning.employer_synonyms.normalize import (
     normalize_employer_display_name,
@@ -19,6 +20,8 @@ from fec.config.constants import (
 )
 from fec.config.data import MISSING_VALUES
 from fec.config.not_employers import (
+    JOB_TITLE_HEADS,
+    JOB_TITLE_MODIFIERS,
     LEGAL_SUFFIX_RE,
     OCCUPATION_AS_EMPLOYER,
     ROLE_AS_EMPLOYER,
@@ -175,6 +178,25 @@ def _is_explicit_self(upper: str) -> bool:
             or upper in ('SELF', 'SSELF', 'SELFF'))
 
 
+# a title word, or a job word with one letter typed wrong ('ANALIST'); a
+# letter added or dropped is another word ('ADVISORS', 'OFFICE')
+def _title_word(word: str, last: bool) -> bool:
+    if word in JOB_TITLE_HEADS or (not last and word in JOB_TITLE_MODIFIERS):
+        return True
+    return last and len(word) >= 6 and any(
+        len(head) == len(word) and levenshtein(word, head) == 1 for head in JOB_TITLE_HEADS
+    )
+
+
+# true when the value is a job title, not a company ('ADVISOR', 'COMPUTER ANALIST')
+def is_job_title(upper: str) -> bool:
+    """Every word is a title word and the last one names a job."""
+    words = re.findall(r"[A-Z0-9&]+", upper)
+    return bool(words) and all(
+        _title_word(word, index == len(words) - 1) for index, word in enumerate(words)
+    )
+
+
 # apply the previous_employer contract to a single value
 def normalize_previous_employer_value(v) -> str:
     """Contract for ONE value ('' clears it); self-employment is recognised FIRST because the display-name normalizer would clear 'SELF-EMPLOYED', a fact we keep."""
@@ -209,6 +231,9 @@ def normalize_previous_employer_value(v) -> str:
     # a bare job title / role -> worked for themselves in that profession
     if upper in _SE_PREV:
         return 'SELF-EMPLOYED'
+    # any other job title names no company: nothing is known of the employer
+    if is_job_title(upper):
+        return ''
     # any other non-company value (status typo, sector, refusal) is cleared;
     # is_real_employer wraps NOT_REAL_EMPLOYER, catching spellings _NULL_PREV misses
     if not is_real_employer(upper):

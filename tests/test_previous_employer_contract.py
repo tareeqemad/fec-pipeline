@@ -478,3 +478,29 @@ def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_
 def test_a_short_status_word_stays_exact():
     # NAAN collapses to NAN, but it is a bakery's name, not a placeholder
     assert V("NAAN") == "NAAN"
+
+
+def test_a_job_title_names_no_company():
+    # BERMAN filed ADVISOR/RETIRED, PROPP COMPUTER ANALIST: a title, no employer
+    for title in ("ADVISOR", "ADVISOR/RETIRED", "COMPUTER ANALIST", "SENIOR SYSTEMS ANALYST"):
+        assert V(title) == "", title
+    # a company name carries a word no title has, a number, or a plural
+    for company in ("01 ADVISORS", "WELLS FARGO ADVISORS", "COMPUTER ASSOCIATES",
+                    "GENERAL COUNSEL STRATEGIES", "SUMMIT SYSTEMS", "OFFICE DEPOT"):
+        assert V(company) != "", company
+
+
+def test_a_cached_fec_answer_that_is_a_job_title_is_searched_again():
+    import pandas as pd
+    from fec.resolve.pipeline.steps.fec_previous_employer import drop_unproven_source_entries
+
+    df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * 2, "donor_key": ["A", "B"],
+                       "contributor_zip": ["60611", "10028"]})
+    cache = {
+        "donor:A": {"employer": "ADVISOR", "method": "fec_api", "employer_source": "ADVISOR/RETIRED",
+                    "source_zip": "606112130"},
+        "donor:B": {"employer": "ACME", "method": "fec_api", "source_zip": "10028"},
+    }
+
+    assert drop_unproven_source_entries(cache, df) == 1
+    assert sorted(cache) == ["donor:B"]
