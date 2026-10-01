@@ -31,6 +31,14 @@ def test_a_stage_run_out_of_order_names_the_stage_to_run_first():
         check_input("employer_geocode", CLEAN_COLUMNS)
 
 
+def test_resolve_refuses_a_file_it_already_resolved():
+    # it reads previous_employer as filed: on its own output it reads back its answers
+    finished = LOADED_COLUMNS
+    with pytest.raises(ContractError, match=r"resolve.py --apply already ran on this file.*run clean.py first"):
+        check_input("resolve", finished)
+    check_input("resolve", CLEAN_COLUMNS + ("latitude", "longitude"))
+
+
 @pytest.mark.parametrize("written, problem", [
     (CLEAN_COLUMNS + ("latitude", "longitude", "geocode_level"), "unexpected geocode_level"),
     (CLEAN_COLUMNS + ("latitude",), "missing longitude"),

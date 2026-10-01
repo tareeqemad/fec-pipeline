@@ -41,6 +41,8 @@ class Stage:
     needs: tuple[str, ...] = ()
     adds: tuple[str, ...] = ()
     drops: tuple[str, ...] = ()
+    # columns that mean the file already went through this stage
+    refuses: tuple[str, ...] = ()
 
 
 STAGES = {
@@ -49,6 +51,9 @@ STAGES = {
     'resolve': Stage(
         'resolve.py --apply', needs=CLEAN_COLUMNS,
         adds=EMPLOYER_ADDRESS + ('employer_status',) + RESOLVE_WORKING,
+        # it reads previous_employer as what the donor filed: run on its own
+        # output it reads back its earlier answers (ROBINSON lost it on 14 filings)
+        refuses=('employer_status',),
     ),
     'employer_geocode': Stage(
         'geocode.py --employer-only',
@@ -71,6 +76,11 @@ def _added_by(column: str) -> str:
 # raise unless the file a stage reads has every column it needs
 def check_input(stage_name: str, columns) -> None:
     stage = STAGES[stage_name]
+    rerun = [column for column in stage.refuses if column in set(columns)]
+    if rerun:
+        raise ContractError(
+            f"{stage.command} already ran on this file ({', '.join(rerun)}); run clean.py first"
+        )
     missing = [column for column in stage.needs if column not in set(columns)]
     if missing:
         first = _added_by(missing[0])
