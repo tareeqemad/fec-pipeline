@@ -5,6 +5,7 @@ import re
 
 import pandas as pd
 
+from fec.cleaning._helpers import levenshtein
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.not_employers import NOT_REAL_EMPLOYER
 
@@ -41,6 +42,23 @@ _STATUS_LETTERS = frozenset(
 )
 
 
+# a long status word with one letter typed wrong ('UNEMPLOYES\\'); nine letters
+# or more, so no short company name (REWIRED) is one letter off a status
+_LONG_STATUSES = tuple(
+    re.sub(r"[^A-Z]", "", value) for value in EMPLOYER_STATUS_VALUES
+    if len(re.sub(r"[^A-Z]", "", value)) >= 9
+)
+
+
+# true when the letters are one edit from a long status word
+def _long_status_typo(upper: str) -> bool:
+    letters = re.sub(r"[^A-Z]", "", upper)
+    return len(letters) >= 9 and any(
+        abs(len(letters) - len(status)) <= 1 and levenshtein(letters, status) == 1
+        for status in _LONG_STATUSES
+    )
+
+
 # true if emp names a real company, not junk
 def is_real_employer(emp) -> bool:
     """True if emp names a real company (not RETIRED, SELF-EMPLOYED, junk)."""
@@ -54,6 +72,7 @@ def is_real_employer(emp) -> bool:
         upper not in NOT_REAL_EMPLOYER
         and single_letters(upper) not in _STATUS_SPELLINGS
         and "".join(sorted(upper)) not in _STATUS_LETTERS
+        and not _long_status_typo(upper)
     )
 
 

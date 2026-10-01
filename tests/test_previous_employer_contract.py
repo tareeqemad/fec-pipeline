@@ -510,3 +510,12 @@ def test_status_typos_activists_and_a_trailing_self_employed():
     assert V("RETRIED") == V("RETIERD") == V("ACTIVIST") == ""
     assert V("JEFFREY FRANKEL - SELF EMPLOYED") == "SELF-EMPLOYED"
     assert V("REWIRED") == "REWIRED"
+
+
+def test_titles_typos_sectors_and_a_firm_run_alone():
+    assert V("PSYCHO THERAPIST") == V("OCCUPATIONAL THERAPISTE") == V("BUSINESS") == ""
+    assert V("UNEMPLOYES\\") == ""
+    # the firm the filer ran on their own keeps its name; a bare name is self-employment
+    assert V("THE LOEB GROUP (SELF-EMPLOYED)") == "THE LOEB GROUP"
+    assert V("JEFFREY FRANKEL - SELF EMPLOYED") == "SELF-EMPLOYED"
+    assert V("SMALL BUSINESS ADMINISTRATION") == "SMALL BUSINESS ADMINISTRATION"
