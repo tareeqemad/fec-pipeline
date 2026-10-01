@@ -556,8 +556,9 @@ def withhold_home_streets(
     """A home-based business is published with its city, state and ZIP only (owner decision 2026-09-24).
 
     A published US office is a home when it is the filing address (street without
-    unit + ZIP5) of a donor who works there, has no suite/unit, at most
-    HOME_OFFICE_MAX_FILERS donors file at that address and the employer has at most
+    unit + ZIP5) of a donor who works there, has no office unit (a suite, a floor),
+    at most HOME_OFFICE_MAX_FILERS donors file at that address (any number when the
+    office is a flat: 255 E 74TH ST APT 24A) and the employer has at most
     HOME_OFFICE_MAX_DONORS donors. Whatever the source (AI or manual), the street and
     its pin are withheld; the ZIP's centroid stands in. A PO box is a mailbox, not a
     home, and a storefront with a suite or several employees keeps its street, as
@@ -571,7 +572,7 @@ def withhold_home_streets(
         & frame["address_trust"].isin(PUBLISHABLE_ADDRESS_TRUST)
         & ~_foreign_mask(frame)
         & ~streets.map(is_po_box)
-        & ~streets.str.contains(_ANY_UNIT_RE)
+        & ~streets.str.upper().map(_has_office_unit)
     )
     review = []
     for index in frame.index[candidates]:
@@ -586,7 +587,9 @@ def withhold_home_streets(
         if not place[0] or place in with_units or place not in addresses.get(employer, {}):
             continue
         filing_donors = filers.get(place, set())
-        if len(filing_donors) > HOME_OFFICE_MAX_FILERS:
+        # a flat pins one household however many neighbours file from the building
+        is_flat = bool(_ANY_UNIT_RE.search(str(row["employer_address"]).upper()))
+        if len(filing_donors) > HOME_OFFICE_MAX_FILERS and not is_flat:
             continue
         review.append(_review_row(
             employer, row.to_dict(), REVIEW_HOME_OFFICE,
