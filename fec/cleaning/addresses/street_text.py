@@ -200,7 +200,9 @@ def _normalize_unit(s: str) -> str:
         return np.nan
 
     s = str(s).strip().upper()
-    if s.strip(' .,-') in _JUNK_UNITS or _has_no_unit_text(s):
+    # a placeholder behind a hash is still one ('# NA', '#N/A')
+    hashed = s.strip(' .,-#')
+    if s.strip(' .,-') in _JUNK_UNITS or (hashed and hashed in _JUNK_UNITS) or _has_no_unit_text(s):
         return np.nan
     for pattern, replacement in UNIT_RULES:
         s = pattern.sub(replacement, s)

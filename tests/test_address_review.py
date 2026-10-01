@@ -362,3 +362,12 @@ def test_street_2_repeating_street_1_or_a_field_label_is_no_unit():
     df, _ = apply_safe_fixes(df)
     assert pd.isna(df.loc[0, "contributor_street_2"])
     assert pd.isna(_normalize_unit("ADDR 2"))
+
+
+def test_a_placeholder_behind_a_hash_is_no_unit():
+    import pandas as pd
+    from fec.cleaning.addresses.street_text import _normalize_unit
+
+    assert pd.isna(_normalize_unit("# NA"))
+    assert _normalize_unit("# 914") == "# 914"
+    assert _normalize_unit("#") == "#"
