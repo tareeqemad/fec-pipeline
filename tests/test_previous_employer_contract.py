@@ -504,3 +504,9 @@ def test_a_cached_fec_answer_that_is_a_job_title_is_searched_again():
 
     assert drop_unproven_source_entries(cache, df) == 1
     assert sorted(cache) == ["donor:B"]
+
+
+def test_status_typos_activists_and_a_trailing_self_employed():
+    assert V("RETRIED") == V("RETIERD") == V("ACTIVIST") == ""
+    assert V("JEFFREY FRANKEL - SELF EMPLOYED") == "SELF-EMPLOYED"
+    assert V("REWIRED") == "REWIRED"

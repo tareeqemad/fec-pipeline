@@ -11,6 +11,7 @@ from fec.cleaning.employer_status import (
 )
 from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.cleaning.previous_employer import (
+    SELF_EMPLOYED_TAIL_RE,
     normalize_previous_employer_value,
     preserve_own_named_legal_employer,
 )
@@ -63,6 +64,7 @@ def _explicit_self_employment(value) -> bool:
         upper == "SELF"
         or upper.startswith(("SELF:", "SELF (", "SELF /"))
         or compact.startswith("SELFEMPLOY")
+        or bool(SELF_EMPLOYED_TAIL_RE.search(upper))
     )
 
 

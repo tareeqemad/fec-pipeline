@@ -169,13 +169,18 @@ def _is_null_previous(upper: str) -> bool:
     )
 
 
+# "SELF EMPLOYED" written after the filer's own name or trade
+# ("JEFFREY FRANKEL - SELF EMPLOYED", "CONSULTING, SELF-EMPLOYED")
+SELF_EMPLOYED_TAIL_RE = re.compile(r'[-,/(:]\s*SELF[\s-]*EMPLOY\w*\W*$')
+
+
 # true if the value explicitly states self-employment
 def _is_explicit_self(upper: str) -> bool:
     # letters only, each typed once, so "SELF - EMPLOYED", "SELF EMPLOYEED" and
     # "SELFF EMPLOYED" count as well
     letters = single_letters(re.sub(r'[^A-Z]', '', upper))
     return (upper.startswith('SELF:') or letters.startswith('SELFEMPLOY')
-            or upper in ('SELF', 'SSELF', 'SELFF'))
+            or upper in ('SELF', 'SSELF', 'SELFF') or bool(SELF_EMPLOYED_TAIL_RE.search(upper)))
 
 
 # a title word, or a job word with one letter typed wrong ('ANALIST'); a
