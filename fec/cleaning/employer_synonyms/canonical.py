@@ -35,6 +35,8 @@ _CORP_SUFFIXES = (
     "PA",
     "LP",
 )
+# short suffixes that, glued onto a lone word, usually belong to the brand
+_GLUED_BRAND_SUFFIXES = frozenset({"CO", "PC", "PA", "LP"})
 
 # Whole-token abbreviations folded for grouping only (never display).
 # ASSOC deliberately absent: ASSOCIATES vs ASSOCIATION is contextual.
@@ -55,10 +57,19 @@ def canonical_key(name: str) -> str:
     key = re.sub(r"^\s*THE\b", "", key)
     key = re.sub(r"\bAND\b", " ", key)
     key = " ".join(_KEY_TOKEN_EXPANSIONS.get(token, token) for token in key.split())
+    # a one-word name keeps a glued CO/PC/PA/LP: it is part of the brand
+    # (GOLDCO is not GOLD AND COMPANY, TERRACO is not TERRA)
+    words = re.findall(r"[A-Z0-9]+", key)
+    while len(words) > 1 and words[-1] in _CORP_SUFFIXES:
+        words.pop()
+    brand_length = len(words[0]) if len(words) == 1 else 0
     key = re.sub(r"[^A-Z0-9]+", "", key)
     # iteratively strip trailing corporate suffixes until stable
     while True:
         for suffix in _CORP_SUFFIXES:
+            cuts_brand = len(key) - len(suffix) < brand_length
+            if cuts_brand and suffix in _GLUED_BRAND_SUFFIXES:
+                continue
             if key.endswith(suffix) and len(key) > len(suffix) + 3:
                 key = key[: -len(suffix)]
                 break
