@@ -59,6 +59,17 @@ def test_canonical_key_incorporated_and_tokens():
     assert canonical_key('RADIOLOGY ASSOC') != canonical_key('RADIOLOGY ASSOCIATES')
 
 
+def test_canonical_key_keeps_glued_brand_suffix_on_one_word():
+    # GOLDCO (precious metals) is not GOLD AND COMPANY (Baltimore real estate)
+    assert canonical_key('GOLDCO') != canonical_key('GOLD AND COMPANY')
+    assert canonical_key('TERRACO') != canonical_key('TERRA')
+    assert canonical_key('PEPSICO INC') == canonical_key('PEPSICO')
+    # a separate CO word, or a glued suffix on a longer name, still folds
+    assert canonical_key('ACME CO') == canonical_key('ACME')
+    assert canonical_key('ACMECOINC') == canonical_key('ACMECO INC')
+    assert canonical_key('SCOTT FANE,CPA PA') == canonical_key('SCOTT FANE CPA')
+
+
 def test_final_employer_pass_collapses_late_variants():
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL", "INDIVIDUAL"],
