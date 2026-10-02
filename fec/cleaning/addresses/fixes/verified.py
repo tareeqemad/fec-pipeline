@@ -7,6 +7,8 @@ from fec.env import ADDRESS_RULES_CSV
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
+# a rule's unit that removes the filed unit instead of writing one
+CLEAR_UNIT = "[CLEAR]"
 
 
 # apply exact, externally verified address corrections to the frame
@@ -26,7 +28,11 @@ def apply_verified_address_fixes(df: pd.DataFrame) -> int:
         df.loc[mask, "_address_rule"] = f"{source}: {street} | {state} | {zipcode}"
         row_changed = mask & df[S1].fillna("").ne(fixed_street)
         df.loc[mask, S1] = fixed_street
-        if fixed_unit is not None:
+        if fixed_unit == CLEAR_UNIT:
+            # the filed unit was part of the street ("# 1-2" for 3201 1/2)
+            row_changed |= mask & df[S2].fillna("").ne("")
+            df.loc[mask, S2] = pd.NA
+        elif fixed_unit is not None:
             row_changed |= mask & df[S2].fillna("").ne(fixed_unit)
             df.loc[mask, S2] = fixed_unit
         if fixed_city is not None:
