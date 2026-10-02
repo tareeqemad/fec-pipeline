@@ -92,6 +92,12 @@ def _cat(occupation: str) -> str:
     ('AMBASSADOR', 'OTHER'),
     ('REPRESENTATIVE', 'OTHER'),
     ('CUSTOMER SERVICE REPRESENTATIVE', 'OTHER'),
+    # a title naming its field gets that field; a bare ANALYST or FUNERAL
+    # DIRECTOR names none
+    ('TECHNICAL SUPPORT', 'TECHNOLOGY'),
+    ('PHYSIO', 'MEDICAL / HEALTHCARE'),
+    ('ANALYST', 'OTHER'),
+    ('FUNERAL DIRECTOR', 'OTHER'),
     ('SECRETARY', 'MANAGEMENT'),
     ('LEGAL SECRETARY', LEGAL),
     # journalists: the category JOURNALIST already had
