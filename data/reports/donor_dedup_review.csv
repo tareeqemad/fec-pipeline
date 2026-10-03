@@ -1,2 +1,5 @@
 reason,zip,last_name,donor_key_a,first_a,city_a,state_a,donations_a,amount_a,donor_key_b,first_b,city_b,state_b,donations_b,amount_b,combined_amount
+nickname JOSHUA/JOSH,33154,DIAMOND,32b1b526dd4b,JOSHUA,BAL HARBOUR,FL,5,230000.0,f6d5cc8f8c79,JOSH,BAY HARBOR ISLANDS,FL,4,8500.0,238500.0
+initial/prefix MEL->MELVIN,33180,CUTLER,06faee7d1a39,MEL,AVENTURA,FL,1,2000.0,5f760b379332,MELVIN,AVENTURA,FL,11,39200.0,41200.0
+initial/prefix P->PAMELA,33133,ROSE,5c9de406dc29,PAMELA,MIAMI,FL,3,17500.0,ad15bee09f4e,P,MIAMI,FL,1,500.0,18000.0
 same first name (different city?),33176,DIAZ,333d0aab0041,JOSE,MIAMI,FL,1,350.0,f6ea4d9054ba,JOSE FELIX,MIAMI,FL,3,1900.0,2250.0

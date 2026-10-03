@@ -50,10 +50,10 @@
       "passed": true,
       "count": 0
     },
-    "row_count": 218683,
+    "row_count": 222603,
     "zip_state_match": {
       "passed": true,
-      "count": 9
+      "count": 10
     },
     "no_email_as_address": {
       "passed": true,
