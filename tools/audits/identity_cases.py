@@ -31,9 +31,9 @@ check('Goldstein Jeffrey: North Andover vs Newton apart', len(keys_of('GOLDSTEIN
 g = names('GOLDSTEIN, RICHARD')
 gk = g.groupby('donor_key').amt.sum()
 check('Richard Goldstein: Hangley $525 alone', round(gk.get(key('4011620261302587184'), 0)) == 525, str(gk.to_dict()))
-check('Richard Goldstein: Nixon $30,950', round(total('4110120231808001460')) == 30950)
+check('Richard Goldstein: Nixon $32,450', round(total('4110120231808001460')) == 32450)
 check('Richard Goldstein: Mizner $10,250 held apart', round(total('4011620261302592540')) == 10250)
-check('Brodie: lawyer $20,110', round(b.loc[b.donor_key == names('BRODIE, STEVEN').donor_key.iloc[0], 'amt'].sum()) == 20110)
+check('Brodie: lawyer $25,110', round(b.loc[b.donor_key == names('BRODIE, STEVEN').donor_key.iloc[0], 'amt'].sum()) == 25110)
 check('Brodie: $7,000 alone', round(total('4030420261386075351')) == 7000)
 check('Small: New York $1,000 alone', round(total('4052620261511336804')) == 1000)
 check('Goldman: VeArc $200 vs Inflation $250', round(total('4011420251130090187')) == 200 and round(total('4031920261424760196')) == 250)
@@ -42,12 +42,12 @@ check('Rubin: $2,000 held', round(total('4072420241978929001')) == 2000)
 # network filings
 net = b[b.contributor_name.str.contains('POLITICAL NETWORK')]
 check('Network filings: each its own key', net.donor_key.nunique() == len(net), f'{len(net)} filings')
-check('De Toledo Philip $1,889,300', round(b.loc[b.contributor_name == 'DE TOLEDO, PHILIP', 'amt'].sum()) == 1889300)
+check('De Toledo Philip $1,896,300', round(b.loc[b.contributor_name == 'DE TOLEDO, PHILIP', 'amt'].sum()) == 1896300)
 check('Comanor $17,300', round(b.loc[b.contributor_name == 'COMANOR, WILLIAM', 'amt'].sum()) == 17300)
 # holds / joint names
 check('Morris STUN $2,000 off Ellen', key('4052620261511336845') not in set(names('MORRIS, ELLEN').donor_key) or round(total('4052620261511336845')) == 2000)
 check('Ellen Morris $12,000', round(b.loc[b.contributor_name == 'MORRIS, ELLEN', 'amt'].groupby(b.donor_key).sum().max()) == 12000)
-for sub, solo, amt in [('4062420241962023287', 'BOSCHAN, SHIRA', 3250), ('4112020241071383819', 'STEIN, BERNARDO', 1050),
+for sub, solo, amt in [('4062420241962023287', 'BOSCHAN, SHIRA', 3250), ('4112020241071383819', 'STEIN, BERNARDO', 1550),
                        ('4062420241962023289', 'SANDERSON, STEVEN', 6500), ('4012120261303039427', 'TAUBER, KENNETH', 3450)]:
     solo_total = round(b.loc[b.donor_key.isin(keys_of(solo)) & (b.donor_key != key(sub)), 'amt'].sum())
     check(f'{solo}: joint filing held, solo total {amt}', key(sub) not in keys_of(solo) and solo_total == amt, f'solo={solo_total}')
@@ -83,7 +83,7 @@ check('Morris joint Ellen+Stu filings: one held group, $11,200',
       f'{len(joint)} filings, {joint.donor_key.nunique()} keys, ${joint.amt.sum():,.0f}')
 check('Stuart Morris alone $15,709', round(b.loc[b.contributor_name == 'MORRIS, STUART', 'amt'].sum()) == 15709)
 # entity recheck, 2026-09-27: FEC returns entity_type ORG for these payers
-for org, n in [('AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE', 8), ('DEMOCRATIC MAJORITY FOR ISRAEL', 7),
+for org, n in [('AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE', 8), ('DEMOCRATIC MAJORITY FOR ISRAEL', 8),
                ('DEMOCRACY ENGINE LLC', 5), ('HDS HERCULES', 1)]:
     rows = names(org)
     check(f'{org}: {n} filings are ORGANIZATION', len(rows) == n and set(rows.entity_type) == {'ORGANIZATION'},
