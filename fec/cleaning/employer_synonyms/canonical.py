@@ -78,6 +78,14 @@ def canonical_key(name: str) -> str:
     return key
 
 
+# one comma style: "AG,LLC" / "KENNETH ROSE ,ESQ" -> "AG, LLC" / "KENNETH ROSE, ESQ"
+def tidy_employer_commas(name):
+    """Style only: no space before a comma, one after it before a letter (1,000 kept)."""
+    if not isinstance(name, str) or "," not in name:
+        return name
+    return re.sub(r"\s*,(?=[A-Z])", ", ", re.sub(r"\s+,", ",", name))
+
+
 # restore each employer's most-common raw display form from raw CSV
 def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     """End-of-cleaning pass: restore each employer's most-common raw suffix-bearing form (per canonical_key) so the saved CSV reads naturally; idempotent."""
@@ -101,6 +109,7 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
         .str.replace(_TRAILING_PAREN_RE, "", regex=True)
         .str.replace(r"(?:\s*\.)+\s*$", "", regex=True)
         .str.strip()
+        .map(tidy_employer_commas)
     )
     raw = raw[raw["emp"] != ""]
     raw["key"] = raw["emp"].map(canonical_key)

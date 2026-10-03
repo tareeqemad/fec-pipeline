@@ -134,3 +134,10 @@ def test_display_name_retired_prefix():
     assert normalize_employer_display_name('RETIRED US ARMY') == 'US ARMY'
     assert normalize_employer_display_name('RETIRED PHYSICIAN') is None
     assert normalize_employer_display_name('RETIRED MILITARY') is None
+
+
+def test_comma_spacing_is_one_style():
+    from fec.cleaning.employer_synonyms.canonical import tidy_employer_commas
+    assert tidy_employer_commas('AG,LLC') == 'AG, LLC'
+    assert tidy_employer_commas('KENNETH ROSE ,ESQ') == 'KENNETH ROSE, ESQ'
+    assert tidy_employer_commas('1,000 FLOWERS') == '1,000 FLOWERS'
