@@ -5,7 +5,10 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm
 from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
-from fec.cleaning.employer_synonyms.canonical import recanonicalize_employers
+from fec.cleaning.employer_synonyms.canonical import (
+    recanonicalize_employers,
+    tidy_employer_commas,
+)
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 from fec.cleaning.occupations.normalize import _categorize
@@ -137,12 +140,12 @@ def tidy_employer_slashes(name):
     return re.sub(r'\s*/+\s*', ' / ', name).strip()
 
 
-# apply slash-spacing tidy-up to every individual's employer field
+# apply slash and comma spacing tidy-up to every individual's employer field
 def tidy_slash_spacing(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Apply tidy_employer_slashes to every individual's employer; returns (df, n_fixed)."""
+    """Apply tidy_employer_slashes and tidy_employer_commas to every individual's employer; returns (df, n_fixed)."""
     indiv_idx = _indiv_idx(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
-    tidied = emp.map(tidy_employer_slashes)
+    tidied = emp.map(tidy_employer_slashes).map(tidy_employer_commas)
     changed = emp.notna() & (tidied != emp)
     if changed.any():
         df.loc[changed[changed].index, 'contributor_employer'] = tidied[changed]
