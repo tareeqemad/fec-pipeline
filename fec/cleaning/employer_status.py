@@ -68,6 +68,11 @@ def is_real_employer(emp) -> bool:
     if text.lower() in ('nan', 'none', 'n/a', 'na', ''):
         return False
     upper = text.upper()
+    # one character ("A", the "R" of RRETIRED) or a form placeholder
+    # (~~BLANK~~) names no company
+    letters = re.sub(r"[^A-Z0-9]", "", upper)
+    if len(letters) < 2 or letters == "BLANK":
+        return False
     return (
         upper not in NOT_REAL_EMPLOYER
         and single_letters(upper) not in _STATUS_SPELLINGS

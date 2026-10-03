@@ -519,3 +519,15 @@ def test_titles_typos_sectors_and_a_firm_run_alone():
     assert V("THE LOEB GROUP (SELF-EMPLOYED)") == "THE LOEB GROUP"
     assert V("JEFFREY FRANKEL - SELF EMPLOYED") == "SELF-EMPLOYED"
     assert V("SMALL BUSINESS ADMINISTRATION") == "SMALL BUSINESS ADMINISTRATION"
+
+
+def test_one_character_and_form_placeholders_name_no_company():
+    # cached FEC answers: "~~BLANK~~", RRETIRED -> "R", "RETIRED Z" -> "Z"
+    assert V("~~BLANK~~") == V("A") == V("R") == V("Z") == ""
+    assert V("BLANK ROME LLP") == V("BLANK ROME") == "BLANK ROME"
+    assert V("3M") == "3M"
+
+
+def test_truncated_previous_employers_take_their_full_name():
+    assert V("CALIFORNIA CABLE TELEVISION ASSOCIATIO") == "CALIFORNIA CABLE TELEVISION ASSOCIATION"
+    assert V("KASOWITZ, BENSON, TORRES & FRIEDMAN LL") == "KASOWITZ, BENSON, TORRES & FRIEDMAN"
