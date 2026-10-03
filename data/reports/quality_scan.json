@@ -1,5 +1,5 @@
 {
-  "rows": 218683,
+  "rows": 222603,
   "employer_abbreviations": {
     "distinct_employers_flagged": 0,
     "by_token": {}
@@ -18,9 +18,25 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 6,
-    "rows": 8,
+    "distinct": 14,
+    "rows": 19,
     "examples": [
+      {
+        "value": "EXN",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 33x CEO/CHAIRMAN"
+        ]
+      },
+      {
+        "value": "WIZARD",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 29x DJ/KOI FISH HAIR STYLIST"
+        ]
+      },
       {
         "value": "OFFICE STAFF",
         "rows": 2,
@@ -30,11 +46,19 @@
         ]
       },
       {
+        "value": "CONCIL MEMBER",
+        "rows": 2,
+        "why": "donor-history",
+        "evidence": [
+          "2x vs 42x CITY COUNCIL MEMBER/COUNCILMEMBER"
+        ]
+      },
+      {
         "value": "SECURITY ANALYST",
         "rows": 2,
         "why": "donor-history",
         "evidence": [
-          "2x vs 26x CEO/CHAIRMAN"
+          "2x vs 28x CEO/CHAIRMAN"
         ]
       },
       {
@@ -43,6 +67,14 @@
         "why": "donor-history",
         "evidence": [
           "1x vs 11x HYDRO/AQUIFER CONSULTANT/INVESTOR"
+        ]
+      },
+      {
+        "value": "ESTATE PLANNER",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 10x ATTORNEY"
         ]
       },
       {
@@ -62,22 +94,54 @@
         ]
       },
       {
+        "value": "VICE MAYOR",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 43x CITY COUNCIL MEMBER/CONCIL MEMBER"
+        ]
+      },
+      {
         "value": "COMMUNITY BUILDER",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
-          "1x vs 19x CEO/COMMUNITY BUILDING"
+          "1x vs 20x CEO/COMMUNITY BUILDING"
+        ]
+      },
+      {
+        "value": "BEHAVIOR CHANGE COACH",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 9x HEALTH COACH EDUCATOR"
+        ]
+      },
+      {
+        "value": "COLUMNIST",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 13x CONSULTANT/EVENT CURATOR"
+        ]
+      },
+      {
+        "value": "ATTOTNEY",
+        "rows": 1,
+        "why": "donor-history",
+        "evidence": [
+          "1x vs 32x ATTORNEY/GENERAL COUNSEL"
         ]
       }
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 168,
-    "rows": 441,
+    "distinct": 192,
+    "rows": 478,
     "examples": [
       {
         "value": "ANALYST",
-        "rows": 144
+        "rows": 147
       },
       {
         "value": "SELF EMPLOYED, EXECUTIVE COACH",
@@ -89,7 +153,7 @@
       },
       {
         "value": "FUNERAL DIRECTOR",
-        "rows": 13
+        "rows": 14
       },
       {
         "value": "EXECUTIVE COACH",
