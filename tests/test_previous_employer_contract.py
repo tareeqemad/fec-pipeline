@@ -531,3 +531,4 @@ def test_one_character_and_form_placeholders_name_no_company():
 def test_truncated_previous_employers_take_their_full_name():
     assert V("CALIFORNIA CABLE TELEVISION ASSOCIATIO") == "CALIFORNIA CABLE TELEVISION ASSOCIATION"
     assert V("KASOWITZ, BENSON, TORRES & FRIEDMAN LL") == "KASOWITZ, BENSON, TORRES & FRIEDMAN"
+    assert V("INST. FOR THE ANALYSIS OF GLOBAL SECUR") == "INSTITUTE FOR THE ANALYSIS OF GLOBAL SECURITY"
