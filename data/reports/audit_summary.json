@@ -1,6 +1,6 @@
 {
-  "changes": 875352,
-  "changed_cells": 847130,
+  "changes": 875356,
+  "changed_cells": 847133,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -344,9 +344,9 @@
       }
     },
     "enh_normalize_employer": {
-      "changes": 1478,
+      "changes": 1479,
       "reasons": {
-        "strip_suffix_normalize_and": 1478
+        "strip_suffix_normalize_and": 1479
       }
     },
     "enh_fix_fullname_both": {
@@ -368,9 +368,9 @@
       }
     },
     "enh_employer_synonyms": {
-      "changes": 7000,
+      "changes": 7004,
       "reasons": {
-        "verified_same_company": 7000
+        "verified_same_company": 7004
       }
     },
     "enh_fix_occ_as_employer": {
@@ -584,9 +584,9 @@
       }
     },
     "donor_canonical_employers": {
-      "changes": 1463,
+      "changes": 1467,
       "reasons": {
-        "donor_employer_variant_merged_to_fullest_name": 1463
+        "donor_employer_variant_merged_to_fullest_name": 1467
       }
     },
     "donor_canonical_units": {
@@ -632,9 +632,9 @@
       }
     },
     "donor_employer_substring_variants": {
-      "changes": 634,
+      "changes": 630,
       "reasons": {
-        "employer_short_form_merged_into_full_name_same_donor": 634
+        "employer_short_form_merged_into_full_name_same_donor": 630
       }
     },
     "donor_employer_acronym_variants": {
@@ -680,9 +680,9 @@
       }
     },
     "donor_recover_previous_employer": {
-      "changes": 3301,
+      "changes": 3300,
       "reasons": {
-        "previous_employer_from_latest_earlier_filing": 3301
+        "previous_employer_from_latest_earlier_filing": 3300
       }
     },
     "donor_clear_refusal_employers": {
