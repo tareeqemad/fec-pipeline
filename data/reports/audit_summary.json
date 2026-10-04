@@ -1,6 +1,6 @@
 {
-  "changes": 875380,
-  "changed_cells": 847150,
+  "changes": 875381,
+  "changed_cells": 847151,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -368,9 +368,9 @@
       }
     },
     "enh_employer_synonyms": {
-      "changes": 7006,
+      "changes": 7007,
       "reasons": {
-        "verified_same_company": 7006
+        "verified_same_company": 7007
       }
     },
     "enh_fix_occ_as_employer": {
