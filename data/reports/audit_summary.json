@@ -1,6 +1,6 @@
 {
-  "changes": 875356,
-  "changed_cells": 847133,
+  "changes": 875370,
+  "changed_cells": 847140,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -314,9 +314,9 @@
       }
     },
     "enh_name_corrections": {
-      "changes": 99,
+      "changes": 104,
       "reasons": {
-        "manual_correction": 99
+        "manual_correction": 104
       }
     },
     "enh_fix_apostrophes": {
@@ -368,9 +368,9 @@
       }
     },
     "enh_employer_synonyms": {
-      "changes": 7004,
+      "changes": 7006,
       "reasons": {
-        "verified_same_company": 7004
+        "verified_same_company": 7006
       }
     },
     "enh_fix_occ_as_employer": {
@@ -530,15 +530,15 @@
       }
     },
     "employer_restore_suffixes": {
-      "changes": 1864,
+      "changes": 1862,
       "reasons": {
-        "employer_display_form_restored_from_raw": 1864
+        "employer_display_form_restored_from_raw": 1862
       }
     },
     "enh_employer_synonyms_final": {
-      "changes": 5116,
+      "changes": 5126,
       "reasons": {
-        "verified_same_company": 5116
+        "verified_same_company": 5126
       }
     },
     "employer_expand_abbreviations": {
@@ -578,9 +578,9 @@
       }
     },
     "donor_canonical_names": {
-      "changes": 13498,
+      "changes": 13494,
       "reasons": {
-        "donor_name_unified_to_modal_last_and_longest_first": 13498
+        "donor_name_unified_to_modal_last_and_longest_first": 13494
       }
     },
     "donor_canonical_employers": {
@@ -644,9 +644,9 @@
       }
     },
     "donor_own_firm_absorbs_self_employed": {
-      "changes": 867,
+      "changes": 868,
       "reasons": {
-        "self_employed_rows_moved_to_donors_own_firm": 867
+        "self_employed_rows_moved_to_donors_own_firm": 868
       }
     },
     "donor_fill_employer_from_donor": {
@@ -734,9 +734,9 @@
       }
     },
     "final_employer_synonyms": {
-      "changes": 17,
+      "changes": 19,
       "reasons": {
-        "verified_same_company": 17
+        "verified_same_company": 19
       }
     },
     "final_employer_recanonicalize": {
