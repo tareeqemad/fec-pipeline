@@ -29,11 +29,12 @@ def test_unblocked_pair_not_matched(monkeypatch):
 def test_single_rules_file_has_all_actions():
     rows = R._read_rules()
     actions = {row["action"] for row in rows}
-    assert actions == {"merge_keys", "merge_names", "separate", "hold"}
+    assert actions == {"merge_keys", "merge_names", "separate", "hold", "hold_address"}
     assert all(row["source"] for row in rows)
     assert all(row["reviewed_at"] for row in rows)
     assert R.KEY_MERGES
     assert R.NAME_MERGES
+    assert R.HELD_ADDRESSES
     assert R.SEPARATE_NAMES or R.SEPARATE_IDENTITIES
 
 
@@ -297,3 +298,33 @@ def test_split_name_merge_joins_each_linked_group_on_its_own():
                        row("c", "9 ELM ST"), row("c", "9 ELM ST"), row("d", "9 ELM ST")])
     assert K.merge_split_name_donors(df) == 2
     assert df["donor_key"].tolist() == ["a", "a", "a", "c", "c", "c"]
+
+
+def test_an_address_hold_keeps_later_filings_from_there_in_the_group(monkeypatch):
+    group = "GOLDSTEIN, RICHARD | 200 SE MIZNER BLVD, BOCA RATON"
+    monkeypatch.setattr(K, "HELD_FILINGS", {"1": group})
+    monkeypatch.setattr(K, "HELD_ADDRESSES", {("GOLDSTEIN, RICHARD", "200 SE MIZNER BLVD", "33432"): group})
+    df = pd.DataFrame({
+        "sub_id": ["1", "2", "3"],
+        "donor_key": ["mizner", "nixon", "nixon"],
+        "contributor_name": ["GOLDSTEIN, RICHARD"] * 3,
+        "contributor_street_1": ["200 SE MIZNER BLVD", "200 SE Mizner Blvd", "660 GOLDEN HARBOUR DR"],
+        "contributor_zip": ["33432", "334321234", "33432"],
+    })
+
+    # sub_id 2 has no rule of its own: the address rule holds it with sub_id 1
+    assert K.hold_unproven_filings(df) == 2
+    assert df.at[1, "donor_key"] == df.at[0, "donor_key"] != "nixon"
+    assert df.at[2, "donor_key"] == "nixon"
+    assert df.at[2, "identity_status"] != "held"
+
+
+def test_an_address_hold_needs_its_street(monkeypatch, tmp_path):
+    path = tmp_path / "rules.csv"
+    path.write_text(
+        "action,group,name_a,zip_a,street_a,review_status,source,reviewed_at\n"
+        "hold_address,SOME GROUP,\"DOE, JOHN\",10001,,verified_fec,https://www.fec.gov,2026-10-04\n"
+    )
+    monkeypatch.setattr(R, "RULES_PATH", path)
+    with pytest.raises(ValueError, match="street_a"):
+        R._read_rules()
