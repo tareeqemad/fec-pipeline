@@ -1,6 +1,6 @@
 {
-  "changes": 875370,
-  "changed_cells": 847140,
+  "changes": 875380,
+  "changed_cells": 847150,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -566,9 +566,9 @@
       }
     },
     "manual_overrides": {
-      "changes": 183,
+      "changes": 193,
       "reasons": {
-        "curated_row_override": 183
+        "curated_row_override": 193
       }
     },
     "network_organization_classification": {
