@@ -99,11 +99,17 @@ def _strip_retired_marker(upper: str) -> tuple[str, bool]:
     return upper, False
 
 
+# part time / full time written after the company: "UMIAMI P/T"
+_SCHEDULE_SUFFIX_RE = re.compile(r'\s+[PF]/T\s*$', re.IGNORECASE)
+
+
 # collapse a slash-format value to its useful company side
 def _resolve_slash(s: str) -> str:
     """Collapse slash-format values: keep real brands, drop admin/self forms, prefer the company side; result still passes normalize_employer_display_name."""
     if not s:
         return ''
+    # a trailing work schedule is no second company: "UMIAMI P/T" is UMIAMI
+    s = _SCHEDULE_SUFFIX_RE.sub('', s)
     value_upper = s.strip().upper()
     if value_upper in SLASH_BRAND_EMPLOYERS:
         return s

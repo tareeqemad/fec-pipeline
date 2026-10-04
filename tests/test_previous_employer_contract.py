@@ -532,3 +532,9 @@ def test_truncated_previous_employers_take_their_full_name():
     assert V("CALIFORNIA CABLE TELEVISION ASSOCIATIO") == "CALIFORNIA CABLE TELEVISION ASSOCIATION"
     assert V("KASOWITZ, BENSON, TORRES & FRIEDMAN LL") == "KASOWITZ, BENSON, TORRES & FRIEDMAN"
     assert V("INST. FOR THE ANALYSIS OF GLOBAL SECUR") == "INSTITUTE FOR THE ANALYSIS OF GLOBAL SECURITY"
+
+
+def test_a_work_schedule_after_the_company_is_not_a_second_company():
+    # cached FEC answer "UMIAMI P/T" (part time) read as UMIAMI P / T
+    assert V("UMIAMI P/T") == "UNIVERSITY OF MIAMI"
+    assert V("IBM F/T") == V("IBM")
