@@ -9,7 +9,7 @@ correction in data/rules/entity_overrides.csv can still overrule it
 when the filing itself is wrong. Where FEC gave none (rows pulled before
 these fields existed, not yet backfilled), the name-based rules decide.
 
-A held filing (a hold rule on its sub_id) or an unresolved one keeps its
+A held filing (a hold rule on its sub_id or its name at an address) or an unresolved one keeps its
 classification: FEC's type is shown beside it, never used to settle who
 gave. contributor_id is not used to type a row either: a C id can name the
 committee the money went through, not the contributor.
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.donor_match.rules import HELD_FILINGS
+from fec.donor_match.rules import held_groups
 from fec.env import FEC_SOURCE_CSV
 
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
@@ -62,7 +62,7 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
     source = source_entity_type(df)
     if not source.ne("").any():
         return source
-    undecided = df["sub_id"].astype(str).str.strip().isin(HELD_FILINGS)
+    undecided = held_groups(df) != ""
     if "identity_status" in df.columns:
         undecided |= df["identity_status"].fillna("confirmed").ne("confirmed")
     return source.where(~undecided, "")

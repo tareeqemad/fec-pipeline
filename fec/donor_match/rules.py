@@ -8,13 +8,14 @@ from fec.env import RULES_DIR
 
 
 RULES_PATH = RULES_DIR / "donor_identity_rules.csv"
-VALID_ACTIONS = {"merge_keys", "merge_names", "separate", "hold"}
+VALID_ACTIONS = {"merge_keys", "merge_names", "separate", "hold", "hold_address"}
 VALID_REVIEW_STATUSES = {"verified_fec", "verified_web"}
 REQUIRED_FIELDS = {
     "merge_keys": ("donor_key_a", "donor_key_b"),
     "merge_names": ("name_a",),
     "separate": ("name_a", "name_b"),
     "hold": ("sub_id", "group"),
+    "hold_address": ("name_a", "street_a", "zip_a", "group"),
 }
 
 
@@ -124,6 +125,44 @@ def _load_holds(rows) -> dict[str, str]:
     }
 
 
+# map name+street+ZIP to its hold group
+def _load_held_addresses(rows) -> dict[tuple[str, str, str], str]:
+    """(name, street, zip5) -> hold group: every filing of that name from that
+    address, including ones filed after the rule was written, stays unproven."""
+    return {
+        (
+            _normalize(row.get("name_a")),
+            _normalize(row.get("street_a")),
+            _normalize(row.get("zip_a"))[:5],
+        ): row["group"].strip()
+        for row in rows
+        if _normalize(row.get("action")) == "HOLD_ADDRESS"
+    }
+
+
+# the hold group of each filing ('' when none)
+def held_groups(df, filings=None, addresses=None) -> "pd.Series":
+    """A hold rule's group for each row: by sub_id, else by name+street+ZIP."""
+    import pandas as pd
+
+    filings = HELD_FILINGS if filings is None else filings
+    addresses = HELD_ADDRESSES if addresses is None else addresses
+
+    groups = pd.Series("", index=df.index, dtype=object)
+    if "sub_id" in df.columns and filings:
+        groups = df["sub_id"].astype(str).str.strip().map(filings).fillna("")
+    columns = ("contributor_name", "contributor_street_1", "contributor_zip")
+    if addresses and all(column in df.columns for column in columns):
+        place = list(zip(
+            df["contributor_name"].map(_normalize),
+            df["contributor_street_1"].map(_normalize),
+            df["contributor_zip"].map(_normalize).str[:5],
+        ))
+        by_place = pd.Series([addresses.get(key, "") for key in place], index=df.index)
+        groups = groups.where(groups != "", by_place)
+    return groups
+
+
 # group curated name-merge rules by their group label
 def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     groups = defaultdict(list)
@@ -171,6 +210,7 @@ _RULES = _read_rules()
 SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES)
 KEY_MERGES = _load_key_merges(_RULES)
 HELD_FILINGS = _load_holds(_RULES)
+HELD_ADDRESSES = _load_held_addresses(_RULES)
 NAME_MERGES = _load_name_merges(_RULES)
 _JOINT_EXEMPT_NAMES = _load_joint_exemptions(_RULES)
 _MERGED_NAME_PREFIXES = tuple(

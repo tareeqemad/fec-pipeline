@@ -8,8 +8,10 @@ import pandas as pd
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.normalize import normalize_committee_name
 from fec.donor_match.rules import (
+    HELD_ADDRESSES,
     HELD_FILINGS,
     KEY_MERGES,
+    held_groups,
     identities_must_stay_separate,
     names_must_stay_separate,
     resolve_donor_key,
@@ -201,14 +203,15 @@ def hold_unproven_filings(df: pd.DataFrame) -> int:
     """Give each held filing group its own key, outside every person.
 
     A hold rule lists filings whose owner is not proven (a joint name cut to
-    one person, a second address two same-name people could share); the group
-    keeps them together and away from any person's total until evidence decides.
+    one person, a second address two same-name people could share), by sub_id
+    or, for a name at an address, by name+street+ZIP so later filings from
+    there are held too; the group keeps them together and away from any
+    person's total until evidence decides.
     """
-    if not HELD_FILINGS or "sub_id" not in df.columns:
-        return 0
-    groups = df["sub_id"].astype(str).map(HELD_FILINGS)
-    held = groups.notna()
-    missing = len(HELD_FILINGS) - int(held.sum())
+    groups = held_groups(df, HELD_FILINGS, HELD_ADDRESSES)
+    held = groups != ""
+    found = set(df.loc[held, "sub_id"].astype(str)) if "sub_id" in df.columns else set()
+    missing = len(set(HELD_FILINGS) - found)
     if missing:
         logger.warning("  %s held filings not in the data", missing)
     df.loc[held, "donor_key"] = groups[held].map(
