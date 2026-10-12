@@ -3,8 +3,8 @@ import pandas as pd
 
 from fec.cleaning.employer_synonyms.canonical import restore_display_suffixes
 from fec.cleaning.occupations.employer_groups import (
-    _canonicalize_employers,
-    _employer_group_key,
+    canonicalize_employers,
+    employer_group_key,
     employer_group_words,
 )
 
@@ -21,8 +21,8 @@ def _frame(rows):
 def test_group_words_keep_breaks_and_key_ignores_them():
     assert employer_group_words('TWIN CITY FAN COMPANIES, LTD.') == ('TWIN', 'CITY', 'FAN', 'COMPANIES')
     assert employer_group_words('KIRKLAND&ELLIS') == ('KIRKLAND', 'AND', 'ELLIS')
-    assert _employer_group_key('TWINCITY FAN') == _employer_group_key('TWIN CITY FAN') == 'TWINCITYFAN'
-    assert _employer_group_key('KIRKLAND & ELLIS LLP') == 'KIRKLANDANDELLIS'
+    assert employer_group_key('TWINCITY FAN') == employer_group_key('TWIN CITY FAN') == 'TWINCITYFAN'
+    assert employer_group_key('KIRKLAND & ELLIS LLP') == 'KIRKLANDANDELLIS'
 
 
 def test_donors_full_name_spacing_beats_a_more_frequent_misspelling():
@@ -31,7 +31,7 @@ def test_donors_full_name_spacing_beats_a_more_frequent_misspelling():
         ('TWIN CITY FAN', 'BARRY, MICHAEL', 4),
         ('TWIN CITY FAN COMPANIES LTD', 'BARRY, MICHAEL', 13),
     ])
-    _canonicalize_employers(df)
+    canonicalize_employers(df)
     assert set(df['contributor_employer']) == {'TWIN CITY FAN', 'TWIN CITY FAN COMPANIES LTD'}
 
 
@@ -42,7 +42,7 @@ def test_unrelated_company_sharing_the_spaced_prefix_cannot_flip_the_group():
         ('BLACK ROCK', 'JONES, BOB', 2),
         ('BLACK ROCK COFFEE', 'LEE, CARL', 20),
     ])
-    _canonicalize_employers(df)
+    canonicalize_employers(df)
     assert set(df['contributor_employer']) == {'BLACKROCK', 'BLACK ROCK COFFEE'}
 
 
@@ -54,7 +54,7 @@ def test_conflicting_evidence_keeps_the_frequency_winner():
         ('AB INITIO SOFTWARE', 'DALEZMAN, ALLEN', 3),
         ('ABINITIO SOFTWARE', 'DALEZMAN, ALLEN', 10),
     ])
-    _canonicalize_employers(df)
+    canonicalize_employers(df)
     assert (df['contributor_employer'].isin(['AB INITIO', 'ABINITIO SOFTWARE'])).all()
 
 
@@ -64,14 +64,14 @@ def test_punctuation_breaks_are_not_spacing_evidence():
         ('BANK OF AMERICA/MERRILL', 'LEVINSON, PETER', 2),
         ('BANK OF AMERICA/MERRILL LYNCH', 'MORSE, RICHARD', 6),
     ])
-    _canonicalize_employers(df)
+    canonicalize_employers(df)
     assert (df['contributor_employer'].iloc[:6] == 'BANK OF AMERICA/ MERRILL').all()
 
 
 def test_without_filer_names_the_frequency_rule_is_unchanged():
     df = pd.DataFrame({'contributor_employer': ['TWINCITY FAN'] * 7 + ['TWIN CITY FAN'] * 4
                        + ['TWIN CITY FAN COMPANIES LTD'] * 13})
-    _canonicalize_employers(df)
+    canonicalize_employers(df)
     assert set(df['contributor_employer']) == {'TWINCITY FAN', 'TWIN CITY FAN COMPANIES LTD'}
 
 

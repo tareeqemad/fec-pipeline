@@ -1,4 +1,4 @@
-"""CSV I/O helpers: "Null" is a real donor surname, so every pipeline read must use an na_values list that omits "NULL" (read_pipeline_csv centralises this)."""
+"""CSV helpers; "Null" is a real surname."""
 import json
 import os
 import time
@@ -6,12 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
-# pandas' default missing-value list minus 'NULL', 'NA', 'null', 'n/a'
-# (real surnames like "Null" and "Na"); junk placeholders are still recognised
+# pandas defaults minus surnames like Null, Na
 NA_VALUES = ['', '#N/A', '#NA', 'N/A', '#N/A N/A', 'NaN', 'nan', 'None']
 
 
-# columns read as strings to preserve leading zeros and avoid scientific notation
+# read as strings to keep leading zeros
 ID_DTYPES = {
     'sub_id': 'string',
     'transaction_id': 'string',
@@ -21,10 +20,16 @@ ID_DTYPES = {
 }
 
 
+# cell as stripped text, blank for NaN
+def cell_text(value) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
 # read a pipeline CSV with NULL-surname-safe defaults
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
-    """Read a pipeline CSV with NULL-surname-safe defaults."""
-    # peek header to scope dtypes to present columns only
+    # only set dtypes for present columns
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
     dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
@@ -38,18 +43,13 @@ def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     )
 
 
-# a Windows reader (Excel, an editor, antivirus, OneDrive) can hold the target for a moment
+# Excel or OneDrive may briefly lock files
 REPLACE_ATTEMPTS = 10
 REPLACE_WAIT_SECONDS = 0.5
 
 
-# move the finished temp file over the target, waiting out a short Windows lock
+# os.replace with retries; keeps old on failure
 def replace_file(temp_path: str, path: str) -> None:
-    """os.replace, retried while another program holds the target open.
-
-    If the lock outlasts the retries the temp file is removed, the old file is
-    left as it was, and the error names the file to close.
-    """
     for attempt in range(REPLACE_ATTEMPTS):
         try:
             os.replace(temp_path, path)
@@ -67,9 +67,8 @@ def replace_file(temp_path: str, path: str) -> None:
     )
 
 
-# write JSON via a temp file, never half-written
+# write JSON atomically via a temp file
 def write_json_atomic(path: str | Path, data, **dump_options) -> None:
-    """Write data as JSON to path via path + '.tmp' and an atomic rename."""
     path = str(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     temp_path = path + ".tmp"
@@ -78,9 +77,8 @@ def write_json_atomic(path: str | Path, data, **dump_options) -> None:
     replace_file(temp_path, path)
 
 
-# write a DataFrame as CSV through a temp file and an atomic rename
+# write CSV atomically; failure keeps the old
 def write_csv_atomic(df, path: str | Path, **to_csv_options) -> None:
-    """A reader never sees half a file: a failed write leaves the old one."""
     path = str(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     temp_path = path + ".tmp"

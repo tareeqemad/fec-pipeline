@@ -1,14 +1,16 @@
 """A retired filing never takes a previous employer the donor only filed later (MARGOLIN, RUTH)."""
 import pandas as pd
 
-from fec.resolve.pipeline.apply import ResolveContext, _first_filed_employers, _resolve_retired
+from fec.resolve.pipeline.apply import ResolveContext, _resolve_retired
+from fec.resolve.pipeline.previous_choice import first_filed_employers
+from clean_columns import with_clean_fields
 
 CLINIC = "ASSOCIATES IN GASTROENTEROLOGY OF UNION COUNTY"
 
 
 def _retired(date):
-    return pd.Series({"donor_key": "ruth", "contribution_receipt_date": date,
-                      "contributor_name": "MARGOLIN, RUTH", "contributor_employer": "RETIRED"})
+    return with_clean_fields(pd.Series({"donor_key": "ruth", "contribution_receipt_date": date,
+                                        "contributor_name": "MARGOLIN, RUTH", "contributor_employer": "RETIRED"}))
 
 
 def _context(entry, first_filed=None):
@@ -46,7 +48,7 @@ def test_first_filed_employers_keeps_each_donors_earliest_date():
         "contributor_employer": [f"{CLINIC} PA", f"{CLINIC} PA", "RETIRED"],
         "contribution_receipt_date": ["2025-01-01", "2024-09-02", "2022-02-02"],
     })
-    assert _first_filed_employers(df)[("ruth", f"{CLINIC} PA")] == pd.Timestamp("2024-09-02")
+    assert first_filed_employers(df)[("ruth", f"{CLINIC} PA")] == pd.Timestamp("2024-09-02")
 
 
 FILED = {"s1": "UNIVERSITY OF CONNECTICUT"}

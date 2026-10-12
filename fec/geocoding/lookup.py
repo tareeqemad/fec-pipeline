@@ -1,9 +1,9 @@
-"""Geocode one address: street in its filed ZIP first, then ZIP, then city."""
+"""Geocode one address: street, ZIP, then city."""
 import math
 import time
 
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
-from fec.geocoding.abroad import _geocode_abroad_unless_us_zip, _geocode_foreign
+from fec.geocoding.abroad import geocode_abroad_unless_us_zip, geocode_foreign
 from fec.geocoding.address_kind import is_foreign_address, is_po_box
 from fec.geocoding.engines import (
     NOMINATIM_DELAY,
@@ -12,53 +12,49 @@ from fec.geocoding.engines import (
     nominatim,
     nominatim_within,
 )
-from fec.geocoding.locality import _Locality
+from fec.geocoding.locality import Locality
 from fec.geocoding.places import distance_km as _distance_km
 from fec.geocoding.places import valid_for_state as _valid_for_state
 from fec.geocoding.reviewed_points import (
     REVIEWED_WRONG_POINTS,
     is_reviewed_wrong,
 )
-from fec.geocoding.street_text import _clean_street_for_geocoding
+from fec.geocoding.street_text import clean_street_for_geocoding
 from fec.geocoding.zip_checks import (
-    _ZIP_OUTLIER_KM,
-    _zip_replaces_city,
+    ZIP_OUTLIER_KM,
+    zip_replaces_city,
     street_zip_limit_km,
 )
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-# two engines' points for one address this close together are the same place
-# (Census address ranges vs OSM: 0.01-0.7 km apart for the 2026-09-23 typos)
+# two engines this close agree on place
 _ENGINES_AGREE_KM = 1.0
 
 
-# check whether a street-level result lies inside the filed ZIP
-def _inside_filed_zip(lat: float, lng: float, locality: _Locality) -> bool:
-    """A street-level result inside the filed ZIP (always true when the ZIP has no centroid to test against)."""
+# true if street result lies in ZIP
+def _inside_filed_zip(lat: float, lng: float, locality: Locality) -> bool:
     if locality.zip_point is None:
         return True
     limit = street_zip_limit_km(locality.zipcode)
     return limit is None or _distance_km((lat, lng), locality.zip_point) <= limit
 
 
-# decide whether to accept a street-level geocoding result
-def _accept_street(lat: float, lng: float, locality: _Locality) -> bool:
-    """Keep a street-level result inside the filed ZIP, or outside it when the filed ZIP contradicts the filed city (a ZIP typo 50+ km off) and the result lies in that city."""
+# accept in-ZIP, or in-city when ZIP contradicts
+def _accept_street(lat: float, lng: float, locality: Locality) -> bool:
     if _inside_filed_zip(lat, lng, locality):
         return True
     city = locality.city_point() if locality.city else None
     if city is None:
         return False
     city_point = city[:2]
-    return (_distance_km(city_point, locality.zip_point) > _ZIP_OUTLIER_KM
-            and _distance_km((lat, lng), city_point) <= _ZIP_OUTLIER_KM)
+    return (_distance_km(city_point, locality.zip_point) > ZIP_OUTLIER_KM
+            and _distance_km((lat, lng), city_point) <= ZIP_OUTLIER_KM)
 
 
-# compute a bounding box around the filed ZIP's centroid
-def _zip_search_box(locality: _Locality) -> tuple[float, float, float, float] | None:
-    """(south, west, north, east) around the filed ZIP's centroid, as wide as the street-inside-ZIP limit."""
+# search box around the filed ZIP centroid
+def _zip_search_box(locality: Locality) -> tuple[float, float, float, float] | None:
     limit = street_zip_limit_km(locality.zipcode) if locality.zip_point else None
     if limit is None:
         return None
@@ -68,13 +64,8 @@ def _zip_search_box(locality: _Locality) -> tuple[float, float, float, float] | 
     return lat - dlat, lng - dlng, lat + dlat, lng + dlng
 
 
-# search for the same street restricted to the ZIP's box
-def _street_in_filed_zip(street: str, locality: _Locality) -> tuple | None:
-    """The same street in the filed city, searched only around the filed ZIP; a hit inside the ZIP, or None when the ZIP has no such street.
-
-    The city is part of the query: without it a same-named street in the next town
-    at the edge of the search circle counts (474 CENTRAL AVE PASSAIC matched in
-    Hackensack)."""
+# search the same street within ZIP's box
+def _street_in_filed_zip(street: str, locality: Locality) -> tuple | None:
     box = _zip_search_box(locality)
     if box is None or not street:
         return None
@@ -87,28 +78,15 @@ def _street_in_filed_zip(street: str, locality: _Locality) -> tuple | None:
     return lat, lng, country_code or "US", "nominatim"
 
 
-# check whether a point is near the filed city
-def _in_filed_city(lat: float, lng: float, locality: _Locality) -> bool:
-    """A point within 50 km of the filed city's point; of the filed ZIP's centroid when the city is missing or unknown."""
+# true if point lies near filed city
+def _in_filed_city(lat: float, lng: float, locality: Locality) -> bool:
     city = locality.city_point() if locality.city else None
     anchor = city[:2] if city else locality.zip_point
-    return anchor is not None and _distance_km((lat, lng), anchor) <= _ZIP_OUTLIER_KM
+    return anchor is not None and _distance_km((lat, lng), anchor) <= ZIP_OUTLIER_KM
 
 
-# decide whether an out-of-ZIP street match should still be trusted
-def _resolve_outside_zip(street: str, locality: _Locality, outside: list[tuple]) -> tuple | None:
-    """Street results that landed outside the filed ZIP (engine order: census, nominatim).
-
-    If the street exists inside the filed ZIP, the outside result was a same-named
-    street in another town (10 S LA SALLE ST CHICAGO 60603 matched on the South
-    Side): the hit inside the ZIP wins. If the filed ZIP has no such street, the ZIP
-    may be the typo (2160 GOLD ST SAN JOSE filed with 95112 is in Alviso, 95002).
-    The outside point is kept only when Census and Nominatim independently put the
-    address at the same spot, in the filed city. One engine alone proves nothing:
-    Nominatim put 1 BRYANT PARK in Yonkers and Census put 1 FOUNTAIN SQUARE
-    CHATTANOOGA in East Ridge, while neither street could be found inside its ZIP.
-    Otherwise None, and the caller falls back to the filed ZIP.
-    """
+# in-ZIP street wins; else engines must agree
+def _resolve_outside_zip(street: str, locality: Locality, outside: list[tuple]) -> tuple | None:
     inside = _street_in_filed_zip(street, locality)
     if inside is not None:
         return inside
@@ -122,15 +100,9 @@ def _resolve_outside_zip(street: str, locality: _Locality, outside: list[tuple])
     return None
 
 
-# fall back to city or ZIP when street geocoding fails
-def _fallback(locality: _Locality, require_zip_match: bool = False,
+# city or ZIP fallback when street fails
+def _fallback(locality: Locality, require_zip_match: bool = False,
               po_box: bool = False) -> tuple | None:
-    """City-level fallback: the filed ZIP's centroid when _zip_replaces_city allows, else the town's point; None on a city/ZIP conflict when require_zip_match.
-
-    The ZIP is part of the town search only when it has a centroid: OSM does not know
-    PO-box-only and unique ZIPs (94141, 78711). With no centroid to test against, the
-    town's own settlement point is the pin (a PO box sits at the post office, in the town).
-    """
     zip_point = locality.zip_point
     conflicting = None
     for zip_code in ([locality.zipcode, ""] if zip_point is not None else [""]):
@@ -140,13 +112,13 @@ def _fallback(locality: _Locality, require_zip_match: bool = False,
         lat, lng, country = point
         if zip_point is None:
             return lat, lng, country or "US", "nominatim_city"
-        if _distance_km((lat, lng), zip_point) <= _ZIP_OUTLIER_KM:
-            if _zip_replaces_city((lat, lng), zip_point, locality.zipcode, po_box):
+        if _distance_km((lat, lng), zip_point) <= ZIP_OUTLIER_KM:
+            if zip_replaces_city((lat, lng), zip_point, locality.zipcode, po_box):
                 return zip_point[0], zip_point[1], "US", "zip_centroid"
             return lat, lng, country or "US", "nominatim_city"  # a PO box in its own town
         conflicting = conflicting or point
     if zip_point is not None and conflicting is None:
-        # the city is unknown to Nominatim: the filed ZIP is the only evidence left
+        # city unknown to Nominatim; only ZIP remains
         return zip_point[0], zip_point[1], "US", "zip_centroid"
     if conflicting is not None and not require_zip_match:
         lat, lng, country = conflicting
@@ -154,40 +126,38 @@ def _fallback(locality: _Locality, require_zip_match: bool = False,
     return None
 
 
-# wrap _fallback to return a plain (lat, lng, country) tuple
+# city fallback as a (lat, lng, country)
 def _city_fallback(city: str, state: str, zipcode: str,
                    require_zip_match: bool = False) -> tuple:
-    """(lat, lng, country) of the city-level fallback, or Nones."""
-    result = _fallback(_Locality(city, state, zipcode), require_zip_match)
+    result = _fallback(Locality(city, state, zipcode), require_zip_match)
     if result is None:
         return None, None, None
     return result[:3]
 
 
-# geocode one address through street, ZIP and city fallbacks
-def _geocode_one(street, city, state, zipcode):
-    """Geocode one address; a foreign address only ever uses the international engine."""
+# geocode one address via street, ZIP, city
+def geocode_one(street, city, state, zipcode):
     if is_foreign_address(state, zipcode):
-        return _geocode_foreign(street, city, state, zipcode)
+        return geocode_foreign(street, city, state, zipcode)
 
     if not city and not state:
         return None, None, None, "not_found"
 
-    locality = _Locality(city, state, zipcode)
+    locality = Locality(city, state, zipcode)
     raw_street = street
     if is_po_box(street):
         result = _fallback(locality, po_box=True)
         if result:
             return result
-        return _geocode_abroad_unless_us_zip(street, city, locality)
+        return geocode_abroad_unless_us_zip(street, city, locality)
 
     if street:
-        street = _clean_street_for_geocoding(street)
+        street = clean_street_for_geocoding(street)
 
     if f"{raw_street}|{city}|{state}|{zipcode}" in REVIEWED_WRONG_POINTS:
         return _geocode_reviewed_wrong(raw_street, street, locality)
 
-    outside = []  # street-level results that landed outside the filed ZIP
+    outside = []  # street results outside the filed ZIP
     if street and state in _STATE_BOUNDS:
         try:
             lat, lng, country_code = census(street, city, state, zipcode)
@@ -219,18 +189,12 @@ def _geocode_one(street, city, state, zipcode):
     if result:
         return result
 
-    # a foreign address mislabeled with a US state is kept and flagged, not dropped
-    return _geocode_abroad_unless_us_zip(street, city, locality)
+    # mislabeled foreign address is kept, not dropped
+    return geocode_abroad_unless_us_zip(street, city, locality)
 
 
-# re-geocode a key whose cached point was flagged wrong
-def _geocode_reviewed_wrong(key_street: str, street: str, locality: _Locality) -> tuple:
-    """A key whose cached street point was shown wrong: Census inside the filed ZIP, else the ZIP's centroid.
-
-    Nominatim is skipped: it gave most of these points (the same-name street inside
-    the city of the postal name) and would give them again. A Census answer at the
-    rejected spot is refused. CensusUnavailable is raised, so an outage is retried
-    next run instead of settling for the centroid."""
+# re-geocode a reviewed-wrong key via Census only
+def _geocode_reviewed_wrong(key_street: str, street: str, locality: Locality) -> tuple:
     key = f"{key_street}|{locality.city}|{locality.state}|{locality.zipcode}"
     if street and locality.state in _STATE_BOUNDS:
         lat, lng, country_code = census(street, locality.city, locality.state, locality.zipcode)

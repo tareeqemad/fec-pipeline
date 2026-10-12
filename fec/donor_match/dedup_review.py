@@ -1,4 +1,4 @@
-"""Report likely duplicate donors for human review; never merge."""
+"""Report likely duplicate donors; never merges."""
 from itertools import combinations
 from pathlib import Path
 
@@ -21,16 +21,15 @@ _REVIEW_COLUMNS = {
 }
 
 
-# the first non-blank value in a series, else ''
+# first non-blank value, else ''
 def _first_nonempty(values) -> str:
     values = values.dropna().astype(str)
     values = values[values.str.strip() != ""]
     return values.iloc[0] if len(values) else ""
 
 
-# summarize the fields shown for each donor in the review
+# per-donor fields shown in the review
 def _review_summary(work: pd.DataFrame) -> pd.DataFrame:
-    """Summarize the fields shown for each donor in the review."""
     donors = work.groupby("donor_key")
     return pd.DataFrame({
         "last": donors["contributor_last_name"].agg(_first_nonempty).str.upper(),
@@ -42,9 +41,8 @@ def _review_summary(work: pd.DataFrame) -> pd.DataFrame:
     })
 
 
-# describe a review-worthy relationship between two first names
+# describe how two first names relate
 def _first_name_relation(first_a: str, first_b: str) -> str:
-    """Describe a review-worthy relationship between two first names."""
     name_a = first_a.split()[0] if first_a else ""
     name_b = first_b.split()[0] if first_b else ""
     if not name_a or not name_b:
@@ -63,11 +61,8 @@ def _first_name_relation(first_a: str, first_b: str) -> str:
     return ""
 
 
-# true if one first name is the other's joint filing
+# one first name is other's joint filing
 def _is_joint_pair(first_a: str, first_b: str, household_firsts) -> bool:
-    """One first name is the other's joint filing with a co-filer of the same
-    ZIP and surname ("MARC MELISSA" / "MARC" next to MELISSA, "GAYLEDAVID" /
-    "GAYLE" next to DAVID): two donors on purpose, not a pending duplicate."""
     tokens_a, tokens_b = given_tokens(first_a), given_tokens(first_b)
     for joint, solo in ((tokens_a, tokens_b), (tokens_b, tokens_a)):
         if not joint or not solo or joint == solo:
@@ -81,7 +76,7 @@ def _is_joint_pair(first_a: str, first_b: str, household_firsts) -> bool:
     return False
 
 
-# build one candidate-duplicate-pair row for the review CSV
+# one candidate pair row for review CSV
 def _review_row(
     summary: pd.DataFrame, zip_code: str, last_name: str,
     key_a: str, key_b: str, reason: str,
@@ -104,11 +99,10 @@ def _review_row(
     }
 
 
-# find distinct donors sharing ZIP, surname and related first names
+# donor pairs sharing ZIP, surname, related firsts
 def _review_candidates(
     individuals: pd.DataFrame, summary: pd.DataFrame,
 ) -> list[dict]:
-    """Find distinct donors sharing ZIP, surname and related first names."""
     zip_profiles = individuals[["donor_key", "contributor_zip"]].dropna()
     has_zip = zip_profiles["contributor_zip"].astype(str).str.strip() != ""
     zip_profiles = zip_profiles[has_zip].drop_duplicates()
@@ -142,16 +136,15 @@ def _review_candidates(
     return rows
 
 
-# donor_keys a hold rule or the network step already decided
+# donor_keys held or not yet confirmed
 def _decided_keys(individuals: pd.DataFrame) -> set[str]:
     if "identity_status" not in individuals.columns:
         return set()
     return set(individuals.loc[individuals["identity_status"].ne("confirmed"), "donor_key"])
 
 
-# write likely duplicate donor pairs for human review; never merge
+# write likely duplicate pairs; never merge
 def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
-    """Write likely duplicate donor pairs for human review; never merge."""
     if not out_dir or not _REVIEW_COLUMNS <= set(df.columns):
         return 0
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
@@ -163,7 +156,7 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
     ).fillna(0)
     work = df.assign(_amt=amount).loc[individuals.index]
     rows = _review_candidates(individuals, _review_summary(work))
-    # a held or unresolved filing is already decided: it stays out of every person
+    # held or unresolved donors are already decided
     decided = _decided_keys(individuals)
     rows = [row for row in rows if not {row["donor_key_a"], row["donor_key_b"]} & decided]
     path = Path(out_dir) / "donor_dedup_review.csv"

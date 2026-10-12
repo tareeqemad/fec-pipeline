@@ -1,8 +1,7 @@
-"""Retired-status fixes and the previous_employer column they feed, all needing donor_key."""
+"""Retired-status fixes and previous employer recovery."""
 import pandas as pd
 
-from fec.cleaning._helpers import _norm
-from fec.cleaning.previous_employer import normalize_previous_employer_column
+from fec.cleaning._helpers import upper_text
 from fec.cleaning.employer_status import is_real_employer
 from fec.config.constants import (
     STATUS_CATEGORIES,
@@ -10,21 +9,16 @@ from fec.config.constants import (
 )
 
 
-# map rows to the donor's latest real employer by date
+# donor's latest earlier real employer; ties skipped
 def dated_previous_employers(df: pd.DataFrame, rows: pd.Series) -> dict:
-    """{row index: the donor's own latest real employer filed on or before that row's date}.
-
-    A tie of two employers on the latest date names none; rows with no earlier
-    working filing are left out.
-    """
     dates = pd.to_datetime(df['contribution_receipt_date'], errors='coerce')
     rows = rows & dates.notna()
     if not rows.any():
         return {}
     target_donors = set(df.loc[rows, 'donor_key'])
     blank = pd.Series('', index=df.index)
-    occupation = _norm(df.get('contributor_occupation', blank))
-    category = _norm(df.get('occupation_category', blank))
+    occupation = upper_text(df.get('contributor_occupation', blank))
+    category = upper_text(df.get('occupation_category', blank))
     not_working = (
         occupation.isin(STATUS_WORDS - {'SELF-EMPLOYED'})
         | category.isin(STATUS_CATEGORIES - {'SELF-EMPLOYED'})
@@ -60,16 +54,15 @@ def dated_previous_employers(df: pd.DataFrame, rows: pd.Series) -> dict:
     return found
 
 
-# fill a retiree's prior employer from an earlier filing
-def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
-    """Fill a retiree's prior employer from an earlier filing."""
+# fill retiree's prior employer from earlier filing
+def fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     if 'previous_employer' not in df.columns:
         return 0
 
     need_fill = (
         (df['entity_type'] == 'INDIVIDUAL')
         & (df['contributor_employer'] == 'RETIRED')
-        & (_norm(df['previous_employer']) == '')
+        & (upper_text(df['previous_employer']) == '')
     )
     found = dated_previous_employers(df, need_fill)
     for index, employer in found.items():
@@ -77,14 +70,8 @@ def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     return len(found)
 
 
-# move a recovered real employer into previous_employer, restore RETIRED
-def _settle_retired_employer(df: pd.DataFrame) -> int:
-    """Move a final retired row's recovered company to previous_employer.
-
-    Employer recovery runs late and can correctly recover a real company while
-    the filing still explicitly says RETIRED. Preserve that company as prior
-    work, then restore the retired current-employer convention.
-    """
+# move recovered company to previous_employer, restore RETIRED
+def settle_retired_employer(df: pd.DataFrame) -> int:
     required = {
         'entity_type', 'contributor_employer', 'contributor_occupation',
         'occupation_category',
@@ -92,11 +79,11 @@ def _settle_retired_employer(df: pd.DataFrame) -> int:
     if not required.issubset(df.columns):
         return 0
 
-    employer = _norm(df['contributor_employer'])
+    employer = upper_text(df['contributor_employer'])
     retired = (
         df['entity_type'].eq('INDIVIDUAL')
         & df['occupation_category'].eq('RETIRED')
-        & _norm(df['contributor_occupation']).eq('RETIRED')
+        & upper_text(df['contributor_occupation']).eq('RETIRED')
         & employer.ne('RETIRED')
     )
     count = int(retired.sum())
@@ -105,7 +92,7 @@ def _settle_retired_employer(df: pd.DataFrame) -> int:
 
     if 'previous_employer' not in df.columns:
         df['previous_employer'] = pd.NA
-    previous_empty = _norm(df['previous_employer']).eq('')
+    previous_empty = upper_text(df['previous_employer']).eq('')
     is_real_company = df['contributor_employer'].map(is_real_employer)
     copy = retired & previous_empty & is_real_company
     df.loc[copy, 'previous_employer'] = df.loc[copy, 'contributor_employer']
@@ -113,9 +100,3 @@ def _settle_retired_employer(df: pd.DataFrame) -> int:
     df.loc[retired, 'contributor_employer'] = 'RETIRED'
 
     return count
-
-
-# delegate to the shared previous_employer normalization contract
-def _normalize_previous_employer(df: pd.DataFrame) -> int:
-    """AX. Delegate to the shared contract in fec/cleaning/previous_employer.py; idempotent."""
-    return normalize_previous_employer_column(df)

@@ -1,11 +1,11 @@
-"""Quality gates for employment status, categories and previous employers."""
+"""Gates for employment status, categories, previous employers."""
 from fec.cleaning.employer_status import classify_employer_statuses
 from fec.cleaning.occupations.normalize import categorize_final
 from fec.config.constants import SLASH_BRAND_EMPLOYERS
 from fec.config.occupation_rules.categories import VALID_CATEGORIES
 
 
-# Each gate reads df without mutating.
+# not-run result when resolve columns are missing
 def _resolve_only_gate(key, df, required):
     missing = sorted(required - set(df.columns))
     if not missing:
@@ -19,8 +19,8 @@ def _resolve_only_gate(key, df, required):
     }, None)]
 
 
-# quality gate: every occupation_category value must be a known one
-def _gate_valid_categories(df):
+# gate: every category is known, none blank
+def gate_valid_categories(df):
     if 'occupation_category' not in df.columns:
         return []
     values = df['occupation_category'].astype('string').fillna('').str.strip()
@@ -36,8 +36,8 @@ def _gate_valid_categories(df):
     }, issue)]
 
 
-# quality gate: occupation_category must match the occupation text
-def _gate_occupation_category_consistency(df):
+# gate: category matches the occupation text
+def gate_occupation_category_consistency(df):
     required = {'entity_type', 'contributor_occupation', 'occupation_category'}
     if not required.issubset(df.columns):
         return []
@@ -54,9 +54,8 @@ def _gate_occupation_category_consistency(df):
     }, issue)]
 
 
-# quality gate: a status's field markers and employer_status must agree
+# gate: status markers and employer_status agree
 def _status_agreement_gate(df, gate: str, status_value: str, label: str):
-    """Rows whose fields mark status_value must carry that employer_status, and back."""
     required = {
         'entity_type', 'contributor_employer', 'contributor_occupation',
         'occupation_category', 'employer_status',
@@ -83,23 +82,22 @@ def _status_agreement_gate(df, gate: str, status_value: str, label: str):
     }, issue)]
 
 
-# quality gate: self-employed fields and employer_status must agree
-def _gate_self_employed_status(df):
+# gate: self-employed fields match employer_status
+def gate_self_employed_status(df):
     return _status_agreement_gate(
         df, 'self_employed_status_consistency', 'self_employed', 'SELF-EMPLOYED',
     )
 
 
-# quality gate: non-working occupations and employer_status must agree
-def _gate_not_employed_status(df):
+# gate: not-employed fields match employer_status
+def gate_not_employed_status(df):
     return _status_agreement_gate(
         df, 'not_employed_status_consistency', 'not_employed', 'NOT EMPLOYED',
     )
 
 
-# quality gate: previous_employer must only be set on retired rows
-def _gate_previous_employer_scope(df):
-    """Previous employment belongs only to retired rows."""
+# gate: previous_employer only on retired rows
+def gate_previous_employer_scope(df):
     required = {'employer_status', 'previous_employer'}
     not_run = _resolve_only_gate('previous_employer_scope', df, required)
     if not_run:
@@ -114,9 +112,9 @@ def _gate_previous_employer_scope(df):
     }, issue)]
 
 
-# quality gate: RETIRED category must not coexist with active status
-def _gate_retired_active_sync(df):
-    # RETIRED category with employer_status=active contradicts classify_employer_status
+# gate: no RETIRED category with active status
+def gate_retired_active_sync(df):
+    # contradicts classify_employer_status in employer_status.py
     required = {'entity_type', 'occupation_category', 'employer_status'}
     not_run = _resolve_only_gate('retired_active_sync', df, required)
     if not_run:
@@ -129,14 +127,13 @@ def _gate_retired_active_sync(df):
     n_bad_sync = int(bad_sync.sum())
     issue = (
         f"retired+active contradiction: {n_bad_sync} rows "
-        "-- check classify_employer_status in fec/cleaning/previous_employer.py"
+        "-- check classify_employer_status in fec/cleaning/employer_status.py"
     ) if n_bad_sync else None
     return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
 
 
-# quality gate: retired rows must carry the RETIRED employer marker
-def _gate_retired_employer_marker(df):
-    """A retired occupation must finish with the canonical RETIRED employer marker."""
+# gate: retired rows carry RETIRED employer
+def gate_retired_employer_marker(df):
     required = {'entity_type', 'occupation_category', 'contributor_employer'}
     if not required.issubset(df.columns):
         return []
@@ -151,10 +148,9 @@ def _gate_retired_employer_marker(df):
     return [('retired_employer_marker', {'passed': count == 0, 'count': count}, issue)]
 
 
-# quality gate: previous_employer must not still contain a slash composite
-def _gate_slash_previous_employer(df):
-    # 'COMPANY/TITLE' composites are resolved by resolve.py (_normalize_previous_employer_column);
-    # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted
+# gate: no slash composites in previous_employer
+def gate_slash_previous_employer(df):
+    # normalize_previous_employer_column resolves composites; brands whitelisted
     if 'previous_employer' not in df.columns:
         return []
     prev_emp = df['previous_employer'].fillna('').astype(str)
@@ -165,6 +161,6 @@ def _gate_slash_previous_employer(df):
     n_slash = int(slashy.sum())
     issue = (
         f"previous_employer slash leaks: {n_slash} rows "
-        "-- run resolve.py (fec/resolve/pipeline/quality_fixes.py normalizes the column)"
+        "-- check normalize_previous_employer_column in fec/cleaning/previous_employer.py"
     ) if n_slash else None
     return [('no_slash_in_previous_employer', {'passed': n_slash == 0, 'count': n_slash}, issue)]

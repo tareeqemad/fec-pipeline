@@ -46,7 +46,7 @@ def no_sleep(monkeypatch):
 
 @pytest.fixture
 def palm_beach_zip(monkeypatch, no_sleep):
-    patch_geo(monkeypatch, "_zip_centroids", lambda: {"33480": ZIP_33480})
+    patch_geo(monkeypatch, "load_zip_centroids", lambda: {"33480": ZIP_33480})
     patch_geo(monkeypatch, "_zip_neighbour_km", lambda _zip: 5.9)   # a 14.8 km limit, as for 33480
 
 
@@ -62,10 +62,10 @@ def test_a_reviewed_point_is_published_instead_of_the_cached_one(tmp_path):
 
 def test_a_reviewed_point_is_never_looked_up(tmp_path):
     cache = _cache(tmp_path, FORT_APACHE, *FORT_APACHE_NOMINATIM, "nominatim")
-    assert not geo._needs_lookup(FORT_APACHE, cache)
+    assert not geo.needs_lookup(FORT_APACHE, cache)
 
     del cache.data[FORT_APACHE]
-    assert not geo._needs_lookup(FORT_APACHE, cache)
+    assert not geo.needs_lookup(FORT_APACHE, cache)
 
 
 def test_contributor_rows_get_the_reviewed_point(tmp_path):
@@ -131,27 +131,27 @@ def test_reviewed_points_replace_a_different_cached_point():
 def test_a_wrong_street_point_is_withheld_and_looked_up_again(tmp_path, palm_beach_zip):
     cache = _cache(tmp_path, PALM_BEACH, *MANALAPAN, "nominatim")
     # inside the 33480 circle: no ZIP rule catches it
-    assert not accepted._street_far_from_zip(*MANALAPAN, "33480")
+    assert not accepted.street_far_from_zip(*MANALAPAN, "33480")
 
     assert geo.accepted_coordinates(PALM_BEACH, cache.get(PALM_BEACH)) == (None, None, "rejected_reviewed_wrong")
-    assert geo._needs_lookup(PALM_BEACH, cache)
+    assert geo.needs_lookup(PALM_BEACH, cache)
     # a run's own zip_checked mark does not make it right
     cache.data[PALM_BEACH].update(validated=True, zip_checked=True)
-    assert geo._needs_lookup(PALM_BEACH, cache)
+    assert geo.needs_lookup(PALM_BEACH, cache)
 
 
 def test_a_new_point_away_from_the_wrong_one_stands(tmp_path, palm_beach_zip):
     cache = _cache(tmp_path, PALM_BEACH, *PALM_BEACH_2660, "census", validated=True, zip_checked=True)
 
     assert geo.accepted_coordinates(PALM_BEACH, cache.get(PALM_BEACH))[:2] == PALM_BEACH_2660
-    assert not geo._needs_lookup(PALM_BEACH, cache)
+    assert not geo.needs_lookup(PALM_BEACH, cache)
 
 
 def test_a_centroid_on_the_wrong_spot_is_honest_and_stands(tmp_path, palm_beach_zip):
     cache = _cache(tmp_path, PALM_BEACH, *MANALAPAN, "zip_centroid", validated=True)
 
     assert geo.accepted_coordinates(PALM_BEACH, cache.get(PALM_BEACH))[:2] == MANALAPAN
-    assert not geo._needs_lookup(PALM_BEACH, cache)
+    assert not geo.needs_lookup(PALM_BEACH, cache)
 
 
 class _Engine:
@@ -179,49 +179,49 @@ def _engines(monkeypatch, census_answer):
 def test_census_answering_the_wrong_point_again_falls_back_to_the_zip(monkeypatch, palm_beach_zip):
     census, nominatim = _engines(monkeypatch, (26.5570, -80.0420, "US"))   # 30 m from the rejected point
 
-    assert geo._geocode_one(*PALM_BEACH.split("|")) == (*ZIP_33480, "US", "zip_centroid")
+    assert geo.geocode_one(*PALM_BEACH.split("|")) == (*ZIP_33480, "US", "zip_centroid")
     assert len(census.calls) == 1 and nominatim.calls == []   # Nominatim gave the wrong point
 
 
 def test_a_census_miss_falls_back_to_the_zip(monkeypatch, palm_beach_zip):
     _census, nominatim = _engines(monkeypatch, (None, None, None))
 
-    assert geo._geocode_one(*PALM_BEACH.split("|")) == (*ZIP_33480, "US", "zip_centroid")
+    assert geo.geocode_one(*PALM_BEACH.split("|")) == (*ZIP_33480, "US", "zip_centroid")
     assert nominatim.calls == []
 
 
 def test_a_census_point_away_from_the_wrong_one_is_taken(monkeypatch, palm_beach_zip):
     _engines(monkeypatch, (*PALM_BEACH_2660, "US"))
 
-    assert geo._geocode_one(*PALM_BEACH.split("|")) == (*PALM_BEACH_2660, "US", "census")
+    assert geo.geocode_one(*PALM_BEACH.split("|")) == (*PALM_BEACH_2660, "US", "census")
 
 
 def test_a_census_outage_retries_next_run(tmp_path, monkeypatch, palm_beach_zip):
     _engines(monkeypatch, CensusUnavailable("down"))
     cache = _cache(tmp_path, PALM_BEACH, *MANALAPAN, "nominatim")
 
-    geo._geocode_todo([PALM_BEACH], cache, 50)
+    geo.geocode_todo([PALM_BEACH], cache, 50)
 
     assert cache.get(PALM_BEACH)["source"] == "transient_fail"
-    assert geo._needs_lookup(PALM_BEACH, cache)
+    assert geo.needs_lookup(PALM_BEACH, cache)
 
 
 def test_the_run_replaces_the_wrong_point(tmp_path, monkeypatch, palm_beach_zip):
     _engines(monkeypatch, (None, None, None))
     cache = _cache(tmp_path, PALM_BEACH, *MANALAPAN, "nominatim")
 
-    geo._geocode_todo([PALM_BEACH], cache, 50)
+    geo.geocode_todo([PALM_BEACH], cache, 50)
 
     entry = cache.get(PALM_BEACH)
     assert (entry["lat"], entry["lng"], entry["source"]) == (*ZIP_33480, "zip_centroid")
     assert geo.accepted_coordinates(PALM_BEACH, entry)[:2] == ZIP_33480
-    assert not geo._needs_lookup(PALM_BEACH, cache)
+    assert not geo.needs_lookup(PALM_BEACH, cache)
 
 
 def test_other_keys_keep_the_whole_chain(monkeypatch, palm_beach_zip):
     census, nominatim = _engines(monkeypatch, (None, None, None))
 
-    result = geo._geocode_one("2500 S OCEAN BLVD", "PALM BEACH", "FL", "33480")
+    result = geo.geocode_one("2500 S OCEAN BLVD", "PALM BEACH", "FL", "33480")
 
     assert result[3] == "nominatim" and nominatim.calls
 
@@ -237,7 +237,7 @@ def test_rejected_points_are_the_cached_points():
         if distance_km((entry["lat"], entry["lng"]), (lat, lng)) > 0.5:
             continue   # re-geocoded since
         assert (entry["lat"], entry["lng"]) == pytest.approx((lat, lng), abs=1e-6), key
-        assert geo._needs_lookup(key, _as_cache(cache)), key
+        assert geo.needs_lookup(key, _as_cache(cache)), key
         checked += 1
     if not checked:
         pytest.skip("every reviewed wrong point is re-geocoded in this cache")
@@ -265,13 +265,13 @@ def _as_cache(data: dict) -> GeoCache:
     ("100 MAIN ST", "100 MAIN ST"),
 ])
 def test_a_leading_building_name_is_not_sent(filed, sent):
-    assert street_text._clean_street_for_geocoding(filed) == sent
+    assert street_text.clean_street_for_geocoding(filed) == sent
 
 
 def test_census_gets_the_street_without_the_building_name(monkeypatch, no_sleep):
     census = _Engine((36.1563, -95.9928, "US"))
     patch_geo(monkeypatch, "census", census)
 
-    geo._geocode_one("ONE WILLIAMS CENTER 101 E 2ND ST", "TULSA", "OK", "74172")
+    geo.geocode_one("ONE WILLIAMS CENTER 101 E 2ND ST", "TULSA", "OK", "74172")
 
     assert census.calls == [("101 E 2ND ST", "TULSA", "OK", "74172")]

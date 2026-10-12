@@ -9,12 +9,12 @@ import pandas as pd
 
 import fec.database.loader.addresses as address_loader
 from fec.database.loader.addresses import (
-    _akey,
+    address_tuple,
     load_address_dimension,
     load_employer_locations,
 )
 from fec.database.loader.employment_locations import (
-    _employment_address_id, _location_index,
+    employment_address_id, location_index,
 )
 
 
@@ -101,7 +101,7 @@ def _load_addresses(monkeypatch, donors, locations):
     cursor = AddressCursor()
     monkeypatch.setattr(address_loader, "execute_values",
                         lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
-    monkeypatch.setattr(address_loader, "_count", lambda *_args: len(cursor.rows))
+    monkeypatch.setattr(address_loader, "count_rows", lambda *_args: len(cursor.rows))
     address_ids = load_address_dimension(cursor, cursor, donors, locations)
     return cursor.rows, address_ids
 
@@ -130,11 +130,11 @@ def test_employer_address_stores_null_and_still_links(monkeypatch):
     assert all("" not in row[:5] for row in stored)
 
     # the employment and employer-location lookups still find the row
-    key = _akey("York Gate, 100 Marylebone Road", None, "London", None, "NW1 5DX")
+    key = address_tuple("York Gate, 100 Marylebone Road", None, "London", None, "NW1 5DX")
     assert key in address_ids
     row = pd.Series({"employer_status": "active", "contributor_zip": "10001",
                      "contributor_state": "NY"})
-    assert _employment_address_id(row, "KIFO", _location_index(locations),
+    assert employment_address_id(row, "KIFO", location_index(locations),
                                   address_ids) == address_ids[key]
 
 

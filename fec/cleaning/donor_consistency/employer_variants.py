@@ -1,4 +1,4 @@
-"""Unify one donor's employer typos, truncations and acronyms."""
+"""Unify a donor's employer typos, truncations, acronyms."""
 import re
 from difflib import SequenceMatcher
 
@@ -10,9 +10,8 @@ from fec.config.constants import (
 )
 
 
-# yield each donor's real employer names and counts
+# yield donors with 2+ real employers, counts
 def _donor_employer_groups(df: pd.DataFrame):
-    """Yield (donor_key, real employers, counts) per donor."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     for dk, grp in indiv.groupby('donor_key'):
         emps = grp['contributor_employer'].dropna().unique()
@@ -22,9 +21,8 @@ def _donor_employer_groups(df: pd.DataFrame):
         yield dk, real, grp['contributor_employer'].value_counts()
 
 
-# converge near-identical employer spellings for the same donor
-def _employer_typos(df: pd.DataFrame) -> int:
-    """Same donor: near-identical employer spellings converge."""
+# converge one donor's near-identical employer spellings
+def employer_typos(df: pd.DataFrame) -> int:
     n_fixed = 0
     for dk, real, counts in _donor_employer_groups(df):
         canonical = max(real, key=lambda e: counts[e])
@@ -48,31 +46,25 @@ def _employer_typos(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-_PARENT_BRAND_MIN_DONORS = 5     # a short name that this many people file on its own is a real parent (NYU), not a truncation
+_PARENT_BRAND_MIN_DONORS = 5     # this many standalone filers make a parent
 
 
 _ACRONYM_STOP = {'OF', 'THE', 'AND', 'FOR', 'IN', 'AT', 'DE', 'LA', 'LLC', 'INC', 'LLP', 'CORP', 'LTD', 'PC', 'LP', 'PLLC'}
 
 
-# count distinct donors who file each employer name alone
+# distinct donors filing each exact employer name
 def _standalone_donor_counts(df: pd.DataFrame) -> dict:
-    """employer -> number of distinct donors who file exactly that name."""
     indiv = df[(df['entity_type'] == 'INDIVIDUAL') & df['contributor_employer'].notna()]
     return indiv.groupby('contributor_employer')['donor_key'].nunique().to_dict()
 
 
-# check whether short appears as a whole word inside long_
+# short appears as whole words in long_
 def _contains_as_words(short: str, long_: str) -> bool:
     return f' {short.upper()} ' in f' {long_.upper()} '
 
 
-# merge same-donor employer names, one a substring of the other
-def _employer_substring_variants(df: pd.DataFrame) -> int:
-    """Same donor, one name inside the other as whole words (SYNERGY / SYNERGY HEALTH PARTNERS): one company.
-
-    The full name wins because the short one is a truncation of it, except when the short
-    name is a parent brand that many people file on its own (NYU next to NYU LANGONE HEALTH
-    HUNTINGTON MEDICAL): then the division folds into the parent, as the employer rules do."""
+# merge truncated employer names; parent brands win
+def employer_substring_variants(df: pd.DataFrame) -> int:
     standalone = _standalone_donor_counts(df)
     n_fixed = 0
     for dk, real, counts in _donor_employer_groups(df):
@@ -98,16 +90,15 @@ def _employer_substring_variants(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# build acronyms of a name, with and without stopwords
+# name acronyms, without and with stopwords
 def _acronym_of(name: str) -> tuple[str, str]:
     tokens = re.findall(r'[A-Z0-9&]+', name.upper())
     return (''.join(t[0] for t in tokens if t not in _ACRONYM_STOP),
             ''.join(t[0] for t in tokens))
 
 
-# replace a donor's employer acronym with the matching full name
-def _employer_acronym_variants(df: pd.DataFrame) -> int:
-    """Same donor, an acronym next to the name it abbreviates (WPCM / WHITE PINE CAPITAL MANAGEMENT): the full name wins."""
+# replace donor's employer acronym with full name
+def employer_acronym_variants(df: pd.DataFrame) -> int:
     n_fixed = 0
     for dk, real, counts in _donor_employer_groups(df):
         longs = [e for e in real if len(re.findall(r'[A-Z0-9&]+', e.upper())) >= 2]

@@ -1,4 +1,4 @@
-"""Load curated addresses, keeping uncertain research reviewable."""
+"""Load curated addresses and previous employers."""
 
 import csv
 from pathlib import Path
@@ -8,17 +8,17 @@ import pandas as pd
 from fec.cleaning.manual_overrides import CLEAR_PREVIOUS_EMPLOYER
 from fec.cleaning.previous_employer import normalize_previous_employer_value
 from fec.config.cities import expand_city_abbreviations
+from fec.io import cell_text
 from fec.log import get_logger
-from fec.resolve.pipeline.helpers import _prev_key, _s
+from fec.resolve.pipeline.previous_cache import previous_cache_key
 
 logger = get_logger(__name__)
 
 _REVIEW_MARKERS = ("MEDIUM", "LIKELY", "UNCERTAIN", "VERIFY")
 
 
-# pick manual_review or manual_override based on note certainty
+# manual_review if the note is uncertain
 def _manual_method(note: str) -> str:
-    """Keep explicitly uncertain research in the review queue."""
     upper = note.upper()
     if "HIGH (VERIFIED)" not in upper and any(
         marker in upper for marker in _REVIEW_MARKERS
@@ -27,7 +27,7 @@ def _manual_method(note: str) -> str:
     return "manual_override"
 
 
-# build a cache location entry from one manual csv row
+# cache location entry from one manual row
 def _address_entry(row: dict) -> dict | None:
     address = (row.get("address") or "").strip()
     city = expand_city_abbreviations((row.get("city") or "").strip())
@@ -54,7 +54,7 @@ def _address_entry(row: dict) -> dict | None:
     return entry
 
 
-# read manual locations csv into primary/extra groups by name
+# group manual locations by name: primary, extra
 def _read_location_groups(csv_path: Path) -> dict:
     rows_by_name = {}
     with csv_path.open(encoding="utf-8", newline="") as handle:
@@ -72,10 +72,10 @@ def _read_location_groups(csv_path: Path) -> dict:
     return rows_by_name
 
 
-# merge manual curated locations into an existing cache entry
+# merge manual locations into a cache entry
 def _merge_manual_locations(existing: dict, manual: dict) -> dict:
     primary = manual["primary"]
-    # INVALID says the company has no public office: no AI address of it stays
+    # INVALID: no public office, drop AI addresses
     invalid = primary is not None and primary.get("method") == "manual_invalid"
     ai_locations = [] if invalid else [
         location
@@ -83,8 +83,7 @@ def _merge_manual_locations(existing: dict, manual: dict) -> dict:
         if not str(location.get("method", "")).startswith("manual_")
     ]
     replacement = dict(existing)
-    # a checked manual row (a correction or an INVALID) beats an AI web-search
-    # answer; an uncertain one (manual_review) does not
+    # checked rows beat AI search; manual_review doesn't
     if primary is not None and (
         primary.get("method") in {"manual_override", "manual_invalid"}
         or not str(existing.get("method", "")).endswith("_search")
@@ -99,7 +98,7 @@ def _merge_manual_locations(existing: dict, manual: dict) -> dict:
     return replacement
 
 
-# drop manual cache entries no longer in the source csv
+# drop manual entries gone from the csv
 def _remove_deleted_locations(addr_cache, current_names: set[str]) -> int:
     entries = getattr(addr_cache, "data", addr_cache)
     removed = 0
@@ -134,9 +133,8 @@ def _remove_deleted_locations(addr_cache, current_names: set[str]) -> int:
     return removed
 
 
-# load curated employer locations from csv into the address cache
+# load curated locations into the address cache
 def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
-    """Load primary and additional employer locations into one cache entry."""
     if not csv_path.exists():
         logger.info(f"    manual locations: {csv_path.name} not found - skipping")
         return 0, 0
@@ -166,7 +164,7 @@ def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
 
 # read manual previous-employer overrides keyed by donor
 def _read_previous_employers(csv_path: Path, df: pd.DataFrame) -> dict:
-    rows = df.assign(_sub_id=df["sub_id"].astype(str).str.strip()).set_index(
+    rows = df.assign(_sub_id=df["sub_id"].astype(str)).set_index(
         "_sub_id",
         drop=False,
     )
@@ -182,8 +180,8 @@ def _read_previous_employers(csv_path: Path, df: pd.DataFrame) -> dict:
             source = rows.loc[sub_id]
             if isinstance(source, pd.DataFrame):
                 source = source.iloc[0]
-            donor_key = _s(source.get("donor_key")).strip()
-            state = _s(source.get("contributor_state")).strip().upper()
+            donor_key = cell_text(source["donor_key"])
+            state = cell_text(source["contributor_state"])
             if not donor_key:
                 continue
             entry = {
@@ -193,11 +191,11 @@ def _read_previous_employers(csv_path: Path, df: pd.DataFrame) -> dict:
             }
             if previous:
                 entry["employer_normalized"] = previous.upper()
-            entries[_prev_key(donor_key)] = entry
+            entries[previous_cache_key(donor_key)] = entry
     return entries
 
 
-# write previous-employer overrides into the cache, tracking changes
+# store previous-employer overrides, counting changes
 def _store_previous_employers(prev_cache, entries: dict) -> tuple[int, int]:
     added = 0
     updated = 0
@@ -213,14 +211,13 @@ def _store_previous_employers(prev_cache, entries: dict) -> tuple[int, int]:
     return added, updated
 
 
-# protect curated work history from later cache discovery
+# load curated previous employers into the cache
 def load_manual_previous_employers(
     csv_path: Path,
     df: pd.DataFrame,
     prev_cache,
 ) -> tuple[int, int]:
-    """Protect curated work history from later cache discovery."""
-    if not csv_path.exists() or "previous_employer" not in df.columns:
+    if not csv_path.exists():
         return 0, 0
 
     entries = _read_previous_employers(csv_path, df)

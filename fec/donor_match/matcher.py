@@ -1,4 +1,4 @@
-"""Main matching engine: orchestrates scoring phases and builds donor clusters."""
+"""Donor matching: scoring phases and clusters."""
 
 from collections import defaultdict
 
@@ -6,59 +6,53 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.chains import (
-    _apply_force_merges,
-    _build_and_validate_chains,
-    _validate_merge_audit,
+    apply_force_merges,
+    build_and_validate_chains,
+    validate_merge_audit,
 )
-from fec.donor_match.components import UnionFind, _donor_keys
+from fec.donor_match.components import UnionFind, donor_keys
 from fec.donor_match.constants import GENERIC_OCC_CATEGORIES
 from fec.donor_match.joint_split import find_joint_filings, split_joint_filings
 from fec.donor_match.keys import individual_record_id
 from fec.donor_match.name_phases import (
-    _score_name_variants,
-    _score_surname_superset_variants,
+    score_name_variants,
+    score_surname_superset_variants,
 )
 from fec.donor_match.normalize import extract_middle, normalize_employer, normalize_name
 from fec.donor_match.phases import (
     MatchContext,
-    _score_cross_groups,
-    _score_surname_variants,
-    _score_within_groups,
+    score_cross_groups,
+    score_surname_variants,
+    score_within_groups,
 )
 from fec.donor_match.rules import split_zip
+from fec.io import cell_text
 
 
-# a cell value as a stripped string, NaN -> ''
-def _s(val) -> str:
-    """Cell value as a stripped string, NaN -> ''."""
-    if pd.isna(val):
-        return ""
-    return str(val).strip()
 
 
-# build profiles by cleaned name, location, and generation suffix
+# one profile per name, location and suffix
 def build_profiles(indiv: pd.DataFrame) -> dict:
-    """Build profiles by cleaned name, location, and generation suffix."""
     profiles = {}
 
     for _, row in indiv.iterrows():
-        suffix = _s(row.get("_generational_suffix")).upper()
+        suffix = cell_text(row.get("_generational_suffix")).upper()
         rid = individual_record_id(
-            _s(row["contributor_name"]),
-            _s(row["contributor_city"]),
-            _s(row["contributor_state"]),
+            cell_text(row["contributor_name"]),
+            cell_text(row["contributor_city"]),
+            cell_text(row["contributor_state"]),
             suffix,
-            split_zip(_s(row["contributor_name"]), _s(row.get("contributor_zip"))),
+            split_zip(cell_text(row["contributor_name"]), cell_text(row.get("contributor_zip"))),
         )
 
         if rid not in profiles:
             profiles[rid] = {
-                "name": _s(row["contributor_name"]),
+                "name": cell_text(row["contributor_name"]),
                 "norm_name": normalize_name(row["contributor_name"]),
                 "middle": extract_middle(row["contributor_name"]),
-                "city": _s(row["contributor_city"]).upper(),
-                "state": _s(row["contributor_state"]).upper(),
-                "zip5": _s(row["contributor_zip"]),
+                "city": cell_text(row["contributor_city"]).upper(),
+                "state": cell_text(row["contributor_state"]).upper(),
+                "zip5": cell_text(row["contributor_zip"]),
                 "streets": set(),
                 "norm_employers": set(),
                 "occ_categories": set(),
@@ -70,16 +64,16 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
         p = profiles[rid]
         p["record_count"] += 1
 
-        # a street recovered from another filing proves nothing about who filed this one
-        street = "" if row.get("_street_inferred") is True else _s(row.get("contributor_street_1")).upper()
+        # inferred streets prove nothing about the filer
+        street = "" if row.get("_street_inferred") is True else cell_text(row.get("contributor_street_1")).upper()
         if street and street != "NAN":
             p["streets"].add(street)
 
-        emp = _s(row.get("contributor_employer")).upper()
+        emp = cell_text(row.get("contributor_employer")).upper()
         if emp and emp not in EMPLOYER_STATUS_VALUES:
             p["norm_employers"].add(normalize_employer(emp))
 
-        occ_cat = _s(row.get("occupation_category")).upper()
+        occ_cat = cell_text(row.get("occupation_category")).upper()
         if occ_cat == "RETIRED":
             p["retired"] = True
         elif occ_cat and occ_cat not in GENERIC_OCC_CATEGORIES:
@@ -96,24 +90,23 @@ def _build_name_groups(profiles: dict) -> dict:
     return name_groups
 
 
-# run every scoring phase in order over the match context
+# run every scoring phase in order
 def _run_matching_phases(
     context: MatchContext,
 ) -> None:
     phases = (
-        _score_within_groups,
-        _score_cross_groups,
-        _score_surname_variants,
-        _score_name_variants,
-        _score_surname_superset_variants,
+        score_within_groups,
+        score_cross_groups,
+        score_surname_variants,
+        score_name_variants,
+        score_surname_superset_variants,
     )
     for phase in phases:
         phase(context)
 
 
-# score-based donor matching; returns keys and an audit log
+# match donors; return keys and audit log
 def match_donors(df: pd.DataFrame) -> tuple[dict, list]:
-    """Score-based donor matching; returns keys and an audit log."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"].copy()
     profiles = build_profiles(individuals)
 
@@ -134,13 +127,13 @@ def match_donors(df: pd.DataFrame) -> tuple[dict, list]:
         },
     )
     _run_matching_phases(context)
-    components = _build_and_validate_chains(uf, profiles, name_groups)
-    _apply_force_merges(components, profiles)
+    components = build_and_validate_chains(uf, profiles, name_groups)
+    apply_force_merges(components, profiles)
     split_joint_filings(
         components, find_joint_filings(profiles, components), profiles,
     )
-    rid_to_key = _donor_keys(components)
-    _validate_merge_audit(rid_to_key, audit_log)
+    rid_to_key = donor_keys(components)
+    validate_merge_audit(rid_to_key, audit_log)
     return rid_to_key, audit_log
 
 

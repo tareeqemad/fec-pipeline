@@ -1,12 +1,11 @@
-"""The previous_employer contract, shared by every writer of the column: a real company name, the literal 'SELF-EMPLOYED' (kept, it is real information), or nothing."""
+"""Previous employer contract: company, SELF-EMPLOYED, or nothing."""
 from __future__ import annotations
 
 import re
 
 import pandas as pd
 
-from fec.cleaning._helpers import levenshtein
-from fec.cleaning.employer_status import is_real_employer, single_letters
+from fec.cleaning.employer_status import is_job_title, is_real_employer, single_letters
 from fec.cleaning.employer_synonyms.normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
@@ -20,28 +19,15 @@ from fec.config.constants import (
 )
 from fec.config.data import MISSING_VALUES
 from fec.config.not_employers import (
-    JOB_TITLE_HEADS,
-    JOB_TITLE_MODIFIERS,
     LEGAL_SUFFIX_RE,
     OCCUPATION_AS_EMPLOYER,
     ROLE_AS_EMPLOYER,
     SECTOR_AS_EMPLOYER,
 )
-
-__all__ = [
-    "is_real_employer",
-    "classify_employer_status",
-    "classify_employer_statuses",
-    "current_employer_name",
-    "referenced_employers",
-    "normalize_previous_employer_value",
-    "normalize_previous_employer_column",
-    "preserve_own_named_legal_employer",
-]
+from fec.io import cell_text
 
 
-# Some legacy FEC filings encode the previous employer as "COMPANY/TITLE" or
-# "STATUS/COMPANY" in a single field.
+# slash values: COMPANY/TITLE or STATUS/COMPANY
 
 _SLASH_STATUS_WORDS = frozenset({
     'RETIRED', 'REITRED', 'HOMEMAKER', 'UNEMPLOYED', 'NOT EMPLOYED',
@@ -52,13 +38,13 @@ _SLASH_SELF_WORDS = frozenset({
     'SELF', 'SELFEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED',
 })
 
-# sector / job-title strings that, alone on a side, mean no real previous employer
+# sector or title sides naming no employer
 _SLASH_SECTOR_ONLY = frozenset({
     'INVESTMENTS', 'INSURANCE', 'BUILDER', 'DEVELOPER', 'INVESTOR',
     'REAL ESTATE AGENT', 'DEVELOPER R E', 'RETIRED LAWYER',
 })
 
-# a leading admin-request marker on a slash value: "LETTER SENT/ACME CORP"
+# leading admin marker: "LETTER SENT/ACME CORP"
 _SLASH_ADMIN_PREFIX_RE = re.compile(
     r'^(LETTER SENT|REQUESTED)\b',
     re.IGNORECASE,
@@ -66,28 +52,22 @@ _SLASH_ADMIN_PREFIX_RE = re.compile(
 
 # compiled structural-junk pattern: dates, digits-only, masked SSNs
 _JUNK_EMPLOYER_RE = re.compile(JUNK_EMPLOYER_RE)
-# one or more whitespace characters, to collapse runs to a single space
 _WS_RE = re.compile(r'\s+')
 
-# A retirement marker written around the company ("GOLDMAN SACHS-RETIRED",
-# "UCLA RETIRED", "REICH AND TRUAX (SEMI RETIRED)", "SEMI RETIRED X",
-# "RETIRED FROM X"). Whole word RETIRED only, so RETIREE / RETIREMENT
-# (ERICKSON RETIREMENT COMMUNITIES, RETIREE CHAPTER) are never touched.
+# whole word RETIRED only, never RETIREE/RETIREMENT
 _RETIRED_WORD = r'(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY)[\s-]?)?RETIRED'
-# a leading retirement marker: "RETIRED FROM", "(SEMI RETIRED)"
+# leading marker: "RETIRED FROM", "(SEMI RETIRED)"
 _RETIRED_PREFIX_RE = re.compile(
     rf'^\(?{_RETIRED_WORD}\b\)?(?:\s+FROM\b)?[\s,;:/-]*'
 )
-# a trailing retirement marker: "GOLDMAN SACHS-RETIRED", "(SEMI RETIRED)"
+# trailing marker: "GOLDMAN SACHS-RETIRED"
 _RETIRED_SUFFIX_RE = re.compile(rf'[\s,;:/-]*\(?\s*{_RETIRED_WORD}\s*\)?$')
-# "... ASSOCIATION OF RETIRED" (a name cut at the FEC's 38 characters) is a
-# name, not a marker
+# "ASSOCIATION OF RETIRED" is a truncated name
 _NAME_BEFORE_RETIRED_RE = re.compile(r'\b(?:OF|FOR|THE|AND|&)$')
 
 
-# strip a leading/trailing retirement marker from a value
+# strip a retirement marker, report if found
 def _strip_retired_marker(upper: str) -> tuple[str, bool]:
-    """Return (value without a leading/trailing retirement marker, marker found)."""
     stripped = _RETIRED_PREFIX_RE.sub('', upper, count=1)
     if stripped != upper:
         return stripped.strip(), True
@@ -99,16 +79,15 @@ def _strip_retired_marker(upper: str) -> tuple[str, bool]:
     return upper, False
 
 
-# part time / full time written after the company: "UMIAMI P/T"
+# a trailing "P/T" or "F/T" schedule
 _SCHEDULE_SUFFIX_RE = re.compile(r'\s+[PF]/T\s*$', re.IGNORECASE)
 
 
-# collapse a slash-format value to its useful company side
+# keep the company side of slash values
 def _resolve_slash(s: str) -> str:
-    """Collapse slash-format values: keep real brands, drop admin/self forms, prefer the company side; result still passes normalize_employer_display_name."""
     if not s:
         return ''
-    # a trailing work schedule is no second company: "UMIAMI P/T" is UMIAMI
+    # a work schedule is no second company
     s = _SCHEDULE_SUFFIX_RE.sub('', s)
     value_upper = s.strip().upper()
     if value_upper in SLASH_BRAND_EMPLOYERS:
@@ -121,11 +100,11 @@ def _resolve_slash(s: str) -> str:
         return s
     upper_parts = [part.upper() for part in parts]
 
-    # SELF/* -> '' (self-employed, no previous company)
+    # a SELF side means no previous company
     if any(part in _SLASH_SELF_WORDS for part in upper_parts):
         return ''
 
-    # a status word, sector-only term, or too short
+    # status word, sector-only term, or too short
     def _junk(u: str) -> bool:
         return (
             u in _SLASH_STATUS_WORDS
@@ -142,32 +121,26 @@ def _resolve_slash(s: str) -> str:
     return useful[0]
 
 
-# MISSING_VALUES is the SAME FEC-junk / admin-note set clean.py nulls out of
-# contributor_employer, and STATUS_WORDS the same life-status set: single
-# sources of truth, not second lists. SELF-EMPLOYED is excluded because the
-# contract KEEPS it (real information, handled first in the normalizer).
+# reuses cleaning's junk sets; SELF-EMPLOYED is kept
 _NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOYED'}) | {
-    # keyboard junk / bare-status stumps seen only in previous_employer
+    # junk seen only in previous_employer
     'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'XXN', 'NOT',
-    # a kind of work, not a workplace (GLUCK, TIKVA in an old FEC filing); kept
-    # out of SECTOR_AS_EMPLOYER, where a filed BUSINESS employer would start
-    # the current-employer inference
+    # a kind of work, not a workplace
     'BUSINESS',
-    # a degree or a pronoun names no company: MD (LAWRENCE HAAS), ME (MARTA BRAND)
+    # a degree or pronoun names no company
     'MD', 'M.D', 'M.D.', 'ME', 'PHD', 'DDS', 'DO',
-    # NOT EMPLOYED mistyped (PHYLLIS JOHNSON)
+    # NOT EMPLOYED mistyped
     'NOT EMPLYED', 'NOT EMPOLYED', 'NOT EMPLOYEED', 'NOT EMPLOYD', 'NOT EMLOYED',
 }
 _SE_PREV = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER
-# whitespace-stripped forms so spacing-mangled statuses ("NOTEMPLOYED",
-# "HOME MAKER") from the FEC API are still recognised and cleared
+# spaceless forms so "NOTEMPLOYED" still matches
 _NULL_PREV_NOSPACE = {_WS_RE.sub('', value) for value in _NULL_PREV}
 _CANONICAL_SYNONYM_NAMES = frozenset(
     str(value).strip().upper() for value in EMPLOYER_SYNONYMS.values()
 )
 
 
-# true if the value carries no real previous-employer information
+# true if value names no previous employer
 def _is_null_previous(upper: str) -> bool:
     upper_nospace = _WS_RE.sub('', upper)
     return (
@@ -179,17 +152,16 @@ def _is_null_previous(upper: str) -> bool:
     )
 
 
-# "SELF EMPLOYED" written after the filer's own name or trade
-# ("JEFFREY FRANKEL - SELF EMPLOYED", "CONSULTING, SELF-EMPLOYED")
+# SELF EMPLOYED after a name or trade
 SELF_EMPLOYED_TAIL_RE = re.compile(r'[-,/(:]\s*SELF[\s-]*EMPLOY\w*\W*$')
-# a word that makes the text before the marker a firm, not the filer's name
+# words marking a firm, not a name
 _FIRM_WORD_RE = re.compile(
     r'\b(?:GROUP|INC|LLC|LLP|LTD|CORP|CORPORATION|CO|COMPANY|ASSOCIATES|PARTNERS'
     r'|FIRM|PC|PA|PLLC|ENTERPRISES|CONSULTING|SERVICES|STUDIO|AGENCY)\b'
 )
 
 
-# the firm before a trailing SELF EMPLOYED ('THE LOEB GROUP (SELF-EMPLOYED)'), '' if none
+# firm before trailing SELF EMPLOYED, or ''
 def _firm_before_self_marker(upper: str) -> str:
     match = SELF_EMPLOYED_TAIL_RE.search(upper)
     if not match:
@@ -200,91 +172,61 @@ def _firm_before_self_marker(upper: str) -> str:
 
 # true if the value explicitly states self-employment
 def _is_explicit_self(upper: str) -> bool:
-    # letters only, each typed once, so "SELF - EMPLOYED", "SELF EMPLOYEED" and
-    # "SELFF EMPLOYED" count as well
+    # letters only, typed once: "SELFF EMPLOYED" counts
     letters = single_letters(re.sub(r'[^A-Z]', '', upper))
     return (upper.startswith('SELF:') or letters.startswith('SELFEMPLOY')
             or upper in ('SELF', 'SSELF', 'SELFF') or bool(SELF_EMPLOYED_TAIL_RE.search(upper)))
 
 
-# a title word, or a job word with one letter typed wrong ('ANALIST'); a
-# letter added or dropped counts only on a long word ('THERAPISTE'), never a
-# plural ('ADVISORS') or a short word ('OFFICE' is not OFFICER)
-def _title_word(word: str, last: bool) -> bool:
-    if word in JOB_TITLE_HEADS or (not last and word in JOB_TITLE_MODIFIERS):
-        return True
-    if not last or len(word) < 6:
-        return False
-    for head in JOB_TITLE_HEADS:
-        if len(head) == len(word) and levenshtein(word, head) == 1:
-            return True
-        if len(head) >= 8 and word != head + 'S' and abs(len(head) - len(word)) == 1 \
-                and levenshtein(word, head) == 1:
-            return True
-    return False
-
-
-# true when the value is a job title, not a company ('ADVISOR', 'COMPUTER ANALIST')
-def is_job_title(upper: str) -> bool:
-    """Every word is a title word and the last one names a job."""
-    words = re.findall(r"[A-Z0-9&]+", upper)
-    return bool(words) and all(
-        _title_word(word, index == len(words) - 1) for index, word in enumerate(words)
+# strict self-employed check for FEC, cache text
+def explicitly_self_employed(value) -> bool:
+    upper = cell_text(value).upper()
+    compact = single_letters(re.sub(r"[^A-Z]", "", upper))
+    return (
+        upper == "SELF"
+        or upper.startswith(("SELF:", "SELF (", "SELF /"))
+        or compact.startswith("SELFEMPLOY")
+        or bool(SELF_EMPLOYED_TAIL_RE.search(upper))
     )
 
 
-# apply the previous_employer contract to a single value
+# apply the contract to one value
 def normalize_previous_employer_value(v) -> str:
-    """Contract for ONE value ('' clears it); self-employment is recognised FIRST because the display-name normalizer would clear 'SELF-EMPLOYED', a fact we keep."""
     text = _WS_RE.sub(' ', str(v)).strip()
     upper = text.upper()
-    # "GOLDMAN SACHS-RETIRED" / "SEMI RETIRED X": the marker is a status, the
-    # rest is judged on its own by this same contract. A remainder that is a
-    # listed profession (ROLE/OCCUPATION_AS_EMPLOYER, or NOT_REAL_EMPLOYER's
-    # OCCUPATION_TITLE_EMPLOYERS: "SEMI RETIRED PSYCHOLOGIST", "RETIRED
-    # JUDGE") is the donor's old occupation and clears - the same reading
-    # normalize_employer_display_name gives "RETIRED PHYSICIAN". An unlisted
-    # remainder is kept as filed; no word-level guess is made here.
+    # after a retirement marker, judge the rest
     remainder, had_marker = _strip_retired_marker(upper)
     if had_marker:
         if not remainder or remainder in _SE_PREV or remainder == 'MILITARY':
             return ''
         cleaned = normalize_previous_employer_value(remainder)
-        # "RETIRED LAWYER/EXECUTIVE", "SELF RETIRED": a marker never turns a
-        # title into SELF-EMPLOYED (FEC-cache ingestion only keeps
-        # SELF-EMPLOYED when the filer wrote it outright)
+        # a marker never yields SELF-EMPLOYED
         return '' if cleaned == 'SELF-EMPLOYED' else cleaned
-    # a firm the filer ran on their own keeps its name ("THE LOEB GROUP (SELF-EMPLOYED)")
+    # a self-run firm keeps its name
     firm = _firm_before_self_marker(upper)
     if firm:
         return normalize_previous_employer_value(firm) or 'SELF-EMPLOYED'
-    # explicit self-employment markers
     if _is_explicit_self(upper):
         return 'SELF-EMPLOYED'
-    # an admin note or refusal written instead of a company (DECLINE, REQUESTED VIA MAIL)
     if re.match(ADMIN_NOTE_EMPLOYER_RE, upper):
         return ''
-    # not a real prior company: email, industry word, status/volunteer, junk
-    # (upper_nospace collapses whitespace so spacing variants match their canonical form)
     if _is_null_previous(upper):
         return ''
-    # a bare job title / role -> worked for themselves in that profession
+    # a bare role means self-employed in it
     if upper in _SE_PREV:
         return 'SELF-EMPLOYED'
-    # any other job title names no company: nothing is known of the employer
+    # other job titles name no company
     if is_job_title(upper):
         return ''
-    # any other non-company value (status typo, sector, refusal) is cleared;
-    # is_real_employer wraps NOT_REAL_EMPLOYER, catching spellings _NULL_PREV misses
+    # catches spellings _NULL_PREV misses
     if not is_real_employer(upper):
         return ''
     return _previous_company_name(text, upper)
 
 
-# resolve one real prior company to its canonical display form
+# canonical display form of a prior company
 def _previous_company_name(text: str, upper: str) -> str:
-    """One real prior company in its canonical display form ('' if none)."""
-    # same synonym map as contributor_employer so a company collapses to ONE name
+    # same synonyms as contributor_employer, one name
     mapped = EMPLOYER_SYNONYMS.get(upper)
     mapped_from_alias = bool(mapped)
     if mapped:
@@ -297,8 +239,7 @@ def _previous_company_name(text: str, upper: str) -> str:
         if not text:
             return ''
     if not mapped_from_alias and text.upper() in _CANONICAL_SYNONYM_NAMES:
-        # canonical names are uppercase; a manual override typed
-        # "WhatsApp LLC" must not keep its own casing
+        # canonical names are uppercase, whatever the input
         return text.upper()
     normalized = text
     for _ in range(3):
@@ -321,20 +262,18 @@ def _previous_company_name(text: str, upper: str) -> str:
     return normalized if is_real_employer(normalized) else ''
 
 
-# extract comparable name words, ignoring punctuation and initials
+# comparable name words, no punctuation or initials
 def _name_words(value) -> frozenset[str]:
-    """Comparable name words, ignoring punctuation and middle initials."""
     return frozenset(
         word for word in re.sub(r'[^A-Z]', ' ', str(value).upper()).split()
         if len(word) > 1
     )
 
 
-# keep an own-named legal company, reject a bare donor name
+# keep own-named legal company, reject bare name
 def preserve_own_named_legal_employer(
     cleaned: str, original, contributor_name,
 ) -> str:
-    """Keep an own-named legal company, but reject a bare donor name."""
     if not cleaned or _name_words(cleaned) != _name_words(contributor_name):
         return cleaned
 
@@ -344,9 +283,8 @@ def preserve_own_named_legal_employer(
     return ''
 
 
-# apply the previous_employer contract to a whole dataframe
+# apply the contract to every row
 def normalize_previous_employer_column(df: pd.DataFrame) -> int:
-    """Apply the contract to a whole frame (idempotent, safe in both cleaning and resolve stages); also drops a previous_employer that is the donor's own name; returns rows changed."""
     if 'previous_employer' not in df.columns:
         return 0
     prev_emp = df['previous_employer']
@@ -359,8 +297,7 @@ def normalize_previous_employer_column(df: pd.DataFrame) -> int:
     df.loc[non_empty, 'previous_employer'] = normed
 
     if 'contributor_name' in df.columns:
-        # A bare donor name is not a company. A legal entity named after the
-        # donor is real information, so retain its LLC/PLLC/INC suffix.
+        # drop bare donor names, keep own-named LLCs
         df.loc[non_empty, 'previous_employer'] = [
             preserve_own_named_legal_employer(cleaned, original, donor)
             for cleaned, original, donor in zip(

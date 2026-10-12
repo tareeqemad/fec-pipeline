@@ -1,4 +1,4 @@
-"""Employer deep cleaning: junk values, semicolon lists, title prefixes, status-word variants, typos, truncated values."""
+"""Employer deep cleaning: junk, lists, titles, typos."""
 import re
 
 import numpy as np
@@ -14,7 +14,7 @@ from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES, OCCUPATION_FIXES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
 
-# a leading job title before the employer name: "CEO, ACME CORP"
+# leading job title, like "CEO, ACME CORP"
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
     r'CHAIRMAN|CHAIRPERSON|CHAIR|FOUNDER|CO-FOUNDER|PARTNER|PRINCIPAL|OWNER|'
@@ -22,9 +22,8 @@ _TITLE_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
-# run all employer deep-clean passes and total values changed
-def _deep_clean_employer(df: pd.DataFrame, trail) -> int:
-    """Employer-specific cleaning beyond text normalization; returns number of values changed."""
+# run every deep-clean pass; count changes
+def deep_clean_employer(df: pd.DataFrame, trail) -> int:
     n_changed = 0
     for pass_fn, reason in DEEP_CLEAN_PASSES:
         n_changed += trail.run(
@@ -34,9 +33,8 @@ def _deep_clean_employer(df: pd.DataFrame, trail) -> int:
     return n_changed
 
 
-# blank numeric-only or email employer values
+# blank numeric/email employers, except DUN & BRADSTREET
 def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> int:
-    """Numeric-only -> NaN, email addresses -> NaN (except DUN & BRADSTREET)."""
     emp = df['contributor_employer']
     n_changed = 0
 
@@ -58,9 +56,8 @@ def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# clean single-char junk and known two-char placeholder employers
+# fix single-char junk and two-char placeholders
 def _deep_clean_emp_short_junk(df: pd.DataFrame) -> int:
-    """Single-char junk -> NaN, two-char placeholders (XX, ME=ME, ND=ND, RD/RE+RETIRED)."""
     emp = df['contributor_employer']
     n_changed = 0
 
@@ -94,9 +91,8 @@ def _deep_clean_emp_short_junk(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# keep only the first employer of a semicolon-separated list
+# keep the first of semicolon-separated employers
 def _deep_clean_emp_semicolons(df: pd.DataFrame) -> int:
-    """Semicolons separating multiple employers -> keep first."""
     emp = df['contributor_employer']
     semi = emp.str.contains(r'\s;\s', na=False, regex=True)
     n_changed = int(semi.sum())
@@ -107,9 +103,8 @@ def _deep_clean_emp_semicolons(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# strip a known leading job title from the employer value
+# strip known leading titles; never blanks field
 def _deep_clean_emp_title_prefix(df: pd.DataFrame) -> int:
-    """Strip a leading job title ('COO, X' -> 'X'); known titles only so surname-led firms survive, and the lookahead means it never blanks the field."""
     emp = df['contributor_employer'].fillna('')
     stripped = emp.str.replace(_TITLE_PREFIX_RE, '', regex=True).str.strip()
     mask = (stripped != emp) & (stripped != '')
@@ -121,7 +116,6 @@ def _deep_clean_emp_title_prefix(df: pd.DataFrame) -> int:
 
 # normalize retired/self-employed phrasing variants to standard values
 def _deep_clean_emp_retired_variants(df: pd.DataFrame) -> int:
-    """Normalize 'RETIRED FROM ...', 'SEMI RETIRED', 'SELF RETIRED', 'CONSULTANT (SELF-EMPLOYED)'."""
     emp = df['contributor_employer']
     n_changed = 0
 
@@ -134,9 +128,7 @@ def _deep_clean_emp_retired_variants(df: pd.DataFrame) -> int:
         n_changed += int(ret_prefix.sum())
         df.loc[ret_prefix, 'contributor_employer'] = 'RETIRED'
 
-    # exact typos RETIRE_RE misses because the misspelling breaks the RETIRE
-    # substring. Subset overlap with RETIRED_TYPO_EMPLOYERS is deliberate:
-    # this fixes the employer field only, safety net T also syncs occupation.
+    # typos that break the RETIRE substring
     ret_typo = emp.isin(['RETIEED', 'RETIREE', 'RETIERD', 'RETIREED'])
     if ret_typo.any():
         n_changed += int(ret_typo.sum())
@@ -160,9 +152,8 @@ def _deep_clean_emp_retired_variants(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# normalize known SELF-EMPLOYED misspellings in the employer field
+# fix SELF-EMPLOYED typos before cross-fill and nets
 def _deep_clean_emp_self_employed_typos(df: pd.DataFrame) -> int:
-    """Normalize SELF-EMPLOYED typos; must run before _cross_fill and the safety nets, which would treat them as real employers."""
     emp = df['contributor_employer'].fillna('')
     mask = emp.isin(SELF_EMPLOYED_TYPOS)
     n_changed = int(mask.sum())
@@ -171,9 +162,8 @@ def _deep_clean_emp_self_employed_typos(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# turn homemaker/housewife employer into NOT EMPLOYED and sync occupation
+# homemaker employer becomes NOT EMPLOYED, occupation synced
 def _deep_clean_emp_homemaker_sync(df: pd.DataFrame) -> int:
-    """HOMEMAKER/HOUSEWIFE in employer -> NOT EMPLOYED, sync occupation."""
     homemaker_mask = df['contributor_employer'].isin(HOMEMAKER_EMPLOYER_VALUES)
     n_changed = int(homemaker_mask.sum())
     if n_changed:
@@ -186,9 +176,8 @@ def _deep_clean_emp_homemaker_sync(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# fix common employer typo patterns via configured regex replacements
+# fix common employer typos via configured regexes
 def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> int:
-    """Fix common employer typos (ASSOCAITE, MANAGMENT, INVESTEMENT...)."""
     n_changed = 0
     emp_col = df['contributor_employer']
     for typo_pattern, fix in EMPLOYER_TYPO_FIXES:
@@ -204,7 +193,6 @@ def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> int:
 
 # blank truncated 2-char employer/occupation values, excluding whitelist
 def _deep_clean_emp_truncated(df: pd.DataFrame) -> int:
-    """Truncated 2-char employer/occupation -> NaN (whitelisted real names excluded)."""
     n_changed = 0
 
     emp_now = df['contributor_employer']
@@ -217,8 +205,7 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> int:
         df.loc[short_emp, 'contributor_employer'] = np.nan
 
     occ_now = df['contributor_occupation']
-    # a short value the occupation fixes expand (DR -> DOCTOR, VC -> VENTURE
-    # CAPITAL) is an abbreviation, not a cut-off word: the fixes decide it
+    # abbreviations like DR are left to fixes
     short_occ = (
         occ_now.str.len().le(2) & occ_now.notna()
         & ~occ_now.isin(OK_SHORT_OCCUPATIONS) & ~occ_now.isin(MISSING_VALUES)

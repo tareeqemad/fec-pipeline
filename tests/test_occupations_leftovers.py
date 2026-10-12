@@ -18,14 +18,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.donor_consistency.occupation import _fill_occupation_from_donor
+from fec.cleaning.donor_consistency.occupation import fill_occupation_from_donor
 from fec.cleaning.manual_overrides import OVERRIDES_CSV
-from fec.cleaning.occupations.normalize import _normalize_text, categorize_final
+from fec.cleaning.occupations.normalize import normalize_text, categorize_final
 from fec.cleaning.occupations.style import normalize_occupation_style_step
-from fec.cleaning.safety_nets.employer import _null_sector_as_employer
-from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
-from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
-from fec.cleaning.safety_nets.occupation import _fix_web_artifact_occupation
+from fec.cleaning.safety_nets.employer import null_sector_as_employer
+from fec.cleaning.safety_nets.employer_swaps import fix_role_as_employer
+from fec.cleaning.safety_nets.name_fields import fix_company_name_as_occupation
+from fec.cleaning.safety_nets.occupation import fix_web_artifact_occupation
 from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
 from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
 from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
@@ -42,7 +42,7 @@ def _cat(occupation: str) -> str:
 
 
 def _normalized(raw: str) -> str:
-    return _normalize_text(pd.Series([raw]), OCCUPATION_NORMALIZE, collapse_retire=True)[0].iloc[0]
+    return normalize_text(pd.Series([raw]), OCCUPATION_NORMALIZE, collapse_retire=True)[0].iloc[0]
 
 
 # ---------------------------------------------------------------- typo lists
@@ -156,7 +156,7 @@ def test_ceo_beside_a_company_with_no_marker_is_swapped_back():
         [('CEO', 'TAP'), ('CEO', 'TAP'), ('CEO', 'KENILWORTH EQUITIES')],
         names=['VERON, JANE', 'VERON, JANE', 'MORROW, ROBERT'],
     )
-    assert _fix_role_as_employer(df) == 3
+    assert fix_role_as_employer(df) == 3
     assert df['contributor_employer'].tolist() == ['TAP', 'TAP', 'KENILWORTH EQUITIES']
     assert df['contributor_occupation'].tolist() == ['CEO', 'CEO', 'CEO']
     assert df['occupation_category'].tolist() == [EXEC] * 3
@@ -172,7 +172,7 @@ def test_role_beside_a_job_or_line_of_work_stays_self_employed():
         ('SELF-EMPLOYED', 'STRATEGY'),
         ('BURLINGTON STORES', 'STRATEGY'),
     ])
-    assert _fix_role_as_employer(df) == 5
+    assert fix_role_as_employer(df) == 5
     assert df['contributor_employer'].tolist()[:5] == ['SELF-EMPLOYED'] * 5
     assert df['contributor_occupation'].tolist()[:5] == [
         'DISTRIBUTION', 'REPETITEUR', 'REAL ESTATE', 'NOT DISCLOSED', 'STRATEGY',
@@ -181,13 +181,13 @@ def test_role_beside_a_job_or_line_of_work_stays_self_employed():
 
 def test_same_unknown_word_from_two_filers_is_not_a_company():
     df = _frame([('CEO', 'GROWTHY'), ('PRESIDENT', 'GROWTHY')], names=['A, B', 'C, D'])
-    _fix_role_as_employer(df)
+    fix_role_as_employer(df)
     assert df['contributor_employer'].tolist() == ['SELF-EMPLOYED', 'SELF-EMPLOYED']
 
 
 def test_marker_swap_still_works_for_any_role():
     df = _frame([('OWNER', 'SUMMIT HEALTH'), ('OWN BUSINESS', 'MENTAL HEALTH COUNSELOR')])
-    _fix_role_as_employer(df)
+    fix_role_as_employer(df)
     assert df['contributor_employer'].tolist() == ['SUMMIT HEALTH', 'SELF-EMPLOYED']
 
 
@@ -200,7 +200,7 @@ def test_executive_in_employer_box():
         ('EXECUTIVE', 'HEALTHCARE'),         # "healthcare executive": never a fake employer
         ('EXECUTIVE', 'ACME HOLDINGS LLC'),  # legal-entity word beside a name: swapped back
     ])
-    assert _null_sector_as_employer(df) == 6
+    assert null_sector_as_employer(df) == 6
     assert df.loc[0, 'contributor_employer'] == 'NORTH INDUSTRIES'
     assert df.loc[0, 'contributor_occupation'] == 'EXECUTIVE'
     assert pd.isna(df.loc[1, 'contributor_employer'])
@@ -228,7 +228,7 @@ def test_executive_in_employer_box():
 ])
 def test_executive_beside_an_industry_never_becomes_the_employer(industry):
     df = _frame([('EXECUTIVE', industry)])
-    assert _null_sector_as_employer(df) == 1
+    assert null_sector_as_employer(df) == 1
     assert pd.isna(df.loc[0, 'contributor_employer'])
     assert df.loc[0, 'contributor_occupation'] == industry
 
@@ -238,7 +238,7 @@ def test_company_in_occupation_takes_no_occupation_from_coworkers():
     a job only his colleagues ever filed."""
     rows = [('SELF-EMPLOYED', 'MASTERCARD')] + [('MASTERCARD', 'PRODUCT MANAGER')] * 10
     df = _frame(rows, names=['FEINBERG, PETER'] + ['COLLEAGUE, X'] * 10)
-    assert _fix_company_name_as_occupation(df) == 1
+    assert fix_company_name_as_occupation(df) == 1
     assert df.loc[0, 'contributor_employer'] == 'MASTERCARD'
     assert pd.isna(df.loc[0, 'contributor_occupation'])
     assert df.loc[0, 'occupation_status'] == 'MISSING'
@@ -253,14 +253,14 @@ def test_donor_stage_refills_only_from_the_same_donor():
         'occupation_category': [pd.NA, 'REAL ESTATE', 'LEGAL', pd.NA],
         'occupation_status': ['MISSING', 'DISCLOSED', 'DISCLOSED', 'MISSING'],
     })
-    _fill_occupation_from_donor(df)
+    fill_occupation_from_donor(df)
     assert df.loc[0, 'contributor_occupation'] == 'REAL ESTATE'
     assert pd.isna(df.loc[3, 'contributor_occupation'])
 
 
 def test_big_boy_is_nulled_as_junk():
     df = _frame([('SANDHURST', 'BIG BOY'), ('BIG BOY RESTAURANTS', 'MANAGER')])
-    assert _fix_web_artifact_occupation(df) == 1
+    assert fix_web_artifact_occupation(df) == 1
     assert pd.isna(df.loc[0, 'contributor_occupation'])
     assert df.loc[1, 'contributor_employer'] == 'BIG BOY RESTAURANTS'
 

@@ -1,9 +1,9 @@
-"""Exact occupation -> category overrides, checked before the pattern rules."""
+"""Exact occupation to category overrides."""
 
 
-# Explicit overrides for occupations the regex rules misclassify.
+# occupations the regex rules misclassify
 CATEGORY_OVERRIDES = {
-    # technology; bare "DEVELOPER" in FEC data is usually software
+    # technology; bare DEVELOPER is usually software
     "SOFTWARE DEVELOPER": "TECHNOLOGY",
     "TECHNICAL SUPPORT": "TECHNOLOGY",
     "SOFTWARE EXECUTIVE": "TECHNOLOGY",
@@ -15,7 +15,7 @@ CATEGORY_OVERRIDES = {
     "DATABASE DEVELOPER": "TECHNOLOGY",
     "DATABASE ANALYTICS": "TECHNOLOGY",
 
-    # construction / trades; CONTRACTOR is caught by the EXECUTIVE regex
+    # construction / trades
     "CONTRACTOR": "CONSTRUCTION / TRADES",
     "GENERAL CONTRACTOR": "CONSTRUCTION / TRADES",
     "ELECTRICAL CONTRACTOR": "CONSTRUCTION / TRADES",
@@ -25,23 +25,20 @@ CATEGORY_OVERRIDES = {
     "ARCHITECT": "CONSTRUCTION / TRADES",
     "INTERIOR ARCHITECT": "CONSTRUCTION / TRADES",
 
-    # CHIROPRACTOR also caught by the EXECUTIVE regex
+    # CHIROPRACTOR, missed by the medical regex
     "CHIROPRACTOR": "MEDICAL / HEALTHCARE",
 
-    # Titles that only reached EXECUTIVE / C-SUITE through CEO/CDO/CTO/CIO
-    # letters inside another word, before those were made whole-word.
-    # INDEPENDENT CONTRACTOR is a work arrangement like FREELANCER, not a
-    # trade; the PRIVATE MUSIC one teaches music for a park district.
+    # INDEPENDENT CONTRACTOR: a work arrangement, like FREELANCER
     "INDEPENDENT CONTRACTOR": "SELF-EMPLOYED",
     "INDEPENDENT CONTRACTOR- PRIVATE MUSIC": "ARTS / ENTERTAINMENT",
     "VOICEOVER/AUDO PRODUCTION": "ARTS / ENTERTAINMENT",
-    # AWS job code: Data Center Engineering Operations technician, level IV
+    # AWS data center technician job code
     "DCEO EOT IV": "TECHNOLOGY",
-    # virtual Chief Information Officer: a real C-level title, kept
+    # virtual CIO, a real C-level title
     "VCIO": "EXECUTIVE / C-SUITE",
     "NURSING COORDINATOR": "MEDICAL / HEALTHCARE",
     "CLINICAL NURSING COORDINATOR": "MEDICAL / HEALTHCARE",
-    # same bucket as CUSTOMER SERVICE / CUSTOMER SUCCESS and RECRUITER
+    # same bucket as CUSTOMER SERVICE and RECRUITER
     "CUSTOMER ENGAGEMENT COORDINATOR": "SALES / MARKETING",
     "RECRUITING COORDINATOR": "SALES / MARKETING",
 
@@ -67,7 +64,7 @@ CATEGORY_OVERRIDES = {
     "VP OF MARKETING": "EXECUTIVE / C-SUITE",
     "CHIEF DEVELOPMENT OFFICER": "EXECUTIVE / C-SUITE",
 
-    # legal; MEDIATION contains MEDIA so the SALES/MARKETING regex fires
+    # legal; MEDIATION would match MEDIA otherwise
     "MEDIATION": "LEGAL",
     "MEDIATOR": "LEGAL",
     "FAMILY MEDIATION": "LEGAL",
@@ -168,7 +165,7 @@ CATEGORY_OVERRIDES = {
 
     "MARKETER": "SALES / MARKETING",
 
-    # a public adjuster works insurance claims for the policyholder, not for government
+    # works claims for policyholders, not government
     "PUBLIC ADJUSTER": "INSURANCE",
 
     # government
@@ -178,8 +175,6 @@ CATEGORY_OVERRIDES = {
 
     "FREELANCER": "SELF-EMPLOYED",
     "PET SITTER": "SELF-EMPLOYED",
-
-    # batch 2
 
     # executive
     "DEPUTY MANAGING DIRECTOR": "EXECUTIVE / C-SUITE",
@@ -207,8 +202,7 @@ CATEGORY_OVERRIDES = {
     # medical / science
     "NUCLEAR HYDROLOGIST": "SCIENCE / RESEARCH",
     "BIOSTATISTICIAN": "SCIENCE / RESEARCH",
-    # the lead researcher on a grant or trial (NIH term); without this it
-    # falls to EXECUTIVE through PRINCIPAL now that INVEST no longer claims it
+    # lead researcher on a grant (NIH term)
     "PRINCIPAL INVESTIGATOR": "SCIENCE / RESEARCH",
     "PSYCHOMETRIST": "MEDICAL / HEALTHCARE",
     "LONG TERM CARE AND REHABILITATION FACI": "MEDICAL / HEALTHCARE",
@@ -250,8 +244,7 @@ CATEGORY_OVERRIDES = {
     "BASKETBALL COACH": "EDUCATION",
     "GRAD STUDENT": "STUDENT",
     "SENIOR FELLOW": "EDUCATION",
-    # roster title (Heritage Foundation): a think-tank fellow like SENIOR
-    # FELLOW, not a lawyer (COUNSELOR) nor a company president (PRESIDENT)
+    # a think-tank fellow title
     "SENIOR COUNSELOR TO THE PRESIDENT AND E.W. RICHARDSON FELLOW": "EDUCATION",
 
     # management
@@ -292,8 +285,7 @@ CATEGORY_OVERRIDES = {
     "PAPER CONVERTER": "BUSINESS / ENTREPRENEUR",
     "APPAREL": "BUSINESS / ENTREPRENEUR",
     "JEWLERY": "BUSINESS / ENTREPRENEUR",
-    # keyed on the corrected spelling: OCCUPATION_NORMALIZE already rewrites
-    # the raw CLEANNG SERVICE, so a typo key here could never match
+    # keyed on the corrected spelling, after normalize
     "CLEANING SERVICE": "BUSINESS / ENTREPRENEUR",
     "ENERGY": "BUSINESS / ENTREPRENEUR",
     "POWER": "BUSINESS / ENTREPRENEUR",
@@ -310,10 +302,9 @@ CATEGORY_OVERRIDES = {
 
     # science
     "MEMBER OF RESEARCH STAFF": "SCIENCE / RESEARCH",
-    # filed bare by self-employed practitioners: a psychology practice
+    # filed bare by psychology practitioners
     "PSYCHOLOGY": "MEDICAL / HEALTHCARE",
 
-    # batch 3: final stragglers
     "DEVELOPMENT": "NONPROFIT / PHILANTHROPY",  # fundraising context in this data
     "INTERNATIONAL DEVELOPMENT": "NONPROFIT / PHILANTHROPY",
     "VP OF DEVELOPMENT": "NONPROFIT / PHILANTHROPY",
@@ -323,7 +314,7 @@ CATEGORY_OVERRIDES = {
     "ENTREPRENEUR": "BUSINESS / ENTREPRENEUR",
     "ATTORNEY": "LEGAL",
     "LAWYER": "LEGAL",
-    "EMPLOYED": "OTHER",  # no info — keep as OTHER
+    "EMPLOYED": "OTHER",  # no info, keep as OTHER
     "SELF-EMPLOYED": "SELF-EMPLOYED",
     "REG. REP": "FINANCE / INVESTMENT",
     "GP": "FINANCE / INVESTMENT",  # General Partner
@@ -337,8 +328,7 @@ CATEGORY_OVERRIDES = {
     "REGISTERED DIETITIAN, HEALTH AND WELLN": "MEDICAL / HEALTHCARE",
     "HOLISTIC WEALTH AND PHILANTHROPIC COAC": "CONSULTING",
 
-    # Final audit: real, readable occupations that the broad regexes cannot
-    # place reliably. Exact values keep these decisions easy to review.
+    # real occupations the broad regexes misplace
     "ACQUISITIONS": "FINANCE / INVESTMENT",
     "ASSET MANAGER": "FINANCE / INVESTMENT",
     "CAPITAL MARKETS": "FINANCE / INVESTMENT",
@@ -372,8 +362,7 @@ CATEGORY_OVERRIDES = {
     "WEALTH ADVISOR": "FINANCE / INVESTMENT",
     "WHOLESALE LUMBER": "BUSINESS / ENTREPRENEUR",
 
-    # Readable one-off descriptions from the FEC data. Exact overrides avoid
-    # broad regexes that could misclassify unrelated occupations.
+    # readable one-off descriptions from FEC data
     "DESIGN AND BUILD": "CONSTRUCTION / TRADES",
     "FOOD AND BEVERAGE CONSUMER RESEARCH": "SALES / MARKETING",
     "HOUSING": "REAL ESTATE",
@@ -381,11 +370,8 @@ CATEGORY_OVERRIDES = {
     "INSTITUTIONAL DISTRIBUTION & CLIENT SERVICES": "SALES / MARKETING",
     "OWNERSHIP": "BUSINESS / ENTREPRENEUR",
 
-    # 2026-09-23 audit: unambiguous job titles the regexes miss, each placed
-    # beside an existing analogue (named in the comment). Deliberately left
-    # OTHER because the word alone is ambiguous: INVESTIGATOR, COUNSELOR,
-    # REPRESENTATIVE, TRUSTEE, NEUTRAL, SPEAKER, MAGICIAN, SUMMER ASSOCIATE,
-    # FRAMING (carpentry or picture framing), ADVOCATE, PA, STRATEGY.
+    # missed titles; ambiguous words stay OTHER
+
     # medical (PSYCHOPHARMACOLOGIST, NEPHROLOGIST, LMFT, PERSONAL TRAINER)
     "CLINICAL PSYCHOPHARMACOLOGIST": "MEDICAL / HEALTHCARE",
     "ELECTROPHYSIOLOGIST": "MEDICAL / HEALTHCARE",
@@ -406,9 +392,7 @@ CATEGORY_OVERRIDES = {
     "HOLISTIC HEALTH AND WELLNESS COACH": "MEDICAL / HEALTHCARE",
     "HOLISTIC NUTRITION": "MEDICAL / HEALTHCARE",
     "FITNESS TRAINER": "MEDICAL / HEALTHCARE",
-    # arts / entertainment (POKER BROADCASTER, TAILOR, HAIR STYLIST, BEAUTY,
-    # SPORTS, TOUR GUIDE, ART GALLERIST; interpreters and translators are BLS
-    # SOC 27-3091, in the arts/media group)
+    # arts / entertainment (TAILOR, HAIR STYLIST)
     "NOVELIST": "ARTS / ENTERTAINMENT",
     "COMPOSER": "ARTS / ENTERTAINMENT",
     "SCULPTOR": "ARTS / ENTERTAINMENT",
@@ -446,8 +430,7 @@ CATEGORY_OVERRIDES = {
     "MATHEMATICIAN": "SCIENCE / RESEARCH",
     "PHYSICS": "SCIENCE / RESEARCH",
     "HISTORIAN": "SCIENCE / RESEARCH",
-    # government / military (POLICE DETECTIVE, LOBBYIST, CONGRESSIONAL
-    # CANDIDATE, COURT RECEIVER, GOV'T RELATIONS)
+    # government / military (POLICE DETECTIVE, LOBBYIST)
     "POLICE OFFICER": "GOVERNMENT / MILITARY",
     "CAPTAIN, COP UNIT": "GOVERNMENT / MILITARY",
     "CITY CLERK": "GOVERNMENT / MILITARY",
@@ -465,14 +448,14 @@ CATEGORY_OVERRIDES = {
     "ALJ": "LEGAL",
     "ALTERNATIVE DISPUTE RESOLUTION SERVICE": "LEGAL",
     "PRIVATE PROFESSIONAL FIDUCIARY": "LEGAL",
-    # construction / trades (DESIGN AND BUILD, REMODELER, MECHANIC)
+    # construction / trades (REMODELER, MECHANIC)
     "HANDYMAN": "CONSTRUCTION / TRADES",
     "MILLWORK": "CONSTRUCTION / TRADES",
     "GENERAL CONTRACTING": "CONSTRUCTION / TRADES",
     "DESIGN/BUILD": "CONSTRUCTION / TRADES",
     "CABINETS/CARPORTS": "CONSTRUCTION / TRADES",
     "WATCHMAKER": "CONSTRUCTION / TRADES",
-    # transportation (MOVER, LOGISTICS; BLS SOC 53-7051 material moving)
+    # transportation (MOVER, LOGISTICS)
     "FORKLIFT OPERATOR": "TRANSPORTATION",
     # food / hospitality (FOOD SERVICE, CHEF, HOTEL)
     "CHEESE MAKER": "FOOD / HOSPITALITY",
@@ -495,9 +478,9 @@ CATEGORY_OVERRIDES = {
     "DEBT ACQUISITION": "FINANCE / INVESTMENT",
     "PAYMENT PROCESSING": "FINANCE / INVESTMENT",
     "BANK OFFICER": "FINANCE / INVESTMENT",
-    "PERE": "FINANCE / INVESTMENT",  # private equity real estate (KENNEDY WILSON)
+    "PERE": "FINANCE / INVESTMENT",  # private equity real estate
     "STOCKS": "FINANCE / INVESTMENT",
-    # insurance: INS is the INS -> INSURANCE fix; the donor files INSURANCE AGENT
+    # insurance; INS means INSURANCE
     "INS AGENCY": "INSURANCE",
     # nonprofit (DEVELOPMENT, DIRECTOR OF ADVANCEMENT, JEWISH PROFESSIONAL)
     "MAJOR GIFT OFFICER": "NONPROFIT / PHILANTHROPY",
@@ -505,34 +488,28 @@ CATEGORY_OVERRIDES = {
     "INSTITUTIONAL GIVING GRANTS": "NONPROFIT / PHILANTHROPY",
     "CHARITABLE GIVING": "NONPROFIT / PHILANTHROPY",
     "JEWISH COMMUNAL PROFESSIONAL": "NONPROFIT / PHILANTHROPY",
-    # sales / marketing (GIFT BUYER, MEDIA BUYER, CUSTOMER SERVICE, RECRUITER,
-    # LICENSING, PROPANE MARKETER)
+    # sales / marketing (MEDIA BUYER, RECRUITER)
     "BUYER": "SALES / MARKETING",
     "CANDY & GIFT BUYER": "SALES / MARKETING",
-    # CUSTOMER SERVICE REP(RESENTATIVE) is not mapped: test_occupations_categories
-    # pins the long form to OTHER (its point: not a legislator)
+    # CUSTOMER SERVICE REP left OTHER on purpose
     "CALL CENTER AGENT": "SALES / MARKETING",
     "CLIENT SERVICE ASSOCIATE": "SALES / MARKETING",
     "RECRUITING": "SALES / MARKETING",
     "LICENSING AGENCY": "SALES / MARKETING",
     "PETROLEUM MARKETER": "SALES / MARKETING",
     "DIRECT MAIL": "SALES / MARKETING",
-    # management (GENERAL MANAGER, CLERK, OFFICE STAFF); every GM filer in the
-    # data is a manager, one also files GENERAL MANAGER
+    # management; every GM filer is a manager
     "GM": "MANAGEMENT",
     "RECEPTION": "MANAGEMENT",
     "FRONT DESK": "MANAGEMENT",
-    # executive: C-level titles (CLO chief legal/learning, CGO chief growth,
-    # CMTO chief marketing & technology officer)
+    # executive: C-level titles (CLO, CGO, CMTO)
     "CLO": "EXECUTIVE / C-SUITE",
     "CGO": "EXECUTIVE / C-SUITE",
     "CMTO": "EXECUTIVE / C-SUITE",
     # agriculture (FARM, RANCH)
     "HORTICULTURIST": "AGRICULTURE",
     "FERTILIZER": "AGRICULTURE",
-    # FEC's 38-character cut, kept as filed because the donor never files the
-    # full text and the web does not show it: ADVIS... is CONSULTING whichever
-    # way it ends; OPERATI... gets what OPERATIONS (the MANAGEMENT rule) gets
+    # FEC 38-character cuts, kept as filed
     "INFRASTRUCTURE DEVELOPMENT AND OPERATI": "MANAGEMENT",
     "INSTITUTIONAL & STRATEGIC GROWTH ADVIS": "CONSULTING",
 }

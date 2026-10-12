@@ -36,7 +36,7 @@ def _build(tmp_path, monkeypatch, filings, cache, geocodes=None, previous=None):
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes or {}), encoding="utf-8")
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
     employer_locations.build()

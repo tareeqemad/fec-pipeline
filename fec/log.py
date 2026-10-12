@@ -1,4 +1,4 @@
-"""Centralized logging: clean console output (message only), detailed file output (timestamp + level + module)."""
+"""Logging: plain console, detailed log file."""
 import io
 import logging
 import os
@@ -10,14 +10,13 @@ _CONFIGURED = False
 class CleanFormatter(logging.Formatter):
     """Console formatter: just the message, no clutter."""
 
-    # return only the log message, no timestamp or level
+    # return only the log message
     def format(self, record):
         return record.getMessage()
 
 
-# configure logging for the whole pipeline, once at startup
+# configure pipeline logging once at startup
 def setup_logging() -> None:
-    """Configure logging for the entire pipeline. Call once at startup."""
     global _CONFIGURED
     if _CONFIGURED:
         return
@@ -28,7 +27,7 @@ def setup_logging() -> None:
     root = logging.getLogger()
     root.setLevel(getattr(logging, level, logging.INFO))
 
-    # force UTF-8 on Windows: cp1256/cp1252 can't encode some log characters
+    # Windows cp1252 cannot encode some characters
     if sys.platform == "win32":
         console_stream = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     else:
@@ -48,16 +47,14 @@ def setup_logging() -> None:
     _CONFIGURED = True
 
 
-# get a module logger, auto-configuring logging if needed
+# get a module logger, configuring if needed
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger for a module. Auto-configures if not yet done."""
     if not _CONFIGURED:
         setup_logging()
     return logging.getLogger(name)
 
 
-# log a label and count only when count is nonzero
+# log label and count when count nonzero
 def log_count(logger: logging.Logger, label: str, count: int) -> None:
-    """Log label and count when non-zero."""
     if count:
         logger.info("  %-38s %s", label, f"{count:,}")

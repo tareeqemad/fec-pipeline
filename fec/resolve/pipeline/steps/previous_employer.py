@@ -1,120 +1,27 @@
-"""Find a retired donor's previous employer from local records or the FEC API."""
-
-import re
+"""Cross-record step: previous employers from local filings."""
 
 import pandas as pd
 
-from fec.cleaning.employer_status import (
-    classify_employer_statuses,
-    is_real_employer,
-    single_letters,
-)
+from fec.cleaning.employer_status import classify_employer_statuses
 from fec.cleaning.employer_synonyms.canonical import canonical_key
-from fec.cleaning.previous_employer import (
-    SELF_EMPLOYED_TAIL_RE,
-    normalize_previous_employer_value,
-    preserve_own_named_legal_employer,
-)
 from fec.log import get_logger
-from fec.resolve.pipeline.constants import RETIRED
-from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
+from fec.resolve.pipeline.previous_cache import (
+    LOCAL_METHODS,
+    PROTECTED_METHODS,
+    cache_entry,
+    clean_previous_employer,
+    previous_cache_key,
+    previous_employer_identity,
+    retired_donors,
+)
 
 logger = get_logger(__name__)
-# cache entries built from the loaded CSV itself, rebuilt on every run
-LOCAL_METHODS = frozenset({"cross_record", "cleaned_previous"})
-
-PROTECTED_METHODS = {
-    "manual_clear",
-    "manual_override",
-    "cleared_swapped_record",
-}
 
 
-# return all individuals and the latest row per retired donor
-def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Return all individuals and the latest row for every retired donor."""
-    individuals = df[df["entity_type"] == "INDIVIDUAL"]
-    retired_keys = set(
-        individuals.loc[
-            individuals["contributor_employer"] == RETIRED, "donor_key"
-        ].unique()
-    )
-    latest = (
-        individuals[individuals["donor_key"].isin(retired_keys)]
-        .sort_values("contribution_receipt_date", ascending=False)
-        .drop_duplicates("donor_key", keep="first")
-    )
-    return individuals, latest
-
-
-# apply the previous-employer contract to a single value
-def _clean_employer(value) -> str:
-    """Apply the same previous-employer contract to every source."""
-    cleaned = normalize_previous_employer_value(value)
-    # self-employment is known work history, not an empty answer
-    return cleaned if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned) else ""
-
-
-# true only when the filer explicitly reported self-employment
-def _explicit_self_employment(value) -> bool:
-    """True only when the filer explicitly reported self-employment."""
-    upper = _s(value).strip().upper()
-    compact = single_letters(re.sub(r"[^A-Z]", "", upper))
-    return (
-        upper == "SELF"
-        or upper.startswith(("SELF:", "SELF (", "SELF /"))
-        or compact.startswith("SELFEMPLOY")
-        or bool(SELF_EMPLOYED_TAIL_RE.search(upper))
-    )
-
-
-# build one clean cache entry, keeping raw spelling as provenance
-def _cache_entry(
-    raw_employer,
-    *,
-    state,
-    method,
-    source_date="",
-    source_name="",
-    source_city="",
-    source_zip="",
-) -> dict:
-    """Build one clean cache entry while retaining raw spelling as provenance."""
-    raw_name = _s(raw_employer).strip()
-    employer = normalize_previous_employer_value(raw_name)
-    if employer == "SELF-EMPLOYED" and not _explicit_self_employment(raw_name):
-        employer = ""
-    if source_name:
-        employer = preserve_own_named_legal_employer(
-            employer,
-            raw_name,
-            source_name,
-        )
-    if not employer:
-        return {"employer": "", "method": f"{method}_not_found"}
-
-    entry = {
-        "employer": employer,
-        "employer_normalized": employer.upper(),
-        "state": _s(state).strip(),
-        "method": method,
-    }
-    if raw_name.upper() != employer.upper():
-        entry["employer_source"] = raw_name
-    provenance = {
-        "source_date": source_date,
-        "source_name": source_name,
-        "source_city": source_city,
-        "source_zip": source_zip,
-    }
-    entry.update({key: _s(value).strip() for key, value in provenance.items() if value})
-    return entry
-
-
-# split retired donors into eligible and protected cache entries
+# split retired donors into eligible and protected
 def _eligible_retired_donors(latest_retired: pd.DataFrame, prev_cache):
     donor_to_cache_key = {
-        row["donor_key"]: _prev_key(row["donor_key"])
+        row["donor_key"]: previous_cache_key(row["donor_key"])
         for _, row in latest_retired.iterrows()
     }
 
@@ -129,7 +36,7 @@ def _eligible_retired_donors(latest_retired: pd.DataFrame, prev_cache):
     return donor_to_cache_key, eligible, protected
 
 
-# find candidate previous-employer rows from local records per donor
+# each donor's candidate rows from local filings
 def _cross_record_candidates(individuals: pd.DataFrame, eligible: set):
     statuses = classify_employer_statuses(individuals)
     worked = statuses.isin(
@@ -138,17 +45,14 @@ def _cross_record_candidates(individuals: pd.DataFrame, eligible: set):
             "self_employed",
         }
     )
-    clean_employers = individuals["contributor_employer"].map(_clean_employer)
+    clean_employers = individuals["contributor_employer"].map(clean_previous_employer)
     work_rows = individuals.loc[worked & clean_employers.ne("")].assign(
         _candidate_employer=individuals["contributor_employer"],
         _candidate_method="cross_record",
         _candidate_priority=1,
     )
-    previous = individuals.get(
-        "previous_employer",
-        pd.Series("", index=individuals.index),
-    )
-    clean_previous = previous.map(_clean_employer)
+    previous = individuals["previous_employer"]
+    clean_previous = previous.map(clean_previous_employer)
     previous_rows = individuals.loc[clean_previous.ne("")].assign(
         _candidate_employer=previous,
         _candidate_method="cleaned_previous",
@@ -174,14 +78,14 @@ def _refresh_cross_record_cache(
     for donor_key, group in rows_by_donor.items():
         cache_key = donor_to_cache_key[donor_key]
         latest = group.iloc[0]
-        entry = _cache_entry(
+        entry = cache_entry(
             latest["_candidate_employer"],
-            state=latest.get("contributor_state", ""),
+            state=latest["contributor_state"],
             method=latest["_candidate_method"],
-            source_date=latest.get("contribution_receipt_date", ""),
+            source_date=latest["contribution_receipt_date"],
         )
         cached = prev_cache.get(cache_key)
-        cached_name, _ = _previous_employer_identity(cached)
+        cached_name, _ = previous_employer_identity(cached)
         if cached_name and canonical_key(cached_name) == canonical_key(
             entry.get("employer", "")
         ):
@@ -198,7 +102,7 @@ def _refresh_cross_record_cache(
     return found, refreshed, unchanged
 
 
-# drop cached entries later evidence shows are wrong
+# drop cached entries local evidence contradicts
 def _clear_invalid_cross_records(
     individuals: pd.DataFrame,
     statuses,
@@ -211,7 +115,7 @@ def _clear_invalid_cross_records(
     invalid_employers = individuals.loc[
         statuses.eq("not_employed") & clean_employers.ne("")
     ].assign(_invalid_name=clean_employers)
-    self_occupations = individuals["contributor_occupation"].map(_clean_employer)
+    self_occupations = individuals["contributor_occupation"].map(clean_previous_employer)
     invalid_occupations = individuals.loc[
         statuses.eq("self_employed") & self_occupations.ne("")
     ].assign(_invalid_name=self_occupations)
@@ -231,7 +135,7 @@ def _clear_invalid_cross_records(
         cached = prev_cache.get(cache_key)
         if not cached:
             continue
-        cached_name = _clean_employer(cached.get("employer"))
+        cached_name = clean_previous_employer(cached.get("employer"))
         invalid_cross_record = (
             cached.get("method") == "cross_record"
             and cached_name in invalid_by_donor.get(donor_key, set())
@@ -240,8 +144,7 @@ def _clear_invalid_cross_records(
             cached.get("method") == "cleaned_previous"
             and cached_name in self_by_donor.get(donor_key, set())
         )
-        # an entry read from the local file whose evidence is gone (a manual
-        # override cleared the filing it came from) is not kept to come back
+        # a local entry without evidence is dropped
         evidence_gone = cached.get("method") in LOCAL_METHODS
         if invalid_cross_record or invalid_self_occupation or evidence_gone:
             prev_cache.discard(cache_key)
@@ -249,10 +152,9 @@ def _clear_invalid_cross_records(
     return cleared
 
 
-# cache each retired donor's latest real employer from local records
+# cache retirees' latest employer from local filings
 def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
-    """Cache each retired donor's latest real employer from the loaded CSV."""
-    individuals, latest_retired = _retired_donors(df)
+    individuals, latest_retired = retired_donors(df)
     donor_to_cache_key, eligible, protected = _eligible_retired_donors(
         latest_retired,
         prev_cache,

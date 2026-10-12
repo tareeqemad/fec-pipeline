@@ -1,9 +1,9 @@
-"""Employer name normalization for grouping/matching and for display."""
+"""Employer name normalization for grouping and display."""
 import re
 
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx
+from fec.cleaning._helpers import individual_index
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER
@@ -11,13 +11,10 @@ from fec.config.constants import SKIP_EMPLOYERS
 
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
 
-# Trailing trademark/ticker/marker parentheticals - (R), (TM), (BEP), (SELF).
-# 1-5 letters only: longer or digit-bearing tags are kept as disambiguators.
-_TRAILING_PAREN_RE = re.compile(r'\s*\([A-Z]{1,5}\)\s*$')
+# trailing 1-5 letter tags; longer ones kept
+TRAILING_PAREN_RE = re.compile(r'\s*\([A-Z]{1,5}\)\s*$')
 
-# Status words/artifacts that must never end up in previous_employer;
-# callers treat a match as "no previous employer known". The canonical status
-# set plus display-stage extras (punctuated variants, honorifics, stumps).
+# status words never kept as previous_employer
 _PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
     'NOT-EMPLOYED', 'PRIVATE', 'N.A', 'N.A.',
     'RET', 'RET.', 'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.',
@@ -27,30 +24,23 @@ _PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
     'COMPANY NAME', 'COMPANY NAME (OPTIONAL)', 'NOT SPECIFIED',
 }
 
-# A name never legitimately ends in a bare connector - these are FEC 38-char
-# truncation stumps ("SOUTHERN GLAZER'S WINE AND" -> "... WINE").
+# bare trailing connector means a truncation stump
 _TRAILING_CONNECTOR_RE = re.compile(
     r'\s+(?:AT THE|OF THE|ATTORNEYS AT|AT|OF|FOR|AND|&|-)$')
 
-# Suffix STYLE normalization only (", INC" -> " INC", "P.C" -> "PC") - never
-# strips, so it can never merge two companies. Tolerates raw FEC punctuation
-# ("CO,, INC." / "CO ,INC"): the comma may repeat and a trailing period is
-# stripped later in the pipeline, so both forms must still match here.
+# style only, never strips; tolerates raw punctuation
 _SUFFIX_COMMA_RE = re.compile(
     r'\s*,[,\s]*(?=(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA'
     r'|L\.L\.C|L\.L\.P|L\.P|P\.C|P\.A'
     r'|INCORPORATED|CORPORATION|COMPANY|LIMITED)\.?$)')
-# "CO." keeps its period only when it is a mid-name abbreviation nobody styles
-# ("CO. INC" / "CO. LLP" / trailing "CO."): dotted initials such as R.A. or U.S. stay.
+# dedot suffixes; initials like U.S. stay
 _SUFFIX_DEDOT = [(re.compile(r'\bL\.L\.C\.?$'), 'LLC'), (re.compile(r'\bL\.L\.P\.?$'), 'LLP'),
                  (re.compile(r'\bP\.C\.?$'), 'PC'), (re.compile(r'\bP\.A\.?$'), 'PA'),
                  (re.compile(r'\bL\.P\.?$'), 'LP'),
                  (re.compile(r'\bCO\.(?=\s+(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA)\b)'), 'CO'),
                  (re.compile(r'\bCO\.$'), 'CO')]
 
-# Brands whose official form uses `&`. Normalization turns `&` into ` AND `
-# for unknown firms; for these we keep the ampersand ("AT AND T" is
-# unreadable). Hand-curated - do NOT auto-detect.
+# brands that keep `&`; hand-curated, never auto-detect
 AMPERSAND_BRANDS = frozenset({
     # tech/telecom
     'AT&T', 'AT&T WIRELESS', 'AT&T MOBILITY',
@@ -96,10 +86,7 @@ AMPERSAND_BRANDS = frozenset({
     'H&E EQUIPMENT SERVICES', 'H&E DO IT YOURSELF CENTER',
 })
 
-# Common nouns that are real company names once suffix-stripped ("HOUSING INC"
-# stripped to "HOUSING" reads as a noun and makes the resolver hallucinate).
-# Evidence-driven: add a word only when a real filer used it as a company name
-# and the stripped form is too ambiguous to carry that meaning alone.
+# stripped, these read as nouns; keep suffix
 GENERIC_WORDS_PROTECTED = frozenset({
     'HOUSING',
     'GOOD HEALTH',
@@ -109,7 +96,6 @@ GENERIC_WORDS_PROTECTED = frozenset({
 
 # build alphanumeric-only uppercase key for brand matching
 def _brand_key(s: str) -> str:
-    """Alphanumeric-only uppercase key so every raw variant of a brand matches one AMPERSAND_BRANDS entry."""
     s = s.upper()
     s = re.sub(r'\s+AND\s+', '', s)
     s = re.sub(r'[^A-Z0-9]', '', s)
@@ -119,9 +105,8 @@ def _brand_key(s: str) -> str:
 _AMPERSAND_BRAND_LOOKUP = {_brand_key(brand): brand for brand in AMPERSAND_BRANDS}
 
 
-# look up the canonical ampersand form of a known brand
+# canonical ampersand form of a known brand
 def _preserve_brand(upper_value: str) -> str | None:
-    """Return the canonical `&` form if `upper_value` matches a known brand."""
     return _AMPERSAND_BRAND_LOOKUP.get(_brand_key(upper_value))
 
 
@@ -134,10 +119,9 @@ def _strip_trailing_connectors(s: str) -> str:
     return s
 
 
-# build employer_name_normalized column for grouping/matching
+# build employer_name_normalized for grouping, not display
 def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Add employer_name_normalized (legal suffixes stripped, &/AND and whitespace normalized) for grouping, not display; returns (df, n_normalized)."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
 
     has_emp = emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
@@ -149,16 +133,13 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
     raw = emp[has_emp]
 
-    stripped = raw.str.replace(_TRAILING_PAREN_RE, '', regex=True)
+    stripped = raw.str.replace(TRAILING_PAREN_RE, '', regex=True)
     stripped = stripped.str.replace(LEGAL_SUFFIX_RE, '', regex=True)
-    # & $ -> AND for non-brand forms; brand preservation happens via the
-    # hybrid rule below through normalize_employer_display_name
     stripped = stripped.str.replace(r'[&$]', ' AND ', regex=True)
     stripped = stripped.str.replace(r'\s+', ' ', regex=True).str.strip()
     stripped = stripped.str.rstrip('.,').str.strip()
 
-    # Keep the suffix when stripping leaves an ambiguous generic or <=2 chars.
-    # "JB INC" is a company; "JB" would be mistaken for short junk.
+    # ambiguous generic or <=2 chars keeps suffix
     raw_upper = raw.str.upper().str.strip()
     needs_protection = (
         (stripped != raw_upper)
@@ -174,7 +155,7 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     changed = stripped != raw
     df.loc[target, 'employer_name_normalized'] = stripped
 
-    # keep the original suffix-bearing name for display (e.g. previous_employer)
+    # keep suffix-bearing original for display
     if 'contributor_employer_original' not in df.columns:
         df['contributor_employer_original'] = df['contributor_employer'].copy()
 
@@ -184,9 +165,8 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
-# normalize an ad-hoc employer value like the main column
+# normalize one employer value; None for status
 def normalize_employer_display_name(name) -> str | None:
-    """Apply contributor_employer's normalization to an ad-hoc value (e.g. resolve-stage previous_employer); None for missing/status values."""
     if name is None:
         return None
     text = str(name).strip()
@@ -194,14 +174,13 @@ def normalize_employer_display_name(name) -> str | None:
         return None
 
     text = text.upper()
-    # 'RETIRED - ORTHOCAROLINA': the remainder IS the previous employer;
-    # a bare profession word ('RETIRED PHYSICIAN') is not a company
+    # remainder after RETIRED is the previous employer
     match = re.match(r'^RETIRED\b[\s,-]+(.+)$', text)
     if match:
         text = match.group(1).strip()
         if not text or text in OCCUPATION_AS_EMPLOYER or text == 'MILITARY':
             return None
-    text = _TRAILING_PAREN_RE.sub('', text).strip()
+    text = TRAILING_PAREN_RE.sub('', text).strip()
 
     # strip legal suffixes, possibly stacked ("CO., INC.")
     original = re.sub(r'\s+', ' ', text).strip()
@@ -210,31 +189,27 @@ def normalize_employer_display_name(name) -> str | None:
     while prev != stripped:
         prev = stripped
         stripped = LEGAL_SUFFIX_RE.sub('', stripped).strip()
-    # Ambiguous generics and very short names keep their suffix.
+    # ambiguous generics and short names keep suffix
     if (stripped != original
             and (stripped in GENERIC_WORDS_PROTECTED or len(stripped) <= 2)):
         clean = re.sub(r',\s+', ' ', original)
         clean = re.sub(r'\s+', ' ', clean).strip().rstrip('.').rstrip(',').strip()
         return clean
     text = stripped
-    # Brand override: known `&`-brands are forced to canonical form; otherwise
-    # keep the filer's spelling - deliberately NO blanket `&` -> `AND` here,
-    # because that mangles real brand names.
+    # no blanket AND swap; it mangles brands
     brand = _preserve_brand(text)
     if brand:
         return brand
     text = re.sub(r'\s+', ' ', text).strip().rstrip(',').rstrip('.').strip()
     text = re.sub(r'^C/O\s+', '', text)
     text = _strip_trailing_connectors(text)
-    # converge on the curated canonical spelling so the previous_employer
-    # path can never re-split a company the dict merged
+    # use synonyms so previous_employer never re-splits companies
     text = EMPLOYER_SYNONYMS.get(text, text)
     return text or None
 
 
-# clean up legal-suffix punctuation style without stripping it
+# restyle suffix punctuation; never strips, never merges
 def restyle_legal_suffix(name: str) -> str:
-    """Style-only suffix cleanup (', INC' -> ' INC', 'P.C' -> 'PC'); never strips, so it can never merge two companies."""
     if name.rstrip('.').endswith('A.L.P'):   # a.l.p. Lighting, not a partnership
         return name
     text = _SUFFIX_COMMA_RE.sub(' ', name)

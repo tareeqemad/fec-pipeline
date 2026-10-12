@@ -1,8 +1,8 @@
-"""Split joint filings (two people on one filing) off the filer's donor."""
+"""Split joint filings off the filer's donor."""
 from collections import defaultdict
 
 from fec.donor_match.joint import first_of_name, given_tokens, joint_partners
-from fec.donor_match.components import _donor_keys
+from fec.donor_match.components import donor_keys
 from fec.donor_match.rules import joint_name_exempt, resolve_donor_key
 
 
@@ -16,26 +16,17 @@ def _profile_last(profile: dict) -> str:
     return profile["norm_name"].partition("|")[0] if "|" in profile["norm_name"] else ""
 
 
-# find profiles whose first name also names a household co-filer
+# profiles whose first name names a co-filer
 def find_joint_filings(profiles: dict, components: dict) -> dict:
-    """rid -> co-filer names, for profiles whose first name also names another person.
-
-    Each component, joined with the others its verified merge_keys rules
-    point to, stands for one person; its streets and ZIPs are the household.
-    A first name is a joint filing when a different person of the same
-    surname in that household files the extra word as their own given name
-    (joint.joint_partners), unless a verified identity rule says the word is
-    the filer's own name (rules.joint_name_exempt).
-    """
-    rid_to_key = _donor_keys(components)
+    rid_to_key = donor_keys(components)
     person_of = {rid: resolve_donor_key(key) for rid, key in rid_to_key.items()}
     members = defaultdict(list)
     for rid, person in person_of.items():
         members[person].append(rid)
 
     spellings = {rid: _profile_spelling(p) for rid, p in profiles.items()}
-    by_place = defaultdict(set)  # (surname, street or zip5) -> persons
-    places = defaultdict(set)    # person -> streets and zip5s
+    by_place = defaultdict(set)  # (surname, spot) to persons
+    places = defaultdict(set)    # person to streets and zip5s
     for rid, person in person_of.items():
         profile = profiles[rid]
         last = _profile_last(profile)
@@ -50,8 +41,7 @@ def find_joint_filings(profiles: dict, components: dict) -> dict:
     signatures = {}
     for rid, person in person_of.items():
         spelling = spellings[rid]
-        # a one-word name can only be a glued pair ("ELLENSTU") of a filer
-        # who also files under another spelling
+        # one word: glued pair needs another spelling
         if not spelling or (len(spelling) < 2 and len(members[person]) < 2):
             continue
         profile = profiles[rid]
@@ -77,17 +67,8 @@ def find_joint_filings(profiles: dict, components: dict) -> dict:
     return signatures
 
 
-# split each joint filing into its own donor
+# give each joint filing its own donor
 def split_joint_filings(components: dict, signatures: dict, profiles: dict) -> int:
-    """Give each joint filing its own donor, apart from its filer's solo records.
-
-    "SPELLMAN, MARC MELISSA" joined Marc's records by scoring. Its rows move to
-    one donor per co-filer pair; Marc's solo records stay together exactly as
-    they were matched (the joint filing may still have been the evidence that
-    linked two of his addresses: it is his filing too). The part holding the
-    union-find root keeps that root and so its donor_key; every other part is
-    keyed by its most-filed record. Returns the number of profiles moved.
-    """
     moved = 0
     for root, members in list(components.items()):
         parts = defaultdict(set)

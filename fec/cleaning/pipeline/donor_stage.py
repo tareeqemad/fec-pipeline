@@ -34,21 +34,13 @@ from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
 
-# a "POLITICAL NETWORK" name, region leading or trailing: "POLITICAL NETWORK, LA VALLEY"
+# POLITICAL NETWORK name, region leading or trailing
 _NETWORK_NAME_RE = re.compile(
     r"^(?:POLITICAL NETWORK,\s*(?P<region>.+)|(?P<leading>.+?)\s+POLITICAL NETWORK)$",
     re.IGNORECASE,
 )
-# keep network-name filings as their own unresolved donor
+# network-name filings become separate unresolved donors
 def _classify_network_organizations(df: pd.DataFrame) -> int:
-    """Keep a filing under a network name as its own unresolved donor, never a person's.
-
-    The name ("POLITICAL NETWORK, LA VALLEY") says nothing about who gave: an
-    address and job matching a known donor is not proof (a $7,000 filing went
-    to DE TOLEDO, PHILIP and a $500 one to COMANOR, WILLIAM that way), and two
-    filings under one network name are not proof of one donor. Each filing gets
-    its own key, outside every person's total.
-    """
     names = df["contributor_name"].fillna("").astype(str)
     matches = names.str.extract(_NETWORK_NAME_RE)
     targets = df["entity_type"].eq("INDIVIDUAL") & matches.notna().any(axis=1)
@@ -74,7 +66,7 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     return int(targets.sum())
 
 
-# run canonicalization steps: names, employers, addresses, units, pobox
+# canonicalize names, employers, addresses, units, pobox
 def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
     steps = (
         (canonicalize_donor_names, "donor_canonical_names",
@@ -108,15 +100,8 @@ def _finalize_employers(df: pd.DataFrame, trail: AuditTrail) -> tuple[pd.DataFra
     return df, total + final_canonical
 
 
-# align organization donor names to final employer spelling
+# align org names to final employer spelling
 def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
-    """Give organization donors the final spelling of the same company.
-
-    Runs after the curated entity overrides (a law firm such as PACHULSKI
-    STANG ZIEHL & JONES only becomes an ORGANIZATION there) and after employer
-    finalisation (so the target is the spelling the employers table shows).
-    Only contributor_name changes; donor_keys were assigned earlier.
-    """
     steps = (
         (align_org_donor_company_names, "donor_align_org_names",
          "organization_name_aligned_to_employer_spelling"),
@@ -148,7 +133,6 @@ def _clear_non_individual_names(df: pd.DataFrame) -> int:
 
 # make each donor consistent across filings
 def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
-    """Make each donor consistent across filings."""
     df = df.reset_index(drop=True)
     logger.info("\n-- Donor consistency --")
 
@@ -162,7 +146,7 @@ def standardize(df: pd.DataFrame, out_dir, trail: AuditTrail) -> pd.DataFrame:
     )
     log_count(logger, "political-network filings kept unresolved", organizations)
 
-    # a held or unresolved group is not a person: each filing stays as filed
+    # held or unresolved filings each stay separate
     undecided = df["identity_status"].ne("confirmed") if "identity_status" in df.columns \
         else pd.Series(False, index=df.index)
     group_keys = df.loc[undecided, "donor_key"].copy()

@@ -22,15 +22,13 @@ logger = get_logger(__name__)
 
 # drop internal working columns from the output
 def _drop_internal_cols(df):
-    """Remove working columns."""
     internal = [column for column in df.columns if column.startswith('_')]
     internal += [column for column in INTERNAL_OUTPUT_COLUMNS if column in df.columns]
     return df.drop(columns=internal)
 
 
-# read output csv, run quality scan, write json report
+# scan the written CSV; save JSON report
 def _write_quality_scan(output_path, out_dir):
-    """Write the quality scan."""
     df = pd.read_csv(
         output_path,
         dtype=str,
@@ -43,9 +41,8 @@ def _write_quality_scan(output_path, out_dir):
     return report
 
 
-# abort if any recipient committee is not recognized
+# abort on any unknown recipient committee
 def _assert_known_committees(df):
-    """Reject unknown recipients."""
     known = {
         row['committee_short']
         for row in load_committees()
@@ -63,9 +60,8 @@ def _assert_known_committees(df):
     raise SystemExit(1)
 
 
-# normalize us zip codes to five digits, keep foreign ones
+# five-digit US ZIPs; foreign postcodes kept
 def _ensure_zip_format(df):
-    """Keep US ZIPs as five digits; a foreign postcode (SW1A 2AA) stays as filed."""
     us = ~foreign_address_mask(df)
     zips = df['contributor_zip']
 
@@ -89,7 +85,7 @@ def _ensure_zip_format(df):
     df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
 
 
-# log a summary of rows, donors, and quality
+# log rows, donors and quality summary
 def _print_summary(df, quality, output):
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
     committees = int(df['entity_type'].eq('COMMITTEE/PAC').sum())
@@ -129,7 +125,7 @@ def _print_summary(df, quality, output):
     logger.info('=' * 55)
 
 
-# entry point: clean the configured contributions file end-to-end
+# clean the raw contributions file end-to-end
 def main():
     env.load_env()
 
@@ -166,12 +162,9 @@ def main():
     _print_summary(output, quality, output_path)
 
 
-# save cleaned csv only if quality gates pass
+# save cleaned CSV only if gates pass
 def _save_if_gates_pass(output, out_dir, output_path) -> dict:
-    """Save the cleaned CSV only when every quality gate passes."""
-    # the gates check the output before it replaces the last good file
-    # (the gates that need employer_status read not_run here; resolve.py
-    # --apply reruns every gate and overwrites quality_gates.json)
+    # gate before replacing the last good file
     quality = run_quality_gates(output)
     write_json_atomic(os.path.join(out_dir, 'quality_gates.json'), {**quality, 'stage': 'clean'}, indent=2)
     if not quality['passed']:
@@ -181,7 +174,7 @@ def _save_if_gates_pass(output, out_dir, output_path) -> dict:
         raise SystemExit(1)
     check_output('clean', (), output.columns)
     write_csv_atomic(output, output_path, index=False)
-    # a new run starts only once its cleaned file is in place
+    # start a run only after the write
     start_run(output_path)
     record('clean', output_path)
     return quality
@@ -189,7 +182,6 @@ def _save_if_gates_pass(output, out_dir, output_path) -> dict:
 
 # write audit, missing-field, and quality scan reports
 def _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path) -> None:
-    """Write the audit, missing-field report and quality scan."""
     audit = write_audit(cleaned, original_rows, out_dir, trail)
     logger.info(
         "  Audit: %s changes in %s cells, %s untracked",

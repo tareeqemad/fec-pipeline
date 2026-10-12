@@ -1,4 +1,4 @@
-"""Load one leader or accomplice row: identity, address, image."""
+"""Load roster rows: identity, address, image."""
 from __future__ import annotations
 
 import time
@@ -13,16 +13,15 @@ from fec.database.leadership_matcher import (
     upsert_leader_employment,
 )
 from fec.database.loader._base import savepoint
-from fec.database.loader.employment_locations import _location_index
+from fec.database.loader.employment_locations import location_index
 from fec.env import RULES_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
 
-# reset a table's serial PK sequence to its max value
+# reset serial sequence to max id
 def _reset_id_sequence(conn: Any, cur: Any, table: str) -> None:
-    """Reset the table's serial PK sequence to MAX(pk), discovering which column owns the sequence."""
     try:
         with savepoint(cur, "reset_sequence"):
             _set_sequence_to_max(cur, table)
@@ -30,7 +29,7 @@ def _reset_id_sequence(conn: Any, cur: Any, table: str) -> None:
         logger.warning("  %s: sequence not reset: %s", table, error)
 
 
-# set a table's serial sequence to its current max id
+# find the serial column, setval to max
 def _set_sequence_to_max(cur: Any, table: str) -> None:
     cur.execute(
         """
@@ -53,16 +52,14 @@ def _set_sequence_to_max(cur: Any, table: str) -> None:
     )
 
 
-# read a shared person field from either leadership CSV format
+# shared person field from either CSV format
 def _person_value(row, field: str) -> str:
-    """Read a shared person field from either leadership CSV format."""
     value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
     return value.strip()
 
 
-# extract name, first/last, city and state from either CSV format
+# name, first, last, city, state from row
 def _person_identity(row) -> tuple[str, str, str, str, str]:
-    """Return name, first, last, city, and state from either CSV format."""
     name = _person_value(row, "name")
     first = _person_value(row, "first_name")
     last = _person_value(row, "last_name")
@@ -81,9 +78,8 @@ def _person_identity(row) -> tuple[str, str, str, str, str]:
     )
 
 
-# read a required boolean field, raising on a bad value
+# required true/false field; raise otherwise
 def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
-    """Read a required boolean."""
     value = (row.get(field) or "").strip().lower()
     if value == "true":
         return True
@@ -94,9 +90,8 @@ def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
     )
 
 
-# parse an optional hand-maintained coordinate value
+# optional coordinate; warn and NULL on garbage
 def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
-    """Parse an optional hand-maintained coordinate, warning on bad text."""
     raw = (row.get(field) or "").strip()
     if not raw:
         return None
@@ -122,7 +117,7 @@ def _upsert_image(cur: Any, row, donor_id: int) -> None:
     )
 
 
-# upsert a donor's address from CSV row fields
+# upsert a donor's address from the row
 def _upsert_address(
     cur: Any,
     row,
@@ -151,11 +146,10 @@ def _upsert_address(
 
 
 # load curated donor links
-def _load_donor_linked_csv(
+def load_donor_linked_csv(
     conn: Any, cur: Any, csv_filename: str, table: str, insert_row,
     validate_rows=None,
 ) -> None:
-    """Load curated donor links."""
     csv_path = RULES_DIR / csv_filename
     if not csv_path.exists():
         logger.info(f"  {csv_path.name} not found -- skipping {table}")
@@ -164,10 +158,10 @@ def _load_donor_linked_csv(
     start = time.time()
     rows = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
     if validate_rows is not None:
-        # Fail before the first row is written, not halfway through the roster.
+        # fail before writing any row
         validate_rows(rows)
-    # The same employer locations the FEC employments were placed with.
-    locations = _location_index()
+    # same locations FEC employments were placed with
+    locations = location_index()
     match_counts: dict[str, int] = defaultdict(int)
     inserted = skipped = 0
 
@@ -186,9 +180,8 @@ def _load_donor_linked_csv(
     )
 
 
-# link one roster row to its donor
+# link a roster row; return match method
 def _load_person(cur, row, csv_filename: str, locations, insert_row):
-    """Link one roster row to its donor; return the match method."""
     name, first, last, city, state = _person_identity(row)
     if not name:
         return None

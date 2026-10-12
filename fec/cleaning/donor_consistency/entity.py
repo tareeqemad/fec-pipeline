@@ -1,17 +1,16 @@
-"""Entity-type fixes: non-individual employer clearing, hand-curated overrides, name consistency."""
+"""Entity-type overrides, consistency and employer clearing."""
 import csv
 
 import numpy as np
 import pandas as pd
 
 from fec.cleaning.entity_source import deciding_source_type
-from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
+from fec.cleaning.pipeline.reclassify import enforce_entity_name_consistency
 from fec.env import RULES_DIR
 
 
 # clear employer field for committees/organizations after re-typing
-def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
-    """AW. Non-individuals carry no employer -> clear it; must run after AU/AV re-type rows."""
+def clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
     mask = (df['entity_type'].isin(('COMMITTEE/PAC', 'ORGANIZATION'))
             & (df['contributor_employer'].fillna('').str.strip() != ''))
     n = int(mask.sum())
@@ -21,12 +20,7 @@ def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
 
 
 # apply hand-curated entity_type corrections from overrides csv
-def _apply_entity_overrides(df: pd.DataFrame) -> int:
-    """AV. Hand-curated entity_type corrections from data/rules/entity_overrides.csv, keyed by contributor_name.
-
-    Runs after FEC's own type is re-applied, so a documented correction
-    overrules a filing that typed itself wrong.
-    """
+def apply_entity_overrides(df: pd.DataFrame) -> int:
     overrides = read_entity_overrides()
     if not overrides:
         return 0
@@ -41,7 +35,7 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
     return n
 
 
-# contributor_name -> entity_type from the curated overrides file
+# read curated name to entity_type overrides
 def read_entity_overrides() -> dict[str, str]:
     path = RULES_DIR / 'entity_overrides.csv'
     if not path.exists():
@@ -56,10 +50,8 @@ def read_entity_overrides() -> dict[str, str]:
     return overrides
 
 
-# re-apply FEC's own entity type where a later step changed it
-def _apply_source_entity_types(df: pd.DataFrame) -> int:
-    """A safety net or name rule may retype a row after classification; the
-    type FEC gave wins again here, before the documented overrides."""
+# re-apply FEC's entity type after later retyping
+def apply_source_entity_types(df: pd.DataFrame) -> int:
     source = deciding_source_type(df)
     n = 0
     for et in sorted(set(source) - {''}):
@@ -70,24 +62,22 @@ def _apply_source_entity_types(df: pd.DataFrame) -> int:
     return n
 
 
-# set rows' entity_type and the fields that type carries
+# set entity_type and the fields it implies
 def _set_entity_type(df: pd.DataFrame, mask: pd.Series, et: str) -> None:
     df.loc[mask, 'entity_type'] = et
     if et == 'ORGANIZATION':
         df.loc[mask, 'is_individual'] = False
         df.loc[mask, 'occupation_category'] = 'ORGANIZATION'
-        # Names clear after consistency.
         df.loc[mask, 'contributor_occupation'] = np.nan
         df.loc[mask, 'contributor_employer'] = np.nan
     elif et == 'COMMITTEE/PAC':
-        # mirror a real committee row: no employer, POLITICAL COMMITTEE
-        # category, no personal occupation
+        # mirror a real committee row
         df.loc[mask, 'is_individual'] = False
         df.loc[mask, 'contributor_employer'] = np.nan
         df.loc[mask, 'contributor_occupation'] = np.nan
         df.loc[mask, 'occupation_category'] = 'POLITICAL COMMITTEE'
     elif et == 'INDIVIDUAL':
-        # a real person mistyped as a committee - parse 'LAST, FIRST' back out
+        # real person mistyped; rebuild name parts
         df.loc[mask, 'is_individual'] = True
         parts = df.loc[mask, 'contributor_name'].fillna('').str.split(',', n=1)
         df.loc[mask, 'contributor_last_name'] = parts.str[0].str.strip()
@@ -97,11 +87,10 @@ def _set_entity_type(df: pd.DataFrame, mask: pd.Series, et: str) -> None:
         df.loc[mask, 'occupation_category'] = 'OTHER'
 
 
-# re-enforce same-name donors share one entity_type
-def _reenforce_entity_consistency(df: pd.DataFrame) -> int:
-    """AU. Re-enforce same-name -> same entity_type; must run after canonicalize_donor_names has unified names."""
+# same name, same entity_type; after name canonicalization
+def reenforce_entity_consistency(df: pd.DataFrame) -> int:
     before = df['entity_type'].copy()
-    n = _enforce_entity_name_consistency(df)
+    n = enforce_entity_name_consistency(df)
     if n:
         flipped = (before == 'COMMITTEE/PAC') & (df['entity_type'] == 'ORGANIZATION')
         df.loc[flipped, 'occupation_category'] = 'ORGANIZATION'

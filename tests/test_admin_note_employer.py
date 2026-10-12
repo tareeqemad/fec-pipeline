@@ -1,7 +1,7 @@
 """Admin-note/refusal employers are nulled without touching real companies containing such words."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer import _clear_admin_note_employers
+from fec.cleaning.safety_nets.employer import clear_admin_note_employers
 
 
 def test_admin_notes_nulled_real_companies_kept():
@@ -17,7 +17,7 @@ def test_admin_notes_nulled_real_companies_kept():
     })
     is_indiv = df["entity_type"] == "INDIVIDUAL"
 
-    n = _clear_admin_note_employers(df, is_indiv)
+    n = clear_admin_note_employers(df, is_indiv)
 
     emp = df["contributor_employer"]
     assert emp.iloc[:7].isna().all()                 # 7 admin-notes nulled
@@ -33,6 +33,6 @@ def test_admin_note_net_skips_non_individuals():
         "occupation_status": ["NOT_APPLICABLE"],
     })
     is_indiv = df["entity_type"] == "INDIVIDUAL"
-    n = _clear_admin_note_employers(df, is_indiv)
+    n = clear_admin_note_employers(df, is_indiv)
     assert df["contributor_employer"].iloc[0] == "DECLINED"   # committee untouched
     assert n == 0

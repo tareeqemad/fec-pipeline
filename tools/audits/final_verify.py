@@ -1,9 +1,4 @@
-"""Final handover verification of data/output/contributions_cleaned.csv and its companions.
-
-Exits 1 when data/reports/quality_gates.json shows a gate that failed or never ran. resolve.py --apply
-writes that report on the final data; clean.py's preliminary report (4 gates not_run, because
-employer_status does not exist yet) or a report for a different row count fails here.
-"""
+"""Final handover verification of cleaned outputs."""
 import csv
 import json
 import os
@@ -12,15 +7,15 @@ import sys
 
 import pandas as pd
 
-# run as 'python tools/audits/final_verify.py': the repo root holds the fec package
+# repo root holds the fec package
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 S = "tools/audits"
 QUALITY_GATES_JSON = "data/reports/quality_gates.json"
 
 
+# reasons the gate report proves no pass
 def quality_gate_problems(report: dict, rows: int | None = None) -> list[str]:
-    """Every reason the gate report does not prove the final file passed; empty when it does."""
     checks = report.get("checks") or {}
     problems = [] if checks else ["the report holds no gate results"]
     for name, check in checks.items():
@@ -39,6 +34,7 @@ def quality_gate_problems(report: dict, rows: int | None = None) -> list[str]:
     return problems
 
 
+# print gate report status; return problems
 def check_quality_gates(path: str = QUALITY_GATES_JSON, rows: int | None = None) -> list[str]:
     if not os.path.exists(path):
         return [f"{path} is missing"]
@@ -52,11 +48,12 @@ def check_quality_gates(path: str = QUALITY_GATES_JSON, rows: int | None = None)
     return problems
 
 
+# run every final check; 1 on problems
 def main() -> int:
     n = pd.read_csv("data/output/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False)
     n["amt"] = pd.to_numeric(n.contribution_receipt_amount, errors="coerce").fillna(0)
     raw = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "committee_id", "contribution_receipt_date"], low_memory=False)
-    problems = []  # every check that must hold; any entry makes the exit code 1
+    problems = []  # any entry makes the exit code 1
     same_ids, dup_ids = set(n.sub_id) == set(raw.sub_id), int(n.sub_id.duplicated().sum())
     print("== rows: cleaned", len(n), "| raw", len(raw), "| same sub_ids:", same_ids, "| dup sub_id:", dup_ids)
     if len(n) != len(raw) or not same_ids:
@@ -88,18 +85,18 @@ def main() -> int:
     print("== roster sync --check exit:", chk.returncode, "|", chk.stdout.strip().splitlines()[0] if chk.stdout.strip() else chk.stderr[-300:])
     if chk.returncode:
         problems.append(f"sync_rosters.py --check exited {chk.returncode}")
-    # a manual override is the final word: every value it sets is in the final file
-    from fec.cleaning.manual_overrides import _read_overrides
+    # every override value must survive to output
+    from fec.cleaning.manual_overrides import read_overrides
     nn_ = n.set_index("sub_id")
     overridden = [
-        (sid, col) for sid, fields in _read_overrides(company_names_only=False).items() if sid in nn_.index
+        (sid, col) for sid, fields in read_overrides(company_names_only=False).items() if sid in nn_.index
         for col, val in fields.items() if col in nn_.columns
         and nn_.at[sid, col].strip().upper() != ("" if val is pd.NA else str(val)).strip().upper()
     ]
     print("== manual overrides not in the final file:", len(overridden), overridden[:5])
     if overridden:
         problems.append(f"{len(overridden)} manual override value(s) changed by a later step: {overridden[:5]}")
-    # a previous employer belongs to a retired filing only, and never to a placeholder
+    # previous employer only on real retired filings
     from fec.cleaning.employer_status import is_real_employer
     prev = n.previous_employer.str.strip()
     not_retired = int((prev.ne("") & n.employer_status.ne("retired")).sum())
@@ -109,7 +106,7 @@ def main() -> int:
         problems.append(f"{not_retired} non-retired filing(s) carry a previous employer")
     if placeholder:
         problems.append(f"previous employer values that are not companies: {placeholder[:5]}")
-    # every reviewed identity case still holds on this file
+    # reviewed identity cases must still hold
     cases = subprocess.run([sys.executable, S + "/identity_cases.py", "data/output/contributions_cleaned.csv"],
                            capture_output=True, text=True, encoding="utf-8",
                            env={**os.environ, "PYTHONPATH": ".", "PYTHONIOENCODING": "utf-8"})
@@ -127,7 +124,7 @@ def main() -> int:
     print("== identity rules:", len(rules), "| merges:", len(merges), "| dropped keys still present:", len(dropped_present), "| keep keys absent:", len(keep_missing))
     if dropped_present or keep_missing:
         problems.append(f"identity merges not applied: {len(dropped_present)} dropped key(s) present, {len(keep_missing)} kept key(s) absent")
-    # held filings stay together and away from every person's filings
+    # held filings stay apart from people's filings
     held = {r["sub_id"] for r in rules if r["action"].lower() == "hold"}
     held_keys = set(n.loc[n.sub_id.isin(held), "donor_key"])
     mixed = int((n.donor_key.isin(held_keys) & ~n.sub_id.isin(held)).sum())
@@ -140,13 +137,13 @@ def main() -> int:
         g = n[n.donor_key == key]
         print(f"   {who}: rows={len(g)} total=${g.amt.sum():,.0f} cities={sorted(g.contributor_city.unique())}")
 
-    # occupations / employers
+    # occupations and employers
     print("== occupation typo keys left:", int(ind.contributor_occupation.isin(json.load(open(S + '/typo_keys.json')) if os.path.exists(S + '/typo_keys.json') else []).sum()))
     vc = ind.contributor_employer.value_counts()
     for name in ["BANK OF AMERICA", "MERRILL LYNCH", "NORTHWELL", "SKADDEN", "AMAZON STUDIOS", "VENSURE EMPLOYER SERVICES"]:
         print(f"   employer {name!r}: {int(vc.get(name, 0))} rows")
 
-    # addresses / geo
+    # addresses and geocoding
     print("== foreign rows (must equal raw):")
     from fec.cleaning.addresses.foreign import foreign_address_mask
     rawfull = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip"], low_memory=False).set_index("sub_id")

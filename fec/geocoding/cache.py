@@ -1,4 +1,4 @@
-"""Persistent JSON cache: address key -> coords; not_found is final, transient_fail retries next run."""
+"""JSON geocode cache; only transient failures retry."""
 
 import json
 import os
@@ -14,30 +14,28 @@ class GeoCache:
         self.data: dict = {}
         self._load()
 
-    # load cached entries from the JSON file if present
+    # read the JSON file if it exists
     def _load(self):
         if os.path.exists(self.path):
             with open(self.path, "r", encoding="utf-8") as handle:
                 self.data = json.load(handle)
 
-    # write cache to disk atomically via a temp file
+    # write cache to disk atomically
     def save(self):
-        """Write cache to disk atomically via a temp file."""
         write_json_atomic(self.path, self.data, ensure_ascii=False)
 
     # look up a cached entry by key
     def get(self, key: str) -> dict | None:
         return self.data.get(key)
 
-    # true if the key is uncached or failed transiently
+    # true if key is uncached or transient-failed
     def needs_retry(self, key: str) -> bool:
-        """True if the key is uncached or failed transiently."""
         entry = self.data.get(key)
         if entry is None:
             return True
         return entry.get("source") == "transient_fail"
 
-    # store a successful geocode hit
+    # store a geocode hit; country is ISO-2
     def put(
         self,
         key: str,
@@ -49,7 +47,6 @@ class GeoCache:
         zip_checked: bool = False,
         town_checked: bool = False,
     ):
-        """Store a hit; country is ISO-2, old entries without it read as 'US'; zip_checked marks a result already checked against its filed ZIP and city, town_checked one from the settlement-only town search."""
         self.data[key] = {
             "lat": lat,
             "lng": lng,
@@ -62,15 +59,13 @@ class GeoCache:
         if town_checked:
             self.data[key]["town_checked"] = True
 
-    # keep a cached point the town search couldn't improve on
+    # mark a cached point as town-checked
     def mark_town_checked(self, key: str):
-        """Keep a cached point that the settlement-only town search could not improve on."""
         if key in self.data:
             self.data[key]["town_checked"] = True
 
-    # mark an address as genuinely not geocodable
+    # mark address not geocodable; never retried
     def put_failed(self, key: str, validated: bool = False):
-        """Mark an address as genuinely not geocodable (never retried)."""
         self.data[key] = {
             "lat": None,
             "lng": None,
@@ -80,7 +75,6 @@ class GeoCache:
 
     # keep a temporary failure retryable
     def put_transient(self, key: str):
-        """Keep a temporary failure retryable."""
         self.data[key] = {"lat": None, "lng": None, "source": "transient_fail"}
 
     # number of cached entries

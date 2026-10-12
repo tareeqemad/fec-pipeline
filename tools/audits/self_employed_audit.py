@@ -1,4 +1,4 @@
-"""Self-employed audit on the final cleaned data (run after the whole chain: resolve adds employer_status)."""
+"""Self-employed audit; run after resolve.py --apply."""
 import re
 import pandas as pd
 

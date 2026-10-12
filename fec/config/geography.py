@@ -10,8 +10,7 @@ US_STATES = frozenset({
 })
 
 
-# Per-state (lat_min, lat_max, lng_min, lng_max). Used by geocoding
-# validation (fec/geocoding/pipeline.py).
+# per-state (lat_min, lat_max, lng_min, lng_max)
 US_STATE_BBOX = {
     'AL': (30.1, 35.0, -88.5, -84.9), 'AK': (51.2, 71.4, -180.0, -129.9),
     'AZ': (31.3, 37.0, -114.8, -109.0), 'AR': (33.0, 36.5, -94.6, -89.6),

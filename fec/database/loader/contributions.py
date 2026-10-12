@@ -8,7 +8,7 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.cleaning.employer_status import current_employer_name
-from fec.database.loader._base import _count, to_float_or_none, to_int_or_none
+from fec.database.loader._base import count_rows, to_float_or_none, to_int_or_none
 from fec.database.loader.employers import employment_key
 from fec.database.loader.previous_employers import filing_previous
 from fec.env import CLEANED_CSV
@@ -29,9 +29,8 @@ _INSERT_SQL = """
 """
 
 
-# map donor and committee ids, raising when any don't resolve
+# map donor/committee ids; raise when unmapped
 def _map_required_ids(df, donor_ids, committee_ids):
-    """Return a private working frame and reject unmapped required keys."""
     rows = df.assign(
         _donor_id=df["donor_key"].map(donor_ids),
         _committee_id=df["recipient_committee"].map(committee_ids),
@@ -60,9 +59,8 @@ def _map_required_ids(df, donor_ids, committee_ids):
     return rows
 
 
-# map each row's donor address to its loaded address id
+# map addresses using load_donor_addresses keys
 def _map_address_ids(rows, address_ids):
-    """Match the key produced by load_donor_addresses."""
     addresses = rows[_ADDRESS_COLUMNS].fillna("").astype(str)
     rows["_address_id"] = [
         address_ids.get((int(donor_id), *address))
@@ -72,9 +70,8 @@ def _map_address_ids(rows, address_ids):
     ]
 
 
-# map each row's employment to its loaded id, or raise
+# map employments, previous employer included, or raise
 def _map_employment_ids(rows, employment_ids, get_employer_id):
-    """Match the employment key load_employments produced, previous employer included."""
     employer_ids = [
         get_employer_id(current_employer_name(status, employer))
         for status, employer in rows[[
@@ -106,7 +103,7 @@ def _map_employment_ids(rows, employment_ids, get_employer_id):
         )
 
 
-# convert one row's values to native psycopg2-insertable types
+# one row as native psycopg2 values
 def _native_row(values):
     (sub_id, transaction_id, donor_id, committee_id, address_id, employment_id,
      amount, receipt_date, election_cycle, employment_source) = values
@@ -124,9 +121,8 @@ def _native_row(values):
     )
 
 
-# convert the working frame to native values accepted by psycopg2
+# working frame to native psycopg2 rows
 def _build_rows(rows):
-    """Convert the working frame to native values accepted by psycopg2."""
     missing = rows["contribution_receipt_amount"].isna()
     if missing.any():
         sample = rows.loc[missing, "sub_id"].head(10).tolist()
@@ -141,7 +137,7 @@ def _build_rows(rows):
     election_cycles = pd.to_numeric(
         rows["two_year_transaction_period"], errors="coerce"
     )
-    # a CSV from before the column existed reads as all filed
+    # older CSV without the column: all filed
     sources = rows.get("employment_source", pd.Series("filed", index=rows.index))
     sources = sources.fillna("").replace("", "filed")
     return list(map(_native_row, zip(
@@ -156,7 +152,6 @@ def _build_rows(rows):
 def load_contributions(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
                        comm_map: dict, addr_key_to_id: dict,
                        empl_donor_emp_to_id: dict, get_employer_id) -> None:
-    """Step 7: load the contributions fact table."""
     logger.info("\n-- 7/8 Loading contributions --")
     start = time.time()
 
@@ -166,5 +161,5 @@ def load_contributions(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: d
 
     execute_values(cur, _INSERT_SQL, _build_rows(rows), page_size=5000)
 
-    total = _count(cur, "contributions")
+    total = count_rows(cur, "contributions")
     logger.info("  contributions: %s (%0.1fs)", f"{total:,}", time.time() - start)

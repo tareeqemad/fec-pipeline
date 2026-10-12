@@ -1,1 +1,1 @@
-"""Employer and occupation cleaning + categorization."""
+"""Employer and occupation cleaning and categorization."""

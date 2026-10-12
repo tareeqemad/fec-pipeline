@@ -1,4 +1,4 @@
-"""Resolution statistics display."""
+"""Donor totals, tiers and resolution statistics."""
 
 import pandas as pd
 
@@ -9,14 +9,29 @@ from fec.resolve.pipeline.constants import TIERS
 logger = get_logger(__name__)
 
 
-# log donor resolution counts and coverage per tier
+# each donor's total amount and tier
+def compute_donor_totals(df: pd.DataFrame) -> pd.Series:
+    totals = df.groupby("donor_key")["contribution_receipt_amount"].sum().reset_index()
+    totals.columns = ["donor_key", "donor_total"]
+
+    # tier number of a donor total
+    def _tier(amount):
+        for tier_number, _, low, high in TIERS:
+            if low <= amount < high:
+                return tier_number
+        return 6
+
+    totals["tier"] = totals["donor_total"].apply(_tier)
+    return totals
+
+
+# log resolution counts and coverage per tier
 def show_stats(
     df: pd.DataFrame,
     prev_cache,
     addr_cache,
     donor_totals: pd.Series,
 ) -> None:
-    """Show resolution status."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     latest = (individuals.sort_values("contribution_receipt_date")
               .drop_duplicates("donor_key", keep="last"))

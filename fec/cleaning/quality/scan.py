@@ -14,7 +14,7 @@ from fec.cleaning.quality.occupation_scan import (
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 
-# every abbreviation token is worth surfacing, auto-expanded or not
+# surface every abbreviation, expanded or not
 _ABBR_RES = {token: re.compile(rf"\b{token}\b") for token in EMPLOYER_ABBREVIATIONS}
 _LEGAL = {
     "LLC",
@@ -33,12 +33,11 @@ _LEGAL = {
     "AND",
     "OF",
 }
-# normalize expandable abbreviations so "X MGMT" and "X MANAGEMENT" share a fingerprint
+# so "X MGMT" matches "X MANAGEMENT"
 _ABBR_NORM = {
     token: expansion for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion
 }
 
-# a run of letters/digits, used to tokenize a name into words
 _TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 
@@ -65,17 +64,16 @@ def scan_employer_abbreviations(df: pd.DataFrame) -> dict:
     return {"distinct_employers_flagged": len(flagged), "by_token": per_token}
 
 
-# build a comparable fingerprint for an employer name
+# comparable fingerprint for an employer name
 def _emp_fp(name: str) -> str:
-    # keep single-letter tokens (they split M&R from S&A); drop legal suffixes; normalize abbreviations
+    # keep single letters; they split M&R, S&A
     tokens = [_ABBR_NORM.get(token, token) for token in _TOKEN_RE.findall(name.upper())]
     tokens = [token for token in tokens if token not in _LEGAL]
     return " ".join(sorted(tokens))
 
 
-# group employer strings that reduce to the same fingerprint
+# group employers sharing one fingerprint
 def scan_employer_near_duplicates(df: pd.DataFrame) -> dict:
-    """Distinct employer strings that reduce to the same fingerprint (same firm written differently)."""
     emp = df.loc[df["entity_type"] == "INDIVIDUAL", "contributor_employer"]
     groups = defaultdict(set)
     for employer in emp.unique():
@@ -93,9 +91,8 @@ def scan_employer_near_duplicates(df: pd.DataFrame) -> dict:
     return {"groups": len(dupes), "examples": examples}
 
 
-# find contributor_name values that don't match the rebuilt canonical name
+# contributor_name not matching rebuilt "LAST, FIRST"
 def scan_name_composite_drift(df: pd.DataFrame) -> dict:
-    """contributor_name that doesn't match the canonical "LAST, FIRST" rebuilt from first/last."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     first = individuals["contributor_first_name"].fillna("").str.strip()
     last = individuals["contributor_last_name"].fillna("").str.strip()
@@ -117,15 +114,14 @@ def scan_name_composite_drift(df: pd.DataFrame) -> dict:
     }
 
 
-# build a token-set fingerprint for a street string
+# street fingerprint: first token, rest sorted
 def _street_fp(s: str) -> str:
     tokens = _TOKEN_RE.findall(s.upper())
     return (tokens[0] + "|" + " ".join(sorted(tokens[1:]))) if tokens else ""
 
 
-# find same-donor streets written in different word order
+# same donor, ZIP, street in different order
 def scan_address_order_variants(df: pd.DataFrame) -> dict:
-    """Per donor: same ZIP + same token-set street written different ways."""
     individuals = df[
         (df["entity_type"] == "INDIVIDUAL") & (df["contributor_street_1"] != "")
     ]
@@ -145,7 +141,7 @@ def scan_address_order_variants(df: pd.DataFrame) -> dict:
     return {"groups": n_groups, "examples": examples}
 
 
-# run all data-quality scans and collect their results
+# run all data-quality scans, collect results
 def scan(df: pd.DataFrame) -> dict:
     return {
         "rows": len(df),

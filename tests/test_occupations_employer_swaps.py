@@ -11,12 +11,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.safety_nets.employer import _null_sector_as_employer
+from fec.cleaning.safety_nets.employer import null_sector_as_employer
 from fec.cleaning.safety_nets.employer_swaps import (
-    _COMPANY_NAME_RE, _fix_employer_equals_occupation, _fix_role_as_employer,
-    _fix_self_employed_consistency,
+    COMPANY_NAME_RE, fix_employer_equals_occupation, fix_role_as_employer,
+    fix_self_employed_consistency,
 )
-from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
+from fec.cleaning.safety_nets.name_fields import fix_company_name_as_occupation
 
 
 def _frame(rows):
@@ -38,7 +38,7 @@ def _frame(rows):
     'HEALTH ADVOCATE', 'ATLANTIC HEALTH SYSTEM', 'HEALTH FIRST',
 ])
 def test_health_companies_still_look_like_companies(company):
-    assert _COMPANY_NAME_RE.search(company)
+    assert COMPANY_NAME_RE.search(company)
 
 
 @pytest.mark.parametrize('title', [
@@ -48,7 +48,7 @@ def test_health_companies_still_look_like_companies(company):
     'HEALTH CARE INDUSTRY ADVISOR', 'PHARMACIST HEALTHCARE CONSULTANT',
 ])
 def test_health_job_titles_do_not_look_like_companies(title):
-    assert not _COMPANY_NAME_RE.search(title)
+    assert not COMPANY_NAME_RE.search(title)
 
 
 def test_own_business_mental_health_counselor_becomes_self_employed():
@@ -56,7 +56,7 @@ def test_own_business_mental_health_counselor_becomes_self_employed():
         ('OWN BUSINESS', 'MENTAL HEALTH COUNSELOR'),   # SMITH, BLYTHE's filing
         ('OWNER', 'SUMMIT HEALTH'),                    # a real swap
     ])
-    assert _fix_role_as_employer(df) == 2
+    assert fix_role_as_employer(df) == 2
     assert df.loc[0, 'contributor_employer'] == 'SELF-EMPLOYED'
     assert df.loc[0, 'contributor_occupation'] == 'MENTAL HEALTH COUNSELOR'
     assert df.loc[1, 'contributor_employer'] == 'SUMMIT HEALTH'
@@ -66,7 +66,7 @@ def test_own_business_mental_health_counselor_becomes_self_employed():
 def test_job_title_written_twice_is_self_employed():
     df = _frame([('HEALTH COACH', 'HEALTH COACH'), ('CVS HEALTH', 'CVS HEALTH')])
     is_indiv = df['entity_type'].eq('INDIVIDUAL')
-    assert _fix_employer_equals_occupation(df, is_indiv) == 1
+    assert fix_employer_equals_occupation(df, is_indiv) == 1
     assert df['contributor_employer'].tolist() == ['SELF-EMPLOYED', 'CVS HEALTH']
 
 
@@ -80,7 +80,7 @@ def test_workplace_kind_words_are_nulled_exact_match_only():
         ('SOFTERWARE', 'MARKETING'),                   # SofterWare Inc., a real firm
         ('BRIAR HALL', 'INVESTOR'),
     ])
-    assert _null_sector_as_employer(df) == 4
+    assert null_sector_as_employer(df) == 4
     assert df['contributor_employer'].isna().tolist() == [
         True, True, True, True, False, False, False,
     ]
@@ -92,7 +92,7 @@ def test_trust_deed_investments_beside_self_employed_moves_to_occupation():
         ('TRUST DEED INVESTMENTS', 'SELF-EMPLOYED'),   # GOLDSTEIN, PHIL (swapped)
         ('SELF-EMPLOYED', 'TRUST DEED INVESTMENTS'),   # his other filings
     ])
-    assert _fix_self_employed_consistency(df) == 1
+    assert fix_self_employed_consistency(df) == 1
     assert df['contributor_employer'].tolist() == ['SELF-EMPLOYED', 'SELF-EMPLOYED']
     assert df['contributor_occupation'].tolist() == ['TRUST DEED INVESTMENTS'] * 2
 
@@ -101,6 +101,6 @@ def test_trust_deed_investments_is_never_promoted_to_a_company():
     rows = [('SELF-EMPLOYED', 'TRUST DEED INVESTMENTS')]
     rows += [('TRUST DEED INVESTMENTS', 'LENDER')] * 10   # even if common as employer
     df = _frame(rows)
-    assert _fix_company_name_as_occupation(df) == 0
+    assert fix_company_name_as_occupation(df) == 0
     assert df.loc[0, 'contributor_employer'] == 'SELF-EMPLOYED'
     assert np.all(df.loc[1:, 'contributor_employer'] == 'TRUST DEED INVESTMENTS')

@@ -1,7 +1,7 @@
 """Occupation value fixes and curated typo corrections."""
 
 
-# Raw occupation fixes that also assign a category.
+# raw occupation fixes that assign a category
 OCCUPATION_FIXES = {
     # management
     'MGR': ('MANAGER', 'MANAGEMENT'),
@@ -62,7 +62,7 @@ OCCUPATION_FIXES = {
     'CAO': ('CHIEF ADMINISTRATIVE OFFICER', 'EXECUTIVE / C-SUITE'),
     'CRO': ('CHIEF REVENUE OFFICER', 'EXECUTIVE / C-SUITE'),
     'CCO': ('CHIEF COMPLIANCE OFFICER', 'EXECUTIVE / C-SUITE'),
-    # CPO stays as filed: product, people, procurement or privacy officer
+    # CPO stays as filed: too many meanings
     'CO CEO': ('CO-CEO', 'EXECUTIVE / C-SUITE'),
     'EXC': ('EXECUTIVE', 'EXECUTIVE / C-SUITE'),
     'PRES': ('PRESIDENT', 'EXECUTIVE / C-SUITE'),
@@ -79,7 +79,7 @@ OCCUPATION_FIXES = {
     'GSM': ('GLOBAL SALES MANAGER', 'SALES / MARKETING'),
     'PR': ('PUBLIC RELATIONS', 'SALES / MARKETING'),
     'MKTG': ('MARKETING', 'SALES / MARKETING'),
-    # listed so the EXECUTIVE regex doesn't send these to C-SUITE
+    # keeps these out of EXECUTIVE / C-SUITE
     'ACCOUNT EXECUTIVE': ('ACCOUNT EXECUTIVE', 'SALES / MARKETING'),
     'ACCOUNT EXEC': ('ACCOUNT EXECUTIVE', 'SALES / MARKETING'),
 
@@ -129,9 +129,6 @@ OCCUPATION_FIXES = {
     'CONSLTANT': ('CONSULTANT', 'CONSULTING'),
     'WEALTH MANAGMENT': ('WEALTH MANAGEMENT', 'FINANCE / INVESTMENT'),
 
-    # bare 'EMPLOYED' deliberately absent — left as OTHER so the AI classifier
-    # sees it with employer context
-
     # from data analysis
     'DRIVING': ('DRIVING', 'TRANSPORTATION'),
     'MOVER': ('MOVER', 'TRANSPORTATION'),
@@ -157,7 +154,6 @@ OCCUPATION_FIXES = {
     'ASSOCIATE': ('ASSOCIATE', 'MANAGEMENT'),
     'PROFESSIONAL': ('PROFESSIONAL', 'BUSINESS / ENTREPRENEUR'),
 
-    # round 2
     'ATTOENEY': ('ATTORNEY', 'LEGAL'),
     'ATTORNET': ('ATTORNEY', 'LEGAL'),
     'LAWYET': ('LAWYER', 'LEGAL'),
@@ -210,7 +206,7 @@ OCCUPATION_FIXES = {
     'RE DEVELOPMNET': ('REAL ESTATE DEVELOPER', 'REAL ESTATE'),
     'DIGITAL': ('DIGITAL', 'TECHNOLOGY'),
 
-    # junk -> NOT DISCLOSED with NULL category (occupation_status set in occupations.py)
+    # junk to NOT DISCLOSED, no category
     'OCC': ('NOT DISCLOSED', None),
     'XXX': ('NOT DISCLOSED', None),
     'UGH': ('NOT DISCLOSED', None),
@@ -303,7 +299,6 @@ OCCUPATION_FIXES = {
     # EMPLOYED without detail: employed but unspecified
     'EMPLOYED': ('EMPLOYED', None),
 
-    # deep audit v4
     'ATTTORNEY': ('ATTORNEY', 'LEGAL'),
     'ATTNY': ('ATTORNEY', 'LEGAL'),
     'ATTORRNEY': ('ATTORNEY', 'LEGAL'),
@@ -337,9 +332,7 @@ EMPLOYER_TYPO_FIXES = (
 )
 
 
-# Curated occupation typo / abbreviation fixes (reviewed 2026-09-22 from the
-# rare-value audit). Keys are spellings as they look AFTER the style step
-# (fec.cleaning.occupations.style), which runs right before this map.
+# curated typo fixes; keys are post-style spellings
 OCCUPATION_TYPO_FIXES = {
     'SCHOOL PYSHOLOGIST': 'SCHOOL PSYCHOLOGIST',
     'COLLEGE COUNSELOT': 'COLLEGE COUNSELOR',
@@ -388,7 +381,7 @@ OCCUPATION_TYPO_FIXES = {
     'COUNCIL MEMBER': 'COUNCILMEMBER',
     'PRESIDENT M': 'PRESIDENT',
     'MD/RADIOLOGIST': 'RADIOLOGIST',
-    # FEC cuts occupations at 38 characters; completed forms verified on the web (2026-09-22)
+    # FEC 38-character cuts, completed from the web
     'CHIEF STRATEGY DIRECTOR FOR NATIONAL A': 'CHIEF STRATEGY DIRECTOR FOR NATIONAL AFFAIRS',
     'VICE CHAIRMAN, GLOBAL STRATEGY AND GRO': 'VICE CHAIRMAN, GLOBAL STRATEGY AND GROWTH',
     'MD RADIOLOGIST': 'RADIOLOGIST',
@@ -408,7 +401,7 @@ OCCUPATION_TYPO_FIXES = {
     'CEO, CO-FOUNDER': 'CEO/CO-FOUNDER',
     'FOUNDER + CHAIRMAN': 'FOUNDER/CHAIRMAN',
     'COMMERCIAL REAL ESTATE EXEC': 'COMMERCIAL REAL ESTATE EXECUTIVE',
-    # misspelled words inside otherwise readable titles (2026-09-23 audit)
+    # misspelled words inside otherwise readable titles
     'BUSINESS ADIVSOR': 'BUSINESS ADVISOR',
     'CLINICAL PSYCHOLGIST/CONSULTANT': 'CLINICAL PSYCHOLOGIST/CONSULTANT',
     'COMMERCIAL REAL ESTAE OWNER': 'COMMERCIAL REAL ESTATE OWNER',

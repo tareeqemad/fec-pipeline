@@ -1,4 +1,4 @@
-"""Shared read-only correctness checks for the loaded FEC database, in run order."""
+"""All read-only database checks, in run order."""
 from __future__ import annotations
 
 from fec.database.access_checks import ACCESS_CHECKS

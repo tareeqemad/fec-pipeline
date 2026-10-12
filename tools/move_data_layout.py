@@ -1,12 +1,4 @@
-"""Move files left in the old flat data/ layout into data/raw, rules, cache, output and reports.
-
-Run once after pulling the commit that split data/. Git moves the files it tracks; this
-moves the rest (audit files, review queues, the FEC source fields, data/_review). A file
-whose new place is already taken is left where it is and listed, never overwritten.
-
-    python tools/move_data_layout.py            # move
-    python tools/move_data_layout.py --dry-run  # only list
-"""
+"""Move old flat data/ files into subfolders."""
 import argparse
 import shutil
 import sys
@@ -26,7 +18,7 @@ REPORTS = (
 )
 
 
-# old path -> new path for every file the split moved
+# old and new path per moved file
 def _moves() -> list[tuple[Path, Path]]:
     moves = [(DATA / name, DATA / folder / name)
              for folder, names in (("raw", RAW), ("cache", CACHE), ("output", OUTPUT),
@@ -42,6 +34,7 @@ def _moves() -> list[tuple[Path, Path]]:
     return moves
 
 
+# move files, never overwriting existing ones
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true", help="list the moves without making them")

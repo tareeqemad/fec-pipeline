@@ -269,7 +269,7 @@ def test_lookup_collection_aggregates_limited_public_context():
             "contributor_zip": "02108",
         },
     ])
-    donor_totals = pd.DataFrame({"donor_key": ["D1", "D2", "D3"]})
+    donor_totals = pd.DataFrame({"donor_key": ["D1", "D2", "D3"], "donor_total": [0, 0, 0]})
 
     lookups = collect_employer_lookups(
         df,
@@ -337,7 +337,7 @@ def test_lookup_collection_skips_self_employed_work_history():
         df,
         prev_cache=previous_employers,
         addr_cache=_Cache(),
-        donor_totals=pd.DataFrame({"donor_key": ["D1"]}),
+        donor_totals=pd.DataFrame({"donor_key": ["D1"], "donor_total": [0]}),
         resolver_tag="openai+search",
     ) == []
 
@@ -358,7 +358,7 @@ def test_lookup_collection_skips_non_working_occupation():
         df,
         prev_cache=_Cache(),
         addr_cache=_Cache(),
-        donor_totals=pd.DataFrame({"donor_key": ["D1"]}),
+        donor_totals=pd.DataFrame({"donor_key": ["D1"], "donor_total": [0]}),
         resolver_tag="openai+search",
     ) == []
 
@@ -373,7 +373,7 @@ def test_invalid_model_response_is_not_cached(monkeypatch):
         "contributor_state": "NY",
         "contributor_occupation": "ATTORNEY",
     }])
-    donor_totals = pd.DataFrame({"donor_key": ["D1"]})
+    donor_totals = pd.DataFrame({"donor_key": ["D1"], "donor_total": [0]})
     invalid_response = json.dumps({"results": [{
         "name": "ACME LLC",
         "address": "10 Downing St",

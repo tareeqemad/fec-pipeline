@@ -1,16 +1,7 @@
-"""Which columns each stage needs, adds and drops in contributions_cleaned.csv.
-
-Stages run in this order and each rewrites the cleaned CSV:
-
-    clean.py -> geocode.py -> resolve.py --apply -> geocode.py --employer-only
-    (which ends by building employer_locations.csv)
-
-A stage checks the file it reads (check_input) and the frame it is about to
-write (check_output); the loader accepts only LOADED_COLUMNS, exactly.
-"""
+"""Columns each stage needs, adds and drops."""
 from dataclasses import dataclass
 
-# clean.py writes exactly these, in this order
+# clean.py writes exactly these, in order
 CLEAN_COLUMNS = (
     'sub_id', 'transaction_id', 'two_year_transaction_period', 'recipient_committee',
     'entity_type',
@@ -24,15 +15,15 @@ CLEAN_COLUMNS = (
 DONOR_COORDINATES = ('latitude', 'longitude')
 EMPLOYER_ADDRESS = ('employer_address', 'employer_city', 'employer_state', 'employer_zip')
 EMPLOYER_COORDINATES = ('employer_latitude', 'employer_longitude')
-# how resolve found each employer address; geocode --employer-only reads it, then drops it
+# resolve's working columns; employer geocode drops them
 RESOLVE_WORKING = ('resolve_method', 'resolve_confidence')
 
-# what the loader reads: the file after the last stage
+# columns the loader reads after last stage
 LOADED_COLUMNS = CLEAN_COLUMNS + DONOR_COORDINATES + ('employer_status',)
 
 
 class ContractError(ValueError):
-    """A stage read or was about to write columns its contract does not allow."""
+    """Columns break a stage's contract."""
 
 
 @dataclass(frozen=True)
@@ -41,7 +32,7 @@ class Stage:
     needs: tuple[str, ...] = ()
     adds: tuple[str, ...] = ()
     drops: tuple[str, ...] = ()
-    # columns that mean the file already went through this stage
+    # columns showing this stage already ran
     refuses: tuple[str, ...] = ()
 
 
@@ -51,8 +42,7 @@ STAGES = {
     'resolve': Stage(
         'resolve.py --apply', needs=CLEAN_COLUMNS,
         adds=EMPLOYER_ADDRESS + ('employer_status',) + RESOLVE_WORKING,
-        # it reads previous_employer as what the donor filed: run on its own
-        # output it reads back its earlier answers (ROBINSON lost it on 14 filings)
+        # rerunning would reread its own previous_employer
         refuses=('employer_status',),
     ),
     'employer_geocode': Stage(
@@ -68,12 +58,12 @@ STAGES = {
 }
 
 
-# the stage that first adds a column, for the "run X first" hint
+# command that first adds a column
 def _added_by(column: str) -> str:
     return next((stage.command for stage in STAGES.values() if column in stage.adds), 'clean.py')
 
 
-# raise unless the file a stage reads has every column it needs
+# raise on missing columns or a rerun
 def check_input(stage_name: str, columns) -> None:
     stage = STAGES[stage_name]
     rerun = [column for column in stage.refuses if column in set(columns)]
@@ -89,7 +79,7 @@ def check_input(stage_name: str, columns) -> None:
         )
 
 
-# raise unless a stage writes its input columns plus adds, minus drops
+# raise unless output matches the stage contract
 def check_output(stage_name: str, input_columns, output_columns) -> None:
     stage = STAGES[stage_name]
     expected = (set(input_columns) | set(stage.adds)) - set(stage.drops)
@@ -111,7 +101,7 @@ def check_output(stage_name: str, input_columns, output_columns) -> None:
         raise ContractError(f"{stage.command} would write a broken file: " + '; '.join(problems))
 
 
-# raise unless the file holds exactly the columns the loader reads
+# raise unless columns exactly match LOADED_COLUMNS
 def check_loadable(columns) -> None:
     columns = list(columns)
     missing = [column for column in LOADED_COLUMNS if column not in columns]

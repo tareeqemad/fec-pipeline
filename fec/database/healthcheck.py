@@ -1,4 +1,4 @@
-"""Read-only health check of the live fec_db: the shared query_checks.CHECKS registry plus live-only extras; exits non-zero on any CRITICAL failure."""
+"""Read-only health check of the live fec_db."""
 from __future__ import annotations
 
 import sys
@@ -14,7 +14,7 @@ from fec.env import CLEANED_CSV
 
 CRIT, WARN, OK = "FAIL", "WARN", "ok"
 
-# views that build mv_donor_profile, the matview the web app reads
+# views behind the web app's mv_donor_profile
 REQUIRED_VIEWS = [
     "v_donor_profile", "v_donor_stats",
     "v_donor_current_address", "v_donor_current_employment",
@@ -22,18 +22,17 @@ REQUIRED_VIEWS = [
 REQUIRED_MATVIEWS = ["mv_donor_profile"]
 
 
-# run a query and return its single scalar result
+# run a query, return its single value
 def _scalar(cur, sql):
     cur.execute(sql)
     return cur.fetchone()[0]
 
 
-# check required views, run shared registry, add live-only extras
+# views first, then registry and live extras
 def run_checks(cur) -> list[tuple[str, str, str]]:
-    """Return [(severity, name, detail)]: view existence first (so a missing view is reported by name, not as N query errors), then the shared registry, then live-only extras."""
     out = []
 
-    # required views/matviews exist (critical)
+    # report missing views by name, not errors
     cur.execute("SELECT viewname FROM pg_views WHERE schemaname='public'")
     views = {row[0] for row in cur.fetchall()}
     cur.execute("SELECT matviewname FROM pg_matviews WHERE schemaname='public'")
@@ -43,15 +42,12 @@ def run_checks(cur) -> list[tuple[str, str, str]]:
     out.append((OK if not missing else CRIT, "required_views",
                 "all present" if not missing else f"MISSING: {', '.join(missing)}"))
 
-    # the shared registry
     for check in CHECKS:
         ok, detail = check.run(cur)
         severity = OK if ok else (CRIT if check.severity == QC_CRIT else WARN)
         out.append((severity, check.name, detail))
 
-    # live-DB-only extras
-
-    # geocode coverage: a threshold on a percentage, not a zero/nonzero rule
+    # geocode coverage uses a percentage threshold
     try:
         total = _scalar(cur, "SELECT count(*) FROM addresses")
         geocoded = _scalar(cur, "SELECT count(*) FROM addresses WHERE latitude IS NOT NULL")
@@ -61,7 +57,7 @@ def run_checks(cur) -> list[tuple[str, str, str]]:
     except psycopg2.Error as error:
         out.append((WARN, "geocode_coverage", f"error: {str(error).strip()}"))
 
-    # matview freshness: a "was REFRESH run at all" signal on top of the registry's sync checks
+    # matview freshness: was REFRESH run at all
     try:
         n_donors = _scalar(cur, "SELECT count(*) FROM donors")
         n_matview = _scalar(cur, "SELECT count(*) FROM mv_donor_profile")
@@ -71,27 +67,23 @@ def run_checks(cur) -> list[tuple[str, str, str]]:
     except psycopg2.Error as error:
         out.append((WARN, "mv_donor_profile_fresh", f"error: {str(error).strip()}"))
 
-    # informational only; the registry separately asserts no 'NULL' surname was lost
+    # informational only; registry asserts none lost
     try:
         n_null = _scalar(cur, "SELECT count(*) FROM donors WHERE last_name='NULL'")
         out.append((OK, "null_surname_preserved", f"{n_null:,} real 'NULL' surname(s) kept"))
     except psycopg2.Error as error:
         out.append((WARN, "null_surname_preserved", f"error: {str(error).strip()}"))
 
-    # DB total vs the neighbouring cleaned CSV (the registry can't see files);
-    # a mismatch means the DB is not loaded from this CSV
+    # registry cannot read files, so check here
     out.append(_csv_total_check(cur))
-    # every filing's employment row carries the status that filing reported
     out.append(_csv_employment_status_check(cur))
-    # every retired filing's employment row names that filing's own previous employer
     out.append(_csv_previous_employer_check(cur))
 
     return out
 
 
-# count INDIVIDUAL filings missing or differing from the DB
+# count missing and differing INDIVIDUAL filing statuses
 def _employment_status_mismatches(csv_rows, db_status: dict[int, str | None]) -> tuple[int, int]:
-    """(missing, differing) INDIVIDUAL filings: csv_rows yields (sub_id, entity_type, employer_status) strings."""
     missing = differing = 0
     for sub_id, entity_type, status in csv_rows:
         if entity_type.strip() != "INDIVIDUAL":
@@ -104,9 +96,8 @@ def _employment_status_mismatches(csv_rows, db_status: dict[int, str | None]) ->
     return missing, differing
 
 
-# verify each filing's DB employment status matches the CSV
+# check DB employment status against the CSV
 def _csv_employment_status_check(cur) -> tuple[str, str, str]:
-    """Each INDIVIDUAL filing's donor_employments.employer_status equals its CSV employer_status (the check the (donor, employer, occupation) key used to fail); OK-skips when the CSV is absent."""
     name = "employment_status_vs_csv"
     try:
         if not CLEANED_CSV.exists():
@@ -131,10 +122,8 @@ def _csv_employment_status_check(cur) -> tuple[str, str, str]:
         return (CRIT, name, f"error: {str(error).strip()}")
 
 
-# each retired filing's previous employer in the DB equals its CSV value
+# retired filing keeps its own previous employer
 def _csv_previous_employer_check(cur) -> tuple[str, str, str]:
-    """A later filing's previous employer must not reach an earlier one (MARGOLIN, RUTH);
-    OK-skips when the CSV is absent."""
     name = "previous_employer_vs_csv"
     try:
         if not CLEANED_CSV.exists():
@@ -163,9 +152,8 @@ def _csv_previous_employer_check(cur) -> tuple[str, str, str]:
         return (CRIT, name, f"error: {str(error).strip()}")
 
 
-# compare total contribution amount between DB and CSV
+# compare DB and CSV totals in Decimal
 def _csv_total_check(cur) -> tuple[str, str, str]:
-    """Compare sum(contributions.amount) to the CSV with exact Decimals (sub-cent tolerance absorbs NUMERIC(15,2) rounding); OK-skips when the CSV is absent."""
     try:
         if not CLEANED_CSV.exists():
             return (OK, "total_amount_vs_csv", "cleaned CSV not present - skipped")
@@ -184,7 +172,7 @@ def _csv_total_check(cur) -> tuple[str, str, str]:
         return (CRIT, "total_amount_vs_csv", f"error: {str(error).strip()}")
 
 
-# connect, run health checks, print results, and set exit code
+# run health checks, print, return exit code
 def main() -> int:
     try:
         conn = connect()

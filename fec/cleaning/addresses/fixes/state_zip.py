@@ -1,4 +1,4 @@
-"""State/ZIP conflict fixes backed by the ZCTA crosswalk."""
+"""State/ZIP fixes backed by the ZCTA crosswalk."""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -10,9 +10,8 @@ from fec.env import RULES_DIR
 _DATA_DIR = RULES_DIR
 
 
-# load the ZCTA and state-code CSVs, or None
+# load ZCTA and state CSVs, or None
 def _read_crosswalk() -> tuple[pd.DataFrame, dict] | None:
-    """Read the ZCTA crosswalk; returns (zcta_df, fips_to_code) or None if the CSVs are missing."""
     zcta_path = _DATA_DIR / 'zcta_state_rel.csv'
     states_path = _DATA_DIR / 'us_states.csv'
     if not zcta_path.exists() or not states_path.exists():
@@ -26,7 +25,6 @@ def _read_crosswalk() -> tuple[pd.DataFrame, dict] | None:
 # build the ZCTA5-to-state lookup, caching the result
 @lru_cache(maxsize=1)
 def _load_zcta_to_state() -> dict[str, str]:
-    """Load ZCTA5 to state code mapping from data/rules/ (cached)."""
     crosswalk = _read_crosswalk()
     if crosswalk is None:
         return {}
@@ -35,10 +33,9 @@ def _load_zcta_to_state() -> dict[str, str]:
     return dict(zip(zcta_df['zcta5'], state_codes))
 
 
-# build the ZIP3-to-state fallback lookup for ZIPs missing a ZCTA
+# build ZIP3-to-state fallback for non-ZCTA ZIPs
 @lru_cache(maxsize=1)
 def _load_zip3_to_state() -> dict[str, str]:
-    """ZIP3 prefix to state, fallback for non-ZCTA ZIPs (PO-box-only / unique) missing from the crosswalk."""
     crosswalk = _read_crosswalk()
     if crosswalk is None:
         return {}
@@ -49,18 +46,14 @@ def _load_zip3_to_state() -> dict[str, str]:
         z3=zcta_df['zcta5'].str[:3],
     ).dropna(subset=['code'])
 
-    # keep a prefix only when one state owns >= 80% of its ZCTAs; a rare
-    # border / multi-state prefix stays unresolved rather than guessed
+    # border prefixes stay unresolved, not guessed
     out: dict[str, str] = {}
     for z3, codes in zcta.groupby('z3')['code']:
         value_counts = codes.value_counts()
         if value_counts.iloc[0] / value_counts.sum() >= 0.8:
             out[z3] = value_counts.index[0]
 
-    # sandwich rule for prefixes with NO ZCTAs at all (PO-box-only ranges like
-    # 192xx Philadelphia). USPS allocates prefixes to states in contiguous
-    # blocks, so a gap whose neighbours agree on one state belongs to it;
-    # a gap on a state border stays unresolved rather than guessed.
+    # USPS prefixes are contiguous; neighbours fill gaps
     for prefix_num in range(1, 999):
         prefix = f"{prefix_num:03d}"
         if prefix in out:
@@ -71,34 +64,27 @@ def _load_zip3_to_state() -> dict[str, str]:
     return out
 
 
-# look up a ZIP5's state via crosswalk or ZIP3 prefix
+# ZIP5 state from crosswalk, else ZIP3 prefix
 def zip_state(zip5: str) -> str:
-    """State of a 5-digit ZIP: the ZCTA crosswalk first, else its ZIP3 prefix; '' when unknown."""
     zip5 = str(zip5 or '')
     if len(zip5) != 5 or not zip5.isdigit():
         return ''
     return _load_zcta_to_state().get(zip5) or _load_zip3_to_state().get(zip5[:3], '')
 
 
-# true when the ZIP is a real Census area ZIP
+# true for area ZIPs, not PO-box-only
 def is_zcta(zip5: str) -> bool:
-    """True for a ZIP with a Census ZCTA, i.e. an area ZIP of street addresses; PO-box-only ZIPs (20859 Potomac) have none."""
     return str(zip5 or '') in _load_zcta_to_state()
 
 
-# correct a state typo from the same person's other filings
-def _fix_impossible_city_states(df: pd.DataFrame) -> int:
-    """Fix a person's state typos from their own history; returns states corrected."""
-    # a city sits in one state: the same person filing one city name under two
-    # states means the minority spelling is a typo, not a second home.
-    # scoping by (person, city) is what keeps this safe: genuinely different
-    # same-named cities (Weston MA vs Weston FL) belong to different people.
+# fix state typos from person's own filings
+def fix_impossible_city_states(df: pd.DataFrame) -> int:
+    # person plus city scope keeps this safe
     first = df['contributor_first_name'].fillna('')
     last  = df['contributor_last_name'].fillna('')
     city  = df['contributor_city'].fillna('')
     state = df['contributor_state'].fillna('')
 
-    # only individuals with a full (name, city, state) - committees differ
     eligible = (
         (df['entity_type'] == 'INDIVIDUAL')
         & (first != '') & (last != '') & (city != '') & (state != '')
@@ -115,13 +101,12 @@ def _fix_impossible_city_states(df: pd.DataFrame) -> int:
     })
     counts = work.groupby(['pc', 'state']).size()
 
-    # only (person+city) groups that span more than one state
     states_per_group = counts.groupby(level='pc').size()
     conflict_keys = states_per_group[states_per_group > 1].index
     if len(conflict_keys) == 0:
         return 0
 
-    # the dominant state must strictly outnumber the rest (ties are ambiguous, left alone)
+    # ties are ambiguous, left alone
     dominant = {}
     for key in conflict_keys:
         group = counts.loc[key].sort_values(ascending=False)
@@ -140,11 +125,9 @@ def _fix_impossible_city_states(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# resolve state/ZIP conflicts by voting with the city
-def _fix_state_zip_mismatches(df: pd.DataFrame) -> dict:
-    """Resolve ZIP/state conflicts by a 3-way vote with the city; returns fix counts."""
-    # city agrees with the ZIP -> the state was the typo (fix state, keep ZIP);
-    # city backs the state, or gives no signal -> the ZIP was the typo (null it).
+# resolve state/ZIP conflicts by city vote
+def fix_state_zip_mismatches(df: pd.DataFrame) -> dict:
+    # ZIP wins only when city backs it
     zcta_to_state = _load_zcta_to_state()
     if not zcta_to_state:
         return {'state_fixed': 0, 'zip_nulled': 0}
@@ -155,7 +138,6 @@ def _fix_state_zip_mismatches(df: pd.DataFrame) -> dict:
     city = df['contributor_city'].fillna('')
 
     zip_state_exact = zips.map(zcta_to_state).fillna('')
-    # prefix fallback only fills where the exact ZCTA lookup found nothing
     zip3_state = (zips.str[:3].map(zip3_to_state).fillna('')
                   if zip3_to_state else pd.Series('', index=df.index))
     zip_state = zip_state_exact.where(zip_state_exact != '', zip3_state)
@@ -164,9 +146,7 @@ def _fix_state_zip_mismatches(df: pd.DataFrame) -> dict:
     if not conflict.any():
         return {'state_fixed': 0, 'zip_nulled': 0}
 
-    # learn each city's dominant state from trusted rows, where the EXACT
-    # ZIP-implied state already equals the recorded one (exact only, so the
-    # prefix fallback never pollutes the city-to-state signal)
+    # exact matches only, prefix fallback never pollutes
     trusted = (zips != '') & (states != '') & (city != '') & (zip_state_exact == states)
     city_to_state = (
         df.loc[trusted]

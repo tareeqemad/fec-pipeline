@@ -146,9 +146,9 @@ def test_roster_zip_agrees_with_the_rows_own_coordinates():
     # remaining gaps are ~12 km in big suburban ZIPs
     from fec.database.roster_sync import is_foreign_row
     from fec.geocoding.places import distance_km
-    from fec.resolve.pipeline.location_choice import _zip_centroids
+    from fec.geocoding.zip_checks import load_zip_centroids
 
-    centroids = _zip_centroids()
+    centroids = load_zip_centroids()
     compared = 0
     for filename, prefix in _PREFIX.items():
         for row in _rows(filename):

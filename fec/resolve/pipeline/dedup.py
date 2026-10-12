@@ -1,4 +1,4 @@
-"""Post-resolve cache dedup: entries that resolved to the same address and are plausibly the same company merge only after the AI returns matching addresses - cleaning can't see this."""
+"""Merge cache entries resolved to one address."""
 import re
 from collections import defaultdict
 
@@ -8,9 +8,8 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# true if two employer names are the same company
+# same canonical key, or prefix within 2x
 def _same_entity(a: str, b: str) -> bool:
-    """Same company: canonical keys equal, or in a prefix relationship with the longer at most 2x the shorter (catches MORGAN LEWIS / MORGAN LEWIS BOCKIUS LLP, rejects unrelated prefixes)."""
     key_a, key_b = canonical_key(a), canonical_key(b)
     if not key_a or not key_b:
         return False
@@ -24,7 +23,6 @@ def _same_entity(a: str, b: str) -> bool:
 
 # normalize a complete cached address
 def _address_key(entry: dict) -> str:
-    """Normalize a complete cached address."""
     fields = (
         entry.get('employer_address'),
         entry.get('employer_city'),
@@ -39,14 +37,12 @@ def _address_key(entry: dict) -> str:
     )
 
 
-# rank a cache entry: has address, confidence, then method
+# rank by address, confidence, then method
 def _score(entry: dict) -> tuple:
-    """Higher = better: has address, then confidence, then method - ai_*_search outranks closed-book (verified against live sources)."""
     has_address = 1 if entry.get('employer_address') else 0
     confidence_rank = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}.get(entry.get('confidence', ''), 0)
     method = entry.get('method', '')
-    # by pattern, not by model name, so a new model's methods rank correctly;
-    # ai_not_found is an AI MISS and must stay in the generic tier
+    # match by pattern; ai_not_found stays generic
     if method.startswith('ai_') and method.endswith('_search'):
         method_priority = 3
     elif method.startswith('ai_') and not method.endswith('_not_found'):
@@ -58,9 +54,8 @@ def _score(entry: dict) -> tuple:
     return (has_address, confidence_rank, method_priority)
 
 
-# group eligible cache names by complete normalized address
+# group eligible names by normalized address
 def _entries_by_address(data: dict) -> dict[str, list[str]]:
-    """Group eligible cache names by complete normalized address."""
     grouped: dict[str, list[str]] = defaultdict(list)
     for name, entry in data.items():
         if not isinstance(entry, dict):
@@ -79,7 +74,6 @@ def _entries_by_address(data: dict) -> dict[str, list[str]]:
 
 # cluster same-company spellings, preserving cache order
 def _cluster_company_names(names: list[str]) -> list[list[str]]:
-    """Cluster same-company spellings while preserving cache order."""
     clusters: list[list[str]] = []
     for name in names:
         for cluster in clusters:
@@ -91,20 +85,18 @@ def _cluster_company_names(names: list[str]) -> list[list[str]]:
     return clusters
 
 
-# prefer the common filing spelling, then longest, then alphabetical
+# most filed spelling, then longest, then alphabetical
 def _canonical_name(cluster: list[str], frequency: dict) -> str:
-    """Prefer the common filing spelling, then longest, then alphabetical."""
     return min(
         cluster,
         key=lambda name: (-frequency.get(name, 0), -len(name), name),
     )
 
 
-# build variant-to-canonical alias mapping
+# variant-to-canonical aliases and merged group count
 def _alias_mapping(
     grouped: dict[str, list[str]], frequency: dict,
 ) -> tuple[dict[str, str], int]:
-    """Return variant-to-canonical aliases and the number of merged groups."""
     mapping: dict[str, str] = {}
     groups = 0
     for names in grouped.values():
@@ -121,9 +113,8 @@ def _alias_mapping(
     return mapping, groups
 
 
-# give each canonical name its strongest alias entry
+# give canonical names their strongest alias entry
 def _settle_canonical_entries(data: dict, mapping: dict[str, str]) -> None:
-    """Give each canonical name the strongest entry among its aliases."""
     for variant, canonical in mapping.items():
         if _score(data[variant]) > _score(data[canonical]):
             data[canonical] = data[variant]
@@ -131,7 +122,6 @@ def _settle_canonical_entries(data: dict, mapping: dict[str, str]) -> None:
 
 # keep every spelling resolvable without another lookup
 def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
-    """Keep every spelling resolvable without triggering another lookup."""
     for variant, canonical in mapping.items():
         canonical_entry = data[canonical]
         alias = {
@@ -143,11 +133,10 @@ def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
         data[variant] = alias
 
 
-# alias same-company entries resolved to the same address
+# alias same-company entries sharing an address
 def dedup_by_resolved_address(
     addr_cache, freq: dict | None = None,
 ) -> tuple[int, int]:
-    """Alias same-company entries resolved to the same complete address."""
     mapping, groups = _alias_mapping(
         _entries_by_address(addr_cache.data),
         freq or {},

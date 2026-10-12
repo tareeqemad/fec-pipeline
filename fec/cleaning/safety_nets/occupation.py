@@ -11,13 +11,12 @@ from fec.config.occupation_rules.rules import (
     WEB_ARTIFACT_OCCUPATIONS,
 )
 
-# a company name (legal suffix) alone in the occupation field; a leading
-# role word ("PRESIDENT, X INC") is a real title, so it's excluded
+# occupation ending in a legal suffix
 _OCC_IS_COMPANY_RE = re.compile(
     r'\b(?:LLC|L\.L\.C|INC|CORP|CORPORATION|LLP|LP|PC|P\.C|PLLC|LTD|COMPANY)\.?$',
     re.IGNORECASE,
 )
-# a leading title before a company name: "PRESIDENT, ACME INC"
+# a leading role makes it a title
 _OCC_ROLE_PREFIX_RE = re.compile(
     r'^(?:PRESIDENT|VP|VICE PRESIDENT|CEO|CFO|COO|CTO|OWNER|PARTNER|DIRECTOR|'
     r'MANAGER|FOUNDER|PRINCIPAL|CHAIRMAN|EXECUTIVE|MD|DR)\b',
@@ -25,9 +24,8 @@ _OCC_ROLE_PREFIX_RE = re.compile(
 )
 
 
-# fix status when marked DISCLOSED but employer is missing
-def _fix_disclosed_no_employer(df: pd.DataFrame) -> int:
-    """D. DISCLOSED but no employer -> fix status."""
+# fix DISCLOSED status when employer is missing
+def fix_disclosed_no_employer(df: pd.DataFrame) -> int:
     bad = (
         (df['occupation_status'] == 'DISCLOSED')
         & df['contributor_employer'].isna()
@@ -44,9 +42,8 @@ def _fix_disclosed_no_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# categorize EMPLOYED occupation with no category as OTHER
-def _fix_employed_no_category(df: pd.DataFrame) -> int:
-    """E. occ='EMPLOYED' with no category -> OTHER."""
+# uncategorized EMPLOYED occupation becomes OTHER
+def fix_employed_no_category(df: pd.DataFrame) -> int:
     mask = (
         (df['entity_type'] == 'INDIVIDUAL')
         & (df['contributor_occupation'] == 'EMPLOYED')
@@ -64,8 +61,7 @@ def _fix_employed_no_category(df: pd.DataFrame) -> int:
 
 
 # mark status word in occupation as NOT_APPLICABLE
-def _fix_status_word_in_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """G. EMPLOYER_MISSING/NOT_DISCLOSED + status word in occupation -> NOT_APPLICABLE."""
+def fix_status_word_in_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     mask = (
         is_indiv
         & df['occupation_status'].isin(['NOT_DISCLOSED', 'EMPLOYER_MISSING'])
@@ -77,9 +73,8 @@ def _fix_status_word_in_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int
     return n_fixed
 
 
-# reclassify NOT_DISCLOSED rows that actually have a real occupation
-def _fix_not_disclosed_with_real_occ(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """H. NOT_DISCLOSED with real occupation -> EMPLOYER_MISSING."""
+# NOT_DISCLOSED with real occupation: EMPLOYER_MISSING
+def fix_not_disclosed_with_real_occ(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     mask = (
         is_indiv
         & (df['occupation_status'] == 'NOT_DISCLOSED')
@@ -94,8 +89,7 @@ def _fix_not_disclosed_with_real_occ(df: pd.DataFrame, is_indiv: pd.Series) -> i
 
 
 # fill null occupation_category based on entity type
-def _fill_null_occupation_category(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """I. occupation_category NULL -> fill based on entity type."""
+def fill_null_occupation_category(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     n_fixed = 0
     null_indiv = is_indiv & df['occupation_category'].isna()
     if null_indiv.any():
@@ -109,9 +103,8 @@ def _fill_null_occupation_category(df: pd.DataFrame, is_indiv: pd.Series) -> int
     return n_fixed
 
 
-# fix contradictory NOT DISCLOSED occupation with SELF-EMPLOYED employer
-def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """L. occ='NOT DISCLOSED' + emp='SELF-EMPLOYED' -> contradictory; fix status."""
+# NOT DISCLOSED occupation with SELF-EMPLOYED employer
+def fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     mask = (
         is_indiv
         & (df['contributor_occupation'].fillna('').str.upper() == 'NOT DISCLOSED')
@@ -124,9 +117,8 @@ def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
-# clear web form artifact strings left in occupation field
-def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
-    """AP. Web form artifacts in occupation ('LOADING', 'ACMIO', 'REMD') -> NaN."""
+# clear web-form artifacts like 'LOADING' from occupation
+def fix_web_artifact_occupation(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     mask = is_indiv & occ.isin(WEB_ARTIFACT_OCCUPATIONS)
@@ -137,9 +129,8 @@ def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# derive a real occupation when occupation is just EMPLOYED
-def _fix_employed_as_occupation(df: pd.DataFrame) -> int:
-    """AQ. occupation='EMPLOYED' -> derive real occupation from employer context."""
+# handle bare EMPLOYED occupation using the employer
+def fix_employed_as_occupation(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     mask = is_indiv & (df['contributor_occupation'] == 'EMPLOYED')
     n_fixed = int(mask.sum())
@@ -159,9 +150,8 @@ def _fix_employed_as_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# clear or relocate non-occupation junk (emails, bare company names)
-def _null_junk_occupation(df: pd.DataFrame) -> int:
-    """AR. Null non-occupation values (category OTHER): emails always; a bare company name is MOVED to an empty/SELF-EMPLOYED employer (never destroyed), nulled only when the employer already has a value."""
+# null emails; move company names to employer
+def null_junk_occupation(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')

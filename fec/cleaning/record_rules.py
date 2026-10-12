@@ -1,4 +1,4 @@
-"""Run record-level cleaning rules in one declared order."""
+"""Run record-level cleaning rules in order."""
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -43,8 +43,8 @@ from fec.cleaning.occupations.style import (
     normalize_occupation_style_step,
 )
 from fec.cleaning.record_junk import (
-    _clean_junk_status_word_employer,
-    _clean_self_employed_variants,
+    clean_junk_status_word_employer,
+    clean_self_employed_variants,
     clean_remaining_junk,
 )
 from fec.cleaning.safety_nets.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
@@ -71,7 +71,7 @@ _OCCUPATION_ONLY = ('contributor_occupation',)
 _EMPLOYER_ONLY = ('contributor_employer',)
 _NORMALIZED_EMPLOYER_ONLY = ('employer_name_normalized',)
 
-# Field-level rules in execution order. The order is part of the data contract.
+# execution order is part of the contract
 _AUDITED_RULES = (
     _Step(fix_remaining_misclassified, _CLASSIFICATION_FIELDS,
           'enh_reclassify_committee', 'committee_name_pattern'),
@@ -109,17 +109,14 @@ _AUDITED_RULES = (
 )
 
 
-# restore employer display suffixes from the raw filings CSV
+# restore employer display suffixes from raw CSV
 def _restore_suffixes_from_raw(df: pd.DataFrame) -> int:
-    """Restore employer display suffixes from the raw filings."""
     return restore_display_suffixes(df, RAW_CSV)
 
 
-# Late passes, in order: (transform, audit step, reason, fields, log line)
+# late passes: transform, step, reason, fields, message
 _LATE_STEPS = (
-    # style unification runs only after every swap safety net has moved company
-    # names out of the occupation column (a de-pluralized company name would no
-    # longer match the known-employer set those nets rely on)
+    # after swap nets: they match unstyled names
     (normalize_occupation_style_step, 'enh_normalize_occupation_style',
      'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY,
      "Unified occupation style for {n:,} rows (separators, CO-, plurals)"),
@@ -132,31 +129,30 @@ _LATE_STEPS = (
     (_restore_suffixes_from_raw, 'employer_restore_suffixes',
      'employer_display_form_restored_from_raw', WORK_FIELDS,
      "Restored display suffixes for {n:,} rows (HOUSING -> HOUSING INC etc.)"),
-    # re-assert curated synonyms: the two passes above can revert one to a raw form
+    # the two passes above can revert synonyms
     (apply_employer_synonyms, 'enh_employer_synonyms_final',
      'verified_same_company', _EMPLOYER_ONLY,
      "Re-applied {n:,} employer synonyms (final pass)"),
-    # abbreviation expansion AFTER synonyms, so forms a synonym target reintroduces also collapse
+    # after synonyms, so reintroduced forms also collapse
     (expand_employer_abbreviations, 'employer_expand_abbreviations',
      'employer_abbreviation_expanded', _EMPLOYER_ONLY,
      "Expanded {n:,} employer abbreviations (MGMT->MANAGEMENT, ...)"),
-    # ASSOC is contextual: real associations -> ASSOCIATION, the rest -> ASSOCIATES
+    # ASSOC: ASSOCIATION for real associations, else ASSOCIATES
     (expand_employer_associates, 'employer_expand_assoc',
      'employer_assoc_expanded', _EMPLOYER_ONLY,
      "Normalized {n:,} ASSOC employers (-> ASSOCIATES / ASSOCIATION)"),
-    (_clean_self_employed_variants, 'self_employed_variants',
+    (clean_self_employed_variants, 'self_employed_variants',
      'self_employed_variant_unified', WORK_FIELDS,
      "Unified {n:,} self-employed variants -> SELF-EMPLOYED"),
-    # final sweep: refusals/placeholders that only became skip-words after the normalization above
-    (_clean_junk_status_word_employer, 'late_placeholder_employers',
+    # placeholders appear only after normalization above
+    (clean_junk_status_word_employer, 'late_placeholder_employers',
      'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY,
      "Nulled {n:,} refusal/placeholder employers (N/A, PRIVATE, etc.)"),
 )
 
 
-# run all audited, safety-net and late cleaning steps in order
+# run all record rules in order
 def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
-    """Apply all record-level rules."""
     log = logger.info
 
     df['is_individual'] = (df['entity_type'] == 'INDIVIDUAL')
@@ -177,7 +173,7 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     return df
 
 
-# run each safety-net rule over its declared row scope
+# run each safety rule on its scope
 def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str], None]) -> None:
     individuals = df['is_individual'].astype(bool)
     non_individuals = ~individuals
@@ -197,14 +193,13 @@ def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str]
         log(f"Safety rules: fixed {fixed:,} remaining inconsistencies")
 
 
-# run one declared step and log the fields it changed
+# run one declared step; log its counts
 def _apply_step(
     df: pd.DataFrame,
     trail: AuditTrail,
     log: Callable[[str], None],
     step: _Step,
 ) -> pd.DataFrame:
-    """Apply one declared step and record the fields it owns."""
     result = trail.run(df, step.transform, step.audit_name, step.reason, step.fields)
     df, *counts = result
     log(f"  {step.audit_name}: {', '.join(f'{count:,}' for count in counts)}")

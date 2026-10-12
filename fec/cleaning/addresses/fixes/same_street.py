@@ -1,4 +1,4 @@
-"""Align one person's city, state and ZIP across filings from the same street."""
+"""Align donor city, state, ZIP per street."""
 from __future__ import annotations
 
 import pandas as pd
@@ -7,13 +7,8 @@ from fec.cleaning.addresses.cities import CITY_TABLE_FIXED
 from fec.cleaning.addresses.fixes.safe_text import CARE_OF_BLANKED
 
 
-# count outside rows filing candidate city at the row's ZIP
+# count outsiders filing candidate at row's ZIP
 def _support_outside(key: pd.Series, cities: pd.Series, zips: pd.Series, candidate: pd.Series) -> pd.Series:
-    """Per row: how many rows OUTSIDE the row's key group file the candidate city with the row's ZIP.
-
-    The row's own group (same name + street, or same name + ZIP) never vouches
-    for itself, so a value only this donor ever writes at the ZIP scores 0.
-    """
     filed = (cities != "") & (zips != "")
     pairs = pd.DataFrame({"k": key[filed], "c": cities[filed], "z": zips[filed]})
     everyone = pairs.groupby(["c", "z"]).size().rename("n_all").reset_index()
@@ -24,15 +19,13 @@ def _support_outside(key: pd.Series, cities: pd.Series, zips: pd.Series, candida
     return pd.Series(support.to_numpy(dtype=int), index=key.index)
 
 
-# strip the house number, leaving just the street name
+# strip the house number from a street
 def _street_name(street: pd.Series) -> pd.Series:
-    """Street without its house number: '620 MADISON AVE' -> 'MADISON AVE'."""
     return street.str.replace(r"^\d+[A-Z]?\s+", "", regex=True)
 
 
-# find each group's dominant value, its count and the row's
+# per row: dominant value, count, own count
 def _dominant(vals: pd.Series, key: pd.Series, eligible: pd.Series) -> tuple[pd.Series, pd.Series, pd.Series]:
-    """Per row: the group's dominant non-empty value, its count, and the count of the row's own value."""
     non_empty = eligible & (vals != "")
     counts = (
         pd.DataFrame({"k": key[non_empty], "v": vals[non_empty]})
@@ -55,29 +48,24 @@ def _dominant(vals: pd.Series, key: pd.Series, eligible: pd.Series) -> tuple[pd.
     return key.map(dominant["v"]), key.map(dominant["cnt"]), row_count
 
 
-# fill blanks and fix minority address fields from same-street filings
-def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
-    """Fill blanks and fix minority city/state/ZIP typos across a person's filings from the same street."""
-    # the street is the physical anchor: same donor + same exact street = same
-    # home, so those rows must agree. a genuine MOVE is a DIFFERENT street and
-    # its own group, so it is never forced onto the old address.
+# fill or fix city/state/ZIP from same-street filings
+def recover_address_from_same_street(df: pd.DataFrame) -> dict:
+    # a move is a different street group
     name = df["contributor_name"].fillna("")
     eligible_base = (df["entity_type"] == "INDIVIDUAL") & (name != "")
     out = {"zip": 0, "city": 0, "state": 0}
 
-    # pass 1: anchor on the exact street (the physical home)
+    # pass 1: exact street is the home
     street = df["contributor_street_1"].fillna("")
     eligible_street = eligible_base & (street != "")
     if eligible_street.any():
         _align_same_street(df, name.str.cat(street, sep="\x00"), street, eligible_street, out)
 
-    # pass 2: city by (name, ZIP). an appended apartment number splits the
-    # street group, so a truncated city on the unit row ("NEW" for "NEW YORK")
-    # is recovered from the donor's dominant city at that same ZIP instead.
+    # pass 2: city by name and ZIP
     zips = df["contributor_zip"].fillna("")
     eligible_zip = eligible_base & (zips != "")
     if CARE_OF_BLANKED in df.columns:
-        # a filing that named an office elsewhere keeps its city
+        # care-of office filings keep their city
         eligible_zip &= ~df[CARE_OF_BLANKED].fillna(False).astype(bool)
     if eligible_zip.any():
         zip_key = name.str.cat(zips, sep="\x00")
@@ -88,23 +76,16 @@ def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     return out
 
 
-# align ZIP, city and state across one person's same-street filings
+# align ZIP, city, state per street group
 def _align_same_street(df, street_key, street, eligible, out) -> None:
-    """Align ZIP, city and state across one person's same-street filings."""
-    # a row naming another city at a ZIP where the group's city is never
-    # filed, on a street other people file at that ZIP, is a second real
-    # address sharing the street text (620 MADISON AVE NEW YORK 10022 vs
-    # WEST HEMPSTEAD 11552): its ZIP stays. Without that street evidence the
-    # row is a mixed-up filing (home street + office ZIP) and is aligned.
+    # street known at ZIP means second address
     zips = _column_text(df, "contributor_zip")
     streets = _street_name(street.astype(str))
     street_known_at_zip = _support_outside(street_key, streets, zips, streets) > 0
     keep_zip = _foreign_city(df, street_key, eligible) & street_known_at_zip
     zip_before = zips.copy()
     out["zip"] = _unify_to_dominant(df, "contributor_zip", street_key, eligible, keep_zip)
-    # a row that just took the group's ZIP joined the group's address, so
-    # its city follows; any other row keeps a city the group's dominant city
-    # would contradict at its ZIP (MANHATTAN BEACH 90266, never LOS ANGELES)
+    # rows that took the ZIP follow city
     zip_moved = _column_text(df, "contributor_zip") != zip_before
     keep_city = _foreign_city(df, street_key, eligible) & ~zip_moved
     out["city"] = _unify_to_dominant(df, "contributor_city", street_key, eligible, keep_city)
@@ -112,18 +93,16 @@ def _align_same_street(df, street_key, street, eligible, out) -> None:
     out["city"] += _adopt_attested_city(df, street_key, eligible)
 
 
-# read a column as text with blanks for missing values
+# column as text, blanks for missing
 def _column_text(df: pd.DataFrame, col: str) -> pd.Series:
-    """A column as text, blanks for missing values."""
     return df[col].fillna("").astype(str)
 
 
-# fill blanks/minority column values to the group's dominant value
+# set blank/minority values to dominant, skip keep
 def _unify_to_dominant(df, col: str, key: pd.Series, eligible: pd.Series, keep: pd.Series | None = None) -> int:
-    """Within each key group, fill blanks / fix minority values in col to the dominant non-empty value; rows in keep are never overwritten."""
     vals = _column_text(df, col)
     dominant_value, dominant_count, row_count = _dominant(vals, key, eligible)
-    # only when the dominant strictly outnumbers the row's value (ties left alone)
+    # dominant must strictly outnumber; ties stay
     fix = (
         eligible
         & dominant_value.notna()
@@ -138,9 +117,8 @@ def _unify_to_dominant(df, col: str, key: pd.Series, eligible: pd.Series, keep: 
     return n_fixed
 
 
-# flag rows whose city no outsider files at that ZIP
+# flag off-dominant cities no outsider files there
 def _foreign_city(df, key: pd.Series, eligible: pd.Series) -> pd.Series:
-    """Rows whose filed city must not become the group's dominant city: nobody outside the group files that city with the row's ZIP."""
     cities, zips = _column_text(df, "contributor_city"), _column_text(df, "contributor_zip")
     dominant_city, _count, _row = _dominant(cities, key, eligible)
     dominant_city = dominant_city.fillna("").astype(str)
@@ -148,17 +126,8 @@ def _foreign_city(df, key: pd.Series, eligible: pd.Series) -> pd.Series:
     return differs & (_support_outside(key, cities, zips, dominant_city) == 0)
 
 
-# replace an unattested cut-off/guessed city with the donor's attested one
+# replace cut-off/guessed city with attested one
 def _adopt_attested_city(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) -> int:
-    """Replace a cut-off or table-guessed city nobody else files with the row's ZIP by the one city the same home files with that ZIP that others do file.
-
-    'SANTA' 87501 next to the donor's own 'SANTA FE' 87501 at the same street
-    (a 2-2 tie the majority vote leaves alone), or raw 'LOS ANGELS' 90266, which
-    the typo table turned into LOS ANGELES, next to the donor's own 'MANHATTAN
-    BEACH' 90266. Only the same ZIP counts, so a different home (a move) is
-    never touched, and a real place name the filer chose (ELBERON, LAKE SUCCESS)
-    is not a guess and stays as filed.
-    """
     cities = df["contributor_city"].fillna("").astype(str)
     zips = df["contributor_zip"].fillna("").astype(str)
     filed = eligible & (cities != "") & (zips != "")

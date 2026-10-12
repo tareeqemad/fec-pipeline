@@ -1,22 +1,19 @@
-"""Restore a house number the filing lost, from the donor's other filings."""
+"""Restore lost house numbers from donor's filings."""
 from __future__ import annotations
 
 import re
 
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.recovery import _STREET_TYPE_RE
+from fec.cleaning.addresses.fixes.recovery import STREET_TYPE_RE
 
 
-# backfill a missing house number from the donor's numbered filing
-def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
-    """Backfill a missing house number from the same donor's numbered filing of the same street."""
-    # a typed-but-unnumbered street ("FAIRWAY DR") passes _is_usable_street yet
-    # only geocodes to a centroid. conservative: the number-stripped street must
-    # match EXACTLY, key is name+state, only the dominant numbered form is used.
+# fill missing house number from donor's filings
+def recover_house_number_from_donor(df: pd.DataFrame) -> int:
+    # unnumbered streets only geocode to a centroid
     streets = df["contributor_street_1"].fillna("").astype(str).str.upper().str.strip()
     is_indiv = df["entity_type"] == "INDIVIDUAL"
-    has_type = streets.str.contains(_STREET_TYPE_RE)
+    has_type = streets.str.contains(STREET_TYPE_RE)
     starts_num = streets.str.match(r"^\d")
     no_number = (
         is_indiv
@@ -32,7 +29,7 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     if numbered.empty:
         return 0
 
-    # drop a leading house number from a street string
+    # drop a leading house number
     def _strip_num(x: str) -> str:
         return re.sub(r"^\d+\s+", "", str(x).upper().strip())
 
@@ -65,7 +62,7 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     return n_filled
 
 
-# decide if one house number is a truncation of another
+# return (rare, common) when one number truncates
 def _house_number_replacement(first, second, counts) -> tuple | None:
     first_parts = str(first).split(" ", 1)
     second_parts = str(second).split(" ", 1)
@@ -89,9 +86,8 @@ def _house_number_replacement(first, second, counts) -> tuple | None:
     return None
 
 
-# replace a rare truncated house number with donor's common form
-def _truncated_house_numbers(df: pd.DataFrame) -> int:
-    """Replace a rare truncated house number with the donor's common form."""
+# replace rare truncated house numbers per donor
+def truncated_house_numbers(df: pd.DataFrame) -> int:
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     changed = 0
     for donor_key, group in individuals.groupby("donor_key"):

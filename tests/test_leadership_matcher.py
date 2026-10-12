@@ -77,7 +77,7 @@ def test_editorial_boolean_is_strict():
 # --- roster employments point at the employer's workplace like FEC ones -------------
 
 from fec.database.leadership_matcher import employment_address_id, upsert_leader_employment  # noqa: E402
-from fec.database.loader.employment_locations import _location_index  # noqa: E402
+from fec.database.loader.employment_locations import location_index  # noqa: E402
 
 
 def _office(name, street, city, state, zip_code, primary, lat="", lng=""):
@@ -87,7 +87,7 @@ def _office(name, street, city, state, zip_code, primary, lat="", lng=""):
 
 
 # built by the FEC loader's own index, so the roster sees exactly the structure FEC employments use
-LOCATIONS = _location_index([
+LOCATIONS = location_index([
     _office("ACME HOLDINGS", "1 MAIN ST", "NEW YORK", "NY", "10022", True),
     _office("ACME HOLDINGS", "500 MARKET ST", "SAN FRANCISCO", "CA", "94105", False, "37.79", "-122.40"),
 ])
@@ -173,7 +173,7 @@ def test_an_office_the_loader_pruned_is_stored_again_with_its_coordinates():
 
 def test_address_lookup_matches_the_loaders_blank_as_empty_key():
     # load_address_dimension keys addresses on COALESCE(col, ''), so a blank ZIP is '' in the lookup
-    locations = _location_index([_office("NO ZIP INC", "9 ELM ST", "AUSTIN", "TX", None, True)])
+    locations = location_index([_office("NO ZIP INC", "9 ELM ST", "AUSTIN", "TX", None, True)])
     cur = EmploymentCursor(addresses={("9 ELM ST", "", "AUSTIN", "TX", ""): 77})
     assert employment_address_id(cur, "NO ZIP INC", locations, "TX", "78701") == 77
 

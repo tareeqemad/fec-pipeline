@@ -11,7 +11,7 @@ from fec.donor_match.rules import resolve_donor_key
 from fec.resolve.pipeline.location_choice import select_location
 
 
-# resolve a curated donor_key, following merges, or insert one
+# resolve donor_key through merges, else insert
 def find_or_create_donor(
     cur: Any,
     donor_key: str,
@@ -20,13 +20,11 @@ def find_or_create_donor(
     first: str,
     last: str,
 ) -> tuple[int, str]:
-    """Use the curated donor key, after the identity merges the cleaning applied."""
     donor_key = donor_key.strip()
     if not donor_key:
         raise ValueError(f"Missing donor_key for {name!r}")
 
-    # Cleaning moved a merged-away key's contributions to the surviving key, so a
-    # roster still naming the old key must follow them instead of creating a twin.
+    # follow merged keys instead of creating twins
     resolved_key = resolve_donor_key(donor_key)
     method = "donor_key_exact" if resolved_key == donor_key else "donor_key_merged"
 
@@ -53,7 +51,7 @@ def find_or_create_donor(
     return new_id, "created"
 
 
-# find or insert the address row; fill missing coordinates
+# find or insert address, fill missing coordinates
 def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
     cur.execute(
         """
@@ -90,14 +88,13 @@ def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: floa
     return address_id
 
 
-# find or insert an address and link to donor
+# link one curated address to the donor
 def upsert_donor_address(
     cur: Any, donor_id: int, street_1: str | None, street_2: str | None,
     city: str | None, state: str | None, zip_5: str | None = None,
     latitude: float | None = None, longitude: float | None = None,
 ) -> None:
-    """Link one curated address."""
-    # blank strings become None so comparisons treat them as missing
+    # blank strings become None, meaning missing
     def _none_if_empty(s: str | None) -> str | None:
         return s.strip() if s and s.strip() else None
 
@@ -118,18 +115,11 @@ def upsert_donor_address(
     )
 
 
-# find or insert the employer office an employment uses
+# employer office address, same rule as loader
 def employment_address_id(
     cur: Any, employer: str, locations: dict | None,
     state: str | None = "", zip_5: str | None = "",
 ) -> int | None:
-    """The employer office an active employment points at: the FEC loader's rule.
-
-    select_location picks a same-state office (nearest to the person's ZIP), else the
-    employer's default location; the address row is the one load_address_dimension
-    stored for that location (matched on the same COALESCE(col, '') tuple), inserted
-    only when the loader pruned an office no FEC employment used.
-    """
     if not employer or not locations:
         return None
     location = select_location(locations.get(employer), zip_5 or "", state or "")
@@ -160,7 +150,7 @@ def employment_address_id(
     if row:
         return row[0]
 
-    # parse a coordinate string to float, or None if invalid/blank
+    # coordinate as float, None if blank/invalid
     def _coordinate(value):
         try:
             return float(value) if str(value or "").strip() else None
@@ -180,16 +170,11 @@ def employment_address_id(
     return cur.fetchone()[0]
 
 
-# add roster employer/occupation only if donor has no FEC data
+# add roster employment; FEC employment wins
 def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
                              occupation: str | None = None, *,
                              state: str | None = "", zip_5: str | None = "",
                              locations: dict | None = None) -> None:
-    """Add the roster's employer/occupation only for a donor with no FEC employment (FEC wins).
-
-    An active employment gets the same workplace address as an FEC one
-    (employment_address_id); `state`/`zip_5` are the roster person's own.
-    """
     emp = (employer or '').strip()
     occ = (occupation or '').strip() or None
     if not emp and not occ:

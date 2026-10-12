@@ -11,9 +11,8 @@ from fec.io import write_csv_atomic, write_json_atomic
 CHANGE_COLUMNS = ['sub_id', 'row_index', 'field', 'before', 'after', 'step', 'reason', 'source']
 
 
-# write every audit artifact and return the summary dict
+# write every audit artifact; return the summary
 def write_audit(df_after, orig_map, out_dir, trail: AuditTrail):
-    """Write every cleaning audit artifact."""
     after = df_after.drop_duplicates('sub_id', keep='first').set_index('sub_id')
     row_index = (
         orig_map.drop_duplicates('sub_id', keep='first')
@@ -47,9 +46,8 @@ def _frame(records, row_index):
     return frame[CHANGE_COLUMNS]
 
 
-# write informational flags for negative or zero contribution amounts
+# flag negative or zero amounts; data unchanged
 def _write_amount_flags(df, row_idx, out_dir):
-    """Flag negative/zero amounts (informational only; does not change data)."""
     path = os.path.join(out_dir, 'amount_flags.csv')
     empty_cols = ['sub_id', 'row_index', 'contribution_receipt_amount', 'flag', 'evidence']
 

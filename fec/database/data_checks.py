@@ -1,4 +1,4 @@
-"""Cleaned values follow the cleaning contract and fall in sane ranges."""
+"""Cleaned values follow contract and sane ranges."""
 from __future__ import annotations
 
 import pandas as pd
@@ -6,7 +6,7 @@ import pandas as pd
 from fec.cleaning.addresses.foreign import REVIEWED_AS_FILED_SUB_IDS, foreign_address_mask
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
-from fec.database.check_kinds import WARN, Check, _none, _sql, _zero
+from fec.database.check_kinds import WARN, Check, no_names_check, clean_sql, zero_check
 from fec.env import CLEANED_CSV
 from fec.geocoding.address_kind import is_foreign_address
 
@@ -16,7 +16,7 @@ _EMPLOYER_ABBREVIATIONS = "|".join(EMPLOYER_ABBREVIATIONS)
 _ADDRESS_COLUMNS = "street_1, street_2, city, state_code, zip_code"
 
 
-# the filed addresses of filings reviewed and kept as filed (street, city, state, zip)
+# filed addresses of filings reviewed as filed
 def _reviewed_as_filed() -> set[tuple]:
     if not REVIEWED_AS_FILED_SUB_IDS or not CLEANED_CSV.exists():
         return set()
@@ -26,7 +26,7 @@ def _reviewed_as_filed() -> set[tuple]:
     return set(rows[columns[1:]].itertuples(index=False, name=None))
 
 
-# addresses kept as filed by the pipeline's own rules: abroad, or reviewed by hand
+# flag addresses abroad or reviewed as filed
 def _foreign(rows: list[tuple]) -> list[bool]:
     frame = pd.DataFrame(rows, columns=[
         "contributor_street_1", "contributor_street_2", "contributor_city",
@@ -43,11 +43,9 @@ def _foreign(rows: list[tuple]) -> list[bool]:
     ]
 
 
-# pass when no US address matches the query; a foreign one is kept as filed
+# pass when query returns no US address
 def _no_us_address(name, query, label, severity=WARN):
-    """The query selects street_1, street_2, city, state_code, zip_code."""
-
-    # drop foreign addresses and list the US ones that remain
+    # drop foreign addresses, list remaining US ones
     def fn(cur, query=query, label=label):
         cur.execute(query)
         rows = cur.fetchall()
@@ -61,18 +59,18 @@ def _no_us_address(name, query, label, severity=WARN):
 
 # Cleaned values follow the cleaning contract
 CLEANING_CHECKS: list[Check] = [
-    _zero(
+    zero_check(
         "no employer is a status word",
-        _sql(f"""
+        clean_sql(f"""
             SELECT COUNT(*)
             FROM employers
             WHERE UPPER(name) IN ({_STATUS_WORDS})
         """),
         "employer(s) that are status words",
     ),
-    _zero(
+    zero_check(
         "individuals have a surname",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM donors
             WHERE entity_type = 'INDIVIDUAL'
@@ -81,14 +79,14 @@ CLEANING_CHECKS: list[Check] = [
         "individual(s) missing surname",
         WARN,
     ),
-    _zero(
+    zero_check(
         "committees: raised/spent >= 0",
         "SELECT COUNT(*) FROM committees WHERE raised < 0 OR spent < 0",
         "committee(s) with negative totals",
     ),
-    _zero(
+    zero_check(
         "occupations are categorized",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM donor_employments
             WHERE COALESCE(occupation, '') <> ''
@@ -97,9 +95,9 @@ CLEANING_CHECKS: list[Check] = [
         "occupation(s) without a category",
         WARN,
     ),
-    _zero(
+    zero_check(
         "active status implies an employer",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM donor_employments
             WHERE employer_status = 'active'
@@ -108,9 +106,9 @@ CLEANING_CHECKS: list[Check] = [
         "active row(s) without an employer",
         WARN,
     ),
-    _none(
+    no_names_check(
         "employer names not abbreviated",
-        _sql(rf"""
+        clean_sql(rf"""
             SELECT DISTINCT name
             FROM employers
             WHERE name ~ '\m({_EMPLOYER_ABBREVIATIONS})\M'
@@ -124,14 +122,14 @@ CLEANING_CHECKS: list[Check] = [
 
 # Stored values fall in sane ranges
 VALUE_CHECKS: list[Check] = [
-    _zero(
+    zero_check(
         "no future receipt dates",
         "SELECT COUNT(*) FROM contributions WHERE receipt_date > CURRENT_DATE",
         "future-dated row(s)",
     ),
-    _zero(
+    zero_check(
         "election cycles even & in range",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM contributions
             WHERE MOD(election_cycle, 2) = 1
@@ -143,7 +141,7 @@ VALUE_CHECKS: list[Check] = [
     ),
     _no_us_address(
         "zip codes are 5 digits",
-        _sql(rf"""
+        clean_sql(rf"""
             SELECT {_ADDRESS_COLUMNS}
             FROM addresses
             WHERE COALESCE(zip_code, '') <> ''
@@ -151,9 +149,9 @@ VALUE_CHECKS: list[Check] = [
         """),
         "non-5-digit US zip(s)",
     ),
-    _zero(
+    zero_check(
         "coordinates in valid lat/lng range",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM addresses
             WHERE latitude IS NOT NULL
@@ -165,15 +163,15 @@ VALUE_CHECKS: list[Check] = [
         "row(s) with out-of-range coords",
         WARN,
     ),
-    _zero(
+    zero_check(
         "negative amounts (refunds/memo)",
         "SELECT COUNT(*) FROM contributions WHERE amount < 0",
         "negative amount(s)",
         WARN,
     ),
-    _zero(
+    zero_check(
         "no ancient receipt dates",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM contributions
             WHERE receipt_date < DATE '1980-01-01'
@@ -181,9 +179,9 @@ VALUE_CHECKS: list[Check] = [
         "pre-1980 row(s)",
         WARN,
     ),
-    _zero(
+    zero_check(
         "state codes exist in us_states",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(DISTINCT address.state_code)
             FROM addresses AS address
             WHERE address.state_code IS NOT NULL
@@ -198,7 +196,7 @@ VALUE_CHECKS: list[Check] = [
     ),
     _no_us_address(
         "zip agrees with state",
-        _sql("""
+        clean_sql("""
             SELECT address.street_1, address.street_2, address.city, address.state_code, address.zip_code
             FROM addresses AS address
             JOIN zcta_state_rel AS zip_state

@@ -1,4 +1,4 @@
-"""Geocoding engines: Census, Nominatim (US and international) and city-level fallback."""
+"""Census, Nominatim and city-level geocoding engines."""
 
 import time
 
@@ -17,7 +17,7 @@ NOMINATIM_TIMEOUT = 10  # seconds
 CENSUS_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 CENSUS_TIMEOUT = 10
 CENSUS_RETRIES = 2
-# unauthorized, forbidden (Nominatim's block for a client over its usage policy), proxy authentication
+# auth failures; 403 is Nominatim's policy block
 _BLOCKED_STATUSES = frozenset({401, 403, 407})
 
 
@@ -29,9 +29,8 @@ class CensusUnavailable(RuntimeError):
     """Census Geocoder could not be reached."""
 
 
-# geocode a US street via Census Geocoder, retrying on failure
+# geocode a US street via Census Geocoder
 def census(street: str, city: str, state: str, zipcode: str) -> tuple:
-    """Geocode a US street with the official Census address ranges."""
     address = f"{street}, {city}, {state} {zipcode}, USA"
     params = {
         "address": address,
@@ -65,9 +64,8 @@ def census(street: str, city: str, state: str, zipcode: str) -> tuple:
     raise CensusUnavailable(last_error)
 
 
-# geocode a US address via Nominatim, structured then free-form
+# Nominatim US geocode: structured, then free-form
 def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
-    """Geocode a US street address via Nominatim: structured query first, then free-form."""
     result = _nominatim_request(params={
         "street": street, "city": city, "state": state,
         "postalcode": zipcode, "country": "US",
@@ -83,10 +81,9 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
     })
 
 
-# search a street via Nominatim restricted to a bounding box
+# Nominatim street search inside a bounding box
 def nominatim_within(street: str, city: str, state: str,
                      box: tuple[float, float, float, float]) -> tuple:
-    """Search a US street in the filed city only inside box (south, west, north, east); asks whether the address exists in the filed ZIP at all."""
     south, west, north, east = box
     query = ", ".join(part for part in (street, city, state) if part)
     return _nominatim_request(params={
@@ -96,9 +93,8 @@ def nominatim_within(street: str, city: str, state: str,
     })
 
 
-# geocode via Nominatim with no country restriction, last resort
+# Nominatim geocode with no country restriction
 def nominatim_international(street: str, city: str, state: str, zipcode: str) -> tuple:
-    """Geocode via Nominatim with no country restriction (foreign addresses, and the last resort for US-labelled ones)."""
     query = ", ".join(part for part in (street, city, state) if part)
     if zipcode:
         query += f" {zipcode}"
@@ -108,19 +104,9 @@ def nominatim_international(street: str, city: str, state: str, zipcode: str) ->
     })
 
 
-# geocode to the filed town's own point as a fallback
+# find the filed town's settlement in state
 def city_level(city: str, state: str, zipcode: str = "",
                near: tuple[float, float] | None = None) -> tuple:
-    """The filed town's own point (PO boxes, or when street-level fails): (lat, lng, ISO-2 country) or Nones.
-
-    A structured search (city=, the state's full name, country us, no free-text
-    ', USA' word; postalcode only when given, i.e. when the ZIP has a centroid)
-    that keeps only a settlement named like the city inside the state, so a county,
-    road, building or a POI named '... USA' is never taken for the town. near (the
-    filed ZIP's area) picks among same-name towns in one state. A free-text
-    'CITY, STATE' retry found no town on the 380 re-checked keys of 2026-09-24
-    (JAMAICA NY gives only its railway stations), so there is none.
-    """
     if not str(city or "").strip():
         return None, None, None
     params = {"city": city, "format": "jsonv2", "limit": 10, "countrycodes": "us", "namedetails": 1}
@@ -136,21 +122,19 @@ def city_level(city: str, state: str, zipcode: str = "",
     return lat, lng, country_code
 
 
-# run one Nominatim request and return its top coordinates
+# one Nominatim request; return top result's coordinates
 def _nominatim_request(params: dict, _retries=NOMINATIM_RETRIES):
-    """One Nominatim request, retried on 429/5xx/timeout only; returns (lat, lng, ISO-2 country) or Nones."""
     results = _nominatim_results(params, _retries)
     if not results:
         return None, None, None
     first_result = results[0]
-    # country_code tells a genuinely foreign address from a wrong-state US match
+    # country tells foreign from wrong-state US match
     country_code = (first_result.get("address", {}).get("country_code") or "").upper() or None
     return float(first_result["lat"]), float(first_result["lon"]), country_code
 
 
-# fetch all Nominatim results, retrying on rate limit or error
+# all Nominatim results, retried on transient errors
 def _nominatim_results(params: dict, _retries=NOMINATIM_RETRIES) -> list[dict]:
-    """Every result of one Nominatim search, retried on 429/5xx/timeout only; [] when nothing is found."""
     params = {**params, "addressdetails": 1}
     last_error = "temporary Nominatim failure"
     for attempt in range(1 + _retries):
@@ -174,8 +158,7 @@ def _nominatim_results(params: dict, _retries=NOMINATIM_RETRIES) -> list[dict]:
                 continue
 
             if response.status_code in _BLOCKED_STATUSES:
-                # a blocked client or proxy answers every search alike: an outage, not a
-                # miss (read as 'not found' it would end lookups and re-checks for good)
+                # blocking is an outage, not a miss
                 raise NominatimUnavailable(f"Nominatim HTTP {response.status_code}")
 
             if response.ok:
@@ -184,7 +167,7 @@ def _nominatim_results(params: dict, _retries=NOMINATIM_RETRIES) -> list[dict]:
                     raise ValueError(f"unexpected Nominatim answer: {str(results)[:200]}")
                 return results
 
-            # any other client error: genuinely not found, no retry
+            # other client errors: not found, no retry
             return []
 
         except requests.exceptions.Timeout:

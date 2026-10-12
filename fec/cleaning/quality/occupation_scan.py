@@ -9,13 +9,12 @@ from fec.config.constants import EMPLOYER_STATUS_VALUES, OK_SHORT_OCCUPATIONS
 
 _VOWELS = set("AEIOUY")
 
-# the same character repeated 3+ times, e.g. "AAAA", "XXXXX" (junk value)
+# one character repeated 3+ times, like "AAAA"
 _REPEAT_RE = re.compile(r"(.)\1{2,}")
 
 
-# true only for globally rare values no categorization rule matched
+# globally rare values no category rule matched
 def _is_rare_uncategorized(value, counts, occ, cat, uncategorized) -> bool:
-    """True only for globally rare values no categorization rule matched; anything else is real."""
     if not value or value in EMPLOYER_STATUS_VALUES or value in OK_SHORT_OCCUPATIONS:
         return False
     if int(counts.get(value, 0)) > 5:
@@ -23,7 +22,7 @@ def _is_rare_uncategorized(value, counts, occ, cat, uncategorized) -> bool:
     return bool((cat[occ == value].isin(uncategorized)).all())
 
 
-# flag rare uncategorized occupation values that look like keyboard mash
+# rare uncategorized values shaped like keyboard mash
 def _shape_suspects(occ, categories, counts, uncategorized) -> dict[str, int]:
     suspects = {}
     for value, n_rows in counts.items():
@@ -47,7 +46,7 @@ def _shape_suspects(occ, categories, counts, uncategorized) -> dict[str, int]:
     return suspects
 
 
-# find donor history evidence for suspect occupation values
+# donor history evidence for rare occupation values
 def _occupation_history_evidence(
     individuals,
     occ,
@@ -89,7 +88,6 @@ def _occupation_history_evidence(
 
 # surface likely keyboard-mash occupations for review
 def scan_junk_occupations(df: pd.DataFrame) -> dict:
-    """Surface likely keyboard-mash occupations for review."""
     if "contributor_occupation" not in df.columns:
         return {"distinct": 0, "rows": 0, "examples": []}
 
@@ -142,7 +140,6 @@ def scan_junk_occupations(df: pd.DataFrame) -> dict:
 
 # list nonblank occupations still uncategorized, by impact
 def scan_uncategorized_occupations(df: pd.DataFrame) -> dict:
-    """List nonblank occupations still in OTHER, ordered by impact."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     occupation = individuals["contributor_occupation"].fillna("").str.strip()
     category = individuals.get(

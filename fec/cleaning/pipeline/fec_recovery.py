@@ -1,4 +1,4 @@
-"""Last-resort street recovery from the donor's own filings to OTHER committees via the FEC API; network-gated (needs out_dir AND FEC_API_KEY, so tests never hit the network), hits and misses cached forever in fec_address_cache.json, same-city guard."""
+"""Last-resort street recovery via the FEC API."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import requests
 
-from fec.cleaning.addresses.fixes.recovery import _is_usable_street
+from fec.cleaning.addresses.fixes.recovery import is_usable_street
 from fec.cleaning.addresses.street_text import normalize_street
 from fec.log import get_logger
 from fec.resolve.pipeline.cache import Cache
@@ -22,9 +22,8 @@ WORKERS = 5
 CACHE_NAME = "fec_address_cache.json"
 
 
-# query the FEC API for one donor's dominant real street
+# fetch one donor's street; None means retry
 def _fetch_one(name: str, state: str, key: str) -> dict | None:
-    """Query the FEC API for one donor's dominant real street; miss = {'street': ''}, None = transient error so the donor is retried next run."""
     try:
         resp = requests.get(
             f"{FEC_BASE}/schedules/schedule_a/",
@@ -50,7 +49,7 @@ def _fetch_one(name: str, state: str, key: str) -> dict | None:
     addrs: Counter = Counter()
     for record in results:
         s1 = (record.get("contributor_street_1") or "").strip()
-        if _is_usable_street(pd.Series([s1])).iloc[0]:
+        if is_usable_street(pd.Series([s1])).iloc[0]:
             city = (record.get("contributor_city") or "").strip().upper()
             zip_code = (record.get("contributor_zip") or "").strip()[:5]
             addrs[(s1.upper(), city, zip_code)] += 1
@@ -67,9 +66,9 @@ def _fetch_one(name: str, state: str, key: str) -> dict | None:
     }
 
 
-# rows needing an FEC-recovered street: individuals with an unusable one
+# individuals whose street is unusable
 def _recovery_target(df: pd.DataFrame) -> pd.Series:
-    usable = _is_usable_street(df["contributor_street_1"])
+    usable = is_usable_street(df["contributor_street_1"])
     return (
         (df["entity_type"] == "INDIVIDUAL")
         & ~usable
@@ -78,7 +77,7 @@ def _recovery_target(df: pd.DataFrame) -> pd.Series:
     )
 
 
-# distinct (name, state) pairs among target rows not yet cached
+# uncached name and state pairs to query
 def _unknown_people(df: pd.DataFrame, target: pd.Series, cache) -> list[tuple]:
     people = (
         df.loc[target, ["contributor_name", "contributor_state"]]
@@ -90,7 +89,7 @@ def _unknown_people(df: pd.DataFrame, target: pd.Series, cache) -> list[tuple]:
     ]
 
 
-# fetch and cache addresses for every unknown donor, in parallel
+# fetch and cache unknown donors in parallel
 def _fetch_unknown_people(todo: list[tuple], key: str, cache) -> None:
     logger.info(
         f"    FEC address recovery: querying {len(todo)} donors ({len(cache)} cached)"
@@ -110,7 +109,7 @@ def _fetch_unknown_people(todo: list[tuple], key: str, cache) -> None:
     cache.save()
 
 
-# fill target rows' street/city/zip from cached FEC results
+# fill street, city, zip from cached results
 def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
     n_filled = 0
     for idx in df[target].index:
@@ -124,7 +123,7 @@ def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
             continue
         our_city = str(df.at[idx, "contributor_city"] or "").strip().upper()
         fec_city = str(hit.get("city") or "").strip().upper()
-        # same-city guard: a different city may be a namesake or a second home
+        # another city may be a namesake
         if our_city and fec_city and our_city != fec_city:
             continue
         df.at[idx, "contributor_street_1"] = street
@@ -137,9 +136,8 @@ def _apply_cached_addresses(df: pd.DataFrame, target: pd.Series, cache) -> int:
     return n_filled
 
 
-# fill unusable streets from the donor's cached FEC-wide history
+# fill unusable streets from donor's FEC history
 def recover_addresses_from_fec(df: pd.DataFrame, cache_dir: str | None) -> int:
-    """Fill unusable streets from the donor's cached FEC-wide history."""
     if not cache_dir:
         return 0
 

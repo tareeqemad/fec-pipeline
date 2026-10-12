@@ -6,18 +6,17 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _norm
-from fec.cleaning.employer_synonyms.normalize import _TRAILING_PAREN_RE
+from fec.cleaning._helpers import individual_index, upper_text
+from fec.cleaning.employer_synonyms.normalize import TRAILING_PAREN_RE
 from fec.cleaning.occupations.employer_groups import (
-    _employer_group_key,
+    employer_group_key,
     employer_filers,
     employer_group_words,
     prefer_attested_spacing,
     spacing_index,
 )
 
-# COMPANY listed before CO (and INCORPORATED before INC) so iteration strips
-# the longer suffix first - otherwise "MPANY" residue would be left behind.
+# longer suffixes first, else "MPANY" residue stays
 _CORP_SUFFIXES = (
     "INCORPORATED",
     "CORPORATION",
@@ -35,30 +34,25 @@ _CORP_SUFFIXES = (
     "PA",
     "LP",
 )
-# short suffixes that, glued onto a lone word, usually belong to the brand
+# short suffixes usually brand when glued on
 _GLUED_BRAND_SUFFIXES = frozenset({"CO", "PC", "PA", "LP"})
 
-# Whole-token abbreviations folded for grouping only (never display).
-# ASSOC deliberately absent: ASSOCIATES vs ASSOCIATION is contextual.
+# grouping-only abbreviations; ASSOC is contextual, so absent
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
 
 
-# normalize an employer name into a strict grouping key
+# strict grouping key for an employer name
 def canonical_key(name: str) -> str:
-    """Strict grouping key: whitespace/punctuation/TLD/legal-suffix/THE/ampersand variants collapse to one key (KIRKLAND & ELLIS LLP -> KIRKLANDELLIS)."""
     key = name.strip().upper()
     if not key:
         return ""
     key = re.sub(r"\.(COM|ORG|NET|IO|AI|US|EDU|GOV)\b", "", key)
-    # `&`/`$` -> AND, then drop the word AND entirely for grouping.
-    # Word-boundary substitutions must run BEFORE collapsing whitespace,
-    # otherwise the AND inside KIRKLAND would be eaten.
+    # word subs must precede collapsing whitespace
     key = re.sub(r"[&$]", " AND ", key)
     key = re.sub(r"^\s*THE\b", "", key)
     key = re.sub(r"\bAND\b", " ", key)
     key = " ".join(_KEY_TOKEN_EXPANSIONS.get(token, token) for token in key.split())
-    # a one-word name keeps a glued CO/PC/PA/LP: it is part of the brand
-    # (GOLDCO is not GOLD AND COMPANY, TERRACO is not TERRA)
+    # a lone word keeps glued CO/PC/PA/LP
     words = re.findall(r"[A-Z0-9]+", key)
     while len(words) > 1 and words[-1] in _CORP_SUFFIXES:
         words.pop()
@@ -78,17 +72,15 @@ def canonical_key(name: str) -> str:
     return key
 
 
-# one comma style: "AG,LLC" / "KENNETH ROSE ,ESQ" -> "AG, LLC" / "KENNETH ROSE, ESQ"
+# tidy comma spacing; numbers like 1,000 kept
 def tidy_employer_commas(name):
-    """Style only: no space before a comma, one after it before a letter (1,000 kept)."""
     if not isinstance(name, str) or "," not in name:
         return name
     return re.sub(r"\s*,(?=[A-Z])", ", ", re.sub(r"\s+,", ",", name))
 
 
-# restore each employer's most-common raw display form from raw CSV
+# restore most common raw display form; idempotent
 def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
-    """End-of-cleaning pass: restore each employer's most-common raw suffix-bearing form (per canonical_key) so the saved CSV reads naturally; idempotent."""
     if not Path(raw_csv_path).exists():
         return 0
 
@@ -99,14 +91,13 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
         keep_default_na=False,
         low_memory=False,
     )
-    # uppercase, collapse whitespace and `+`, drop ticker tails "(ITCI)" and stray
-    # trailing dots so the restored display form carries no FEC keying junk
+    # strip FEC keying junk from display forms
     raw["emp"] = (
         raw["contributor_employer"]
         .str.strip()
         .str.upper()
         .str.replace(r"[\s+]+", " ", regex=True)
-        .str.replace(_TRAILING_PAREN_RE, "", regex=True)
+        .str.replace(TRAILING_PAREN_RE, "", regex=True)
         .str.replace(r"(?:\s*\.)+\s*$", "", regex=True)
         .str.strip()
         .map(tidy_employer_commas)
@@ -123,8 +114,8 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     )
     _prefer_attested_spacing_forms(raw, most_common_form)
 
-    indiv_idx = _indiv_idx(df)
-    current = _norm(df.loc[indiv_idx, "contributor_employer"])
+    indiv_idx = individual_index(df)
+    current = upper_text(df.loc[indiv_idx, "contributor_employer"])
     has_emp = current != ""
     target = indiv_idx[has_emp]
     if len(target) == 0:
@@ -141,21 +132,18 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     return n_changed
 
 
-# prefer the spacing variant filers actually wrote over raw mode
+# prefer spacing the same filers actually wrote
 def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) -> None:
-    """Keep the display form's word breaks consistent with occ_canonicalize_employers: a raw mode 'TWINCITY FAN' yields to 'TWIN CITY FAN' when the same filers write 'TWIN CITY FAN COMPANIES LTD'."""
     if "contributor_name" not in raw.columns:
         return
-    # imported here: the occupations package imports this one at load time
 
     candidates = {}
     for key, forms in raw.groupby("key")["emp"].unique().items():
         if len(forms) < 2:
             continue
-        # only the mode's strict spacing variants compete, never a different
-        # name that merely shares the looser canonical_key
-        strict = _employer_group_key(most_common_form[key])
-        siblings = [form for form in forms if _employer_group_key(form) == strict]
+        # only the mode's strict spacing variants compete
+        strict = employer_group_key(most_common_form[key])
+        siblings = [form for form in forms if employer_group_key(form) == strict]
         if len({employer_group_words(form) for form in siblings}) > 1:
             candidates[key] = siblings
     if not candidates:
@@ -170,13 +158,13 @@ def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) ->
         )
 
 
-# tally employer name occurrences across given columns for individuals
+# count individuals' employer names across columns
 def _employer_counts(df: pd.DataFrame, indiv_idx, columns: list[str]):
     series = []
     current_counts = pd.Series(dtype="int64")
     for column in columns:
         values = df.loc[indiv_idx, column]
-        values = values[_norm(values) != ""]
+        values = values[upper_text(values) != ""]
         series.append(values)
         if column == "contributor_employer":
             current_counts = values.value_counts()
@@ -214,7 +202,7 @@ def _canonical_employer_mapping(counts, current_counts) -> dict:
     return mapping
 
 
-# apply the variant-to-canonical mapping to each employer column
+# apply the mapping to each employer column
 def _apply_employer_mapping(
     df: pd.DataFrame,
     columns: list[str],
@@ -230,15 +218,14 @@ def _apply_employer_mapping(
     return changed
 
 
-# merge employer variants that later cleaning steps introduced
+# merge employer variants later steps introduced
 def recanonicalize_employers(df: pd.DataFrame) -> int:
-    """Unify employer variants created by later cleaning steps."""
     columns = [
         column
         for column in ("contributor_employer", "previous_employer")
         if column in df.columns
     ]
-    counts, current_counts = _employer_counts(df, _indiv_idx(df), columns)
+    counts, current_counts = _employer_counts(df, individual_index(df), columns)
     if counts.empty:
         return 0
 

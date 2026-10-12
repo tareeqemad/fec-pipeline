@@ -1,4 +1,4 @@
-"""Missing-value sentinels, committee/name patterns, and output column contract."""
+"""Missing values, name patterns, output columns."""
 import re
 
 # FEC junk values that all mean "missing"
@@ -17,7 +17,7 @@ MISSING_VALUES = frozenset({
     'NOT APPLICABLE',
     'AN EMPLOYER',
     'AN OCCUPATION',
-    # FEC admin notes / form placeholders that leaked as "employers"
+    # FEC admin notes and form placeholders
     'BEST EFFORT', 'BEST EFFORT SENT', 'BEST EFFORTS',
     '2ND REQUEST MADE', '2ND LETTER MAILED', '2ND REQUEST LETTER MAILED',
     'REQUESTING VIA MAIL',
@@ -38,7 +38,7 @@ COMM_PATTERNS = [
     ('POLITICAL COMMITTEE', re.compile(r'COMMITTEE', re.IGNORECASE)),
 ]
 
-# Titles stripped from first names (DR. JOHN -> JOHN)
+# titles stripped from first names
 TITLE_RE = re.compile(
     r'^(DR\.?|MR\.?|MRS\.?|MS\.?|REV\.?|REVEREND|'
     r'RABBI|CANTOR|PASTOR|DEACON|BISHOP|FATHER|SISTER|IMAM|'
@@ -50,7 +50,7 @@ TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Title -> occupation when occupation is empty; only titles that strongly imply one.
+# title to occupation when occupation is empty
 TITLE_TO_OCCUPATION = {
     'DR': ('DOCTOR', 'MEDICAL / HEALTHCARE'),
     'RABBI': ('RABBI', 'RELIGIOUS'),
@@ -72,24 +72,22 @@ TITLE_TO_OCCUPATION = {
     'AMBASSADOR': ('AMBASSADOR', 'GOVERNMENT'),
 }
 
-# Suffixes stripped from last names (SMITH JR. -> SMITH). V/IV need the comma
-# prefix so names like RAVIV or ones ending in IV survive.
+# last-name suffixes; V/IV need a comma
 SUFFIX_RE = re.compile(
     r',?\s+(JR\.?|SR\.?|III|II|ESQ\.?)\s*$|,\s*(IV|V)\s*$',
     re.IGNORECASE,
 )
 
-# Professional suffixes in last name (MILLER MD -> MILLER); handled separately.
+# professional suffixes on last names (MILLER MD)
 PRO_SUFFIX_RE = re.compile(
     r'\s+(MD|M\.D\.?|DDS|D\.D\.S\.?|PHD|PH\.D\.?|DO|D\.O\.?|FACS|FAAOS)\s*$',
     re.IGNORECASE,
 )
 
-# Keywords that indicate an organization, not an individual; every token has a
-# proven hit on the real raw names (per-token census, 2026-07)
+# keywords marking an organization, not a person
 ORG_KEYWORDS = re.compile(
     r'FOR CONGRESS|FOR SENATE|FOR AMERICA'
-    r'|,\s+[\w\s]+\s+(?:REP|SEN)\.'                     # ", MIKE REP." / ", SHELLEY MOORE SEN."
+    r'|,\s+[\w\s]+\s+(?:REP|SEN)\.'                     # trailing ", NAME REP." or "SEN."
     r'| FOR [A-Z]{2,},\s'                              # "FOR LOUISIANA, " "FOR NH, "
     r'|COMMITTEE|PAC |PAC$'
     r'|\b(?:NRSC|NRCC|DCCC|DSCC|RNC)\b'
@@ -101,50 +99,39 @@ ORG_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
-# Individual names: "LASTNAME, F..." (FEC standard). Spaces/parens allowed in
-# the last name; `*` after the first letter so single-letter surnames match
-# ("Y, IVAN"); backticks and semicolons are tolerated as stray punctuation.
+# individual "LAST, F..." names; one-letter surnames ok
 INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 
-# Trailing junk on committee names (", SOMETOWN", appended candidate name) but
-# not a legal suffix (", INC"). 30-char cap covers "FIRST MIDDLE LAST TITLE".
+# committee name tail junk, not legal suffixes
 COMM_TAIL_RE = re.compile(r',\s+(?!INC|LLC|LLP|CORP|JR|SR|PA\s*$)[A-Z][A-Z.\s]{0,30}$')
 
 # the substring "RETIRE" anywhere, case-insensitive: "RETIRED", "RETIREE"
 RETIRE_RE = re.compile(r'RETIRE', re.IGNORECASE)
 
-# Output column order. recipient_committee is the PAC that RECEIVED the money,
-# resolved from the FEC committee_id via data/rules/committees.csv.
+# output column order; recipient_committee received the money
 OUTPUT_COLUMNS = [
     # ids
     'sub_id', 'transaction_id', 'two_year_transaction_period', 'recipient_committee',
-    # entity (is_individual removed — entity_type is canonical)
+    # entity; entity_type is canonical
     'entity_type',
     # name
     'contributor_name', 'contributor_first_name', 'contributor_last_name',
     # address
     'contributor_street_1', 'contributor_street_2',
     'contributor_city', 'contributor_state', 'contributor_zip',
-    # work; contributor_employer is the per-donor unified name — the raw
-    # per-filing value (contributor_employer_original) is internal-only
+    # work; employer is the per-donor unified name
     'contributor_employer',
     'contributor_occupation', 'occupation_category',
-    # internal working fields read by later safety nets; dropped at save
+    # internal working fields, dropped at save
     'occupation_status', 'committee_type', '_generational_suffix',
-    # contribution; contributor_year deliberately absent (DB derives it), as
-    # are is_refund / is_zero_amount (amount alone suffices; refunds < 0).
-    # Refund rows are almost all COMMITTEE/PAC, but the rare INDIVIDUAL refund
-    # exists and is load-bearing: dropping it would overstate that donor's net
+    # contribution; refunds are negative amounts, kept
     'contribution_receipt_date',
     'contribution_receipt_amount',
-    # what FEC itself says about the contributor (data/raw/fec_source_fields.csv),
-    # beside the final entity_type (fec/cleaning/entity_source.py)
+    # what FEC itself says about the contributor
     'fec_entity_type', 'fec_contributor_id', 'fec_image_number',
 ]
 
-# Working/provenance columns that must never reach the cleaned CSV — every
-# writer (clean / geocode / resolve) drops these before to_csv. Coordinates
-# are kept; only the *_level "how it was geocoded" markers are dropped.
+# internal columns, dropped before every to_csv
 INTERNAL_OUTPUT_COLUMNS = [
     'is_individual',  # redundant with entity_type
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
@@ -155,8 +142,7 @@ INTERNAL_OUTPUT_COLUMNS = [
     'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived
     'employer_geocode_level',  # how the employer coordinate was derived
-    # FEC's own type and contributor id: read from data/raw/fec_source_fields.csv
-    # while cleaning, never written out
+    # FEC source fields, never written out
     'fec_entity_type',
     'fec_contributor_id',
     'fec_image_number',

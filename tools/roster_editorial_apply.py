@@ -1,28 +1,4 @@
-"""Write verified employer / title / public work address into the editorial-only roster rows.
-
-Input: a JSON list of verification records (one per person) produced by the
-`verify-editorial-roster` research workflow, each with `person` {id, files, name}
-and `final` {status, employer, occupation, office_kind, office{...},
-current_address_assessment, confidence, role_sources, office_sources, ...}.
-
-Rules
-- Only rows whose donor_key has NO filing in data/output/contributions_cleaned.csv are
-  touched (FEC-linked rows are owned by sync_rosters.py).
-- Employer / occupation are written when the record is not low confidence.
-  The employer is matched to the spelling already used in the cleaned data
-  (same canonical_key or an employer_name_rules synonym) so one company has one
-  name across donors and rosters.
-- The address is replaced only by a sourced public work address (office_kind
-  other than none_public, confidence not low). Rows with no public work
-  address keep their existing address untouched and are listed for review.
-  Home addresses are never researched. A US office street is written in the
-  pipeline's own style (clean_streets via roster_sync.pipeline_streets: AVE,
-  BLVD, suite in street_2); a foreign office is kept exactly as sourced.
-- Every change is written to data/reports/review/roster_editorial_verification.csv
-  (old value, new value, sources, confidence) so any row can be reverted.
-
-    python tools/roster_editorial_apply.py results.json [--dry-run]
-"""
+"""Apply verified work details to editorial rosters."""
 from __future__ import annotations
 
 import csv
@@ -50,8 +26,8 @@ PREFIX = {"leaders": "leader", "key_accomplices": "accomplice"}
 REVIEW = PROJECT_ROOT / "data" / "reports" / "review" / "roster_editorial_verification.csv"
 
 
+# most-used spelling per employer canonical key
 def _employer_vocabulary() -> dict[str, str]:
-    """canonical_key -> the most-used spelling of that employer in the cleaned data."""
     df = pd.read_csv(CLEANED_CSV, dtype=str, keep_default_na=False, low_memory=False,
                      usecols=["entity_type", "contributor_employer"])
     counts = df.loc[df.entity_type == "INDIVIDUAL", "contributor_employer"].value_counts()
@@ -62,6 +38,7 @@ def _employer_vocabulary() -> dict[str, str]:
     return vocab
 
 
+# employer in the cleaned data's spelling
 def canonical_employer(name: str, vocab: dict[str, str]) -> str:
     name = (name or "").strip().upper()
     if not name:
@@ -70,16 +47,16 @@ def canonical_employer(name: str, vocab: dict[str, str]) -> str:
     return vocab.get(canonical_key(name), name)
 
 
+# pipeline style for US offices, foreign as-is
 def office_streets(office: dict) -> tuple[str, str]:
-    """A US office in the pipeline's own street style (clean_streets); a foreign one exactly as sourced."""
     street_1, street_2 = office["street_1"], office.get("street_2", "") or ""
     if (office.get("country") or "US") != "US":
         return street_1, street_2
     return pipeline_streets(street_1, street_2)
 
 
+# Census then Nominatim; ZIP centroid as fallback
 def geocode(office: dict) -> tuple[str, str]:
-    """Census for US offices (Nominatim fallback); Nominatim worldwide for foreign ones."""
     street = " ".join(x for x in [office["street_1"], office["street_2"]] if x)
     try:
         if (office.get("country") or "US") == "US":
@@ -93,16 +70,16 @@ def geocode(office: dict) -> tuple[str, str]:
     except (engines.CensusUnavailable, engines.NominatimUnavailable):
         lat = None
     if lat is None:
-        # PO boxes / mail drops do not geocode to a street: fall back to the ZIP centroid,
-        # never to the row's previous coordinates (they belong to the old address)
-        from fec.geocoding.zip_checks import _zip_centroids
-        centroid = _zip_centroids().get(str(office.get("zip", "")).zfill(5)) if (office.get("country") or "US") == "US" else None
+        # ZIP centroid, never the old address's coordinates
+        from fec.geocoding.zip_checks import load_zip_centroids
+        centroid = load_zip_centroids().get(str(office.get("zip", "")).zfill(5)) if (office.get("country") or "US") == "US" else None
         if not centroid:
             return "", ""
         lat, lng = centroid
     return f"{float(lat):.7f}", f"{float(lng):.7f}"
 
 
+# apply verification records and write review CSV
 def main(results_path: str, dry_run: bool) -> int:
     records = json.loads(Path(results_path).read_text(encoding="utf-8"))
     linked = set(pd.read_csv(CLEANED_CSV, dtype=str, keep_default_na=False, usecols=["donor_key"]).donor_key)
@@ -135,7 +112,7 @@ def main(results_path: str, dry_run: bool) -> int:
                 if row["donor_key"] != person["id"] or row["donor_key"] in linked:
                     continue
                 before = {k: row.get(k, "") for k in row}
-                # a deceased person keeps their last known role (historical record); status is in the review file
+                # the deceased keep their last known role
                 if not low:
                     row[f"{p}_employer"] = employer or row.get(f"{p}_employer", "")
                     row[f"{p}_occupation"] = occupation or row.get(f"{p}_occupation", "")

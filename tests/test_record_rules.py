@@ -22,17 +22,17 @@ def _make_df(rows):
 
 class TestNormHelper:
     def test_nan_becomes_empty(self):
-        from fec.cleaning._helpers import _norm
+        from fec.cleaning._helpers import upper_text
         s = pd.Series([np.nan, None, 'hello'])
-        result = _norm(s)
+        result = upper_text(s)
         assert result.iloc[0] == ''
         assert result.iloc[1] == ''
         assert result.iloc[2] == 'HELLO'
 
     def test_strips_and_uppers(self):
-        from fec.cleaning._helpers import _norm
+        from fec.cleaning._helpers import upper_text
         s = pd.Series(['  attorney  ', 'CeO', ' llc '])
-        result = _norm(s)
+        result = upper_text(s)
         assert list(result) == ['ATTORNEY', 'CEO', 'LLC']
 
 
@@ -85,33 +85,33 @@ class TestOccupationCanonical:
 
 class TestOccupationCategorization:
     def test_attorney_is_legal(self):
-        from fec.cleaning.occupations.normalize import _categorize
-        result = _categorize(pd.Series(['ATTORNEY']))
+        from fec.cleaning.occupations.normalize import categorize_occupation
+        result = categorize_occupation(pd.Series(['ATTORNEY']))
         assert result.iloc[0] == 'LEGAL'
 
     def test_physician_is_medical(self):
-        from fec.cleaning.occupations.normalize import _categorize
-        result = _categorize(pd.Series(['PHYSICIAN']))
+        from fec.cleaning.occupations.normalize import categorize_occupation
+        result = categorize_occupation(pd.Series(['PHYSICIAN']))
         assert result.iloc[0] == 'MEDICAL / HEALTHCARE'
 
     def test_retired_is_retired(self):
-        from fec.cleaning.occupations.normalize import _categorize
-        result = _categorize(pd.Series(['RETIRED']))
+        from fec.cleaning.occupations.normalize import categorize_occupation
+        result = categorize_occupation(pd.Series(['RETIRED']))
         assert result.iloc[0] == 'RETIRED'
 
     def test_software_engineer_is_technology(self):
-        from fec.cleaning.occupations.normalize import _categorize
-        result = _categorize(pd.Series(['SOFTWARE ENGINEER']))
+        from fec.cleaning.occupations.normalize import categorize_occupation
+        result = categorize_occupation(pd.Series(['SOFTWARE ENGINEER']))
         assert result.iloc[0] == 'TECHNOLOGY'
 
     def test_unknown_is_other(self):
-        from fec.cleaning.occupations.normalize import _categorize
-        result = _categorize(pd.Series(['SOMETHING UNUSUAL']))
+        from fec.cleaning.occupations.normalize import categorize_occupation
+        result = categorize_occupation(pd.Series(['SOMETHING UNUSUAL']))
         assert result.iloc[0] == 'OTHER'
 
     def test_nan_stays_na(self):
-        from fec.cleaning.occupations.normalize import _categorize
-        result = _categorize(pd.Series([np.nan]))
+        from fec.cleaning.occupations.normalize import categorize_occupation
+        result = categorize_occupation(pd.Series([np.nan]))
         assert pd.isna(result.iloc[0])
 
 

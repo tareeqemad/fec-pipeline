@@ -1,4 +1,4 @@
-"""Geocode employer addresses and copy the points onto employer rows."""
+"""Geocode employer addresses onto employer rows."""
 import numpy as np
 import pandas as pd
 
@@ -10,22 +10,21 @@ from fec.geocoding.engines import (
     NOMINATIM_DELAY,
 )
 from fec.geocoding.pipeline import (
-    _geocode_todo,
-    _needs_lookup,
-    _prefer_zip_centroids_logged,
+    geocode_todo,
+    needs_lookup,
+    prefer_zip_centroids_logged,
 )
-from fec.geocoding.street_text import _numbered_streets
+from fec.geocoding.street_text import numbered_streets
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
 
-# build a normalized cache key per employer address row
+# normalized cache key per employer address row
 def _employer_keys(frame: pd.DataFrame) -> pd.Series:
-    """Cache key per row: STREET|CITY|STATE|ZIP, stripped, uppercased, ordinal streets numbered."""
     cols = frame[['employer_address', 'employer_city',
                   'employer_state', 'employer_zip']].fillna('')
-    return (_numbered_streets(cols['employer_address'].str.strip().str.upper()) + '|' +
+    return (numbered_streets(cols['employer_address'].str.strip().str.upper()) + '|' +
             cols['employer_city'].str.strip().str.upper() + '|' +
             cols['employer_state'].str.strip().str.upper() + '|' +
             cols['employer_zip'].str.strip().str.upper())
@@ -34,14 +33,13 @@ def _employer_keys(frame: pd.DataFrame) -> pd.Series:
 # geocode employer addresses not already cached
 def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
                                batch_size: int = 50):
-    """Geocode employer addresses; skips empty rows, but RETIRED with a previous employer IS geocoded at the company address."""
     mask = (df['employer_address'].notna() &
             (df['employer_address'] != ''))
     keys = _employer_keys(df.loc[mask])
     all_keys = set(keys[keys != '|||'].unique())
-    _prefer_zip_centroids_logged(all_keys, cache)
+    prefer_zip_centroids_logged(all_keys, cache)
 
-    todo = [key for key in all_keys if _needs_lookup(key, cache)]
+    todo = [key for key in all_keys if needs_lookup(key, cache)]
 
     logger.info(f"\n  Employer addresses:  {len(all_keys):,}")
     logger.info(f"  Already cached:      {len(all_keys) - len(todo):,}")
@@ -53,12 +51,11 @@ def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache,
     estimated_seconds = len(todo) * NOMINATIM_DELAY
     logger.info(f"  Estimated time:      ~{int(estimated_seconds//3600)}h {int((estimated_seconds%3600)//60)}m")
 
-    _geocode_todo(todo, cache, batch_size)
+    geocode_todo(todo, cache, batch_size)
 
 
 # fill lat/lng/geocode level from cached employer geocoding
 def apply_employer_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
-    """Map cached employer geocoding onto employer_latitude/longitude/geocode_level."""
     method = df.get(
         "resolve_method",
         pd.Series("", index=df.index),

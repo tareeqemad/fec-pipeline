@@ -9,8 +9,7 @@ TIERS = [
     (6, "<1K",             0,   1_000),
 ]
 
-# resolve reads contributions_cleaned.csv, where EMPLOYER_NORMALIZE has already
-# collapsed every spelling of these two statuses to the canonical form
+# cleaning already collapsed every spelling to these
 RETIRED = "RETIRED"
 SELF_EMPLOYED = "SELF-EMPLOYED"
 

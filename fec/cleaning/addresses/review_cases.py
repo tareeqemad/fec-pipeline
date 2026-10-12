@@ -1,25 +1,4 @@
-"""Address review cases: the open review items grouped into one case per question.
-
-address_manual_review.csv lists one row per item; many items ask the same
-question (one donor, one ZIP, one reason). Each case here carries what a
-reviewer needs to answer it without opening other files:
-
-* every address form in the case and how the forms differ, part by part
-  (house number, direction, street type, unit, PO box) or by spelling only;
-* every filing in the full file that uses one of those forms, with its
-  address as filed (full, original ZIP) and as cleaned;
-* the steps that changed those filings and the reasons they give;
-* the evidence: a verified source (a manual override, a postal check) or
-  none. That the same donor filed a form elsewhere is shown but is not proof.
-* a decision: ``pending`` unless every place-moving change is backed by a
-  source (``supported_correction``). A reviewer writes ``keep_original``
-  when the filing as filed is right.
-
-Priority: ``high`` when forms or changes differ in a part that may move the
-place, ``medium`` for spelling only, ``low`` for care-of, entity and
-descriptive items with no such change. A PO box is a geocoding limit (the
-point lands on the ZIP), not an address error, and is noted as such.
-"""
+"""Group open review items into review cases."""
 from __future__ import annotations
 
 from collections import Counter
@@ -41,13 +20,13 @@ PENDING, SUPPORTED, KEEP_ORIGINAL = "pending", "supported_correction", "keep_ori
 SPELLING_ONLY, FORMATTING_ONLY = "spelling only", "formatting only"
 PO_BOX_NOTE = "PO box: the geocoder places it at the ZIP point; a geocoding limit, not an address error"
 
-# steps that only rewrite the row's own text (no other filing involved)
+# steps rewriting only the row's own text
 FORMAT_STEPS = frozenset({
     "streets_normalize", "zips_normalize", "cities_normalize", "streets_safe_fixes", "streets_unify_units",
     "streets_unify_spacing", "streets_unify_spelling", "address_review", "donor_canonical_units",
     "donor_pobox_typos", "safety_fix_garbage_city_names",
 })
-# steps whose every change names a checked source
+# steps whose changes name a checked source
 SOURCED_STEPS = frozenset({"address_verified_rules", "manual_overrides"})
 
 CASE_COLUMNS = (
@@ -68,24 +47,24 @@ def _zip5(series: pd.Series) -> pd.Series:
     return _text(series).str.replace(r"\D", "", regex=True).str[:5]
 
 
-# the person a row belongs to: donor_key, else the name
+# row's person: donor_key, else the name
 def _person(frame: pd.DataFrame) -> pd.Series:
     key = _text(frame["donor_key"]) if "donor_key" in frame.columns else pd.Series("", index=frame.index)
     return key.where(key.ne(""), _text(frame["contributor_name"]))
 
 
-# one address as a line: "12 MAIN ST | APT 5 | ..."
+# join address fields into one line
 def _line(frame: pd.DataFrame) -> pd.Series:
     cells = [_text(frame[column]) if column in frame.columns else "" for column in ADDRESS_COLUMNS]
     return cells[0].str.cat(cells[1:], sep=" | ")
 
 
-# distinct values with counts, most common first: "A x3; B x1"
+# distinct values with counts, most common first
 def _counted(values) -> str:
     return "; ".join(f"{value} x{count}" for value, count in Counter(values).most_common())
 
 
-# how address forms differ: place-moving parts, else spelling or formatting
+# how forms differ: moving parts, else spelling
 def _form_differences(forms: list[tuple[str, str]]) -> tuple[list[str], str]:
     kinds = set()
     for (a1, a2), (b1, b2) in combinations(forms, 2):
@@ -96,12 +75,12 @@ def _form_differences(forms: list[tuple[str, str]]) -> tuple[list[str], str]:
     return [], FORMATTING_ONLY if same else SPELLING_ONLY
 
 
-# a PO box appears among the forms
+# true if any form is PO box
 def _has_po_box(forms) -> bool:
     return any(parse_street(street_and_unit(s1, s2)[0]).po_box for s1, s2 in forms)
 
 
-# trail rows per sub_id for the address fields
+# trail rows for the address fields
 def _address_changes(trail_records: list[dict]) -> pd.DataFrame:
     columns = ["sub_id", "field", "step", "reason", "source"]
     changes = pd.DataFrame(trail_records).reindex(columns=columns)
@@ -109,13 +88,13 @@ def _address_changes(trail_records: list[dict]) -> pd.DataFrame:
     return changes[changes["field"].isin(ADDRESS_COLUMNS)]
 
 
-# the same place however written: (street, unit, ZIP5)
+# place key: street, unit, ZIP5
 def _place_keys(frame: pd.DataFrame) -> pd.Series:
     streets = [street_and_unit(s1, s2) for s1, s2 in zip(_text(frame[S1]), _text(frame[S2]))]
     return pd.Series([(*street, zip5) for street, zip5 in zip(streets, _zip5(frame[ZIP]))], index=frame.index)
 
 
-# the decision a case starts with, and why
+# a case's starting decision and its basis
 def _decision(moves: list[str], changes: pd.DataFrame) -> tuple[str, str]:
     guessed = changes[~changes["step"].isin(FORMAT_STEPS)]
     unsourced = guessed[guessed["source"].eq("") | ~guessed["step"].isin(SOURCED_STEPS)]
@@ -139,25 +118,20 @@ def _evidence(changes: pd.DataFrame, cleaned: pd.DataFrame, person_filed: Counte
     return " || ".join(parts) or "none"
 
 
-# priority from place-moving parts and how forms differ
+# priority from moving parts and form differences
 def _priority(moves: list[str], differences: str) -> str:
     if moves:
         return "high"
     return "medium" if differences == SPELLING_ONLY else "low"
 
 
-# group the open review items into cases with their evidence
+# group open review items into evidence cases
 def build_review_cases(
     review_df: pd.DataFrame,
     df: pd.DataFrame,
     filed: pd.DataFrame,
     trail_records: list[dict],
 ) -> pd.DataFrame:
-    """One row per (person, review reason, ZIP5) among the open review items.
-
-    ``df`` is the final frame, ``filed`` the address columns as filed (by
-    sub_id), ``trail_records`` the audit trail's net records. Never edits data.
-    """
     if review_df is None or review_df.empty or "status" not in review_df.columns:
         return pd.DataFrame(columns=CASE_COLUMNS)
     items = review_df[review_df["status"].eq("open")].copy()

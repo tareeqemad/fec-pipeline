@@ -1,4 +1,4 @@
-"""Pull raw Schedule A contributions from the FEC API."""
+"""Pull Schedule A contributions from FEC API."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def source_path(csv_path: Path) -> Path:
     return csv_path.parent / FEC_SOURCE_CSV.name
 
 
-# FEC source fields already saved, by raw sub_id
+# saved FEC source fields by raw sub_id
 def read_source_fields(path: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
@@ -33,7 +33,7 @@ def read_source_fields(path: Path) -> dict[str, dict]:
         return {row["sub_id"]: row for row in csv.DictReader(handle) if row.get("sub_id")}
 
 
-# add source records to the file, writing its header when new
+# append source records, header if file new
 def append_source_fields(path: Path, records: list[dict]) -> None:
     if not records:
         return
@@ -45,7 +45,7 @@ def append_source_fields(path: Path, records: list[dict]) -> None:
         writer.writerows(records)
 
 
-# replace the source file with these records, atomically
+# atomically rewrite the source file
 def write_source_fields(path: Path, records: dict[str, dict]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", newline="", encoding="utf-8") as handle:
@@ -55,20 +55,19 @@ def write_source_fields(path: Path, records: dict[str, dict]) -> None:
     replace_file(str(tmp), str(path))
 
 
-# one source record for a raw row, from FEC's result
+# build a raw row's source record
 def _source_record(sub_id: str, result: dict, matched_by: str) -> dict:
     fec_sub_id = str(result.get("sub_id") or "").strip()
     return {"sub_id": sub_id, **source_values(result), "matched_by": matched_by,
             "fec_sub_id": fec_sub_id if fec_sub_id != sub_id else ""}
 
 
-# load existing sub_ids and latest date for a committee period
+# existing sub_ids and latest date for period
 def read_committee_state(
     csv_path: Path,
     committee_id: str,
     period: int,
 ) -> tuple[set[str], str | None]:
-    """Return existing IDs and latest date for one committee period."""
     sub_ids: set[str] = set()
     latest_date = None
     if not csv_path.exists():
@@ -91,7 +90,6 @@ def read_committee_state(
 
 # yield successive cursor-paginated FEC API responses
 def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
-    """Yield cursor-paginated FEC responses."""
     params = dict(params)
     while True:
         data = fetch_page(session, params, limiter)
@@ -108,7 +106,7 @@ def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
         params["last_index"] = indexes.get("last_index")
 
 
-# log whether this pull is full, refresh, or fresh start
+# log full, refresh or fresh-start mode
 def _log_pull_mode(
     full: bool,
     period: int,
@@ -127,7 +125,7 @@ def _log_pull_mode(
         log.info("[REFRESH] no existing data; pulling everything")
 
 
-# build the FEC API request parameters for one pull
+# FEC API request params for one pull
 def _pull_params(
     api_key: str,
     committee_id: str,
@@ -148,7 +146,7 @@ def _pull_params(
     return params
 
 
-# fetch and write all pages of one pull to CSV
+# fetch every page and append new rows
 def _pull_pages(
     csv_path: Path,
     session,
@@ -199,28 +197,26 @@ def _pull_pages(
             progress.close()
 
 
-# path to the pull-state JSON file next to the CSV
+# pull_state.json path beside the CSV
 def _pull_state_path(csv_path: Path) -> Path:
     return csv_path.parent / "pull_state.json"
 
 
-# load the pull-state JSON, or empty dict if none exists
+# load pull state, or {} when missing
 def _read_pull_state(csv_path: Path) -> dict:
     path = _pull_state_path(csv_path)
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
-# persist a committee period's pull status to the state file
+# save a period's in_progress or complete status
 def _mark_pull(csv_path: Path, committee_id: str, period: int, status: str) -> None:
-    """Record 'in_progress' before a pull and 'complete' after it."""
     state = _read_pull_state(csv_path)
     state[f"{committee_id}/{period}"] = status
     _pull_state_path(csv_path).write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
 
 
-# pull and append one committee's new Schedule A filings
+# append one committee's new Schedule A filings
 def run(committee_id: str, period: int, full: bool = False) -> None:
-    """Append one committee's new Schedule A filings to contributions.csv."""
     api_key = required_env("FEC_API_KEY")
     RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
     csv_path = RAW_CSV
@@ -229,9 +225,7 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
         committee_id,
         period,
     )
-    # pages come newest first: a pull cut off part-way has the newest rows but
-    # not the older pages, so starting again from the newest saved date would
-    # skip them for good. Such a pull is redone in full (deduped by sub_id).
+    # newest-first pages: redo an interrupted pull fully
     if _read_pull_state(csv_path).get(f"{committee_id}/{period}") == "in_progress" and not full:
         log.warning("[RESUME] the last pull of %s / %s did not finish: rechecking the whole period",
                     committee_id, period)
@@ -271,7 +265,7 @@ def run(committee_id: str, period: int, full: bool = False) -> None:
     _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
 
 
-# log a one-line summary of a pull run's outcome
+# log a one-line pull summary
 def _log_summary(
     status,
     committee_id,
@@ -293,7 +287,7 @@ def _log_summary(
     )
 
 
-# the key two versions of one transaction share: its committee, id, date and amount
+# committee, transaction id, date and amount key
 def _transaction_key(row: dict) -> tuple:
     try:
         amount = Decimal(str(row.get("contribution_receipt_amount") or "0").strip() or "0")
@@ -307,16 +301,9 @@ def _transaction_key(row: dict) -> tuple:
     )
 
 
-# match the rows already in the raw file to FEC's current results
+# match by sub_id, else transaction; never name
 def match_source_fields(rows: list[dict], results: list[dict], committee_id: str,
                         period: int) -> tuple[dict[str, dict], dict]:
-    """FEC's own entity type and contributor id for each raw row of this committee period.
-
-    A row is matched by its sub_id; when FEC now returns that transaction
-    under a newer sub_id (an amended report), by one exact match on
-    committee, transaction id, date and amount, on both sides. Never by
-    name. The raw rows are only read.
-    """
     stats = {"by_sub_id": 0, "by_transaction": 0, "ambiguous": 0, "unmatched": 0}
     by_sub_id = {str(result.get("sub_id") or "").strip(): result for result in results}
     mine = [row for row in rows if row.get("committee_id") == committee_id
@@ -346,9 +333,8 @@ def match_source_fields(rows: list[dict], results: list[dict], committee_id: str
     return records, stats
 
 
-# walk a whole committee period and save the source fields of existing rows
+# backfill source fields; raw file only read
 def backfill_source(committee_id: str, period: int) -> dict:
-    """Write fec_source_fields.csv for rows already in contributions.csv, which is only read."""
     api_key = required_env("FEC_API_KEY")
     csv_path = RAW_CSV
     if not csv_path.exists():

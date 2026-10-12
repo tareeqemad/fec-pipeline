@@ -22,7 +22,7 @@ from fec.geocoding.cache import GeoCache
 def real_centroids():
     if not zip_checks._ZIP_CENTROIDS.exists():
         pytest.skip("zip_centroids.csv not present")
-    return zip_checks._zip_centroids()
+    return zip_checks.load_zip_centroids()
 
 
 @pytest.mark.parametrize("lat, lng, zipcode", [
@@ -33,7 +33,7 @@ def real_centroids():
     (40.647524, -73.918924, "10028"),     # 201 E 86TH ST in Canarsie
 ])
 def test_wrong_town_matches_are_outside_their_zip(real_centroids, lat, lng, zipcode):
-    assert accepted._street_far_from_zip(lat, lng, zipcode)
+    assert accepted.street_far_from_zip(lat, lng, zipcode)
 
 
 @pytest.mark.parametrize("lat, lng, zipcode", [
@@ -44,7 +44,7 @@ def test_wrong_town_matches_are_outside_their_zip(real_centroids, lat, lng, zipc
     (40.749146, -73.991886, "10001"),     # 7 Penn Plaza
 ])
 def test_real_addresses_stay_inside_their_zip(real_centroids, lat, lng, zipcode):
-    assert not accepted._street_far_from_zip(lat, lng, zipcode)
+    assert not accepted.street_far_from_zip(lat, lng, zipcode)
 
 
 def test_limit_has_a_floor_for_dense_downtown_zips(real_centroids):
@@ -59,12 +59,12 @@ def test_validated_far_result_is_looked_up_again_once(tmp_path, real_centroids):
     key = "3 RD FLOOR|NEW YORK|NY|10023"
     # the cached entry exactly as the audit found it: validated, 103 km away
     cache.put(key, 41.686495, -73.7640282, "nominatim", "US", validated=True)
-    assert geo._needs_lookup(key, cache)
+    assert geo.needs_lookup(key, cache)
     assert geo.accepted_coordinates(key, cache.get(key))[2] == "rejected_far_from_zip"
 
     # the re-lookup's answer is final, even when it kept a far street (ZIP typo case)
     cache.put(key, 41.686495, -73.7640282, "nominatim", "US", validated=True, zip_checked=True)
-    assert not geo._needs_lookup(key, cache)
+    assert not geo.needs_lookup(key, cache)
     assert geo.accepted_coordinates(key, cache.get(key))[:2] == (41.686495, -73.7640282)
 
 
@@ -72,13 +72,13 @@ def test_rural_result_is_not_looked_up_again(tmp_path, real_centroids):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     key = "13316 SLALOM RUN WAY|KAMAS|UT|84036"
     cache.put(key, 40.670464, -111.407427, "google")
-    assert not geo._needs_lookup(key, cache)
+    assert not geo.needs_lookup(key, cache)
     assert geo.accepted_coordinates(key, cache.get(key))[2] == "google"
 
 
 def _synthetic(monkeypatch, centroids, size_km=1.0):
     """Tiny ZIP reference so the decision is exact; every ZIP 'size' is size_km."""
-    patch_geo(monkeypatch, "_zip_centroids", lambda: centroids)
+    patch_geo(monkeypatch, "load_zip_centroids", lambda: centroids)
     patch_geo(monkeypatch, "_zip_neighbour_km", lambda _zip: size_km)
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
     patch_geo(monkeypatch, "census", lambda *_args: (None, None, None))
@@ -97,7 +97,7 @@ def test_far_street_result_falls_back_to_the_filed_zip(monkeypatch):
     patch_geo(monkeypatch, "nominatim_international",
                         lambda *_args: (_ for _ in ()).throw(AssertionError("not needed")))
 
-    result = geo._geocode_one("3 RD FLOOR", "NEW YORK", "NY", "10023")
+    result = geo.geocode_one("3 RD FLOOR", "NEW YORK", "NY", "10023")
 
     assert result == (zip_point[0], zip_point[1], "US", "zip_centroid")
 
@@ -109,7 +109,7 @@ def test_far_street_result_is_kept_when_the_zip_contradicts_the_city(monkeypatch
     patch_geo(monkeypatch, "nominatim", lambda *_args: (32.411453, -96.842919, "US"))
     patch_geo(monkeypatch, "city_level", lambda *_args: (32.3866, -96.8483, "US"))
 
-    result = geo._geocode_one("791 HWY 77 N", "WAXAHACHIE", "TX", "75164")
+    result = geo.geocode_one("791 HWY 77 N", "WAXAHACHIE", "TX", "75164")
 
     assert result == (32.411453, -96.842919, "US", "nominatim")
 
@@ -123,7 +123,7 @@ def test_census_result_outside_the_zip_yields_to_the_street_inside_it(monkeypatc
     # 1 Fountain Square exists inside 37402: the census hit 7 km east was another place
     patch_geo(monkeypatch, "nominatim_within", lambda *_args: (35.0466, -85.3072, "US"))
 
-    result = geo._geocode_one("1 FOUNTAIN SQUARE", "CHATTANOOGA", "TN", "37402")
+    result = geo.geocode_one("1 FOUNTAIN SQUARE", "CHATTANOOGA", "TN", "37402")
 
     assert result == (35.0466, -85.3072, "US", "nominatim")
 
@@ -142,7 +142,7 @@ def test_same_named_street_in_another_part_of_town_is_replaced(monkeypatch):
 
     patch_geo(monkeypatch, "nominatim_within", within)
 
-    result = geo._geocode_one("10 S LA SALLE ST", "CHICAGO", "IL", "60603")
+    result = geo.geocode_one("10 S LA SALLE ST", "CHICAGO", "IL", "60603")
 
     assert result == (41.8814, -87.6324, "US", "nominatim")
     street, city, state, (south, west, north, east) = searched[0]
@@ -170,7 +170,7 @@ def test_zip_typo_in_the_filed_city_keeps_its_street_point(
     city_answer = (*city_point, "US") if city_point else (None, None, None)
     patch_geo(monkeypatch, "city_level", lambda *_args: city_answer)
 
-    result = geo._geocode_one(street, city, state, zipcode)
+    result = geo.geocode_one(street, city, state, zipcode)
 
     assert result == (*found, "US", "census")
 
@@ -193,7 +193,7 @@ def test_one_engine_outside_the_zip_is_not_enough(
     patch_geo(monkeypatch, "nominatim", lambda *_args: (*nominatim, "US") if nominatim else (None, None, None))
     patch_geo(monkeypatch, "city_level", lambda *_args: (*city_point, "US"))
 
-    result = geo._geocode_one(street, city, state, zipcode)
+    result = geo.geocode_one(street, city, state, zipcode)
 
     assert result == (*zip_point, "US", "zip_centroid")
 
@@ -206,20 +206,20 @@ def test_agreeing_engines_far_from_the_filed_city_are_not_kept(monkeypatch):
     patch_geo(monkeypatch, "nominatim", lambda *_args: (far[0] + 0.001, far[1], "US"))
     patch_geo(monkeypatch, "city_level", lambda *_args: (40.7127, -74.0060, "US"))
 
-    assert geo._geocode_one("3 RD FLOOR", "NEW YORK", "NY", "10023")[3] == "zip_centroid"
+    assert geo.geocode_one("3 RD FLOOR", "NEW YORK", "NY", "10023")[3] == "zip_centroid"
 
 
 def test_reviewed_zip_typo_keeps_its_cached_point(tmp_path, real_centroids):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     key = "3750 S DIXIE HWY|MIAMI|FL|33154"
     cache.put(key, 25.7317566, -80.254089, "nominatim")
-    assert accepted._street_far_from_zip(25.7317566, -80.254089, "33154")
-    assert not geo._needs_lookup(key, cache)
+    assert accepted.street_far_from_zip(25.7317566, -80.254089, "33154")
+    assert not geo.needs_lookup(key, cache)
     assert geo.accepted_coordinates(key, cache.get(key)) == (25.7317566, -80.254089, "nominatim")
     # the same point under a key nobody reviewed is still withheld until re-checked
     other = "3750 S DIXIE HWY|MIAMI|FL|33160"
     cache.put(other, 25.7317566, -80.254089, "nominatim")
-    assert geo._needs_lookup(other, cache)
+    assert geo.needs_lookup(other, cache)
 
 
 def test_every_reviewed_key_still_needs_its_exemption(real_centroids):
@@ -238,15 +238,15 @@ def test_every_reviewed_key_still_needs_its_exemption(real_centroids):
     for key in present:
         entry = cache[key]
         assert entry.get("source") in geo.STREET_LEVEL_SOURCES, key
-        assert accepted._street_far_from_zip(entry["lat"], entry["lng"], key.split("|")[3]), key
+        assert accepted.street_far_from_zip(entry["lat"], entry["lng"], key.split("|")[3]), key
 
 
 def test_every_new_result_is_marked_zip_checked(tmp_path, monkeypatch):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     key = "7 PENN PLZ|NEW YORK|NY|10001"
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (40.749146, -73.991886, "US", "census"))
+    patch_geo(monkeypatch, "geocode_one", lambda *_args: (40.749146, -73.991886, "US", "census"))
 
-    geo._geocode_todo([key], cache, 50)
+    geo.geocode_todo([key], cache, 50)
 
     assert cache.get(key)["zip_checked"] is True
     assert cache.get(key)["validated"] is True

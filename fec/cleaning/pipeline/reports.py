@@ -1,12 +1,11 @@
-"""Sanity check + missing-data report."""
+"""Sanity check and missing-data report."""
 from __future__ import annotations
 
 import pandas as pd
 
 
-# check for unusual amounts and dates, returning warning strings
-def _sanity_check(df: pd.DataFrame) -> list[str]:
-    """Check for unusual amounts and dates; returns warning strings (empty = all OK)."""
+# warn about unusual amounts and dates
+def sanity_check(df: pd.DataFrame) -> list[str]:
     warnings = []
     amounts = df['contribution_receipt_amount']
 
@@ -33,9 +32,8 @@ def _sanity_check(df: pd.DataFrame) -> list[str]:
     return warnings
 
 
-# record missing occupation/employer before later steps fill them
-def _build_missing_report(df: pd.DataFrame) -> pd.DataFrame:
-    """Report rows whose occupation/employer was missing in the ORIGINAL data; drops the temp _occ/_emp flags from df."""
+# report originally missing work; drop temp flags
+def build_missing_report(df: pd.DataFrame) -> pd.DataFrame:
     missing_mask = df['_occ_missing'] | df['_emp_missing']
 
     report = df.loc[

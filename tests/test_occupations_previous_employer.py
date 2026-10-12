@@ -13,8 +13,7 @@ from fec.cleaning.previous_employer import (
     normalize_previous_employer_value as V,
 )
 from fec.cleaning.employer_status import classify_employer_status, is_real_employer
-from fec.resolve.pipeline.apply import _preserve_previous_employer_display
-from fec.resolve.pipeline.helpers import _previous_employer_identity
+from fec.resolve.pipeline.previous_cache import previous_employer_identity
 
 
 @pytest.mark.parametrize(('raw', 'expected'), [
@@ -159,26 +158,18 @@ def test_column_contract_on_real_leaks():
 def test_resolve_cache_entries_with_titles_resolve_to_nothing():
     """Old cache entries are cleaned on read, so no stale title is written."""
     stale = {'employer': 'SENIOR MANAGING DIRECTOR', 'method': 'cleaned_previous'}
-    assert _previous_employer_identity(stale) == ('', ())
+    assert previous_employer_identity(stale) == ('', ())
     for title in ('BUILDING CONSULTANT', 'PLANNING CONSULTANT', 'BOND BROKER'):
         entry = {'employer': title, 'employer_normalized': title,
                  'method': 'cleaned_previous',
                  'recovered_from': 'database_before_rebuild'}
-        assert _previous_employer_identity(entry) == ('', ())
+        assert previous_employer_identity(entry) == ('', ())
     fec_api = {'employer': 'MUSEUM EDUCATION CONSULTANT',
                'employer_normalized': 'MUSEUM EDUCATION CONSULTANT',
                'method': 'fec_api', 'source_date': '2002-06-22'}
-    assert _previous_employer_identity(fec_api) == ('', ())
+    assert previous_employer_identity(fec_api) == ('', ())
     koum = {'employer': 'WhatsApp LLC', 'employer_normalized': 'WhatsApp LLC',
             'method': 'manual_override'}
-    name, keys = _previous_employer_identity(koum)
+    name, keys = previous_employer_identity(koum)
     assert name == 'WHATSAPP LLC'
     assert keys[0] == 'WHATSAPP LLC'
-
-
-def test_tail_rerun_does_not_restore_a_mixed_case_spelling():
-    df = pd.DataFrame({'previous_employer': ['WHATSAPP LLC', 'ACME']})
-    prior = pd.Series(['WhatsApp LLC', 'ACME INC'])
-    _preserve_previous_employer_display(df, prior)
-    # same company: prior display spelling kept, but uppercase
-    assert df['previous_employer'].tolist() == ['WHATSAPP LLC', 'ACME INC']

@@ -1,25 +1,24 @@
-"""Match phases that pair spelling variants of a name."""
+"""Match phases for name spelling variants."""
 from collections import defaultdict
 
 from fec.donor_match.constants import (
     SCORE_CROSS_NAME_BONUS,
 )
-from fec.donor_match.normalize import _GENERATION_SUFFIXES
+from fec.donor_match.normalize import GENERATION_SUFFIXES
 from fec.donor_match.phases import (
-    _TOKEN_SPLIT_RE,
+    TOKEN_SPLIT_RE,
     MatchContext,
-    _merge_and_audit,
-    _same_street_or_zip,
-    _score_bucket_pairs,
+    merge_and_audit,
+    same_street_or_zip,
+    score_bucket_pairs,
 )
 from fec.donor_match.scoring import compute_score
 
 
 # order-independent significant name tokens
 def _name_token_key(norm_name: str) -> frozenset:
-    """Return the order-independent significant name tokens."""
     last, _, first = norm_name.partition("|")
-    return frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
+    return frozenset(t for t in TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
 
 
 # group normalized names by their token set
@@ -34,21 +33,20 @@ def _norms_by_name_tokens(name_groups: dict) -> dict:
     return grouped
 
 
-# token-set match gets the bonus unless middle names conflict
+# name-format bonus unless middle names conflict
 def _name_format_adjust(score: float, signals: list) -> float:
-    # so a same-street father and son never tip over the threshold
+    # same-street father and son must not merge
     if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):
         score += SCORE_CROSS_NAME_BONUS
     signals.append("name_format_variant")
     return score
 
 
-# match same person written with a different name format
-def _score_name_variants(context: MatchContext) -> None:
-    """Match the same person written in a different name format, bucketed by token set and gated on same street or ZIP5; middle-name conflicts stay blocked/penalised."""
-    _score_bucket_pairs(
+# match one person in different name formats
+def score_name_variants(context: MatchContext) -> None:
+    score_bucket_pairs(
         context, _norms_by_name_tokens(context.name_groups),
-        _any_names, _same_street_or_zip, _name_format_adjust,
+        _any_names, same_street_or_zip, _name_format_adjust,
     )
 
 
@@ -57,7 +55,7 @@ def _any_names(_name_a: str, _name_b: str) -> bool:
     return True
 
 
-# index names by significant tokens and first-name tokens
+# index names by all and first-name tokens
 def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
     key_of: dict = {}
     first_of: dict = {}
@@ -66,12 +64,12 @@ def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
             continue
         last, _, first = norm_name.partition("|")
         toks = frozenset(
-            t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2
+            t for t in TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2
         )
         if len(toks) >= 2:
             key_of[norm_name] = toks
             first_of[norm_name] = frozenset(
-                t for t in _TOKEN_SPLIT_RE.split(first) if len(t) >= 2
+                t for t in TOKEN_SPLIT_RE.split(first) if len(t) >= 2
             )
 
     tok_index: dict = defaultdict(set)
@@ -81,7 +79,7 @@ def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
     return key_of, first_of, tok_index
 
 
-# find names sharing every one of these tokens
+# names containing every one of these tokens
 def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
     candidates = None
     for token in tokens:
@@ -93,7 +91,7 @@ def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
     return candidates
 
 
-# check whether one name is a valid superset of another
+# longer name is a valid token superset
 def _is_valid_superset(
     shorter_name: str,
     longer_name: str,
@@ -107,16 +105,15 @@ def _is_valid_superset(
     if not shorter_tokens < longer_tokens:
         return False
     extra = longer_tokens - shorter_tokens
-    if len(extra) > 2 or extra <= _GENERATION_SUFFIXES:
+    if len(extra) > 2 or extra <= GENERATION_SUFFIXES:
         return False
     return bool(first_of[shorter_name] & longer_tokens)
 
 
-# match short and compound surnames on the same exact street
-def _score_surname_superset_variants(
+# match short and compound surnames, same street
+def score_surname_superset_variants(
     context: MatchContext,
 ) -> None:
-    """Match short and compound surnames only on the same exact street."""
     key_of, first_of, tok_index = _superset_name_index(context.name_groups)
 
     for nn1, k1 in key_of.items():
@@ -130,7 +127,7 @@ def _score_surname_superset_variants(
             for ra in context.name_groups[nn1]:
                 for rb in context.name_groups[nn2]:
                     p1, p2 = context.profiles[ra], context.profiles[rb]
-                    if not (p1["streets"] & p2["streets"]):  # SAME exact street only
+                    if not (p1["streets"] & p2["streets"]):
                         continue
                     score, signals = compute_score(p1, p2, combined_freq)
                     if not any(
@@ -138,7 +135,7 @@ def _score_surname_superset_variants(
                     ):
                         score += SCORE_CROSS_NAME_BONUS
                     signals.append("surname_superset")
-                    _merge_and_audit(
+                    merge_and_audit(
                         context,
                         ra,
                         rb,
