@@ -1,20 +1,17 @@
-"""Normalize names, employers and committee names for matching."""
+"""Normalize names, employers and committees for matching."""
 import re
 
 from fec.donor_match.constants import (
     NAME_SUFFIXES,
 )
-from fec.donor_match.scoring import _NAME_TOKEN_RE
+from fec.donor_match.scoring import NAME_TOKEN_RE
 
-# stripped in this order -- " CO" runs before " CORP" on purpose, and
-# str.replace hits mid-string too (" CO" also eats the start of " CONSULTING":
-# ACME CONSULTING -> ACMENSULTING). Both quirks are load-bearing: these strings
-# feed employer-match scoring and thus donor identity. Do not change.
+# order and mid-string hits are load-bearing
 _EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
                    " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
 
 
-# a trailing title (REP/SEN/DR/JR/...) at the end of a name: "JOHN SMITH, JR."
+# trailing title like REP, DR or JR
 _COMM_SUFFIXES_RE = re.compile(
     r'\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)'
     r'\.?\s*$',
@@ -22,27 +19,25 @@ _COMM_SUFFIXES_RE = re.compile(
 )
 
 
-_GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
+GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
 
 
-# pull a JR/SR/roman-numeral suffix out of a name
+# JR/SR/roman suffix from either comma side
 def extract_generational_suffix(name: str) -> str:
-    """Return a JR/SR/roman suffix from either side of the comma."""
     text = str(name or "").strip().upper()
     last, comma, first = text.partition(",")
     parts = (last, first) if comma else (text,)
     found = {
         tokens[-1]
         for part in parts
-        if (tokens := _NAME_TOKEN_RE.findall(part))
-        and tokens[-1] in _GENERATION_SUFFIXES
+        if (tokens := NAME_TOKEN_RE.findall(part))
+        and tokens[-1] in GENERATION_SUFFIXES
     }
     return next(iter(found)) if len(found) == 1 else ""
 
 
 # normalize a name to LAST|FIRST for matching
 def normalize_name(name: str) -> str:
-    """Normalize to LAST|FIRST (drop middle, suffixes, punctuation)."""
     name = str(name or "").strip().upper()
     if "," not in name:
         return name
@@ -66,7 +61,6 @@ def normalize_name(name: str) -> str:
 
 # extract middle name/initial from a full name
 def extract_middle(name: str) -> str:
-    """Extract middle name/initial from full name."""
     name = str(name or "").strip().upper()
     if "," not in name:
         return ""
@@ -78,7 +72,6 @@ def extract_middle(name: str) -> str:
 
 # normalize an employer name for comparison
 def normalize_employer(emp: str) -> str:
-    """Normalize employer name for comparison."""
     emp = str(emp or "").strip().upper()
     for suffix in _EMPLOYER_STRIP:
         emp = emp.replace(suffix, "")
@@ -87,7 +80,6 @@ def normalize_employer(emp: str) -> str:
 
 # normalize a committee contributor name to ORG|FIRST
 def normalize_committee_name(name: str) -> str:
-    """Normalize a committee contributor name to ORG|FIRST for deduplication."""
     name = str(name or "").strip().upper()
     if "," not in name:
         return name.replace(".", "").replace(" ", "").strip()

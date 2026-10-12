@@ -1,21 +1,21 @@
-"""Row counts, orphans, unique keys and conserved money."""
+"""Row counts, orphans, unique keys, conserved money."""
 from __future__ import annotations
 
 from fec.database.check_kinds import (
     CRIT,
     Check,
-    _at_most,
-    _equal,
-    _positive,
-    _scalar,
-    _sql,
-    _zero,
+    at_most_check,
+    equal_check,
+    positive_check,
+    fetch_scalar,
+    clean_sql,
+    zero_check,
 )
 
 BIGINT_MAX = 9223372036854775807
 
 
-# (child table, foreign key, parent table, primary key)
+# (child, foreign key, parent, primary key)
 _FOREIGN_KEYS = [
     ("contributions", "donor_id", "donors", "donor_id"),
     ("contributions", "committee_id", "committees", "committee_id"),
@@ -38,9 +38,9 @@ _FOREIGN_KEYS = [
 
 # build a check for orphaned foreign-key references
 def _orphan_check(child, foreign_key, parent, primary_key) -> Check:
-    return _zero(
+    return zero_check(
         f"orphans: {child}.{foreign_key}",
-        _sql(f"""
+        clean_sql(f"""
             SELECT COUNT(*)
             FROM {child} AS child
             LEFT JOIN {parent} AS parent
@@ -54,10 +54,10 @@ def _orphan_check(child, foreign_key, parent, primary_key) -> Check:
 
 # verify total contributions match summed donor stats
 def _money_conserved(cur):
-    contributions = _scalar(
+    contributions = fetch_scalar(
         cur, "SELECT COALESCE(SUM(amount), 0) FROM contributions"
     )
-    stats = _scalar(
+    stats = fetch_scalar(
         cur, "SELECT COALESCE(SUM(total_amount), 0) FROM v_donor_stats"
     )
     if contributions == stats:
@@ -67,14 +67,14 @@ def _money_conserved(cur):
 
 # Row counts, orphans and unique keys
 INTEGRITY_CHECKS: list[Check] = [
-    _positive(f"rows: {table}", f"SELECT COUNT(*) FROM {table}", "row(s)")
+    positive_check(f"rows: {table}", f"SELECT COUNT(*) FROM {table}", "row(s)")
     for table in ("donors", "contributions", "committees", "addresses", "employers")
 ]
 INTEGRITY_CHECKS += [_orphan_check(*foreign_key) for foreign_key in _FOREIGN_KEYS]
 INTEGRITY_CHECKS += [
-    _zero(
+    zero_check(
         "unique: donors.donor_key",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM (
                 SELECT donor_key
@@ -85,9 +85,9 @@ INTEGRITY_CHECKS += [
         """),
         "duplicate donor_key(s)",
     ),
-    _zero(
+    zero_check(
         "unique: contributions.sub_id",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM (
                 SELECT sub_id
@@ -98,9 +98,9 @@ INTEGRITY_CHECKS += [
         """),
         "duplicate sub_id(s)",
     ),
-    _zero(
+    zero_check(
         "unique: committees.committee_number",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM (
                 SELECT committee_number
@@ -112,9 +112,9 @@ INTEGRITY_CHECKS += [
         """),
         "duplicate committee_number(s)",
     ),
-    _zero(
+    zero_check(
         "dedup: donor_employments (donor,employer,occupation,status,previous employer)",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM (
                 SELECT donor_id, employer_id, occupation, employer_status,
@@ -127,9 +127,9 @@ INTEGRITY_CHECKS += [
         """),
         "duplicate employment group(s)",
     ),
-    _zero(
+    zero_check(
         "previous employer only on retired rows",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM donor_employments
             WHERE employer_status IS DISTINCT FROM 'retired'
@@ -138,9 +138,9 @@ INTEGRITY_CHECKS += [
         """),
         "non-retired row(s) with a previous employer",
     ),
-    _zero(
+    zero_check(
         "previous employer is a company or SELF-EMPLOYED, not both",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM donor_employments
             WHERE previous_self_employed
@@ -148,7 +148,7 @@ INTEGRITY_CHECKS += [
         """),
         "row(s) with both kinds of previous employer",
     ),
-    _at_most(
+    at_most_check(
         "sub_id fits BIGINT",
         "SELECT COALESCE(MAX(sub_id), 0) FROM contributions",
         BIGINT_MAX,
@@ -160,9 +160,9 @@ INTEGRITY_CHECKS += [
 # Money is conserved across tables and aggregates
 MONEY_CHECKS: list[Check] = [
     Check("money conserved (contributions = stats)", CRIT, _money_conserved),
-    _zero(
+    zero_check(
         "v_donor_stats = direct aggregate",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_stats AS stats
             JOIN (
@@ -178,15 +178,15 @@ MONEY_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong total/count",
     ),
-    _equal(
+    equal_check(
         "v_donor_stats: one row per contributing donor",
         "SELECT COUNT(*) FROM v_donor_stats",
         "SELECT COUNT(DISTINCT donor_id) FROM contributions",
         "rows vs donors",
     ),
-    _zero(
+    zero_check(
         "v_donor_stats: avg = total/count",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_stats
             WHERE donation_count > 0
@@ -194,9 +194,9 @@ MONEY_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong avg",
     ),
-    _zero(
+    zero_check(
         "v_donor_stats: election_cycles correct",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_stats AS stats
             JOIN (
@@ -210,7 +210,7 @@ MONEY_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong cycle count",
     ),
-    _zero(
+    zero_check(
         "v_donor_stats: first <= last donation",
         "SELECT COUNT(*) FROM v_donor_stats WHERE first_donation > last_donation",
         "donor(s) with first>last",

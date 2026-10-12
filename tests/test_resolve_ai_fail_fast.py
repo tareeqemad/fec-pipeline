@@ -124,7 +124,7 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     monkeypatch.setattr(resolve_cli, "read_pipeline_csv", lambda _path: source.copy())
     monkeypatch.setattr(resolve_cli, "load_env", lambda: None)
     monkeypatch.setattr(
-        resolve_cli, "_compute_donor_totals", lambda _df: pd.DataFrame()
+        resolve_cli, "compute_donor_totals", lambda _df: pd.DataFrame()
     )
     monkeypatch.setattr(resolve_cli, "load_manual_locations", lambda *args: None)
     monkeypatch.setattr(

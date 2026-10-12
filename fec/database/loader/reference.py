@@ -1,4 +1,4 @@
-"""Load the lookup tables and the bulk reference tables from their CSVs."""
+"""Load lookup and reference tables from CSVs."""
 from __future__ import annotations
 
 import time
@@ -8,14 +8,13 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.committees import load_committees
-from fec.database.loader._base import _count
+from fec.database.loader._base import count_rows
 from fec.env import CLEANED_CSV, RULES_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
 REF_TABLES = [
-    # CSV table mappings.
     ("us_states", "us_states.csv",
      ["state_fips", "code", "name"]),
     ("zcta_state_rel", "zcta_state_rel.csv",
@@ -25,7 +24,6 @@ REF_TABLES = [
     # Editorial tables load later.
 ]
 
-# Required reference columns.
 NOT_NULL_COLS = {
     'us_states': ['state_fips', 'code', 'name'],
     'zcta_state_rel': ['zcta5', 'state_fips'],
@@ -35,7 +33,6 @@ NOT_NULL_COLS = {
 
 # load us_states/zcta/zip_centroids reference tables from csv files
 def load_reference_tables(conn: Any, cur: Any) -> None:
-    """Load reference tables from data/rules/*.csv files."""
     db_dir = RULES_DIR
     if not db_dir.exists():
         logger.info(f"\n  {db_dir} not found -- skipping reference tables")
@@ -52,7 +49,6 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
 
-        # Keep shared CSV columns.
         use_cols = [column for column in columns if column in df.columns]
         if not use_cols:
             logger.warning(f"  No matching columns in {csv_file}")
@@ -60,11 +56,9 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
 
         df = df[use_cols]
 
-        # Empty cells become NULL.
         df = df.replace('', None)
         df = df.dropna(how='all')
 
-        # Reject incomplete reference rows.
         for col in NOT_NULL_COLS.get(table_name, []):
             if col not in df.columns:
                 raise ValueError(
@@ -72,14 +66,13 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
                     f"(NOT NULL in {table_name})")
             missing = df[col].isna()
             if missing.any():
-                # Include CSV headers.
+                # +2: header row and 1-based lines
                 lines = [int(idx) + 2 for idx in df.index[missing][:10]]
                 raise ValueError(
                     f"{csv_file}: {int(missing.sum())} row(s) missing required "
                     f"column {col!r} (NOT NULL in {table_name}) -- "
                     f"sample CSV line number(s): {lines}")
 
-        # Propagate insert failures.
         cols_str = ", ".join(use_cols)
         rows = [tuple(None if pd.isna(value) else value for value in row)
                 for row in df.itertuples(index=False, name=None)]
@@ -89,12 +82,11 @@ def load_reference_tables(conn: Any, cur: Any) -> None:
                 f"INSERT INTO {table_name} ({cols_str}) VALUES %s ON CONFLICT DO NOTHING",
                 rows, page_size=5000)
 
-        logger.info(f"  {table_name}: {_count(cur, table_name):,} ({time.time()-start:.1f}s)")
+        logger.info(f"  {table_name}: {count_rows(cur, table_name):,} ({time.time()-start:.1f}s)")
 
 
 # load occupation_categories and committees lookup tables
 def load_lookups(conn: Any, cur: Any) -> None:
-    """Load occupation_categories from the cleaned CSV and committees from committees.csv (single source of truth)."""
     logger.info("-- Loading lookups --")
 
     df = pd.read_csv(CLEANED_CSV, usecols=['occupation_category'], dtype=str)
@@ -102,7 +94,7 @@ def load_lookups(conn: Any, cur: Any) -> None:
     rows = [(category,) for category in categories]
     execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING",
                    rows, page_size=50)
-    logger.info("  occupation_categories: %d", _count(cur, 'occupation_categories'))
+    logger.info("  occupation_categories: %d", count_rows(cur, 'occupation_categories'))
 
     for committee in load_committees():
         committee_number = committee.get('committee_number')
@@ -119,11 +111,11 @@ def load_lookups(conn: Any, cur: Any) -> None:
                 "logo_path=EXCLUDED.logo_path",
                 vals)
         else:
-            # Deduplicate non-FEC organizations.
+            # no committee_number: dedupe by name
             cur.execute(
                 "INSERT INTO committees (committee_number, committee_name, committee_short, raised, spent, irs_990_link, logo_path) "
                 "SELECT %s, %s, %s, %s, %s, %s, %s "
                 "WHERE NOT EXISTS (SELECT 1 FROM committees WHERE committee_name = %s)",
                 vals + (committee['committee_name'],))
 
-    logger.info("  committees: %d", _count(cur, 'committees'))
+    logger.info("  committees: %d", count_rows(cur, 'committees'))

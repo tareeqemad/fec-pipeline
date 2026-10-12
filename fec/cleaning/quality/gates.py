@@ -1,17 +1,17 @@
-"""Quality gates, outlier reports, and report saving."""
+"""Run the quality gates; save reports."""
 from pathlib import Path
 
 import pandas as pd
 
 from fec.cleaning.quality.employment_gates import (
-    _gate_not_employed_status,
-    _gate_occupation_category_consistency,
-    _gate_previous_employer_scope,
-    _gate_retired_active_sync,
-    _gate_retired_employer_marker,
-    _gate_self_employed_status,
-    _gate_slash_previous_employer,
-    _gate_valid_categories,
+    gate_not_employed_status,
+    gate_occupation_category_consistency,
+    gate_previous_employer_scope,
+    gate_retired_active_sync,
+    gate_retired_employer_marker,
+    gate_self_employed_status,
+    gate_slash_previous_employer,
+    gate_valid_categories,
 )
 from fec.io import write_csv_atomic
 
@@ -29,7 +29,7 @@ _ZIP_PREFIX_STATES = {
 }
 
 
-# flag literal 'NAN' strings left in text columns
+# flag literal 'NAN' strings in text columns
 def _gate_nan_strings(df):
     nan_count = 0
     for col in ['contributor_occupation', 'contributor_employer', 'contributor_name',
@@ -40,9 +40,9 @@ def _gate_nan_strings(df):
     return [('no_nan_strings', {'passed': nan_count == 0, 'count': nan_count}, issue)]
 
 
-# flag rows with a missing or unreadable contribution amount
+# flag missing or unreadable contribution amounts
 def _gate_amounts_readable(df):
-    # every filing keeps a real dollar amount; blank or text is never $0
+    # blank or text amount is never $0
     if 'contribution_receipt_amount' not in df.columns:
         return []
     amounts = pd.to_numeric(df['contribution_receipt_amount'], errors='coerce')
@@ -51,7 +51,7 @@ def _gate_amounts_readable(df):
     return [('amounts_readable', {'passed': bad == 0, 'count': bad}, issue)]
 
 
-# flag when too many rows are missing a ZIP
+# flag when half or more lack ZIP
 def _gate_zip_coverage(df):
     if 'contributor_zip' not in df.columns:
         return []
@@ -79,7 +79,7 @@ def _gate_dup_transaction_id(df):
     return _dup_id_check(df, 'transaction_id', 'no_duplicate_transaction_id')
 
 
-# flag contribution dates more than 60 days in the future
+# flag dates over 60 days ahead
 def _gate_future_dates(df):
     if 'contribution_receipt_date' not in df.columns:
         return []
@@ -95,11 +95,10 @@ def _gate_row_count(df):
     return [('row_count', int(len(df)), None)]
 
 
-# flag ZIP codes whose prefix doesn't match the filed state
+# flag ZIP prefixes that mismatch the state
 def _gate_zip_state(df):
     if not ('contributor_zip' in df.columns and 'contributor_state' in df.columns):
         return []
-    # vectorized: 10 prefix masks instead of a per-row loop
     zip_str = df['contributor_zip'].astype(str)
     valid_rows = df['contributor_zip'].notna() & (zip_str.str.len() == 5)
     zip_first = zip_str.str[0]
@@ -113,7 +112,7 @@ def _gate_zip_state(df):
     return [('zip_state_match', {'passed': n_zip_mismatch < 100, 'count': n_zip_mismatch}, issue)]
 
 
-# flag email addresses stored in the street field
+# flag email addresses in the street field
 def _gate_email_as_address(df):
     if 'contributor_street_1' not in df.columns:
         return []
@@ -132,10 +131,9 @@ def _gate_special_chars_names(df):
     return [('no_special_chars_in_names', {'passed': n_special_chars == 0, 'count': n_special_chars}, issue)]
 
 
-# flag literal 'NULL' surnames lost to NaN coercion
+# flag 'NULL' surnames lost to NaN
 def _gate_null_surname(df):
-    # "NULL" is a real surname; pandas' default read coerces it to NaN, so if
-    # contributor_name starts with "NULL," the surname must be the literal string
+    # "NULL" is a real surname, not NaN
     if not {'contributor_name', 'contributor_last_name'}.issubset(df.columns):
         return []
     name_null_prefix = df['contributor_name'].astype('string').str.startswith('NULL,', na=False)
@@ -150,15 +148,15 @@ def _gate_null_surname(df):
     return [('null_surname_preserved', {'passed': n_lost == 0, 'count': n_lost}, issue)]
 
 
-# order matters: this is the checks-dict order and the order issues are reported
+# order matters: sets report order of checks
 _QUALITY_GATES = [
     _gate_nan_strings,
     _gate_amounts_readable,
-    _gate_valid_categories,
-    _gate_occupation_category_consistency,
-    _gate_self_employed_status,
-    _gate_not_employed_status,
-    _gate_previous_employer_scope,
+    gate_valid_categories,
+    gate_occupation_category_consistency,
+    gate_self_employed_status,
+    gate_not_employed_status,
+    gate_previous_employer_scope,
     _gate_zip_coverage,
     _gate_dup_sub_id,
     _gate_dup_transaction_id,
@@ -167,16 +165,15 @@ _QUALITY_GATES = [
     _gate_zip_state,
     _gate_email_as_address,
     _gate_special_chars_names,
-    _gate_retired_active_sync,
-    _gate_retired_employer_marker,
-    _gate_slash_previous_employer,
+    gate_retired_active_sync,
+    gate_retired_employer_marker,
+    gate_slash_previous_employer,
     _gate_null_surname,
 ]
 
 
 # run all quality gates and collect results
 def run_quality_gates(df: pd.DataFrame) -> dict:
-    """Run quality checks. Returns {passed, checks, issues}."""
     checks, issues = {}, []
     for gate in _QUALITY_GATES:
         for key, check, issue in gate(df):
@@ -192,9 +189,8 @@ def run_quality_gates(df: pd.DataFrame) -> dict:
     return {'passed': passed, 'checks': checks, 'issues': issues}
 
 
-# save a DataFrame as CSV
+# save a non-empty DataFrame as CSV
 def save_report(df: pd.DataFrame, dir_path: str, name: str) -> None:
-    """Save a DataFrame as CSV."""
     if df is None or df.empty:
         return
     base = Path(dir_path) / name

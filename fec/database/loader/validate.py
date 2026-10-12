@@ -1,4 +1,4 @@
-"""Check the cleaned CSV and its companions before anything is loaded."""
+"""Check cleaned inputs before anything is loaded."""
 from __future__ import annotations
 
 import pandas as pd
@@ -35,7 +35,7 @@ _LOCATION_COLUMNS = {
 }
 
 
-# check the columns are exactly the loaded ones and gates pass
+# check loadable columns and quality gates
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
     check_loadable(df.columns)
 
@@ -81,7 +81,7 @@ def _validate_employer_locations(
         raise ValueError("employer_locations.csv contains an invalid address_trust value")
 
 
-# validate donor_key, sub_id, date, and cycle fields
+# validate donor_key, sub_id, date, cycle fields
 def _validate_contribution_fields(df: pd.DataFrame) -> None:
     donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
     if donor_keys.eq("").any():
@@ -114,15 +114,14 @@ def _validate_committees(df: pd.DataFrame) -> None:
 
 # reject unfinished pipeline output
 def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
-    """Reject unfinished pipeline output."""
     _validate_cleaned_data(df)
     _validate_employer_locations(df, locations)
     _validate_contribution_fields(df)
     _validate_committees(df)
 
 
-# read and validate the cleaned CSV and employer locations
-def _read_input() -> tuple[pd.DataFrame, list[dict]]:
+# read and validate cleaned CSV and locations
+def read_input() -> tuple[pd.DataFrame, list[dict]]:
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
     if not EMPLOYER_LOCATIONS_CSV.exists():
@@ -131,7 +130,7 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
             "run geocode.py --employer-only"
         )
 
-    # both files must come from the same run, untouched since it wrote them
+    # both files from one run, unmodified since
     run_id = check_same_run(CLEANED_CSV, EMPLOYER_LOCATIONS_CSV)
     logger.info(f"  pipeline run {run_id}")
     df = read_pipeline_csv(CLEANED_CSV)

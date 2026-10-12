@@ -1,9 +1,9 @@
-"""Apply synonym merges, abbreviation expansion, and employer-field fixes."""
+"""Synonym merges, abbreviation expansion, employer-field fixes."""
 import re
 
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _norm
+from fec.cleaning._helpers import individual_index, upper_text
 from fec.cleaning.audit_trail import EMPLOYMENT_FIELDS, AuditTrail
 from fec.cleaning.employer_synonyms.canonical import (
     recanonicalize_employers,
@@ -11,7 +11,7 @@ from fec.cleaning.employer_synonyms.canonical import (
 )
 from fec.cleaning.employer_synonyms.normalize import restyle_legal_suffix
 from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
-from fec.cleaning.occupations.normalize import _categorize
+from fec.cleaning.occupations.normalize import categorize_occupation
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
 from fec.config.not_employers import (
@@ -20,8 +20,7 @@ from fec.config.not_employers import (
     ROLE_AS_EMPLOYER,
 )
 
-# Occupation words filed as the employer: these people are self-employed.
-# A deliberate subset of the config lists (the full lists are applied by the safety nets later).
+# occupation-as-employer words; deliberate subset of config
 _OCC_AS_EMPLOYER = frozenset({
     'ATTORNEY', 'LAWYER', 'PHYSICIAN', 'CONSULTANT', 'PROFESSOR',
     'DENTIST', 'ACCOUNTANT', 'TEACHER', 'ENGINEER', 'REALTOR',
@@ -32,8 +31,7 @@ assert _OCC_AS_EMPLOYER <= (OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER), 'keep _O
 
 # merge verified employer variants into canonical forms
 def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Merge employer variants into canonical forms (donor-overlap verified only); returns (df, n_fixed)."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
     hits = indiv_idx[emp.isin(EMPLOYER_SYNONYMS)]
     n_fixed = len(hits)
@@ -41,7 +39,7 @@ def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     if n_fixed:
         df.loc[hits, 'contributor_employer'] = emp[hits].map(EMPLOYER_SYNONYMS)
 
-    # suffix style only (", INC" -> " INC"); never strips a suffix
+    # restyle suffixes only; never strips one
     emp = df.loc[indiv_idx, 'contributor_employer'].dropna()
     restyled = emp.map(restyle_legal_suffix)
     changed = restyled != emp
@@ -52,18 +50,15 @@ def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# Whole-word token + optional trailing period, derived from THE abbreviation
-# table; tokens without a verified expansion (e.g. the ambiguous ASSOC,
-# handled contextually in expand_employer_associates) are never auto-expanded.
+# tokens without an expansion are never expanded
 _EMPLOYER_ABBREV = [
     (re.compile(rf'\b{token}\b\.?'), expansion)
     for token, expansion in EMPLOYER_ABBREVIATIONS.items() if expansion
 ]
 
 
-# expand the verified abbreviations in employer names (MFG. -> MANUFACTURING)
+# expand verified abbreviations in employer names
 def expand_abbreviation_text(values: pd.Series) -> pd.Series:
-    """The same expansion clean.py gives filed employers, for names from elsewhere."""
     new = values
     for regex, replacement in _EMPLOYER_ABBREV:
         new = new.str.replace(regex, replacement, regex=True)
@@ -72,8 +67,7 @@ def expand_abbreviation_text(values: pd.Series) -> pd.Series:
 
 # expand unambiguous employer abbreviations, must run last
 def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Expand unambiguous abbreviations (MGMT -> MANAGEMENT, ...); must run LAST, after synonyms, so abbreviations a synonym target reintroduces get expanded too."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
     has_emp = emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
     target = indiv_idx[has_emp]
@@ -89,16 +83,15 @@ def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
-# the abbreviated word "ASSOC" or "ASSOCS", with optional trailing period
+# ASSOC or ASSOCS, optional trailing period
 _ASSOC_RX = re.compile(r'\bASSOCS?\b\.?')
-# the full word "ASSOCIATION" as a standalone token
+# the full word ASSOCIATION, whole token
 _ASSOCIATION_RX = re.compile(r'\bASSOCIATION\b')
 
 
-# expand ASSOC to ASSOCIATION or ASSOCIATES based on context
+# expand ASSOC by context, checking filed original
 def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Expand ASSOC contextually: real associations -> ASSOCIATION, everything else -> ASSOCIATES; checks the as-filed original too so truncated '...ASSOC' is caught."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
     has_assoc = (emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
            & emp.str.upper().str.contains(r'\bASSOCS?\b', regex=True, na=False))
@@ -126,24 +119,20 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
-# a slash with inconsistent spacing: "A/ B", "A /B", "A//B"
+# slash with uneven spacing, like "A//B"
 _LOOSE_SLASH_RE = re.compile(r'\s/|/\s|//')
 
 
-# add consistent spacing around slashes joining two employer names
+# space out loose slashes; tight ones stay
 def tidy_employer_slashes(name):
-    """One style for two employers joined by a slash: 'SUMMIT HEALTH/ VILLAGEMD', 'EMERALD//ARS'
-    -> 'SUMMIT HEALTH / VILLAGEMD', 'EMERALD / ARS'. A tight slash (BRIDGESTONE/FIRESTONE, C/O)
-    is left alone; style only, it never merges two names."""
     if not isinstance(name, str) or not _LOOSE_SLASH_RE.search(name):
         return name
     return re.sub(r'\s*/+\s*', ' / ', name).strip()
 
 
-# apply slash and comma spacing tidy-up to every individual's employer field
+# tidy slash and comma spacing in employers
 def tidy_slash_spacing(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Apply tidy_employer_slashes and tidy_employer_commas to every individual's employer; returns (df, n_fixed)."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
     tidied = emp.map(tidy_employer_slashes).map(tidy_employer_commas)
     changed = emp.notna() & (tidied != emp)
@@ -154,8 +143,6 @@ def tidy_slash_spacing(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 # rerun employer normalization steps after donor-history repairs
 def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame, int]:
-    """Reapply employer rules after donor-history repairs."""
-
     trail = trail or AuditTrail()
     total = 0
     for fix, step, reason in (
@@ -173,27 +160,26 @@ def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame,
     return df, total
 
 
-# mark self-employed when employer field is really an occupation word
+# occupation word as employer means self-employed
 def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Set employer to SELF-EMPLOYED when it is an occupation word and the person has a different real occupation; returns (df, n_fixed)."""
-    indiv_idx = _indiv_idx(df)
-    emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
-    occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
+    indiv_idx = individual_index(df)
+    emp = upper_text(df.loc[indiv_idx, 'contributor_employer'])
+    occ = upper_text(df.loc[indiv_idx, 'contributor_occupation'])
 
     is_occ_emp = emp.isin(_OCC_AS_EMPLOYER)
     has_diff_occ = (occ != '') & (occ != emp)
-    # don't touch RETIRED people - "ATTORNEY" might be their previous employer
+    # retirees: the word may be past employer
     not_retired = ~occ.isin({'RETIRED', 'RETIRE', 'RETIREE'})
 
     hits = indiv_idx[is_occ_emp & has_diff_occ & not_retired]
     n_fixed = len(hits)
 
     if n_fixed:
-        # move the employer word to occupation if current occ is SELF-EMPLOYED
+        # SELF-EMPLOYED occupation takes the employer word
         self_emp_idx = hits[occ[hits] == 'SELF-EMPLOYED']
         if len(self_emp_idx):
             df.loc[self_emp_idx, 'contributor_occupation'] = df.loc[self_emp_idx, 'contributor_employer']
-            df.loc[self_emp_idx, 'occupation_category'] = _categorize(
+            df.loc[self_emp_idx, 'occupation_category'] = categorize_occupation(
                 df.loc[self_emp_idx, 'contributor_occupation']
             )
 
@@ -202,16 +188,15 @@ def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# a legal suffix followed by separators, mid-string: "SMITH LLC, JONES"
+# legal suffix mid-string, like "SMITH LLC, JONES"
 _MID_SUFFIX_RE = re.compile(
     r'\b(?:LLC|LLP|INC\.?|CORP\.?|LTD\.?)[\s,./]+',
     re.IGNORECASE,
 )
 
 
-# strip legal suffixes that appear mid-string in normalized employer names
+# strip mid-string legal suffixes; mirror to employer
 def fix_normalized_mid_suffix(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Strip LLC/LLP/INC appearing mid-string in employer_name_normalized (and mirror into contributor_employer); returns (df, n_fixed)."""
     col = 'employer_name_normalized'
     vals = df[col].fillna('')
     has_mid = vals.str.contains(_MID_SUFFIX_RE, na=False)

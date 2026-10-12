@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load FEC data into PostgreSQL. Wrapper for fec.database.loader."""
+"""Load FEC data into PostgreSQL."""
 from fec.database.loader.run import main
 
 if __name__ == '__main__':

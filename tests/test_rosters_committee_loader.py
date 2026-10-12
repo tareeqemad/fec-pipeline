@@ -83,7 +83,7 @@ def _roster(tmp_path, monkeypatch, filename, header, rows):
     monkeypatch.setattr(people, "find_or_create_donor", find_or_create_donor)
     monkeypatch.setattr(people, "upsert_donor_address", lambda *a, **k: None)
     monkeypatch.setattr(people, "upsert_leader_employment", upsert_leader_employment)
-    monkeypatch.setattr(people, "_location_index", lambda *a: {"ORACLE": {"sentinel": True}})
+    monkeypatch.setattr(people, "location_index", lambda *a: {"ORACLE": {"sentinel": True}})
     return calls
 
 

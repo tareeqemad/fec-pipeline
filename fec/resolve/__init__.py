@@ -1,1 +1,1 @@
-"""Employer address resolution - cross-record, FEC API, and AI lookup."""
+"""Resolve employer addresses and previous employers."""

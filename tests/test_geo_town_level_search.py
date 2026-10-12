@@ -237,17 +237,17 @@ LR_CENTROIDS = {
 
 @pytest.fixture
 def little_rock_reference(monkeypatch, no_sleep):
-    patch_geo(monkeypatch, "_zip_centroids", lambda: LR_CENTROIDS)
+    patch_geo(monkeypatch, "load_zip_centroids", lambda: LR_CENTROIDS)
     patch_geo(monkeypatch, "_zip_neighbour_km", lambda _zip: 3.0)
 
 
 def test_a_zip_without_centroid_is_placed_by_its_nearest_numbered_neighbours(little_rock_reference):
-    lat, lng = zip_checks._zip_area_point("72217", "AR")
+    lat, lng = zip_checks.zip_area_point("72217", "AR")
     # the median of 72207, 72205, 72204, 72202, the nearest numbers in 722 (72114 and 72701 are other areas)
     assert lat == pytest.approx(34.746) and lng == pytest.approx(-92.350)
-    assert zip_checks._zip_area_point("72201", "AR") == LR_CENTROIDS["72201"]
-    assert zip_checks._zip_area_point("72217", "TX") is None    # no neighbour inside the filed state
-    assert zip_checks._zip_area_point("", "AR") is None
+    assert zip_checks.zip_area_point("72201", "AR") == LR_CENTROIDS["72201"]
+    assert zip_checks.zip_area_point("72217", "TX") is None    # no neighbour inside the filed state
+    assert zip_checks.zip_area_point("", "AR") is None
 
 
 def test_po_box_without_zip_centroid_gets_the_town_point(monkeypatch, little_rock_reference):
@@ -259,7 +259,7 @@ def test_po_box_without_zip_centroid_gets_the_town_point(monkeypatch, little_roc
 
     patch_geo(monkeypatch, "city_level", city_level)
 
-    result = geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217")
+    result = geo.geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217")
 
     assert result == (34.7465071, -92.2896267, "US", "nominatim_city")
     # the PO-box ZIP OSM does not know is not sent; its area picks among same-name towns
@@ -272,9 +272,9 @@ def test_po_box_whose_town_is_not_found_is_not_searched_abroad(monkeypatch, litt
     patch_geo(monkeypatch, "city_level", lambda *_args: (None, None, None))
     patch_geo(monkeypatch, "nominatim_international", lambda *_args: (18.1096, -77.2975, "JM"))
 
-    assert geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") == (None, None, None, "not_found")
+    assert geo.geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") == (None, None, None, "not_found")
     # no ZIP of the filed state: the international last resort still runs
-    assert geo._geocode_one("PO BOX 7839", "KINGSTON", "AR", "")[3] == "nominatim_intl"
+    assert geo.geocode_one("PO BOX 7839", "KINGSTON", "AR", "")[3] == "nominatim_intl"
 
 
 def test_zip_with_centroid_is_still_searched_first(monkeypatch, little_rock_reference):
@@ -286,7 +286,7 @@ def test_zip_with_centroid_is_still_searched_first(monkeypatch, little_rock_refe
 
     patch_geo(monkeypatch, "city_level", city_level)
 
-    geo._geocode_one("PO BOX 1", "LITTLE ROCK", "AR", "72201")
+    geo.geocode_one("PO BOX 1", "LITTLE ROCK", "AR", "72201")
 
     assert calls == [("72201", LR_CENTROIDS["72201"])]
 
@@ -311,15 +311,15 @@ SF_KEY = "PO BOX 411291|SAN FRANCISCO|CA|94141"
     ("PO BOX 1|SAN FRANCISCO|CA|94103", {"lat": 37.7749, "lng": -122.4194, "source": "nominatim_city"}, False),
 ])
 def test_cached_town_pins_without_zip_centroid_are_rechecked_once(tmp_path, monkeypatch, key, entry, due):
-    patch_geo(monkeypatch, "_zip_centroids", lambda: {"94103": (37.7726, -122.4099)})
+    patch_geo(monkeypatch, "load_zip_centroids", lambda: {"94103": (37.7726, -122.4099)})
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[key] = entry
 
-    assert geo._needs_lookup(key, cache) is due
+    assert geo.needs_lookup(key, cache) is due
 
 
 def _recheck_cache(tmp_path, monkeypatch):
-    patch_geo(monkeypatch, "_zip_centroids", lambda: {})
+    patch_geo(monkeypatch, "load_zip_centroids", lambda: {})
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[SF_KEY] = {"lat": 33.1282409, "lng": -117.3113959, "source": "nominatim_city"}
     return cache
@@ -327,32 +327,32 @@ def _recheck_cache(tmp_path, monkeypatch):
 
 def test_recheck_replaces_the_wrong_pin_and_marks_it(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    patch_geo(monkeypatch, "_geocode_one",
+    patch_geo(monkeypatch, "geocode_one",
                         lambda *_args: (37.7792588, -122.4193286, "US", "nominatim_city"))
 
-    geo._geocode_todo([SF_KEY], cache, 50)
+    geo.geocode_todo([SF_KEY], cache, 50)
 
     entry = cache.get(SF_KEY)
     assert (entry["lat"], entry["lng"], entry["town_checked"]) == (37.7792588, -122.4193286, True)
-    assert not geo._needs_lookup(SF_KEY, cache)
+    assert not geo.needs_lookup(SF_KEY, cache)
 
 
 def test_recheck_that_finds_nothing_keeps_the_pin(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
+    patch_geo(monkeypatch, "geocode_one", lambda *_args: (None, None, None, "not_found"))
 
-    geo._geocode_todo([SF_KEY], cache, 50)
+    geo.geocode_todo([SF_KEY], cache, 50)
 
     entry = cache.get(SF_KEY)
     assert (entry["lat"], entry["source"], entry["town_checked"]) == (33.1282409, "nominatim_city", True)
-    assert not geo._needs_lookup(SF_KEY, cache)
+    assert not geo.needs_lookup(SF_KEY, cache)
 
 
 def test_recheck_never_moves_a_us_filing_abroad(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (18.1096, -77.2975, "JM", "nominatim_intl"))
+    patch_geo(monkeypatch, "geocode_one", lambda *_args: (18.1096, -77.2975, "JM", "nominatim_intl"))
 
-    geo._geocode_todo([SF_KEY], cache, 50)
+    geo.geocode_todo([SF_KEY], cache, 50)
 
     assert (cache.get(SF_KEY)["lat"], cache.get(SF_KEY)["source"]) == (33.1282409, "nominatim_city")
 
@@ -363,20 +363,20 @@ def test_recheck_during_an_outage_leaves_the_pin_for_next_run(tmp_path, monkeypa
     def outage(*_args):
         raise NominatimUnavailable("down")
 
-    patch_geo(monkeypatch, "_geocode_one", outage)
+    patch_geo(monkeypatch, "geocode_one", outage)
 
-    geo._geocode_todo([SF_KEY], cache, 50)
+    geo.geocode_todo([SF_KEY], cache, 50)
 
     assert cache.get(SF_KEY) == {"lat": 33.1282409, "lng": -117.3113959, "source": "nominatim_city"}
-    assert geo._needs_lookup(SF_KEY, cache)
+    assert geo.needs_lookup(SF_KEY, cache)
 
 
 def test_a_new_lookup_that_finds_nothing_is_still_final(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
     key = "PO BOX 5|SAN FRANCISCO|CA|94147"
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
+    patch_geo(monkeypatch, "geocode_one", lambda *_args: (None, None, None, "not_found"))
 
-    geo._geocode_todo([key], cache, 50)
+    geo.geocode_todo([key], cache, 50)
 
     assert cache.get(key)["source"] == "not_found"
 
@@ -418,7 +418,7 @@ def test_audit_wrong_town_pins_are_rechecked_or_fixed():
         entry = cache.get(key)
         point = (float(entry["lat"]), float(entry["lng"]))
         if not entry.get("town_checked"):
-            assert geo._needs_lookup(key, cache), f"{key}: wrong town pin {point} is never looked up again"
+            assert geo.needs_lookup(key, cache), f"{key}: wrong town pin {point} is never looked up again"
             continue
         assert places.distance_km(point, town) <= 8, f"{key}: {point} is not at its town {town}"
         assert places.distance_km(point, wrong) >= 1, f"{key}: still on the audit's wrong point {wrong}"
@@ -454,7 +454,7 @@ def test_a_wrong_place_is_never_published_for_a_po_box(monkeypatch, no_sleep, ke
     _serve(monkeypatch, [wrong])
     patch_geo(monkeypatch, "nominatim_international", lambda *_args: (None, None, None))
 
-    assert geo._geocode_one(*key.split("|"))[:2] == (None, None)
+    assert geo.geocode_one(*key.split("|"))[:2] == (None, None)
 
 
 def test_recheck_moves_a_wrong_place_to_its_town(tmp_path, monkeypatch, no_sleep):
@@ -463,11 +463,11 @@ def test_recheck_moves_a_wrong_place_to_its_town(tmp_path, monkeypatch, no_sleep
     cache.data[key] = {"lat": 34.769536, "lng": -92.2670941, "source": "nominatim_city"}
     _serve(monkeypatch, [NORTH_LITTLE_ROCK, LITTLE_ROCK])
 
-    geo._geocode_todo([key], cache, 50)
+    geo.geocode_todo([key], cache, 50)
 
     entry = cache.get(key)
     assert (entry["lat"], entry["lng"], entry["source"]) == (34.7465071, -92.2896267, "nominatim_city")
-    assert entry["town_checked"] and not geo._needs_lookup(key, cache)
+    assert entry["town_checked"] and not geo.needs_lookup(key, cache)
 
 
 def test_recheck_keeps_an_in_city_pin_in_the_city(tmp_path, monkeypatch, no_sleep):
@@ -476,10 +476,10 @@ def test_recheck_keeps_an_in_city_pin_in_the_city(tmp_path, monkeypatch, no_slee
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[PHOENIX_KEY] = {"lat": PHOENIX_TATUM_PIN[0], "lng": PHOENIX_TATUM_PIN[1],
                                "source": "nominatim_city"}
-    assert geo._needs_lookup(PHOENIX_KEY, cache)
+    assert geo.needs_lookup(PHOENIX_KEY, cache)
     _serve(monkeypatch, [MURPHY_USA_SEALY, PHOENIX])
 
-    geo._geocode_todo([PHOENIX_KEY], cache, 50)
+    geo.geocode_todo([PHOENIX_KEY], cache, 50)
 
     entry = cache.get(PHOENIX_KEY)
     assert (entry["lat"], entry["lng"]) == (33.4484367, -112.074141)
@@ -493,17 +493,17 @@ def test_recheck_of_a_town_osm_does_not_know_keeps_the_pin(tmp_path, monkeypatch
     pin = {"lat": 40.699835, "lng": -73.8077023, "source": "nominatim_city", "country": "US"}
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     cache.data[key] = dict(pin)
-    patch_geo(monkeypatch, "_zip_centroids", lambda: {"11435": (40.7009, -73.8095)})
+    patch_geo(monkeypatch, "load_zip_centroids", lambda: {"11435": (40.7009, -73.8095)})
     service = _serve(monkeypatch, [JAMAICA_STATION])
     census = _Census()
     patch_geo(monkeypatch, "census", census)
     patch_geo(monkeypatch, "nominatim", lambda *_args: (None, None, None))
-    assert geo._needs_lookup(key, cache)
+    assert geo.needs_lookup(key, cache)
 
-    geo._geocode_todo([key], cache, 50)
+    geo.geocode_todo([key], cache, 50)
 
     assert cache.get(key) == {**pin, "town_checked": True}
-    assert not geo._needs_lookup(key, cache)
+    assert not geo.needs_lookup(key, cache)
     assert census.streets == ["17290 HIGHLAND AVE"]
     # only the town was searched, in the US: never abroad
     assert [(params["city"], params["countrycodes"]) for params in service.sent] == [("JAMAICA", "us")]
@@ -520,5 +520,5 @@ def test_a_blocked_client_is_an_outage_not_a_miss(tmp_path, monkeypatch, no_slee
         engines.city_level("LITTLE ROCK", "AR", "")
 
     cache = _recheck_cache(tmp_path, monkeypatch)
-    geo._geocode_todo([SF_KEY], cache, 50)
-    assert "town_checked" not in cache.get(SF_KEY) and geo._needs_lookup(SF_KEY, cache)
+    geo.geocode_todo([SF_KEY], cache, 50)
+    assert "town_checked" not in cache.get(SF_KEY) and geo.needs_lookup(SF_KEY, cache)

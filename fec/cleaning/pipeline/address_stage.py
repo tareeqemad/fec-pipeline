@@ -6,24 +6,24 @@ import pandas as pd
 
 from fec.cleaning.addresses.cities import clean_cities
 from fec.cleaning.addresses.fixes.recovery import (
-    _recover_nonstreet_from_donor,
-    _recover_null_streets,
-    _trim_street_to_donor_short_form,
+    recover_nonstreet_from_donor,
+    recover_null_streets,
+    trim_street_to_donor_short_form,
 )
-from fec.cleaning.addresses.fixes.house_numbers import _recover_house_number_from_donor
+from fec.cleaning.addresses.fixes.house_numbers import recover_house_number_from_donor
 from fec.cleaning.addresses.fixes.safe_text import apply_safe_fixes
 from fec.cleaning.addresses.fixes.same_street import (
-    _recover_address_from_same_street,
+    recover_address_from_same_street,
 )
 from fec.cleaning.addresses.fixes.state_zip import (
-    _fix_impossible_city_states,
-    _fix_state_zip_mismatches,
+    fix_impossible_city_states,
+    fix_state_zip_mismatches,
 )
 from fec.cleaning.addresses.fixes.unify import (
-    _unify_street_spacing,
-    _unify_street_spellings,
-    _unify_street_types,
-    _unify_unit_designators,
+    unify_street_spacing,
+    unify_street_spellings,
+    unify_street_types,
+    unify_unit_designators,
 )
 from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes
 from fec.cleaning.addresses.review import (
@@ -55,16 +55,15 @@ def _street_reason(df: pd.DataFrame) -> pd.Series:
     return reasons
 
 
-# per-row source label for verified address rule fixes
+# per-row source label for verified address rules
 def _address_rule_source(df: pd.DataFrame) -> pd.Series:
     if "_address_rule" not in df.columns:
         return pd.Series(pd.NA, index=df.index, dtype="object")
     return df["_address_rule"]
 
 
-# normalize street text, then apply safe deterministic fixes
+# normalize street text, then apply safe fixes
 def _clean_street_text(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
-    """Normalize street text, then apply the safe text fixes."""
     df = trail.run_logged(
         df, clean_streets, "streets_normalize", _street_reason, STREET_FIELDS,
         "Streets: {streets_normalized:,} normalized, {units_extracted:,} units extracted",
@@ -79,33 +78,31 @@ def _clean_street_text(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame
     )
 
 
-# steps that take a street from other filings or FEC's API: the result is
-# not evidence two filings are one person (donor matching ignores it)
+# inferred streets are not evidence of identity
 INFERRED_STREET_STEPS = frozenset({
     "streets_recover_null", "streets_recover_nonstreet", "streets_recover_house_number",
     "streets_trim_truncated", "streets_recover_fec_api",
 })
 
-# Street recoveries from the donor's own filings, in order
+# street recoveries from donor's own filings, ordered
 _STREET_RECOVERIES = (
-    (_recover_null_streets, "streets_recover_null",
+    (recover_null_streets, "streets_recover_null",
      "street_filled_from_donor_same_city",
      "Streets: recovered {n:,} from other records of same donor"),
-    (_recover_nonstreet_from_donor, "streets_recover_nonstreet",
+    (recover_nonstreet_from_donor, "streets_recover_nonstreet",
      "nonstreet_replaced_from_donor_history",
      "Streets: recovered {n:,} non-street fragments from same donor"),
-    (_recover_house_number_from_donor, "streets_recover_house_number",
+    (recover_house_number_from_donor, "streets_recover_house_number",
      "house_number_backfilled_from_donor_history",
      "Streets: backfilled {n:,} missing house numbers from same donor"),
-    (_trim_street_to_donor_short_form, "streets_trim_truncated",
+    (trim_street_to_donor_short_form, "streets_trim_truncated",
      "truncated_street_fragment_replaced_by_donor_short_form",
      "Streets: trimmed {n:,} truncated streets back to the donor's short form"),
 )
 
 
-# fill missing or broken streets from donor, then fec.gov
+# fill broken streets from donor, then FEC
 def _recover_streets(df: pd.DataFrame, trail: AuditTrail, cache_dir, log) -> None:
-    """Fill missing or broken streets from the donor, then FEC."""
     for recovery, step, reason, message in _STREET_RECOVERIES:
         trail.run_logged(df, recovery, step, reason, STREET_FIELDS, message, log)
 
@@ -118,7 +115,6 @@ def _recover_streets(df: pd.DataFrame, trail: AuditTrail, cache_dir, log) -> Non
 
 # normalize city names, then clean zip codes
 def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.DataFrame:
-    """Normalize city names and ZIP codes."""
     df = trail.run_logged(
         df, lambda frame: clean_cities(frame, fuzzy=True, report_dir=out_dir),
         "cities_normalize", "city_alias_typo_or_punctuation_normalized", PLACE_FIELDS,
@@ -133,40 +129,39 @@ def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.Dat
     )
 
 
-# Address alignment passes, in order: (transform, audit step, reason, fields, log line)
+# address alignment passes, run in order
 _ALIGN_STEPS = (
-    (_fix_impossible_city_states, "address_city_state_conflict",
+    (fix_impossible_city_states, "address_city_state_conflict",
      "state_fixed_from_person_history_same_city", PLACE_FIELDS,
      "City-state: {n:,} impossible states fixed (city is the witness)"),
-    (_fix_state_zip_mismatches, "address_zip_state_conflict",
+    (fix_state_zip_mismatches, "address_zip_state_conflict",
      "state_fixed_or_zip_nulled_by_city_witness", PLACE_FIELDS,
      "State-ZIP: {state_fixed:,} states fixed (ZIP kept), {zip_nulled:,} ZIPs nulled (state kept)"),
-    (_unify_street_spellings, "streets_unify_spelling",
+    (unify_street_spellings, "streets_unify_spelling",
      "street_spelling_unified_to_donor_dominant", STREET_FIELDS,
      "Streets: unified {n:,} spelling variants (same donor + same address)"),
-    (_unify_street_types, "streets_unify_types",
+    (unify_street_types, "streets_unify_types",
      "street_type_unified_to_donor_dominant", STREET_FIELDS,
      "Streets: unified {n:,} with/without-type variants (same donor)"),
-    (_unify_street_spacing, "streets_unify_spacing",
+    (unify_street_spacing, "streets_unify_spacing",
      "street_spacing_unified_to_donor_dominant", STREET_FIELDS,
      "Streets: unified {n:,} spacing/punctuation variants (same address)"),
-    (_recover_address_from_same_street, "address_same_street_align",
+    (recover_address_from_same_street, "address_same_street_align",
      "aligned_to_donor_dominant_at_same_street", PLACE_FIELDS,
      "Same-street: {zip:,} ZIPs filled, {city:,} cities + {state:,} states aligned"),
-    (_unify_unit_designators, "streets_unify_units",
+    (unify_unit_designators, "streets_unify_units",
      "unit_designator_unified_to_donor_dominant", STREET_FIELDS,
      "Streets: unified {n:,} unit-designator variants (same donor + same unit)"),
 )
 
 
-# align each donor's city, state, zip, and street spelling
+# align each donor's city, state, zip, street
 def _align_address_parts(df: pd.DataFrame, trail: AuditTrail, log) -> None:
-    """Align each donor's city, state, ZIP and street spellings."""
     for transform, step, reason, fields, message in _ALIGN_STEPS:
         trail.run_logged(df, transform, step, reason, fields, message, log)
 
 
-# log counts of rows left for address review
+# log counts left for address review
 def log_review_queues(counts: dict, log) -> None:
     if counts["manual_review"] or counts["auto_fixed"] or counts["regeocode"]:
         log(
@@ -187,22 +182,16 @@ def _report_address_issues(
     if emptied:
         log(f"Address review: {emptied:,} bad street_2 emptied")
     if reports is not None:
-        # clean_pipeline writes the queues after the donor stage
+        # queues written after the donor stage
         reports["street2_auto_fixed"] = auto_fixed
     return df
 
 
-# run the full address cleaning stage end-to-end
+# run address stage; queues written by caller
 def clean_addresses(
     df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
     cache_dir=None,
 ) -> pd.DataFrame:
-    """Run the whole address stage.
-
-    With ``reports`` the review queues are not written here: the street_2 values
-    the stage emptied are stored in it for clean_pipeline, which writes the queues
-    from the final rows.
-    """
     df = _clean_street_text(df, trail, log)
     _recover_streets(df, trail, cache_dir, log)
     df = _clean_city_zip(df, trail, out_dir, log)

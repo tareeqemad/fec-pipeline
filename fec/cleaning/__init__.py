@@ -1,1 +1,1 @@
-"""FEC data cleaning package; the entry point is pipeline.core.clean_pipeline."""
+"""Cleaning package; entry point: pipeline.core.clean_pipeline."""

@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
-from fec.database.loader._base import _count, to_float_or_none, to_native
+from fec.database.loader._base import count_rows, to_float_or_none, to_native
 from fec.env import EMPLOYER_LOCATIONS_CSV
 from fec.log import get_logger
 from fec.resolve.pipeline.locations import PUBLISHABLE_ADDRESS_TRUST
@@ -15,9 +15,8 @@ from fec.resolve.pipeline.locations import PUBLISHABLE_ADDRESS_TRUST
 logger = get_logger(__name__)
 
 
-# treat an empty string address part as null
+# blank address part becomes NULL, never ''
 def _blank_to_none(value):
-    """A missing address part is NULL, never '' (the CSV is read with keep_default_na=False)."""
     value = to_native(value)
     if isinstance(value, str) and not value.strip():
         return None
@@ -26,7 +25,6 @@ def _blank_to_none(value):
 
 # load resolved, publishable employer locations from disk
 def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
-    """Read resolved employer locations; empty address parts become None."""
     if frame is None:
         if not EMPLOYER_LOCATIONS_CSV.exists():
             return []
@@ -37,8 +35,7 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
         )
     locations = []
     for row in frame.to_dict("records"):
-        # a home-based business is published as its town only (no street); a row
-        # with neither a street nor a town is an employer without a public office
+        # neither street nor town: no public office
         if (_blank_to_none(row.get("employer_address")) is None
                 and _blank_to_none(row.get("employer_city")) is None):
             continue
@@ -66,14 +63,12 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
 
 # treat an empty string value as null
 def _empty_to_none(value):
-    """Native value with '' stored as NULL; _akey already maps both to ''."""
     value = to_native(value)
     return None if value == '' else value
 
 
-# normalized address key tuple used to match rows
-def _akey(st1, st2, city, state, z):
-    """Normalized address tuple, '' for empty parts, matching the COALESCE(col,'') shape read back from addresses."""
+# address key, '' for blanks like COALESCE
+def address_tuple(st1, st2, city, state, z):
     return (to_native(st1) or '', to_native(st2) or '', to_native(city) or '',
             to_native(state) or '', to_native(z) or '')
 
@@ -85,7 +80,6 @@ def load_address_dimension(
     df: pd.DataFrame,
     employer_locations: list[dict] | None = None,
 ) -> dict:
-    """Step 4: load donor and employer addresses."""
     logger.info("\n-- 4/8 Loading addresses (shared dimension) --")
     start = time.time()
 
@@ -98,30 +92,27 @@ def load_address_dimension(
         [tuple(addr_dim[key]) for key in addr_keys], page_size=5000,
         template="(%s, %s, %s, %s, %s, %s::float8, %s::float8)")
 
-    # Match nullable fields.
+    # COALESCE so NULL parts match the keys
     cur.execute("""SELECT address_id, COALESCE(street_1,''), COALESCE(street_2,''),
                           COALESCE(city,''), COALESCE(state_code,''), COALESCE(zip_code,'')
                    FROM addresses""")
     addr_dim_id = {}
     for row in cur.fetchall():
         addr_dim_id[(row[1], row[2], row[3], row[4], row[5])] = row[0]
-    logger.info(f"  addresses: {_count(cur, 'addresses'):,} ({time.time()-start:.1f}s)")
+    logger.info(f"  addresses: {count_rows(cur, 'addresses'):,} ({time.time()-start:.1f}s)")
     return addr_dim_id
 
 
-# use given employer locations, or load them from disk
+# given employer locations, else load from disk
 def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
-    """The given employer locations, else the ones on disk."""
     if employer_locations is None:
         return load_employer_locations()
     return employer_locations
 
 
-# one row per distinct donor or employer address
+# one row per distinct donor/employer address
 def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
-    """One row per distinct donor or employer address, with coordinates."""
     addr_dim = {}
-    # Donor addresses.
     for (street_1, street_2, city, state, zip_code), group in df.groupby(
         ['contributor_street_1', 'contributor_street_2', 'contributor_city',
          'contributor_state', 'contributor_zip'], dropna=False
@@ -143,24 +134,22 @@ def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
     return addr_dim
 
 
-# add an address, or backfill its missing coordinates
+# add address or backfill missing coordinates
 def _add_address(addr_dim: dict, st1, st2, city, state, z, lat, lng) -> None:
-    """Add one address, or fill a stored address's missing coordinates."""
-    key = _akey(st1, st2, city, state, z)
+    key = address_tuple(st1, st2, city, state, z)
     entry = addr_dim.get(key)
     if entry is None:
-        # '' and NULL share one key (_akey), so store the NULL form.
+        # blank equals NULL in key; store NULL
         addr_dim[key] = [_empty_to_none(st1), _empty_to_none(st2),
                          _empty_to_none(city), _empty_to_none(state),
                          _empty_to_none(z), lat, lng]
-    elif entry[5] is None and lat is not None:  # Backfill coordinates.
+    elif entry[5] is None and lat is not None:
         entry[5], entry[6] = lat, lng
 
 
-# load donor-address link rows and their lookup map
+# load donor_addresses links, return lookup map
 def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
                          donor_key_to_id: dict, addr_dim_id: dict) -> dict:
-    """Step 5: donor_addresses link rows; returns (donor_id, st1, st2, city, state, zip) -> donor_address_id."""
     logger.info("\n-- 5/8 Loading donor addresses --")
     start = time.time()
 
@@ -174,7 +163,7 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
         donor_id = donor_key_to_id.get(donor_key)
         if not donor_id:
             continue
-        address_id = addr_dim_id.get(_akey(street_1, street_2, city, state, zip_code))
+        address_id = addr_dim_id.get(address_tuple(street_1, street_2, city, state, zip_code))
         if address_id is None:
             continue
         donor_address_rows.append((donor_id, address_id))
@@ -183,7 +172,6 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
         "INSERT INTO donor_addresses (donor_id, address_id) VALUES %s",
         donor_address_rows, page_size=5000)
 
-    # Build donor-address lookup.
     cur.execute("""
         SELECT da.donor_address_id, da.donor_id,
                COALESCE(a.street_1,''), COALESCE(a.street_2,''),
@@ -193,7 +181,7 @@ def load_donor_addresses(conn: Any, cur: Any, df: pd.DataFrame,
     """)
     for row in cur.fetchall():
         addr_key_to_id[(row[1], row[2], row[3], row[4], row[5], row[6])] = row[0]
-    logger.info(f"  donor_addresses: {_count(cur, 'donor_addresses'):,} ({time.time()-start:.1f}s)")
+    logger.info(f"  donor_addresses: {count_rows(cur, 'donor_addresses'):,} ({time.time()-start:.1f}s)")
     return addr_key_to_id
 
 
@@ -205,7 +193,6 @@ def link_employer_locations(
     get_employer_id,
     employer_locations: list[dict] | None = None,
 ) -> None:
-    """Step 8: link each employer's default location."""
     logger.info("\n-- 8/8 Linking employer locations --")
     start = time.time()
 
@@ -230,7 +217,6 @@ def link_employer_locations(
 
 # employer/address id pairs for each primary location
 def _primary_location_rows(locations, addr_dim_id: dict, get_employer_id) -> list[tuple]:
-    """(employer_id, address_id) for each employer's primary location."""
     employer_rows = []
     for location in locations:
         if not location["is_primary"]:
@@ -241,7 +227,7 @@ def _primary_location_rows(locations, addr_dim_id: dict, get_employer_id) -> lis
                 "employer location has no exact employer match: "
                 f"{location['employer_name']!r}"
             )
-        address_id = addr_dim_id.get(_akey(
+        address_id = addr_dim_id.get(address_tuple(
             location["employer_address"], None,
             location["employer_city"], location["employer_state"],
             location["employer_zip"],
@@ -255,9 +241,8 @@ def _primary_location_rows(locations, addr_dim_id: dict, get_employer_id) -> lis
     return employer_rows
 
 
-# delete addresses no donor, employer, or employment uses
+# delete addresses no donor, employer, employment uses
 def _prune_orphan_addresses(conn, cur) -> None:
-    """Delete addresses no donor, employer or employment uses."""
     cur.execute("""
         DELETE FROM addresses a
         WHERE NOT EXISTS (SELECT 1 FROM donor_addresses d WHERE d.address_id = a.address_id)

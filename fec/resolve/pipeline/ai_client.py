@@ -1,4 +1,4 @@
-"""OpenAI client for employer lookups; reads OPENAI_API_KEY and AI_MODEL."""
+"""OpenAI client for employer lookups."""
 import os
 
 from openai import OpenAI
@@ -22,12 +22,11 @@ _CREDIT_ERROR_MARKERS = (
 
 
 class AIQuotaExhausted(RuntimeError):
-    """The AI provider cannot accept more requests until credits are added."""
+    """Raised when AI credits run out."""
 
 
-# detect a billing/quota error, distinct from a temporary rate limit
+# true for billing errors, not rate limits
 def is_ai_quota_error(error: Exception) -> bool:
-    """True only for billing/quota errors, not a temporary 429 rate limit."""
     body = getattr(error, 'body', None)
     if isinstance(body, dict):
         details = body.get('error', body)
@@ -43,14 +42,13 @@ def is_ai_quota_error(error: Exception) -> bool:
     return any(marker in text for marker in _CREDIT_ERROR_MARKERS)
 
 
-# read the configured AI model name, or the default
+# configured AI model name, or the default
 def get_ai_model() -> str:
     return os.environ.get("AI_MODEL", "").strip() or DEFAULT_MODEL
 
 
-# build OpenAI client and model, or None without a key
+# OpenAI client and model; None without key
 def get_ai_client():
-    """(client, model); client is None without OPENAI_API_KEY."""
     model = get_ai_model()
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
@@ -61,20 +59,17 @@ def get_ai_client():
 
 # cache tag identifying a web-search-grounded AI lookup
 def ai_method() -> str:
-    """Cache tag of a web-search-grounded lookup."""
     return f"ai_{PROVIDER}_search"
 
 
 # identity tag written on not-found cache entries
 def resolver_id() -> str:
-    """Identity tag on not-found cache entries."""
     return f"{PROVIDER}+search"
 
 
-# run one grounded web-search AI lookup, return text and cost
+# one web-search AI call; text and cost
 def ai_web_search_call(client, model: str, system_prompt: str,
                        user_prompt: str) -> tuple[str, float]:
-    """Run one grounded Responses API lookup and return text plus reported cost."""
     response = client.responses.create(
         model=model,
         input=[

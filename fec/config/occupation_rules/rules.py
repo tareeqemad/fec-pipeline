@@ -1,22 +1,22 @@
-"""Occupation cross-field rules: occupation-employer mappings and job-title sets."""
+"""Occupation and employer cross-field rule sets."""
 from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 
 
-# Explicit refusals keep NOT DISCLOSED; other fixes to that value are junk.
+# refusals that keep NOT DISCLOSED
 OCCUPATION_REFUSAL_INPUTS = frozenset({
     'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
     'DECLINED TO ANSWER', 'MYOB', 'TMI',
 })
 
-# Employer status -> occupation/category when occupation is missing.
+# employer status to occupation when missing
 OCCUPATION_FROM_EMPLOYER = {
     'RETIRED': ('RETIRED', 'RETIRED'),
     'SELF-EMPLOYED': ('SELF-EMPLOYED', 'SELF-EMPLOYED'),
     'NOT EMPLOYED': ('NOT EMPLOYED', 'NOT EMPLOYED'),
 }
 
-# Occupation status -> employer during the field-level pass.
+# occupation status to employer, field-level pass
 EMPLOYER_FROM_OCCUPATION = {
     'RETIRED': 'RETIRED',
     'NOT EMPLOYED': 'NOT EMPLOYED',
@@ -25,7 +25,7 @@ EMPLOYER_FROM_OCCUPATION = {
     'STUDENT': 'STUDENT',
 }
 
-# Donor consistency keeps homemaker distinct and handles aliases.
+# donor stage keeps HOMEMAKER distinct, adds aliases
 FINAL_EMPLOYER_FROM_OCCUPATION = {
     **EMPLOYER_FROM_OCCUPATION,
     'HOMEMAKER': 'HOMEMAKER',
@@ -68,8 +68,7 @@ FINAL_NULL_EMPLOYERS = _REFUSAL_EMPLOYERS | frozenset({
 })
 WEB_ARTIFACT_OCCUPATIONS = frozenset({
     'LOADING', 'ACMIO', 'REMD', 'SWAP MEET', 'UOOO[',
-    # a joke with no job in it (SPIES, DAVID @ SANDHURST); once nulled, the
-    # donor-stage same-employer fill restores the role he files there
+    # a joke, not a job
     'BIG BOY',
 })
 

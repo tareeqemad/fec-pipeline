@@ -1,4 +1,4 @@
-"""Clear street addresses an AI lookup made up: placeholder numbers, stopword streets."""
+"""Clear employer addresses an AI lookup invented."""
 import re
 
 import pandas as pd
@@ -6,7 +6,7 @@ import pandas as pd
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 
 # ai_xai: legacy tags still in the cache
-_AI_METHOD_RE = re.compile(r"ai_(?:openai|xai)")
+AI_METHOD_RE = re.compile(r"ai_(?:openai|xai)")
 
 
 _AI_PLACEHOLDER_NUMBERS = frozenset(
@@ -41,8 +41,7 @@ _AI_PLACEHOLDER_NUMBERS = frozenset(
 )
 
 
-# Sequential / keyboard-walk / repeated-digit numbers are almost never real
-# street numbers - diagnostic on their own, no token overlap needed.
+# sequential or repeated digits, fake by themselves
 _AI_UNAMBIGUOUS_FAKE_NUMBERS = frozenset(
     {
         "1234",
@@ -141,11 +140,11 @@ _AI_STREET_STOPWORDS = frozenset(
 )
 
 
-# a whole uppercase word of 2+ letters, to pull significant address words
+# whole uppercase words of 2+ letters
 _AI_WORD_RE = re.compile(r"\b[A-Z]{2,}\b")
 
 
-# a leading street number, captured: "123 MAIN ST" -> "123"
+# captures the leading street number
 _AI_NUM_RE = re.compile(r"^\s*(\d+)")
 
 
@@ -160,7 +159,7 @@ def _ai_words(value) -> set[str]:
     }
 
 
-# extract the leading street number from an address string
+# leading street number of an address
 def _street_number(value) -> str:
     if pd.isna(value):
         return ""
@@ -169,13 +168,9 @@ def _street_number(value) -> str:
 
 
 # clear AI-fabricated employer addresses in place
-def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
-    """Clear AI-fabricated employer_address rows in-place (method 'ai_hallucination_cleared')."""
-    if "resolve_method" not in df.columns or "employer_address" not in df.columns:
-        return
-
+def clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
     method = df["resolve_method"].fillna("").astype(str)
-    ai = method.str.contains(_AI_METHOD_RE, na=False) & ~method.str.contains(
+    ai = method.str.contains(AI_METHOD_RE, na=False) & ~method.str.contains(
         "_search", na=False, regex=False
     )
     if not ai.any():
@@ -200,9 +195,7 @@ def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
     )
 
     employer_col = df["contributor_employer"].fillna("")
-    prev_empty = (
-        df.get("previous_employer", pd.Series("", index=df.index)).fillna("").eq("")
-    )
+    prev_empty = df["previous_employer"].fillna("").eq("")
     status_no_prev = employer_col.isin(EMPLOYER_STATUS_VALUES) & prev_empty
     unambiguous_fake_num = street_number.isin(_AI_UNAMBIGUOUS_FAKE_NUMBERS)
 
@@ -215,17 +208,7 @@ def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
     if not n_cleared:
         return
 
-    address_fields = (
-        "employer_address",
-        "employer_city",
-        "employer_state",
-        "employer_zip",
-        "employer_latitude",
-        "employer_longitude",
-        "employer_geocode_level",
-    )
-    for col in address_fields:
-        if col in df.columns:
-            df.loc[hallucinated, col] = pd.NA
+    for col in ("employer_address", "employer_city", "employer_state", "employer_zip"):
+        df.loc[hallucinated, col] = pd.NA
     df.loc[hallucinated, "resolve_method"] = "ai_hallucination_cleared"
     df.loc[hallucinated, "resolve_confidence"] = "NONE"

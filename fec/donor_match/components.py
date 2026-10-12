@@ -1,9 +1,9 @@
-"""Union-find over donor profiles and the donor_key of each cluster."""
+"""Union-find clustering and donor_key hashing."""
 import hashlib
 
 
 class UnionFind:
-    """Disjoint-set with path compression and union by rank - the cluster engine."""
+    """Disjoint-set with path compression, union by rank."""
 
     # init empty parent/rank maps for union-find
     def __init__(self):
@@ -20,7 +20,7 @@ class UnionFind:
             x = self.parent[x]
         return x
 
-    # merge two clusters by rank, return whether merged
+    # merge two clusters; false if already joined
     def union(self, a, b):
         ra, rb = self.find(a), self.find(b)
         if ra == rb:
@@ -33,8 +33,8 @@ class UnionFind:
         return True
 
 
-# assign a stable donor_key hash to each cluster's members
-def _donor_keys(components: dict) -> dict:
+# stable donor_key hash for each cluster member
+def donor_keys(components: dict) -> dict:
     rid_to_key = {}
     for root, members in components.items():
         key = hashlib.sha256(root.encode()).hexdigest()[:12]
@@ -43,9 +43,8 @@ def _donor_keys(components: dict) -> dict:
     return rid_to_key
 
 
-# true if any signal string starts with this prefix
-def _has_signal(row: dict, prefix: str) -> bool:
-    """Return whether an audit row contains a scoring signal with this prefix."""
+# true if any audit signal has prefix
+def has_signal(row: dict, prefix: str) -> bool:
     return any(
         signal.strip().startswith(prefix) for signal in row["signals"].split(";")
     )

@@ -8,15 +8,15 @@ import pandas as pd
 
 from fec.cleaning.addresses.cities import clean_cities
 from fec.cleaning.addresses.street_text import (
-    _extract_units,
-    _normalize_unit,
+    extract_units,
+    normalize_unit,
     normalize_street,
 )
 from fec.cleaning.employer_status import referenced_employers
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.config.streets import HASH_EXTRACT, UNIT_EXTRACT, usps_unit_designators
 from fec.contract import check_output
-from fec.env import CACHE_DIR, CLEANED_CSV, EMPLOYER_LOCATIONS_CSV, REPORTS_DIR, RULES_DIR
+from fec.env import CACHE_DIR, CLEANED_CSV, EMPLOYER_LOCATIONS_CSV, REPORTS_DIR
 from fec.geocoding.accepted import accepted_coordinates
 from fec.geocoding.address_kind import is_foreign_address
 from fec.geocoding.reviewed_points import REVIEWED_POINTS
@@ -55,7 +55,7 @@ TRUST_RANK = {
     "uncorroborated": 1,
     "": 0,
 }
-# addresses held back from publishing, one row each, for a person to decide
+# held-back addresses, for a person to decide
 REVIEW_CSV = "employer_address_review.csv"
 REVIEW_COLUMNS = [
     "employer_name",
@@ -66,27 +66,26 @@ REVIEW_COLUMNS = [
     "method",
     "donor_states",
 ]
-# a grounded address the full lookup did not choose (a canonical sibling's) in no donor's state
+# unchosen grounded address in no donor's state
 REVIEW_ALIAS_OUTSIDE_DONOR_STATES = "grounded_alias_outside_donor_states"
-# a row kept from the previous employer_locations.csv whose cache or manual source is gone
+# carried-over row whose source is gone
 REVIEW_NO_CURRENT_SOURCE = "carried_over_without_source"
-# how precise a cached point is: a hand-checked point beats a street point, which
-# beats a ZIP centroid, which beats a town's point ('nominatim_city'); any other
-# level accepted_coordinates returns is an engine's street point
+# point precision: reviewed, street, ZIP, then town
 _LEVEL_RANK = {
     "manual_census": 4,
     "zip_centroid": 2,
 }
 _STREET_LEVEL_RANK = 3
 _TOWN_LEVEL_RANK = 1
-# a researcher's note inside the street text: "200 Liberty Street, 6th Floor (Brookfield Place)"
+# a parenthesized note inside the street text
 _EDITORIAL_NOTE_RE = re.compile(r"\s*\([^()]*\)")
 _ZIP_PLUS_FOUR_RE = re.compile(r"^(\d{5})-?\d{4}$")
-# a unit number: a single letter, or a code with at least one digit (700, 2A, E-100, 12/B)
+# unit code: a letter, or contains digits
 _UNIT_CODE_RE = re.compile(r"[A-Z]|(?=[A-Z0-9\-/.]*\d)[A-Z0-9][A-Z0-9\-/.]*", re.IGNORECASE)
 _TRAILING_UNIT_WORD_RE = re.compile(r"\s+(?:APT|UNIT|STE|SUITE)\s*$")
 
 
+# rank a geocode level by precision
 def _level_rank(level: str) -> int:
     level = str(level or "")
     if level in _LEVEL_RANK:
@@ -94,6 +93,7 @@ def _level_rank(level: str) -> int:
     return _TOWN_LEVEL_RANK if level.endswith("_city") else _STREET_LEVEL_RANK
 
 
+# read a JSON file; empty if missing
 def _read_json(path) -> dict:
     if not path.exists():
         return {}
@@ -101,11 +101,13 @@ def _read_json(path) -> dict:
         return json.load(handle)
 
 
+# uppercase address tuple with numbered street
 def _address_key(values) -> tuple[str, ...]:
     street, *rest = (str(values.get(field) or "").strip().upper() for field in ADDRESS_FIELDS)
     return (numbered_street(street), *rest)  # the street form geocode cache keys use
 
 
+# states each employer's donors file from
 def _donor_states(df: pd.DataFrame) -> dict[str, set[str]]:
     states = defaultdict(set)
     for column in NAME_COLUMNS:
@@ -116,6 +118,7 @@ def _donor_states(df: pd.DataFrame) -> dict[str, set[str]]:
     return states
 
 
+# address source and trust from resolve method
 def _trust(method: str, state: str, donor_states: set[str]) -> tuple[str, str]:
     source = "manual" if method.startswith("manual_") else (
         "ai" if method.startswith("ai") else method
@@ -131,10 +134,10 @@ def _trust(method: str, state: str, donor_states: set[str]) -> tuple[str, str]:
     return source, "uncorroborated"
 
 
+# accepted cached points per address, best level
 def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
-    """Cached coordinates the key's own address accepts, with their level (a foreign office never takes a US match)."""
     cache = _read_json(CACHE_DIR / "geocode_cache.json")
-    # a hand-checked point counts even when its key has no cache entry
+    # reviewed points count without a cache entry
     keys = {**{key: None for key in REVIEWED_POINTS}, **cache}
     coordinates = {}
     for key, result in keys.items():
@@ -150,39 +153,33 @@ def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
     return coordinates
 
 
+# employer streets in donor form, units kept
 def normalize_us_streets(streets: pd.Series) -> pd.Series:
-    """Employer street text in the donor-address form: notes in parentheses dropped, then the donor street normaliser (uppercase, USPS street types and directions) and USPS unit designators ('10TH FLOOR' -> 'FL 10', 'SUITE 200' -> 'STE 200'). The suite/floor stays on the line: employer addresses have no street_2, and the donor unit split would drop a 'BUILDING 600' in front of the suite."""
     text = streets.fillna("").astype(str).str.replace(_EDITORIAL_NOTE_RE, " ", regex=True)
     text = text.str.split().str.join(" ")
     normalized = text.map(normalize_street)
-    # a text the street normaliser reads as junk (a bare number) is kept, uppercased
+    # keep normaliser junk, like a bare number
     keep = normalized.notna() & normalized.astype(str).ne("")
     streets = normalized.where(keep, text.str.upper()).astype(str).str.strip()
     return streets.map(_abbreviate_trailing_unit).map(usps_unit_designators)
 
 
+# abbreviate only a real trailing unit code
 def _abbreviate_trailing_unit(street: str) -> str:
-    """'... SUITE 700' -> '... STE 700' with the donor unit normaliser; only the last unit, so nothing before it is lost.
-
-    Only a real unit code counts: digits, a single letter, or letters and digits
-    (700, C, 2A, E-100, PH1). '700 OFFICE PKWY', '1 POST OFFICE SQ' and 'RAYBURN HOUSE
-    OFFICE BUILDING' end in a street or building name, not a unit, and stay as they are.
-    Unit designators elsewhere on the line are rewritten by usps_unit_designators.
-    """
     match = UNIT_EXTRACT.search(street)
     if not match:
         return street
     unit_text = match.group(1).strip()
     if not _UNIT_CODE_RE.fullmatch(unit_text.split()[-1]):
         return street
-    unit = _normalize_unit(unit_text)
+    unit = normalize_unit(unit_text)
     if not isinstance(unit, str) or not unit:
         return street
     return f"{street[:match.start()].rstrip(' ,')} {unit}".strip()
 
 
+# street with every trailing unit removed
 def _bare_street(street: str) -> str:
-    """The building's street with every trailing unit removed ('399 PARK AVE FL 25 STE 2502' -> '399 PARK AVE')."""
     street = str(street or "").strip()
     while True:
         match = UNIT_EXTRACT.search(street) or HASH_EXTRACT.search(street)
@@ -197,15 +194,15 @@ def _bare_street(street: str) -> str:
         street = rest
 
 
+# street_1 as donor cleaning splits it
 def _donor_form_streets(streets: pd.Series) -> pd.Series:
-    """The street_1 a donor filing of the same text gets: the last unit moved to street_2, as the donor cleaning does."""
-    street_1, _street_2, _count, _leftovers = _extract_units(streets, pd.Series("", index=streets.index))
+    street_1, _street_2, _count, _leftovers = extract_units(streets, pd.Series("", index=streets.index))
     street_1 = street_1.fillna("").astype(str).str.replace(_TRAILING_UNIT_WORD_RE, "", regex=True)
     return street_1.str.strip()
 
 
+# employer cities in donor-address form
 def normalize_us_cities(cities: pd.Series, states: pd.Series) -> pd.Series:
-    """Employer city in the donor-address form (uppercase, FOXBOROUGH -> FOXBORO, ST. LOUIS -> SAINT LOUIS)."""
     frame = pd.DataFrame({
         "contributor_city": cities.fillna("").astype(str).str.strip(),
         "contributor_state": states.fillna("").astype(str).str.strip().str.upper(),
@@ -214,6 +211,7 @@ def normalize_us_cities(cities: pd.Series, states: pd.Series) -> pd.Series:
     return cleaned["contributor_city"].fillna("").astype(str)
 
 
+# true per row for foreign employer addresses
 def _foreign_mask(frame: pd.DataFrame) -> pd.Series:
     return pd.Series(
         [is_foreign_address(state, zipcode)
@@ -222,8 +220,8 @@ def _foreign_mask(frame: pd.DataFrame) -> pd.Series:
     )
 
 
+# normalize US addresses; foreign stay as given
 def normalize_location_addresses(frame: pd.DataFrame) -> pd.DataFrame:
-    """US employer addresses in the uppercase USPS form donor addresses use; foreign ones stay exactly as given."""
     frame = frame.copy()
     for field in ADDRESS_FIELDS:
         frame[field] = frame[field].fillna("").astype(str).str.strip()
@@ -240,6 +238,7 @@ def normalize_location_addresses(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+# one review-list row for a location
 def _review_row(employer: str, location: dict, reason: str, **extra) -> dict:
     row = {
         "employer_name": employer,
@@ -253,26 +252,19 @@ def _review_row(employer: str, location: dict, reason: str, **extra) -> dict:
     return row
 
 
+# AI-grounded address outside all donor states
 def _outside_donor_states(location: dict, donor_states: set[str]) -> bool:
-    """An AI-grounded address (not a curated one) in a state where none of the employer's donors files."""
     method = str(location.get("method") or "")
     state = str(location.get("employer_state") or "").strip().upper()
     return method.endswith("_search") and state not in donor_states
 
 
+# resolve cache rows; out-of-state aliases reviewed
 def _cache_rows(
     df: pd.DataFrame,
     employers: set[str],
     donor_states: dict[str, set[str]] | None = None,
 ) -> tuple[list[dict], set[str], list[dict]]:
-    """Rows from the resolve cache, with the address resolve's apply step uses (publishable lookup first).
-
-    When that lookup finds a grounded address the full lookup does not choose (a
-    canonical sibling behind a closed-book exact answer), an address of it in no
-    donor's state goes to the review list instead of being published: a grounded
-    address can be a stale or namesake office (WILLIAMS & CONNOLLY moved in 2022).
-    Each row carries the geocode key of its text as resolved in '_raw_key'.
-    """
     cache = _read_json(CACHE_DIR / EMPLOYER_ADDR_CACHE)
     trusted_lookup = address_cache_lookup(cache, publishable_only=True)
     lookup = address_cache_lookup(cache)
@@ -296,7 +288,7 @@ def _cache_rows(
                 for index in held
             )
             if len(held) == len(candidates):
-                # nothing of it can be published: keep the full lookup's answer
+                # all held: keep the full lookup's answer
                 entry, held = resolve_cache_entry(lookup, employer), []
                 candidates = location_candidates(entry)
         if entry is None:
@@ -318,12 +310,13 @@ def _cache_rows(
                 "is_primary": bool(location.get("is_primary")),
                 "address_source": source,
                 "address_trust": trust,
-                # the geocode cache is keyed on the text as resolved, before normalising
+                # geocode cache keys use the unnormalised text
                 "_raw_key": _address_key(location),
             })
     return rows, managed, review
 
 
+# previous CSV rows for referenced employers
 def _existing_rows(employers: set[str]) -> list[dict]:
     if not EMPLOYER_LOCATIONS_CSV.exists():
         return []
@@ -337,16 +330,8 @@ def _existing_rows(employers: set[str]) -> list[dict]:
     return frame.to_dict("records")
 
 
+# carried-over rows: unpublishable, listed for review
 def _without_trust(rows: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Rows kept from the previous CSV for employers the cache no longer knows: kept for reference, never published.
-
-    Their source (a manual row, a cache entry) is gone, so a 'verified'/'grounded'
-    label is no longer backed by anything (30 rows deleted from the manual CSV kept
-    publishing, at least 9 of them wrong). 'uncorroborated' because the loader
-    rejects an address row with a blank trust. Every such row with an address is
-    listed for review on every build, so the list does not empty itself once the
-    labels are gone; 'method' keeps the label the row came with.
-    """
     kept, review = [], []
     for row in rows:
         if str(row.get("employer_address") or "").strip():
@@ -360,16 +345,8 @@ def _without_trust(rows: list[dict]) -> tuple[list[dict], list[dict]]:
     return kept, review
 
 
+# best accepted point over an office's spellings
 def _attach_coordinates(frame: pd.DataFrame) -> pd.DataFrame:
-    """Coordinates for rows from the cache: the best accepted point among the keys one office is cached under.
-
-    The geocode cache holds an office under the text as resolved ('20900 N.E. 30TH
-    AVENUE, SUITE 203'), its normalised form ('20900 NE 30TH AVE STE 203') and, through
-    the donors, the street without its unit ('20900 NE 30TH AVE'). A street point beats
-    a ZIP centroid, which beats a town's point; on a tie the text as resolved wins. One
-    normalised address takes the best point any of its spellings has. Rows without a
-    '_raw_key' (kept from the previous CSV) keep their coordinates.
-    """
     frame = frame.copy()
     from_cache = frame["_raw_key"].notna()
     if not from_cache.any():
@@ -415,9 +392,10 @@ def _attach_coordinates(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+# dedupe rows and pick one primary each
 def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
     frame = pd.DataFrame(rows, columns=[*OUTPUT_COLUMNS, "_raw_key"]).astype(object)
-    # one spelling per building, so variants of one address collapse below
+    # one spelling per building, so variants collapse
     frame = normalize_location_addresses(frame)
     frame = _attach_coordinates(frame)
     frame["is_primary"] = frame["is_primary"].map(
@@ -447,8 +425,8 @@ def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
             .reset_index(drop=True))
 
 
+# location and review rows from all sources
 def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(employer_locations rows, review rows) from the cleaned filings, the caches and the previous CSV."""
     employers = referenced_employers(df)
     donor_states = _donor_states(df)
     existing = _existing_rows(employers)
@@ -463,6 +441,7 @@ def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return locations, review_frame
 
 
+# write employer locations and slim cleaned CSV
 def build() -> tuple[int, int]:
     df = pd.read_csv(CLEANED_CSV, dtype=str, keep_default_na=False, na_values=[""])
     unfinished = sorted(set(INTERNAL_OUTPUT_COLUMNS) & set(df.columns))

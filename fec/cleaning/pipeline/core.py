@@ -1,4 +1,4 @@
-"""Clean records, identify donors, and standardize their history."""
+"""Clean records, identify donors, standardize their history."""
 
 from __future__ import annotations
 
@@ -37,14 +37,14 @@ from fec.cleaning.occupations.clean import clean_employer_occupation
 from fec.cleaning.pipeline.address_stage import INFERRED_STREET_STEPS, clean_addresses, log_review_queues
 from fec.cleaning.pipeline.donor_identity import identify_donors
 from fec.cleaning.pipeline.donor_stage import standardize
-from fec.cleaning.pipeline.name_parsing import _preclean_name_punctuation
-from fec.cleaning.pipeline.names import _clean_names
-from fec.cleaning.pipeline.reclassify import _reclassify_entities
+from fec.cleaning.pipeline.name_parsing import preclean_name_punctuation
+from fec.cleaning.pipeline.names import clean_names
+from fec.cleaning.pipeline.reclassify import reclassify_entities
 from fec.cleaning.pipeline.reclassify_restore import (
-    _clear_individual_residue,
-    _restore_reclassified_committees,
+    clear_individual_residue,
+    restore_reclassified_committees,
 )
-from fec.cleaning.pipeline.reports import _build_missing_report, _sanity_check
+from fec.cleaning.pipeline.reports import build_missing_report, sanity_check
 from fec.cleaning.record_rules import apply_record_rules
 from fec.committees import committee_id_to_name
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
@@ -56,7 +56,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# dedupe, normalize state, mark missing occupation/employer, parse dates
+# dedupe, normalize state, mark missing, parse dates
 def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
     df["_generational_suffix"] = df["contributor_name"].map(
         extract_generational_suffix
@@ -70,12 +70,11 @@ def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
 
     state = df["contributor_state"].astype("string").str.strip().str.upper()
     df["contributor_state"] = state.where(state.fillna("") != "", pd.NA).astype(object)
-    # a filing is never dropped for its state: a Canadian 'ON' is a foreign
-    # address the foreign step keeps as filed, and every donation counts
+    # never drop a filing for its state
     unknown = int((~df["contributor_state"].isin(US_STATES)).sum())
     log(f"States: {unknown:,} filing(s) with a state outside the US list, kept as filed")
 
-    # record missing occupation/employer before later steps fill them
+    # flag missing values before later steps fill
     def _mark_missing(field):
         raw = df[field].astype("string").fillna("").str.strip().str.upper()
         return df[field].isna() | (raw == "") | raw.isin(MISSING_VALUES)
@@ -87,7 +86,7 @@ def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
         df["contribution_receipt_date"], errors="coerce"
     )
 
-    warnings = _sanity_check(df)
+    warnings = sanity_check(df)
     if warnings:
         log(f"Sanity: {'; '.join(warnings)}")
     else:
@@ -104,11 +103,11 @@ def _reclassify_reason(df: pd.DataFrame) -> pd.Series:
     return reasons.where(reasons.notna(), "entity_type_from_business_or_committee_signal")
 
 
-# clean names, occupations, and reclassify misclassified entity types
+# clean names, occupations; reclassify entity types
 def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     trail.run(
         df,
-        _preclean_name_punctuation,
+        preclean_name_punctuation,
         "names_preclean_punctuation",
         "name_punctuation_cleaned",
         NAME_FIELDS,
@@ -124,7 +123,7 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     )
 
     n_to_indiv, n_to_comm = trail.run(
-        df, _reclassify_entities, "reclassify", _reclassify_reason,
+        df, reclassify_entities, "reclassify", _reclassify_reason,
         ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS,
     )
     log(
@@ -132,21 +131,21 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     )
     trail.run(
         df,
-        lambda frame: _restore_reclassified_committees(
+        lambda frame: restore_reclassified_committees(
             frame, raw_occupations, raw_employers, log
         ),
         "reclassify_restore_work_fields",
         "raw_work_fields_restored_for_reclassified_committee", WORK_FIELDS,
     )
     trail.run(
-        df, _clear_individual_residue, "reclassify_clear_residue",
+        df, clear_individual_residue, "reclassify_clear_residue",
         "short_junk_value_nulled_for_individual", WORK_FIELDS,
     )
-    _clean_names(df, trail)
+    clean_names(df, trail)
     return df
 
 
-# attach committee names and build the missing-data report
+# attach committee names, build missing-data report
 def _finish_records(df: pd.DataFrame, log):
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])
@@ -161,7 +160,7 @@ def _finish_records(df: pd.DataFrame, log):
     if unknown:
         log(f"WARNING: committee_id(s) not in committees.csv (kept raw): {unknown}")
 
-    missing = _build_missing_report(df)
+    missing = build_missing_report(df)
 
     columns = [column for column in OUTPUT_COLUMNS if column in df.columns]
     return df[columns], missing
@@ -175,7 +174,6 @@ def _clean_fields(
     address_reports: dict | None = None,
     cache_dir: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Clean contribution fields before donor matching."""
     start = time.time()
     log = logger.info
 
@@ -189,7 +187,7 @@ def _clean_fields(
     return df, missing
 
 
-# clean every contribution record and reapply curated overrides
+# clean every record, then reapply curated overrides
 def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
@@ -197,11 +195,6 @@ def clean_records(
     address_reports: dict | None = None,
     cache_dir: str | None = None,
 ):
-    """Clean every contribution record.
-
-    ``address_reports`` (optional) collects what the address stage leaves for the
-    review queues, so the caller can write them later.
-    """
     df_clean, missing = _clean_fields(
         df, trail, out_dir=out_dir, address_reports=address_reports, cache_dir=cache_dir,
     )
@@ -230,19 +223,11 @@ def standardize_donors(
     out_dir: str | None = None,
     trail: AuditTrail | None = None,
 ) -> pd.DataFrame:
-    """Make each donor consistent across filings."""
     return standardize(df_clean, out_dir, trail or AuditTrail())
 
 
-# write address review queues from the final cleaned rows
+# write address review queues from final rows
 def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail) -> None:
-    """Write the address review queues from the final rows (read-only: edits nothing).
-
-    Written here rather than in the address stage so donor-stage repairs are
-    reflected and every row carries its donor_key; foreign filings (kept as
-    filed, never geocoded) are not queued.
-    """
-
     review_df, regeocode_df = build_review_queues(
         df_clean,
         address_reports.get("street2_auto_fixed"),
@@ -256,10 +241,8 @@ def _write_address_queues(df_clean, out_dir, address_reports: dict, foreign_sub_
                 f"{len(cases):,}", f"{int(cases['priority'].eq('high').sum()):,}")
 
 
-# label each row's employer/occupation as filed or inferred
+# label each row's work filed or inferred
 def _employment_sources(df: pd.DataFrame, trail: AuditTrail, filed_work: pd.DataFrame) -> pd.Series:
-    """'inferred' where the employer or occupation came from other filings or a
-    manual override naming work the filing never did, else 'filed'."""
     inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
     inferred |= outside_work_sub_ids(filed_work)
     has_work = (
@@ -270,42 +253,25 @@ def _employment_sources(df: pd.DataFrame, trail: AuditTrail, filed_work: pd.Data
     return pd.Series("filed", index=df.index).mask(from_others, "inferred")
 
 
-# run the complete cleaning pipeline end to end
+# run every stage; manual overrides are final
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
     cache_dir: str | None = None,
 ):
-    """Run the complete cleaning pipeline.
-
-    Reports go to ``out_dir``; the FEC address cache is read from ``cache_dir``
-    (``out_dir`` when not given).
-
-    Stages, in order, and the fields each may change:
-      1. clean_records: each filing on its own (names, entity type, addresses,
-         employer and occupation), then the manual overrides' first pass.
-      2. identify_donors: donor_key and identity_status only.
-      3. standardize_donors: one donor's filings made consistent (names,
-         employer, addresses, fills from the donor's other filings); held and
-         unresolved filings stay as filed. It ends with the overrides' late
-         pass, so a hand-set employer or a [CLEAR] cell is the final word.
-      4. foreign_address_restore: a foreign filing gets its filed address back.
-    A manual override is final for every field it sets; final_verify.py fails
-    when a later step changed one.
-    """
     trail = AuditTrail()
-    # foreign filings are kept exactly as filed: remember them before any repair
+    # snapshot foreign filings before any repair
     foreign = snapshot_foreign_addresses(df)
-    # what each filing itself said about work, to tell filed from inferred later
+    # filed work, to tell filed from inferred
     filed_work = df.reindex(columns=list(FILED_WORK_FIELDS)).fillna("").astype(str)
-    # each filing's address as filed, the review cases' evidence
+    # filed addresses, evidence for review cases
     filed_addresses = df.reindex(columns=["sub_id", *ADDRESS_FIELDS]).fillna("").astype(str)
     address_reports: dict = {}
     df_clean, missing = clean_records(
         df, trail, out_dir=out_dir, address_reports=address_reports,
         cache_dir=cache_dir or out_dir,
     )
-    # a street taken from another filing is not evidence for matching it to that filing
+    # inferred streets are not matching evidence
     df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(
         trail.keys_set_by(INFERRED_STREET_STEPS, STREET_FIELDS)
     )

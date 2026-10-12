@@ -8,8 +8,8 @@ from typing import Any
 
 import pandas as pd
 
-from fec.database.loader._base import _count, connect, load_transaction, stage
-from fec.database.loader.access import _check_reader, grant_read_access
+from fec.database.loader._base import count_rows, connect, load_transaction, stage
+from fec.database.loader.access import check_reader, grant_read_access
 from fec.database.loader.addresses import (
     link_employer_locations,
     load_address_dimension,
@@ -18,7 +18,7 @@ from fec.database.loader.addresses import (
 from fec.database.loader.contributions import load_contributions
 from fec.database.loader.donors import load_donors
 from fec.database.loader.employers import (
-    _make_employer_resolver,
+    make_employer_resolver,
     load_employers,
     load_employments,
 )
@@ -35,7 +35,7 @@ from fec.database.loader.schema_create import (
     verify_extensions,
 )
 from fec.database.loader.schema_reset import reset_schema
-from fec.database.loader.validate import _read_input
+from fec.database.loader.validate import read_input
 from fec.env import CLEANED_CSV
 from fec.log import get_logger
 
@@ -44,24 +44,23 @@ logger = get_logger(__name__)
 __all__ = ["main", "connect"]
 
 
-# log row counts for every table, view, and matview
+# log row counts of tables and views
 def show_stats(cur: Any) -> None:
     logger.info("\n  -- Database Stats --")
     logger.info(f"  {'Name':35s} {'Type':8s} {'Rows':>10s}")
     logger.info(f"  {'-' * 35} {'-' * 8} {'-' * 10}")
     for names, kind in ((TABLES, "table"), (VIEWS, "view"), (MAT_VIEWS, "matview")):
         for name in names:
-            logger.info(f"  {name:35s} {kind:8s} {_count(cur, name):>10,}")
+            logger.info(f"  {name:35s} {kind:8s} {count_rows(cur, name):>10,}")
 
 
-# load every table in dependency order, passing ID maps forward
+# load tables in order, passing id maps
 def load_all(
     conn: Any,
     cur: Any,
     df: pd.DataFrame,
     employer_locations: list[dict],
 ) -> None:
-    """Load tables and pass their ID maps forward."""
     cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
     occ_cat_map = {row[1]: row[0] for row in cur.fetchall()}
 
@@ -75,7 +74,7 @@ def load_all(
     with stage(conn, "employers"):
         emp_name_to_id = load_employers(conn, cur, df)
         link_previous_employers(conn, cur, df, emp_name_to_id)
-    get_employer_id = _make_employer_resolver(emp_name_to_id)
+    get_employer_id = make_employer_resolver(emp_name_to_id)
 
     with stage(conn, "addresses"):
         addr_dim_id = load_address_dimension(conn, cur, df, employer_locations)
@@ -94,22 +93,20 @@ def load_all(
         link_employer_locations(conn, cur, addr_dim_id, get_employer_id, employer_locations)
 
 
-# refresh materialized views concurrently
+# refresh concurrently; needs schema.sql's unique index
 def refresh_materialized_views(conn: Any, cur: Any) -> None:
-    """Refresh concurrently; schema.sql supplies the required unique index."""
     logger.info("\n-- Refreshing materialized views --")
     start = time.time()
 
     cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
     cur.execute("ANALYZE mv_donor_profile")
     logger.info(
-        f"  mv_donor_profile: {_count(cur, 'mv_donor_profile'):,} rows ({time.time() - start:.1f}s)"
+        f"  mv_donor_profile: {count_rows(cur, 'mv_donor_profile'):,} rows ({time.time() - start:.1f}s)"
     )
 
 
 # stop unless the caller passed --reset
 def _require_reset_flag() -> None:
-    """Stop unless the caller passed --reset."""
     parser = argparse.ArgumentParser(
         description="Load FEC data into normalized PostgreSQL"
     )
@@ -124,19 +121,18 @@ def _require_reset_flag() -> None:
 
 # refresh planner statistics for every non-empty table
 def _analyze_tables(conn, cur) -> None:
-    """Refresh planner statistics for every non-empty table."""
     logger.info("\n-- Analyzing tables --")
     for table in TABLES:
-        if _count(cur, table) > 0:
+        if count_rows(cur, table) > 0:
             cur.execute(f"ANALYZE {table}")
     logger.info("  ANALYZE complete")
 
 
-# entry point: reset and reload the database from cleaned CSV
+# reset and reload the database from CSV
 def main() -> None:
     _require_reset_flag()
     try:
-        df, employer_locations = _read_input()
+        df, employer_locations = read_input()
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(f"ERROR: {error}") from error
 
@@ -149,7 +145,7 @@ def main() -> None:
     logger.info(f"  Database: {conn.info.dbname}")
     logger.info(f"{'=' * 60}")
 
-    _check_reader(cur)
+    check_reader(cur)
     verify_extensions(cur)
 
     total_start = time.time()
@@ -157,8 +153,7 @@ def main() -> None:
     logger.info(f"\n-- Reading {CLEANED_CSV.name} --")
     logger.info(f"  {len(df):,} rows, {df['donor_key'].nunique():,} donors")
 
-    # one transaction from the drop to the grants (_base.load_transaction):
-    # a failure anywhere leaves the previous load in place
+    # failure anywhere keeps the previous load
     with load_transaction(conn):
         with stage(conn, "schema"):
             reset_schema(conn, cur)

@@ -7,7 +7,7 @@ from fec.io import write_json_atomic
 
 
 class Cache:
-    # load cached data from path if it exists
+    # load cached data from path if present
     def __init__(self, path):
         self.path = path
         self.data = {}
@@ -19,11 +19,11 @@ class Cache:
     def get(self, key):
         return self.data.get(key)
 
-    # store a value under key in the cache
+    # store a value under key
     def put(self, key, value):
         self.data[key] = value
 
-    # remove a key from the cache if present
+    # remove a key if present
     def discard(self, key):
         self.data.pop(key, None)
 

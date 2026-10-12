@@ -1,7 +1,4 @@
-"""Check every identity case reviewed on 2026-09-24 against the cleaned CSV; exit 1 on any failure.
-
-Usage: python tools/audits/identity_cases.py [path/to/contributions_cleaned.csv]
-"""
+"""Check reviewed identity cases against the CSV."""
 import sys
 
 import pandas as pd
@@ -12,14 +9,20 @@ b['amt'] = pd.to_numeric(b.contribution_receipt_amount)
 by = b.set_index('sub_id')
 fails = []
 
+# donor_key of a sub_id
 def key(sub): return by.at[sub, 'donor_key']
+# total amount of a sub_id's donor
 def total(sub): return b.loc[b.donor_key == key(sub), 'amt'].sum()
+# print OK or FAIL; collect failures
 def check(label, ok, detail=''):
     print(('OK  ' if ok else 'FAIL') + f'  {label}  {detail}')
     if not ok: fails.append(label)
+# check two sub_ids have different donors
 def apart(label, a, c):
     check(label, key(a) != key(c), f'{key(a)} vs {key(c)}')
+# rows filed under an exact name
 def names(n): return b[b.contributor_name == n]
+# donor keys filed under a name
 def keys_of(n): return set(names(n).donor_key)
 
 # separations
@@ -44,7 +47,7 @@ net = b[b.contributor_name.str.contains('POLITICAL NETWORK')]
 check('Network filings: each its own key', net.donor_key.nunique() == len(net), f'{len(net)} filings')
 check('De Toledo Philip $1,896,300', round(b.loc[b.contributor_name == 'DE TOLEDO, PHILIP', 'amt'].sum()) == 1896300)
 check('Comanor $17,300', round(b.loc[b.contributor_name == 'COMANOR, WILLIAM', 'amt'].sum()) == 17300)
-# holds / joint names
+# holds and joint names
 check('Morris STUN $2,000 off Ellen', key('4052620261511336845') not in set(names('MORRIS, ELLEN').donor_key) or round(total('4052620261511336845')) == 2000)
 check('Ellen Morris $12,000', round(b.loc[b.contributor_name == 'MORRIS, ELLEN', 'amt'].groupby(b.donor_key).sum().max()) == 12000)
 for sub, solo, amt in [('4062420241962023287', 'BOSCHAN, SHIRA', 3250), ('4112020241071383819', 'STEIN, BERNARDO', 1550),
@@ -65,7 +68,7 @@ check('Foldes $100: SELF-EMPLOYED kept', by.at['4102420231807010022', 'contribut
 check('Chrystal: no garbled name', not b.contributor_name.str.contains('GLENN STUART CHRYSTA').any())
 check('S. Wolf Harris name kept', 'WOLF' in by.at['4081920251218698011', 'contributor_name'])
 check('T Alison Robbins name kept', 'ALISON' in by.at['4111420241068713232', 'contributor_name'])
-# second recheck, 2026-09-25
+# held joint filings and inferred work
 held = ['4011420231698184106', '4011420231698186281', '4072420241978928304', '4060420241953433739', '4052120241949843793']
 check('HEALTH, GOOD and WINN joint filings held', all(by.at[s, 'identity_status'] == 'held' for s in held),
       str({s: by.at[s, 'identity_status'] for s in held}))
@@ -76,13 +79,13 @@ for sub, who in inferred.items():
     check(f'{who}: work taken from other filings marked inferred', by.at[sub, 'employment_source'] == 'inferred')
 check('Givner: firm named only by own surname marked inferred',
       (b.loc[b.contributor_name == 'GIVNER, JOEY', 'employment_source'] == 'inferred').any())
-joint = b[b.donor_key == key('4011620261302587003')]  # MORRIS, ELLEN STU filed 2025
+joint = b[b.donor_key == key('4011620261302587003')]
 check('Morris joint Ellen+Stu filings: one held group, $11,200',
       len(joint) == 15 and joint.donor_key.nunique() == 1 and set(joint.identity_status) == {'held'}
       and round(joint.amt.sum()) == 11200 and joint.contributor_name.str.contains('STU').all(),
       f'{len(joint)} filings, {joint.donor_key.nunique()} keys, ${joint.amt.sum():,.0f}')
 check('Stuart Morris alone $15,709', round(b.loc[b.contributor_name == 'MORRIS, STUART', 'amt'].sum()) == 15709)
-# entity recheck, 2026-09-27: FEC returns entity_type ORG for these payers
+# FEC types these payers as ORG
 for org, n in [('AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE', 8), ('DEMOCRATIC MAJORITY FOR ISRAEL', 8),
                ('DEMOCRACY ENGINE LLC', 5), ('HDS HERCULES', 1)]:
     rows = names(org)

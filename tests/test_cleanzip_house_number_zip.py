@@ -11,7 +11,7 @@ import pytest
 from fec.cleaning.addresses.cities import clean_cities
 from fec.cleaning.addresses.fixes import state_zip
 from fec.cleaning.addresses.fixes.state_zip import is_zcta, zip_state
-from fec.cleaning.addresses.street_text import _drop_repeated_street
+from fec.cleaning.addresses.street_text import drop_repeated_street
 from fec.cleaning.addresses.streets import clean_streets
 from fec.cleaning.addresses.zips import clean_zips
 from fec.cleaning.audit_trail import (
@@ -219,7 +219,7 @@ def test_changes_are_recorded_by_the_steps_that_own_the_fields():
     ('500 MAIN ST 500', '500 MAIN ST 500'),
 ])
 def test_drop_repeated_street(street, expected):
-    assert _drop_repeated_street(street) == expected
+    assert drop_repeated_street(street) == expected
 
 
 def test_zip_state_and_zcta_helpers():

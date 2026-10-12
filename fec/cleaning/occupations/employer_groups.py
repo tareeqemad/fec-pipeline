@@ -1,4 +1,4 @@
-"""Unify employer spelling variants by a strict group key."""
+"""Unify employer spelling variants by strict key."""
 import re
 from collections import defaultdict
 
@@ -15,16 +15,15 @@ _DOTTED_SUFFIX_RE = re.compile(r',?\s*\b(P\.C\.?|P\.A\.?)\s*$')
 _CORP_SUFFIX_RE = re.compile(
     r',?\s*\b(INC|LLC|LLP|LTD|CORP|CORPORATION|COMPANY|CO|PC|PA|PLLC|LP)\s*$'
 )
-# a professional designation before PA/PC, kept as-is: "JOHN SMITH CPA PA"
+# designation before PA/PC, like "CPA PA", stays
 _PA_PC_PROTECT_RE = re.compile(
     r'\b(CPA|DPA|RPA|EPA|SEPA|SHERPA)\s+(PA|PC)\s*$',
     re.IGNORECASE,
 )
 
 
-# build the strict grouping key, keeping word breaks
+# strict grouping key with word breaks kept
 def employer_group_words(name: str) -> tuple[str, ...]:
-    """The strict group key with its word breaks kept: 'TWIN CITY FAN, LTD.' -> ('TWIN', 'CITY', 'FAN')."""
     key = re.sub(r'([A-Z]),([A-Z])', r'\1\2', name.strip().upper())
     key = re.sub(r'[,\.\s]+', ' ', key)
     key = _DOTTED_SUFFIX_RE.sub('', key).strip()
@@ -39,15 +38,13 @@ def employer_group_words(name: str) -> tuple[str, ...]:
     return tuple(key.split())
 
 
-# build a strict key for employer spelling variants
-def _employer_group_key(name: str) -> str:
-    """Build a strict key for employer spelling variants (spacing ignored)."""
+# strict variant key, spacing ignored
+def employer_group_key(name: str) -> str:
     return ''.join(employer_group_words(name))
 
 
-# map each employer name to the filers who wrote it
+# map each employer to its filers
 def employer_filers(employers: pd.Series, filers: pd.Series) -> dict[str, frozenset]:
-    """Employer name -> the set of filer names who wrote it (the evidence base of prefer_attested_spacing)."""
     frame = pd.DataFrame({'employer': employers, 'filer': filers}).dropna()
     frame = frame[(frame['employer'].astype(str).str.strip() != '')
                   & (frame['filer'].astype(str).str.strip() != '')]
@@ -57,9 +54,8 @@ def employer_filers(employers: pd.Series, filers: pd.Series) -> dict[str, frozen
     return {name: frozenset(group) for name, group in frame.groupby('employer')['filer']}
 
 
-# index employer names by first word for prefix lookups
+# index employer names by first word
 def spacing_index(names) -> dict[str, list]:
-    """First word -> [(words, name)] over every employer name, for prefix lookups."""
     index = defaultdict(list)
     for name in names:
         words = employer_group_words(name)
@@ -68,22 +64,13 @@ def spacing_index(names) -> dict[str, list]:
     return index
 
 
-# pick the spacing variant the group's own filers use elsewhere
+# winner stays unless one spacing is attested
 def prefer_attested_spacing(winner: str, variants, counts, filers: dict, index: dict) -> str:
-    """Among spacing variants of one name (TWINCITY FAN / TWIN CITY FAN) keep the spacing the group's own filers use in a longer name of the same company.
-
-    Evidence is a longer employer name that starts with exactly those words and was
-    filed by one of the people who filed the group (BARRY files TWINCITY FAN, TWIN CITY FAN
-    and TWIN CITY FAN COMPANIES LTD). The frequency winner stays unless exactly one
-    spacing has such evidence, so a spacing that only an unrelated company shares
-    (BLACK ROCK COFFEE next to BLACKROCK) can never flip a group.
-    """
     words = {variant: employer_group_words(variant) for variant in variants}
     spacings = set(words.values())
     if len(spacings) < 2 or not filers:
         return winner
-    # only plain letter/digit word breaks; a break at '/' or '-' ('BANK OF
-    # AMERICA/ MERRILL') is punctuation style, which other rules own
+    # punctuation breaks are owned by other rules
     if not all(word.isalnum() for spacing in spacings for word in spacing):
         return winner
     group_filers = frozenset().union(*(filers.get(variant, frozenset()) for variant in variants))
@@ -110,9 +97,8 @@ def prefer_attested_spacing(winner: str, variants, counts, filers: dict, index: 
     )
 
 
-# unify punctuation, suffix, and spacing variants of employer names
-def _canonicalize_employers(df: pd.DataFrame) -> int:
-    """Unify punctuation, suffix and spacing variants of employer names."""
+# unify punctuation, suffix and spacing variants
+def canonicalize_employers(df: pd.DataFrame) -> int:
     employer = df['contributor_employer']
     mask = employer.notna() & ~employer.isin(CANONICAL_EMPLOYER_SKIP_VALUES)
     active = employer[mask]
@@ -134,9 +120,8 @@ def _canonicalize_employers(df: pd.DataFrame) -> int:
     return changed
 
 
-# drop mid-word commas and write P.C./P.A. as PC/PA
+# drop mid-word commas; dedot P.C. and P.A.
 def _unify_employer_punctuation(df: pd.DataFrame, mask: pd.Series, active: pd.Series) -> pd.Series:
-    """Drop mid-word commas and write P.C./P.A. as PC/PA."""
     mid_comma = active.str.contains(r'[A-Z],[A-Z]', na=False, regex=True)
     if mid_comma.any():
         indexes = mid_comma[mid_comma].index
@@ -158,18 +143,16 @@ def _unify_employer_punctuation(df: pd.DataFrame, mask: pd.Series, active: pd.Se
     return active
 
 
-# map each employer variant to its group's most-filed spelling
+# map variants to their group's most-filed spelling
 def _employer_variant_mapping(df: pd.DataFrame, active: pd.Series) -> tuple[dict, dict]:
-    """Map each employer variant to its group's most filed spelling."""
     counts = active.value_counts()
     groups = defaultdict(list)
     for name in counts.index:
-        key = _employer_group_key(name)
+        key = employer_group_key(name)
         if key:
             groups[key].append(name)
 
-    # spacing evidence (who filed which name) is only built when some group
-    # actually mixes word breaks; frames without filer names skip it
+    # spacing evidence only built when breaks mix
     spaced = any(
         len({employer_group_words(variant) for variant in variants}) > 1
         for variants in groups.values() if len(variants) > 1

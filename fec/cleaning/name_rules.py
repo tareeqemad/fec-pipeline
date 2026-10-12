@@ -1,22 +1,4 @@
-"""Read curated contributor name rules.
-
-One CSV (data/rules/contributor_name_rules.csv) holds four rule kinds:
-
-- ``exact_name``: a whole contributor_name as filed -> its correction.
-- ``sub_id``: one FEC row (by sub_id) -> its corrected contributor_name.
-- ``committee_name``: a committee name -> its correction.
-- ``first_name``: a keyboard error in ONE filer's first name. The rule names
-  that filer: ``raw_value`` is ``"SURNAME, GARBLED"`` (the surname as it
-  reads after title/suffix stripping and the garbled first word of the first
-  name), ``corrected_value`` is the corrected first word, and ``zip5`` lists
-  the ZIP5(s) of the filer's address the rule was verified on, separated by
-  ``|``. A first_name rule without a surname or a ZIP5 is rejected: several
-  garbled spellings are real given names (BRIA, CAROLL, AURI, DORUS, ISSAC),
-  so a rule keyed on the word alone would rename other people.
-
-``zip5`` is only meaningful for first_name rules; it must be blank for the
-other kinds, and a CSV without the column still loads them.
-"""
+"""Read curated contributor name rules."""
 
 import csv
 import re
@@ -32,15 +14,13 @@ RULE_TYPES = {
     "committee_name",
 }
 
-# a 5-digit ZIP code, e.g. "10001"
 _ZIP5_RE = re.compile(r"\d{5}")
 
 
-# validate and parse one first_name rule row into lookup keys
+# parse first_name rule; surname and ZIP required
 def _first_name_rule(
     number: int, raw: str, corrected: str, zip_field: str
 ) -> tuple[list[tuple[str, str, str]], str]:
-    """Parse one first_name rule into (surname, garbled word, zip5) keys."""
     last, comma, first = raw.partition(",")
     last, first = last.strip(), first.strip()
     if not comma or "," in first or not last or not first or len(first.split()) != 1:
@@ -60,7 +40,7 @@ def _first_name_rule(
     return [(last, first, z) for z in zips], corrected
 
 
-# load and validate all name-correction rules from the CSV
+# load and validate all name rules
 def _load_rules(path=CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
     if not path.exists():
         raise FileNotFoundError(f"Missing contributor name rules: {path}")
@@ -99,6 +79,6 @@ def _load_rules(path=CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
 _RULES = _load_rules()
 EXACT_NAME_CORRECTIONS = _RULES["exact_name"]
 ROW_NAME_CORRECTIONS = _RULES["sub_id"]
-# (surname, garbled first word, zip5) -> corrected first word
+# (surname, garbled word, zip5) to corrected word
 FIRST_NAME_FIXES = _RULES["first_name"]
 COMMITTEE_NAME_FIXES = _RULES["committee_name"]

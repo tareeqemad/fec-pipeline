@@ -1,4 +1,4 @@
-"""Fix entity types the filer got wrong, and restore the fields the flip cleared."""
+"""Fix entity types the filer got wrong."""
 
 from __future__ import annotations
 
@@ -7,17 +7,12 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _norm
+from fec.cleaning._helpers import upper_text
 from fec.cleaning.entity_source import deciding_source_type, source_entity_type
 from fec.config.data import INDIV_NAME_RE, ORG_KEYWORDS
 
-# Name-token signals for the ORGANIZATION vs COMMITTEE/PAC split: US legal and
-# business suffixes plus sector words, trimmed to tokens with a proven effect
-# on the real data (per-token A/B trial, 2026-07). LLP looks unused in cleaned
-# names only because the tail is stripped later — it decides the law-firm rows.
-# STEEL is also a candidate surname ("STEEL FOR CONGRESS"); the committee-signal
-# check outranks the business tokens, so those names stay committees.
-_ORG_BUSINESS_RE = re.compile(
+# business tokens split organizations from committees
+ORG_BUSINESS_RE = re.compile(
     r"\b(?:LLC|INC|CORP|CORPORATION|LLP|LP|HOLDINGS?|ENTERPRISES?"
     r"|VENTURES?|PROPERTIES|PROPERTY|REALTY|REAL ESTATE|MANAGEMENT|PARTNERS"
     r"|PARTNERSHIP|CAPITAL|GROUP|ASSOCIATES|COMPANY|INDUSTRIES|INVESTMENTS?"
@@ -27,8 +22,7 @@ _ORG_BUSINESS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Committee vocabulary and party-committee acronyms; the FOR-office tail
-# catches "SMITH FOR AMERICA" names that carry no committee word at all.
+# committee words, party acronyms, FOR-office tails
 _COMMITTEE_SIGNAL_RE = re.compile(
     r"\b(?:PAC|COMMITTEE|VICTORY|FRIENDS|CITIZENS|FUND|DEMOCRAT"
     r"|REPUBLICAN|SENATE|CONGRESS|ACTION|CAMPAIGN"
@@ -36,9 +30,7 @@ _COMMITTEE_SIGNAL_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The committee_type labels _classify_committee_names assigns. A row carrying
-# one entered this step as a committee: "STEIL FOR WISCONSIN, INC." keeps its
-# INC name, so the label (not the name) is what blocks the business tokens.
+# committee_type labels of rows entering as committees
 _POLITICAL_COMMITTEE_TYPES = frozenset(
     {
         "CONGRESSIONAL CAMPAIGN",
@@ -49,8 +41,7 @@ _POLITICAL_COMMITTEE_TYPES = frozenset(
     }
 )
 
-# Strongly-commercial names (banks, trusts, family offices) outrank the
-# committee label when the name shows no committee signal.
+# commercial names outrank the committee label
 _STRONG_BUSINESS_RE = re.compile(
     r"\b(?:BANK|TRUST|INVESTMENTS?|CAPITAL|INSURANCE|REALTY|REAL ESTATE"
     r"|HOLDINGS?|EQUITIES|CORPORATION|ENTERPRISES?"
@@ -58,8 +49,7 @@ _STRONG_BUSINESS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Names that are committees no matter what the filer typed; BELLFORMISSOURI
-# is one glued-together filing the generic prefixes miss.
+# always committees, whatever the filer typed
 _DEFINITE_COMM_RE = re.compile(
     r"^(?:FRIENDS\s+(?:OF|FOR|TO\s+ELECT)\b"
     r"|BELLFORMISSOURI"
@@ -73,7 +63,7 @@ _DEFINITE_COMM_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Org-like patterns for rows filed as individuals with no first/last name.
+# org-like names on nameless individual rows
 _NAMELESS_ORG_RE = re.compile(
     r" (?:FOR |PAC|LLC|LP\b|INC|COMMITTEE|COUNCIL|PARTNERS"
     r"|HOLDINGS|INVESTMENT|COMPANY|SERVICES|MEDIA|PROPERTY"
@@ -83,15 +73,13 @@ _NAMELESS_ORG_RE = re.compile(
 )
 
 
-# true where the value is missing or whitespace-only
+# true where missing or whitespace-only
 def _blank(s: pd.Series) -> pd.Series:
-    """True where the value is missing or whitespace-only."""
-    return _norm(s) == ""
+    return upper_text(s) == ""
 
 
-# fix mistyped entity types and assign the 3-way entity_type
-def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
-    """Fix mistyped entity types in place; returns (n_to_individual, n_to_committee)."""
+# fix mistyped entity types, assign 3-way entity_type
+def reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     name_str = df["contributor_name"].astype(str)
     has_org_keywords = name_str.str.contains(ORG_KEYWORDS, na=False)
     looks_like_person = name_str.str.match(INDIV_NAME_RE, na=False)
@@ -108,13 +96,10 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
         + _reclass_definite_committees(df, name_str)
     )
 
-    # 3-way entity_type: non-individuals split into ORGANIZATION (business
-    # signal, no committee signal) vs the COMMITTEE/PAC default
+    # ORGANIZATION needs business signal, no committee signal
     indiv = df["is_individual"]
     names = df["contributor_name"].fillna("").astype(str)
-    # rows that entered this step as committees carry a committee_type label
-    # (the occupation cleaner sets it); a labeled row needs a strongly
-    # commercial name to become ORGANIZATION, a relabeled individual does not
+    # labeled committees need strongly commercial names
     entered_as_committee = df["committee_type"].isin(_POLITICAL_COMMITTEE_TYPES)
     has_committee_signal = names.str.contains(_COMMITTEE_SIGNAL_RE, na=False)
     strong_business = (
@@ -123,7 +108,7 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     is_org = (
         ~indiv
         & ~has_committee_signal
-        & names.str.contains(_ORG_BUSINESS_RE, na=False)
+        & names.str.contains(ORG_BUSINESS_RE, na=False)
         & (~entered_as_committee | strong_business)
     )
     df["entity_type"] = np.select(
@@ -131,9 +116,8 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     )
     _apply_source_entity_type(df)
 
-    # a name that is ORGANIZATION in any row makes all its non-individual rows
-    # ORGANIZATION (COMMITTEE/PAC is only a default, never a positive id)
-    _enforce_entity_name_consistency(df)
+    # ORGANIZATION anywhere wins; COMMITTEE/PAC is default
+    enforce_entity_name_consistency(df)
 
     df.loc[df["entity_type"] == "ORGANIZATION", "occupation_category"] = "ORGANIZATION"
     df.loc[df["entity_type"] == "COMMITTEE/PAC", "occupation_category"] = (
@@ -142,11 +126,8 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
     return n_to_indiv, n_to_comm
 
 
-# FEC's own entity type wins over the name-based guess
+# FEC's own entity type beats the guess
 def _apply_source_entity_type(df: pd.DataFrame) -> int:
-    """Rows FEC typed take that type; a row the guess made a committee and FEC
-    calls a person is reclassified like any committee_to_individual row, so
-    its work fields are restored."""
     source = deciding_source_type(df)
     differs = source.ne("") & source.ne(df["entity_type"])
     if not differs.any():
@@ -159,7 +140,7 @@ def _apply_source_entity_type(df: pd.DataFrame) -> int:
     return int(differs.sum())
 
 
-# set class and reason on masked rows; return the count
+# set class and reason on masked rows
 def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool) -> int:
     count = int(mask.sum())
     if count:
@@ -168,31 +149,28 @@ def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool
     return count
 
 
-# reclassify committees whose name is really LASTNAME, FIRST
+# committees named like LASTNAME, FIRST become individuals
 def _reclass_committee_to_individual(
     df: pd.DataFrame,
     has_org_keywords: pd.Series,
     looks_like_person: pd.Series,
 ) -> int:
-    """Committees whose name is really a person in LASTNAME, FIRST format."""
     should = ~df["is_individual"] & ~has_org_keywords & looks_like_person
     return _reclassify(df, should, "committee_to_individual_last_first", individual=True)
 
 
-# reclassify individuals with org keywords not looking like a person
+# org-keyword non-person names become committees
 def _reclass_individual_to_committee_org(
     df: pd.DataFrame,
     has_org_keywords: pd.Series,
     looks_like_person: pd.Series,
 ) -> int:
-    """Individuals with org keywords in a name that doesn't look like a person."""
     mask = df["is_individual"] & has_org_keywords & ~looks_like_person
     return _reclassify(df, mask, "individual_to_committee_org_keywords", individual=False)
 
 
-# reclassify nameless individuals whose name looks like an org
+# nameless individuals with org-like names become committees
 def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> int:
-    """Individuals with no first/last name and an org-like name pattern."""
     no_names = _blank(df["contributor_first_name"]) & _blank(
         df["contributor_last_name"]
     )
@@ -204,9 +182,8 @@ def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> i
     return _reclassify(df, mask, "individual_to_committee_no_name_org_pattern", individual=False)
 
 
-# reclassify individuals with no name, employer or occupation
+# individuals with no identity become committees
 def _reclass_individual_ghost(df: pd.DataFrame) -> int:
-    """Individuals with no name, no employer and no occupation are committees."""
     mask = (
         df["is_individual"]
         & _blank(df["contributor_first_name"])
@@ -217,9 +194,8 @@ def _reclass_individual_ghost(df: pd.DataFrame) -> int:
     return _reclassify(df, mask, "individual_to_committee_no_identity", individual=False)
 
 
-# reclassify names that are always committees regardless of type
+# definite committee names become committees
 def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
-    """Names that are always committees (FRIENDS OF, PEOPLE FOR, ...)."""
     mask = df["is_individual"] & name_str.str.contains(_DEFINITE_COMM_RE, na=False)
     n_changed = _reclassify(df, mask, "individual_to_committee_definite_prefix", individual=False)
     if n_changed:
@@ -232,15 +208,14 @@ def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
     return n_changed
 
 
-# make same-name rows share one entity_type, ORGANIZATION wins
-def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
-    """Same contributor_name -> same entity_type, ORGANIZATION winning over the COMMITTEE/PAC default; returns rows repointed."""
+# same name, same entity_type; ORGANIZATION wins
+def enforce_entity_name_consistency(df: pd.DataFrame) -> int:
     org_names = set(
         df.loc[df["entity_type"] == "ORGANIZATION", "contributor_name"].dropna()
     )
     if not org_names:
         return 0
-    # a row FEC itself typed keeps that type
+    # rows FEC typed keep that type
     fix = (df["entity_type"] == "COMMITTEE/PAC") & df["contributor_name"].isin(
         org_names
     ) & source_entity_type(df).eq("")

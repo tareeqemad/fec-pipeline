@@ -1,18 +1,9 @@
-"""Foreign addresses are kept exactly as filed.
-
-FEC filings from abroad usually carry a fake US state (REHOVOT / CA) or a
-country inside the city (JERUSALEM, ISRAEL / NY). Every address repair in the
-pipeline assumes a US address, so on these rows it can only do damage: blank
-the city, "align" the street to a US address of the same donor, or geocode
-the row to a bogus US coordinate. Policy (2026-09-22): detect these rows on
-the raw filing, let the pipeline run, then put the raw street/city/state/zip
-back and never geocode them.
-"""
+"""Foreign addresses are kept exactly as filed."""
 import re
 
 import pandas as pd
 
-from fec.cleaning._helpers import _norm
+from fec.cleaning._helpers import upper_text
 from fec.cleaning.audit_trail import ADDRESS_FIELDS
 from fec.config.constants import AMBIGUOUS_CITIES, FOREIGN_CITIES_NO_US_STATE
 
@@ -25,18 +16,13 @@ _COUNTRIES = (
     'ARGENTINA', 'MEXICO', 'COLOMBIA', 'CHILE', 'PERU', 'SOUTH AFRICA', 'EGYPT',
     'MOROCCO', 'UAE', 'UNITED ARAB EMIRATES', 'DUBAI', 'TAHITI', 'FRENCH POLYNESIA',
 )
-# a country name as the LAST word(s) of a city or street ("JERUSALEM, ISRAEL",
-# "5 HAGIVAA ST ISRAEL"); a country word inside a street name (GULF OF MEXICO DR,
-# 112 INDIA ST, FRANCE AVE) is a US street and never matches
+# country as the last word only
 _COUNTRY_TAIL_RE = re.compile(
     r'(?:^|,\s*|\s)(?:' + '|'.join(re.escape(c) for c in _COUNTRIES) + r')\.?$'
 )
 
 
-# Localities abroad with no US place of the same name that the shared list in
-# fec/config/constants.py does not carry yet. Israel's code IL reads as Illinois,
-# so an Israeli filing (EFRAT / IL / 90435) looks like a US one to every other
-# check. Only names no US town shares belong here.
+# no US town shares these names
 _MORE_FOREIGN_CITIES = frozenset({
     'EFRAT', 'BEIT SHEMESH', 'BET SHEMESH', 'RAMAT BEIT SHEMESH',
     'MAALE ADUMIM', "MA'ALE ADUMIM", 'MEVASERET ZION', 'ALON SHVUT',
@@ -49,70 +35,58 @@ _MORE_FOREIGN_CITIES = frozenset({
     'EILAT', 'TIBERIAS', 'HERZLIYA PITUACH', 'HERTZLIYA', "RA'ANANA",
     "MODI'IN", 'KFAR SAVA', 'TEL AVIV-YAFO', 'TEL AVIV YAFO', 'TEL-AVIV',
 })
-# Foreign cities that also name a US place, flagged only outside those states
-# (MADRID / IL / 28012 is Calle Doctor Fourquet in Madrid, Spain).
+# foreign only outside these US states
 _MORE_AMBIGUOUS_CITIES = {
     'MADRID': frozenset({'AL', 'CO', 'IA', 'ME', 'NE', 'NM', 'NY'}),
 }
 
-# Single filings reviewed by hand: abroad, although city and state name a real US
-# place, so no rule can tell. A ZIP from another state alone proves only a ZIP
-# typo (VANCOUVER / WA with a Portland ZIP), so each needs evidence of its own.
+# hand-reviewed filings abroad at US-named places
 REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
-    # TORONTO / OH / 19273: 19273 is a Pennsylvania prefix, not Toronto OH's 43964,
-    # and the filer's employer MEDCAN HEALTH MANAGEMENT is a Toronto, Ontario company
     '4062420241962026749': 'Toronto, Ontario (employer MEDCAN, Toronto)',
 }
 
 
-# Single US filings whose address contradicts itself, reviewed by hand: no repair
-# can know which part is the donor's, so the filing keeps its address as filed
-# and is not geocoded. The value is the reason written to the audit.
+# hand-reviewed self-contradicting US filings, kept as filed
 REVIEWED_AS_FILED_SUB_IDS: dict[str, str] = {
-    # street in Scottsdale, AZ (Star of the Desert Dr) filed with Highland Park, IL
-    # and its ZIP 60035: moving the state to IL built an address that does not exist
     '4060420241953437845': 'street_and_city_zip_name_two_states_kept_as_filed',
 }
 
 
-# true for rows kept as filed: abroad, or reviewed as self-contradicting
+# true for rows kept as filed
 def kept_as_filed_mask(df: pd.DataFrame) -> pd.Series:
-    """foreign_address_mask plus REVIEWED_AS_FILED_SUB_IDS."""
     mask = foreign_address_mask(df)
     if 'sub_id' in df.columns:
-        mask |= _norm(df['sub_id']).isin(REVIEWED_AS_FILED_SUB_IDS)
+        mask |= upper_text(df['sub_id']).isin(REVIEWED_AS_FILED_SUB_IDS)
     return mask
 
 
-# the audit reason for putting a filed address back
+# audit reason for restoring a filed address
 def kept_as_filed_reason(df: pd.DataFrame) -> pd.Series:
     reasons = df['sub_id'].astype(str).str.strip().map(REVIEWED_AS_FILED_SUB_IDS)
     return reasons.fillna('foreign_address_kept_as_filed')
 
 
-# true for rows whose filed address is outside the US
+# true where filed address is outside US
 def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
-    """True for rows whose filed address is outside the US."""
-    city = _norm(df['contributor_city'])
-    state = _norm(df['contributor_state'])
-    street_1 = _norm(df['contributor_street_1'])
-    street_2 = _norm(df['contributor_street_2'])
+    city = upper_text(df['contributor_city'])
+    state = upper_text(df['contributor_state'])
+    street_1 = upper_text(df['contributor_street_1'])
+    street_2 = upper_text(df['contributor_street_2'])
 
     mask = city.isin(FOREIGN_CITIES_NO_US_STATE) | city.isin(_MORE_FOREIGN_CITIES)
     ambiguous = {**AMBIGUOUS_CITIES, **_MORE_AMBIGUOUS_CITIES}
     for name, valid_states in ambiguous.items():
         mask |= city.eq(name) & ~state.isin(valid_states)
     if 'sub_id' in df.columns:
-        mask |= _norm(df['sub_id']).isin(REVIEWED_FOREIGN_SUB_IDS)
+        mask |= upper_text(df['sub_id']).isin(REVIEWED_FOREIGN_SUB_IDS)
     mask |= city.str.contains(_COUNTRY_TAIL_RE, na=False)
     mask |= street_1.str.contains(_COUNTRY_TAIL_RE, na=False)
     mask |= street_2.str.contains(_COUNTRY_TAIL_RE, na=False)
     return mask
 
 
-# snapshot foreign rows' raw address fields before cleaning runs
+# snapshot kept rows' raw address before cleaning
 def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
-    """Raw address fields of every row kept as filed, indexed by sub_id (taken BEFORE cleaning)."""
     mask = kept_as_filed_mask(df)
     if not mask.any():
         return pd.DataFrame(columns=list(ADDRESS_FIELDS))
@@ -123,9 +97,8 @@ def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-# put the filed address back on every snapshotted row
+# restore filed address on snapshotted rows
 def restore_foreign_addresses(df: pd.DataFrame, snapshot: pd.DataFrame) -> int:
-    """Put the filed address back on every snapshotted row; returns cells restored."""
     if snapshot.empty or 'sub_id' not in df.columns:
         return 0
     hit = df['sub_id'].isin(snapshot.index)

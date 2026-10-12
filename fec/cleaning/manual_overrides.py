@@ -8,7 +8,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
-from fec.cleaning.occupations.normalize import _categorize
+from fec.cleaning.occupations.normalize import categorize_occupation
 from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
 from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.env import MANUAL_EMPLOYER_OVERRIDES_CSV
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 OVERRIDES_CSV = MANUAL_EMPLOYER_OVERRIDES_CSV
 CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
-EMPTY_OCCUPATION_CATEGORY = "OTHER"  # the category every filing without an occupation gets
+EMPTY_OCCUPATION_CATEGORY = "OTHER"  # category for filings without an occupation
 FILED_WORK_FIELDS = (
     "sub_id", "contributor_employer", "contributor_occupation",
     "contributor_first_name", "contributor_last_name",
@@ -35,10 +35,9 @@ _ROW_FIELDS = (
 )
 
 
-# build the override values for one row, honoring [CLEAR] markers
+# one row's override values, honoring [CLEAR]
 def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
-    # "[CLEAR]" removes a filed value that is not this donor's (a committee
-    # that typed another person's employer and address under the donor's name)
+    # [CLEAR] removes a value not this donor's
     fields = {
         column: (
             pd.NA if (row.get(column) or "").strip().upper() == CLEAR_PREVIOUS_EMPLOYER
@@ -55,8 +54,7 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     if not company_names_only:
         return fields
 
-    # a cleared cell stays cleared: the late pass undoes any refill from the
-    # donor's other filings (TUCHIN's occupation came back as ATTORNEY)
+    # late pass keeps cleared cells from refilling
     company_fields = {column: value for column, value in fields.items() if value is pd.NA}
     if "contributor_occupation" in company_fields:
         company_fields["occupation_category"] = EMPTY_OCCUPATION_CATEGORY
@@ -68,8 +66,8 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     return company_fields
 
 
-# load the overrides CSV into a sub_id -> fields mapping
-def _read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
+# load overrides CSV as sub_id to fields
+def read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
     overrides = {}
     with OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
@@ -80,45 +78,38 @@ def _read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
     return overrides
 
 
-# words of two letters or more, plus a run of single letters joined ("F A" -> "FA")
+# multi-letter words plus joined single letters
 def _words(text: str) -> list[str]:
     tokens = re.findall(r"[A-Z0-9]+", str(text).upper())
     joined = "".join(token for token in tokens if len(token) == 1)
     return [token for token in tokens if len(token) > 1] + ([joined] if len(joined) > 1 else [])
 
 
-# same word, or a close spelling: one edit from four letters, two from six
+# equal, or close spelling by edit distance
 def _same_word(a: str, b: str) -> bool:
     shorter = min(len(a), len(b))
     return a == b or (shorter >= 4 and levenshtein(a, b) <= (2 if shorter >= 6 else 1))
 
 
-# the value spells out the filing's abbreviation: SFSS -> SAN FRANCISCO SPINE SURGEONS
+# value's initials match a filed word
 def _is_initialism(value_words: list[str], filed_words: list[str]) -> bool:
     initials = "".join(word[0] for word in value_words)
     return len(initials) > 1 and initials in filed_words
 
 
-# the filed text that can name an employer
+# employer plus an uncategorized occupation
 def _employer_evidence(filed: pd.DataFrame) -> str:
-    """The employer field, plus the occupation field only when it holds no known job:
-    KIMCO filed as the occupation names the firm, PHYSICIAN does not name
-    EYE PHYSICIANS OF ORANGE COUNTY PC."""
     employer, occupation = (
         " ".join(filed.reindex(columns=[column]).fillna("").astype(str).to_numpy().ravel())
         for column in _WORK_FIELDS
     )
-    if occupation.strip() and _categorize(pd.Series([occupation.strip().upper()])).iloc[0] == "OTHER":
+    if occupation.strip() and categorize_occupation(pd.Series([occupation.strip().upper()])).iloc[0] == "OTHER":
         return f"{employer} {occupation}"
     return employer
 
 
-# an override names an employer or occupation the filing's work fields never did
+# override work shares no word with filing
 def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
-    """True when a new employer or occupation shares no word (or initials) with the
-    employer and occupation this filing reported. The filer's own name is not a
-    work detail (GIVNER filed as the employer names no firm), nor are statuses
-    such as SELF-EMPLOYED or cleared cells."""
     text = lambda columns: " ".join(filed.reindex(columns=list(columns)).fillna("").astype(str).to_numpy().ravel())
     own_name = set(_words(text(_NAME_FIELDS)))
     evidence = {
@@ -137,12 +128,11 @@ def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
     return False
 
 
-# sub_ids whose override names work their raw filing never did
+# overrides bringing outside work; filed is raw
 def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
-    """filed holds the raw FILED_WORK_FIELDS, taken before any cleaning step."""
     if not OVERRIDES_CSV.exists():
         return set()
-    overrides = _read_overrides(company_names_only=False)
+    overrides = read_overrides(company_names_only=False)
     rows = filed[filed["sub_id"].astype(str).str.strip().isin(overrides)]
     return {
         str(sub_id).strip()
@@ -151,7 +141,7 @@ def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
     }
 
 
-# write each override's fields onto its matching sub_id row
+# write override fields onto matching sub_id rows
 def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
     changed = 0
@@ -168,17 +158,17 @@ def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int
     return changed, missing
 
 
-# sub_ids whose employer a manual override clears or replaces
+# sub_ids whose employer an override sets
 def overridden_employer_sub_ids() -> set[str]:
     if not OVERRIDES_CSV.exists():
         return set()
     return {
-        sub_id for sub_id, fields in _read_overrides(company_names_only=False).items()
+        sub_id for sub_id, fields in read_overrides(company_names_only=False).items()
         if "contributor_employer" in fields
     }
 
 
-# every field an override row can set, for the audit trail
+# fields an override can set, for auditing
 OVERRIDE_FIELDS = (
     "contributor_employer", "contributor_occupation", "occupation_category",
     "contributor_city", "contributor_street_1", "contributor_street_2",
@@ -192,11 +182,10 @@ def apply_manual_employer_overrides(
     *,
     company_names_only: bool = False,
 ) -> int:
-    """Apply per-row overrides matched on sub_id."""
     if not OVERRIDES_CSV.exists():
         return 0
 
-    overrides = _read_overrides(company_names_only)
+    overrides = read_overrides(company_names_only)
 
     if not overrides:
         return 0

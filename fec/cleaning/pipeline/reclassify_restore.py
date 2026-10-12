@@ -1,4 +1,4 @@
-"""Restore work fields for committee rows reclassified as individuals."""
+"""Restore work fields for reclassified committee rows."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ import pandas as pd
 
 from fec.cleaning.occupations.normalize import (
     EMPLOYER_STATUS_TEXT,
-    _categorize,
-    _normalize_text,
+    categorize_occupation,
+    normalize_text,
     map_occupation_fixes,
 )
-from fec.cleaning.pipeline.reclassify import _ORG_BUSINESS_RE
+from fec.cleaning.pipeline.reclassify import ORG_BUSINESS_RE
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES
 from fec.config.employers import EMPLOYER_NORMALIZE
@@ -19,7 +19,7 @@ from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
 from fec.config.occupation_rules.rules import SWAP_JOB_TITLES
 
 
-# restore raw occupations for committees reclassified as individuals
+# restore raw occupations for reclassified committees
 def _restore_individual_occupations(
     df: pd.DataFrame,
     raw_occupations: pd.Series,
@@ -32,18 +32,18 @@ def _restore_individual_occupations(
     if not has_occupation.any():
         return
 
-    restored, _ = _normalize_text(
+    restored, _ = normalize_text(
         raw_occupations[has_occupation],
         OCCUPATION_NORMALIZE,
         collapse_retire=True,
     )
-    raw_employer, _ = _normalize_text(
+    raw_employer, _ = normalize_text(
         raw_employers[has_occupation],
         EMPLOYER_NORMALIZE,
         digits_only_before=EMPLOYER_STATUS_TEXT,
     )
     swapped = raw_employer.isin(SWAP_JOB_TITLES) & (
-        restored.str.contains(_ORG_BUSINESS_RE, na=False) | restored.eq("SELF-EMPLOYED")
+        restored.str.contains(ORG_BUSINESS_RE, na=False) | restored.eq("SELF-EMPLOYED")
     )
     restored.loc[swapped] = raw_employer.loc[swapped]
     restored = restored[~restored.isin(MISSING_VALUES) & restored.notna()]
@@ -51,7 +51,7 @@ def _restore_individual_occupations(
         return
 
     df.loc[restored.index, "contributor_occupation"] = restored
-    df.loc[restored.index, "occupation_category"] = _categorize(restored)
+    df.loc[restored.index, "occupation_category"] = categorize_occupation(restored)
     df.loc[restored.index, "occupation_status"] = "DISCLOSED"
     map_occupation_fixes(df, restored.index)
 
@@ -61,7 +61,7 @@ def _restore_individual_occupations(
     )
 
 
-# restore raw employer when a reclassified individual's employer is missing
+# restore missing employers for reclassified committees
 def _restore_individual_employers(
     df: pd.DataFrame,
     reclassified: pd.Series,
@@ -76,7 +76,7 @@ def _restore_individual_employers(
     if not restore.any():
         return
 
-    restored, _ = _normalize_text(
+    restored, _ = normalize_text(
         raw_employers[restore],
         EMPLOYER_NORMALIZE,
         digits_only_before=EMPLOYER_STATUS_TEXT,
@@ -86,8 +86,8 @@ def _restore_individual_employers(
         df.loc[restored.index, "contributor_employer"] = restored
 
 
-# clear short junk work-field values left on individuals
-def _clear_individual_residue(df: pd.DataFrame) -> None:
+# clear short junk work values on individuals
+def clear_individual_residue(df: pd.DataFrame) -> None:
     is_individual = df["is_individual"]
 
     missing_status = is_individual & df["occupation_status"].eq("NOT_APPLICABLE")
@@ -115,14 +115,13 @@ def _clear_individual_residue(df: pd.DataFrame) -> None:
             df.loc[junk, column] = np.nan
 
 
-# restore work fields for committee rows reclassified as individuals
-def _restore_reclassified_committees(
+# restore work fields for reclassified committees
+def restore_reclassified_committees(
     df: pd.DataFrame,
     raw_occ_backup: pd.Series,
     raw_emp_backup: pd.Series,
     log,
 ) -> None:
-    """Restore work fields for committee rows reclassified as individuals."""
     reclassified = df["is_individual"] & df["_reclass_reason"].str.startswith(
         "committee_to_individual", na=False
     )

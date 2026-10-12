@@ -1,4 +1,4 @@
-"""Run the AI web search for each employer in a worker pool."""
+"""AI web searches in a worker pool."""
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
@@ -16,9 +16,8 @@ logger = get_logger(__name__)
 WEB_SEARCH_WORKERS = 5
 
 
-# parse a list of results from a loosely-formatted AI response
+# parse result list from loose AI JSON
 def _parse_ai_json(text: str) -> list | None:
-    """Robustly parse JSON from AI response."""
     text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
@@ -53,7 +52,7 @@ def _parse_ai_json(text: str) -> list | None:
     raise json.JSONDecodeError("Could not parse AI response", text, 0)
 
 
-# run one AI web-search call, raising on quota exhaustion
+# one AI web-search call; raises on quota
 def _search_item(client, model, system_prompt, build_prompt, item):
     try:
         text, cost = ai_web_search_call(
@@ -71,7 +70,7 @@ def _search_item(client, model, system_prompt, build_prompt, item):
     return item, text, cost
 
 
-# parse one search response and store its first result
+# parse a response, store its first result
 def _store_search_result(store_fn, item, text) -> int:
     try:
         parsed = _parse_ai_json(text)
@@ -81,7 +80,7 @@ def _store_search_result(store_fn, item, text) -> int:
     return int(store_fn(item, result))
 
 
-# run searches in a thread pool, stop on quota loss
+# thread-pool searches, stopping on quota loss
 def _run_search_pool(search, store, items, cache, label, total):
     found = 0
     cost = 0.0
@@ -114,7 +113,7 @@ def _run_search_pool(search, store, items, cache, label, total):
     return found, cost, quota_error
 
 
-# resolve items via concurrent AI search, stop on quota loss
+# search items concurrently until credits run out
 def run_web_search(
     client,
     model,
@@ -125,7 +124,6 @@ def run_web_search(
     cache,
     label,
 ) -> int:
-    """Resolve items concurrently, stopping when credits are exhausted."""
     if not items:
         return 0
 

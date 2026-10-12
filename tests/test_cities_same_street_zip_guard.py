@@ -3,7 +3,7 @@
 import pandas as pd
 
 from fec.cleaning.addresses.cities import CITY_TABLE_FIXED
-from fec.cleaning.addresses.fixes.same_street import _recover_address_from_same_street
+from fec.cleaning.addresses.fixes.same_street import recover_address_from_same_street
 
 
 def _frame(*groups):
@@ -43,7 +43,7 @@ class TestCityGuard:
             _MANHATTAN_BEACH,
             ('ANGELENO, ANN', '5 MAIN ST', 'LOS ANGELES', 'CA', '90012', 5),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'NEWMAN, SAM') == [('MANHATTAN BEACH', '90266')]
 
     def test_a_city_the_filer_chose_is_not_replaced_without_being_a_guess(self):
@@ -55,7 +55,7 @@ class TestCityGuard:
             _MANHATTAN_BEACH,
             ('ANGELENO, ANN', '5 MAIN ST', 'LOS ANGELES', 'CA', '90012', 5),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'NEWMAN, SAM') == [('LOS ANGELES', '90266'), ('MANHATTAN BEACH', '90266')]
 
     def test_alias_the_zip_carries_is_still_aligned(self):
@@ -65,7 +65,7 @@ class TestCityGuard:
             ('LEE, AMY', '10 ELM ST', 'MANHATTAN', 'NY', '10021', 1),
             ('OTHER, PERSON', '1 PARK AVE', 'NEW YORK', 'NY', '10021', 3),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'LEE, AMY') == [('NEW YORK', '10021')]
 
 
@@ -78,7 +78,7 @@ class TestSecondAddressSharingStreetText:
             ('OFFICE, WORKER', '500 MADISON AVE', 'NEW YORK', 'NY', '10022', 4),
             ('NEIGHBOR, NED', '9 HEMPSTEAD AVE', 'WEST HEMPSTEAD', 'NY', '11552', 2),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'FRANKEL, DOVID') == [('NEW YORK', '10022'), ('WEST HEMPSTEAD', '11552')]
 
     def test_mixed_up_filing_is_still_aligned(self):
@@ -89,7 +89,7 @@ class TestSecondAddressSharingStreetText:
             ('OFFICE, WORKER', '500 MADISON AVE', 'NEW YORK', 'NY', '10022', 4),
             ('NEIGHBOR, NED', '20 HICKS ST', 'BROOKLYN', 'NY', '11201', 2),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'STEINBERG, ADAM') == [('BROOKLYN', '11201')]
 
     def test_zip_typo_on_the_same_city_is_still_fixed(self):
@@ -98,7 +98,7 @@ class TestSecondAddressSharingStreetText:
             ('BRITVAN, J ALLEN', '8 SPENCER HILL CT', 'PLEASANTVILLE', 'NY', '10590', 2),
             ('OTHER, PERSON', '3 BEDFORD RD', 'PLEASANTVILLE', 'NY', '10570', 3),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'BRITVAN, J ALLEN') == [('PLEASANTVILLE', '10570')]
 
 
@@ -109,7 +109,7 @@ class TestCutOffCity:
             ('SUSSMAN, AVIVA', '1007 PASEO DE LA CUMA', 'SANTA FE', 'NM', '87501', 2),
             ('OTHER, PERSON', '1 CANYON RD', 'SANTA FE', 'NM', '87501', 3),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'SUSSMAN, AVIVA') == [('SANTA FE', '87501')]
 
     def test_real_village_name_is_not_a_cut_off(self):
@@ -119,7 +119,7 @@ class TestCutOffCity:
             ('HEDAYA, EDWARD', '17 SYCAMORE AVE', 'LONG BRANCH', 'NJ', '07740', 1),
             ('OTHER, PERSON', '1 OCEAN AVE', 'LONG BRANCH', 'NJ', '07740', 3),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'HEDAYA, EDWARD') == [('ELBERON', '07740'), ('LONG BRANCH', '07740')]
 
 
@@ -131,7 +131,7 @@ class TestSameZipOtherStreet:
             ('FRANK, BLAIR', 'OLD RANCH RD', 'SNYDERVILLE', 'UT', '84098', 3),
             ('OTHER, PERSON', '1 MAIN ST', 'PARK CITY', 'UT', '84098', 3),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'FRANK, BLAIR', '6300 SAGEWOOD DR') == [('PARK CITY', '84098')]
         assert _places(df, 'FRANK, BLAIR', 'OLD RANCH RD') == [('SNYDERVILLE', '84098')]
 
@@ -141,5 +141,5 @@ class TestSameZipOtherStreet:
             ('LEE, AMY', '10 E 70TH ST APT 5', 'NEW', 'NY', '10021', 1),
             ('OTHER, PERSON', '1 PARK AVE', 'NEW YORK', 'NY', '10021', 3),
         )
-        _recover_address_from_same_street(df)
+        recover_address_from_same_street(df)
         assert _places(df, 'LEE, AMY') == [('NEW YORK', '10021')]

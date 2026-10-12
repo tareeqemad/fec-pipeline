@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from fec.cleaning import name_rules
-from fec.cleaning.pipeline.names import _clean_names, _fix_garbled_first_names
+from fec.cleaning.pipeline.names import clean_names, _fix_garbled_first_names
 
 
 def _people(rows):
@@ -82,7 +82,7 @@ def test_every_first_name_rule_is_scoped_to_one_filer():
 @pytest.mark.parametrize('last,first,zip_code,expected', VERIFIED)
 def test_verified_filer_is_still_corrected(last, first, zip_code, expected):
     df = _people([(last, first, zip_code)])
-    _clean_names(df)
+    clean_names(df)
     assert df.at[0, 'contributor_first_name'] == expected
     assert df.at[0, 'contributor_name'] == f"{last}, {expected}"
 
@@ -115,7 +115,7 @@ def test_the_verified_set_covers_every_rule():
 ])
 def test_same_word_on_another_filer_is_left_as_filed(last, first, zip_code):
     df = _people([(last, first, zip_code)])
-    _clean_names(df)
+    clean_names(df)
     assert df.at[0, 'contributor_first_name'] == first
     assert df.at[0, 'contributor_name'] == f"{last}, {first}"
 

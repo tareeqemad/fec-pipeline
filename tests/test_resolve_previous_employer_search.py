@@ -3,6 +3,7 @@ import pandas as pd
 
 from fec.resolve.pipeline.steps import fec_previous_employer as fec_search
 from fec.resolve.pipeline.steps import previous_employer as step
+from clean_columns import with_clean_columns
 
 
 class FakeCache(dict):
@@ -94,7 +95,7 @@ def test_a_spent_hourly_quota_stops_the_search_and_records_nothing(monkeypatch):
     monkeypatch.setattr(fec_search, "_pending_fec_searches", lambda df, cache, totals: people)
     cache = FakeCache()
 
-    found = fec_search.step_fec_api(pd.DataFrame({"entity_type": [], "donor_key": [], "contributor_zip": []}),
+    found = fec_search.step_fec_api(with_clean_columns(pd.DataFrame({"entity_type": ["INDIVIDUAL"], "donor_key": ["D0"]})),
                                     cache, pd.DataFrame({"donor_key": []}))
 
     assert found == 0 and cache == {}

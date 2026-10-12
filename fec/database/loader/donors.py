@@ -13,9 +13,8 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# insert one donors row per donor_key, return donor_key to donor_id
+# one row per donor_key; return id map
 def load_donors(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
-    """Step 1: one donors row per donor_key; returns donor_key -> donor_id."""
     logger.info("\n-- 1/8 Loading donors --")
     start = time.time()
 
@@ -29,7 +28,7 @@ def load_donors(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
         # Organizations use last_name.
         if not last and entity in ('COMMITTEE/PAC', 'ORGANIZATION'):
             last = to_native(latest['contributor_name'])
-        # a CSV from before the column existed reads as all confirmed
+        # older CSV without the column: all confirmed
         status = to_native(latest.get('identity_status')) or 'confirmed'
         donor_rows.append((donor_key, entity, first, last, status))
 

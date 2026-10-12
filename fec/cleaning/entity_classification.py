@@ -4,13 +4,13 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _norm, _indiv_idx
+from fec.cleaning._helpers import upper_text, individual_index
 from fec.cleaning.name_rules import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
 from fec.config.constants import STATUS_CATEGORIES
 from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 
-# political-committee wording in a name: "FRIENDS OF SMITH", "SMITH FOR SENATE"
+# committee wording: FRIENDS OF, FOR SENATE
 _COMMITTEE_IN_NAME_RE = re.compile(
     r'(?:FRIENDS|CITIZENS|COMMITTEE) TO ELECT'
     r'|(?:FRIENDS OF|FRIENDS FOR|CITIZENS FOR|PEOPLE FOR) '
@@ -27,7 +27,7 @@ _COMMITTEE_IN_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-# a business legal suffix: "LLC", "INC", "P.C.", "P.A."
+# business legal suffixes like LLC, INC, P.C.
 _BUSINESS_SUFFIX_RE = re.compile(
     r'\b(?:LLC|LLP|L\.L\.C|L\.L\.P|INC|CORP|LTD|P\.?L\.?L\.?C)\b'
     r'|\bP\.?C\.?\b|\bP\.?A\.?\b',
@@ -44,7 +44,7 @@ _GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
     'BUSINESS',
 })
 
-# Known credentials only, so real two-letter last names are not mistaken for one.
+# known credentials only; two-letter surnames exist
 _CREDENTIAL_RE = re.compile(
     r'^\s*(?:'
     r'M\s*D'
@@ -72,7 +72,7 @@ _CREDENTIAL_RE = re.compile(
 _THREE_PART_NAME_RE = re.compile(r'^([^,]+),\s*([^,]+),\s*(.+)$')
 
 
-# reclassify given rows as a committee/PAC and clear individual fields
+# set rows to COMMITTEE/PAC, clearing person fields
 def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
     df.loc[hits, 'entity_type'] = 'COMMITTEE/PAC'
     df.loc[hits, 'is_individual'] = False
@@ -86,10 +86,9 @@ def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
 
 # reclassify individuals whose name matches committee patterns
 def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Reclassify individuals whose name matches committee patterns as COMMITTEE/PAC."""
-    indiv_idx = _indiv_idx(df)
-    last_names = _norm(df.loc[indiv_idx, 'contributor_last_name'])
-    names = _norm(df.loc[indiv_idx, 'contributor_name'])
+    indiv_idx = individual_index(df)
+    last_names = upper_text(df.loc[indiv_idx, 'contributor_last_name'])
+    names = upper_text(df.loc[indiv_idx, 'contributor_name'])
 
     hits = indiv_idx[
         last_names.str.contains(_COMMITTEE_IN_NAME_RE.pattern, na=False, regex=True)
@@ -105,9 +104,8 @@ def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 # reclassify individuals that are actually business entities
 def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Reclassify individuals that are actually business entities."""
-    indiv_idx = _indiv_idx(df)
-    names = _norm(df.loc[indiv_idx, 'contributor_name'])
+    indiv_idx = individual_index(df)
+    names = upper_text(df.loc[indiv_idx, 'contributor_name'])
     first_names = df.loc[indiv_idx, 'contributor_first_name'].fillna('').astype(str).str.strip()
     emp = df.loc[indiv_idx, 'contributor_employer'].fillna('').astype(str).str.strip().str.upper()
 
@@ -126,15 +124,14 @@ def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame,
     return df, n_fixed
 
 
-# a committee name ending in FOR and a state code: "ROB FOR PA"
+# names ending FOR plus a state code
 _FOR_STATE_RE = re.compile(r'\bFOR (?:' + '|'.join(sorted(US_STATES)) + r')$')
 
 
 # strip legal suffixes from non-individual contributor names
 def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Strip legal suffixes (LLC, LLP, INC) from non-individual contributor names."""
     names = df['contributor_name'].fillna('')
-    # ROB FOR PA is a campaign for Pennsylvania, not a professional association
+    # "FOR PA" is a state, not P.A.
     mask = (df['entity_type'] != 'INDIVIDUAL') & ~names.str.contains(_FOR_STATE_RE)
     names = names[mask]
     cleaned = names.str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
@@ -145,12 +142,11 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(n_fixed)
 
 
-# fix occupation when it duplicates a non-generic employer name
+# fix occupation duplicating a specific employer name
 def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """When a non-generic company name sits in both employer and occupation, fix occupation."""
-    indiv_idx = _indiv_idx(df)
-    emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
-    occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
+    indiv_idx = individual_index(df)
+    emp = upper_text(df.loc[indiv_idx, 'contributor_employer'])
+    occ = upper_text(df.loc[indiv_idx, 'contributor_occupation'])
 
     same = indiv_idx[(emp == occ) & (emp != '') & ~emp.isin(_GENERIC_EMP_OCC)]
     n_fixed = len(same)
@@ -163,12 +159,12 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
             val_upper = (val or '').upper()
 
             if first_name and last_name and (first_name in val_upper or last_name in val_upper):
-                # their own name in both fields: self-employed
+                # own name in both fields: self-employed
                 df.at[idx, 'contributor_occupation'] = 'SELF-EMPLOYED'
                 df.at[idx, 'occupation_category'] = 'SELF-EMPLOYED'
                 df.at[idx, 'occupation_status'] = 'DISCLOSED'
             else:
-                # a company in both fields: occupation unknown
+                # company in both fields: occupation unknown
                 df.at[idx, 'contributor_occupation'] = np.nan
                 df.at[idx, 'occupation_category'] = pd.NA
                 df.at[idx, 'occupation_status'] = 'MISSING'
@@ -178,7 +174,6 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
 
 # apply manual name corrections, exact and per-row
 def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Apply manual name corrections."""
     corrected = df['contributor_name'].map(EXACT_NAME_CORRECTIONS)
     if 'sub_id' in df.columns:
         by_row = df['sub_id'].astype(str).map(ROW_NAME_CORRECTIONS)
@@ -197,7 +192,6 @@ def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 # collapse doubled apostrophes in name fields
 def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Collapse doubled apostrophes in name fields (CHALME'' becomes CHALME')."""
     n_fixed = 0
     for col in ['contributor_name', 'contributor_first_name', 'contributor_last_name']:
         if col in df.columns:
@@ -211,9 +205,8 @@ def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# remove periods from initials and titles in contributor names
+# drop periods after initials and titles
 def normalize_name_periods(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Remove periods from initials and titles in contributor_name, all records."""
     names = df['contributor_name'].fillna('')
 
     cleaned = names.str.replace(r'\b([A-Z])\.', r'\1 ', regex=True)
@@ -227,15 +220,14 @@ def normalize_name_periods(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# drop a credential wedged into 'LAST, CREDENTIAL, FIRST'
+# drop mid-name credential; run after normalize_name_periods
 def fix_credential_in_name(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Drop a credential wedged in 'LAST, CREDENTIAL, FIRST'; must run after normalize_name_periods."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     if not len(indiv_idx):
         return df, 0
 
     names = df.loc[indiv_idx, 'contributor_name'].fillna('').astype(str)
-    # exactly two commas; anything else is a different structure, leave it alone
+    # other comma counts are different structures
     candidates = indiv_idx[names.str.count(',') == 2]
     if not len(candidates):
         return df, 0
@@ -270,10 +262,9 @@ def fix_credential_in_name(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# split a full name duplicated into first and last
+# split full name duplicated in both fields
 def fix_fullname_in_both_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Split a full name duplicated into both first_name and last_name."""
-    indiv_idx = _indiv_idx(df)
+    indiv_idx = individual_index(df)
     first_names = df.loc[indiv_idx, 'contributor_first_name'].fillna('').str.strip()
     last_names = df.loc[indiv_idx, 'contributor_last_name'].fillna('').str.strip()
 

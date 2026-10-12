@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 import pandas as pd
 
 from fec.config.geography import US_STATES
+from fec.io import cell_text
 from fec.log import get_logger
 from fec.resolve.pipeline.ai_client import ai_method, get_ai_client, resolver_id
 from fec.resolve.pipeline.constants import AI_SYSTEM_PROMPT, EMPLOYER_PROMPT_VERSION
-from fec.resolve.pipeline.helpers import _s
 from fec.resolve.pipeline.steps.employer_lookups import (
     EmployerLookup,
     build_employer_prompt,
@@ -34,22 +34,21 @@ _CONFIDENCE_LEVELS = frozenset({"HIGH", "MEDIUM"})
 _ZIP_RE = re.compile(r"^\d{5}$")
 
 
-# true if value is a valid http(s) url
+# true if value is an http(s) url
 def _valid_source_url(value: str) -> bool:
     parsed = urlparse(value)
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-# validate and normalize one sourced us employer location
+# validate one sourced US employer location
 def _validated_location(result: dict, address_types: frozenset[str]) -> dict | None:
-    """Validate one sourced US employer location."""
-    address = _s(result.get("address")).strip()
-    city = _s(result.get("city")).strip()
-    state = _s(result.get("state")).strip().upper()
-    zip_code = _s(result.get("zip")).strip()
-    address_type = _s(result.get("address_type")).strip().upper()
-    confidence = _s(result.get("confidence")).strip().upper()
-    source_url = _s(result.get("source_url")).strip()
+    address = cell_text(result.get("address"))
+    city = cell_text(result.get("city"))
+    state = cell_text(result.get("state")).upper()
+    zip_code = cell_text(result.get("zip"))
+    address_type = cell_text(result.get("address_type")).upper()
+    confidence = cell_text(result.get("confidence")).upper()
+    source_url = cell_text(result.get("source_url"))
 
     if not (
         address
@@ -69,21 +68,20 @@ def _validated_location(result: dict, address_types: frozenset[str]) -> dict | N
         "employer_zip": zip_code,
         "confidence": confidence,
         "address_type": address_type,
-        "source_name": _s(result.get("source_name")).strip(),
+        "source_name": cell_text(result.get("source_name")),
         "source_url": source_url,
     }
 
 
-# validate an ai result into a cacheable location entry
+# validated AI result as a cache entry
 def _resolved_cache_entry(
     lookup: EmployerLookup,
     result: dict | None,
     resolver_tag: str,
 ) -> dict | None:
-    """Validate an AI result before it can become a trusted search entry."""
     if not isinstance(result, dict):
         return None
-    if _s(result.get("name")).strip().casefold() != lookup.name.casefold():
+    if cell_text(result.get("name")).casefold() != lookup.name.casefold():
         return None
 
     primary = _validated_location(result, _ADDRESS_TYPES)
@@ -99,7 +97,7 @@ def _resolved_cache_entry(
     entry = {
         **primary,
         **shared,
-        "matched_company_name": _s(result.get("matched_company_name")).strip(),
+        "matched_company_name": cell_text(result.get("matched_company_name")),
     }
 
     primary_key = tuple(
@@ -137,16 +135,16 @@ def _resolved_cache_entry(
     return entry
 
 
-# true if the ai explicitly said it doesn't know
+# true if the AI answered UNKNOWN
 def _is_explicit_unknown(lookup: EmployerLookup, result: dict | None) -> bool:
     return (
         isinstance(result, dict)
-        and _s(result.get("name")).strip().casefold() == lookup.name.casefold()
-        and _s(result.get("confidence")).strip().upper() == "UNKNOWN"
+        and cell_text(result.get("name")).casefold() == lookup.name.casefold()
+        and cell_text(result.get("confidence")).upper() == "UNKNOWN"
     )
 
 
-# cache entry recording an ai lookup with no result
+# cache entry for an AI miss
 def _not_found_entry(resolver_tag: str) -> dict:
     return {
         "employer_address": "",
@@ -158,14 +156,13 @@ def _not_found_entry(resolver_tag: str) -> dict:
     }
 
 
-# resolve pending employer addresses via grounded ai web search
+# resolve pending addresses by AI web search
 def step_ai_lookup(
     df: pd.DataFrame,
     prev_cache,
     addr_cache,
     donor_totals: pd.DataFrame,
 ) -> int:
-    """Resolve current employer cache misses with one grounded search each."""
     resolver_tag = resolver_id()
     lookups = collect_employer_lookups(
         df, prev_cache, addr_cache, donor_totals, resolver_tag
@@ -193,7 +190,7 @@ def step_ai_lookup(
     if client is None:
         return 0
 
-    # cache a validated result, or an explicit not-found
+    # cache a valid result or explicit not-found
     def store_result(lookup: EmployerLookup, result: dict | None) -> bool:
         entry = _resolved_cache_entry(lookup, result, resolver_tag)
         if entry:

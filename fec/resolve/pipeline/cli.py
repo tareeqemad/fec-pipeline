@@ -28,12 +28,11 @@ from fec.resolve.pipeline.apply import apply_results
 from fec.resolve.pipeline.cache import Cache
 from fec.resolve.pipeline.constants import EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE
 from fec.resolve.pipeline.dedup import dedup_by_resolved_address
-from fec.resolve.pipeline.helpers import _compute_donor_totals
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
 )
-from fec.resolve.pipeline.stats import show_stats
+from fec.resolve.pipeline.stats import compute_donor_totals, show_stats
 from fec.resolve.pipeline.steps.ai_employer import step_ai_lookup
 from fec.resolve.pipeline.steps.fec_previous_employer import step_fec_api
 from fec.resolve.pipeline.steps.previous_employer import step_cross_record
@@ -53,7 +52,7 @@ def _parse_args():
     return args
 
 
-# load caches, the cleaned CSV, and donor totals
+# load caches, cleaned CSV and donor totals
 def _load_data(csv_path: str):
     previous = Cache(os.path.join(CACHE_DIR, PREV_EMPLOYER_CACHE))
     employers = Cache(os.path.join(CACHE_DIR, EMPLOYER_ADDR_CACHE))
@@ -62,14 +61,14 @@ def _load_data(csv_path: str):
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
     unreadable = amounts.isna()
     if unreadable.any():
-        # a missing amount is fixed in cleaning; writing it back as $0 would hide it
+        # writing $0 would hide a cleaning bug
         examples = ", ".join(df.loc[unreadable, "sub_id"].astype(str).head(5))
         raise ValueError(
             f"{int(unreadable.sum()):,} row(s) with a missing or unreadable "
             f"contribution_receipt_amount (sub_id {examples})"
         )
     df["contribution_receipt_amount"] = amounts
-    totals = _compute_donor_totals(df)
+    totals = compute_donor_totals(df)
     return df, totals, previous, employers
 
 
@@ -83,14 +82,13 @@ def _deduplicate_address_cache(df: pd.DataFrame, addr_cache) -> None:
     logger.info(f"    created {aliases:,} aliases across {groups:,} groups")
 
 
-# run the resolve pipeline's stages in order
+# run resolve stages; true if AI stopped
 def _run_steps(
     df,
     donor_totals,
     prev_cache,
     addr_cache,
 ) -> bool:
-    """Run the resolve stages; return whether AI stopped early."""
     logger.info("\n-- Step 0: Manual overrides --")
     load_manual_locations(MANUAL_EMPLOYER_ADDRESSES_CSV, addr_cache)
     load_manual_previous_employers(MANUAL_EMPLOYER_OVERRIDES_CSV, df, prev_cache)
@@ -124,27 +122,21 @@ def _run_steps(
 QUALITY_GATES_JSON = "quality_gates.json"
 
 
-# write the resolve stage's quality-gate report to disk
+# replace clean.py's gate report with resolve's
 def _write_quality_gates(quality: dict, csv_written: bool) -> None:
-    """Replace clean.py's gate report with the one run on the resolved data.
-
-    clean.py writes the report before resolve adds employer_status, so four
-    gates read not_run there; this is the report of the final file.
-    """
     report = {**quality, "stage": "resolve", "csv_written": csv_written}
     write_json_atomic(Path(REPORTS_DIR) / QUALITY_GATES_JSON, report, indent=2)
 
 
-# each filing's employer as filed, from the raw file
+# sub_id to raw employer text, if available
 def _filed_employers() -> dict:
-    """sub_id -> the raw employer text; empty when the raw file is absent."""
     if not RAW_CSV.exists():
         return {}
     raw = pd.read_csv(RAW_CSV, dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_employer"])
     return dict(zip(raw["sub_id"].str.strip(), raw["contributor_employer"]))
 
 
-# apply results, check quality gates, and write the final CSV
+# apply results, run gates, write final CSV
 def _write_results(
     df: pd.DataFrame,
     csv_path: str,
@@ -160,19 +152,19 @@ def _write_results(
         details = "; ".join(quality["issues"]) or "quality gate failed"
         raise ValueError(f"Resolved CSV was not written: {details}")
 
-    # Expand Saint/Mount/Fort in resolved employer cities, matching clean.py.
+    # expand Saint/Mount/Fort, matching clean.py
     df["employer_city"] = df["employer_city"].map(expand_city_abbreviations)
 
     check_output("resolve", input_columns, df.columns)
     write_csv_atomic(df, csv_path, index=False)
     record("resolve", csv_path)
-    # the gates read no employer_city, so the report above describes this file
+    # gates ignore employer_city, so report holds
     _write_quality_gates(quality, csv_written=True)
     logger.info(f"  Written {len(df):,} rows")
     return df
 
 
-# entry point: run the resolve pipeline and write results
+# entry point: run resolve, write results
 def main() -> None:
     _parse_args()
     load_env()

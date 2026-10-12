@@ -1,8 +1,8 @@
 """The donor's own name in the employer field becomes SELF-EMPLOYED; shared-surname firms are kept."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer_swaps import _fix_self_employed_consistency
-from fec.cleaning.safety_nets.name_fields import _fix_own_name_as_employer
+from fec.cleaning.safety_nets.employer_swaps import fix_self_employed_consistency
+from fec.cleaning.safety_nets.name_fields import fix_own_name_as_employer
 
 
 def _frame(rows):
@@ -27,7 +27,7 @@ def test_own_name_becomes_self_employed_regardless_of_occupation():
         ("MARVIN", "S", "ROSEN", "MARVIN S ROSEN", "RETIRED"),  # middle name col
     ])
 
-    n = _fix_own_name_as_employer(df)
+    n = fix_own_name_as_employer(df)
 
     assert n == 5
     assert (df["contributor_employer"] == "SELF-EMPLOYED").all()
@@ -47,7 +47,7 @@ def test_shared_surname_firms_are_kept():
     ])
     before = df["contributor_employer"].tolist()
 
-    n = _fix_own_name_as_employer(df)
+    n = fix_own_name_as_employer(df)
 
     # "PAUL WEISS" is the deliberate trade-off: whole-name equality catches a firm named after a real person.
     assert n == 1
@@ -63,7 +63,7 @@ def test_partial_name_is_not_enough():
         ("", "", "HOWARD", "ALIDA HOWARD", "RETIRED"),            # no given name
     ])
 
-    assert _fix_own_name_as_employer(df) == 0
+    assert fix_own_name_as_employer(df) == 0
     assert df["contributor_employer"].tolist() == [
         "BROWNSTEIN", "ALIDA HOWARD", "ALIDA HOWARD",
     ]
@@ -76,7 +76,7 @@ def test_own_named_legal_company_is_kept():
     ])
     df["contributor_employer_original"] = ["JOEL REINSTEIN PLLC", "SCOTT NAWY LLC"]
 
-    assert _fix_own_name_as_employer(df) == 0
+    assert fix_own_name_as_employer(df) == 0
     assert df["contributor_employer"].tolist() == ["JOEL REINSTEIN", "SCOTT NAWY"]
 
 
@@ -87,7 +87,7 @@ def test_self_employed_occupation_does_not_hide_a_company():
         ("ALIDA", "", "HOWARD", "ALIDA HOWARD", "SELF-EMPLOYED"),
     ])
 
-    assert _fix_self_employed_consistency(df) == 1
+    assert fix_self_employed_consistency(df) == 1
     assert df["contributor_employer"].tolist() == [
         "ELLYN BANK LAW", "LTD X LIZZIE TISCH", "SELF-EMPLOYED",
     ]
@@ -111,13 +111,13 @@ def test_committees_are_untouched():
     df = _frame([("ALIDA", "", "HOWARD", "ALIDA HOWARD", "RETIRED")])
     df["entity_type"] = "COMMITTEE/PAC"
 
-    assert _fix_own_name_as_employer(df) == 0
+    assert fix_own_name_as_employer(df) == 0
     assert df["contributor_employer"].iloc[0] == "ALIDA HOWARD"
 
 
 def test_resolve_guard_matches_reversed_name_order():
     """The resolve-stage twin: previous_employer == the donor's own name."""
-    from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
+    from fec.cleaning.previous_employer import normalize_previous_employer_column
 
     df = pd.DataFrame({
         "contributor_name": ["HOWARD, ALIDA", "COMITER, RICHARD", "ROSEN, MARVIN"],
@@ -128,7 +128,7 @@ def test_resolve_guard_matches_reversed_name_order():
         ],
     })
 
-    _normalize_previous_employer_column(df)
+    normalize_previous_employer_column(df)
 
     assert df["previous_employer"].iloc[0] == ""
     assert df["previous_employer"].iloc[1] != ""

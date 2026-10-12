@@ -8,33 +8,33 @@ from fec.donor_match import keys as K
 from fec.donor_match import rules as R
 from fec.donor_match.keys import apply_donor_key
 from fec.donor_match.matcher import match_donors
-from fec.donor_match.name_choice import _choose_first
+from fec.donor_match.name_choice import choose_first
 
 
 def test_equal_length_spellings_go_to_the_majority_not_the_first_filed():
     # round-2 audit: SCHLUSSEL ADDM (1) over ADAM (5), RADOW LINDY (2) over LINDA (12)
-    assert _choose_first(["ADDM"] + ["ADAM"] * 5) == "ADAM"
-    assert _choose_first(["LINDY"] * 2 + ["LINDA"] * 12) == "LINDA"
-    assert _choose_first(["DEBBI"] * 6 + ["DEBRA"] * 14) == "DEBRA"
+    assert choose_first(["ADDM"] + ["ADAM"] * 5) == "ADAM"
+    assert choose_first(["LINDY"] * 2 + ["LINDA"] * 12) == "LINDA"
+    assert choose_first(["DEBBI"] * 6 + ["DEBRA"] * 14) == "DEBRA"
 
 
 def test_conflicting_middle_initials_go_to_the_majority():
     # FELGOISE 7139 SHEAFF LN: MARC L (11) / MARC I (10); FEC has 50 L vs 12 I
     filings = ["MARC I"] + ["MARC"] * 47 + ["MARC L"] * 11 + ["MARC I"] * 9
-    assert _choose_first(filings) == "MARC L"
+    assert choose_first(filings) == "MARC L"
 
 
 def test_a_period_does_not_make_an_initial_fuller():
     # GINDI ISAAC S. / ISAAC A: one each, so the first filed decides, not the period
-    assert _choose_first(["ISAAC"] * 4 + ["ISAAC A", "ISAAC S."]) == "ISAAC A"
-    assert _choose_first(["ISAAC"] * 4 + ["ISAAC S.", "ISAAC A"]) == "ISAAC S."
+    assert choose_first(["ISAAC"] * 4 + ["ISAAC A", "ISAAC S."]) == "ISAAC A"
+    assert choose_first(["ISAAC"] * 4 + ["ISAAC S.", "ISAAC A"]) == "ISAAC S."
 
 
 def test_fullest_name_still_wins_and_keeps_its_period():
-    assert _choose_first(["MARK"] * 9 + ["MARK L."]) == "MARK L."
-    assert _choose_first(["MARK L"] * 3 + ["MARK L."]) == "MARK L."
-    assert _choose_first(["DAVID"] * 14 + ["DAVID-JACQUES"] * 4 + ["DAVID JACQUES"] * 3) == "DAVID-JACQUES"
-    assert _choose_first(["DAVID JACQUES"] * 3 + ["DAVID-JACQUES"] * 4) == "DAVID-JACQUES"
+    assert choose_first(["MARK"] * 9 + ["MARK L."]) == "MARK L."
+    assert choose_first(["MARK L"] * 3 + ["MARK L."]) == "MARK L."
+    assert choose_first(["DAVID"] * 14 + ["DAVID-JACQUES"] * 4 + ["DAVID JACQUES"] * 3) == "DAVID-JACQUES"
+    assert choose_first(["DAVID JACQUES"] * 3 + ["DAVID-JACQUES"] * 4) == "DAVID-JACQUES"
 
 
 # -- curated rules ---------------------------------------------------------------
@@ -119,13 +119,13 @@ def test_separation_check_fails_when_a_joint_row_shares_the_filers_key():
 def test_a_one_letter_slip_is_not_a_fuller_first_name():
     """LAWERENCE filed once beside LAWRENCE filed ten times is a typo, not a longer name;
     only a spelling the whole dataset barely knows counts as a slip."""
-    from fec.donor_match.name_choice import _choose_first, rare_spellings
+    from fec.donor_match.name_choice import choose_first, rare_spellings
 
     with rare_spellings({"LAWERENCE", "LAWRRENCE", "ADDM"}):
-        assert _choose_first(["LAWRENCE"] * 10 + ["LARRY", "LAWRRENCE"]) == "LAWRENCE"
-        assert _choose_first(["LAWRENCE"] * 10 + ["LAWERENCE"]) == "LAWRENCE"
-        assert _choose_first(["ADAM"] * 5 + ["ADDM"]) == "ADAM"
+        assert choose_first(["LAWRENCE"] * 10 + ["LARRY", "LAWRRENCE"]) == "LAWRENCE"
+        assert choose_first(["LAWRENCE"] * 10 + ["LAWERENCE"]) == "LAWRENCE"
+        assert choose_first(["ADAM"] * 5 + ["ADDM"]) == "ADAM"
         # common names one letter apart are both real: the fuller one still wins
-        assert _choose_first(["STEVE"] * 8 + ["STEVEN"] * 2) == "STEVEN"
+        assert choose_first(["STEVE"] * 8 + ["STEVEN"] * 2) == "STEVEN"
     # outside a cleaning run nothing is a slip
-    assert _choose_first(["LAWRENCE"] * 10 + ["LAWERENCE"]) == "LAWERENCE"
+    assert choose_first(["LAWRENCE"] * 10 + ["LAWERENCE"]) == "LAWERENCE"

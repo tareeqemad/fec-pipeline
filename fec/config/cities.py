@@ -1,4 +1,4 @@
-"""City name normalization: standard abbreviations plus typos verified in real FEC data."""
+"""City name abbreviations and verified typos."""
 import re
 
 CITY_NORMALIZE = {
@@ -12,13 +12,10 @@ CITY_NORMALIZE = {
     'GREAT NCK PLZ': 'GREAT NECK PLAZA',
     'GREAT NCK': 'GREAT NECK',
 
-    # Saint/Fort/Mount abbreviation forms need no entries here --
-    # expand_city_abbreviations (runs last) already unifies them; only real
-    # typos in those names belong in the typo list.
+    # Saint/Fort/Mount forms are expanded later; typos only
     'ST LOUS': 'ST. LOUIS',
 
-    # compass -- the ONLY directional expansion for cities; nothing upstream
-    # expands N/S/E/W
+    # compass: the only city direction expansion
     'N MIAMI BEACH': 'NORTH MIAMI BEACH',
     'N MIAMI': 'NORTH MIAMI',
     'N HOLLYWOOD': 'NORTH HOLLYWOOD',
@@ -55,7 +52,7 @@ CITY_NORMALIZE = {
     'SKOKIIE': 'SKOKIE',
     'PHONIX': 'PHOENIX',
     'PARADISE VSLLEY': 'PARADISE VALLEY',
-    # SCOTTDALE is a real town in PA and GA: fixed for AZ only (CITY_STATE_NORMALIZE)
+    # SCOTTDALE fixed for AZ only (real elsewhere)
     'BROOKKYN': 'BROOKLYN',
     'BRROOKLYN': 'BROOKLYN',
     'JAMIACA': 'JAMAICA',
@@ -91,13 +88,9 @@ CITY_NORMALIZE = {
     'NPB': 'NORTH PALM BEACH',
     'SLC': 'SALT LAKE CITY',
     'LBTS': 'LAUDERDALE BY THE SEA',
-    # 'NY' names a borough only through its ZIP: see CITY_ZIP3_NORMALIZE
-    # single-record garbage cities ('A', 'GA', 'HOWARD COUNTY', 'LOS W') and
-    # ambiguous two-letter initials ('SM', 'PB', 'GV', 'KP') are fixed per
-    # sub_id in data/rules/manual_employer_overrides.csv, not here: a global rule
-    # would silently misfix other donors in future pulls
+    # NY and ambiguous initials are fixed elsewhere
 
-    # variant spellings — target is the official form (verified by state/ZIP)
+    # variant spellings to the official form
     'MC LEAN': 'MCLEAN',
     'WATERMILL': 'WATER MILL',
 
@@ -138,7 +131,7 @@ CITY_NORMALIZE = {
 }
 
 
-# These spellings name different real cities in different states.
+# fixed in one state; real cities elsewhere
 CITY_STATE_NORMALIZE = {
     ('FAIRLAWN', 'NJ'): 'FAIR LAWN',
     ('EASTHAMPTON', 'NY'): 'EAST HAMPTON',
@@ -147,11 +140,7 @@ CITY_STATE_NORMALIZE = {
 }
 
 
-# Short forms whose city follows the ZIP, keyed (city, state, ZIP3). 'NY' as
-# the city is NEW YORK only for Manhattan ZIPs; the USPS city of the other
-# boroughs is the borough itself. Queens ZIPs are named by neighbourhood
-# (FLUSHING, FAR ROCKAWAY, ...), so a Queens 'NY' stays as filed and is fixed
-# per sub_id in data/rules/manual_employer_overrides.csv.
+# short city forms resolved by ZIP3
 CITY_ZIP3_NORMALIZE = {
     ('NY', 'NY', '100'): 'NEW YORK',
     ('NY', 'NY', '101'): 'NEW YORK',
@@ -162,19 +151,15 @@ CITY_ZIP3_NORMALIZE = {
 }
 
 
-# Saint/Sainte/Mount/Fort expansion — run LAST in city cleaning so no
-# abbreviation survives. Period dropped; case of the rest preserved (works on
-# UPPER donor cities and Title-case employer cities).
+# Saint/Mount/Fort expansion; run last, keeps case
 _ABBR_FULL = {'ST': ('SAINT', 'Saint'), 'STE': ('SAINTE', 'Sainte'),
               'MT': ('MOUNT', 'Mount'), 'FT': ('FORT', 'Fort')}
-# Standalone token followed by a space, anywhere in the name. STE before ST
-# plus \b stops false hits like STERLING / STATEN.
+# STE before ST; \b avoids STERLING/STATEN
 _ABBR_RE = re.compile(r'\b(STE|ST|MT|FT)\.?(?=\s)', re.IGNORECASE)
 
 
-# expand saint/mount/fort abbreviations anywhere in a city name
+# expand Saint/Mount/Fort abbreviations in city names
 def expand_city_abbreviations(value):
-    """Expand Saint/Sainte/Mount/Fort anywhere in a city name; no-op on blanks / non-strings."""
     if not isinstance(value, str) or not value:
         return value
 

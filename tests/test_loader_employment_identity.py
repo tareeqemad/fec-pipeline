@@ -18,7 +18,7 @@ import fec.database.loader.previous_employers as previous_loader
 from fec.database.loader.contributions import _map_employment_ids
 from fec.database.loader.employers import (
     EMPLOYMENT_KEY_COLUMNS,
-    _make_employer_resolver,
+    make_employer_resolver,
     employment_key,
     load_employments,
 )
@@ -73,7 +73,7 @@ def db(monkeypatch):
     fake = FakeEmploymentDB()
     monkeypatch.setattr(employer_loader, "execute_values",
                         lambda _cur, sql, rows, **_kw: fake.insert(sql, rows))
-    monkeypatch.setattr(employer_loader, "_count", lambda *_args: len(fake.rows))
+    monkeypatch.setattr(employer_loader, "count_rows", lambda *_args: len(fake.rows))
     return fake
 
 
@@ -103,7 +103,7 @@ def _load(db, filings, employers=None):
     """Run load_employments + the contributions lookup; return each filing's linked row."""
     frame = pd.DataFrame(filings)
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
-    get_employer_id = _make_employer_resolver(employers or {})
+    get_employer_id = make_employer_resolver(employers or {})
     employment_ids = load_employments(
         db, db, frame, donor_ids, {"LEGAL": 1}, get_employer_id, HOME, [],
     )

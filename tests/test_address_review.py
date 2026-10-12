@@ -269,37 +269,37 @@ def test_care_of_fragment_without_a_street_is_blanked():
 
 
 def test_donor_street_with_and_without_type_unify():
-    from fec.cleaning.addresses.fixes.unify import _unify_street_types
+    from fec.cleaning.addresses.fixes.unify import unify_street_types
     df = pd.DataFrame([
         {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON AVE", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
         {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON AVE", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
         {"contributor_name": "COLL, LISA", "contributor_street_1": "103 STANTON", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
         {"contributor_name": "OTHER, PERSON", "contributor_street_1": "103 STANTON", "contributor_city": "AUBURNDALE", "contributor_state": "MA"},
     ])
-    assert _unify_street_types(df) == 1
+    assert unify_street_types(df) == 1
     assert df.contributor_street_1.tolist() == ["103 STANTON AVE"] * 3 + ["103 STANTON"]
 
 
 def test_typed_street_spelling_wins_even_as_a_minority():
-    from fec.cleaning.addresses.fixes.unify import _unify_street_types
+    from fec.cleaning.addresses.fixes.unify import unify_street_types
     df = pd.DataFrame([
         {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF", "contributor_city": "AURORA", "contributor_state": "CO"},
         {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF", "contributor_city": "AURORA", "contributor_state": "CO"},
         {"contributor_name": "GELLER, MICHAEL", "contributor_street_1": "14200 E MONCRIEFF PL", "contributor_city": "AURORA", "contributor_state": "CO"},
     ])
-    assert _unify_street_types(df) == 2
+    assert unify_street_types(df) == 2
     assert set(df.contributor_street_1) == {"14200 E MONCRIEFF PL"}
 
 
 def test_two_different_street_types_are_both_kept():
     # MAIN ST and MAIN AVE disagree: nothing proves which one is the typo
-    from fec.cleaning.addresses.fixes.unify import _unify_street_types
+    from fec.cleaning.addresses.fixes.unify import unify_street_types
     rows = [("100 MAIN ST",), ("100 MAIN ST",), ("100 MAIN AVE",), ("100 MAIN",)]
     df = pd.DataFrame([
         {"contributor_name": "DOE, JANE", "contributor_street_1": street, "contributor_city": "AUSTIN",
          "contributor_state": "TX"} for (street,) in rows
     ])
-    assert _unify_street_types(df) == 0
+    assert unify_street_types(df) == 0
     assert df.contributor_street_1.tolist() == ["100 MAIN ST", "100 MAIN ST", "100 MAIN AVE", "100 MAIN"]
 
 
@@ -312,22 +312,22 @@ def _units(values):
 
 
 def test_a_floor_is_not_an_apartment():
-    from fec.cleaning.addresses.fixes.unify import _unify_unit_designators
+    from fec.cleaning.addresses.fixes.unify import unify_unit_designators
     df = _units(["APT 9", "APT 9", "FL 9"])
-    assert _unify_unit_designators(df) == 0
+    assert unify_unit_designators(df) == 0
     assert df.contributor_street_2.tolist() == ["APT 9", "APT 9", "FL 9"]
 
 
 def test_building_and_suite_numbers_stay_apart():
-    from fec.cleaning.addresses.fixes.unify import _unify_unit_designators
+    from fec.cleaning.addresses.fixes.unify import unify_unit_designators
     df = _units(["BLDG 1 STE 23", "BLDG 1 STE 23", "BLDG 12 STE 3"])
-    assert _unify_unit_designators(df) == 0
+    assert unify_unit_designators(df) == 0
 
 
 def test_the_same_unit_written_two_ways_still_unifies():
-    from fec.cleaning.addresses.fixes.unify import _unify_unit_designators
+    from fec.cleaning.addresses.fixes.unify import unify_unit_designators
     df = _units(["APT 15-03", "APT 15-03", "# 1503", "UNIT 15-03"])
-    assert _unify_unit_designators(df) == 2
+    assert unify_unit_designators(df) == 2
     assert set(df.contributor_street_2) == {"APT 15-03"}
 
 
@@ -355,19 +355,19 @@ def test_a_city_typed_after_a_comma_in_the_street_is_dropped():
 def test_street_2_repeating_street_1_or_a_field_label_is_no_unit():
     import pandas as pd
     from fec.cleaning.addresses.fixes.safe_text import apply_safe_fixes
-    from fec.cleaning.addresses.street_text import _normalize_unit
+    from fec.cleaning.addresses.street_text import normalize_unit
 
     df = pd.DataFrame({"contributor_street_1": ["3400 GULLEY RD"], "contributor_street_2": ["3400 GULLEY RD"],
                        "contributor_city": ["TAYLOR"], "contributor_state": ["MI"], "contributor_zip": ["48180"]})
     df, _ = apply_safe_fixes(df)
     assert pd.isna(df.loc[0, "contributor_street_2"])
-    assert pd.isna(_normalize_unit("ADDR 2"))
+    assert pd.isna(normalize_unit("ADDR 2"))
 
 
 def test_a_placeholder_behind_a_hash_is_no_unit():
     import pandas as pd
-    from fec.cleaning.addresses.street_text import _normalize_unit
+    from fec.cleaning.addresses.street_text import normalize_unit
 
-    assert pd.isna(_normalize_unit("# NA"))
-    assert _normalize_unit("# 914") == "# 914"
-    assert _normalize_unit("#") == "#"
+    assert pd.isna(normalize_unit("# NA"))
+    assert normalize_unit("# 914") == "# 914"
+    assert normalize_unit("#") == "#"

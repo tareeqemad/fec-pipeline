@@ -105,7 +105,7 @@ def _execute_schema_statement(conn: Any, cur: Any, idx: int, statement: str) -> 
         ) from error
 
 
-# raise if any expected table is missing after creation
+# raise if any expected table is missing
 def _verify_tables(cur: Any) -> None:
     cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
     actual = {row[0] for row in cur.fetchall()}
@@ -118,9 +118,8 @@ def _verify_tables(cur: Any) -> None:
     logger.info(f"  all {len(TABLES)} expected tables present")
 
 
-# create the schema from sql, then verify it
+# create schema from SQL, then verify it
 def create_schema(conn: Any, cur: Any) -> None:
-    """Create and verify the database schema."""
     logger.info(f"\n-- Creating schema from {SCHEMA_SQL.name} --")
     statements = _read_schema_statements()
     counts = Counter()
@@ -139,9 +138,8 @@ def create_schema(conn: Any, cur: Any) -> None:
     _verify_schema_integrity(cur)
 
 
-# true if definition is the loader's employment unique key
+# true for the loader's employment unique key
 def _is_employment_key(definition: str) -> bool:
-    """True for UNIQUE NULLS NOT DISTINCT over exactly the loader's employment key."""
     match = re.fullmatch(r"UNIQUE NULLS NOT DISTINCT \((.*)\)", definition.strip())
     if not match:
         return False
@@ -149,15 +147,13 @@ def _is_employment_key(definition: str) -> bool:
     return columns == EMPLOYMENT_KEY_COLUMNS
 
 
-# assert schema v1.2 invariants: views, constraints, no legacy columns
+# assert v1.2 views, constraints, no legacy columns
 def _verify_schema_integrity(cur: Any) -> None:
-    """Assert v1.2 invariants: views/matviews exist, leader_committees junction, donor_employments unique key, no legacy donor pointer columns."""
     _require_names(cur, "SELECT viewname FROM pg_views WHERE schemaname='public'",
                    VIEWS, "views")
     _require_names(cur, "SELECT matviewname FROM pg_matviews WHERE schemaname='public'",
                    MAT_VIEWS, "materialized views")
 
-    # Verify leader relationships.
     cur.execute("""
         SELECT 1 FROM information_schema.tables
         WHERE table_schema='public' AND table_name='leader_committees'
@@ -175,9 +171,8 @@ def _verify_schema_integrity(cur: Any) -> None:
     )
 
 
-# raise if the query's results miss any expected name
+# raise if query lacks any expected name
 def _require_names(cur: Any, query: str, expected, label: str) -> None:
-    """Raise when the query's names lack any expected one."""
     cur.execute(query)
     actual = {row[0] for row in cur.fetchall()}
     missing = sorted(set(expected) - actual)
@@ -185,9 +180,8 @@ def _require_names(cur: Any, query: str, expected, label: str) -> None:
         raise RuntimeError(f"Schema: missing {label} {missing}")
 
 
-# check donor_employments has its unique key and column
+# check donor_employments unique key and column
 def _verify_employments_table(cur: Any) -> None:
-    """donor_employments has its unique key and self-employed column."""
     cur.execute("""
         SELECT pg_get_constraintdef(oid)
         FROM pg_constraint
@@ -212,9 +206,8 @@ def _verify_employments_table(cur: Any) -> None:
         )
 
 
-# raise if donors still has legacy pointer columns
+# raise if donors has legacy pointer columns
 def _reject_legacy_columns(cur: Any) -> None:
-    """Raise when donors still has old denormalized pointer columns."""
     cur.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_schema='public' AND table_name='donors'
@@ -228,15 +221,14 @@ def _reject_legacy_columns(cur: Any) -> None:
         )
 
 
-# the database this cursor is connected to, for messages
+# connected database name, for messages
 def _database_name(cur: Any) -> str:
     connection = getattr(cur, "connection", None)
     return getattr(getattr(connection, "info", None), "dbname", None) or os.getenv("PG_DBNAME", "fec_db")
 
 
-# require needed postgres extensions before a destructive reset
+# require extensions before the destructive reset
 def verify_extensions(cur: Any) -> None:
-    """Require extensions before destructive reset."""
     required = {
         "pg_trgm": "fuzzy text search (gin_trgm_ops indexes)",
         "cube": "dependency of earthdistance",

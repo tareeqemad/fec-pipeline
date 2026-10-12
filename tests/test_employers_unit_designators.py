@@ -7,7 +7,7 @@ both: the designator abbreviated and first, the identifier as written.
 """
 import pytest
 
-from fec.cleaning.addresses.street_text import _normalize_unit
+from fec.cleaning.addresses.street_text import normalize_unit
 from fec.config.streets import usps_unit_designators
 
 
@@ -36,7 +36,7 @@ from fec.config.streets import usps_unit_designators
     ("APT 5", "APT 5"),
 ])
 def test_donor_units_take_the_usps_form(value, expected):
-    assert _normalize_unit(value) == expected
+    assert normalize_unit(value) == expected
 
 
 @pytest.mark.parametrize("street, expected", [

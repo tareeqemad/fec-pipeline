@@ -1,25 +1,25 @@
 import pandas as pd
 
-from fec.cleaning.donor_consistency.employer import _fill_employer_from_donor
+from fec.cleaning.donor_consistency.employer import fill_employer_from_donor
 from fec.cleaning.donor_consistency.occupation import (
-    _fill_occupation_from_donor,
-    _rederive_occupation_category,
+    fill_occupation_from_donor,
+    rederive_occupation_category,
 )
 from fec.cleaning.donor_consistency.retired import (
-    _fill_prev_employer_from_donor,
-    _settle_retired_employer,
+    fill_prev_employer_from_donor,
+    settle_retired_employer,
 )
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.cleaning.quality.occupation_scan import scan_uncategorized_occupations
-from fec.cleaning.safety_nets.addresses import _fix_foreign_addresses
-from fec.cleaning.safety_nets.employer import _fix_retired_typos
+from fec.cleaning.safety_nets.addresses import fix_foreign_addresses
+from fec.cleaning.safety_nets.employer import fix_retired_typos
 from fec.cleaning.safety_nets.employer_swaps import (
-    _swap_role_employer_with_known_company,
+    swap_role_employer_with_known_company,
 )
-from fec.cleaning.safety_nets.name_fields import _fix_occ_emp_both_swapped
-from fec.cleaning.safety_nets.occupation import _fix_web_artifact_occupation
+from fec.cleaning.safety_nets.name_fields import fix_occ_emp_both_swapped
+from fec.cleaning.safety_nets.occupation import fix_web_artifact_occupation
 from fec.cleaning.safety_nets.occupation_category import (
-    _fix_emp_occ_category_consistency,
+    fix_emp_occ_category_consistency,
 )
 
 
@@ -31,7 +31,7 @@ def test_retire_truncation_is_a_retired_status():
         'occupation_status': ['DISCLOSED'],
     })
 
-    assert _fix_retired_typos(df, pd.Series([True])) == 1
+    assert fix_retired_typos(df, pd.Series([True])) == 1
     assert df.loc[0, 'contributor_employer'] == 'RETIRED'
     assert df.loc[0, 'occupation_status'] == 'NOT_APPLICABLE'
 
@@ -45,7 +45,7 @@ def test_explicit_retired_occupation_wins_over_not_employed_marker():
         'occupation_status': ['NOT_APPLICABLE'],
     })
 
-    assert _fix_emp_occ_category_consistency(df) == 1
+    assert fix_emp_occ_category_consistency(df) == 1
     assert df.loc[0, 'contributor_employer'] == 'RETIRED'
 
 
@@ -59,7 +59,7 @@ def test_recovered_company_becomes_previous_employer_for_retiree():
         'previous_employer': [pd.NA, pd.NA],
     })
 
-    assert _settle_retired_employer(df) == 2
+    assert settle_retired_employer(df) == 2
     assert df['contributor_employer'].tolist() == ['RETIRED', 'RETIRED']
     assert df.loc[0, 'previous_employer'] == 'FIT FOR LIFE'
     assert pd.isna(df.loc[1, 'previous_employer'])
@@ -74,7 +74,7 @@ def test_retired_settlement_does_not_replace_existing_previous_employer():
         'previous_employer': ['CURATED COMPANY'],
     })
 
-    _settle_retired_employer(df)
+    settle_retired_employer(df)
     assert df.loc[0, 'previous_employer'] == 'CURATED COMPANY'
 
 
@@ -88,7 +88,7 @@ def test_not_disclosed_uses_other_without_losing_the_refusal():
     })
 
     df.loc[0, 'occupation_category'] = pd.NA
-    assert _rederive_occupation_category(df) == 1
+    assert rederive_occupation_category(df) == 1
     assert df.loc[0, 'occupation_category'] == 'OTHER'
 
 
@@ -98,7 +98,7 @@ def test_us_cities_with_foreign_names_are_kept_by_state():
         'contributor_state': ['WA', 'OH', 'CA'],
     })
 
-    assert _fix_foreign_addresses(df) == 1
+    assert fix_foreign_addresses(df) == 1
     assert df.loc[0, 'contributor_city'] == 'VANCOUVER'
     assert df.loc[1, 'contributor_city'] == 'TORONTO'
     assert pd.isna(df.loc[2, 'contributor_city'])
@@ -216,7 +216,7 @@ def test_employer_fill_does_not_replace_existing_occupation_category():
         'contribution_receipt_date': ['2024-01-01', '2024-02-01', '2024-03-01'],
     })
 
-    assert _fill_employer_from_donor(df) == 2
+    assert fill_employer_from_donor(df) == 2
     assert df.loc[0, 'contributor_employer'] == 'ACME'
     assert df.loc[0, 'contributor_occupation'] == 'ATTORNEY'
     assert df.loc[0, 'occupation_category'] == 'LEGAL'
@@ -241,7 +241,7 @@ def test_employer_fill_respects_reported_life_status():
         ],
     })
 
-    assert _fill_employer_from_donor(df) == 1
+    assert fill_employer_from_donor(df) == 1
     assert df['contributor_employer'].isna().tolist() == [True, True, False, False]
     assert df.loc[2, 'contributor_employer'] == 'ACME'
 
@@ -257,7 +257,7 @@ def test_previous_employer_uses_only_an_earlier_filing():
         'previous_employer': ['', '', ''],
     })
 
-    assert _fill_prev_employer_from_donor(df) == 1
+    assert fill_prev_employer_from_donor(df) == 1
     assert df.loc[1, 'previous_employer'] == 'OLD COMPANY'
 
 
@@ -272,7 +272,7 @@ def test_future_employer_does_not_become_previous_employer():
         'previous_employer': ['', ''],
     })
 
-    assert _fill_prev_employer_from_donor(df) == 0
+    assert fill_prev_employer_from_donor(df) == 0
     assert df.loc[0, 'previous_employer'] == ''
 
 
@@ -287,7 +287,7 @@ def test_retired_row_is_not_previous_employer_evidence():
         'previous_employer': ['', ''],
     })
 
-    assert _fill_prev_employer_from_donor(df) == 0
+    assert fill_prev_employer_from_donor(df) == 0
     assert df.loc[1, 'previous_employer'] == ''
 
 
@@ -301,7 +301,7 @@ def test_occupation_fill_uses_same_employer_only():
         'occupation_status': ['MISSING', 'DISCLOSED', 'DISCLOSED', 'DERIVED'],
     })
 
-    assert _fill_occupation_from_donor(df) == 2
+    assert fill_occupation_from_donor(df) == 2
     assert df.loc[0, 'contributor_occupation'] == 'CEO'
     assert df.loc[0, 'occupation_category'] == 'EXECUTIVE / C-SUITE'
     assert df.loc[3, 'contributor_occupation'] == 'CEO'
@@ -321,7 +321,7 @@ def test_self_employed_occupation_needs_one_confirmed_role_at_same_company():
         'occupation_status': ['DISCLOSED'] * 7,
     })
 
-    assert _fill_occupation_from_donor(df) == 1
+    assert fill_occupation_from_donor(df) == 1
     assert df.loc[0, 'contributor_occupation'] == 'ATTORNEY'
     assert df.loc[0, 'occupation_category'] == 'LEGAL'
     assert df.loc[0, 'occupation_status'] == 'DERIVED'
@@ -345,7 +345,7 @@ def test_company_name_in_occupation_needs_one_confirmed_role_at_same_company():
         'occupation_status': ['DISCLOSED'] * 6,
     })
 
-    assert _fill_occupation_from_donor(df) == 1
+    assert fill_occupation_from_donor(df) == 1
     assert df.loc[0, 'contributor_occupation'] == 'ATTORNEY'
     assert df.loc[0, 'occupation_category'] == 'LEGAL'
     assert df.loc[0, 'occupation_status'] == 'DERIVED'
@@ -367,7 +367,7 @@ def test_final_category_is_always_derived_from_final_occupation():
     assert not quality['checks']['occupation_category_consistency']['passed']
     assert quality['checks']['occupation_category_consistency']['count'] == 4
 
-    assert _rederive_occupation_category(df) == 4
+    assert rederive_occupation_category(df) == 4
     assert df['occupation_category'].tolist() == [
         'LEGAL', 'LEGAL', 'OTHER', 'OTHER', 'ORGANIZATION',
     ]
@@ -399,7 +399,7 @@ def test_company_in_both_fields_is_not_blindly_swapped():
         'contributor_employer': ['INDIGO CAPITAL LLC', 'CLAIMS'],
     })
 
-    assert _fix_occ_emp_both_swapped(df) == 1
+    assert fix_occ_emp_both_swapped(df) == 1
 
     assert df.loc[0, 'contributor_occupation'] == 'AMERICAN EXPRESS'
     assert df.loc[0, 'contributor_employer'] == 'INDIGO CAPITAL LLC'
@@ -415,7 +415,7 @@ def test_swapped_job_is_canonicalized_after_company_detection():
         'occupation_category': ['OTHER', 'FINANCE / INVESTMENT'],
     })
 
-    assert _swap_role_employer_with_known_company(df) == 1
+    assert swap_role_employer_with_known_company(df) == 1
     assert df.loc[0, 'contributor_employer'] == 'JINSA'
     assert df.loc[0, 'contributor_occupation'] == 'EXECUTIVE'
     assert df.loc[0, 'occupation_category'] == 'EXECUTIVE / C-SUITE'
@@ -428,7 +428,7 @@ def test_garbled_web_artifact_is_removed():
         'occupation_category': ['OTHER'],
     })
 
-    assert _fix_web_artifact_occupation(df) == 1
+    assert fix_web_artifact_occupation(df) == 1
     assert pd.isna(df.loc[0, 'contributor_occupation'])
 
 
@@ -444,7 +444,7 @@ def test_employer_fill_takes_the_employer_of_that_time_not_a_later_one():
         'contribution_receipt_date': ['2024-03-25', '2024-06-01', '2025-05-19', '2025-11-10'],
     })
 
-    assert _fill_employer_from_donor(df) == 2
+    assert fill_employer_from_donor(df) == 2
     assert df['contributor_employer'].tolist() == [
         'BLT RESTAURANT GROUP', 'BLT RESTAURANT GROUP', 'JUNO INVESTMENTS', 'JUNO INVESTMENTS']
 
@@ -460,7 +460,7 @@ def test_employer_fill_before_any_employer_takes_the_first_one_after():
         'contribution_receipt_date': ['2022-01-01', '2023-01-01', '2024-01-01'],
     })
 
-    _fill_employer_from_donor(df)
+    fill_employer_from_donor(df)
     assert df.loc[0, 'contributor_employer'] == 'FIRST CO'
 
 
@@ -499,7 +499,7 @@ def test_a_retiree_who_filed_no_as_employer_gets_no_previous_employer():
         'previous_employer': [pd.NA],
     })
 
-    _settle_retired_employer(df)
+    settle_retired_employer(df)
     assert df.loc[0, 'contributor_employer'] == 'RETIRED'
     assert pd.isna(df.loc[0, 'previous_employer'])
 

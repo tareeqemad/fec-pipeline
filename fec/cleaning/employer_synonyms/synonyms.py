@@ -9,9 +9,8 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# read employer rename rules from the csv file
+# read employer rename rules from csv
 def _load_rules() -> dict[str, str]:
-    """Read the single rules file."""
     if not EMPLOYER_NAME_RULES_CSV.exists():
         raise FileNotFoundError(
             f"Missing employer rules: {EMPLOYER_NAME_RULES_CSV}"
@@ -36,9 +35,8 @@ def _load_rules() -> dict[str, str]:
 EMPLOYER_SYNONYMS = _load_rules()
 
 
-# rewrite each synonym key to the end of its chain
+# flatten chains; synonyms map once, cycles stay
 def _flatten_synonym_chains() -> int:
-    """Rewrite each key to the end of its chain - apply_employer_synonyms maps once, so A->B, B->C would strand A at B; cycles stay at one hop."""
     count = 0
     for key in list(EMPLOYER_SYNONYMS):
         seen = {key}
@@ -55,9 +53,8 @@ def _flatten_synonym_chains() -> int:
     return count
 
 
-# normalize a string the way match-time lookups expect
+# mirror normalize_employer_canonical; keep in sync
 def _canonicalize_for_match(s: str) -> str:
-    """Reduce a string to what apply_employer_synonyms sees at match time; mirrors the regex chain in normalize_employer_canonical - keep in sync."""
     s = (s or '').upper().strip()
     s = re.sub(r'\s*\([A-Z]{1,5}\)\s*$', '', s)
     s = LEGAL_SUFFIX_RE.sub('', s)
@@ -66,20 +63,19 @@ def _canonicalize_for_match(s: str) -> str:
     return s.rstrip('.,').strip()
 
 
-# add each key's normalized form as an alias too
+# add each key's normalized form as alias
 def _expand_synonym_keys() -> int:
-    """Register each key's post-normalize form as an alias, since matching happens after normalize_employer_canonical has run."""
     added = 0
     for key in list(EMPLOYER_SYNONYMS):
         target = EMPLOYER_SYNONYMS[key]
         norm_key = _canonicalize_for_match(key)
-        # skip identity and self-maps: that form is already canonical
+        # identity and self-maps are already canonical
         if not norm_key or norm_key in (key, target):
             continue
         existing = EMPLOYER_SYNONYMS.get(norm_key)
         if existing is not None:
             if existing != target:
-                # two raw keys normalize to the same alias; keep the first
+                # alias collision keeps the first target
                 logger.debug(
                     "Synonym alias collision on %r - keeping existing target", norm_key)
             continue
@@ -88,8 +84,7 @@ def _expand_synonym_keys() -> int:
     return added
 
 
-# Runs at import time so the rest of the pipeline sees the merged dict
-# transparently; DEBUG because it precedes the run's user-facing output.
+# runs at import, before user-facing output
 _n_alias = _expand_synonym_keys()
 _n_flat = _flatten_synonym_chains()
 logger.debug(

@@ -1,7 +1,6 @@
 """Scoring weights, nickname map, and look-alike names."""
 
-# occupation buckets too generic to corroborate a match (unlike a real field
-# such as LEGAL); RETIRED is also tracked separately as a transition state
+# occupations too generic to corroborate a match
 GENERIC_OCC_CATEGORIES = {
     "RETIRED", "NOT EMPLOYED", "SELF-EMPLOYED", "OTHER",
     "ORGANIZATION", "POLITICAL COMMITTEE", "HOMEMAKER", "STUDENT",
@@ -11,42 +10,37 @@ GENERIC_OCC_CATEGORIES = {
 NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V", "ESQ", "MD", "PHD", "DDS", "CPA", "DO"}
 
 
-# Scoring weights - ALL of them, in one place. compute_score adds up evidence
-# that two records are the same person; a pair MERGES at >= MERGE_THRESHOLD.
-# Worked examples: same street alone (60) merges. Same employer + same state
-# (40) does not. Employer + state + city (55) does. A middle-initial conflict
-# (-30) sinks that back to 25.
+# all scoring weights; merge at MERGE_THRESHOLD
 
 # shared evidence
-SCORE_SAME_STREET    = 60   # same street on file - the strongest single proof
+SCORE_SAME_STREET    = 60   # strongest single proof
 SCORE_SAME_EMPLOYER  = 30   # same real employer (status words never count)
-SCORE_SAME_STATE     = 10   # weak alone - half a state shares it
+SCORE_SAME_STATE     = 10   # weak alone; many share a state
 SCORE_SAME_CITY      = 15
 SCORE_SAME_ZIP5      = 25   # exact ZIP
 SCORE_SAME_ZIP3      = 5    # same ZIP area (first 3 digits)
 SCORE_SAME_OCC       = 15   # same occupation category
-SCORE_OCC_RETIRED    = 10   # one side a career, the other RETIRED - a plausible transition
+SCORE_OCC_RETIRED    = 10   # career on one side, RETIRED on other
 
-# middle names - the ONLY evidence that can hard-block: two different full
-# middle names force the score to -999 (two different people, never merge)
-SCORE_MIDDLE_MATCH   = 15   # same middle, initial matching the full form, or 1-char typo
-SCORE_MIDDLE_PARTIAL = 5    # only one side has a middle name - no contradiction
-SCORE_MIDDLE_CONFLICT = -30 # different INITIALS (J vs M) - suspicious, not fatal
+# middle names: only evidence that hard-blocks
+SCORE_MIDDLE_MATCH   = 15   # same, matching initial, or 1-char typo
+SCORE_MIDDLE_PARTIAL = 5    # only one side has a middle
+SCORE_MIDDLE_CONFLICT = -30 # different initials: suspicious, not fatal
 
-# name rarity (name_freq = distinct records sharing the normalized name)
+# name rarity by records sharing the name
 SCORE_RARE_NAME      = 15   # freq <= 3
-SCORE_VERY_RARE_BONUS = 20  # freq <= 2, stacks with RARE_NAME (+35 total)
-SCORE_COMMON_PENALTY = -15  # freq > 10: common names need more proof
+SCORE_VERY_RARE_BONUS = 20  # freq <= 2, stacks with RARE_NAME
+SCORE_COMMON_PENALTY = -15  # freq > 10 needs more proof
 
 # situation bonuses
-SCORE_CROSS_NAME_BONUS = 10  # nickname/typo first-name pair (phase 2), only with corroboration
-SCORE_RETIRED_NO_EMP   = 25  # neither side employed + rare name + shared geography
-SCORE_RARE_EMPLOYER_OK = 10  # no geography at all, but shared employer + rare name
+SCORE_CROSS_NAME_BONUS = 10  # nickname/typo first names, only with corroboration
+SCORE_RETIRED_NO_EMP   = 25  # both unemployed, rare name, shared geography
+SCORE_RARE_EMPLOYER_OK = 10  # no geography, shared employer, rare name
 
 MERGE_THRESHOLD = 50
 
-# blocked first-name pairs: look similar but are different people
-_BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
+# similar first names that are different people
+BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
     ('DAN', 'DANA'),        ('DANIEL', 'DANA'),
     ('BETH', 'SETH'),
     ('JOAN', 'JOHN'),

@@ -4,10 +4,10 @@ from test_record_rules import _make_df
 
 from fec.cleaning.audit_trail import AuditTrail
 from fec.cleaning.pipeline.core import _clean_people
-from fec.cleaning.pipeline.names import _clean_names
-from fec.cleaning.pipeline.reclassify import _reclassify_entities
+from fec.cleaning.pipeline.names import clean_names
+from fec.cleaning.pipeline.reclassify import reclassify_entities
 from fec.cleaning.safety_nets.occupation_category import (
-    _fix_emp_occ_category_consistency,
+    fix_emp_occ_category_consistency,
 )
 
 
@@ -101,8 +101,8 @@ def test_person_names_survive_false_committee_filing():
         },
     ])
 
-    assert _reclassify_entities(df) == (2, 0)
-    _clean_names(df)
+    assert reclassify_entities(df) == (2, 0)
+    clean_names(df)
 
     assert df['entity_type'].tolist() == ['INDIVIDUAL', 'INDIVIDUAL']
     assert df['contributor_name'].tolist() == ['FERRNCZ, ROBERT', 'WALDMAN, GARY']
@@ -146,10 +146,10 @@ def test_status_employer_fills_empty_occupation_idempotently():
         },
     ])
 
-    assert _fix_emp_occ_category_consistency(df) == 2
+    assert fix_emp_occ_category_consistency(df) == 2
     assert df['contributor_occupation'].tolist() == ['RETIRED', 'NOT EMPLOYED']
     assert df['occupation_category'].tolist() == ['RETIRED', 'NOT EMPLOYED']
-    assert _fix_emp_occ_category_consistency(df) == 0
+    assert fix_emp_occ_category_consistency(df) == 0
 
 
 def test_manual_individual_name_correction_keeps_name_columns_consistent():
@@ -214,7 +214,7 @@ def test_laryl_kupor_uses_verified_lary_spelling():
         'contributor_zip': '77401',
     }])
 
-    _clean_names(df)
+    clean_names(df)
 
     assert df.loc[0, 'contributor_name'] == 'KUPOR, LARY'
     assert df.loc[0, 'contributor_first_name'] == 'LARY'

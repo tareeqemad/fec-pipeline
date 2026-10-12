@@ -1,12 +1,4 @@
-"""Name audit: raw vs cleaned per sub_id, plus per-donor identity check.
-
-  1. Row level: is the cleaned surname / first name explainable from the SAME donor's raw filings
-     (exact, punctuation/suffix/title variant, initial, or a nickname of a raw first name)?
-     Anything else = the row now carries a name nobody filed for this donor.
-  2. Donor level: does one donor_key hold two surnames that are not variants, or two first names
-     that are not nickname/initial variants (two people under one key)?
-Outputs data/reports/review/name_audit_flags.csv and name_audit_donors.csv.
-"""
+"""Audit cleaned names against raw filings."""
 import re
 import sys
 from difflib import SequenceMatcher
@@ -21,13 +13,14 @@ _SUFFIX = {"JR", "SR", "II", "III", "IV", "V", "MD", "PHD", "ESQ", "DDS", "CPA",
 _TITLE = {"DR", "MR", "MRS", "MS", "MISS", "RABBI", "HON", "REV", "SIR", "DAME", "PROF", "CAPT", "COL", "GEN", "SEN", "REP"}
 
 
+# nickname-canonical form of a first name
 def canon(first: str) -> str:
     f = first.upper()
     return NICKNAME_MAP.get(f, f)
 
 
+# split a name into last, first, rest
 def parse(name: str) -> tuple[str, str, list[str]]:
-    """'LAST, FIRST M' -> (last, first, other tokens), punctuation/titles/suffixes removed."""
     s = re.sub(r"[.\'\"`]", "", str(name or "").upper())
     s = re.sub(r"[-/]", " ", s)
     last, _, rest = s.partition(",")
@@ -38,17 +31,19 @@ def parse(name: str) -> tuple[str, str, list[str]]:
     return " ".join(ltoks), (rtoks[0] if rtoks else ""), rtoks[1:]
 
 
+# whether two surnames are variants
 def surname_variant(a: str, b: str) -> bool:
     if not a or not b or a == b:
         return True
     a2, b2 = a.replace(" ", ""), b.replace(" ", "")
-    if a2 == b2 or a2 in b2 or b2 in a2:                    # compound / hyphenated / maiden forms
+    if a2 == b2 or a2 in b2 or b2 in a2:                    # compound, hyphenated or maiden forms
         return True
     if set(a.split()) & set(b.split()):
         return True
     return SequenceMatcher(None, a2, b2).ratio() >= 0.85 and min(len(a2), len(b2)) >= 4
 
 
+# whether two first names are variants
 def first_variant(a: str, b: str) -> bool:
     if not a or not b or a == b:
         return True
@@ -57,11 +52,12 @@ def first_variant(a: str, b: str) -> bool:
         return True
     if len(a) == 1 or len(b) == 1:                           # initial
         return a[0] == b[0]
-    if a.startswith(b) or b.startswith(a):                   # ROB / ROBERT, ALEX / ALEXANDER
+    if a.startswith(b) or b.startswith(a):                   # short forms like ROB for ROBERT
         return True
     return SequenceMatcher(None, a, b).ratio() >= 0.8 and a[0] == b[0]
 
 
+# flag unexplained names, write audit CSVs
 def main():
     raw = pd.read_csv("data/raw/contributions.csv", dtype=str, keep_default_na=False, low_memory=False,
                       usecols=["sub_id", "contributor_name"]).set_index("sub_id")

@@ -4,12 +4,12 @@ import pandas as pd
 import pytest
 
 from fec.cleaning.addresses.fixes.recovery import (
-    _is_usable_street,
-    _recover_nonstreet_from_donor,
-    _recover_null_streets,
+    is_usable_street,
+    recover_nonstreet_from_donor,
+    recover_null_streets,
 )
 from fec.cleaning.addresses.street_text import (
-    _normalize_unit,
+    normalize_unit,
     _split_fused_house_number,
     normalize_street,
 )
@@ -28,7 +28,7 @@ def _streets(rows):
 @pytest.mark.parametrize('value', ['.', '..', '-', 'NONE', 'None', 'HOME', 'N/A', 'NA', 'N.A.', 'NULL',
                                    'SAME', 'UNKNOWN', 'USA', 'none.'])
 def test_street2_placeholders_are_null(value):
-    assert pd.isna(_normalize_unit(value))
+    assert pd.isna(normalize_unit(value))
 
 
 @pytest.mark.parametrize('value,expected', [
@@ -38,7 +38,7 @@ def test_street2_placeholders_are_null(value):
     ('3RD FLOOR', 'FL 3'), ('FLOOR 3', 'FL 3'),
 ])
 def test_real_units_are_kept(value, expected):
-    assert _normalize_unit(value) == expected
+    assert normalize_unit(value) == expected
 
 
 def test_clean_streets_nulls_the_audit_placeholders():
@@ -77,7 +77,7 @@ def test_floor_only_street1_with_a_unit_already_in_street2_is_left_for_recovery(
 
 
 def test_floor_only_street_is_not_usable():
-    usable = _is_usable_street(pd.Series(['3RD FLOOR', 'FL 3', '12 FL', '3RD ST', '123 MAIN ST', 'PO BOX 5']))
+    usable = is_usable_street(pd.Series(['3RD FLOOR', 'FL 3', '12 FL', '3RD ST', '123 MAIN ST', 'PO BOX 5']))
     assert usable.tolist() == [False, False, False, True, True, True]
 
 
@@ -95,12 +95,12 @@ def _donor_rows(first_street, first_unit):
 def test_moved_floor_row_is_refilled_from_the_donor_history():
     df, _ = clean_streets(_streets([('3RD FLOOR', np.nan)]))
     rows = _donor_rows(df['contributor_street_1'].iloc[0], df['contributor_street_2'].iloc[0])
-    assert _recover_null_streets(rows) == 1
+    assert recover_null_streets(rows) == 1
     assert rows['contributor_street_1'].tolist() == ['15 W 72ND ST', '15 W 72ND ST']
     assert rows['contributor_street_2'].iloc[0] == 'FL 3'
 
 
 def test_floor_only_street_with_a_unit_is_replaced_by_the_donor_street():
     rows = _donor_rows('3RD FLOOR', 'STE 5')
-    assert _recover_nonstreet_from_donor(rows) == 1
+    assert recover_nonstreet_from_donor(rows) == 1
     assert rows['contributor_street_1'].iloc[0] == '15 W 72ND ST'

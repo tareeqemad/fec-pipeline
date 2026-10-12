@@ -8,17 +8,19 @@ from fec.cleaning.employer_status import current_employer_name
 from fec.cleaning.quality.gates import run_quality_gates
 from fec.database.loader.employers import (
     _latest_employment_rows,
-    _make_employer_resolver,
+    make_employer_resolver,
     load_employers,
 )
-from fec.database.loader.employment_locations import _employment_address_id
+from fec.database.loader.employment_locations import employment_address_id
 from fec.database.loader.previous_employers import filing_previous
 from fec.resolve.pipeline.apply import ResolveContext, _resolve_row, apply_results
 from fec.resolve.pipeline.manual_overrides import (
     load_manual_locations,
     load_manual_previous_employers,
 )
-from fec.resolve.pipeline.steps.previous_employer import _cache_entry, step_cross_record
+from fec.resolve.pipeline.previous_cache import cache_entry
+from fec.resolve.pipeline.steps.previous_employer import step_cross_record
+from clean_columns import with_clean_columns, with_clean_fields
 
 
 class FakeCache(dict):
@@ -51,7 +53,7 @@ SF_OFFICE = {
 
 
 def _row(employer="BIG FIRM", state="CA", zip_code="94104"):
-    return pd.Series({
+    return with_clean_fields(pd.Series({
         "entity_type": "INDIVIDUAL",
         "donor_key": "D1",
         "contributor_employer": employer,
@@ -60,7 +62,7 @@ def _row(employer="BIG FIRM", state="CA", zip_code="94104"):
         "contributor_name": "DOE, JANE",
         "contributor_street_1": "1 HOME ST",
         "contributor_city": "SOMEWHERE",
-    })
+    }))
 
 
 def _locations():
@@ -293,7 +295,7 @@ def test_loader_creates_every_referenced_previous_employer(monkeypatch):
         inserted.extend(rows)
 
     monkeypatch.setattr(employer_loader, "execute_values", capture_values)
-    monkeypatch.setattr(employer_loader, "_count", lambda *_args: len(inserted))
+    monkeypatch.setattr(employer_loader, "count_rows", lambda *_args: len(inserted))
 
     rows = pd.DataFrame([
         {
@@ -349,7 +351,7 @@ def test_self_employed_uses_reported_donor_address():
         ("1 HOME ST", "", "SOMEWHERE", "CA", "94104"): 17,
     }
 
-    result = _employment_address_id(row, None, {}, address_ids)
+    result = employment_address_id(row, None, {}, address_ids)
 
     assert result == 17
 
@@ -362,7 +364,7 @@ def test_self_employed_keeps_a_city_level_reported_address():
         ("", "", "SOMEWHERE", "CA", "94104"): 18,
     }
 
-    result = _employment_address_id(row, None, {}, address_ids)
+    result = employment_address_id(row, None, {}, address_ids)
 
     assert result == 18
 
@@ -373,7 +375,7 @@ def test_missing_self_employed_address_fails_loudly():
     row["employer_status"] = "self_employed"
 
     with pytest.raises(RuntimeError, match="donor-1"):
-        _employment_address_id(row, None, {}, {})
+        employment_address_id(row, None, {}, {})
 
 
 def test_employment_uses_one_complete_latest_filing():
@@ -406,7 +408,7 @@ def test_not_employed_never_gets_a_work_address():
     row = _row("NOT EMPLOYED")
     row["employer_status"] = "not_employed"
 
-    result = _employment_address_id(
+    result = employment_address_id(
         row,
         "BIG FIRM",
         _locations(),
@@ -444,7 +446,7 @@ def test_student_school_is_removed_from_previous_employer_cache():
         "donor:D1": {"employer": "NYU", "method": "cross_record"},
     })
 
-    step_cross_record(rows, cache)
+    step_cross_record(with_clean_columns(rows), cache)
 
     assert "donor:D1" not in cache
 
@@ -479,7 +481,7 @@ def test_stale_cleaned_previous_employer_is_removed():
 
 
 def test_fec_cache_rejects_a_bare_donor_name():
-    entry = _cache_entry(
+    entry = cache_entry(
         "ALISA ABECASSIS",
         state="FL",
         method="fec_api",
@@ -490,7 +492,7 @@ def test_fec_cache_rejects_a_bare_donor_name():
 
 
 def test_fec_cache_keeps_an_own_named_legal_company():
-    entry = _cache_entry(
+    entry = cache_entry(
         "JOEL REINSTEIN, PLLC",
         state="NY",
         method="fec_api",
@@ -502,7 +504,7 @@ def test_fec_cache_keeps_an_own_named_legal_company():
 
 def test_fec_cache_rejects_job_titles_as_employers():
     for title in ("ATTORNEY", "PRESIDENT CEO", "INVESTMENT ADVISOR"):
-        entry = _cache_entry(
+        entry = cache_entry(
             title,
             state="NY",
             method="fec_api",
@@ -514,7 +516,7 @@ def test_fec_cache_rejects_job_titles_as_employers():
 
 def test_fec_cache_keeps_explicit_self_employment():
     for value in ("SELF", "SELF EMPLOYED", "SELF-EMPLOYED", "SELF: CONSULTING"):
-        entry = _cache_entry(
+        entry = cache_entry(
             value,
             state="NY",
             method="fec_api",
@@ -565,7 +567,7 @@ def test_same_previous_company_keeps_richer_cache_entry():
 
 
 def test_loader_does_not_guess_an_employer_alias():
-    resolve = _make_employer_resolver({"ACME, INC.": 7})
+    resolve = make_employer_resolver({"ACME, INC.": 7})
 
     assert resolve("ACME, INC.") == 7
     assert resolve("ACME INC") is None

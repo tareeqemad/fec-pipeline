@@ -1,4 +1,4 @@
-"""Find street_1/street_2 values that need a person's review."""
+"""Find street values that need human review."""
 import re
 from difflib import SequenceMatcher
 from itertools import combinations
@@ -6,7 +6,7 @@ from itertools import combinations
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.safe_text import _CO_RE, is_state_zip_fragment
+from fec.cleaning.addresses.fixes.safe_text import CO_RE, is_state_zip_fragment
 from fec.config.geography import US_STATES
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
@@ -16,21 +16,18 @@ PO_BOX_REASON = "PO Box (no precise physical point)"
 CARE_OF_WITH_STREET_REASON = "care-of name in street_1, street in street_2 (keep both as filed)"
 PMB_REASON = "PMB private mailbox (no precise physical point)"
 
-# leading PO box marker: "PO BOX 123", "P.O. BOX 45", "Post Office Box 9"
+# a leading PO box marker
 _PO_BOX_RE = re.compile(
     r"^P\.?\s*O\.?\s*BOX|^POST OFFICE BOX",
     re.IGNORECASE,
 )
 
 
-# leading private mailbox marker: "PMB 123", "PMB#45"
+# a leading private mailbox marker
 _PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.IGNORECASE)
 
 
-# Street-type tokens: a street_1 with none of these (and no leading house number
-# or PO BOX) is likely an entity name, not a street. Deliberately BROADER than
-# fixes.recovery._STREET_TYPE_RE: this runs on pre-normalized text, so it also
-# carries the full words (STREET, AVENUE) and unit keywords (APT, STE). Do not merge.
+# pre-normalized text: full words and units
 _STREET_TYPES = (
     "ST AVE RD BLVD DR LN CT CIR PL PKWY HWY TER TPKE EXPY SQ WAY TRL XING JCT "
     "PLZ PLAZA LOOP PATH RUN BEND PASS WALK ROW ALY PIKE RTE BROADWAY PARK MALL "
@@ -40,18 +37,18 @@ _STREET_TYPES = (
 ).split()
 
 
-# any street-type/unit word as a token: "MAIN ST", "5TH AVE", "APT 4"
+# any street-type or unit word token
 _STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(_STREET_TYPES) + r")\b")
 
 
-# street_2 that is a unit keyword with no number: incomplete (drop + flag)
+# street_2 unit keyword with no number
 _UNIT_NO_NUM = re.compile(
     r"^(?:STE|SUITE|UNIT|APT|APARTMENT|FL|FLR|FLOOR|PH|RM|ROOM|BLDG|OFFICE|OFF|DEPT|#)\.?$",
     re.IGNORECASE,
 )
 
 
-# partial / truncated city tokens that are normally part of a longer name
+# city words usually part of longer names
 _PARTIAL_CITY = {
     "SANTA",
     "SAN",
@@ -71,7 +68,7 @@ _PARTIAL_CITY = {
 }
 
 
-_REPORT_COLUMNS = (
+REPORT_COLUMNS = (
     "sub_id",
     "donor_key",
     "entity_type",
@@ -84,21 +81,16 @@ _REPORT_COLUMNS = (
 )
 
 
-# slice df to report columns, tag rows with a reason
+# report columns of masked rows, with reason
 def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
-    keep = [column for column in _REPORT_COLUMNS if column in df.columns]
+    keep = [column for column in REPORT_COLUMNS if column in df.columns]
     out = df.loc[mask, keep].copy()
     out.insert(0, "review_reason", reason)
     return out
 
 
-# flag near-duplicate street spellings for the same donor/location
-def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
-    """Return one representative row per near street spelling; never edits data.
-
-    Grouped by donor_key once donors are identified (one person under several
-    name spellings is one group), by contributor_name before that.
-    """
+# flag near-duplicate street spellings per donor place
+def near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
     person = "donor_key" if "donor_key" in df.columns else "contributor_name"
     needed = {person, S1, CITY, STATE, ZIP}
     if not needed.issubset(df.columns):
@@ -144,15 +136,14 @@ def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-# append a subset report if any rows match
+# append a report if any rows match
 def _append_report(reports, df, mask, reason) -> None:
     if mask.any():
         reports.append(_df_subset(df, mask, reason))
 
 
-# detect street_2 values that are a truncated city prefix
+# true if street_2 is a cut-off city
 def _is_city_prefix(s2_upper: pd.Series, city: pd.Series) -> pd.Series:
-    """'ATLA' under ATLANTA, 'ENGL' under ENGLEWOOD: the start of the city name, cut off by the FEC field limit."""
     core = s2_upper.str.lstrip("#").str.strip()
     city_upper = city.fillna("").astype(str).str.strip().str.upper()
     return (
@@ -165,8 +156,8 @@ def _is_city_prefix(s2_upper: pd.Series, city: pd.Series) -> pd.Series:
     )
 
 
-# find and empty clearly bad street_2 values, reporting each one
-def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
+# empty bad street_2 values, reporting each
+def review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
     reports = []
     s2_upper = s2.str.strip().str.upper()
     incomplete = s2_upper.str.match(_UNIT_NO_NUM)
@@ -191,8 +182,8 @@ def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
     return reports, int(bad2.sum())
 
 
-# split street_1 problems into review and regeocode queues
-def _review_street1(
+# sort street_1 problems into review, regeocode queues
+def review_street1(
     df: pd.DataFrame,
     s1: pd.Series,
     city: pd.Series,
@@ -206,8 +197,7 @@ def _review_street1(
     is_pobox = s1.str.match(_PO_BOX_RE)
     is_pmb = s1.str.match(_PMB_RE)
     has_type = s1.str.contains(_STREET_TYPE_RE)
-    # a mailbox is only worth a note for a person: committee/organization
-    # mail addresses are their normal filing address (see module docstring)
+    # committee mailboxes are normal filing addresses
     if "entity_type" in df.columns:
         individual = df["entity_type"].eq("INDIVIDUAL")
     else:
@@ -218,8 +208,8 @@ def _review_street1(
         | s1.str.contains(r"\bAND\b")
         | s1.str.contains("FORMERLY", regex=False)
     )
-    care_of = s1.str.match(_CO_RE)
-    # C/O in street_1 with the street itself in street_2: a full mail address
+    care_of = s1.str.match(CO_RE)
+    # C/O plus street in street_2 is complete
     street_in_s2 = df[S2].fillna("").astype(str).str.match(r"^\s*\d") if S2 in df.columns else False
     entity = (
         has1 & ~starts_num & ~is_pobox & ~is_pmb & ~has_type & ~descriptive & ~care_of

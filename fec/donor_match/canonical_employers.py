@@ -1,4 +1,4 @@
-"""One employer name per donor; organization donors named like their company."""
+"""Per-donor employer names and org donor names."""
 import re
 from collections import defaultdict
 
@@ -7,7 +7,7 @@ import pandas as pd
 from fec.cleaning.employer_synonyms.canonical import canonical_key
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 
-# legal suffixes/connectors carry no identity when comparing employer names
+# legal suffixes and connectors carry no identity
 _EMP_DROP_TOKENS = frozenset(
     {
         "LLP",
@@ -31,32 +31,23 @@ _EMP_DROP_TOKENS = frozenset(
 )
 
 
-# a run of letters/digits, to tokenize an employer name
+# letter/digit runs for tokenizing employer names
 _EMP_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 
 # significant name tokens with legal suffixes removed
 def _emp_core_tokens(name: str) -> frozenset:
-    """Significant tokens of an employer name (legal suffixes/connectors removed)."""
     toks = _EMP_TOKEN_RE.findall(name.upper())
     return frozenset(t for t in toks if t not in _EMP_DROP_TOKENS and len(t) > 1)
 
 
-# map each employer name to the one fuller name it is a short form of
+# map short name to sole fuller name
 def _employer_variant_map(names: list[str]) -> dict[str, str]:
-    """A name whose words all appear in exactly one fuller name of the donor becomes that name.
-
-    Names with the same words (spelling or suffix variants) share the longest
-    spelling. A short name contained in two fuller names that are not one
-    another's short form (WELLS FARGO beside WELLS FARGO ADVISORS and WELLS
-    FARGO PRIVATE BANK) stays as filed, and the two fuller names are never
-    joined through it.
-    """
     cores = {name: _emp_core_tokens(name) for name in names}
     by_core = defaultdict(list)
     for name in names:
         by_core[cores[name]].append(name)
-    # one display name per word set: the longest spelling
+    # longest spelling names each word set
     display = {core: max(members, key=len) for core, members in by_core.items()}
 
     remap = {}
@@ -68,7 +59,7 @@ def _employer_variant_map(names: list[str]) -> dict[str, str]:
     return remap
 
 
-# rewrite each row's employer name using the variant map
+# rewrite row employers using the variant map
 def _apply_employer_variants(df: pd.DataFrame, indexes, remap: dict) -> int:
     changed = 0
     for index in indexes:
@@ -79,9 +70,8 @@ def _apply_employer_variants(df: pd.DataFrame, indexes, remap: dict) -> int:
     return changed
 
 
-# unify employer name variants within each donor's history
+# unify employer variants within each donor
 def canonicalize_donor_employers(df: pd.DataFrame) -> int:
-    """Unify clear employer variants within each donor's history."""
     individuals = df["entity_type"] == "INDIVIDUAL"
     if not individuals.any():
         return 0
@@ -101,10 +91,9 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
     return changed
 
 
-# rename org donors to match the donor-side company spelling
+# rename org donors to donor-side company spelling
 def align_org_donor_company_names(df: pd.DataFrame) -> int:
-    """Rename ORGANIZATION donors to the canonical employer spelling of the same company (reuses canonical_key, adds no new normalization); returns rows aligned."""
-    # canonical display name per canonical_key = the donor-side spelling seen most
+    # most common donor-side spelling per key
     ind = df[df["entity_type"] == "INDIVIDUAL"]
     emp = ind["contributor_employer"].dropna().astype(str).str.strip()
     emp = emp[(emp != "") & (~emp.str.upper().isin(EMPLOYER_STATUS_VALUES))]
@@ -116,10 +105,10 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
         if k and k not in by_key:
             by_key[k] = name
 
-    # name plus its 'last, first' swapped comma form
+    # name plus its comma-swapped form
     def _forms(n: str):
         out = [n]
-        if "," in n:  # "CAPITAL, WHITE" -> "WHITE CAPITAL"
+        if "," in n:  # "CAPITAL, WHITE" to "WHITE CAPITAL"
             a, b = n.split(",", 1)
             out.append(f"{b.strip()} {a.strip()}")
         return out
@@ -143,15 +132,14 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
     return int(mask.sum())
 
 
-# trailing legal form of a company name ("EATON STEEL CORPORATION" -> "EATON STEEL")
+# trailing legal form like CORP or LLC
 _ORG_LEGAL_TAIL_RE = re.compile(
     r"(?:[\s,]+(?:CORPORATION|CORP|INCORPORATED|INC|COMPANY|CO|LLC|LLP|LTD|LP|PLLC)\.?)+$"
 )
 
 
-# drop legal suffix when bare name is also filed
+# drop legal suffix if bare name filed
 def unify_org_donor_suffix_variants(df: pd.DataFrame) -> int:
-    """ORGANIZATION donors whose name is another organization donor's name plus a trailing legal form (EATON STEEL CORPORATION next to EATON STEEL) take the suffix-free spelling; names only, donor_keys are untouched; returns rows renamed."""
     org = df["entity_type"] == "ORGANIZATION"
     if not org.any():
         return 0
@@ -160,8 +148,7 @@ def unify_org_donor_suffix_variants(df: pd.DataFrame) -> int:
     remap = {}
     for name in distinct:
         bare = _ORG_LEGAL_TAIL_RE.sub("", name).strip()
-        # the bare spelling must itself be filed as an organization donor:
-        # only then is it provably the same name, not a guessed short form
+        # bare name must be filed, not guessed
         if bare and bare != name and bare in distinct:
             remap[name] = bare
     if not remap:

@@ -1,7 +1,6 @@
 """previous_employer has one contract shared by every writer (post-merge steps and resolve)."""
 import pandas as pd
 
-from fec.cleaning.donor_consistency.retired import _normalize_previous_employer
 from fec.cleaning.employer_status import referenced_employers
 from fec.cleaning.previous_employer import (
     normalize_previous_employer_column,
@@ -9,7 +8,7 @@ from fec.cleaning.previous_employer import (
 from fec.cleaning.previous_employer import (
     normalize_previous_employer_value as V,
 )
-from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
+from clean_columns import with_clean_columns
 
 
 def test_referenced_employers_are_individual_only():
@@ -121,30 +120,14 @@ def test_own_named_legal_company_is_kept():
     ]
 
 
-def test_both_stages_agree():
-    """The whole point of extracting the contract."""
-    values = ["SELF-EMPLOYED", "MARCUM LLP", "RETIRED", "DAVIS POLK & WARDWELL LLP",
-              "CHAPEL HAVEN", "HOMEMAKER", "RETIRED/IBM"]
-
-    cleaning = pd.DataFrame({"previous_employer": list(values)})
-    _normalize_previous_employer(cleaning)
-
-    resolve = pd.DataFrame({"previous_employer": list(values)})
-    _normalize_previous_employer_column(resolve)
-
-    assert cleaning["previous_employer"].tolist() == resolve["previous_employer"].tolist()
-    # and SELF-EMPLOYED survived both
-    assert cleaning["previous_employer"].iloc[0] == "SELF-EMPLOYED"
-
-
 def test_idempotent():
     """A second clean.py run must report zero fixes, not churn."""
     df = pd.DataFrame({"previous_employer": ["MARCUM LLP", "SELF-EMPLOYED", "RETIRED"]})
 
-    _normalize_previous_employer(df)
+    normalize_previous_employer_column(df)
     settled = df["previous_employer"].tolist()
 
-    assert _normalize_previous_employer(df) == 0
+    assert normalize_previous_employer_column(df) == 0
     assert df["previous_employer"].tolist() == settled
 
 
@@ -162,7 +145,7 @@ def test_value_normalizer_is_idempotent_for_multi_slash_junk():
 
 
 def test_missing_column_is_not_an_error():
-    assert _normalize_previous_employer(pd.DataFrame({"contributor_employer": ["ACME"]})) == 0
+    assert normalize_previous_employer_column(pd.DataFrame({"contributor_employer": ["ACME"]})) == 0
 
 
 def _resolved_retiree(
@@ -193,7 +176,7 @@ def _resolved_retiree(
             "method": "cross_record",
         }
     }
-    return apply_results(df, prev_cache, address_cache or {})
+    return apply_results(with_clean_columns(df), prev_cache, address_cache or {})
 
 
 def test_resolve_keeps_build_owned_display_for_the_same_company():
@@ -245,7 +228,7 @@ def test_resolve_uses_current_canonical_employer_spelling():
         }
     }
 
-    resolved = apply_results(df, cache, {})
+    resolved = apply_results(with_clean_columns(df), cache, {})
 
     assert resolved["previous_employer"].iloc[1] == "EDISON PROPERTIES"
 
@@ -333,7 +316,7 @@ def test_a_cached_fec_answer_from_a_zip_the_donor_never_uses_is_dropped():
         "donor:C": {"employer": "OLD", "method": "fec_api"},
     }
 
-    assert drop_unproven_source_entries(cache, df) == 1
+    assert drop_unproven_source_entries(cache, with_clean_columns(df)) == 1
     assert sorted(cache) == ["donor:B", "donor:C"]
 
 
@@ -381,7 +364,7 @@ def test_each_retired_filing_gets_the_employer_it_had_retired_from():
 
     cache = {"donor:RUDY": {"employer": "KINZIE HOUSE DESIGNS", "method": "cross_record"}}
 
-    resolved = apply_results(_rudy(), cache, {})
+    resolved = apply_results(with_clean_columns(_rudy()), cache, {})
 
     # the donor's one cached answer (their latest) is not taken from the future
     assert resolved["previous_employer"].tolist() == ["", "BASCO INC", "", "KINZIE HOUSE DESIGNS"]
@@ -392,7 +375,7 @@ def test_a_hand_set_previous_employer_still_wins_over_the_filing_history():
 
     cache = {"donor:RUDY": {"employer": "ACME INDUSTRIES", "method": "manual_override"}}
 
-    resolved = apply_results(_rudy(), cache, {})
+    resolved = apply_results(with_clean_columns(_rudy()), cache, {})
 
     assert resolved["previous_employer"].tolist()[1::2] == ["ACME INDUSTRIES", "ACME INDUSTRIES"]
 
@@ -452,7 +435,7 @@ def test_a_zip_another_same_name_donor_files_from_proves_nothing():
     assert not _same_fec_donor(person, record)
 
     cache = {"donor:RET": {"employer": "NIXON PEABODY", "method": "fec_api", "source_zip": "334322944"}}
-    assert drop_unproven_source_entries(cache, df) == 1
+    assert drop_unproven_source_entries(cache, with_clean_columns(df)) == 1
 
 
 def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_path, monkeypatch):
@@ -472,7 +455,7 @@ def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_
     cleared = step.cleared_employers(df)
     assert cleared == {"ADELE": {"EYE SURGERY ASSOCIATES"}}
     cache = {"donor:ADELE": {"employer": "EYE SURGERY ASSOCIATES", "method": "fec_api", "source_zip": "331794324"}}
-    assert step.drop_unproven_source_entries(cache, df, cleared) == 1
+    assert step.drop_unproven_source_entries(cache, with_clean_columns(df), cleared) == 1
 
 
 def test_a_short_status_word_stays_exact():
@@ -502,7 +485,7 @@ def test_a_cached_fec_answer_that_is_a_job_title_is_searched_again():
         "donor:B": {"employer": "ACME", "method": "fec_api", "source_zip": "10028"},
     }
 
-    assert drop_unproven_source_entries(cache, df) == 1
+    assert drop_unproven_source_entries(cache, with_clean_columns(df)) == 1
     assert sorted(cache) == ["donor:B"]
 
 

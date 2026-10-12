@@ -1,4 +1,4 @@
-"""Employer name normalization: raw FEC employer strings to canonical forms."""
+"""Raw FEC employer names to canonical forms."""
 
 EMPLOYER_NORMALIZE = {
     # self-employed
@@ -38,15 +38,11 @@ EMPLOYER_NORMALIZE = {
     'I AM UNEMPLOYED': 'NOT EMPLOYED',
     'UNEMPLOYMENT': 'NOT EMPLOYED',
 
-    # Homemaker deliberately absent — _deep_clean_employer syncs employer + occupation together.
+    # no HOMEMAKER: employer and occupation sync together
 }
 
 
-# Employer abbreviation tokens - THE one table, three consumers: the cleaner
-# auto-expands tokens that have an expansion, quality_scan surfaces every
-# token for human review, and the DB healthcheck warns on names still
-# carrying one. expansion=None marks a token as ambiguous or unverified -
-# surfaced and warned about, but never auto-expanded.
+# abbreviation tokens; None means never auto-expand
 EMPLOYER_ABBREVIATIONS = {
     'MGMT': 'MANAGEMENT',
     'MGMNT': 'MANAGEMENT',
@@ -57,9 +53,8 @@ EMPLOYER_ABBREVIATIONS = {
     'GRP': 'GROUP',
     'SVCS': 'SERVICES',
     'SVC': 'SERVICES',
-    'INFO': 'INFORMATION',  # verified by hand; the \b guards protect INFOSYS/INFOSEC
-    # ASSOC splits between ASSOCIATES and ASSOCIATION - decided contextually
-    # in expand_employer_associates; the rest lack a verified single expansion
+    'INFO': 'INFORMATION',  # verified; \b guards protect INFOSYS/INFOSEC
+    # ASSOC decided by context; rest lack expansions
     'ASSOC': None,
     'ASSOCS': None,
     'INTNL': None,

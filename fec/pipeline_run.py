@@ -1,11 +1,4 @@
-"""One run id from clean.py to the loader, so no stage mixes files of two runs.
-
-clean.py starts a run and writes pipeline_run.json beside the cleaned CSV. Every
-stage that writes a pipeline file records its SHA-256 under that run; a stage
-that reads one first checks the file is exactly what this run last wrote. A
-file restored from an older run, edited by hand, or left over from before the
-last clean.py is refused.
-"""
+"""Run manifest so stages never mix runs."""
 import hashlib
 import json
 import uuid
@@ -18,7 +11,7 @@ MANIFEST_NAME = "pipeline_run.json"
 
 
 class RunMismatch(RuntimeError):
-    """A pipeline file is not the one the current run wrote."""
+    """Pipeline file not written by this run."""
 
 
 # the manifest path beside a pipeline file
@@ -26,7 +19,7 @@ def _manifest_path(path: Path) -> Path:
     return Path(path).parent / MANIFEST_NAME
 
 
-# hex SHA-256 of a file, read in chunks
+# hex SHA-256 of a file, chunked
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -35,7 +28,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-# read the manifest, or raise with what to run
+# read the manifest or raise RunMismatch
 def _read(path: Path) -> dict:
     manifest = _manifest_path(path)
     if not manifest.exists():
@@ -44,7 +37,7 @@ def _read(path: Path) -> dict:
         return json.load(handle)
 
 
-# start a new run beside the cleaned CSV and return its id
+# start a new run; return its id
 def start_run(cleaned_csv: Path) -> str:
     now = datetime.now(timezone.utc)
     run_id = f"{now:%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:8]}"
@@ -54,7 +47,7 @@ def start_run(cleaned_csv: Path) -> str:
     return run_id
 
 
-# record files a stage just wrote under the current run
+# record a stage's written files in manifest
 def record(stage: str, *paths: Path) -> str:
     data = _read(paths[0])
     for path in paths:
@@ -67,7 +60,7 @@ def record(stage: str, *paths: Path) -> str:
     return data["run_id"]
 
 
-# raise unless every file is exactly what the current run wrote
+# raise unless files match this run's hashes
 def check_same_run(*paths: Path) -> str:
     data = _read(paths[0])
     run_id = data["run_id"]

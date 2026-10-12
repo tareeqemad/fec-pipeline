@@ -1,4 +1,4 @@
-"""Recover a donor's missing or unusable address fields from their own other filings."""
+"""Recover missing address fields from donor's filings."""
 
 from __future__ import annotations
 
@@ -9,20 +9,16 @@ import pandas as pd
 from fec.cleaning.addresses.fixes.safe_text import is_state_zip_fragment
 from fec.config.streets import FLOOR_ONLY_RE
 
-# a street_1 is usable if a geocoder can place it: house number, PO box, or a
-# street-type token. deliberately NARROWER than address_review._STREET_TYPES:
-# this runs on POST-normalized streets (types already abbreviated) and unit
-# keywords (APT/STE) don't make a street usable. never merge the two lists.
-_STREET_TYPE_RE = re.compile(
+# post-normalized types only; unit keywords excluded
+STREET_TYPE_RE = re.compile(
     r"\b(?:ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|PLAZA|"
     r"ROW|LOOP|BROADWAY|PARK|BLDG|TPKE|EXPY|HTS|RIDGE|XING|PIKE|RTE|ALY|PATH|"
     r"RUN|PT|PASS|WALK|BEND|MALL)\b"
 )
 
 
-# fill null streets from rows with same name/city/state
-def _recover_null_streets(df: pd.DataFrame) -> int:
-    """Fill NULL streets (e.g. nulled emails) from other records of the same (name, city, state)."""
+# fill null streets from same name/city/state rows
+def recover_null_streets(df: pd.DataFrame) -> int:
     null_street = df["contributor_street_1"].isna()
     if not null_street.any():
         return 0
@@ -46,7 +42,7 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
         )
         street = street_lookup.get(key)
         if street:
-            # the unit the filing named stays with it: "RING HOUSE APT # 431 ..." keeps APT 431
+            # keep the unit this filing named
             unit = _unit_text(df.at[idx, "contributor_street_1"])
             df.at[idx, "contributor_street_1"] = street
             second = df.at[idx, "contributor_street_2"] if "contributor_street_2" in df.columns else ""
@@ -57,22 +53,19 @@ def _recover_null_streets(df: pd.DataFrame) -> int:
     return n_recovered
 
 
-# check whether street_1 values look geocodable
-def _is_usable_street(s: pd.Series) -> pd.Series:
-    """Vectorised: True where street_1 looks geocodable; a floor alone ("3RD FLOOR") is a unit, not a street."""
+# true where street_1 looks geocodable, not floor-only
+def is_usable_street(s: pd.Series) -> pd.Series:
     upper = s.fillna("").astype(str).str.upper()
     return (
         upper.str.startswith("PO BOX")
         | upper.str.match(r"^\d")
-        | upper.str.contains(_STREET_TYPE_RE)
+        | upper.str.contains(STREET_TYPE_RE)
     ) & ~upper.str.strip().str.match(FLOOR_ONLY_RE)
 
 
-# replace an unusable street with the donor's real street
-def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
-    """Replace a non-usable street_1 (place-name / fragment) with the same donor's real street."""
-    # individuals only; only a non-usable value is overwritten, a good street never
-    usable = _is_usable_street(df["contributor_street_1"])
+# replace unusable street with donor's real street
+def recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
+    usable = is_usable_street(df["contributor_street_1"])
     target = (
         (df["entity_type"] == "INDIVIDUAL")
         & df["contributor_street_1"].notna()
@@ -82,11 +75,11 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     if not target.any():
         return 0
 
-    # lookup uses ONLY usable streets - never recover one fragment with another
+    # never recover a fragment with another
     clean = df.loc[usable & df["contributor_street_1"].notna()]
     if clean.empty:
         return 0
-    # primary key: name + city + state, so the street matches the row's place
+    # keyed by place so street fits
     by_place = (
         clean.groupby(["contributor_name", "contributor_city", "contributor_state"])[
             "contributor_street_1"
@@ -94,9 +87,7 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
         .agg(lambda values: values.value_counts().index[0])
         .to_dict()
     )
-    # fallback name + state only when the donor has exactly ONE clean street in
-    # the whole state (no city ambiguity, so a garbled city on the fragment row
-    # is safe to look past); two distinct streets -> skip, can't choose
+    # fallback only if one street in state
     state_streets: dict[tuple, set] = {}
     for (name, _city, state), street in by_place.items():
         state_streets.setdefault((name, state), set()).add(street)
@@ -114,7 +105,7 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
             (name, df.at[idx, "contributor_city"], state)
         ) or by_state_single.get((name, state))
         if street:
-            # the unit the filing named stays with it: "RING HOUSE APT # 431 ..." keeps APT 431
+            # keep the unit this filing named
             unit = _unit_text(df.at[idx, "contributor_street_1"])
             df.at[idx, "contributor_street_1"] = street
             second = df.at[idx, "contributor_street_2"] if "contributor_street_2" in df.columns else ""
@@ -125,7 +116,7 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     return n_recovered
 
 
-# every unit a text names, as KEYWORD NUMBER: "STE 103 PMB 132", "#374 LOS ANGELES" -> "# 374"
+# every unit in text, as KEYWORD NUMBER
 def _units_text(text) -> str:
     units = [
         f"# {match.group(3)}" if match.group(3) else f"{'STE' if match.group(1) == 'SUITE' else match.group(1)} {match.group(2)}"
@@ -134,21 +125,20 @@ def _units_text(text) -> str:
     return " ".join(dict.fromkeys(units))
 
 
-# the first unit a text names
+# return the first unit a text names
 def _unit_text(text) -> str:
     units = _units_text(text)
     match = _UNIT_TEXT_RE.search(units)
     return match.group(0) if match else ""
 
 
-# a unit's numbers and letters without its keywords: "STE 374" and "# 374" -> "374"
+# unit number without its keyword, for comparing
 def _unit_key(text) -> str:
     return re.sub(r"[^A-Z0-9]", "", re.sub(r"\b(?:APT|STE|SUITE|UNIT|RM)\b|#", "", str(text).upper()))
 
 
-# fill a blank street from the donor's one matching street
-def _recover_missing_streets(df: pd.DataFrame) -> int:
-    """Fill a blank street from the donor's only street in the same place."""
+# fill blank street from unique same-place street
+def recover_missing_streets(df: pd.DataFrame) -> int:
     keys = ["donor_key", "contributor_city", "contributor_state", "contributor_zip"]
     street = df["contributor_street_1"].fillna("").astype(str).str.strip()
     is_individual = df["entity_type"] == "INDIVIDUAL"
@@ -177,30 +167,25 @@ def _recover_missing_streets(df: pd.DataFrame) -> int:
     return recovered
 
 
-# FEC cuts street_1 at 34 characters, so a filer who typed the whole address
-# into one box leaves "1777 REISTERSTOWN RD COMMERCE CE" or
-# "1474 BIENVENEDA AVE PACIFIC PALIS": the real street followed by a building,
-# city or state fragment. The same person's other filings at the same ZIP hold
-# the clean short form (and its unit in street_2), which is the evidence used.
+# FEC cuts street_1 at 34 characters
 _TRUNCATION_MIN_LEN = 30
-# a direction or street-type word, whole: "AVE", "NE" - not a stray tail fragment
+# direction or street type, not a fragment
 _NOT_A_FRAGMENT_RE = re.compile(
     r"^(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST|"
     r"ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|EXT)$"
 )
-# a proper unit value: keyword plus number/letters, e.g. "APT 4B", "STE 200"
+# proper unit: keyword plus number, "APT 4B"
 _REAL_UNIT_RE = re.compile(r"^(?:APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PH|PMB|LOT|SPC|BOX|TRLR|#)\s*[A-Z0-9-]+$")
-# a unit keyword anywhere in text: "APT 4", "# 5", "STE"
+# a unit keyword anywhere in text
 _UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PMB|BOX)\b|#\d")
-# the first unit in a text, keyword and number: "RING HOUSE APT # 431 1801 E JE" -> "APT 431"
+# a unit keyword and its number
 _UNIT_TEXT_RE = re.compile(r"\b(APT|STE|SUITE|UNIT|RM|PMB)\b\s*#?\s*([A-Z0-9][A-Z0-9-]*)\b|#\s*([A-Z0-9][A-Z0-9-]*)\b")
-# a tail that starts a new street address: house number, then a name word ("233 E BAY")
+# tail starting a second street address
 _SECOND_ADDRESS_RE = re.compile(r"^\d+\s+(?:[NSEW]\s+)?[A-Z]{3,}")
 
 
-# trim a long street to donor's shorter same-ZIP form
-def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
-    """Replace a long street_1 that extends a shorter street the same donor filed at the same ZIP."""
+# trim long street to donor's short form
+def trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
     name = df["contributor_name"].fillna("").astype(str)
     street = df["contributor_street_1"].fillna("").astype(str).str.strip()
     street_2 = df["contributor_street_2"].fillna("").astype(str).str.strip()
@@ -211,17 +196,16 @@ def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
     if not long_rows.any():
         return 0
 
-    # dominant short form per (name, zip): a usable, house-numbered street shorter than the cutoff
+    # dominant short form per name and ZIP
     short_ok = individual & (street.str.len() < _TRUNCATION_MIN_LEN) & (street.str.len() >= 8) \
-        & street.str.match(r"^\d") & _is_usable_street(street)
+        & street.str.match(r"^\d") & is_usable_street(street)
     if not short_ok.any():
         return 0
     short = pd.DataFrame({"name": name[short_ok], "zip5": zip5[short_ok],
                           "street": street[short_ok], "street_2": street_2[short_ok]})
     counts = short.groupby(["name", "zip5", "street"]).size().rename("cnt").reset_index()
     dominant = counts.loc[counts.groupby(["name", "zip5"])["cnt"].idxmax()]
-    # the unit is trusted only when it is filed on at least half of the short-form rows
-    # and looks like a unit (not a "# NY1179" state/ZIP fragment left by a bad split)
+    # trust unit filed on at least half
     unit_like = short["street_2"].str.match(_REAL_UNIT_RE) & ~short["street_2"].map(is_state_zip_fragment)
     with_unit = short[(short["street_2"] != "") & unit_like]
     unit_counts = with_unit.groupby(["name", "zip5", "street"])["street_2"].agg(lambda s: s.value_counts().iloc[0])
@@ -242,14 +226,12 @@ def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
             continue
         fragment = long_street[len(short_street):].strip(" ,.")
         if len(fragment) < 3 or _NOT_A_FRAGMENT_RE.match(fragment.split()[0]):
-            continue  # "4715 CAMBRIDGE APPROACH CIR NE": the tail is part of the street, not a fragment
+            continue  # tail is part of the street
         if _SECOND_ADDRESS_RE.match(fragment) and fragment.split()[0] != short_street.split()[0]:
-            continue  # "1125 BLACKSTONE BLDG 233 E BAY": a second address, not a cut-off copy
+            continue  # a second address, not a cut-off
         own_units = _units_text(fragment)
         if own_units:
-            # the filing's own units ("STE 103 PMB 132") go to street_2 and the
-            # city tail is dropped; never the donor's usual unit in their place.
-            # A different unit already in street_2 leaves the row as filed.
+            # keep filing's own units, never donor's usual
             if street_2.at[idx] and _unit_key(street_2.at[idx]) != _unit_key(own_units):
                 continue
             df.at[idx, "contributor_street_1"] = short_street

@@ -1,23 +1,4 @@
-"""Address audit: raw vs cleaned, per sub_id (vectorised).
-
-  1. Is every cleaned street / city / state / zip grounded in the donor's OWN raw filings?
-     (a value from nowhere or from another person is the thing we must never do)
-  2. Did a unification erase a genuine move: a different house/street, or a different apartment number?
-     Each changed street is compared part by part (fec/cleaning/addresses/compare.py) and gets one
-     flag per part that may move the place: house number, direction, street type (changed or added),
-     unit changed / removed / added, PO box number, or a street put where the filing named none.
-     STREET -> ST, NORTH -> N and a unit moved from street_1 to street_2 are formatting, not flagged.
-  3. ZIP check, every entity type and every step (format steps included): a cleaned city that
-     differs from the filed one and that NO other filing pairs with the row's ZIP5 (EAST HARTFORD
-     -> WEST HARTFORD at 06128; MANHATTAN BEACH -> LOS ANGELES at 90266). The donor-history test
-     cannot see these when the donor filed the new city elsewhere, and a dictionary/fuzzy city fix
-     is a "format" step, so they are listed in full, never sampled, and make the audit exit 1.
-     A pure abbreviation expansion (MOUNTAIN BRK -> MOUNTAIN BROOK, MAYFIELD HTS -> HEIGHTS) is the
-     same name and is not a contradiction; filings of the abbreviated form count as support.
-Outputs <out-dir>/address_audit_flags.csv, address_audit_moves.csv and address_audit_zip_city.csv
-(default out-dir data/reports/review), prints a summary.
-Usage: python tools/audits/address_audit.py [--out-dir DIR]
-"""
+"""Audit cleaned addresses against raw filings."""
 import argparse
 import re
 import sys
@@ -46,27 +27,30 @@ _UNIT_RE = re.compile(rf"(?:\b({_UNIT_WORDS})\b|#)")
 _UNIT_STRIP_RE = re.compile(rf"(?:\b({_UNIT_WORDS}|SUITE|FLOOR)\b|#)")
 _ORD_RE = re.compile(r"\b(\d+)(ST|ND|RD|TH)\b")
 
-# steps whose changes are dictionary / format normalisation of the row's OWN value (no history involved)
+# steps that only reformat the row's value
 _FORMAT_STEPS = {"streets_normalize", "zips_normalize", "cities_normalize", "streets_safe_fixes", "streets_unify_units",
                  "streets_unify_spacing", "streets_unify_spelling", "address_review", "donor_canonical_units",
                  "donor_pobox_typos", "safety_fix_garbage_city_names"}
 
 
+# normalize address text for comparison
 def norm(s) -> str:
     s = str(s or "").upper().replace("&", " AND ")
     s = re.sub(r"[.,;:'\"()]", " ", s)
     s = re.sub(r"#\s*", " # ", s)
-    s = re.sub(r"(?<=\d)(?=[A-Z])|(?<=[A-Z])(?=\d)", " ", s)      # E72 -> E 72, 3BEACH -> 3 BEACH
+    s = re.sub(r"(?<=\d)(?=[A-Z])|(?<=[A-Z])(?=\d)", " ", s)      # E72 to E 72
     s = " ".join(_ABBR.get(t, t) for t in s.split())
     s = _ORD_RE.sub(r"\1", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
+# digits of a ZIP, cut to five
 def zip5(s) -> str:
     d = re.sub(r"\D", "", str(s or ""))
     return d[:5] if len(d) >= 5 else d
 
 
+# split a street into core and unit
 def core_and_unit(street_1, street_2) -> tuple[str, str]:
     s, unit = norm(street_1), norm(street_2)
     m = _UNIT_RE.search(s)
@@ -76,8 +60,8 @@ def core_and_unit(street_1, street_2) -> tuple[str, str]:
     return s, re.sub(r"\s+", "", _UNIT_STRIP_RE.sub(" ", unit))
 
 
+# house number and street words, ignoring type
 def sig(core: str) -> tuple:
-    """What a human would call 'the same address': house number + street words, ignoring type/direction/spacing."""
     t = core.split()
     if not t:
         return ("", "")
@@ -86,27 +70,23 @@ def sig(core: str) -> tuple:
     return (house, "".join(words))
 
 
-# --- ZIP check -------------------------------------------------------------------------------
 _VOWELS = frozenset("AEIOU")
 ZIP_FLAG = "contributor_city_not_filed_with_zip"
-# Same-place renames reviewed against USPS: the target spelling is right although no other filing
-# in this pull pairs it with the row's ZIP. Keyed (state, filed city, cleaned city) after norm(), or
-# (state, filed city, cleaned city, zip5) when the answer depends on the ZIP. Listed (not hidden) but
-# do not fail the audit.
+# USPS-reviewed renames; listed but never fail
 REVIEWED_SAME_PLACE = {
-    ("SC", "HILTON HEAD", "HILTON HEAD ISLAND"),   # the town's name; 29926/29928 read HILTON HEAD ISLAND
+    ("SC", "HILTON HEAD", "HILTON HEAD ISLAND"),   # the town's official name
     ("UT", "SLC", "SALT LAKE CITY"),               # 841xx: Salt Lake City
-    ("NY", "NY", "BROOKLYN", "11239"),             # 11239 is a Brooklyn ZIP (the row's street field reads BROOKLYN)
+    ("NY", "NY", "BROOKLYN", "11239"),             # 11239 is a Brooklyn ZIP
 }
 
 
+# whether a rename is in REVIEWED_SAME_PLACE
 def _reviewed(state: str, raw_city: str, cleaned_city: str, z: str) -> bool:
     return (state, raw_city, cleaned_city) in REVIEWED_SAME_PLACE or (state, raw_city, cleaned_city, z) in REVIEWED_SAME_PLACE
 
 
+# vowel-less abbreviation, never a direction letter
 def _abbreviates(short: str, full: str) -> bool:
-    """BRK/BROOK, HTS/HEIGHTS, SPGS/SPRINGS: a vowel-less short form of one word, letters in order.
-    Direction letters never abbreviate anything (N is not NEW, E is not W)."""
     if short == full:
         return True
     if len(short) < 2 or len(short) >= len(full) or short[0] != full[0] or short in _DIRS:
@@ -117,16 +97,14 @@ def _abbreviates(short: str, full: str) -> bool:
     return all(ch in rest for ch in short)
 
 
+# same city, allowing abbreviated words
 def same_city_name(a: str, b: str) -> bool:
-    """Same normalised city name, word by word, allowing vowel-less abbreviations of a word."""
     ta, tb = a.split(), b.split()
     return len(ta) == len(tb) and all(_abbreviates(x, y) or _abbreviates(y, x) for x, y in zip(ta, tb))
 
 
+# city changes no other ZIP5 filing supports
 def zip_city_contradictions(raw: pd.DataFrame, cln: pd.DataFrame, steps: pd.Series | None = None) -> pd.DataFrame:
-    """Rows (every entity type) whose cleaned city differs from the filed city and that no other filing pairs
-    with the row's cleaned ZIP5. ``raw`` = every raw filing (the evidence), ``cln`` = cleaned rows; both indexed
-    by sub_id. The row's own filing never supports it (its filed city is a different name by construction)."""
     filed = defaultdict(Counter)
     for city, z in zip(raw.contributor_city.map(norm), raw.contributor_zip.map(zip5)):
         if city and len(z) == 5:
@@ -144,7 +122,7 @@ def zip_city_contradictions(raw: pd.DataFrame, cln: pd.DataFrame, steps: pd.Seri
             continue
         others = at_zip.copy()
         if rc and rz == z:
-            others[rc] -= 1                       # the row's own filing is not "another" filing
+            others[rc] -= 1                       # exclude the row's own filing
         others = +others
         rows.append((sid, rc, cc, z, "; ".join(f"{c} x{n}" for c, n in others.most_common(3)) or "(no other filing)"))
     out = pd.DataFrame(rows, columns=["sub_id", "raw_city_norm", "cleaned_city_norm", "zip5", "cities_filed_at_zip"]).set_index("sub_id")
@@ -160,14 +138,15 @@ def zip_city_contradictions(raw: pd.DataFrame, cln: pd.DataFrame, steps: pd.Seri
     return out
 
 
+# count city changes that only expand abbreviations
 def abbreviation_expansions(raw: pd.DataFrame, cln: pd.DataFrame) -> pd.Series:
-    """City changes accepted as the same name (MOUNTAIN BRK -> MOUNTAIN BROOK): distinct mapping -> rows."""
     r_city = raw.contributor_city.reindex(cln.index).fillna("").map(norm)
     c_city = cln.contributor_city.map(norm)
     pairs = [(r, c) for r, c in zip(r_city, c_city) if r and c and r != c and same_city_name(c, r)]
     return pd.Series(Counter(f"{r} -> {c}" for r, c in pairs), dtype=int).sort_values(ascending=False)
 
 
+# print ZIP check rows; return open count
 def _print_zip_check(z: pd.DataFrame, expansions: pd.Series) -> int:
     open_rows = z[~z.reviewed_same_place]
     print("\n" + "!" * 100)
@@ -189,12 +168,14 @@ def _print_zip_check(z: pd.DataFrame, expansions: pd.Series) -> int:
     return len(open_rows)
 
 
+# parse command-line arguments
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Raw-vs-cleaned address audit (read-only on data/).")
     parser.add_argument("--out-dir", default="data/reports/review", help="where the audit CSVs go (default data/reports/review)")
     return parser.parse_args(argv)
 
 
+# run the address audit; 1 on failures
 def main(argv=None):
     out_dir = Path(_parse_args(argv).out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -248,14 +229,14 @@ def main(argv=None):
                               "; ".join(sorted({surname_of_key.get(o, '') for o in others}))))
         filed_street = (raw.at[sid, "contributor_street_1"], raw.at[sid, "contributor_street_2"])
         cleaned_street = (cln.at[sid, "contributor_street_1"], cln.at[sid, "contributor_street_2"])
-        for change in street_changes(*filed_street, *cleaned_street):  # one flag per part that may move the place
+        for change in street_changes(*filed_street, *cleaned_street):  # one flag per place-moving part
             flags.append((sid, k, row["name"], change, kind, steps,
                           " | ".join(filed_street), " | ".join(cleaned_street), ""))
         for c in ["contributor_city", "contributor_state", "contributor_zip"]:
             fv, rv = row["c_" + c], row["r_" + c]
             if fv and fv != rv and fv not in own["r_" + c].get(k, set()):
                 flags.append((sid, k, row["name"], f"{c}_not_in_donor_raw_history", kind, steps, raw.at[sid, c], cln.at[sid, c], ""))
-    # the ZIP check covers every entity type; its kind is informative only, it is never sampled
+    # ZIP check covers all types, never sampled
     history_all = set(chg_all.loc[~chg_all.step.isin(_FORMAT_STEPS), "sub_id"])
     for sid, z in zipcheck.iterrows():
         flags.append((sid, z.get("donor_key", ""), z.get("contributor_name", ""), ZIP_FLAG,

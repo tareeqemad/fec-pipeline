@@ -15,15 +15,14 @@ _ZIP_CITY = {'10022': 'NEW YORK'}
 # census race/ethnicity artifact
 _ETHNICITY_RE = re.compile(r'NOT OF HISPANIC|HISPANIC ORIGIN', re.IGNORECASE)
 
-# VI ZIPs: 00801-00851; PR ZIPs: 00600-00799, 00900-00999 (excluding VI range)
+# Virgin Islands ZIP5: 00801 to 00851
 _VI_ZIP_RE = re.compile(r'^008[0-4]\d$|^00850$|^00851$')
 # a Puerto Rico ZIP5: 006xx, 007xx, 009xx
 _PR_ZIP_RE = re.compile(r'^00[679]\d{2}$')
 
 
-# fill a null contributor_city from a known ZIP lookup
-def _fill_null_city_from_zip(df: pd.DataFrame) -> int:
-    """J. contributor_city NULL: fill from ZIP lookup."""
+# fill null city from known ZIP lookup
+def fill_null_city_from_zip(df: pd.DataFrame) -> int:
     null_city = df['contributor_city'].isna()
     n_fixed = 0
     for idx in df.index[null_city]:
@@ -34,9 +33,8 @@ def _fill_null_city_from_zip(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# null a foreign city paired with a fake US state
-def _fix_foreign_addresses(df: pd.DataFrame) -> int:
-    """AF. Foreign city with a fake US state (REHOVOT/CA) -> NaN city; ambiguous cities (LONDON, PARIS) only when the state doesn't match a US location of that name."""
+# null foreign city filed with US state
+def fix_foreign_addresses(df: pd.DataFrame) -> int:
     city = df['contributor_city'].fillna('').str.strip().str.upper()
     state = df['contributor_state'].fillna('').str.strip().str.upper()
 
@@ -55,11 +53,10 @@ def _fix_foreign_addresses(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# null garbage city names such as commas or ethnicity text
-def _fix_garbage_city_names(df: pd.DataFrame) -> int:
-    """AG. Garbage city names ('WHITE, NOT OF HISPANIC ORIGIN', 'JERUSALEM, ISRAEL') -> NaN."""
+# null city names with commas or ethnicity
+def fix_garbage_city_names(df: pd.DataFrame) -> int:
     city = df['contributor_city'].fillna('')
-    # a city is a single name and should never contain a comma
+    # a real city never contains a comma
     has_comma = city.str.contains(',', na=False, regex=False)
     has_ethnicity = city.str.contains(_ETHNICITY_RE, na=False)
     mask = has_comma | has_ethnicity
@@ -69,9 +66,8 @@ def _fix_garbage_city_names(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# fix state to PR or VI to match the ZIP
-def _fix_pr_zip_wrong_state(df: pd.DataFrame) -> int:
-    """AH. Puerto Rico/VI ZIP with wrong state -> fix state (006xx-009xx = PR, 00801-00851 = VI)."""
+# set PR or VI state from ZIP
+def fix_pr_zip_wrong_state(df: pd.DataFrame) -> int:
     zip5 = df['contributor_zip'].fillna('')
     state = df['contributor_state'].fillna('')
 

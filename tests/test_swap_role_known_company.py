@@ -2,11 +2,11 @@
 import pandas as pd
 
 from fec.cleaning.occupations.clean import _fix_swapped_occ_emp
-from fec.cleaning.pipeline.reclassify_restore import _restore_reclassified_committees
+from fec.cleaning.pipeline.reclassify_restore import restore_reclassified_committees
 from fec.cleaning.safety_nets.employer_swaps import (
-    _swap_role_employer_with_known_company,
+    swap_role_employer_with_known_company,
 )
-from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
+from fec.cleaning.safety_nets.name_fields import fix_company_name_as_occupation
 
 
 def _frame(rows):
@@ -25,7 +25,7 @@ def test_swaps_when_other_donors_use_the_occupation_as_an_employer():
         ("KIMCO REALTY", "ANALYST"),       # the corroborating donor
     ])
 
-    assert _swap_role_employer_with_known_company(df) == 1
+    assert swap_role_employer_with_known_company(df) == 1
     assert df.loc[0, "contributor_employer"] == "KIMCO REALTY"
     assert df.loc[0, "contributor_occupation"] == "CHAIRMAN"
     assert df.loc[1, "contributor_employer"] == "KIMCO REALTY"   # untouched
@@ -39,7 +39,7 @@ def test_short_title_and_known_company_alias_are_swapped():
         ("OMNINET CAPITAL", "EXECUTIVE"),
     ])
 
-    assert _swap_role_employer_with_known_company(df) == 2
+    assert swap_role_employer_with_known_company(df) == 2
     assert df.loc[0, "contributor_employer"] == "CIBC"
     assert df.loc[0, "contributor_occupation"] == "VICE PRESIDENT"
     assert df.loc[2, "contributor_employer"] == "OMNINET"
@@ -72,7 +72,7 @@ def test_reclassified_self_employed_swap_keeps_the_raw_role():
         "committee_type": ["OTHER"],
     })
 
-    _restore_reclassified_committees(
+    restore_reclassified_committees(
         df,
         pd.Series(["SELF EMPLOYED"]),
         pd.Series(["PHYSICIAN"]),
@@ -90,7 +90,7 @@ def test_self_employed_status_is_not_treated_as_a_company_name():
         ("SELF-EMPLOYED", "ATTORNEY"),
     ])
 
-    assert _fix_company_name_as_occupation(df) == 0
+    assert fix_company_name_as_occupation(df) == 0
     assert df.loc[0, "contributor_occupation"] == "SELF-EMPLOYED"
 
 
@@ -99,7 +99,7 @@ def test_self_employed_advocate_stays_an_occupation():
     frequent = _frame([("ADVOCATE", "ATTORNEY")] * 10)
     df = pd.concat([df, frequent], ignore_index=True)
 
-    assert _fix_company_name_as_occupation(df) == 0
+    assert fix_company_name_as_occupation(df) == 0
     assert df.loc[0, "contributor_employer"] == "SELF-EMPLOYED"
     assert df.loc[0, "contributor_occupation"] == "ADVOCATE"
 
@@ -108,7 +108,7 @@ def test_no_swap_without_corroboration():
     """Without corroboration the row is left for AD to resolve as SELF-EMPLOYED."""
     df = _frame([("CHAIRMAN", "SOME UNVERIFIABLE THING")])
 
-    assert _swap_role_employer_with_known_company(df) == 0
+    assert swap_role_employer_with_known_company(df) == 0
     assert df.loc[0, "contributor_employer"] == "CHAIRMAN"
 
 
@@ -119,7 +119,7 @@ def test_a_title_cannot_vouch_for_itself():
         ("CHAIRMAN", "PRESIDENT"),
     ])
 
-    assert _swap_role_employer_with_known_company(df) == 0
+    assert swap_role_employer_with_known_company(df) == 0
 
 
 def test_status_words_do_not_corroborate():
@@ -128,7 +128,7 @@ def test_status_words_do_not_corroborate():
         ("SELF-EMPLOYED", "CONSULTANT"),
     ])
 
-    assert _swap_role_employer_with_known_company(df) == 0
+    assert swap_role_employer_with_known_company(df) == 0
     assert df.loc[0, "contributor_employer"] == "CHAIRMAN"
 
 
@@ -136,7 +136,7 @@ def test_real_employers_are_never_touched():
     df = _frame([("GOLDMAN SACHS", "CHAIRMAN"), ("ACME WIDGETS", "PRESIDENT")])
     before = df["contributor_employer"].tolist()
 
-    assert _swap_role_employer_with_known_company(df) == 0
+    assert swap_role_employer_with_known_company(df) == 0
     assert df["contributor_employer"].tolist() == before
 
 
@@ -144,13 +144,13 @@ def test_committees_are_skipped():
     df = _frame([("CHAIRMAN", "KIMCO REALTY"), ("KIMCO REALTY", "ANALYST")])
     df.loc[0, "entity_type"] = "COMMITTEE/PAC"
 
-    assert _swap_role_employer_with_known_company(df) == 0
+    assert swap_role_employer_with_known_company(df) == 0
 
 
 def test_runs_before_the_role_net_in_the_registry():
     """AD would otherwise strand the company."""
     from fec.cleaning.record_rules import SAFETY_RULES
-    from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
+    from fec.cleaning.safety_nets.employer_swaps import fix_role_as_employer
 
     names = [fn for fn, *_ in SAFETY_RULES]
-    assert names.index(_swap_role_employer_with_known_company) < names.index(_fix_role_as_employer)
+    assert names.index(swap_role_employer_with_known_company) < names.index(fix_role_as_employer)

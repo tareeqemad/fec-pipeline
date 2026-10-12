@@ -1,4 +1,4 @@
-"""Give every filing a donor_key: match, apply rules, hold unproven."""
+"""Assign donor_keys: match, apply rules, hold unproven."""
 from __future__ import annotations
 
 import pandas as pd
@@ -18,7 +18,6 @@ logger = get_logger(__name__)
 
 # reject a donor with conflicting jr/sr suffixes
 def _validate_generational_suffixes(df: pd.DataFrame) -> None:
-    """Reject a donor containing different explicit generation suffixes."""
     people = df[df["entity_type"] == "INDIVIDUAL"]
     suffixes = people[people["_generational_suffix"] != ""]
     conflicts = suffixes.groupby("donor_key")["_generational_suffix"].nunique()
@@ -28,17 +27,16 @@ def _validate_generational_suffixes(df: pd.DataFrame) -> None:
         raise ValueError(f"JR/SR identity guard rejected donor(s): {keys}")
 
 
-# assign each filing a donor_key and merge duplicate identities
+# assign donor_keys and merge duplicate identities
 def identify_donors(
     df_clean: pd.DataFrame
 ) -> pd.DataFrame:
-    """Assign one donor_key to each identity."""
     df_clean = df_clean.reset_index(drop=True)
     if "_generational_suffix" not in df_clean.columns:
         df_clean["_generational_suffix"] = ""
     logger.info("\n-- Donor identity --")
 
-    # confirmed unless a hold rule (held) or the network step (unresolved) says otherwise
+    # confirmed unless a later step says otherwise
     df_clean["identity_status"] = "confirmed"
     rid_to_key, match_audit = match_donors(df_clean)
     df_clean = apply_donor_key(df_clean, rid_to_key)

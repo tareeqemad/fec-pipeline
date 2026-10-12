@@ -17,14 +17,15 @@ logger = get_logger(__name__)
 _COMMITTEE_RE = re.compile(r"^C\d{8}$")
 
 
+# FEC two-year period containing a year
 def _current_period(year: int) -> int:
-    """Return the FEC two-year period."""
     return year + (year % 2)
 
 
 CURRENT_PERIOD = _current_period(date.today().year)
 
 
+# parse args, then pull or backfill
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Pull FEC data for one committee.")
     ap.add_argument("committee_id", help="Committee ID from committees.csv.")

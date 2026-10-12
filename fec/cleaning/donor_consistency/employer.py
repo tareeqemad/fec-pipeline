@@ -1,4 +1,4 @@
-"""Employer-field fixes: same-donor spelling unification, the refusal sweep and the fill steps."""
+"""Employer fill and own-firm steps per donor."""
 import re
 
 import pandas as pd
@@ -28,20 +28,13 @@ from fec.log import get_logger, log_count
 
 logger = get_logger(__name__)
 
-# the config patterns are plain strings; compile once for the .str calls below
 _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
-# compiled admin-note/refusal phrasing: "PENDING", "DECLINED TO STATE"
+# admin notes such as "DECLINED TO STATE"
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
 
 
-# fill missing employer from donor's nearest other record
-def _fill_employer_from_donor(df: pd.DataFrame) -> int:
-    """AI. Fill NaN employer from same donor's other records (needs donor_key).
-
-    Occupation recovery belongs to ``_fill_occupation_from_donor``. Keeping
-    the two operations separate prevents one inferred value from triggering a
-    second, less reliable inference.
-    """
+# fill missing employer from donor's nearest filing
+def fill_employer_from_donor(df: pd.DataFrame) -> int:
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     explicit_status = (
         indiv['contributor_occupation'].fillna('').str.upper().isin(STATUS_WORDS)
@@ -70,12 +63,8 @@ def _fill_employer_from_donor(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# pick employer filed closest in time to a given date
+# last employer before date, else first after
 def _employer_nearest_in_time(real_recs: pd.DataFrame, when) -> str:
-    """The employer the donor filed last on or before `when`, else the first one after it.
-
-    real_recs is sorted by date. A filing with no date takes the latest employer.
-    """
     if pd.notna(when):
         dated = real_recs[real_recs['_date'].notna()]
         before = dated[dated['_date'] <= when]
@@ -87,9 +76,8 @@ def _employer_nearest_in_time(real_recs: pd.DataFrame, when) -> str:
     return real_recs['contributor_employer'].iloc[-1]
 
 
-# derive employer from a status-word occupation or category
-def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
-    """AK. Empty employer + status-word occupation/category -> employer = that status."""
+# employer from status-word occupation or category
+def fill_employer_from_occupation(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     empty_emp = df['contributor_employer'].isna() | (df['contributor_employer'] == '')
     occ = df['contributor_occupation'].fillna('')
@@ -102,7 +90,6 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
             df.loc[mask, 'contributor_employer'] = emp_val
             n += cnt
 
-    # Still empty? Set from occupation_category
     still_empty = is_indiv & (df['contributor_employer'].isna() | (df['contributor_employer'] == ''))
     for cat, emp_val in EMPLOYER_FROM_CATEGORY.items():
         mask = still_empty & (df['occupation_category'] == cat)
@@ -114,21 +101,15 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
     return n
 
 
-# fill any still-empty employer from the donor's raw filings
-def _fill_employer_from_raw_filings(df: pd.DataFrame) -> int:
-    """AK2. A still-empty employer from the donor's own other raw filings."""
+# fill still-empty employer from donor's raw filings
+def fill_employer_from_raw_filings(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     empty = is_indiv & (df['contributor_employer'].isna() | (df['contributor_employer'] == ''))
     return _fill_employer_from_raw(df, empty) if empty.any() else 0
 
 
-# load raw CSV, recover employer from donor's own sub_ids
+# recover employer from donor's own raw filings
 def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
-    """Recover an employer from the same donor's own raw filings (their sub_ids).
-
-    Only the donor's own filings count: two people with one name in one state
-    (a Los Angeles and a San Francisco COHEN, ROBERT) never share an employer.
-    """
     if not RAW_CSV.exists():
         return 0
 
@@ -141,9 +122,7 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
     )
     raw_employer = raw.drop_duplicates('sub_id').set_index('sub_id')['contributor_employer']
 
-    # a filing whose employer a manual override cleared or replaced is neither
-    # refilled nor evidence: the override says the filed employer is not this
-    # donor's (SANDBERG, ADELE filed her husband's EYE SURGERY ASSOCIATES)
+    # overridden employer filings are never evidence
     overridden = overridden_employer_sub_ids()
     empty_mask = empty_mask & ~df['sub_id'].astype(str).isin(overridden)
     raw_employer = raw_employer[~raw_employer.index.isin(overridden)]
@@ -163,29 +142,26 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
         donor_key = df.at[idx, 'donor_key']
         if donor_key in key_to_emp:
             df.at[idx, 'contributor_employer'] = key_to_emp[donor_key]
-            df.at[idx, 'occupation_status'] = 'DERIVED'   # recovered from donor's raw filings
+            df.at[idx, 'occupation_status'] = 'DERIVED'
             n += 1
 
     log_count(logger, "recover employers from raw", n)
     return n
 
 
-# sector/role/title/refusal words are blanked or converted upstream on
-# purpose - never re-recover them from raw
+# blanked upstream on purpose; never re-recover
 _NEVER_RECOVERED = frozenset().union(
     RAW_JUNK_EMPLOYERS, RAW_STATUS_MAP.keys(), SECTOR_AS_EMPLOYER,
     ROLE_AS_EMPLOYER, OCCUPATION_AS_EMPLOYER, REFUSAL_EMPLOYERS,
 )
 
 
-# pick donor's most common real employer, else a status word
+# most filed real raw employer, else status
 def _employer_from_raw_filings(emps: pd.Series):
-    """One donor's most filed real raw employer, else status word."""
     emps_u = emps.str.upper()
     real = emps[~emps_u.isin(_NEVER_RECOVERED) & (emps.str.len() > 2)]
     real_u = real.str.upper()
-    # same structural-junk patterns the cleaner uses (emails, dates, masked
-    # digits, admin notes) so junk blanked upstream is not re-recovered
+    # same junk patterns the cleaner blanks upstream
     real = real[~real.str.contains('@', na=False, regex=False)
                 & ~real_u.str.match(_JUNK_RE, na=False)
                 & ~real_u.str.match(_ADMIN_NOTE_RE, na=False)]
@@ -199,7 +175,7 @@ def _employer_from_raw_filings(emps: pd.Series):
     return None
 
 
-# a business/professional-firm token: "LLC", "CPA", "LAW", "GROUP"
+# business firm tokens like "LLC", "CPA"
 _OWN_FIRM_TOKEN_RE = re.compile(
     r'\b(?:LLC|LLP|INC|CORP|CORPORATION|CO|COMPANY|COMPANIES|LTD|LP|PLLC|PC|PA|LAW|CPA|MD|DDS|DMD|ESQ|'
     r'OFFICES?|GROUP|PARTNERS|ASSOCIATES|ADVISORS|CONSULTING|CONSULTANTS|DESIGN|STUDIO|CONSTRUCTION|'
@@ -208,17 +184,12 @@ _OWN_FIRM_TOKEN_RE = re.compile(
 )
 
 
-# categories that name a title or status, not a field of work
+# categories naming a title, not a field
 _NO_FIELD = frozenset({'OTHER', 'SELF-EMPLOYED', 'EXECUTIVE / C-SUITE', 'BUSINESS / ENTREPRENEUR'})
 
 
-# move self-employed rows to donor's own firm by surname
-def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
-    """AV. A donor who files both SELF-EMPLOYED and a firm carrying their own surname
-    (SCOTT FANE CPA PA, SCHALL LAW FIRM, GENET PROPERTY GROUP) has one workplace: the firm.
-    The firm must read as a business, so a joint personal name (GEORGE AND LEESA WEISZ) never wins.
-    Only a self-employed filing in a field filed at the firm (or with no field) moves:
-    FOLDES, NADINE's SELF / SOCIAL WORKER filing is not her family's wealth firm."""
+# move same-field self-employed rows to surname firm
+def own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     n_fixed = 0
     for dk, grp in indiv.groupby('donor_key'):
@@ -237,8 +208,7 @@ def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
         if len(firms) != 1:
             continue
         donor_rows = df['donor_key'] == dk
-        # the field of each filing's own occupation (a SELF-EMPLOYED filing's
-        # category still reads SELF-EMPLOYED here, so it cannot be compared)
+        # category still reads SELF-EMPLOYED; use occupation
         occupation = df.loc[donor_rows, 'contributor_occupation'].fillna('')
         field = categorize_final(occupation)
         firm_fields = set(field[df.loc[donor_rows, 'contributor_employer'] == firms[0]]) - _NO_FIELD

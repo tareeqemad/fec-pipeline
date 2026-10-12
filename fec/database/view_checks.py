@@ -1,21 +1,21 @@
-"""Donor profile, current-row and materialized views agree with the base tables."""
+"""Views agree with the base tables."""
 from __future__ import annotations
 
 from textwrap import dedent
 
-from fec.database.check_kinds import Check, _equal, _positive, _sql, _zero
+from fec.database.check_kinds import Check, equal_check, positive_check, clean_sql, zero_check
 
 # Composed donor profile
 VIEW_CHECKS: list[Check] = [
-    _equal(
+    equal_check(
         "v_donor_profile: one row per donor",
         "SELECT COUNT(*) FROM v_donor_profile",
         "SELECT COUNT(*) FROM donors",
         "rows",
     ),
-    _zero(
+    zero_check(
         "v_donor_profile: total matches stats",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_profile AS profile
             JOIN v_donor_stats AS stats
@@ -24,9 +24,9 @@ VIEW_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong total",
     ),
-    _zero(
+    zero_check(
         "v_donor_profile: count matches stats",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_profile AS profile
             JOIN v_donor_stats AS stats
@@ -35,9 +35,9 @@ VIEW_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong count",
     ),
-    _zero(
+    zero_check(
         "v_donor_profile: non-contributors have no stats",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_profile AS profile
             WHERE NOT EXISTS (
@@ -49,9 +49,9 @@ VIEW_CHECKS: list[Check] = [
         """),
         "non-contributor(s) with stats",
     ),
-    _zero(
+    zero_check(
         "v_donor_profile: identity matches donors",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_profile AS profile
             JOIN donors AS donor
@@ -63,9 +63,9 @@ VIEW_CHECKS: list[Check] = [
         """),
         "donor(s) with mismatched identity",
     ),
-    _zero(
+    zero_check(
         "v_donor_profile: current_employer matches employment view",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_profile AS profile
             JOIN v_donor_current_employment AS employment
@@ -76,9 +76,9 @@ VIEW_CHECKS: list[Check] = [
         """),
         "donor(s) with wrong current_employer",
     ),
-    _zero(
+    zero_check(
         "v_donor_profile: previous_employer matches employment view",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM v_donor_profile AS profile
             LEFT JOIN v_donor_current_employment AS employment
@@ -97,7 +97,7 @@ VIEW_CHECKS: list[Check] = [
 ]
 
 
-# Current address and employment views share these two ownership checks.
+# Current-row views share these ownership checks
 _CURRENT_VIEW_OWNERSHIP = [
     (
         "v_donor_current_address",
@@ -121,9 +121,9 @@ _CURRENT_VIEW_OWNERSHIP = [
 
 for view_name, ownership_condition in _CURRENT_VIEW_OWNERSHIP:
     VIEW_CHECKS += [
-        _zero(
+        zero_check(
             f"{view_name}: one row per donor",
-            _sql(f"""
+            clean_sql(f"""
                 SELECT COUNT(*)
                 FROM (
                     SELECT donor_id
@@ -134,9 +134,9 @@ for view_name, ownership_condition in _CURRENT_VIEW_OWNERSHIP:
             """),
             "donor(s) with >1 row",
         ),
-        _zero(
+        zero_check(
             f"{view_name}: row belongs to the donor",
-            _sql(f"""
+            clean_sql(f"""
                 SELECT COUNT(*)
                 FROM {view_name} AS current_row
                 WHERE {dedent(ownership_condition).strip()}
@@ -147,9 +147,9 @@ for view_name, ownership_condition in _CURRENT_VIEW_OWNERSHIP:
 
 
 VIEW_CHECKS += [
-    _zero(
+    zero_check(
         "v_donor_current_address: is the newest contribution's address",
-        _sql("""
+        clean_sql("""
             WITH latest_address AS (
                 SELECT DISTINCT ON (contribution.donor_id)
                        contribution.donor_id,
@@ -172,11 +172,11 @@ VIEW_CHECKS += [
 ]
 
 
-# Leadership and key accomplice rosters, read straight from the tables
+# Leadership and key accomplice rosters
 VIEW_CHECKS += [
-    _zero(
+    zero_check(
         "key_accomplices: every row named",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM key_accomplices AS accomplice
             JOIN donors AS donor
@@ -185,14 +185,14 @@ VIEW_CHECKS += [
         """),
         "unnamed row(s)",
     ),
-    _positive(
+    positive_check(
         "leader_committees: membership is populated",
         "SELECT COUNT(*) FROM leader_committees",
         "junction row(s)",
     ),
-    _zero(
+    zero_check(
         "leader_committees: every row maps to a visible leader",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM leader_committees AS membership
             WHERE NOT EXISTS (
@@ -210,15 +210,15 @@ VIEW_CHECKS += [
 
 # Materialized view sync
 VIEW_CHECKS += [
-    _equal(
+    equal_check(
         "mv_donor_profile: same row count as view",
         "SELECT COUNT(*) FROM mv_donor_profile",
         "SELECT COUNT(*) FROM v_donor_profile",
         "rows",
     ),
-    _zero(
+    zero_check(
         "mv_donor_profile: in sync with view (per donor)",
-        _sql("""
+        clean_sql("""
             SELECT COUNT(*)
             FROM mv_donor_profile AS materialized
             FULL JOIN v_donor_profile AS current

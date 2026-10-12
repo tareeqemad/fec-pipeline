@@ -1,9 +1,9 @@
-"""Give the read-only login SELECT on every table and view."""
+"""Grant the read-only login SELECT access."""
 from __future__ import annotations
 
 from typing import Any
 
-from fec.database.loader._base import _quote_identifier
+from fec.database.loader._base import quote_identifier
 from fec.env import (
     DATABASE_READER,
 )
@@ -12,8 +12,8 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# verify the reader role exists and is unprivileged, non-inheriting
-def _check_reader(cur: Any) -> None:
+# check reader role exists, unprivileged, non-inheriting
+def check_reader(cur: Any) -> None:
     cur.execute(
         """
         SELECT
@@ -37,13 +37,12 @@ def _check_reader(cur: Any) -> None:
         raise RuntimeError(f"{DATABASE_READER} must not inherit another role")
 
 
-# give the read-only role SELECT on tables and views only
+# grant reader SELECT on tables, nothing else
 def grant_read_access(conn: Any, cur: Any) -> None:
-    """Give fec_app SELECT on every table, view and materialized view, nothing else."""
     logger.info("\n-- Granting permissions --")
-    _check_reader(cur)
+    check_reader(cur)
 
-    reader = _quote_identifier(DATABASE_READER)
+    reader = quote_identifier(DATABASE_READER)
 
     statements = (
         "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC",
@@ -59,5 +58,5 @@ def grant_read_access(conn: Any, cur: Any) -> None:
     except Exception as error:
         raise RuntimeError(f"Permission update failed: {error}") from error
 
-    # ALL TABLES covers tables, views and materialized views
+    # ALL TABLES includes views and materialized views
     logger.info("  %s: SELECT on tables, views and materialized views; nothing else", DATABASE_READER)

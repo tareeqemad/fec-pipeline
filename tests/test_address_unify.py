@@ -1,10 +1,10 @@
-"""_unify_street_spacing collapses spacing/punctuation-only street variants."""
+"""unify_street_spacing collapses spacing/punctuation-only street variants."""
 
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
-from fec.cleaning.addresses.fixes.house_numbers import _truncated_house_numbers
-from fec.cleaning.addresses.fixes.unify import _unify_street_spacing
+from fec.cleaning.addresses.fixes.recovery import recover_missing_streets
+from fec.cleaning.addresses.fixes.house_numbers import truncated_house_numbers
+from fec.cleaning.addresses.fixes.unify import unify_street_spacing
 
 
 def _df(streets):
@@ -35,7 +35,7 @@ def test_collapses_space_and_punctuation_variants():
     df = pd.concat(
         [df, _df(["143 BEARS CLUB DR", "143 BEARS CLUB DR"])], ignore_index=True
     )
-    n = _unify_street_spacing(df)
+    n = unify_street_spacing(df)
     s = df["contributor_street_1"].tolist()
     assert "16201 MEADOW RIDGE WAY" not in s  # folded into dominant
     assert s.count("16201 MEADOWRIDGE WAY") == 4
@@ -55,7 +55,7 @@ def test_does_not_merge_letter_typo_or_move():
             "200 OAK ST",  # different house number = different address
         ]
     )
-    _unify_street_spacing(df)
+    unify_street_spacing(df)
     after = df["contributor_street_1"].tolist()
     assert "8 SPENCEHIL CT" in after  # typo left untouched
     assert "100 OAK ST" in after and "200 OAK ST" in after  # move left untouched
@@ -72,7 +72,7 @@ def test_scoped_per_donor_never_across_people():
         }
     )
     before = df["contributor_street_1"].tolist()
-    _unify_street_spacing(df)
+    unify_street_spacing(df)
     assert df["contributor_street_1"].tolist() == before  # untouched
 
 
@@ -102,11 +102,11 @@ def test_recovers_blank_street_only_from_one_exact_donor_address():
         }
     )
 
-    assert _recover_missing_streets(df) == 1
+    assert recover_missing_streets(df) == 1
     assert df.loc[1, "contributor_street_1"] == "129 ALTA AVE"
     assert pd.isna(df.loc[4, "contributor_street_1"])
     assert pd.isna(df.loc[5, "contributor_street_1"])
-    assert _recover_missing_streets(df) == 0
+    assert recover_missing_streets(df) == 0
 
 
 def test_repairs_rare_truncated_house_number_per_donor():
@@ -118,7 +118,7 @@ def test_repairs_rare_truncated_house_number_per_donor():
         }
     )
 
-    assert _truncated_house_numbers(df) == 1
+    assert truncated_house_numbers(df) == 1
     assert (
         df.loc[df["donor_key"] == "same", "contributor_street_1"]
         .eq("12345 OAK ST")
@@ -133,7 +133,7 @@ def test_a_house_number_split_by_a_space_loses_to_the_joined_one():
     # WEINER filed '10 17 GREENTREE DR' and '1017 GREENTREE DR': one house, 1017
     df = _df(["10 17 GREENTREE DR", "10 17 GREENTREE DR", "1017 GREENTREE DR"])
 
-    _unify_street_spacing(df)
+    unify_street_spacing(df)
 
     assert df["contributor_street_1"].tolist() == ["1017 GREENTREE DR"] * 3
 
@@ -141,6 +141,6 @@ def test_a_house_number_split_by_a_space_loses_to_the_joined_one():
 def test_a_number_before_a_numbered_street_is_not_a_split_house_number():
     df = _df(["100 1ST ST", "100 1ST ST", "1001ST ST"])
 
-    _unify_street_spacing(df)
+    unify_street_spacing(df)
 
     assert df["contributor_street_1"].tolist() == ["100 1ST ST"] * 3

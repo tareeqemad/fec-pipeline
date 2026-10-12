@@ -30,6 +30,7 @@ from fec.resolve.pipeline.locations import (
 logger = get_logger(__name__)
 
 
+# cleaned CSV path, or exit if missing
 def _find_csv() -> str:
     if CLEANED_CSV.exists():
         return str(CLEANED_CSV)
@@ -37,8 +38,8 @@ def _find_csv() -> str:
     sys.exit(1)
 
 
+# add cached locations of referenced employers
 def _all_employer_addresses(df: pd.DataFrame) -> pd.DataFrame:
-    """Include every published employer location."""
     path = os.path.join(CACHE_DIR, EMPLOYER_ADDR_CACHE)
     if not os.path.exists(path):
         return df
@@ -57,6 +58,7 @@ def _all_employer_addresses(df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([df, pd.DataFrame(rows)], ignore_index=True, sort=False)
 
 
+# parse command-line arguments
 def _parse_args():
     parser = argparse.ArgumentParser(description="Geocode FEC contributions")
     parser.add_argument(
@@ -67,6 +69,7 @@ def _parse_args():
     return parser.parse_args()
 
 
+# geocode donor addresses and log coverage
 def _geocode_contributors(
     df: pd.DataFrame,
     cache: GeoCache,
@@ -83,6 +86,7 @@ def _geocode_contributors(
     return df
 
 
+# geocode employers; False before resolve ran
 def _geocode_employers(
     df: pd.DataFrame,
     cache: GeoCache,
@@ -106,10 +110,11 @@ def _geocode_employers(
     return df, True
 
 
+# drop internal columns, check, write, record
 def _write_output(df: pd.DataFrame, csv_path: str, stage: str, input_columns) -> None:
     from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 
-    # resolve's working columns stay until the employer stage has read them
+    # keep resolve columns until employer stage reads
     kept = set(RESOLVE_WORKING) - set(STAGES[stage].drops)
     df = df.drop(columns=[c for c in INTERNAL_OUTPUT_COLUMNS if c not in kept], errors="ignore")
     check_output(stage, input_columns, df.columns)
@@ -118,6 +123,7 @@ def _write_output(df: pd.DataFrame, csv_path: str, stage: str, input_columns) ->
     record(stage, csv_path)
 
 
+# geocode donors or employers, then write
 def main():
     args = _parse_args()
 

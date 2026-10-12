@@ -1,1 +1,1 @@
-"""Load cleaned FEC data. Code lives in run.py."""
+"""Load cleaned FEC data; see run.py."""

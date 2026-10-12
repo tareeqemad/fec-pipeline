@@ -2,7 +2,7 @@
 import pandas as pd
 
 from fec.cleaning.safety_nets.occupation_context import (
-    _disambiguate_vague_occupation,
+    disambiguate_vague_occupation,
     _employer_signal,
 )
 
@@ -30,7 +30,7 @@ def test_developer_is_decided_per_filing():
         ('INDIVIDUAL', 'B, TWO', 'GOOGLE', 'DEVELOPER', 'TECHNOLOGY'),
         ('INDIVIDUAL', 'C, THREE', 'ROCK COMPANIES', 'DEVELOPER', 'TECHNOLOGY'),
     ])
-    assert _disambiguate_vague_occupation(df) == 2
+    assert disambiguate_vague_occupation(df) == 2
     assert df['contributor_occupation'].tolist() == ['REAL ESTATE DEVELOPER', 'SOFTWARE DEVELOPER', 'DEVELOPER']
     assert df['occupation_category'].tolist() == ['REAL ESTATE', 'TECHNOLOGY', 'TECHNOLOGY']
 
@@ -45,7 +45,7 @@ def test_colleagues_decide_when_the_name_is_silent():
         ('INDIVIDUAL', 'E, FIVE', 'ROCK COMPANIES', 'CEO', 'EXECUTIVE / C-SUITE'),
     ])
     # 4 colleagues, 3 of them real estate (75%) -> decided
-    assert _disambiguate_vague_occupation(df) == 1
+    assert disambiguate_vague_occupation(df) == 1
     assert df.loc[0, 'contributor_occupation'] == 'REAL ESTATE DEVELOPER'
     assert df.loc[0, 'occupation_category'] == 'REAL ESTATE'
 
@@ -60,7 +60,7 @@ def test_colleagues_are_counted_as_people_across_all_industries():
              ('INDIVIDUAL', 'G, SEVEN', 'ROCK COMPANIES', 'ATTORNEY', 'LEGAL')]
     df = _frame(rows)
     # 6 colleagues, only 3 real estate (50%) -> not enough, stays DEVELOPER
-    assert _disambiguate_vague_occupation(df) == 0
+    assert disambiguate_vague_occupation(df) == 0
     assert df.loc[0, 'contributor_occupation'] == 'DEVELOPER'
 
 
@@ -70,5 +70,5 @@ def test_specific_occupations_and_non_individuals_are_untouched():
         ('INDIVIDUAL', 'B, TWO', 'GOOGLE', 'ATTORNEY', 'LEGAL'),
         ('COMMITTEE', 'SOME PAC', 'TERRACO REAL ESTATE', 'DEVELOPER', ''),
     ])
-    assert _disambiguate_vague_occupation(df) == 0
+    assert disambiguate_vague_occupation(df) == 0
     assert df['contributor_occupation'].tolist() == ['SOFTWARE DEVELOPER', 'ATTORNEY', 'DEVELOPER']

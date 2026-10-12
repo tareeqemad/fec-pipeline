@@ -7,13 +7,12 @@ from fec.env import ADDRESS_RULES_CSV
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
-# a rule's unit that removes the filed unit instead of writing one
+# rule unit meaning remove the filed unit
 CLEAR_UNIT = "[CLEAR]"
 
 
-# apply exact, externally verified address corrections to the frame
+# apply externally verified address corrections
 def apply_verified_address_fixes(df: pd.DataFrame) -> int:
-    """Apply exact, externally verified address corrections."""
     changed = 0
     df[S2] = df[S2].astype(object)
     for (street, state, zipcode), fixed in _read_address_rules().items():
@@ -29,7 +28,7 @@ def apply_verified_address_fixes(df: pd.DataFrame) -> int:
         row_changed = mask & df[S1].fillna("").ne(fixed_street)
         df.loc[mask, S1] = fixed_street
         if fixed_unit == CLEAR_UNIT:
-            # the filed unit was part of the street ("# 1-2" for 3201 1/2)
+            # filed unit belonged to the street number
             row_changed |= mask & df[S2].fillna("").ne("")
             df.loc[mask, S2] = pd.NA
         elif fixed_unit is not None:
@@ -48,9 +47,8 @@ def apply_verified_address_fixes(df: pd.DataFrame) -> int:
     return changed
 
 
-# load the address rules CSV into a lookup dict
+# load address rules CSV into lookup dict
 def _read_address_rules() -> dict[tuple[str, str, str], tuple]:
-    """Read exact address corrections."""
     if not ADDRESS_RULES_CSV.exists():
         raise FileNotFoundError(f"Missing address rules: {ADDRESS_RULES_CSV}")
 

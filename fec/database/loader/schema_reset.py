@@ -1,4 +1,4 @@
-"""Drop every object in the public schema so the loader can rebuild from scratch."""
+"""Drop every object in the public schema."""
 from __future__ import annotations
 
 from typing import Any
@@ -18,9 +18,8 @@ OBJECTS_SQL = """
 """
 
 
-# drop all owner-controlled objects, verify schema ends empty
+# drop owned objects, verify public is empty
 def reset_schema(conn: Any, cur: Any) -> None:
-    """Drop owner-controlled objects and verify public is empty."""
     logger.info("\n  Dropping all objects in public schema...")
 
     cur.execute("SELECT current_user")

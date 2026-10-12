@@ -1,4 +1,4 @@
-"""Text normalization and regex categorization for the employer and occupation columns."""
+"""Employer and occupation text normalization, categorization."""
 import numpy as np
 import pandas as pd
 
@@ -12,19 +12,17 @@ from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
 from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
 from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 
-# junk value -> NaN, one batch replace
+# junk values to NaN in one replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
 
-# Some raw fixes intentionally give the cleaned value a category that the
-# general regex cannot infer (for example COMPLIANCE -> LEGAL). Keep that
-# knowledge available when a later step re-categorizes the final occupation.
+# fix categories the general regex cannot infer
 _FINAL_OCCUPATION_CATEGORIES = {
     final_occupation: category
     for final_occupation, category in OCCUPATION_FIXES.values()
     if category
 }
 
-# Cyrillic lookalikes -> ASCII (common in FEC data entry)
+# Cyrillic lookalikes to ASCII, common in FEC
 _CYRILLIC_TO_ASCII = str.maketrans({
     '\u0410': 'A', '\u0412': 'B', '\u0421': 'C', '\u0415': 'E',
     '\u041d': 'H', '\u041a': 'K', '\u041c': 'M', '\u041e': 'O',
@@ -33,20 +31,13 @@ _CYRILLIC_TO_ASCII = str.maketrans({
 
 
 _WORD_DIGITS_RE = r'(\b[A-Z]{3,})\d+\b'
-# Employer text whose trailing digits are keying noise (SELF EMPLOYED47); every other
-# employer keeps its digits because they belong to the name (GENESIS10, ROC360).
+# only status text loses trailing keying digits
 EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOYERS)
 
 
-# clean, dedupe-normalize a text column, optionally collapsing retired
-def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
+# clean a text column, optionally collapsing retired
+def normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
                     digits_only_before: frozenset | set | None = None) -> tuple[pd.Series, int]:
-    """Strip/uppercase, fix entities and junk, optionally collapse RETIRE* to RETIRED, then apply normalize_map; returns (cleaned, n_changed).
-
-    Digits stuck to a word are keying noise in an occupation (OWNER3 -> OWNER) but part
-    of a company's name in an employer (GENESIS10, ROC360, CENTURY21 KING REALTY). With
-    `digits_only_before`, they are stripped only when what remains is one of those values
-    (SELF EMPLOYED47 -> SELF EMPLOYED); without it, always (occupations)."""
     before = series.copy()
 
     cleaned = series.astype('string').str.strip().str.upper()
@@ -61,10 +52,9 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     cleaned = cleaned.str.replace('&LDQUO;', '"', regex=False)
     cleaned = cleaned.str.replace(r'&[A-Z]+;', '', regex=True)
 
-    # curly braces
     cleaned = cleaned.str.replace(r'[{}]', '', regex=True)
 
-    # trailing digits stuck to words (OWNER3 -> OWNER)
+    # employer digits stripped only before status text
     stripped = cleaned.str.replace(_WORD_DIGITS_RE, r'\1', regex=True)
     if digits_only_before is None:
         cleaned = stripped
@@ -72,17 +62,14 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
         to_status = stripped.str.strip().isin(digits_only_before).fillna(False)
         cleaned = cleaned.where(~to_status, stripped)
 
-    # trailing punctuation
     cleaned = cleaned.str.replace(r'[\.\,\;\:\/\\]+\s*$', '', regex=True).str.strip()
 
-    # double+ spaces
     cleaned = cleaned.str.replace(r'\s{2,}', ' ', regex=True).str.strip()
 
     cleaned = cleaned.replace(_JUNK_TO_NAN)
 
     if collapse_retire:
-        # The bare pattern drops IGNORECASE; cleaned is already uppercase.
-        # so this match is (and always was) effectively case-insensitive
+        # cleaned is uppercase, so case flags unneeded
         cleaned.loc[cleaned.str.contains(RETIRE_RE.pattern, na=False, regex=True)] = 'RETIRED'
 
     cleaned = cleaned.replace(normalize_map)
@@ -94,9 +81,8 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     return result, n_changed
 
 
-# assign occupation category by override then first matching regex
-def _categorize(occupation_series: pd.Series) -> pd.Series:
-    """Assign an occupation category: explicit overrides first, then first matching regex wins."""
+# category by override, else first matching regex
+def categorize_occupation(occupation_series: pd.Series) -> pd.Series:
     result = pd.Series('OTHER', index=occupation_series.index)
     result[occupation_series.isna()] = pd.NA
 
@@ -112,11 +98,10 @@ def _categorize(occupation_series: pd.Series) -> pd.Series:
     return result
 
 
-# categorize final occupations using overrides, exact map, and regex
+# categorize final occupations with every configured rule
 def categorize_final(occupation_series: pd.Series) -> pd.Series:
-    """Categorize final cleaned occupations using every configured rule."""
     occupation = occupation_series.fillna('').astype(str).str.strip().str.upper()
-    result = _categorize(occupation)
+    result = categorize_occupation(occupation)
 
     exact = occupation.map(_FINAL_OCCUPATION_CATEGORIES)
     result.loc[exact.notna()] = exact.loc[exact.notna()]
@@ -130,24 +115,21 @@ def categorize_final(occupation_series: pd.Series) -> pd.Series:
     return result
 
 
-# classify committee names into sub-types by keyword match
-def _classify_committee_names(names: pd.Series) -> pd.Series:
-    """Classify committee names into sub-types by keyword match."""
+# classify committee names by keyword
+def classify_committee_names(names: pd.Series) -> pd.Series:
     result = pd.Series('POLITICAL COMMITTEE', index=names.index)
     filled = names.fillna('').astype(str)
 
     for label, pattern in COMM_PATTERNS:
-        # COMM_PATTERNS use IGNORECASE, but this call site has always
-        # matched case-sensitively: pass the pattern string, not the object
+        # deliberately case-sensitive: pass the pattern string
         matches = filled.str.contains(pattern.pattern, na=False, regex=True) & (result == 'POLITICAL COMMITTEE')
         result[matches] = label
 
     return result
 
 
-# apply curated occupation fixes and return original values changed
+# apply occupation fixes; return changed originals
 def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
-    """Apply OCCUPATION_FIXES; return original changed values."""
     original = df.loc[rows, 'contributor_occupation']
     original = original[original.isin(OCCUPATION_FIXES)]
     if not original.empty:
@@ -160,15 +142,13 @@ def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
     return original
 
 
-# swap employer and occupation, then recategorize the occupation
+# swap employer and occupation, then recategorize
 def swap_employer_and_occupation(df: pd.DataFrame, rows, *, canonical: bool = True, status=None) -> None:
-    """rows is a boolean mask or an index. canonical maps the new occupation
-    through OCCUPATION_CANONICAL; status, when given, sets occupation_status."""
     old_employer = df.loc[rows, 'contributor_employer'].copy()
     old_occupation = df.loc[rows, 'contributor_occupation'].copy()
     new_occupation = old_employer.replace(OCCUPATION_CANONICAL) if canonical else old_employer
     df.loc[rows, 'contributor_employer'] = old_occupation
     df.loc[rows, 'contributor_occupation'] = new_occupation
-    df.loc[rows, 'occupation_category'] = _categorize(new_occupation)
+    df.loc[rows, 'occupation_category'] = categorize_occupation(new_occupation)
     if status is not None:
         df.loc[rows, 'occupation_status'] = status

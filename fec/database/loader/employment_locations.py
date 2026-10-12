@@ -1,16 +1,15 @@
-"""Pick the address an employment row points to: its employer's location."""
+"""Pick an employment row's employer location address."""
 from __future__ import annotations
 
 from fec.database.loader._base import to_native
-from fec.database.loader.addresses import _akey, load_employer_locations
+from fec.database.loader.addresses import address_tuple, load_employer_locations
 from fec.resolve.pipeline.location_choice import select_location
 
 
-# index known employer locations by exact employer name
-def _location_index(
+# index employer locations by exact name
+def location_index(
     employer_locations: list[dict] | None = None,
 ) -> dict[str, dict]:
-    """Index known locations by exact employer name."""
     grouped: dict[str, list[dict]] = {}
     locations = employer_locations
     if locations is None:
@@ -31,21 +30,20 @@ def _location_index(
     return lookup
 
 
-# choose the address id attached to one employment
-def _employment_address_id(
+# address id for one employment row
+def employment_address_id(
     row,
     employer_name,
     locations: dict,
     address_ids: dict,
 ):
-    """Choose the address attached to one employment."""
     status = str(to_native(row.get("employer_status")) or "")
 
     if status == "not_employed":
         return None
 
     if status == "self_employed":
-        address = _akey(
+        address = address_tuple(
             row.get("contributor_street_1"),
             row.get("contributor_street_2"),
             row.get("contributor_city"),
@@ -75,7 +73,7 @@ def _employment_address_id(
     if not location:
         return None
 
-    address = _akey(
+    address = address_tuple(
         location["employer_address"],
         None,
         location["employer_city"],
@@ -88,9 +86,8 @@ def _employment_address_id(
     return address_id
 
 
-# the employer whose location an employment row uses
-def _location_employer(row, emp_id, employer_name: str | None, emp_status) -> str | None:
-    """The employer whose location an employment row takes: current, else the retiree's previous."""
+# current employer, else retiree's previous employer
+def location_employer(row, emp_id, employer_name: str | None, emp_status) -> str | None:
     if emp_id:
         return employer_name
     if emp_status == 'retired':

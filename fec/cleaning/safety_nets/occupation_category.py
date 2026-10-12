@@ -1,12 +1,12 @@
-"""Keep occupation_category consistent with the employer and occupation."""
+"""Keep occupation_category consistent with employer, occupation."""
 from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.occupations.normalize import _categorize, categorize_final
+from fec.cleaning.occupations.normalize import categorize_occupation, categorize_final
 from fec.config.constants import NOT_EMPLOYED_VARIANTS, SKIP_EMPLOYERS
 
-# (status employer, occupations that already mean it), applied in this order
+# status employer and matching occupations, in order
 _STATUS_OCCUPATIONS = (
     ('RETIRED', {'RETIRED', ''}),
     ('NOT EMPLOYED', {'NOT EMPLOYED', 'UNEMPLOYED', ''}),
@@ -15,17 +15,14 @@ _STATUS_OCCUPATIONS = (
 
 
 # keep employer, occupation and category mutually consistent
-def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
-    """AR. Cross-field employer/occupation/category consistency; a real-company employer wins over a RETIRED occupation or SELF-EMPLOYED category."""
+def fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('')
     occ = df['contributor_occupation'].fillna('')
     categories = df['occupation_category'].fillna('')
     n_fixed = 0
 
-    # The FEC sometimes carries NOT EMPLOYED in the employer field while the
-    # same filing explicitly says RETIRED in occupation. Retirement is the
-    # more specific status; no company or profession is inferred here.
+    # RETIRED occupation beats NOT EMPLOYED employer
     retired_not_employed = (
         is_indiv
         & emp.isin(NOT_EMPLOYED_VARIANTS)
@@ -38,8 +35,7 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
         df.loc[retired_not_employed, 'occupation_status'] = 'NOT_APPLICABLE'
         n_fixed += n_retired_not_employed
 
-    # a status employer (RETIRED, NOT EMPLOYED, HOMEMAKER) sets the matching
-    # occupation and category when the occupation is empty or says the same
+    # status employer sets matching occupation and category
     for status, occupations in _STATUS_OCCUPATIONS:
         wrong_cat = (
             is_indiv & (emp == status)
@@ -53,14 +49,14 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
             df.loc[wrong_cat, 'occupation_status'] = 'NOT_APPLICABLE'
             n_fixed += n_status
 
-    # category=SELF-EMPLOYED but employer is a real company: re-derive from occupation
+    # real-company employer beats SELF-EMPLOYED category
     se_cat_real_emp = (
         is_indiv & (categories == 'SELF-EMPLOYED')
         & ~emp.isin(SKIP_EMPLOYERS) & (emp != '')
     )
     if se_cat_real_emp.any():
         real_occ = df.loc[se_cat_real_emp, 'contributor_occupation'].fillna('')
-        new_cats = _categorize(real_occ)
+        new_cats = categorize_occupation(real_occ)
         needs_fix = se_cat_real_emp & (new_cats != 'SELF-EMPLOYED') & new_cats.notna()
         n_se_cat = int(needs_fix.sum())
         if n_se_cat:
@@ -72,8 +68,7 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
 
 
 # categorize slash occupations using their first part
-def _fix_slash_occupation(df: pd.DataFrame) -> int:
-    """AS. Slash occupation (INVESTOR/DEVELOPER): categorize on the first part, but only when the category is OTHER or NULL."""
+def fix_slash_occupation(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     categories = df['occupation_category'].fillna('')
@@ -88,7 +83,7 @@ def _fix_slash_occupation(df: pd.DataFrame) -> int:
         return 0
 
     first_part = occ[has_slash].str.split('/').str[0].str.strip()
-    new_cats = _categorize(first_part)
+    new_cats = categorize_occupation(first_part)
     improved = has_slash & new_cats.notna() & (new_cats != 'OTHER')
     n_fixed = int(improved.sum())
     if n_fixed:
@@ -96,9 +91,8 @@ def _fix_slash_occupation(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# reclassify remaining OTHER categories from final occupation text
-def _reclassify_other_category(df: pd.DataFrame) -> int:
-    """AT. Reclassify remaining OTHER values from the final occupation text."""
+# reclassify OTHER categories from final occupation
+def reclassify_other_category(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     is_other = is_indiv & (df['occupation_category'] == 'OTHER')
     if not is_other.any():

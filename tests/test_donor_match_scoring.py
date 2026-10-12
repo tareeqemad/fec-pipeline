@@ -169,9 +169,9 @@ class TestIdentityMergeQualityGate:
         }
 
     def test_accepts_cross_name_with_zip_anchor(self):
-        from fec.donor_match.chains import _validate_merge_audit
+        from fec.donor_match.chains import validate_merge_audit
 
-        result = _validate_merge_audit(
+        result = validate_merge_audit(
             self._keys(), self._audit("zip5=10001(+25); cross_name(+10)")
         )
 
@@ -179,17 +179,17 @@ class TestIdentityMergeQualityGate:
         assert result["cross_name_zip_only"] == 1
 
     def test_rejects_cross_name_without_identity_anchor(self):
-        from fec.donor_match.chains import _validate_merge_audit
+        from fec.donor_match.chains import validate_merge_audit
 
         with pytest.raises(ValueError, match="quality gate rejected"):
-            _validate_merge_audit(
+            validate_merge_audit(
                 self._keys(), self._audit("state=NY(+10); cross_name(+10)")
             )
 
     def test_ignores_merge_ejected_by_chain_validation(self):
-        from fec.donor_match.chains import _validate_merge_audit
+        from fec.donor_match.chains import validate_merge_audit
 
-        result = _validate_merge_audit(
+        result = validate_merge_audit(
             self._keys("one", "two"), self._audit("CROSS_NAME_NO_ANCHOR")
         )
 
@@ -216,7 +216,7 @@ class TestChainValidation:
             return 100, []
 
         monkeypatch.setattr(chains, "compute_score", score)
-        chains._build_and_validate_chains(
+        chains.build_and_validate_chains(
             union, profiles, {"DOE|JOHN": rids}
         )
 

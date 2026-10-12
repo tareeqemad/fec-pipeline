@@ -1,4 +1,4 @@
-"""Collect employers that still need an AI lookup, with their donor context."""
+"""Collect employers still needing an AI lookup."""
 import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -8,19 +8,20 @@ import pandas as pd
 
 from fec.cleaning.employer_status import classify_employer_statuses
 from fec.config.constants import SKIP_OCCUPATIONS
+from fec.io import cell_text
 from fec.resolve.pipeline.constants import (
     EMPLOYER_PROMPT_VERSION,
     RETIRED,
     SELF_EMPLOYED,
 )
-from fec.resolve.pipeline.helpers import _prev_key, _previous_employer_identity, _s
+from fec.resolve.pipeline.previous_cache import previous_cache_key, previous_employer_identity
 
 _CONTEXT_LIMIT = 3
 
 
 @dataclass(frozen=True)
 class EmployerLookup:
-    """One employer plus limited FEC context used only for identification."""
+    """One employer and its identifying FEC context."""
 
     name: str
     donor_locations: tuple[str, ...] = ()
@@ -32,22 +33,21 @@ class EmployerLookup:
         return self.name.upper()
 
 
-# true if a cache entry has a usable employer address
+# true if entry has a usable address
 def _has_usable_address(entry: dict | None) -> bool:
     if not isinstance(entry, dict):
         return False
-    if _s(entry.get("employer_address")).strip():
+    if cell_text(entry.get("employer_address")):
         return True
     return (
         entry.get("method") == "manual_override"
-        and bool(_s(entry.get("employer_city")).strip())
-        and bool(_s(entry.get("employer_state")).strip())
+        and bool(cell_text(entry.get("employer_city")))
+        and bool(cell_text(entry.get("employer_state")))
     )
 
 
-# retry legacy, stale, missing, and incomplete AI entries
+# true for missing, stale or incomplete entries
 def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
-    """Retry legacy, stale, missing, and incomplete AI entries."""
     if not isinstance(entry, dict):
         return True
     method = entry.get("method", "")
@@ -69,7 +69,7 @@ def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
     return not current_version
 
 
-# record an employer's location, occupation, and priority context
+# record employer location, occupation and priority
 def _remember_context(
     lookup_names: dict[str, str],
     locations: dict[str, Counter],
@@ -83,16 +83,16 @@ def _remember_context(
     lookup_names.setdefault(key, employer)
     priorities[key] = max(priorities.get(key, 0), donor_total)
 
-    city = _s(row.get("contributor_city")).strip()
-    state = _s(row.get("contributor_state")).strip().upper()
-    zip_code = _s(row.get("contributor_zip")).strip()[:5]
+    city = cell_text(row.get("contributor_city"))
+    state = cell_text(row.get("contributor_state"))
+    zip_code = cell_text(row.get("contributor_zip"))[:5]
     place = ", ".join(value for value in (city, state) if value)
     location = " ".join(value for value in (place, zip_code) if value)
     if location:
         locations[key][location] += 1
 
-    occupation = _s(row.get("contributor_occupation")).strip()
-    if occupation and occupation.upper() not in SKIP_OCCUPATIONS:
+    occupation = cell_text(row.get("contributor_occupation"))
+    if occupation and occupation not in SKIP_OCCUPATIONS:
         occupations[key][occupation] += 1
 
 
@@ -101,7 +101,7 @@ def _top_context(values: Counter) -> tuple[str, ...]:
     return tuple(value for value, _count in values.most_common(_CONTEXT_LIMIT))
 
 
-# return current cache misses with cleaned names and context
+# current cache misses with names and context
 def collect_employer_lookups(
     df: pd.DataFrame,
     prev_cache,
@@ -109,7 +109,6 @@ def collect_employer_lookups(
     donor_totals: pd.DataFrame,
     resolver_tag: str,
 ) -> list[EmployerLookup]:
-    """Return current cache misses using cleaned employer names and limited context."""
     tier_keys = set(donor_totals["donor_key"])
     individuals = df[
         (df["entity_type"] == "INDIVIDUAL") & df["donor_key"].isin(tier_keys)
@@ -119,11 +118,7 @@ def collect_employer_lookups(
     locations: dict[str, Counter] = defaultdict(Counter)
     occupations: dict[str, Counter] = defaultdict(Counter)
     priorities: dict[str, float] = {}
-    totals = (
-        donor_totals.set_index("donor_key")["donor_total"].to_dict()
-        if "donor_total" in donor_totals
-        else {}
-    )
+    totals = donor_totals.set_index("donor_key")["donor_total"].to_dict()
 
     misses = chain(
         _active_misses(individuals, addr_cache, resolver_tag),
@@ -150,26 +145,24 @@ def collect_employer_lookups(
     ]
 
 
-# yield employer, row for active donors needing an AI lookup
+# active donors' employers that need AI
 def _active_misses(individuals, addr_cache, resolver_tag):
-    """Yield (employer, row) for active donors whose employer needs AI."""
     active = classify_employer_statuses(individuals).eq("active")
     for _, row in individuals.loc[active].iterrows():
-        employer = _s(row.get("contributor_employer")).strip()
+        employer = cell_text(row.get("contributor_employer"))
         if _needs_ai(addr_cache.get(employer.upper()), resolver_tag):
             yield employer, row
 
 
-# yield previous employer, row for retirees needing an AI lookup
+# retirees' previous employers that need AI
 def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
-    """Yield (previous employer, row) for retirees whose old employer needs AI."""
     retired_mask = (
-        individuals["contributor_employer"].map(_s).str.strip().str.upper() == RETIRED
+        individuals["contributor_employer"] == RETIRED
     )
     retired_rows = individuals.loc[retired_mask].drop_duplicates("donor_key")
     for _, row in retired_rows.iterrows():
-        previous = prev_cache.get(_prev_key(row.get("donor_key")))
-        employer, address_keys = _previous_employer_identity(previous)
+        previous = prev_cache.get(previous_cache_key(row.get("donor_key")))
+        employer, address_keys = previous_employer_identity(previous)
         if employer == SELF_EMPLOYED:
             continue
         if employer and all(
@@ -180,7 +173,6 @@ def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
 
 # build a small, injection-resistant AI prompt
 def build_employer_prompt(lookup: EmployerLookup) -> str:
-    """Build a small, injection-resistant prompt from public FEC context."""
     payload = {
         "employer_name": lookup.name,
         "donor_locations": list(lookup.donor_locations),

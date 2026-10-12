@@ -72,7 +72,7 @@ def test_builds_primary_and_additional_locations(tmp_path, monkeypatch):
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
@@ -108,7 +108,7 @@ def test_build_never_rewrites_cleaned_employer_names(tmp_path, monkeypatch):
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
@@ -142,7 +142,7 @@ def test_build_ignores_company_text_on_not_employed_rows(tmp_path, monkeypatch):
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
@@ -187,7 +187,7 @@ def test_build_withdraws_an_invalidated_address(tmp_path, monkeypatch):
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
@@ -241,7 +241,7 @@ def test_manual_canonical_address_beats_old_exact_ai(tmp_path, monkeypatch):
     (tmp_path / "geocode_cache.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 

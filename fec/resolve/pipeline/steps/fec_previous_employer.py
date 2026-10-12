@@ -1,4 +1,4 @@
-"""Find a retired donor's previous employer in their older FEC filings."""
+"""Retirees' previous employers from the FEC API."""
 import csv
 import os
 import re
@@ -12,14 +12,12 @@ import requests
 from fec.cleaning.employer_status import (
     classify_employer_status,
 )
+from fec.cleaning.manual_overrides import CLEAR_PREVIOUS_EMPLOYER
 from fec.cleaning.previous_employer import normalize_previous_employer_value
 from fec.env import MANUAL_EMPLOYER_OVERRIDES_CSV, RAW_CSV
+from fec.io import cell_text
 from fec.log import get_logger
-from fec.resolve.pipeline.helpers import (
-    _prev_key,
-    _s,
-)
-from fec.resolve.pipeline.steps.previous_employer import _cache_entry, _retired_donors
+from fec.resolve.pipeline.previous_cache import cache_entry, previous_cache_key, retired_donors
 
 logger = get_logger(__name__)
 
@@ -29,28 +27,26 @@ FEC_BASE = "https://api.open.fec.gov/v1"
 FEC_PAGE_SIZE = 100
 
 
-# 2,000 filings under one name and state: past that the search is given up as not found
+# beyond 2,000 filings the search gives up
 FEC_MAX_PAGES = 20
 
 
-# a 429 is retried once after this wait; a second 429 means the hourly quota is spent
+# wait before the single 429 retry
 RATE_LIMIT_WAIT_SECONDS = 5
 
 
-# the FEC answered 429 twice: the key's hourly quota is used up
+# sentinel: hourly FEC quota used up
 RATE_LIMITED = object()
 
 
 # split a value into uppercase alphanumeric words
 def _words(value) -> list[str]:
-    """Return uppercase name/locality words without punctuation."""
-    return re.findall(r"[A-Z0-9]+", _s(value).upper())
+    return re.findall(r"[A-Z0-9]+", cell_text(value).upper())
 
 
-# split a name into last, first and middle-initial parts
+# split a name into last, first, middle
 def _name_parts(value) -> tuple[str, str, str]:
-    """Return (last, first, middle initial) from an FEC-style name."""
-    text = _s(value).strip()
+    text = cell_text(value)
     if "," in text:
         last, given = text.split(",", 1)
         last_words = _words(last)
@@ -65,21 +61,19 @@ def _name_parts(value) -> tuple[str, str, str]:
     return last, first, middle
 
 
-# "SANDBERG, ADELE AND JOEL", "COHEN, ANN & BOB": one filing naming two people
+# AND, &, / or + joins people
 _JOINT_GIVEN_RE = re.compile(r"\bAND\b|&|/|\+")
 
 
-# true for a filing name that carries two people
+# true if a filing names two people
 def _joint_name(value) -> bool:
-    """Its work details may be either person's, so they prove nothing about one."""
-    text = _s(value).upper()
+    text = cell_text(value).upper()
     given = text.split(",", 1)[1] if "," in text else text
     return bool(_JOINT_GIVEN_RE.search(given))
 
 
-# drop cached FEC answers taken from a two-person filing
+# drop cached FEC answers from joint filings
 def drop_joint_source_entries(prev_cache) -> int:
-    """A previous employer read off a joint filing is the household's, not the donor's."""
     data = getattr(prev_cache, "data", prev_cache)
     joint = [
         key for key, entry in data.items()
@@ -91,15 +85,14 @@ def drop_joint_source_entries(prev_cache) -> int:
     return len(joint)
 
 
-# extract the first 5 digits of a ZIP code
+# first 5 digits of a ZIP code
 def _zip5(value) -> str:
-    digits = "".join(re.findall(r"\d", _s(value)))
+    digits = "".join(re.findall(r"\d", cell_text(value)))
     return digits[:5]
 
 
-# check name, locality and ZIP/city match before trusting a record
+# record matches donor's name, state and ZIP
 def _same_fec_donor(person: dict, record: dict) -> bool:
-    """Require matching identity and locality before trusting an FEC record."""
     if _joint_name(record.get("contributor_name")) and not _joint_name(person.get("name")):
         return False
     expected = _name_parts(person.get("name"))
@@ -109,21 +102,18 @@ def _same_fec_donor(person: dict, record: dict) -> bool:
     if expected[2] and reported[2] and expected[2] != reported[2]:
         return False
 
-    expected_state = _s(person.get("state")).strip().upper()
-    reported_state = _s(record.get("contributor_state")).strip().upper()
+    expected_state = cell_text(person.get("state")).upper()
+    reported_state = cell_text(record.get("contributor_state")).upper()
     if expected_state and reported_state and expected_state != reported_state:
         return False
 
-    # the filing must come from a ZIP the donor files from: a name and a city
-    # are not proof (two RICHARD GOLDSTEINs file from Boca Raton 33431/33432)
-    # nor is a ZIP another donor of the same name also files from: the filing
-    # could be either (RICHARD GOLDSTEIN, retiree and attorney, both in 33432)
+    # ZIP must be the donor's own, unshared
     reported_zip = _zip5(record.get("contributor_zip"))
     return (bool(reported_zip) and reported_zip in _person_zips(person)
             and reported_zip not in (person.get("shared_zips") or ()))
 
 
-# the ZIP5s a donor files from: all of them when known, else the latest
+# ZIP5s a donor files from, plus latest
 def _person_zips(person: dict) -> set[str]:
     zips = {_zip5(value) for value in person.get("zips") or ()}
     zips.add(_zip5(person.get("zip")))
@@ -139,13 +129,11 @@ def _donor_zips(df: pd.DataFrame) -> dict[str, set[str]]:
     return frame.groupby("key")["zip"].agg(set).to_dict()
 
 
-# per donor, the ZIPs another donor of the same name also files from
+# ZIPs each donor shares with a namesake
 def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
-    if not {"contributor_name", "contributor_first_name", "contributor_last_name"} <= set(df.columns):
-        return {}
     people = df[(df["entity_type"] == "INDIVIDUAL") & ~df["contributor_name"].map(_joint_name)]
     given = people["contributor_first_name"].fillna("").astype(str).str.upper().str.split()
-    # a second whole given name ("STUART SARA") is a couple filing together, not a namesake
+    # two whole given names mean a couple
     people = people[given.map(lambda words: all(len(w.strip(".")) <= 1 for w in words[1:]))]
     first = given[people.index].str[0].fillna("")
     frame = pd.DataFrame({
@@ -159,16 +147,14 @@ def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
     return shared.groupby("key")["zip"].agg(set).to_dict()
 
 
-# per donor, filed employers a manual override removed as another person's
+# per donor, filed employers overrides cleared
 def cleared_employers(df: pd.DataFrame) -> dict[str, set[str]]:
-    """A committee that typed a spouse's firm under the donor (SANDBERG, ADELE) sent FEC the
-    same filing, so FEC's copy must not bring that firm back as the donor's work history."""
-    if not (MANUAL_EMPLOYER_OVERRIDES_CSV.exists() and RAW_CSV.exists()) or "sub_id" not in df.columns:
+    if not (MANUAL_EMPLOYER_OVERRIDES_CSV.exists() and RAW_CSV.exists()):
         return {}
     with MANUAL_EMPLOYER_OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
         cleared = {
             (row.get("sub_id") or "").strip() for row in csv.DictReader(handle)
-            if (row.get("contributor_employer") or "").strip().upper() == "[CLEAR]"
+            if (row.get("contributor_employer") or "").strip().upper() == CLEAR_PREVIOUS_EMPLOYER
         }
     if not cleared:
         return {}
@@ -183,9 +169,8 @@ def cleared_employers(df: pd.DataFrame) -> dict[str, set[str]]:
     return out
 
 
-# drop cached FEC answers read off a filing from a ZIP the donor never files from
+# drop cached FEC answers not proven donor's
 def drop_unproven_source_entries(prev_cache, df: pd.DataFrame, cleared: dict | None = None) -> int:
-    """Such an answer, or one from a ZIP another same-name donor files from, may be another person."""
     data = getattr(prev_cache, "data", prev_cache)
     donor_zips, shared_zips = _donor_zips(df), _shared_zips(df)
     unproven = []
@@ -199,8 +184,7 @@ def drop_unproven_source_entries(prev_cache, df: pd.DataFrame, cleared: dict | N
             unproven.append(key)
         elif str(entry.get("employer", "")).upper() in (cleared or {}).get(donor_key, ()):
             unproven.append(key)
-        # an answer the current contract no longer reads as a company (ADVISOR,
-        # COMPUTER ANALIST: a job title): searched again for a real employer
+        # no longer a company, so search again
         elif not normalize_previous_employer_value(entry.get("employer", "")):
             unproven.append(key)
     for key in unproven:
@@ -208,19 +192,18 @@ def drop_unproven_source_entries(prev_cache, df: pd.DataFrame, cleared: dict | N
     return len(unproven)
 
 
-# list unresolved retired donors to search, largest first
+# unresolved retired donors to search, largest first
 def _pending_fec_searches(
     df: pd.DataFrame,
     prev_cache,
     donor_totals: pd.DataFrame,
 ) -> list[dict]:
-    """Return unresolved retired donors, largest donors first."""
-    _, latest_retired = _retired_donors(df)
+    _, latest_retired = retired_donors(df)
     tier_keys = set(donor_totals["donor_key"])
     donor_zips, shared_zips = _donor_zips(df), _shared_zips(df)
     donor_info = {
         row["donor_key"]: {
-            "prev_key": _prev_key(row["donor_key"]),
+            "prev_key": previous_cache_key(row["donor_key"]),
             "name": row["contributor_name"],
             "state": row.get("contributor_state", ""),
             "city": row.get("contributor_city", ""),
@@ -248,21 +231,15 @@ def _pending_fec_searches(
     return searches
 
 
-# decide if a cached result needs a fuller FEC search
+# true if no answer or partial not-found
 def _fec_search_due(cached: dict | None) -> bool:
-    """No answer yet, or a 'not found' from the old search that read only the first 100 filings."""
     if cached is None:
         return True
     return cached.get("method") == "fec_api_not_found" and not cached.get("all_pages")
 
 
-# page through all FEC filings for a donor's identity
+# yield FEC filings; None means search incomplete
 def _fec_filings(person: dict, fec_key: str, request_get):
-    """Every FEC filing under the donor's name and state, newest first, page by page.
-
-    Yields None when a page cannot be read (rate limit, error): the search is
-    then incomplete and must not be recorded as 'not found'.
-    """
     params = {
         "api_key": fec_key,
         "contributor_name": person["name"],
@@ -293,7 +270,6 @@ def _fec_filings(person: dict, fec_key: str, request_get):
 
 # find one donor's latest active-employment FEC filing
 def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
-    """Fetch one donor's latest matching FEC filing and return its cache entry."""
     try:
         for record in _fec_filings(person, fec_key, request_get):
             if record is RATE_LIMITED:
@@ -310,7 +286,7 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
                 != "active"
             ):
                 continue
-            entry = _cache_entry(
+            entry = cache_entry(
                 record.get("contributor_employer", ""),
                 state=record.get("contributor_state", person["state"]),
                 method="fec_api",
@@ -331,13 +307,12 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get):
         return None, None
 
 
-# search the FEC API in parallel for retired donors
+# search FEC API in parallel for retirees
 def step_fec_api(
     df: pd.DataFrame,
     prev_cache,
     donor_totals: pd.DataFrame,
 ) -> int:
-    """Find remaining retired donors' latest real employer through the FEC API."""
     dropped = drop_joint_source_entries(prev_cache)
     if dropped:
         prev_cache.save()
@@ -365,7 +340,7 @@ def step_fec_api(
     found = 0
     quota_spent = threading.Event()
 
-    # skip the search once the quota is spent: the donor stays for the next run
+    # skip once quota spent; next run retries
     def search(person):
         if quota_spent.is_set():
             return None, None

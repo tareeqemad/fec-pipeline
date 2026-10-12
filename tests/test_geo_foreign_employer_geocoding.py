@@ -58,7 +58,7 @@ def test_foreign_office_uses_only_the_international_engine(monkeypatch):
     patch_geo(monkeypatch, "nominatim_international", international)
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
-    result = geo._geocode_one("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")
+    result = geo.geocode_one("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")
 
     assert result == (51.5234, -0.1530, "GB", "nominatim_intl")
     assert calls == [("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")]
@@ -72,7 +72,7 @@ def test_foreign_office_rejects_a_us_answer_from_the_international_engine(monkey
                         lambda *_args: (41.8174424, -71.4018816, "US"))
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
-    result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
+    result = geo.geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
 
     assert result == (None, None, None, "not_found")
 
@@ -82,7 +82,7 @@ def test_foreign_office_falls_back_to_its_city_abroad(monkeypatch):
     patch_geo(monkeypatch, "nominatim_international", lambda *_args: next(answers))
     monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
-    result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
+    result = geo.geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
 
     assert result == (32.0853, 34.7818, "IL", "nominatim_intl_city")
 
@@ -93,11 +93,11 @@ def test_cached_us_match_for_a_foreign_office_is_looked_up_again(tmp_path):
     cache.put(KIFO_KEY, 41.5300962, -72.0896919, "nominatim_city", "US")
     cache.put(STANTON_KEY, 4.4256051, -74.2930194, "nominatim_intl", "CO", validated=True)
 
-    assert geo._needs_lookup(KIFO_KEY, cache)
-    assert not geo._needs_lookup(STANTON_KEY, cache)
+    assert geo.needs_lookup(KIFO_KEY, cache)
+    assert not geo.needs_lookup(STANTON_KEY, cache)
 
     cache.put(KIFO_KEY, 51.5234, -0.1530, "nominatim_intl", "GB", validated=True)
-    assert not geo._needs_lookup(KIFO_KEY, cache)
+    assert not geo.needs_lookup(KIFO_KEY, cache)
 
 
 def test_us_match_for_a_foreign_office_is_never_published(tmp_path):
@@ -144,7 +144,7 @@ def test_build_keeps_the_foreign_office_text_and_drops_its_us_coordinates(tmp_pa
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(resolve_cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 

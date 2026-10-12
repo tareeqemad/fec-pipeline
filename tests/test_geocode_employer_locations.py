@@ -96,9 +96,9 @@ def test_network_failure_stays_retryable(tmp_path, monkeypatch):
     def unavailable(*_args, **_kwargs):
         raise NominatimUnavailable("TLS failure")
 
-    patch_geo(monkeypatch, "_geocode_one", unavailable)
+    patch_geo(monkeypatch, "geocode_one", unavailable)
 
-    geocoding_pipeline._geocode_todo([key], cache, 50)
+    geocoding_pipeline.geocode_todo([key], cache, 50)
 
     assert cache.needs_retry(key)
     assert cache.get(key)["source"] == "transient_fail"
@@ -154,7 +154,7 @@ def test_manual_coordinate_survives_rerun(tmp_path, monkeypatch):
     def unexpected_lookup(*_args, **_kwargs):
         raise AssertionError("manual coordinate was retried")
 
-    patch_geo(monkeypatch, "_geocode_one", unexpected_lookup)
+    patch_geo(monkeypatch, "geocode_one", unexpected_lookup)
     rows = pd.DataFrame([{
         "employer_address": "1 MAIN ST",
         "employer_city": "NEW YORK",
@@ -180,7 +180,7 @@ def test_city_fallback_retries_without_zip(monkeypatch):
     monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
 
     # 23219 (downtown Richmond) has a centroid: the town is searched with it first
-    result = geocoding_pipeline._geocode_one(
+    result = geocoding_pipeline.geocode_one(
         "PO BOX 396", "Richmond", "VA", "23219",
     )
 
@@ -189,7 +189,7 @@ def test_city_fallback_retries_without_zip(monkeypatch):
 
     # 23218 is PO-box-only, unknown to OSM and without a centroid: never sent
     calls.clear()
-    result = geocoding_pipeline._geocode_one(
+    result = geocoding_pipeline.geocode_one(
         "PO BOX 396", "Richmond", "VA", "23218",
     )
 
@@ -207,7 +207,7 @@ def test_census_is_preferred_for_us_street(monkeypatch):
         lambda *_args: (_ for _ in ()).throw(AssertionError("not needed")),
     )
 
-    result = geocoding_pipeline._geocode_one(
+    result = geocoding_pipeline.geocode_one(
         "7 PENN PLZ", "NEW YORK", "NY", "10001",
     )
 
@@ -219,10 +219,10 @@ def test_far_legacy_coordinate_is_rechecked_once(tmp_path):
     key = "7 PENN PLZ|NEW YORK|NY|10001"
     cache.put(key, 43.131885, -77.440208, "nominatim")
 
-    assert geocoding_pipeline._needs_lookup(key, cache)
+    assert geocoding_pipeline.needs_lookup(key, cache)
 
     cache.put(key, 40.749146, -73.991886, "census", validated=True)
-    assert not geocoding_pipeline._needs_lookup(key, cache)
+    assert not geocoding_pipeline.needs_lookup(key, cache)
 
 
 def test_old_not_found_gets_one_census_retry(tmp_path):
@@ -230,10 +230,10 @@ def test_old_not_found_gets_one_census_retry(tmp_path):
     key = "822 KUMHO DR|FAIRLAWN|OH|44333"
     cache.put_failed(key)
 
-    assert geocoding_pipeline._needs_lookup(key, cache)
+    assert geocoding_pipeline.needs_lookup(key, cache)
 
     cache.put_failed(key, validated=True)
-    assert not geocoding_pipeline._needs_lookup(key, cache)
+    assert not geocoding_pipeline.needs_lookup(key, cache)
 
 
 def test_street_city_fallback_rejects_zip_conflict(monkeypatch):
@@ -248,12 +248,12 @@ def test_street_city_fallback_rejects_zip_conflict(monkeypatch):
         lambda *_args: (None, None, None),
     )
     patch_geo(
-        monkeypatch, "_zip_centroids",
+        monkeypatch, "load_zip_centroids",
         lambda: {"11963": (40.9979, -72.2926)},
     )
     monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
 
-    result = geocoding_pipeline._geocode_one(
+    result = geocoding_pipeline.geocode_one(
         "268 CHESTNUT ST", "ENGLEWOOD", "NY", "11963",
     )
 

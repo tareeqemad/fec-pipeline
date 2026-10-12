@@ -1,4 +1,4 @@
-"""Classify each filing's employer as active, retired, self-employed or not working."""
+"""Classify each filing's employer work status."""
 from __future__ import annotations
 
 import re
@@ -7,7 +7,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
 from fec.config.constants import EMPLOYER_STATUS_VALUES
-from fec.config.not_employers import NOT_REAL_EMPLOYER
+from fec.config.not_employers import JOB_TITLE_HEADS, JOB_TITLE_MODIFIERS, NOT_REAL_EMPLOYER
 
 _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
 
@@ -15,42 +15,39 @@ _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
 _NO_WORK_OCCUPATIONS = _NO_WORK_CATEGORIES | {"HOUSEWIFE", "UNEMPLOYED"}
 
 
-# uppercased, stripped text for a status field; '' if missing
+# uppercased stripped status text; '' if missing
 def _status_text(value) -> str:
     return "" if pd.isna(value) else str(value).strip().upper()
 
 
-# a run of one letter, typed twice or more
+# one letter typed twice or more
 _DOUBLED_LETTER_RE = re.compile(r"([A-Z])\1+")
 
 
-# the text with every doubled letter typed once ('NNONE' -> 'NONE')
+# collapse doubled letters, 'NNONE' to 'NONE'
 def single_letters(text: str) -> str:
     return _DOUBLED_LETTER_RE.sub(r"\1", text)
 
 
-# a status word typed with a doubled letter is still the status, never a company;
-# short ones stay exact (NAAN is a bakery, not NAN)
+# doubled-letter status typos; short words stay exact
 _STATUS_SPELLINGS = frozenset(
     single_letters(value) for value in EMPLOYER_STATUS_VALUES if len(value) >= 4
 )
-# a one-word status with its letters out of order ('RETRIED', 'RETIERD') is
-# still the status; only words of six letters or more, so no short word matches
+# scrambled status letters ('RETIERD'), six letters minimum
 _STATUS_LETTERS = frozenset(
     "".join(sorted(value)) for value in EMPLOYER_STATUS_VALUES
     if len(value) >= 6 and value.isalpha()
 )
 
 
-# a long status word with one letter typed wrong ('UNEMPLOYES\\'); nine letters
-# or more, so no short company name (REWIRED) is one letter off a status
+# 9+ letters so short companies never match
 _LONG_STATUSES = tuple(
     re.sub(r"[^A-Z]", "", value) for value in EMPLOYER_STATUS_VALUES
     if len(re.sub(r"[^A-Z]", "", value)) >= 9
 )
 
 
-# true when the letters are one edit from a long status word
+# true when one edit from long status
 def _long_status_typo(upper: str) -> bool:
     letters = re.sub(r"[^A-Z]", "", upper)
     return len(letters) >= 9 and any(
@@ -59,17 +56,15 @@ def _long_status_typo(upper: str) -> bool:
     )
 
 
-# true if emp names a real company, not junk
+# true if emp names a real company
 def is_real_employer(emp) -> bool:
-    """True if emp names a real company (not RETIRED, SELF-EMPLOYED, junk)."""
     if pd.isna(emp):
         return False
     text = str(emp).strip()
     if text.lower() in ('nan', 'none', 'n/a', 'na', ''):
         return False
     upper = text.upper()
-    # one character ("A", the "R" of RRETIRED) or a form placeholder
-    # (~~BLANK~~) names no company
+    # single characters and BLANK placeholders aren't companies
     letters = re.sub(r"[^A-Z0-9]", "", upper)
     if len(letters) < 2 or letters == "BLANK":
         return False
@@ -81,9 +76,8 @@ def is_real_employer(emp) -> bool:
     )
 
 
-# classify one filing's work status without changing the reported company
+# classify work status, keeping the reported company
 def classify_employer_status(employer, occupation="", category="") -> str:
-    """Classify work status without changing the reported company."""
     emp = _status_text(employer)
     occ = _status_text(occupation)
     cat = _status_text(category)
@@ -102,9 +96,8 @@ def classify_employer_status(employer, occupation="", category="") -> str:
     return "active" if is_real_employer(employer) else "missing"
 
 
-# classify_employer_status applied across every row of a frame
+# classify_employer_status for every row
 def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
-    """Classify every row in a frame."""
     blank = pd.Series("", index=df.index)
     employers = df.get("contributor_employer", blank)
     occupations = df.get("contributor_occupation", blank)
@@ -117,17 +110,15 @@ def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
     ], index=df.index)
 
 
-# the real current company name, only when status allows
+# real current company, only when status allows
 def current_employer_name(status, employer) -> str:
-    """Return a real current company only when the status permits one."""
     if status not in {"active", "self_employed"} or not is_real_employer(employer):
         return ""
     return str(employer).strip()
 
 
-# every company name the final database must contain
+# company names the final database must contain
 def referenced_employers(df: pd.DataFrame) -> set[str]:
-    """Companies the final database must contain."""
     rows = df
     if "entity_type" in rows.columns:
         rows = rows[rows["entity_type"].eq("INDIVIDUAL")]
@@ -141,3 +132,26 @@ def referenced_employers(df: pd.DataFrame) -> set[str]:
     retired = rows[rows["employer_status"].eq("retired")]["previous_employer"]
     names.update(str(name).strip() for name in retired if is_real_employer(name))
     return names
+
+
+# title word, or one-typo job word
+def _title_word(word: str, last: bool) -> bool:
+    if word in JOB_TITLE_HEADS or (not last and word in JOB_TITLE_MODIFIERS):
+        return True
+    if not last or len(word) < 6:
+        return False
+    for head in JOB_TITLE_HEADS:
+        if len(head) == len(word) and levenshtein(word, head) == 1:
+            return True
+        if len(head) >= 8 and word != head + 'S' and abs(len(head) - len(word)) == 1 \
+                and levenshtein(word, head) == 1:
+            return True
+    return False
+
+
+# true when value is a job title
+def is_job_title(upper: str) -> bool:
+    words = re.findall(r"[A-Z0-9&]+", upper)
+    return bool(words) and all(
+        _title_word(word, index == len(words) - 1) for index, word in enumerate(words)
+    )

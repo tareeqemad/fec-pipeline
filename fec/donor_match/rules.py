@@ -1,4 +1,4 @@
-"""Read curated donor identity rules from one CSV."""
+"""Load curated donor identity rules from CSV."""
 
 import csv
 import re
@@ -30,7 +30,7 @@ def _identity(name: str, city: str, state: str, zip5: str = "") -> str:
     return "|".join(map(_normalize, parts))
 
 
-# read and validate donor identity rules from CSV
+# read and validate identity rules from CSV
 def _read_rules() -> list[dict[str, str]]:
     if not RULES_PATH.exists():
         raise FileNotFoundError(f"Missing donor identity rules: {RULES_PATH}")
@@ -59,15 +59,8 @@ def _read_rules() -> list[dict[str, str]]:
     return rows
 
 
-# load pairs of identities that must never merge
+# load identity pairs that must never merge
 def _load_separations(rows):
-    """(name pairs, name+city+state pairs, names whose rules also give ZIP codes).
-
-    Two people with one name in one city (a physician and a lawyer, both ANDREW
-    ROSENBERG in NEW YORK) share one name+city+state profile; a rule in one city
-    that also gives zip_a/zip_b splits that name's profiles by ZIP, and every
-    rule of that name giving ZIPs then compares profiles by ZIP.
-    """
     separations = []
     for row in rows:
         if _normalize(row.get("action")) != "SEPARATE":
@@ -81,7 +74,7 @@ def _load_separations(rows):
         zips = (_normalize(row.get("zip_a"))[:5], _normalize(row.get("zip_b"))[:5])
         separations.append((name_a, name_b, place_a, place_b, zips))
 
-    # ZIPs matter only for a name the city cannot tell apart
+    # ZIPs only for same-city same-name pairs
     zip_names = {
         name
         for name_a, name_b, place_a, place_b, zips in separations
@@ -102,7 +95,7 @@ def _load_separations(rows):
     return name_pairs, identity_pairs, frozenset(zip_names)
 
 
-# load donor_key merge rules (drop -> keep)
+# load donor_key merges, drop to keep
 def _load_key_merges(rows) -> dict[str, str]:
     merges = {}
     for row in rows:
@@ -117,7 +110,6 @@ def _load_key_merges(rows) -> dict[str, str]:
 
 # map sub_id to its hold group
 def _load_holds(rows) -> dict[str, str]:
-    """sub_id -> hold group: filings no person is proven to own."""
     return {
         row["sub_id"].strip(): row["group"].strip()
         for row in rows
@@ -127,8 +119,6 @@ def _load_holds(rows) -> dict[str, str]:
 
 # map name+street+ZIP to its hold group
 def _load_held_addresses(rows) -> dict[tuple[str, str, str], str]:
-    """(name, street, zip5) -> hold group: every filing of that name from that
-    address, including ones filed after the rule was written, stays unproven."""
     return {
         (
             _normalize(row.get("name_a")),
@@ -140,9 +130,8 @@ def _load_held_addresses(rows) -> dict[tuple[str, str, str], str]:
     }
 
 
-# the hold group of each filing ('' when none)
+# each row's hold group, '' when none
 def held_groups(df, filings=None, addresses=None) -> "pd.Series":
-    """A hold rule's group for each row: by sub_id, else by name+street+ZIP."""
     import pandas as pd
 
     filings = HELD_FILINGS if filings is None else filings
@@ -163,7 +152,7 @@ def held_groups(df, filings=None, addresses=None) -> "pd.Series":
     return groups
 
 
-# group curated name-merge rules by their group label
+# group name-merge rules by group label
 def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     groups = defaultdict(list)
     for row in rows:
@@ -177,20 +166,14 @@ def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
     return {group: tuple(names) for group, names in groups.items()}
 
 
-# split a name into last name and first-name word tuple
+# last name and first-name words
 def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
     last, _, first = _normalize(name).partition(",")
     return last.strip(), tuple(re.findall(r"[A-Z]+", first))
 
 
-# longer names of verified merges exempt from the joint-filing guard
+# verified merged names exempt from joint split
 def _load_joint_exemptions(rows) -> frozenset[str]:
-    """Longer names of verified merge_keys pairs 'LAST, A' + 'LAST, A W...'.
-
-    Such a rule is a reviewed statement that the extra word is the filer's own
-    name (GOTTESMAN, MARGERY ARCHIE: Archie is Margery's public name), so the
-    joint-filing guard must not split it off.
-    """
     exempt = set()
     for row in rows:
         if _normalize(row.get("action")) != "MERGE_KEYS":
@@ -218,13 +201,8 @@ _MERGED_NAME_PREFIXES = tuple(
 )
 
 
-# true when a verified rule owns this multi-word first name
+# a verified rule owns this first name
 def joint_name_exempt(name: str) -> bool:
-    """True when a verified rule says this multi-word first name is its filer's own.
-
-    A merge_names group covers every name that starts with one of its names
-    (all one person); a merge_keys pair 'LAST, A' / 'LAST, A W' covers 'LAST, A W'.
-    """
     last, words = _name_words(name)
     if not last or not words:
         return False
@@ -232,19 +210,18 @@ def joint_name_exempt(name: str) -> bool:
     return text in _JOINT_EXEMPT_NAMES or text.startswith(_MERGED_NAME_PREFIXES)
 
 
-# true if this name pair is a curated separation rule
+# true if names have a separation rule
 def names_must_stay_separate(name_a: str, name_b: str) -> bool:
     pair = frozenset((_normalize(name_a), _normalize(name_b)))
     return pair in SEPARATE_NAMES
 
 
-# the ZIP5 to key a profile by, for split names
+# ZIP5 key part, only for ZIP-split names
 def split_zip(name: str, zip_code: str) -> str:
-    """The ZIP5 a profile of this name is also keyed by: only for names a ZIP-level rule splits."""
     return _normalize(zip_code)[:5] if _normalize(name) in ZIP_SPLIT_NAMES else ""
 
 
-# true if curated rules require these two donors stay separate
+# true if rules keep two donors apart
 def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
     if names_must_stay_separate(person_a["name"], person_b["name"]):
         return True
@@ -259,9 +236,8 @@ def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
     return pair in SEPARATE_IDENTITIES or zip_pair in SEPARATE_IDENTITIES
 
 
-# follow merge_keys rules to the surviving donor key
+# follow merge_keys chains to the surviving key
 def resolve_donor_key(key: str) -> str:
-    """Follow verified merge_keys rules, including chains, to the key that survives."""
     seen = set()
     while key in KEY_MERGES and key not in seen:
         seen.add(key)

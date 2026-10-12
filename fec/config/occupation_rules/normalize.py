@@ -2,7 +2,7 @@
 from fec.config.employers import EMPLOYER_NORMALIZE as _EMPLOYER_NORMALIZE
 
 OCCUPATION_NORMALIZE = {
-    # EMPLOYER_NORMALIZE merge must stay first — entries below override it.
+    # must stay first; entries below override it
     **_EMPLOYER_NORMALIZE,
 
     # homemaker
@@ -14,8 +14,7 @@ OCCUPATION_NORMALIZE = {
     'AT HOME': 'HOMEMAKER',
     'SAHM': 'STAY AT HOME MOM',
     'MOM': 'HOMEMAKER',
-    # HOUSEWIFE stays HOUSEWIFE — different word
-    # STAY AT HOME MOM/DAD stay as-is — different from HOMEMAKER
+    # HOUSEWIFE and STAY AT HOME MOM stay
 
     # short abbreviations verified from FEC data
     'ART': 'ARTIST',
@@ -36,11 +35,9 @@ OCCUPATION_NORMALIZE = {
     'ATTORNEY AT LAW': 'ATTORNEY',
     'ATTORNEY-AT-LAW': 'ATTORNEY',
     'ATTORNEY/LAWYER': 'ATTORNEY',
-    # LAWYER stays LAWYER — legally different from ATTORNEY
-    # TRIAL LAWYER / TRIAL ATTORNEY stay — specific types
+    # LAWYER and TRIAL titles stay as filed
 
-    # medical: DR/MD live in OCCUPATION_FIXES
-    # DOCTOR stays DOCTOR — different word from PHYSICIAN
+    # medical: DR/MD in OCCUPATION_FIXES; DOCTOR stays
 
     # executive titles
     'CE0': 'CEO',  # zero for O
@@ -48,36 +45,34 @@ OCCUPATION_NORMALIZE = {
     'C.E.O': 'CEO',
     'CHIEF EXECUTIVE OFFICER': 'CEO',
     'CHIEF EXECUTIVE': 'CEO',
-    # CIO, CMO and CDO stay as filed: each has more than one reading
-    # (investment or information, marketing or medical, data or development)
+    # CIO, CMO, CDO stay: ambiguous readings
     'CFP': 'CERTIFIED FINANCIAL PLANNER',
     'DDS': 'DENTIST',
 
-    # real estate — forms kept distinct (REALTOR is trademarked; broker is a
-    # different license)
+    # real estate forms stay distinct (licenses differ)
 
-    # BUSINESSMAN / BUSINESSWOMAN / SMALL BUSINESS OWNER stay — different words
+    # BUSINESSMAN, BUSINESSWOMAN, SMALL BUSINESS OWNER stay
 
-    # executive; SENIOR/CORPORATE EXECUTIVE stay — more specific
+    # executive; SENIOR/CORPORATE EXECUTIVE stay
     'EXEC': 'EXECUTIVE',
     'EXEC.': 'EXECUTIVE',
 
-    # VP — expand abbreviations, keep full forms
+    # VP: expand abbreviations, keep full forms
     'VP': 'VICE PRESIDENT',
     'V.P.': 'VICE PRESIDENT',
     'VICE PRES': 'VICE PRESIDENT',
     'SVP': 'SENIOR VICE PRESIDENT',
     'EVP': 'EXECUTIVE VICE PRESIDENT',
 
-    # chair — keep all forms distinct
+    # chair: keep all forms distinct
     'EXEC CHAIRMAN': 'EXECUTIVE CHAIRMAN',
     'EXEC. CHAIRMAN': 'EXECUTIVE CHAIRMAN',
 
-    # consulting; CONSULTING stays — a field, not a typo
+    # consulting; CONSULTING stays, a field
     'COMSULTANT': 'CONSULTANT',
     'CONSLTANT': 'CONSULTANT',
 
-    # professor — keep qualifiers
+    # professor: keep qualifiers
     'ASSOC PROFESSOR': 'ASSOCIATE PROFESSOR',
 
     # medical typos
@@ -92,19 +87,19 @@ OCCUPATION_NORMALIZE = {
     'AL ESTATE': 'REAL ESTATE',
     'REALESTATE': 'REAL ESTATE',
 
-    # consulting typos; CONSULTANCY stays — a business form, not a typo
+    # consulting typos; CONSULTANCY stays, a business form
     'CONSJLTANT': 'CONSULTANT',
     'COMSUJTANT': 'CONSULTANT',
     'CONSUTLANT': 'CONSULTANT',
     'CONSUTANT': 'CONSULTANT',
     'CONSULTENT': 'CONSULTANT',
 
-    # clear title/role typos found by the final quality scan
+    # clear title and role typos
     'DIR OF OPS': 'DIRECTOR OF OPERATIONS',
     'ENTRPRENUER': 'ENTREPRENEUR',
 
     # legal typos
-    'ATTORМEY': 'ATTORNEY',  # Cyrillic М
+    'ATTORМEY': 'ATTORNEY',  # Cyrillic EM, not Latin M
     'ATTONREY': 'ATTORNEY',
     'ATTORMEY': 'ATTORNEY',
     'ATTORENY': 'ATTORNEY',
@@ -156,7 +151,7 @@ OCCUPATION_NORMALIZE = {
     'PHYISICIAN': 'PHYSICIAN',
     'OPTHAMOLOGIST': 'OPHTHALMOLOGIST',
     'WEALTH MANAGMENT': 'WEALTH MANAGEMENT',
-    # near-duplicates: singular/plural, -er/-ing, -or/-ion to one canonical form
+    # near-duplicates folded to one canonical form
     'INVESTMENT BANKING': 'INVESTMENT BANKER',
     'VENTURE CAPITALIST': 'VENTURE CAPITAL',
     'PROPERTY MANAGEMENT': 'PROPERTY MANAGER',
@@ -307,7 +302,6 @@ OCCUPATION_NORMALIZE = {
     'CARDIOLODIST': 'CARDIOLOGIST',
     'PIDIATRIST': 'PODIATRIST',
 
-    # batch 2
     'ATROENEY': 'ATTORNEY',
     'ATTOENY': 'ATTORNEY',
     "ATT'Y": 'ATTORNEY',
@@ -324,8 +318,7 @@ OCCUPATION_NORMALIZE = {
     'JEWLERY': 'JEWELRY',
     'PHYT': 'PHYSICAL THERAPIST',
 
-    # Verified in the final occupation audit. These are exact corrections,
-    # never fuzzy guesses: each typo is supported by the donor's other filings.
+    # exact fixes, backed by other filings
     'ADVISE': 'ADVISOR',
     'AGC': 'ASSOCIATE GENERAL COUNSEL',
     'ASSET MGR': 'ASSET MANAGER',
@@ -382,23 +375,19 @@ OCCUPATION_NORMALIZE = {
     'WNTRERENEUR': 'ENTREPRENEUR',
     'CANDIDATE FOR DC DELEGATE': 'CANDIDATE FOR DC DELEGATE TO CONGRESS',
 
-    # Leftovers of the 2026-09-23 occupation audit. Same contract as the block
-    # above: exact raw spellings (after upper-casing and trailing-punctuation
-    # stripping), each one checked against the donor's other filings or the
-    # employer on the row. Ambiguous short forms (F A, SLES) are NOT here.
-    # status words first: status and employer derivation read the text early
+    # exact raw spellings; status words first
     'REIRED': 'RETIRED',
     'RERIRED': 'RETIRED',
     'RETREF': 'RETIRED',
-    'MOSTLY TRTIRED': 'RETIRED',  # raw employer MOSTLY RETIRED; SEMI RETIRED also collapses
+    'MOSTLY TRTIRED': 'RETIRED',  # as MOSTLY RETIRED collapses to RETIRED
     'HOUSE WIFE': 'HOUSEWIFE',
     'ACCOUNT MANANGER': 'ACCOUNT MANAGER',
     'ACCOUNT MGR': 'ACCOUNT MANAGER',
     'OFFICE MGR': 'OFFICE MANAGER',
     'ADMISTRATIVE': 'ADMINISTRATIVE',
     'ADVIDER': 'ADVISER',
-    'ATTOY': 'ATTORNEY',  # employer SCOTTHULSE PC, a law firm
-    'BANJET': 'BANKER',  # employer ALPINE BANK
+    'ATTOY': 'ATTORNEY',  # employer is a law firm
+    'BANJET': 'BANKER',  # employer is a bank
     'BIZ DEV': 'BUSINESS DEVELOPMENT',
     'C.O.O': 'COO',  # C.O.O. after the trailing period is stripped
     'CLINICAL PSYCHOLOGIWST': 'CLINICAL PSYCHOLOGIST',
@@ -430,7 +419,7 @@ OCCUPATION_NORMALIZE = {
     'PILPT': 'PILOT',
     'PRODUCT MGMT': 'PRODUCT MANAGEMENT',
     'PROFF NURTURER': 'PROFESSIONAL NURTURER',
-    'PROP MGMT': 'PROPERTY MANAGER',  # same target as PROP MNGMT / PROPERTY MANAGEMENT
+    'PROP MGMT': 'PROPERTY MANAGER',  # same target as PROP MNGMT
     'R.E. APPRAISER': 'REAL ESTATE APPRAISER',
     'REALTRO': 'REALTOR',
     'REG. SR. DIR. OF DEVELOPMENT': 'REGIONAL SENIOR DIRECTOR OF DEVELOPMENT',
@@ -498,7 +487,7 @@ OCCUPATION_CANONICAL = {
     'COMMERICAL REAL ESTATE': 'COMMERCIAL REAL ESTATE',
     'COMMERCAIL REAL ESTATE EXECUTIVE': 'COMMERCIAL REAL ESTATE EXECUTIVE',
     'COMMERICAL REAL ESTATE LANDLORD': 'COMMERCIAL REAL ESTATE',
-    # exec -> executive
+    # exec to executive
     'EXEC': 'EXECUTIVE',
     'BUSINESS EXEC': 'BUSINESS EXECUTIVE',
     'INSURANCE EXEC': 'INSURANCE EXECUTIVE',
