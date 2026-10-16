@@ -114,7 +114,7 @@ def test_load_leadership_links_the_named_committees(tmp_path, monkeypatch):
     ])
     linked = []
     monkeypatch.setattr(leadership, "execute_values", lambda cur, sql, rows: linked.append(rows))
-    load_leadership(Conn(), LoadCursor())
+    load_leadership(LoadCursor())
     assert linked == [[(7, 2)], [(7, 1), (7, 4)]]  # DMFI=2, AIPAC=1, AIEF=4 in the DB
 
 
@@ -125,7 +125,7 @@ def test_load_leadership_refuses_an_unknown_committee_before_writing(tmp_path, m
     ])
     cur = LoadCursor()
     with pytest.raises(ValueError, match="LEWIS, ANN.*unknown committee '4'"):
-        load_leadership(Conn(), cur)
+        load_leadership(cur)
     assert calls["donors"] == []  # nothing was written for the valid first row either
     assert not any("INSERT" in query for query, _ in cur.queries)
 
@@ -143,7 +143,7 @@ def test_loader_hands_the_person_state_zip_and_employer_locations_to_the_employm
          "ZIONIST ORGANIZATION OF AMERICA", "NATIONAL PRESIDENT", "", "", "", "", "ZOA", "35", "", "", ""],
     ])
     cur = LoadCursor()
-    load_key_accomplices(Conn(), cur)
+    load_key_accomplices(cur)
 
     (_, employer, _, kwargs), _ = calls["employment"]
     assert employer == "ORACLE"

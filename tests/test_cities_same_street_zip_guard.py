@@ -81,8 +81,8 @@ class TestSecondAddressSharingStreetText:
         _recover_address_from_same_street(df)
         assert _places(df, 'FRANKEL, DOVID') == [('NEW YORK', '10022'), ('WEST HEMPSTEAD', '11552')]
 
-    def test_mixed_up_filing_is_still_aligned(self):
-        # home street + office city/ZIP: nobody files HICKS ST at 10022, so the row is a mix-up
+    def test_conflicting_city_and_zip_need_verified_correction(self):
+        # Absence of other HICKS ST filings at 10022 does not prove the ZIP wrong.
         df = _frame(
             ('STEINBERG, ADAM', '161 HICKS ST', 'BROOKLYN', 'NY', '11201', 3),
             ('STEINBERG, ADAM', '161 HICKS ST', 'NEW YORK', 'NY', '10022', 1),
@@ -90,16 +90,16 @@ class TestSecondAddressSharingStreetText:
             ('NEIGHBOR, NED', '20 HICKS ST', 'BROOKLYN', 'NY', '11201', 2),
         )
         _recover_address_from_same_street(df)
-        assert _places(df, 'STEINBERG, ADAM') == [('BROOKLYN', '11201')]
+        assert _places(df, 'STEINBERG, ADAM') == [('BROOKLYN', '11201'), ('NEW YORK', '10022')]
 
-    def test_zip_typo_on_the_same_city_is_still_fixed(self):
+    def test_minority_zip_in_the_same_city_is_kept_for_review(self):
         df = _frame(
             ('BRITVAN, J ALLEN', '8 SPENCER HILL CT', 'PLEASANTVILLE', 'NY', '10570', 5),
             ('BRITVAN, J ALLEN', '8 SPENCER HILL CT', 'PLEASANTVILLE', 'NY', '10590', 2),
             ('OTHER, PERSON', '3 BEDFORD RD', 'PLEASANTVILLE', 'NY', '10570', 3),
         )
         _recover_address_from_same_street(df)
-        assert _places(df, 'BRITVAN, J ALLEN') == [('PLEASANTVILLE', '10570')]
+        assert _places(df, 'BRITVAN, J ALLEN') == [('PLEASANTVILLE', '10570'), ('PLEASANTVILLE', '10590')]
 
 
 class TestCutOffCity:

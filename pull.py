@@ -14,32 +14,25 @@ from fec.pull import run as pull_run
 
 logger = get_logger(__name__)
 
-_COMMITTEE_RE = re.compile(r"^C\d{8}$")
-
-
+# Use the even year ending the two-year FEC period.
 def _current_period(year: int) -> int:
-    """Return the FEC two-year period."""
     return year + (year % 2)
 
 
 CURRENT_PERIOD = _current_period(date.today().year)
 
 
+# Validate the committee and period, then pull or backfill its records.
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Pull FEC data for one committee.")
+    ap = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
     ap.add_argument("committee_id", help="Committee ID from committees.csv.")
     ap.add_argument("--period", type=int, default=CURRENT_PERIOD,
                     help="Two-year transaction period (even year, default %(default)s).")
-    ap.add_argument(
-        "--full",
-        action="store_true",
-        help="Recheck the complete period instead of starting at the latest date.",
-    )
+    ap.add_argument("--full", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument(
         "--backfill-source",
         action="store_true",
-        help="Fill FEC's own entity type and contributor id for rows already pulled "
-             "(matched by sub_id, else one exact transaction match; never by name). Appends nothing.",
+        help="Fill FEC source fields for saved rows without changing the raw CSV.",
     )
     args = ap.parse_args(argv)
 
@@ -47,24 +40,18 @@ def main(argv: list[str] | None = None) -> int:
     env.load_env()
 
     committee_id = args.committee_id.strip().upper()
-    if not _COMMITTEE_RE.match(committee_id):
+    if not re.fullmatch(r"C\d{8}", committee_id):
         ap.error("invalid committee id (expected C + 8 digits)")
-    committees = committee_id_to_name()
-    if committee_id not in committees:
-        ap.error(
-            f"{committee_id} is not configured in data/rules/committees.csv"
-        )
+    if committee_id not in committee_id_to_name():
+        ap.error(f"{committee_id} is not configured in data/rules/committees.csv")
 
     period = _current_period(args.period)
-    if args.backfill_source and args.full:
-        ap.error("--backfill-source and --full do different things; run them separately")
-
     logger.info("=" * 60)
     logger.info(
         "  FEC pull - %s, period %s, %s",
         committee_id,
         period,
-        "backfill FEC source fields" if args.backfill_source else "full period" if args.full else "new records",
+        "backfill FEC source fields" if args.backfill_source else "full period, new records only",
     )
     logger.info("=" * 60)
 
@@ -75,21 +62,12 @@ def main(argv: list[str] | None = None) -> int:
                 logger.warning("  %s rows left without FEC source fields (see counts above)",
                                f"{stats['unmatched'] + stats['ambiguous']:,}")
             return 0
-        pull_run(
-            committee_id=committee_id,
-            period=period,
-            full=args.full,
-        )
+        pull_run(committee_id=committee_id, period=period)
     except PullError as error:
         logger.error("  %s", error)
         return 2
     except Exception as error:
-        logger.error(
-            "  %s failed: %s: %s",
-            committee_id,
-            type(error).__name__,
-            error,
-        )
+        logger.error("  %s failed: %s: %s", committee_id, type(error).__name__, error)
         return 1
 
     logger.info("\n" + "=" * 60)

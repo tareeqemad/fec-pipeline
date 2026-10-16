@@ -1,103 +1,50 @@
-"""Persistent JSON cache: address key -> coords; not_found is final, transient_fail retries next run."""
+"""Persistent coordinates, including entries from older geocoding runs."""
 
 import json
-import os
+from pathlib import Path
 
+from fec.cleaning.addresses.street_text import numbered_street
 from fec.io import write_json_atomic
 
 
 class GeoCache:
-
-    # load the cache from disk into memory
     def __init__(self, path: str):
         self.path = path
-        self.data: dict = {}
-        self._load()
+        self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
 
-    # load cached entries from the JSON file if present
-    def _load(self):
-        if os.path.exists(self.path):
-            with open(self.path, "r", encoding="utf-8") as handle:
-                self.data = json.load(handle)
-
-    # write cache to disk atomically via a temp file
     def save(self):
-        """Write cache to disk atomically via a temp file."""
         write_json_atomic(self.path, self.data, ensure_ascii=False)
 
-    # look up a cached entry by key
     def get(self, key: str) -> dict | None:
-        return self.data.get(key)
-
-    # true if the key is uncached or failed transiently
-    def needs_retry(self, key: str) -> bool:
-        """True if the key is uncached or failed transiently."""
-        entry = self.data.get(key)
-        if entry is None:
-            return True
-        return entry.get("source") == "transient_fail"
-
-    # store a successful geocode hit
-    def put(
-        self,
-        key: str,
-        lat: float,
-        lng: float,
-        source: str,
-        country: str = "US",
-        validated: bool = False,
-        zip_checked: bool = False,
-        town_checked: bool = False,
-    ):
-        """Store a hit; country is ISO-2, old entries without it read as 'US'; zip_checked marks a result already checked against its filed ZIP and city, town_checked one from the settlement-only town search."""
-        self.data[key] = {
-            "lat": lat,
-            "lng": lng,
-            "source": source,
-            "country": country,
-            "validated": validated,
-        }
-        if zip_checked:
-            self.data[key]["zip_checked"] = True
-        if town_checked:
-            self.data[key]["town_checked"] = True
-
-    # keep a cached point the town search couldn't improve on
-    def mark_town_checked(self, key: str):
-        """Keep a cached point that the settlement-only town search could not improve on."""
         if key in self.data:
-            self.data[key]["town_checked"] = True
+            return self.data[key]
+        # Older runs uppercased fields and numbered ordinal streets in cache keys.
+        parts = [part.strip().upper() for part in key.split("|")]
+        normalized = "|".join(parts)
+        if normalized in self.data:
+            return self.data[normalized]
+        parts[0] = numbered_street(parts[0])
+        return self.data.get("|".join(parts))
 
-    # mark an address as genuinely not geocodable
-    def put_failed(self, key: str, validated: bool = False):
-        """Mark an address as genuinely not geocodable (never retried)."""
-        self.data[key] = {
-            "lat": None,
-            "lng": None,
-            "source": "not_found",
-            "validated": validated,
-        }
+    def needs_retry(self, key: str) -> bool:
+        entry = self.get(key)
+        return entry is None or entry.get("lookup_status", entry.get("source")) == "transient_fail"
 
-    # keep a temporary failure retryable
+    def put(self, key: str, lat: float, lng: float, source: str, country: str = "US"):
+        self.data[key] = {"lat": lat, "lng": lng, "source": source, "country": country}
+
+    def _record_miss(self, key: str, status: str):
+        entry = self.get(key)
+        if entry and entry.get("lat") is not None:
+            self.data[key] = {**entry, "lookup_status": status}
+        else:
+            self.data[key] = {"lat": None, "lng": None, "source": status}
+
+    def put_failed(self, key: str):
+        self._record_miss(key, "not_found")
+
     def put_transient(self, key: str):
-        """Keep a temporary failure retryable."""
-        self.data[key] = {"lat": None, "lng": None, "source": "transient_fail"}
+        self._record_miss(key, "transient_fail")
 
-    # number of cached entries
     def __len__(self):
         return len(self.data)
-
-    # summarize cache hits, misses, and sources
-    def stats(self) -> dict:
-        found = sum(1 for entry in self.data.values() if entry["lat"] is not None)
-        by_source: dict[str, int] = {}
-        for entry in self.data.values():
-            source = entry["source"]
-            by_source[source] = by_source.get(source, 0) + 1
-
-        return {
-            "total": len(self.data),
-            "found": found,
-            "failed": len(self.data) - found,
-            "by_source": by_source,
-        }

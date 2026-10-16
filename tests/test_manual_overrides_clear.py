@@ -1,7 +1,7 @@
 """[CLEAR] in manual_employer_overrides.csv removes a filed value that is not the donor's."""
 import pandas as pd
 
-from fec.cleaning import manual_overrides
+from fec.cleaning.rules import manual as manual_overrides
 
 
 def test_clear_removes_another_persons_details_from_one_filing(tmp_path, monkeypatch):

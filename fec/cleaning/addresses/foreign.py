@@ -13,7 +13,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.audit_trail import ADDRESS_FIELDS
+from fec.cleaning.reports.trail import ADDRESS_FIELDS
 from fec.config.constants import AMBIGUOUS_CITIES, FOREIGN_CITIES_NO_US_STATE
 
 _COUNTRIES = (

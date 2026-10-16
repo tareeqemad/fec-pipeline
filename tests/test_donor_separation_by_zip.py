@@ -1,5 +1,5 @@
 """Two people with one name in one city are kept apart by a ZIP-level separation rule."""
-from fec.donor_match import rules
+from fec.donor_match import rules as rules
 from fec.donor_match.keys import individual_record_id
 
 

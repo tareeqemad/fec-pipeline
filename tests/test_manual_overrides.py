@@ -4,7 +4,7 @@ import csv
 import pandas as pd
 import pytest
 
-import fec.cleaning.manual_overrides as mo
+import fec.cleaning.rules.manual as mo
 
 
 @pytest.fixture

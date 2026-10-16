@@ -1,15 +1,107 @@
-"""Normalize names, employers and committee names for matching."""
+"""Normalize fields and compare name variants for donor matching."""
 import re
 
-from fec.donor_match.constants import (
-    NAME_SUFFIXES,
-)
-from fec.donor_match.scoring import _NAME_TOKEN_RE
+from fec.cleaning._helpers import levenshtein
 
-# stripped in this order -- " CO" runs before " CORP" on purpose, and
-# str.replace hits mid-string too (" CO" also eats the start of " CONSULTING":
-# ACME CONSULTING -> ACMENSULTING). Both quirks are load-bearing: these strings
-# feed employer-match scoring and thus donor identity. Do not change.
+
+_NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
+
+
+NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V", "ESQ", "MD", "PHD", "DDS", "CPA", "DO"}
+
+
+# blocked first-name pairs: look similar but are different people
+_BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
+    ('DAN', 'DANA'),        ('DANIEL', 'DANA'),
+    ('BETH', 'SETH'),
+    ('JOAN', 'JOHN'),
+    ('ANDREA', 'ANDREW'),   ('ANDREA', 'ANDRE'),
+    ('ALLEN', 'ELLEN'),     ('ALAN', 'ELENA'),
+    ('RANDI', 'RANDY'),
+    ('ROBIN', 'ROB'),       ('ROBIN', 'ROBERT'),
+    ('SANDY', 'ANDY'),      ('SANDRA', 'ANDREW'),
+    ('CARL', 'CARI'),
+    ('EVAN', 'IVAN'),
+    ('MARK', 'MARY'),       ('MARC', 'MARY'),
+    ('KEREN', 'KAREN'),
+    ('EARL', 'CARL'),
+    ('JOY', 'JAY'),
+    ('DAWN', 'DAN'),
+    ('JANE', 'JUNE'),
+    ('JULIE', 'JULIA'),
+    ('ANN', 'DAN'),
+    ('BARRY', 'LARRY'),     ('BARRY', 'HARRY'),
+    ('LARRY', 'HARRY'),     ('TERRY', 'JERRY'),
+    ('TERRY', 'PERRY'),     ('TERRY', 'KERRY'),
+    ('JERRY', 'PERRY'),     ('JERRY', 'KERRY'),
+    ('LOREN', 'OREN'),
+    ('ARI', 'AVI'),         ('ARI', 'URI'),
+    ('ETAN', 'EVAN'),
+    ('KEN', 'BEN'),         ('KEN', 'LEN'),
+    ('BEN', 'LEN'),
+    ('ROY', 'ROB'),         ('ROY', 'RON'),
+    ('GARY', 'CARY'),
+]}
+
+
+NICKNAME_MAP = {
+    'BILL': 'WILLIAM', 'BILLY': 'WILLIAM', 'WILL': 'WILLIAM',
+    'BOB': 'ROBERT', 'BOBBY': 'ROBERT', 'ROB': 'ROBERT',
+    'DICK': 'RICHARD', 'RICK': 'RICHARD', 'RICH': 'RICHARD',
+    'JIM': 'JAMES', 'JIMMY': 'JAMES',
+    'MIKE': 'MICHAEL',
+    'DAVE': 'DAVID',
+    'DAN': 'DANIEL', 'DANNY': 'DANIEL',
+    'TOM': 'THOMAS', 'TOMMY': 'THOMAS',
+    'STEVE': 'STEVEN', 'STEPHEN': 'STEVEN',
+    'JOE': 'JOSEPH', 'JOEY': 'JOSEPH',
+    'JACK': 'JOHN', 'JON': 'JOHN',
+    'CHRIS': 'CHRISTOPHER',
+    'TONY': 'ANTHONY',
+    'ED': 'EDWARD', 'EDDIE': 'EDWARD', 'TED': 'EDWARD',
+    'KEN': 'KENNETH', 'KENNY': 'KENNETH',
+    'LARRY': 'LAWRENCE',
+    'AL': 'ALAN',
+    'MANNY': 'MANUEL',
+    'MARV': 'MARVIN',
+    'PHIL': 'PHILIP', 'PHILLIP': 'PHILIP',
+    'JEFF': 'JEFFREY',
+    'GREG': 'GREGORY',
+    'BEN': 'BENJAMIN',
+    'SAM': 'SAMUEL',
+    'FRED': 'FREDERICK', 'FREDRIC': 'FREDERICK',
+    'BETH': 'ELIZABETH', 'LIZ': 'ELIZABETH', 'BETSY': 'ELIZABETH',
+    'SUE': 'SUSAN', 'SUSIE': 'SUSAN',
+    'PAT': 'PATRICIA', 'PATTY': 'PATRICIA',
+    'SANDY': 'SANDRA',
+    'KATE': 'KATHERINE', 'KATHY': 'KATHERINE',
+    'DEB': 'DEBORAH', 'DEBBIE': 'DEBORAH',
+    'BARB': 'BARBARA',
+    'JEN': 'JENNIFER', 'JENNY': 'JENNIFER',
+    'BECKY': 'REBECCA',
+    'MAGGIE': 'MARGARET', 'PEGGY': 'MARGARET',
+    'NICK': 'NICHOLAS',
+    'MATT': 'MATTHEW',
+    'ANDY': 'ANDREW', 'DREW': 'ANDREW',
+    'ALEX': 'ALEXANDER',
+    'CHARLIE': 'CHARLES', 'CHUCK': 'CHARLES',
+    'JERRY': 'GERALD',
+    'RON': 'RONALD', 'RONNIE': 'RONALD',
+    'DOUG': 'DOUGLAS',
+    'RAY': 'RAYMOND',
+    'HANK': 'HENRY',
+    'ABE': 'ABRAHAM',
+    'LEN': 'LEONARD', 'LENNY': 'LEONARD',
+    'BERNIE': 'BERNARD',
+    'ART': 'ARTHUR',
+    'NORM': 'NORMAN',
+    'HERB': 'HERBERT',
+    'STU': 'STUART',
+    'MORT': 'MORTON',
+    'JOSH': 'JOSHUA',
+}
+
+# Keep replacement order and substring matching: donor keys depend on these comparisons.
 _EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
                    " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
 
@@ -25,7 +117,6 @@ _COMM_SUFFIXES_RE = re.compile(
 _GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
 
 
-# pull a JR/SR/roman-numeral suffix out of a name
 def extract_generational_suffix(name: str) -> str:
     """Return a JR/SR/roman suffix from either side of the comma."""
     text = str(name or "").strip().upper()
@@ -40,7 +131,6 @@ def extract_generational_suffix(name: str) -> str:
     return next(iter(found)) if len(found) == 1 else ""
 
 
-# normalize a name to LAST|FIRST for matching
 def normalize_name(name: str) -> str:
     """Normalize to LAST|FIRST (drop middle, suffixes, punctuation)."""
     name = str(name or "").strip().upper()
@@ -64,7 +154,6 @@ def normalize_name(name: str) -> str:
     return f"{last}|{first}"
 
 
-# extract middle name/initial from a full name
 def extract_middle(name: str) -> str:
     """Extract middle name/initial from full name."""
     name = str(name or "").strip().upper()
@@ -76,7 +165,6 @@ def extract_middle(name: str) -> str:
     return parts[1] if len(parts) > 1 else ""
 
 
-# normalize an employer name for comparison
 def normalize_employer(emp: str) -> str:
     """Normalize employer name for comparison."""
     emp = str(emp or "").strip().upper()
@@ -85,7 +173,6 @@ def normalize_employer(emp: str) -> str:
     return emp.strip()
 
 
-# normalize a committee contributor name to ORG|FIRST
 def normalize_committee_name(name: str) -> str:
     """Normalize a committee contributor name to ORG|FIRST for deduplication."""
     name = str(name or "").strip().upper()
@@ -102,3 +189,57 @@ def normalize_committee_name(name: str) -> str:
     first = person_parts[0] if person_parts else ""
 
     return f"{org}|{first}"
+
+
+def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
+    """True when two LAST|FIRST norms share the surname and the first names are a nickname pair, edit distance <= 1, or a distance-2 prefix truncation; blocked look-alike pairs never match."""
+    if "|" not in norm1 or "|" not in norm2:
+        return False
+    last1, first1 = norm1.split("|", 1)
+    last2, first2 = norm2.split("|", 1)
+
+    if last1 != last2:
+        return False
+    if first1 == first2:
+        return False
+    if not first1 or not first2:
+        return False
+
+    pair = frozenset((first1.upper(), first2.upper()))
+    if pair in _BLOCKED_FIRST_PAIRS:
+        return False
+
+    if NICKNAME_MAP.get(first1, first1) == NICKNAME_MAP.get(first2, first2):
+        return True
+
+    dist = levenshtein(first1, first2)
+    if dist <= 1 and len(first1) >= 3 and len(first2) >= 3:
+        return True
+
+    if dist == 2:
+        short, long = (first1, first2) if len(first1) <= len(first2) else (first2, first1)
+        if long.startswith(short) and len(short) >= 3:
+            return True
+
+    return False
+
+
+def _squash(s: str) -> str:
+    """Strip spaces, hyphens and dots for surname comparison."""
+    return s.replace(" ", "").replace("-", "").replace(".", "")
+
+
+def _is_surname_variant(last1: str, last2: str) -> bool:
+    """True for surname spelling variants (typo, squashed space/hyphen/dot, glued initial, truncation); the calling phase still demands strong geography before merging."""
+    if not last1 or not last2 or last1 == last2:
+        return False
+    if _squash(last1) == _squash(last2):        # DE TOLEDO == DETOLEDO
+        return True
+    d = levenshtein(last1, last2)
+    m = min(len(last1), len(last2))
+    if m < 4:                                   # short surnames: single-char slip only
+        return d == 1
+    if d <= 2:                                  # KHODAR/KHODARI (1), A SPIEGEL/SPIEGEL (2)
+        return True
+    lo, hi = sorted((last1, last2), key=len)    # truncation: DOLNER/DOLINER
+    return hi.startswith(lo) and len(lo) >= 4 and (len(hi) - len(lo)) <= 3

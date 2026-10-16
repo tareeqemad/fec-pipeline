@@ -1,8 +1,8 @@
 """The donor's own name in the employer field becomes SELF-EMPLOYED; shared-surname firms are kept."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer_swaps import _fix_self_employed_consistency
-from fec.cleaning.safety_nets.name_fields import _fix_own_name_as_employer
+from fec.cleaning.rules.employer_swaps import _fix_self_employed_consistency
+from fec.cleaning.rules.name_fields import _fix_own_name_as_employer
 
 
 def _frame(rows):
@@ -94,8 +94,8 @@ def test_self_employed_occupation_does_not_hide_a_company():
 
 
 def test_short_legal_company_keeps_its_suffix():
-    from fec.cleaning.employer_synonyms.apply import fix_normalized_mid_suffix
-    from fec.cleaning.employer_synonyms.normalize import normalize_employer_canonical
+    from fec.cleaning.work.employer_names import fix_normalized_mid_suffix
+    from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL"],
@@ -117,7 +117,7 @@ def test_committees_are_untouched():
 
 def test_resolve_guard_matches_reversed_name_order():
     """The resolve-stage twin: previous_employer == the donor's own name."""
-    from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
+    from fec.resolve.apply import _normalize_previous_employer_column
 
     df = pd.DataFrame({
         "contributor_name": ["HOWARD, ALIDA", "COMITER, RICHARD", "ROSEN, MARVIN"],

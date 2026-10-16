@@ -18,14 +18,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.donor_consistency.occupation import _fill_occupation_from_donor
-from fec.cleaning.manual_overrides import OVERRIDES_CSV
-from fec.cleaning.occupations.normalize import _normalize_text, categorize_final
-from fec.cleaning.occupations.style import normalize_occupation_style_step
-from fec.cleaning.safety_nets.employer import _null_sector_as_employer
-from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
-from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
-from fec.cleaning.safety_nets.occupation import _fix_web_artifact_occupation
+from fec.cleaning.donors.occupation import _fill_occupation_from_donor
+from fec.cleaning.rules.manual import OVERRIDES_CSV
+from fec.cleaning.work.normalize import _normalize_text, categorize_final
+from fec.cleaning.work.style import normalize_occupation_style_step
+from fec.cleaning.rules.employer import _null_sector_as_employer
+from fec.cleaning.rules.employer_swaps import _fix_role_as_employer
+from fec.cleaning.rules.name_fields import _fix_company_name_as_occupation
+from fec.cleaning.rules.occupation import _fix_web_artifact_occupation
 from fec.config.occupation_rules.category_overrides import CATEGORY_OVERRIDES
 from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
 from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE

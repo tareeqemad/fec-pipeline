@@ -1,4 +1,4 @@
-"""Centralized logging: clean console output (message only), detailed file output (timestamp + level + module)."""
+"""Console messages and optional detailed file logs."""
 import io
 import logging
 import os
@@ -8,16 +8,15 @@ _CONFIGURED = False
 
 
 class CleanFormatter(logging.Formatter):
-    """Console formatter: just the message, no clutter."""
+    """Message-only console formatting."""
 
-    # return only the log message, no timestamp or level
+    # Show only the message in the console.
     def format(self, record):
         return record.getMessage()
 
 
-# configure logging for the whole pipeline, once at startup
+# Configure console and optional file logging once.
 def setup_logging() -> None:
-    """Configure logging for the entire pipeline. Call once at startup."""
     global _CONFIGURED
     if _CONFIGURED:
         return
@@ -48,16 +47,14 @@ def setup_logging() -> None:
     _CONFIGURED = True
 
 
-# get a module logger, auto-configuring logging if needed
+# Set up logging when needed and return the module logger.
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger for a module. Auto-configures if not yet done."""
     if not _CONFIGURED:
         setup_logging()
     return logging.getLogger(name)
 
 
-# log a label and count only when count is nonzero
+# Log a label and count only when the count is nonzero.
 def log_count(logger: logging.Logger, label: str, count: int) -> None:
-    """Log label and count when non-zero."""
     if count:
         logger.info("  %-38s %s", label, f"{count:,}")

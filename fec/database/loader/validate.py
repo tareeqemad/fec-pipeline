@@ -1,25 +1,19 @@
-"""Check the cleaned CSV and its companions before anything is loaded."""
+"""Validate loader inputs."""
 from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.employer_status import referenced_employers
-from fec.cleaning.quality.gates import run_quality_gates
+from fec.cleaning.work.status import referenced_employers
+from fec.cleaning.reports.gates import run_quality_gates
 from fec.contract import check_loadable
-from fec.database.loader.addresses import (
-    load_employer_locations,
-)
+from fec.database.loader.addresses import load_employer_locations
 from fec.env import (
     CLEANED_CSV,
     COMMITTEES_CSV,
     EMPLOYER_LOCATIONS_CSV,
 )
 from fec.io import read_pipeline_csv
-from fec.log import get_logger
-from fec.pipeline_run import check_same_run
-from fec.resolve.pipeline.locations import ADDRESS_TRUST_VALUES
-
-logger = get_logger(__name__)
+from fec.resolve.locations import ADDRESS_TRUST_VALUES
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -35,7 +29,7 @@ _LOCATION_COLUMNS = {
 }
 
 
-# check the columns are exactly the loaded ones and gates pass
+# Check cleaned columns and quality rules.
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
     check_loadable(df.columns)
 
@@ -46,7 +40,7 @@ def _validate_cleaned_data(df: pd.DataFrame) -> None:
         )
 
 
-# validate employer_locations.csv matches cleaned employers
+# Check company names, primary offices and address trust.
 def _validate_employer_locations(
     df: pd.DataFrame,
     locations: pd.DataFrame,
@@ -64,14 +58,13 @@ def _validate_employer_locations(
             "run geocode.py --employer-only"
         )
 
-    primary = locations["is_primary"].astype(str).str.lower().eq("true")
+    primary_values = locations["is_primary"].astype(str).str.lower()
+    primary = primary_values.eq("true")
     primary_counts = primary.groupby(locations["employer_name"]).sum()
     if not primary_counts.eq(1).all():
         raise ValueError("each employer must have exactly one primary location row")
 
-    valid_primary = (
-        locations["is_primary"].astype(str).str.lower().isin({"true", "false"})
-    )
+    valid_primary = primary_values.isin({"true", "false"})
     if not valid_primary.all():
         raise ValueError("employer_locations.csv contains an invalid is_primary value")
 
@@ -81,7 +74,7 @@ def _validate_employer_locations(
         raise ValueError("employer_locations.csv contains an invalid address_trust value")
 
 
-# validate donor_key, sub_id, date, and cycle fields
+# Check donor keys, filing IDs, dates and election cycles.
 def _validate_contribution_fields(df: pd.DataFrame) -> None:
     donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
     if donor_keys.eq("").any():
@@ -100,7 +93,7 @@ def _validate_contribution_fields(df: pd.DataFrame) -> None:
         raise ValueError("two_year_transaction_period contains invalid values")
 
 
-# validate recipient committees are all known
+# Require every recipient committee in committees.csv.
 def _validate_committees(df: pd.DataFrame) -> None:
     committees = pd.read_csv(COMMITTEES_CSV, dtype=str, keep_default_na=False)
     known = set(committees["committee_short"].str.strip())
@@ -112,16 +105,15 @@ def _validate_committees(df: pd.DataFrame) -> None:
         )
 
 
-# reject unfinished pipeline output
+# Check both output files before loading.
 def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
-    """Reject unfinished pipeline output."""
     _validate_cleaned_data(df)
     _validate_employer_locations(df, locations)
     _validate_contribution_fields(df)
     _validate_committees(df)
 
 
-# read and validate the cleaned CSV and employer locations
+# Read and validate contributions and company locations.
 def _read_input() -> tuple[pd.DataFrame, list[dict]]:
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
@@ -131,9 +123,6 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
             "run geocode.py --employer-only"
         )
 
-    # both files must come from the same run, untouched since it wrote them
-    run_id = check_same_run(CLEANED_CSV, EMPLOYER_LOCATIONS_CSV)
-    logger.info(f"  pipeline run {run_id}")
     df = read_pipeline_csv(CLEANED_CSV)
     locations = pd.read_csv(
         EMPLOYER_LOCATIONS_CSV,

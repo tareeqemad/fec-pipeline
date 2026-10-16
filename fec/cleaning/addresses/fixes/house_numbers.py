@@ -1,8 +1,6 @@
 """Restore a house number the filing lost, from the donor's other filings."""
 from __future__ import annotations
 
-import re
-
 import pandas as pd
 
 from fec.cleaning.addresses.fixes.recovery import _STREET_TYPE_RE
@@ -32,15 +30,11 @@ def _recover_house_number_from_donor(df: pd.DataFrame) -> int:
     if numbered.empty:
         return 0
 
-    # drop a leading house number from a street string
-    def _strip_num(x: str) -> str:
-        return re.sub(r"^\d+\s+", "", str(x).upper().strip())
-
     numbered_streets = numbered[
         ["contributor_name", "contributor_state", "contributor_street_1"]
     ].copy()
-    numbered_streets["_stripped"] = numbered_streets["contributor_street_1"].map(
-        _strip_num
+    numbered_streets["_stripped"] = streets[is_indiv & starts_num].str.replace(
+        r"^\d+\s+", "", regex=True
     )
     key_full = (
         numbered_streets.groupby(

@@ -48,13 +48,9 @@ _HOUSE_TOKEN_RE = re.compile(r'^\d+[A-Z]?$')
 _DIRECTION_TOKENS = frozenset({'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'})
 
 
-# drop a street typed twice then cut short
+# Remove a repeated street only when its house number matches and the copy is a prefix.
+# Keep grid addresses such as 1300 E 1300 S.
 def _drop_repeated_street(s):
-    """'11425 TWINING LN 11425 TWINING L' -> '11425 TWINING LN': the filer typed the street twice and the 34-character FEC field cut the copy.
-
-    Only a copy that starts with the same house number and is a prefix of the
-    street before it is dropped ('396 FOREST AVE 396 FOREST AVE' too); a grid
-    address such as '1300 E 1300 S' is not a copy and stays."""
     if not isinstance(s, str):
         return s
     tokens = s.split()
@@ -124,6 +120,9 @@ def normalize_street(s: str) -> str:
     # placeholder words, FEC committee ids, bare house numbers
     if s in _JUNK_STREETS or _INVALID_STREET_RE.match(s):
         return np.nan
+
+    # OCR often substitutes zero for O in PO; retain the filed box number.
+    s = re.sub(r'^P\.?\s*[O0]\.?\s*BOX\s*(?=\d)', 'PO BOX ', s)
 
     # PO box variants missing PO or BOX; digits required so street names
     # like BOX CANYON RD are untouched
@@ -227,15 +226,11 @@ _FLOOR_UNIT_RE = re.compile(r'^(?:FL|FLR|FLOOR)\.?\s+(\d{1,3})$')
 _FLOOR_ECHO_RE = re.compile(r'(\s(?:ST|AVE|RD|DR|LN|CT|PL|WAY|BLVD|CIR|TER|HWY|PKWY))\s+(\d{1,3})(?:ST|ND|RD|TH)$')
 
 
-# pull named and hash units from street_1 into empty street_2
+# Move embedded units to an empty second line.
+# Return both lines, the count and per-row leftovers for the audit.
 def _extract_units(
     street1: pd.Series, street2: pd.Series,
 ) -> tuple[pd.Series, pd.Series, int, pd.Series]:
-    """Move unit info embedded in street_1 into empty street_2.
-
-    Returns (s1, s2, n_extracted, leftovers): leftovers names, per row, the
-    unit leftover removed from street_1 ('' for none), for the audit trail.
-    """
     s1 = street1.fillna('').astype(str).replace({'nan': ''})
     s2 = street2.fillna('').astype(str).replace({'nan': ''})
     s2_blank = s2.str.strip().eq('')
@@ -293,3 +288,44 @@ def _extract_units(
 def _unit_number(unit: str) -> str:
     unit = re.sub(r'^\s*(?:(?:APT|UNIT|STE|SUITE|RM|FL|FLOOR)\b|#)', '', str(unit).upper())
     return re.sub(r'[^A-Z0-9]', '', unit) or '-'
+
+
+# Alternate spelling for legacy geocode keys; not applied by normalize_street.
+_ORDINAL_WORDS = {
+    "FIRST": 1, "SECOND": 2, "THIRD": 3, "FOURTH": 4, "FIFTH": 5, "SIXTH": 6,
+    "SEVENTH": 7, "EIGHTH": 8, "NINTH": 9, "TENTH": 10, "ELEVENTH": 11,
+    "TWELFTH": 12, "THIRTEENTH": 13, "FOURTEENTH": 14, "FIFTEENTH": 15,
+    "SIXTEENTH": 16, "SEVENTEENTH": 17, "EIGHTEENTH": 18, "NINETEENTH": 19,
+    "TWENTIETH": 20, "THIRTIETH": 30, "FORTIETH": 40, "FIFTIETH": 50,
+    "SIXTIETH": 60, "SEVENTIETH": 70, "EIGHTIETH": 80, "NINETIETH": 90,
+}
+_ORDINAL_TENS = {
+    "TWENTY": 20, "THIRTY": 30, "FORTY": 40, "FIFTY": 50,
+    "SIXTY": 60, "SEVENTY": 70, "EIGHTY": 80, "NINETY": 90,
+}
+_ORDINAL_STREET_RE = re.compile(
+    rf"\b(?:({'|'.join(_ORDINAL_TENS)})[\s-]+)?({'|'.join(_ORDINAL_WORDS)})\b"
+    r"(?=\s+(?:ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT"
+    r"|CIR|CIRCLE|PL|PLACE|PKWY|PARKWAY|HWY|HIGHWAY|TER|TERRACE|SQ|SQUARE|TRL|TRAIL|WAY)\b)",
+    re.IGNORECASE,
+)
+# Keep building names such as "120 FIFTH AVENUE PLACE".
+_ORDINAL_BUILDING_RE = re.compile(
+    rf"\b(?:{'|'.join(_ORDINAL_WORDS)})\s+(?:AVE|AVENUE|ST|STREET)"
+    r"\s+(?:PLACE|PLAZA|TOWER|TOWERS|CENTER|CENTRE|BUILDING)\b",
+    re.IGNORECASE,
+)
+
+
+def _ordinal_number(match: re.Match) -> str:
+    number = (_ORDINAL_TENS.get((match.group(1) or "").upper(), 0)
+              + _ORDINAL_WORDS[match.group(2).upper()])
+    suffix = "TH" if 10 <= number % 100 <= 20 else {1: "ST", 2: "ND", 3: "RD"}.get(number % 10, "TH")
+    return f"{number}{suffix}"
+
+
+def numbered_street(street: str) -> str:
+    """Use numeric ordinals for street names, preserving units and building names."""
+    if _ORDINAL_BUILDING_RE.search(street):
+        return street
+    return _ORDINAL_STREET_RE.sub(_ordinal_number, street)

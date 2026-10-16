@@ -2,7 +2,9 @@
 
 Usage: python tools/audits/identity_cases.py [path/to/contributions_cleaned.csv]
 """
+import json
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -72,10 +74,13 @@ check('HEALTH, GOOD and WINN joint filings held', all(by.at[s, 'identity_status'
 check('WINN joint filings off Tamara and Sarah', not {key(s) for s in held[2:]} & (keys_of('WINN, TAMARA') | keys_of('WINN, SARAH')))
 inferred = {'4032520241885655983': 'Blatt', '4112020241071383083': 'Green', '4080620251215493429': 'Eckstein',
             '4122120231813094010': 'Auerbach'}
+audit_path = Path(__file__).resolve().parents[2] / 'data/reports/audit_summary.json'
+with audit_path.open(encoding='utf-8') as handle:
+    inferred_ids = set(json.load(handle)['inferred_employment_sub_ids'])
 for sub, who in inferred.items():
-    check(f'{who}: work taken from other filings marked inferred', by.at[sub, 'employment_source'] == 'inferred')
+    check(f'{who}: work taken from other filings marked inferred', sub in inferred_ids)
 check('Givner: firm named only by own surname marked inferred',
-      (b.loc[b.contributor_name == 'GIVNER, JOEY', 'employment_source'] == 'inferred').any())
+      b.loc[b.contributor_name == 'GIVNER, JOEY', 'sub_id'].isin(inferred_ids).any())
 joint = b[b.donor_key == key('4011620261302587003')]  # MORRIS, ELLEN STU filed 2025
 check('Morris joint Ellen+Stu filings: one held group, $11,200',
       len(joint) == 15 and joint.donor_key.nunique() == 1 and set(joint.identity_status) == {'held'}

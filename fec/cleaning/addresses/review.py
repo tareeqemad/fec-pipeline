@@ -62,36 +62,24 @@ def _with_status(report: pd.DataFrame, status: str) -> pd.DataFrame:
     return report
 
 
-# empty clearly bad street_2 values, the module's only edit
+# Clear invalid second lines; return the frame, original affected rows and count.
 def apply_street2_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, int]:
-    """Empty clearly bad street_2 values (the only edit of the address_review step).
-
-    Returns the frame, the emptied rows as they were before the edit (reason,
-    sub_id, address with the original street_2) and the number of rows emptied.
-    """
     s2 = df[S2].fillna("").astype(str)
     reports, emptied = _review_street2(df, s2)
     return df, _combine_reports(reports), emptied
 
 
-# keep only auto-fixed rows whose street_2 wasn't later restored
-def _still_emptied(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
-    """Drop auto-fixed rows whose street_2 a later step put back (a foreign filing restored as filed)."""
+def _final_auto_fixed(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
+    """Drop restored street_2 rows and attach final donor details to the remaining report."""
     if auto_fixed.empty or "sub_id" not in auto_fixed.columns or "sub_id" not in df.columns:
         return auto_fixed
-    final_s2 = df.drop_duplicates("sub_id").set_index("sub_id")[S2]
-    final_s2 = final_s2.fillna("").astype(str).str.strip()
+    final = df.drop_duplicates("sub_id").set_index("sub_id")
+    final_s2 = final[S2].fillna("").astype(str).str.strip()
     now = auto_fixed["sub_id"].map(final_s2)
     before = auto_fixed[S2].fillna("").astype(str).str.strip()
-    return auto_fixed[now.notna() & now.ne(before)]
-
-
-# attach the final donor_key/entity_type to a report's rows
-def _add_donor_key(report: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
-    """Attach the final donor_key (and entity_type) to rows captured before donors were identified."""
-    if report.empty or "sub_id" not in report.columns or "sub_id" not in df.columns:
+    report = auto_fixed[now.notna() & now.ne(before)]
+    if report.empty:
         return report
-    final = df.drop_duplicates("sub_id").set_index("sub_id")
     report = report.copy()
     for column in ("donor_key", "entity_type"):
         if column in final.columns and column not in report.columns:
@@ -100,18 +88,13 @@ def _add_donor_key(report: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
     return report[order + [c for c in report.columns if c not in order]]
 
 
-# build the manual-review and regeocode queues from the frame
+# Build review and geocoding queues, including prior automatic fixes, without editing rows.
+# Leave excluded filings out.
 def build_review_queues(
     df: pd.DataFrame,
     auto_fixed: pd.DataFrame | None = None,
     exclude_sub_ids=None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build the manual-review and re-geocode queues from ``df``; never edits it.
-
-    ``auto_fixed`` holds the street_2 values the address_review step emptied
-    (from ``apply_street2_fixes``); they are appended with status auto_fixed.
-    ``exclude_sub_ids`` (foreign filings kept as filed) are left out.
-    """
     if exclude_sub_ids is not None and len(exclude_sub_ids) and "sub_id" in df.columns:
         df = df[~df["sub_id"].isin(set(exclude_sub_ids))]
         if auto_fixed is not None and not auto_fixed.empty and "sub_id" in auto_fixed.columns:
@@ -131,7 +114,7 @@ def build_review_queues(
 
     queue = [_with_status(_combine_reports(review), OPEN)]
     if auto_fixed is not None and not auto_fixed.empty:
-        fixed = _add_donor_key(_still_emptied(auto_fixed, df), df)
+        fixed = _final_auto_fixed(auto_fixed, df)
         queue.append(_with_status(fixed, AUTO_FIXED))
     review_df = _combine_reports([part for part in queue if not part.empty])
     return review_df, _combine_reports(regeocode)

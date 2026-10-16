@@ -1,7 +1,7 @@
 """The audit trail tells which rows a step's change survived on."""
 import pandas as pd
 
-from fec.cleaning.audit_trail import AuditTrail
+from fec.cleaning.reports.trail import AuditTrail
 
 
 def _fill(df):

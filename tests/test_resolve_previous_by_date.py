@@ -1,7 +1,7 @@
 """A retired filing never takes a previous employer the donor only filed later (MARGOLIN, RUTH)."""
 import pandas as pd
 
-from fec.resolve.pipeline.apply import ResolveContext, _first_filed_employers, _resolve_retired
+from fec.resolve.rows import ResolveContext, _first_filed_employers, _resolve_retired
 
 CLINIC = "ASSOCIATES IN GASTROENTEROLOGY OF UNION COUNTY"
 
@@ -101,7 +101,7 @@ def test_a_request_for_information_is_not_a_previous_employer():
 
 
 def test_a_degree_or_pronoun_is_not_a_previous_employer():
-    from fec.cleaning.previous_employer import normalize_previous_employer_value
+    from fec.cleaning.work.previous import normalize_previous_employer_value
     for value in ("MD", "ME", "M.D.", "MORE INFO NEEDED", "NOT EMPLYED"):
         assert normalize_previous_employer_value(value) == ""
     assert normalize_previous_employer_value("SELF-EMPLOYED") == "SELF-EMPLOYED"

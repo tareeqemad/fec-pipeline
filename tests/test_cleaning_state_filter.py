@@ -1,7 +1,7 @@
 """No filing is dropped for its state: a Canadian 'ON' is kept for the foreign step."""
 import pandas as pd
 
-from fec.cleaning.pipeline.core import _prepare_records
+from fec.cleaning.pipeline import _prepare_records
 
 
 def test_a_filing_with_a_foreign_state_is_kept():

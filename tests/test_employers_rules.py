@@ -4,12 +4,12 @@ import csv
 import pandas as pd
 import pytest
 
-from fec.cleaning.employer_synonyms.apply import (
+from fec.cleaning.work.employer_names import (
     apply_employer_synonyms,
     finalize_employer_names,
 )
-from fec.cleaning.employer_synonyms.normalize import normalize_employer_display_name
-from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
+from fec.cleaning.work.employer_normalize import normalize_employer_display_name
+from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.env import EMPLOYER_NAME_RULES_CSV
 

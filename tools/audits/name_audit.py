@@ -14,7 +14,7 @@ from difflib import SequenceMatcher
 import pandas as pd
 
 sys.path.insert(0, ".")
-from fec.donor_match.constants import NICKNAME_MAP  # noqa: E402
+from fec.donor_match.normalize import NICKNAME_MAP  # noqa: E402
 from fec.io import write_csv_atomic  # noqa: E402
 
 _SUFFIX = {"JR", "SR", "II", "III", "IV", "V", "MD", "PHD", "ESQ", "DDS", "CPA", "DO", "DVM", "JD", "RN", "PE", "MBA"}

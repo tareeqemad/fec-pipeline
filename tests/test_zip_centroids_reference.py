@@ -9,12 +9,13 @@ import statistics
 from collections import defaultdict
 
 import pytest
+import pandas as pd
 
 from fec.cleaning.addresses.fixes.state_zip import _load_zcta_to_state
 from fec.config.geography import US_STATE_BBOX as _STATE_BOUNDS
-from fec.env import GEOCODE_CACHE_JSON
-from fec.geocoding.places import distance_km as _distance_km
-from fec.geocoding.zip_checks import _ZIP_CENTROIDS, _zip_centroids
+from fec.env import GEOCODE_CACHE_JSON, RULES_DIR
+from fec.geocoding.validation import distance_km as _distance_km
+_ZIP_CENTROIDS = RULES_DIR / "zip_centroids.csv"
 
 _MARGIN_DEG = 1.0          # coarse state bounding boxes: border ZIPs may sit just outside
 _MAX_KM_FROM_GEOCODES = 50  # same threshold the geocoder uses for its ZIP-distance retry rule
@@ -25,7 +26,8 @@ _MIN_GEOCODES = 3
 def centroids():
     if not _ZIP_CENTROIDS.exists():
         pytest.skip('zip_centroids.csv not present')
-    return _zip_centroids()
+    rows = pd.read_csv(_ZIP_CENTROIDS, dtype={"zip": str})
+    return {str(row.zip).zfill(5): (row.lat, row.lng) for row in rows.itertuples(index=False)}
 
 
 def test_every_centroid_lies_in_its_zip_state(centroids):

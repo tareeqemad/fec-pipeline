@@ -1,5 +1,5 @@
 """An INVALID manual row removes an AI web-search address (1901 PARTNERS kept 750 Third Ave)."""
-from fec.resolve.pipeline.manual_overrides import _merge_manual_locations
+from fec.resolve.manual import _merge_manual_locations
 
 SEARCH = {
     "employer_address": "750 Third Avenue, 29th Floor", "employer_city": "New York",

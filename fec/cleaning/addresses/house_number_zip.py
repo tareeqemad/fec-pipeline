@@ -169,14 +169,9 @@ def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str,
     return places.complete(city, zip_text)
 
 
-# find rows where the ZIP holds the house number
+# Recover a house number filed as ZIP when the street contains the real city and ZIP.
+# Use the donor's matching filings for state, then the ZIP; leave unreadable places alone.
 def _split_house_number_zip(df: pd.DataFrame) -> int:
-    """Rows whose ZIP box holds the house number and whose street holds the real city + ZIP: the place moves to the HOUSE_ZIP_* columns; returns rows fixed.
-
-    The state comes from the person's own filings of that city and ZIP (same
-    first and last name), else from the ZIP; other people's filings only show
-    which city names exist at a ZIP. Rows with no readable city and state are
-    left as filed."""
     if 'contributor_street_1' not in df.columns or 'contributor_zip' not in df.columns:
         return 0
     street1 = _upper_text(df, 'contributor_street_1')

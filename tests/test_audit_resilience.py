@@ -2,8 +2,8 @@ import json
 
 import pandas as pd
 
-import fec.cleaning.audit as audit
-from fec.cleaning.audit_trail import AuditTrail
+import fec.cleaning.reports.audit as audit
+from fec.cleaning.reports.trail import AuditTrail
 
 
 def test_audit_writes_only_csv_reports(tmp_path):

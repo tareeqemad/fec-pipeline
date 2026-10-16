@@ -3,7 +3,7 @@ import json
 
 import pandas as pd
 
-from fec.cleaning import cli
+import clean as cli
 
 
 def test_write_quality_scan(tmp_path):

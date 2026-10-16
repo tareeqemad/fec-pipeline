@@ -1,7 +1,7 @@
 """38-char FEC truncation repairs."""
 import csv
 
-from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS
+from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
 from fec.env import EMPLOYER_NAME_RULES_CSV
 
 # 38-char truncations repaired from external sources.

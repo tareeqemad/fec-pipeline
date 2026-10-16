@@ -1,8 +1,8 @@
 """Self-employed donors: the own firm is the workplace, and 'SELF-EMPLOYED' is not an occupation."""
 import pandas as pd
 
-from fec.cleaning.donor_consistency.employer import _own_firm_absorbs_self_employed
-from fec.cleaning.donor_consistency.occupation import _fill_self_employed_occupation_from_donor
+from fec.cleaning.donors.employer import _own_firm_absorbs_self_employed
+from fec.cleaning.donors.occupation import _fill_self_employed_occupation_from_donor
 
 _COLS = ['entity_type', 'donor_key', 'contributor_name', 'contributor_employer', 'contributor_occupation', 'occupation_category']
 

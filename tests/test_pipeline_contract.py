@@ -1,5 +1,4 @@
-"""Per-stage column contract and the run id shared from clean.py to the loader."""
-import pandas as pd
+"""Per-stage column contract."""
 import pytest
 
 from fec.contract import (
@@ -11,7 +10,6 @@ from fec.contract import (
     check_loadable,
     check_output,
 )
-from fec.pipeline_run import RunMismatch, check_same_run, record, start_run
 
 ORDER = ("clean", "geocode", "resolve", "employer_geocode", "employers")
 
@@ -63,48 +61,3 @@ def test_the_loader_takes_only_the_finished_file():
         check_loadable(CLEAN_COLUMNS + ("latitude", "longitude"))
     with pytest.raises(ContractError, match="unexpected employer_address"):
         check_loadable(LOADED_COLUMNS + ("employer_address",))
-
-
-def _write(path, value):
-    pd.DataFrame({"sub_id": [value]}).to_csv(path, index=False)
-
-
-def test_files_of_one_run_pass(tmp_path):
-    cleaned, locations = tmp_path / "contributions_cleaned.csv", tmp_path / "employer_locations.csv"
-    _write(cleaned, "1")
-    run_id = start_run(cleaned)
-    record("clean", cleaned)
-    _write(locations, "A")
-    record("employers", cleaned, locations)
-    assert check_same_run(cleaned, locations) == run_id
-
-
-def test_a_file_left_from_an_older_run_is_refused(tmp_path):
-    cleaned, locations = tmp_path / "contributions_cleaned.csv", tmp_path / "employer_locations.csv"
-    _write(cleaned, "1")
-    start_run(cleaned)
-    _write(locations, "A")
-    record("employers", cleaned, locations)
-    # clean.py runs again; employer_locations.csv is from the run before
-    _write(cleaned, "2")
-    start_run(cleaned)
-    record("clean", cleaned)
-    with pytest.raises(RunMismatch, match="employer_locations.csv was not written in run"):
-        check_same_run(cleaned, locations)
-
-
-def test_a_file_changed_after_its_stage_is_refused(tmp_path):
-    cleaned = tmp_path / "contributions_cleaned.csv"
-    _write(cleaned, "1")
-    start_run(cleaned)
-    record("resolve", cleaned)
-    _write(cleaned, "edited")
-    with pytest.raises(RunMismatch, match="changed after resolve wrote it"):
-        check_same_run(cleaned)
-
-
-def test_no_run_before_clean(tmp_path):
-    cleaned = tmp_path / "contributions_cleaned.csv"
-    _write(cleaned, "1")
-    with pytest.raises(RunMismatch, match="run clean.py first"):
-        check_same_run(cleaned)

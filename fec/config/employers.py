@@ -42,11 +42,8 @@ EMPLOYER_NORMALIZE = {
 }
 
 
-# Employer abbreviation tokens - THE one table, three consumers: the cleaner
-# auto-expands tokens that have an expansion, quality_scan surfaces every
-# token for human review, and the DB healthcheck warns on names still
-# carrying one. expansion=None marks a token as ambiguous or unverified -
-# surfaced and warned about, but never auto-expanded.
+# The cleaner expands these tokens; quality_scan lists them for review.
+# None means the token needs review and is not expanded automatically.
 EMPLOYER_ABBREVIATIONS = {
     'MGMT': 'MANAGEMENT',
     'MGMNT': 'MANAGEMENT',

@@ -1,4 +1,4 @@
-"""Connection, credentials, and low-level value/count helpers."""
+"""Database connection and value conversion."""
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -22,20 +22,19 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# the connection settings, read from .env when a connection is made (not on import)
+# Read database settings when connecting.
 def db_config() -> dict:
     load_env()
     return get_db_config()
 
 
-# double-quote and escape a sql identifier
+# Quote an SQL identifier and escape embedded quotes.
 def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
 
-# open a postgresql connection using .env credentials
+# Connect to PostgreSQL using the configured credentials.
 def connect(dbname: str | None = None) -> Any:
-    """Connect to PostgreSQL using credentials from .env."""
     config = db_config()
     return psycopg2.connect(
         host=config["host"],
@@ -46,11 +45,8 @@ def connect(dbname: str | None = None) -> Any:
     )
 
 
-
-
-# convert a pandas/numpy value to plain python, nan to none
+# Convert pandas values to Python values, with None for missing data.
 def to_native(val: Any) -> Any:
-    """Convert pandas value to Python-native (None for NaN)."""
     if pd.isna(val):
         return None
     if isinstance(val, np.integer):
@@ -62,9 +58,8 @@ def to_native(val: Any) -> Any:
     return val
 
 
-# parse a value to float or none, raise on garbage
+# Read a float or None; reject invalid text.
 def to_float_or_none(val: Any) -> float | None:
-    """Native float, or None for None/NaN/empty (dtype=str frames); raises ValueError on unparseable garbage rather than dropping a value."""
     if val is None or pd.isna(val):
         return None
     stripped = str(val).strip()
@@ -76,9 +71,8 @@ def to_float_or_none(val: Any) -> float | None:
         raise ValueError(f"to_float_or_none: cannot parse {stripped!r} as float")
 
 
-# parse a value to int or none, raise on garbage
+# Read an integer or None; reject invalid text.
 def to_int_or_none(val: Any) -> int | None:
-    """Native int (psycopg2 can't take numpy.int64), or None for None/NaN/empty; raises ValueError on unparseable garbage."""
     if val is None or pd.isna(val):
         return None
     if isinstance(val, str):
@@ -92,12 +86,9 @@ def to_int_or_none(val: Any) -> int | None:
         raise ValueError(f"to_int_or_none: cannot parse {val!r} as int")
 
 
-# the whole reload in one transaction: all of it is saved, or none of it
+# Commit the whole load, or roll it back on failure.
 @contextmanager
 def load_transaction(conn: Any) -> Iterator[None]:
-    """The only place the loader commits. A failure at any stage, even after
-    the old tables were dropped, rolls everything back: the database keeps
-    the previous load exactly as it was."""
     try:
         yield
     except BaseException:
@@ -107,9 +98,9 @@ def load_transaction(conn: Any) -> Iterator[None]:
     conn.commit()
 
 
-# name the stage a failure happened in; the transaction decides the rest
+# Log the failed stage before the transaction rolls back.
 @contextmanager
-def stage(conn: Any, name: str) -> Iterator[None]:
+def stage(name: str) -> Iterator[None]:
     try:
         yield
     except BaseException:
@@ -117,7 +108,7 @@ def stage(conn: Any, name: str) -> Iterator[None]:
         raise
 
 
-# undo only the statements inside the block when it fails
+# Roll back this block if it fails.
 @contextmanager
 def savepoint(cur: Any, name: str) -> Iterator[None]:
     cur.execute(f"SAVEPOINT {name}")
@@ -129,7 +120,7 @@ def savepoint(cur: Any, name: str) -> Iterator[None]:
     cur.execute(f"RELEASE SAVEPOINT {name}")
 
 
-# row count for a table, 0 if the query fails
+# Read the row count, or log a warning and return zero.
 def _count(cur: Any, table: str) -> int:
     try:
         with savepoint(cur, "count_rows"):

@@ -7,12 +7,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fec.cleaning.employer_status import classify_employer_statuses
-from fec.cleaning.occupations.normalize import categorize_final
-from fec.cleaning.quality.gates import run_quality_gates
+from fec.cleaning.work.status import classify_employer_statuses
+from fec.cleaning.work.normalize import categorize_final
+from fec.cleaning.reports.gates import run_quality_gates
 from fec.contract import STAGES
-from fec.pipeline_run import check_same_run, start_run
-from fec.resolve.pipeline import cli as resolve_cli
+from fec.resolve import pipeline as resolve_cli
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -55,7 +54,6 @@ def test_resolve_writes_the_final_gate_report(tmp_path, monkeypatch):
     monkeypatch.setattr(resolve_cli, "apply_results", _apply)
     monkeypatch.setattr(resolve_cli, "REPORTS_DIR", tmp_path)
 
-    start_run(csv_path)
     frame = _resolved_frame()
     resolve_cli._write_results(frame, str(csv_path), None, None, frame.columns)
 
@@ -70,7 +68,6 @@ def test_resolve_writes_the_final_gate_report(tmp_path, monkeypatch):
     assert report["checks"]["row_count"] == 2
     assert pd.read_csv(csv_path)["employer_city"].tolist()[0] == "SAINT LOUIS"
     assert not (tmp_path / "quality_gates.json.tmp").exists()
-    check_same_run(csv_path)
     assert _final_verify().quality_gate_problems(report, rows=2) == []
 
 

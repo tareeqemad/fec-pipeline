@@ -8,13 +8,13 @@ the current employer (NOT_REAL_EMPLOYER).
 import pandas as pd
 import pytest
 
-from fec.cleaning.previous_employer import (
+from fec.cleaning.work.previous import (
     normalize_previous_employer_column,
     normalize_previous_employer_value as V,
 )
-from fec.cleaning.employer_status import classify_employer_status, is_real_employer
-from fec.resolve.pipeline.apply import _preserve_previous_employer_display
-from fec.resolve.pipeline.helpers import _previous_employer_identity
+from fec.cleaning.work.status import classify_employer_status, is_real_employer
+from fec.resolve.apply import _preserve_previous_employer_display
+from fec.resolve.cache import _previous_employer_identity
 
 
 @pytest.mark.parametrize(('raw', 'expected'), [

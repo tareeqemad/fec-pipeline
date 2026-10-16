@@ -1,18 +1,22 @@
-"""The five pair-generation phases, in run order: within name groups, cross-group nicknames/typos, surname spelling variants, name-format variants (same token set), and maiden/married surname supersets."""
+"""Compare donor pairs in the five matching phases."""
 
 import re
 from collections import defaultdict
 from dataclasses import dataclass
 
-from fec.donor_match.constants import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS
 from fec.donor_match.rules import identities_must_stay_separate
-from fec.donor_match.scoring import (
+from fec.donor_match.normalize import (
+    _GENERATION_SUFFIXES,
     _are_cross_group_candidates,
     _is_surname_variant,
+)
+from fec.donor_match.scoring import (
+    MERGE_THRESHOLD,
+    SCORE_CROSS_NAME_BONUS,
     compute_score,
 )
 
-# one or more spaces/commas, to split a name into words
+
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 
 
@@ -25,10 +29,7 @@ class MatchContext:
     component_suffixes: dict
 
 
-# check generational-suffix conflicts before allowing a merge
-def _suffixes_allow_merge(
-    context: MatchContext, rid_a: str, rid_b: str
-) -> tuple[bool, str]:
+def _suffixes_allow_merge(context: MatchContext, rid_a: str, rid_b: str) -> tuple[bool, str]:
     root_a = context.union_find.find(rid_a)
     root_b = context.union_find.find(rid_b)
     suffixes_a = context.component_suffixes[root_a]
@@ -43,7 +44,6 @@ def _suffixes_allow_merge(
     return True, ""
 
 
-# union two records' components, merging their suffix sets
 def _join_components(context: MatchContext, rid_a: str, rid_b: str) -> bool:
     root_a = context.union_find.find(rid_a)
     root_b = context.union_find.find(rid_b)
@@ -57,14 +57,8 @@ def _join_components(context: MatchContext, rid_a: str, rid_b: str) -> bool:
     return True
 
 
-# score and merge one candidate pair
 def _merge_and_audit(
-    context: MatchContext,
-    rid_a: str,
-    rid_b: str,
-    label: str,
-    score: int,
-    signals: list,
+    context: MatchContext, rid_a: str, rid_b: str, label: str, score: int, signals: list,
 ) -> None:
     """Score and merge one candidate pair."""
     p1 = context.profiles[rid_a]
@@ -90,35 +84,20 @@ def _merge_and_audit(
     )
 
 
-# score all candidate pairs within each name group
-def _score_within_groups(
-    context: MatchContext,
-) -> None:
+def _score_within_groups(context: MatchContext) -> None:
     """Score all candidate pairs within each name group."""
     for norm_name, rids in context.name_groups.items():
         if len(rids) < 2:
             continue
-
         name_freq = len(rids)
-
         for i in range(len(rids)):
             for j in range(i + 1, len(rids)):
                 p1 = context.profiles[rids[i]]
                 p2 = context.profiles[rids[j]]
-
                 score, signals = compute_score(p1, p2, name_freq)
-
-                _merge_and_audit(
-                    context,
-                    rids[i],
-                    rids[j],
-                    norm_name,
-                    score,
-                    signals,
-                )
+                _merge_and_audit(context, rids[i], rids[j], norm_name, score, signals)
 
 
-# group normalized names by shared last name
 def _norms_by_last_name(name_groups: dict) -> dict:
     grouped = defaultdict(set)
     for norm_name in name_groups:
@@ -127,15 +106,8 @@ def _norms_by_last_name(name_groups: dict) -> dict:
     return grouped
 
 
-# score record pairs across two gated names in a bucket
 def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, records_match, adjust) -> None:
-    """Score each pair of records under two names of a bucket.
-
-    names_match(a, b) gates a pair of normalized names; records_match(p1, p2)
-    gates a pair of profiles before scoring; adjust(score, signals) returns the
-    phase's final score and may add signals. Pairs are visited in sorted name
-    order, so merges happen in the same order on every run.
-    """
+    """Score eligible profile pairs in sorted name order."""
     for norms in buckets.values():
         if len(norms) < 2:
             continue
@@ -159,18 +131,15 @@ def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, recor
                         )
 
 
-# any pair of profiles
 def _any_records(_p1: dict, _p2: dict) -> bool:
     return True
 
 
-# same street, or the same full ZIP5
 def _same_street_or_zip(p1: dict, p2: dict) -> bool:
     z1, z2 = p1["zip5"], p2["zip5"]
     return bool(p1["streets"] & p2["streets"]) or bool(z1 and len(z1) == 5 and z1 == z2)
 
 
-# first-name variants get the bonus only with an anchor
 def _cross_name_adjust(score: float, signals: list) -> float:
     if any(signal.startswith(("street(", "zip5=", "employer=")) for signal in signals):
         signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")
@@ -179,7 +148,6 @@ def _cross_name_adjust(score: float, signals: list) -> float:
     return min(score, MERGE_THRESHOLD - 1)
 
 
-# match first-name variants corroborated by street, ZIP, or employer
 def _score_cross_groups(context: MatchContext) -> None:
     """Match first-name variants only when street, ZIP, or employer corroborates them."""
     _score_bucket_pairs(
@@ -188,7 +156,6 @@ def _score_cross_groups(context: MatchContext) -> None:
     )
 
 
-# group normalized names by shared first name
 def _norms_by_first_name(name_groups: dict) -> dict:
     grouped = defaultdict(set)
     for norm_name in name_groups:
@@ -200,7 +167,6 @@ def _norms_by_first_name(name_groups: dict) -> dict:
     return grouped
 
 
-# same street, or the same ZIP5 and a shared employer
 def _same_street_or_zip_and_employer(p1: dict, p2: dict) -> bool:
     z1, z2 = p1["zip5"], p2["zip5"]
     same_zip = bool(z1 and len(z1) == 5 and z1 == z2)
@@ -208,21 +174,116 @@ def _same_street_or_zip_and_employer(p1: dict, p2: dict) -> bool:
     return bool(p1["streets"] & p2["streets"]) or (same_zip and same_employer)
 
 
-# two names whose surnames are typos of each other
 def _surnames_vary(name_a: str, name_b: str) -> bool:
     return _is_surname_variant(name_a.split("|", 1)[0], name_b.split("|", 1)[0])
 
 
-# tag a surname-variant pair without changing its score
 def _surname_variant_adjust(score: float, signals: list) -> float:
     signals.append("surname_variant")
     return score
 
 
-# match surname typos sharing a street or a ZIP/employer
 def _score_surname_variants(context: MatchContext) -> None:
     """Match surname typos only when the records share a street, or a ZIP and employer."""
     _score_bucket_pairs(
         context, _norms_by_first_name(context.name_groups),
         _surnames_vary, _same_street_or_zip_and_employer, _surname_variant_adjust,
     )
+
+
+def _name_token_key(norm_name: str) -> frozenset:
+    """Return the order-independent significant name tokens."""
+    last, _, first = norm_name.partition("|")
+    return frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
+
+
+def _norms_by_name_tokens(name_groups: dict) -> dict:
+    grouped = defaultdict(set)
+    for norm_name in name_groups:
+        if "|" not in norm_name:
+            continue
+        key = _name_token_key(norm_name)
+        if len(key) >= 2:
+            grouped[key].add(norm_name)
+    return grouped
+
+
+def _name_format_adjust(score: float, signals: list) -> float:
+    if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):
+        score += SCORE_CROSS_NAME_BONUS
+    signals.append("name_format_variant")
+    return score
+
+
+def _score_name_variants(context: MatchContext) -> None:
+    """Match name formats sharing a street or ZIP; keep middle-name conflicts."""
+    _score_bucket_pairs(
+        context, _norms_by_name_tokens(context.name_groups),
+        _any_names, _same_street_or_zip, _name_format_adjust,
+    )
+
+
+def _any_names(_name_a: str, _name_b: str) -> bool:
+    return True
+
+
+def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
+    key_of: dict = {}
+    first_of: dict = {}
+    for norm_name in name_groups:
+        if "|" not in norm_name:
+            continue
+        last, _, first = norm_name.partition("|")
+        toks = frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
+        if len(toks) >= 2:
+            key_of[norm_name] = toks
+            first_of[norm_name] = frozenset(t for t in _TOKEN_SPLIT_RE.split(first) if len(t) >= 2)
+
+    tok_index: dict = defaultdict(set)
+    for norm_name, tokens in key_of.items():
+        for token in tokens:
+            tok_index[token].add(norm_name)
+    return key_of, first_of, tok_index
+
+
+def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
+    candidates = None
+    for token in tokens:
+        candidates = set(token_index[token]) if candidates is None else candidates & token_index[token]
+    return candidates
+
+
+def _is_valid_superset(
+    shorter_name: str, longer_name: str, shorter_tokens: frozenset, key_of: dict, first_of: dict,
+) -> bool:
+    if longer_name == shorter_name:
+        return False
+    longer_tokens = key_of[longer_name]
+    if not shorter_tokens < longer_tokens:
+        return False
+    extra = longer_tokens - shorter_tokens
+    if len(extra) > 2 or extra <= _GENERATION_SUFFIXES:
+        return False
+    return bool(first_of[shorter_name] & longer_tokens)
+
+
+def _score_surname_superset_variants(context: MatchContext) -> None:
+    """Match short and compound surnames only on the same exact street."""
+    key_of, first_of, tok_index = _superset_name_index(context.name_groups)
+    for nn1, k1 in key_of.items():
+        for nn2 in _superset_candidates(k1, tok_index):
+            if not _is_valid_superset(nn1, nn2, k1, key_of, first_of):
+                continue
+            combined_freq = len(context.name_groups[nn1]) + len(context.name_groups[nn2])
+            for ra in context.name_groups[nn1]:
+                for rb in context.name_groups[nn2]:
+                    p1, p2 = context.profiles[ra], context.profiles[rb]
+                    if not (p1["streets"] & p2["streets"]):  # SAME exact street only
+                        continue
+                    score, signals = compute_score(p1, p2, combined_freq)
+                    if not any(
+                        ("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals
+                    ):
+                        score += SCORE_CROSS_NAME_BONUS
+                    signals.append("surname_superset")
+                    _merge_and_audit(context, ra, rb, f"{nn1} ⊂ {nn2}", score, signals)

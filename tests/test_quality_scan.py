@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from fec.cleaning.quality import scan as qs
+from fec.cleaning.reports import scan as qs
 
 
 def _df(rows, cols):

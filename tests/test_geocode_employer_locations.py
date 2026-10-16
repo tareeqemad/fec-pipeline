@@ -6,13 +6,13 @@ import sys
 import pandas as pd
 from geo_patch import patch_geo
 
-from fec.geocoding import employer_locations
+from fec.resolve import employer_locations
 import geocode
 from fec import io
-from fec.geocoding import employers
+from fec.geocoding import pipeline as employers
 from fec.geocoding import pipeline as geocoding_pipeline
 from fec.geocoding.cache import GeoCache
-from fec.geocoding.engines import NominatimUnavailable
+from fec.geocoding.providers import NominatimUnavailable
 
 
 def test_contributor_geocode_keeps_cleaned_address(tmp_path):
@@ -137,9 +137,8 @@ def test_employer_mode_builds_location_file(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(geocode, "_write_output", lambda *_args: calls.append("write"))
     monkeypatch.setattr(employer_locations, "build", lambda: calls.append("build"))
-    # the run and column checks have their own tests
-    for name in ("check_same_run", "check_input", "record"):
-        monkeypatch.setattr(geocode, name, lambda *_args: None)
+    # Column checks have their own tests.
+    monkeypatch.setattr(geocode, "check_input", lambda *_args: None)
 
     geocode.main()
 
@@ -167,43 +166,23 @@ def test_manual_coordinate_survives_rerun(tmp_path, monkeypatch):
     assert cache.get(key)["source"] == "manual_census"
 
 
-def test_city_fallback_retries_without_zip(monkeypatch):
+def test_po_box_does_not_trigger_a_city_fallback(monkeypatch):
     calls = []
-
-    def city(_city, _state, zipcode, _near):
-        calls.append(zipcode)
-        if zipcode:
-            return None, None, None
-        return 37.54, -77.43, "US"
-
-    patch_geo(monkeypatch, "city_level", city)
-    monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
-
-    # 23219 (downtown Richmond) has a centroid: the town is searched with it first
-    result = geocoding_pipeline._geocode_one(
-        "PO BOX 396", "Richmond", "VA", "23219",
+    patch_geo(monkeypatch, "nominatim", lambda *args: calls.append(("osm", args)) or (None, None, None))
+    patch_geo(monkeypatch, "census", lambda *args: calls.append(("census", args)) or (None, None, None))
+    assert geocoding_pipeline._geocode_one("PO BOX 396", "Richmond", "VA", "23219") == (
+        None, None, None, "not_found",
     )
-
-    assert calls == ["23219", ""]
-    assert result == (37.54, -77.43, "US", "nominatim_city")
-
-    # 23218 is PO-box-only, unknown to OSM and without a centroid: never sent
-    calls.clear()
-    result = geocoding_pipeline._geocode_one(
-        "PO BOX 396", "Richmond", "VA", "23218",
-    )
-
-    assert calls == [""]
-    assert result == (37.54, -77.43, "US", "nominatim_city")
+    assert not calls
 
 
-def test_census_is_preferred_for_us_street(monkeypatch):
+def test_openstreetmap_is_preferred_for_us_street(monkeypatch):
     patch_geo(
-        monkeypatch, "census",
+        monkeypatch, "nominatim",
         lambda *_args: (40.749146, -73.991886, "US"),
     )
     patch_geo(
-        monkeypatch, "nominatim",
+        monkeypatch, "census",
         lambda *_args: (_ for _ in ()).throw(AssertionError("not needed")),
     )
 
@@ -211,50 +190,35 @@ def test_census_is_preferred_for_us_street(monkeypatch):
         "7 PENN PLZ", "NEW YORK", "NY", "10001",
     )
 
-    assert result == (40.749146, -73.991886, "US", "census")
+    assert result == (40.749146, -73.991886, "US", "nominatim")
 
 
 def test_far_legacy_coordinate_is_rechecked_once(tmp_path):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     key = "7 PENN PLZ|NEW YORK|NY|10001"
-    cache.put(key, 43.131885, -77.440208, "nominatim")
+    cache.put(key, 30.2672, -97.7431, "nominatim")
 
     assert geocoding_pipeline._needs_lookup(key, cache)
 
-    cache.put(key, 40.749146, -73.991886, "census", validated=True)
+    cache.put(key, 40.749146, -73.991886, "census")
     assert not geocoding_pipeline._needs_lookup(key, cache)
 
 
-def test_old_not_found_gets_one_census_retry(tmp_path):
+def test_old_not_found_remains_cached(tmp_path):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     key = "822 KUMHO DR|FAIRLAWN|OH|44333"
+    cache.data[key] = {"lat": None, "lng": None, "source": "not_found"}
+
+    assert not geocoding_pipeline._needs_lookup(key, cache)
+
     cache.put_failed(key)
-
-    assert geocoding_pipeline._needs_lookup(key, cache)
-
-    cache.put_failed(key, validated=True)
     assert not geocoding_pipeline._needs_lookup(key, cache)
 
 
-def test_street_city_fallback_rejects_zip_conflict(monkeypatch):
-    patch_geo(monkeypatch, "census", lambda *_args: (None, None, None))
-    patch_geo(monkeypatch, "nominatim", lambda *_args: (None, None, None))
-    patch_geo(
-        monkeypatch, "city_level",
-        lambda *_args: (41.3582, -73.7052, "US"),
-    )
-    patch_geo(
-        monkeypatch, "nominatim_international",
-        lambda *_args: (None, None, None),
-    )
-    patch_geo(
-        monkeypatch, "_zip_centroids",
-        lambda: {"11963": (40.9979, -72.2926)},
-    )
-    monkeypatch.setattr(geocoding_pipeline.time, "sleep", lambda _delay: None)
-
-    result = geocoding_pipeline._geocode_one(
-        "268 CHESTNUT ST", "ENGLEWOOD", "NY", "11963",
-    )
-
-    assert result == (None, None, None, "not_found")
+def test_street_miss_leaves_coordinates_blank(monkeypatch):
+    calls = []
+    patch_geo(monkeypatch, "nominatim", lambda *args: calls.append(("osm", args)) or (None, None, None))
+    patch_geo(monkeypatch, "census", lambda *args: calls.append(("census", args)) or (None, None, None))
+    address = ("268 CHESTNUT ST", "ENGLEWOOD", "NY", "11963")
+    assert geocoding_pipeline._geocode_one(*address) == (None, None, None, "not_found")
+    assert calls == [("osm", address), ("census", address)]

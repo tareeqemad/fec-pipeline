@@ -30,8 +30,8 @@ def test_a_different_unit_or_a_street_named_by_an_ordinal_stays():
 
 
 def test_each_leftover_is_logged_under_its_own_reason():
-    from fec.cleaning.audit_trail import AuditTrail
-    from fec.cleaning.pipeline.address_stage import _clean_street_text
+    from fec.cleaning.reports.trail import AuditTrail
+    from fec.cleaning.addresses.clean import _clean_street_text
 
     df = pd.DataFrame({
         "sub_id": ["h", "f", "b"],

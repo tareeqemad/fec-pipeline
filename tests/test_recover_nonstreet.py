@@ -9,15 +9,17 @@ def _row(street, name="GHITIS, LEO", city="GOLDEN BEACH", state="FL", et="INDIVI
             "contributor_city": city, "contributor_state": state, "entity_type": et}
 
 
-def test_recovers_fragment_from_same_donor_clean_filing():
+def test_place_name_does_not_borrow_the_donors_street():
     df = pd.DataFrame([
         _row("240 GOLDEN BEACH DR"),   # clean filing
         _row("240 GOLDEN BEACH DR"),
-        _row("GOLDEN BEACH"),          # fragment, should be recovered
+        _row("GOLDEN BEACH"),          # place description, no numbered street evidence
     ])
     n = _recover_nonstreet_from_donor(df)
-    assert n == 1
-    assert (df["contributor_street_1"] == "240 GOLDEN BEACH DR").all()
+    assert n == 0
+    assert df["contributor_street_1"].tolist() == [
+        "240 GOLDEN BEACH DR", "240 GOLDEN BEACH DR", "GOLDEN BEACH",
+    ]
 
 
 def test_never_overwrites_a_good_street():
@@ -37,15 +39,15 @@ def test_never_recovers_one_fragment_with_another():
     assert (df["contributor_street_1"] == "GOLDEN BEACH").all()
 
 
-def test_state_single_fallback_when_city_mismatches():
-    # City is garbled so name+city+state misses, but the donor has exactly one clean FL street -> safe.
+def test_state_single_street_does_not_prove_a_place_description():
+    # One street elsewhere in the state does not identify this filing's address.
     df = pd.DataFrame([
         _row("240 GOLDEN BEACH DR", city="GOLDEN BEACH"),
         _row("GOLDEN BEACH", city="GOLDEN BCH"),   # city typo
     ])
     n = _recover_nonstreet_from_donor(df)
-    assert n == 1
-    assert (df["contributor_street_1"] == "240 GOLDEN BEACH DR").all()
+    assert n == 0
+    assert df["contributor_street_1"].tolist() == ["240 GOLDEN BEACH DR", "GOLDEN BEACH"]
 
 
 def test_state_fallback_skipped_when_two_streets():

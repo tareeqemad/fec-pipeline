@@ -26,7 +26,6 @@ TABLES = [
     "donor_addresses",
     "donor_employments",
     "contributions",
-    # Reference tables
     "us_states",
     "zcta_state_rel",
     "zip_centroids",
@@ -38,12 +37,9 @@ TABLES = [
 
 
 VIEWS = [
-    # Donor profile helpers.
     "v_donor_current_address",
     "v_donor_current_employment",
-    # Donor aggregates.
     "v_donor_stats",
-    # Donor profile source.
     "v_donor_profile",
 ]
 
@@ -51,7 +47,7 @@ VIEWS = [
 MAT_VIEWS = ["mv_donor_profile"]
 
 
-# split schema.sql into individual non-empty statements
+# Read SQL statements, skipping empty and comment-only text.
 def _read_schema_statements() -> list[str]:
     if not SCHEMA_SQL.exists():
         logger.error(f"{SCHEMA_SQL} not found")
@@ -65,26 +61,22 @@ def _read_schema_statements() -> list[str]:
     ]
 
 
-# classify a sql statement as table/index/view/function
+# Classify the created object for the load summary.
 def _schema_object_kind(statement: str) -> str:
-    upper = statement.upper()
-    if "CREATE TABLE" in upper:
+    upper = " ".join(sqlparse.format(statement, strip_comments=True).split()).upper()
+    if upper.startswith("CREATE TABLE"):
         return "tables"
-    if "CREATE INDEX" in upper or "CREATE UNIQUE INDEX" in upper:
+    if upper.startswith(("CREATE INDEX", "CREATE UNIQUE INDEX")):
         return "indexes"
-    if "CREATE VIEW" in upper or "MATERIALIZED VIEW" in upper:
+    if upper.startswith(("CREATE VIEW", "CREATE OR REPLACE VIEW", "CREATE MATERIALIZED VIEW")):
         return "views"
-    if (
-        "CREATE FUNCTION" in upper
-        or "CREATE OR REPLACE FUNCTION" in upper
-        or "CREATE TRIGGER" in upper
-    ):
+    if upper.startswith(("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", "CREATE TRIGGER")):
         return "functions"
     return ""
 
 
-# run one schema statement inside a savepoint
-def _execute_schema_statement(conn: Any, cur: Any, idx: int, statement: str) -> bool:
+# Run one SQL statement; skip objects that already exist.
+def _execute_schema_statement(cur: Any, idx: int, statement: str) -> bool:
     savepoint = f"sp_{idx}"
     try:
         cur.execute(f"SAVEPOINT {savepoint}")
@@ -105,7 +97,7 @@ def _execute_schema_statement(conn: Any, cur: Any, idx: int, statement: str) -> 
         ) from error
 
 
-# raise if any expected table is missing after creation
+# Require all expected tables after creation.
 def _verify_tables(cur: Any) -> None:
     cur.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
     actual = {row[0] for row in cur.fetchall()}
@@ -118,14 +110,13 @@ def _verify_tables(cur: Any) -> None:
     logger.info(f"  all {len(TABLES)} expected tables present")
 
 
-# create the schema from sql, then verify it
-def create_schema(conn: Any, cur: Any) -> None:
-    """Create and verify the database schema."""
+# Create the schema and check its required objects.
+def create_schema(cur: Any) -> None:
     logger.info(f"\n-- Creating schema from {SCHEMA_SQL.name} --")
     statements = _read_schema_statements()
     counts = Counter()
     for idx, statement in enumerate(statements):
-        if _execute_schema_statement(conn, cur, idx, statement):
+        if _execute_schema_statement(cur, idx, statement):
             kind = _schema_object_kind(statement)
             if kind:
                 counts[kind] += 1
@@ -139,9 +130,8 @@ def create_schema(conn: Any, cur: Any) -> None:
     _verify_schema_integrity(cur)
 
 
-# true if definition is the loader's employment unique key
+# Check the exact employment key, including NULLS NOT DISTINCT.
 def _is_employment_key(definition: str) -> bool:
-    """True for UNIQUE NULLS NOT DISTINCT over exactly the loader's employment key."""
     match = re.fullmatch(r"UNIQUE NULLS NOT DISTINCT \((.*)\)", definition.strip())
     if not match:
         return False
@@ -149,15 +139,13 @@ def _is_employment_key(definition: str) -> bool:
     return columns == EMPLOYMENT_KEY_COLUMNS
 
 
-# assert schema v1.2 invariants: views, constraints, no legacy columns
+# Check the required views, relationships and employment key.
 def _verify_schema_integrity(cur: Any) -> None:
-    """Assert v1.2 invariants: views/matviews exist, leader_committees junction, donor_employments unique key, no legacy donor pointer columns."""
     _require_names(cur, "SELECT viewname FROM pg_views WHERE schemaname='public'",
                    VIEWS, "views")
     _require_names(cur, "SELECT matviewname FROM pg_matviews WHERE schemaname='public'",
                    MAT_VIEWS, "materialized views")
 
-    # Verify leader relationships.
     cur.execute("""
         SELECT 1 FROM information_schema.tables
         WHERE table_schema='public' AND table_name='leader_committees'
@@ -170,14 +158,13 @@ def _verify_schema_integrity(cur: Any) -> None:
     _reject_legacy_columns(cur)
 
     logger.info(
-        f"  schema v1.2 integrity checks pass "
+        f"  schema v1 checks passed "
         f"(views={len(VIEWS)}, mvs={len(MAT_VIEWS)}, constraints OK)"
     )
 
 
-# raise if the query's results miss any expected name
+# Reject missing names from a catalog query.
 def _require_names(cur: Any, query: str, expected, label: str) -> None:
-    """Raise when the query's names lack any expected one."""
     cur.execute(query)
     actual = {row[0] for row in cur.fetchall()}
     missing = sorted(set(expected) - actual)
@@ -185,9 +172,8 @@ def _require_names(cur: Any, query: str, expected, label: str) -> None:
         raise RuntimeError(f"Schema: missing {label} {missing}")
 
 
-# check donor_employments has its unique key and column
+# Check the employment key and previous self-employment column.
 def _verify_employments_table(cur: Any) -> None:
-    """donor_employments has its unique key and self-employed column."""
     cur.execute("""
         SELECT pg_get_constraintdef(oid)
         FROM pg_constraint
@@ -212,9 +198,8 @@ def _verify_employments_table(cur: Any) -> None:
         )
 
 
-# raise if donors still has legacy pointer columns
+# Reject old address and employment pointers on donors.
 def _reject_legacy_columns(cur: Any) -> None:
-    """Raise when donors still has old denormalized pointer columns."""
     cur.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_schema='public' AND table_name='donors'
@@ -228,15 +213,14 @@ def _reject_legacy_columns(cur: Any) -> None:
         )
 
 
-# the database this cursor is connected to, for messages
+# Read the database name for error messages.
 def _database_name(cur: Any) -> str:
     connection = getattr(cur, "connection", None)
     return getattr(getattr(connection, "info", None), "dbname", None) or os.getenv("PG_DBNAME", "fec_db")
 
 
-# require needed postgres extensions before a destructive reset
+# Check required extensions before resetting tables.
 def verify_extensions(cur: Any) -> None:
-    """Require extensions before destructive reset."""
     required = {
         "pg_trgm": "fuzzy text search (gin_trgm_ops indexes)",
         "cube": "dependency of earthdistance",

@@ -1,24 +1,24 @@
 import pandas as pd
 
-from fec.cleaning.donor_consistency.employer import _fill_employer_from_donor
-from fec.cleaning.donor_consistency.occupation import (
+from fec.cleaning.donors.employer import _fill_employer_from_donor
+from fec.cleaning.donors.occupation import (
     _fill_occupation_from_donor,
     _rederive_occupation_category,
 )
-from fec.cleaning.donor_consistency.retired import (
+from fec.cleaning.donors.retired import (
     _fill_prev_employer_from_donor,
     _settle_retired_employer,
 )
-from fec.cleaning.quality.gates import run_quality_gates
-from fec.cleaning.quality.occupation_scan import scan_uncategorized_occupations
-from fec.cleaning.safety_nets.addresses import _fix_foreign_addresses
-from fec.cleaning.safety_nets.employer import _fix_retired_typos
-from fec.cleaning.safety_nets.employer_swaps import (
+from fec.cleaning.reports.gates import run_quality_gates
+from fec.cleaning.reports.occupation_scan import scan_uncategorized_occupations
+from fec.cleaning.rules.addresses import _fix_foreign_addresses
+from fec.cleaning.rules.employer import _fix_retired_typos
+from fec.cleaning.rules.employer_swaps import (
     _swap_role_employer_with_known_company,
 )
-from fec.cleaning.safety_nets.name_fields import _fix_occ_emp_both_swapped
-from fec.cleaning.safety_nets.occupation import _fix_web_artifact_occupation
-from fec.cleaning.safety_nets.occupation_category import (
+from fec.cleaning.rules.name_fields import _fix_occ_emp_both_swapped
+from fec.cleaning.rules.occupation import _fix_web_artifact_occupation
+from fec.cleaning.rules.occupation_category import (
     _fix_emp_occ_category_consistency,
 )
 
@@ -465,7 +465,7 @@ def test_employer_fill_before_any_employer_takes_the_first_one_after():
 
 
 def test_raw_employer_recovery_never_takes_a_namesakes_employer(tmp_path, monkeypatch):
-    from fec.cleaning.donor_consistency import employer as employer_module
+    from fec.cleaning.donors import employer as employer_module
 
     raw = tmp_path / 'contributions.csv'
     pd.DataFrame({
@@ -506,7 +506,7 @@ def test_a_retiree_who_filed_no_as_employer_gets_no_previous_employer():
 
 def test_an_employer_an_override_cleared_is_neither_refilled_nor_evidence(tmp_path, monkeypatch):
     # SANDBERG, ADELE filed her husband's EYE SURGERY ASSOCIATES once; the override clears it
-    from fec.cleaning.donor_consistency import employer as employer_module
+    from fec.cleaning.donors import employer as employer_module
 
     raw = tmp_path / 'contributions.csv'
     pd.DataFrame({

@@ -25,9 +25,7 @@ RAW_FIELDS = [
 ]
 
 
-# What FEC itself says about the contributor, kept in data/raw/fec_source_fields.csv
-# (never in the raw file): column -> FEC API field. entity_type is IND, ORG,
-# COM, PAC, PTY, CCM or CAN; contributor_id is the FEC id of a committee contributor.
+# FEC fields saved separately in fec_source_fields.csv.
 SOURCE_FIELDS = {
     "fec_entity_type": "entity_type",
     "fec_contributor_id": "contributor_id",
@@ -35,19 +33,16 @@ SOURCE_FIELDS = {
     "fec_image_number": "image_number",
 }
 
-# the FEC API fields one pull asks for
 FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
 
-# contributor_year preserves the existing raw CSV contract.
+# Keep the raw CSV column order.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 
-# data/raw/fec_source_fields.csv: one row per raw sub_id. matched_by says how it
-# was tied to FEC's row (pulled, sub_id, transaction); fec_sub_id is FEC's
-# current sub_id when it differs (an amended report).
+# matched_by records the match method; fec_sub_id holds an amended filing's ID.
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-# parse a value into a Decimal, default zero on failure
+# Parse an exact amount; use zero for missing or invalid values.
 def _number(value) -> Decimal:
     try:
         return Decimal(str(value).strip() or "0") if value is not None else Decimal("0")
@@ -55,38 +50,29 @@ def _number(value) -> Decimal:
         return Decimal("0")
 
 
-# truncate a value to a YYYY-MM-DD date string, else None
-def _date(value) -> str | None:
-    return str(value)[:10] if value and str(value).strip() else None
-
-
-# extract the year from a date string, else None
-def _year(date_value: str | None) -> int | None:
-    try:
-        return int(date_value[:4]) if date_value else None
-    except ValueError:
-        return None
-
-
-# convert one FEC API result into a raw CSV row
+# Build a raw CSV row, skipping filings without an ID.
 def build_row(result: dict[str, Any]) -> list | None:
-    """Convert one FEC result to the raw CSV schema."""
     sub_id = str(result.get("sub_id") or "").strip()
     if not sub_id:
         return None
 
-    receipt_date = _date(result.get("contribution_receipt_date"))
+    date_value = result.get("contribution_receipt_date")
+    receipt_date = str(date_value)[:10] if date_value and str(date_value).strip() else None
+    try:
+        year = int(receipt_date[:4]) if receipt_date else None
+    except ValueError:
+        year = None
     values = {field: result.get(field) for field in RAW_FIELDS}
     values["sub_id"] = sub_id
     values["contribution_receipt_date"] = receipt_date
-    values["contributor_year"] = _year(receipt_date)
+    values["contributor_year"] = year
     values["contribution_receipt_amount"] = _number(
         result.get("contribution_receipt_amount")
     )
     return [values.get(column) for column in COLUMNS]
 
 
-# the source fields of one FEC API result, by raw column
+# Read the FEC source fields saved beside the raw CSV.
 def source_values(result: dict[str, Any]) -> dict[str, str]:
     return {
         column: str(result.get(field) or "").strip().upper()

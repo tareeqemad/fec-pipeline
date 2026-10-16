@@ -1,41 +1,45 @@
-"""How two records are compared: string normalization, then the scoring engine."""
-
-import re
-
+"""Score the evidence shared by two donor profiles."""
 from fec.cleaning._helpers import levenshtein
-from fec.donor_match.constants import (
-    _BLOCKED_FIRST_PAIRS,
-    MERGE_THRESHOLD,
-    NICKNAME_MAP,
-    SCORE_COMMON_PENALTY,
-    SCORE_MIDDLE_CONFLICT,
-    SCORE_MIDDLE_MATCH,
-    SCORE_MIDDLE_PARTIAL,
-    SCORE_OCC_RETIRED,
-    SCORE_RARE_EMPLOYER_OK,
-    SCORE_RARE_NAME,
-    SCORE_RETIRED_NO_EMP,
-    SCORE_SAME_CITY,
-    SCORE_SAME_EMPLOYER,
-    SCORE_SAME_OCC,
-    SCORE_SAME_STATE,
-    SCORE_SAME_STREET,
-    SCORE_SAME_ZIP3,
-    SCORE_SAME_ZIP5,
-    SCORE_VERY_RARE_BONUS,
-)
-
-# -- string normalization: make raw strings comparable ----------------------
 
 
-# a run of letters/digits, to tokenize a name for comparison
-_NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
+# Generic categories do not support a match; retirement is scored separately.
+GENERIC_OCC_CATEGORIES = {
+    "RETIRED", "NOT EMPLOYED", "SELF-EMPLOYED", "OTHER",
+    "ORGANIZATION", "POLITICAL COMMITTEE", "HOMEMAKER", "STUDENT",
+    "NAN", "",
+}
 
 
-# -- the scoring engine ------------------------------------------------------
+# Scores at or above MERGE_THRESHOLD can merge, unless a separation rule blocks them.
+
+# shared evidence
+SCORE_SAME_STREET    = 60
+SCORE_SAME_EMPLOYER  = 30
+SCORE_SAME_STATE     = 10
+SCORE_SAME_CITY      = 15
+SCORE_SAME_ZIP5      = 25   # exact ZIP
+SCORE_SAME_ZIP3      = 5    # same ZIP area (first 3 digits)
+SCORE_SAME_OCC       = 15   # same occupation category
+SCORE_OCC_RETIRED    = 10   # occupation on one record, retired on the other
+
+# Conflicting full middle names block matching; conflicting initials subtract points.
+SCORE_MIDDLE_MATCH   = 15   # same middle, initial matching the full form, or 1-char typo
+SCORE_MIDDLE_PARTIAL = 5    # only one side has a middle name - no contradiction
+SCORE_MIDDLE_CONFLICT = -30 # different initials
+
+# name rarity (name_freq = distinct records sharing the normalized name)
+SCORE_RARE_NAME      = 15   # freq <= 3
+SCORE_VERY_RARE_BONUS = 20  # freq <= 2, stacks with RARE_NAME (+35 total)
+SCORE_COMMON_PENALTY = -15  # freq > 10: common names need more proof
+
+# situation bonuses
+SCORE_CROSS_NAME_BONUS = 10  # nickname/typo first-name pair (phase 2), only with corroboration
+SCORE_RETIRED_NO_EMP   = 25  # neither side employed + rare name + shared geography
+SCORE_RARE_EMPLOYER_OK = 10  # no geography at all, but shared employer + rare name
+
+MERGE_THRESHOLD = 50
 
 
-# score shared street, employer, state, city, and zip
 def _shared_evidence(p1: dict, p2: dict) -> tuple:
     """Score shared address and employer facts."""
     score = 0
@@ -78,7 +82,6 @@ def _shared_evidence(p1: dict, p2: dict) -> tuple:
     return score, signals, has_geo, common_employers
 
 
-# score matching occupation category or retirement transition
 def _occupation_evidence(p1: dict, p2: dict) -> tuple:
     """Score a consistent career or a career-to-retirement transition."""
     score = 0
@@ -95,7 +98,6 @@ def _occupation_evidence(p1: dict, p2: dict) -> tuple:
     return score, signals
 
 
-# score middle-name agreement, hard-block on mismatch
 def _middle_name_evidence(m1: str, m2: str) -> tuple:
     """Score middle names and hard-block two different full names."""
     score = 0
@@ -125,7 +127,6 @@ def _middle_name_evidence(m1: str, m2: str) -> tuple:
     return score, signals, hard_block
 
 
-# true if a shared employer contains the donor's surname
 def _is_eponymous(p: dict, common_employers: set) -> bool:
     """Return whether a shared employer contains the donor's surname."""
     name = p.get("name", "")
@@ -136,7 +137,6 @@ def _is_eponymous(p: dict, common_employers: set) -> bool:
     )
 
 
-# cap score when no geography evidence backs a match
 def _apply_no_geo_safety(
     score: int,
     signals: list,
@@ -169,7 +169,6 @@ def _apply_no_geo_safety(
     return score
 
 
-# combine all evidence into a match score with signals
 def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
     """Return the donor-match score and the evidence behind it."""
     score, signals, has_geo, common_employers = _shared_evidence(p1, p2)
@@ -214,60 +213,3 @@ def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
         )
 
     return score, signals
-
-
-# true if two name norms are likely the same person
-def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
-    """True when two LAST|FIRST norms share the surname and the first names are a nickname pair, edit distance <= 1, or a distance-2 prefix truncation; blocked look-alike pairs never match."""
-    if "|" not in norm1 or "|" not in norm2:
-        return False
-    last1, first1 = norm1.split("|", 1)
-    last2, first2 = norm2.split("|", 1)
-
-    if last1 != last2:
-        return False
-    if first1 == first2:
-        return False
-    if not first1 or not first2:
-        return False
-
-    pair = frozenset((first1.upper(), first2.upper()))
-    if pair in _BLOCKED_FIRST_PAIRS:
-        return False
-
-    if NICKNAME_MAP.get(first1, first1) == NICKNAME_MAP.get(first2, first2):
-        return True
-
-    dist = levenshtein(first1, first2)
-    if dist <= 1 and len(first1) >= 3 and len(first2) >= 3:
-        return True
-
-    if dist == 2:
-        short, long = (first1, first2) if len(first1) <= len(first2) else (first2, first1)
-        if long.startswith(short) and len(short) >= 3:
-            return True
-
-    return False
-
-
-# remove spaces, hyphens, and dots from a surname
-def _squash(s: str) -> str:
-    """Strip spaces, hyphens and dots for surname comparison."""
-    return s.replace(" ", "").replace("-", "").replace(".", "")
-
-
-# true if two surnames look like spelling variants
-def _is_surname_variant(last1: str, last2: str) -> bool:
-    """True for surname spelling variants (typo, squashed space/hyphen/dot, glued initial, truncation); the calling phase still demands strong geography before merging."""
-    if not last1 or not last2 or last1 == last2:
-        return False
-    if _squash(last1) == _squash(last2):        # DE TOLEDO == DETOLEDO
-        return True
-    d = levenshtein(last1, last2)
-    m = min(len(last1), len(last2))
-    if m < 4:                                   # short surnames: single-char slip only
-        return d == 1
-    if d <= 2:                                  # KHODAR/KHODARI (1), A SPIEGEL/SPIEGEL (2)
-        return True
-    lo, hi = sorted((last1, last2), key=len)    # truncation: DOLNER/DOLINER
-    return hi.startswith(lo) and len(lo) >= 4 and (len(hi) - len(lo)) <= 3

@@ -138,7 +138,7 @@ OUTPUT_COLUMNS = [
     'contribution_receipt_date',
     'contribution_receipt_amount',
     # what FEC itself says about the contributor (data/raw/fec_source_fields.csv),
-    # beside the final entity_type (fec/cleaning/entity_source.py)
+    # beside the final entity_type (fec/cleaning/entities.py)
     'fec_entity_type', 'fec_contributor_id', 'fec_image_number',
 ]
 
@@ -150,6 +150,7 @@ INTERNAL_OUTPUT_COLUMNS = [
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
     'committee_type',  # overloaded with non-committee sentinels
     'occupation_status',  # ~99% derivable; not in DB
+    'employment_source',  # kept in the cleaning audit only
     '_generational_suffix',  # identity evidence from the raw contributor name
     'resolve_method',  # how the employer address was resolved
     'resolve_confidence',  # confidence of the above

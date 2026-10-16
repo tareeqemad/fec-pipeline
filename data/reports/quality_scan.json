@@ -18,8 +18,8 @@
     "examples": []
   },
   "junk_occupation_suspects": {
-    "distinct": 14,
-    "rows": 19,
+    "distinct": 8,
+    "rows": 12,
     "examples": [
       {
         "value": "EXN",
@@ -46,14 +46,6 @@
         ]
       },
       {
-        "value": "CONCIL MEMBER",
-        "rows": 2,
-        "why": "donor-history",
-        "evidence": [
-          "2x vs 42x CITY COUNCIL MEMBER/COUNCILMEMBER"
-        ]
-      },
-      {
         "value": "SECURITY ANALYST",
         "rows": 2,
         "why": "donor-history",
@@ -67,14 +59,6 @@
         "why": "donor-history",
         "evidence": [
           "1x vs 11x HYDRO/AQUIFER CONSULTANT/INVESTOR"
-        ]
-      },
-      {
-        "value": "ESTATE PLANNER",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 10x ATTORNEY"
         ]
       },
       {
@@ -94,50 +78,18 @@
         ]
       },
       {
-        "value": "VICE MAYOR",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 43x CITY COUNCIL MEMBER/CONCIL MEMBER"
-        ]
-      },
-      {
         "value": "COMMUNITY BUILDER",
         "rows": 1,
         "why": "donor-history",
         "evidence": [
           "1x vs 20x CEO/COMMUNITY BUILDING"
         ]
-      },
-      {
-        "value": "BEHAVIOR CHANGE COACH",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 9x HEALTH COACH EDUCATOR"
-        ]
-      },
-      {
-        "value": "COLUMNIST",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 13x CONSULTANT/EVENT CURATOR"
-        ]
-      },
-      {
-        "value": "ATTOTNEY",
-        "rows": 1,
-        "why": "donor-history",
-        "evidence": [
-          "1x vs 32x ATTORNEY/GENERAL COUNSEL"
-        ]
       }
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 192,
-    "rows": 478,
+    "distinct": 177,
+    "rows": 458,
     "examples": [
       {
         "value": "ANALYST",

@@ -1,8 +1,9 @@
-"""Drop every object in the public schema so the loader can rebuild from scratch."""
+"""Drop public tables and views before reloading."""
 from __future__ import annotations
 
 from typing import Any
 
+from fec.database.loader._base import _quote_identifier
 from fec.env import DATABASE_OWNER
 from fec.log import get_logger
 
@@ -18,9 +19,8 @@ OBJECTS_SQL = """
 """
 
 
-# drop all owner-controlled objects, verify schema ends empty
-def reset_schema(conn: Any, cur: Any) -> None:
-    """Drop owner-controlled objects and verify public is empty."""
+# Check ownership, drop public tables and views, then verify removal.
+def reset_schema(cur: Any) -> None:
     logger.info("\n  Dropping all objects in public schema...")
 
     cur.execute("SELECT current_user")
@@ -56,8 +56,8 @@ def reset_schema(conn: Any, cur: Any) -> None:
 
     try:
         for name, kind, _owner in objects:
-            quoted = name.replace('"', '""')
-            cur.execute(f'DROP {kind} IF EXISTS "{quoted}" CASCADE')
+            quoted = _quote_identifier(name)
+            cur.execute(f'DROP {kind} IF EXISTS {quoted} CASCADE')
 
         cur.execute(OBJECTS_SQL)
         leftover = cur.fetchall()

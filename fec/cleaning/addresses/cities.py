@@ -78,8 +78,8 @@ def clean_cities(df: pd.DataFrame, fuzzy: bool = True, report_dir: str | None = 
     zip5 = _zip5(df)
     before = cities.copy()
     cities = _table_city_fixes(cities, states, zip5)
-    counts['known_fixes'] = _changed(before, cities)
     table_fixed = before.fillna('') != cities.fillna('')
+    counts['known_fixes'] = int(table_fixed.sum())
     df['contributor_city'] = cities
 
     if fuzzy:
@@ -178,16 +178,9 @@ def _swaps_place_qualifier(city: str, other: str) -> bool:
     return bool(differing) and all(word in _PLACE_QUALIFIERS for word in differing)
 
 
-# find city typos by fuzzy-matching rare names to common ones
+# Match city typos only where the common city is filed at the same state and ZIP.
+# Keep different place qualifiers separate.
 def _auto_detect_city_typos(df: pd.DataFrame, cutoff: float = 0.88, min_common: int = 10, max_rare: int = 3) -> dict:
-    """Fuzzy-match rare city names against common ones in the same state; returns {(state, typo, zip5): fix}.
-
-    String similarity alone renames one real town into its neighbour (EAST
-    HARTFORD 06128 -> WEST HARTFORD), so a pair is accepted only per ZIP5 that
-    is also filed with the common city in the same state by at least one other
-    row (the donor's own other filings count), and never when the names differ
-    by a place-qualifier word. Rows of the rare name at any other ZIP stay as filed.
-    """
     zip5 = _zip5(df)
     if zip5 is None:
         return {}

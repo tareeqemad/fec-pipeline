@@ -1,31 +1,12 @@
-"""Joint filings: a first-name field that also carries another person's given name.
-
-A filer sometimes puts two people on one filing: "SPELLMAN, MARC MELISSA"
-(Marc and Melissa), or glued, "MORRIS, ELLENSTU" (Ellen and Stu). Each person
-keeps their own name: the joint row stays as filed, on its own donor, and the
-partner's name is never written onto the filer's solo filings.
-
-The second word is treated as a co-filer only on the household's own evidence:
-another person with the same surname, who shares a street or a ZIP with the
-filer, files under that given name WITHOUT the filer's name (Melissa Spellman
-files alone at the same street). It is the filer's own middle name instead when
-
-* the filer's "first name" is only an initial ("M FREDDIE"),
-* the word is a nickname of the first name itself,
-* the household also files the filer's first initial plus the word ("L ROGER"
-  next to "LOWELL ROGER", "Y. DAVID" next to "YEHUDA DAVID"), or the word's
-  initial plus the first name ("M STEPHEN" next to "STEVE MARVIN": one man
-  who orders Marvin and Stephen both ways),
-* or a verified identity rule already joins the two spellings (see
-  rules.joint_name_exempt).
-
-Nothing here is a word list: the same word is a co-filer in one household and
-a middle name in another.
-"""
+"""Identify joint filings from household records and keep them separate."""
 
 import re
+from collections import defaultdict
 
-from fec.donor_match.constants import NAME_SUFFIXES, NICKNAME_MAP
+from fec.donor_match.keys import _donor_keys
+from fec.donor_match.rules import joint_name_exempt, resolve_donor_key
+from fec.donor_match.normalize import NAME_SUFFIXES, NICKNAME_MAP
+
 
 # a parenthesized aside to drop: "(NICKNAME)", "(unclosed"
 _PAREN_RE = re.compile(r"\([^()]*\)?")
@@ -33,14 +14,12 @@ _PAREN_RE = re.compile(r"\([^()]*\)?")
 _TOKEN_RE = re.compile(r"[A-Z]+")
 
 
-# extract the words of a first-name field, brackets/suffixes removed
 def given_tokens(first: str) -> tuple:
     """The words of a first-name field, brackets and suffixes left out."""
     text = _PAREN_RE.sub(" ", str(first or "").upper())
     return tuple(t for t in _TOKEN_RE.findall(text) if t not in NAME_SUFFIXES)
 
 
-# get the first-name part of a 'LAST, FIRST' composite name
 def first_of_name(name: str) -> str:
     """The first-name part of a 'LAST, FIRST' composite ('' when there is no comma)."""
     text = str(name or "")
@@ -52,7 +31,6 @@ def _root(token: str) -> str:
     return NICKNAME_MAP.get(token, token)
 
 
-# extract words of a spelling that could name a partner
 def _partner_words(spelling: tuple, own_firsts: set) -> list:
     """Words of one spelling that could name a second person."""
     first = spelling[0]
@@ -69,7 +47,6 @@ def _partner_words(spelling: tuple, own_firsts: set) -> list:
     return words
 
 
-# check whether some spelling is this initial plus this word
 def _initial_form(initial: str, word: str, spellings) -> bool:
     """Some spelling is this initial followed by this word ("L ROGER")."""
     return any(
@@ -78,28 +55,13 @@ def _initial_form(initial: str, word: str, spellings) -> bool:
     )
 
 
-# check whether the word names the filer, not a co-filer
+# Use the household's initial and full-name spellings to recognize a filer's own middle name.
 def _is_own_word(first: str, word: str, spellings) -> bool:
-    """The household files the word as the filer's own name, or the filer's
-    name as the word-person's own: one person, not two.
-
-    "L ROGER" next to "LOWELL ROGER": Roger is Lowell's middle name.
-    "M STEPHEN" next to "STEVE MARVIN": the Marvin who files alone is Marvin
-    Stephen, i.e. the same two names the other way round. A couple's joint
-    filings in both orders ("STUART SARA", "SARA STUART") carry no such
-    initial form and stay joint.
-    """
     return _initial_form(first[0], word, spellings) or _initial_form(word[0], first, spellings)
 
 
-# find given-name roots of co-filers carried by a first-name spelling
+# Find co-filer names using this filer's spellings and other household members' spellings.
 def joint_partners(spelling: tuple, own_spellings, household_spellings) -> frozenset:
-    """Given-name roots of the co-filers a first-name spelling carries (empty for a solo filing).
-
-    own_spellings: every first-name spelling of this filer's own records.
-    household_spellings: the spellings of OTHER people with the same surname
-    who share a street or ZIP with the filer.
-    """
     if not spelling or len(spelling[0]) == 1:
         return frozenset()
     first = spelling[0]
@@ -122,3 +84,93 @@ def joint_partners(spelling: tuple, own_spellings, household_spellings) -> froze
         if files_alone and not _is_own_word(first, word, own | household):
             partners.add(root)
     return frozenset(partners)
+
+
+# get a profile's given-name token spelling
+def _profile_spelling(profile: dict) -> tuple:
+    return given_tokens(first_of_name(profile["name"]))
+
+
+# get a profile's normalized surname
+def _profile_last(profile: dict) -> str:
+    return profile["norm_name"].partition("|")[0] if "|" in profile["norm_name"] else ""
+
+
+# Find profiles naming another person in the same surname and address/ZIP household.
+# Apply verified merges and own-name exemptions first.
+def find_joint_filings(profiles: dict, components: dict) -> dict:
+    rid_to_key = _donor_keys(components)
+    person_of = {rid: resolve_donor_key(key) for rid, key in rid_to_key.items()}
+    members = defaultdict(list)
+    for rid, person in person_of.items():
+        members[person].append(rid)
+
+    spellings = {rid: _profile_spelling(p) for rid, p in profiles.items()}
+    by_place = defaultdict(set)  # (surname, street or zip5) -> persons
+    places = defaultdict(set)    # person -> streets and zip5s
+    for rid, person in person_of.items():
+        profile = profiles[rid]
+        last = _profile_last(profile)
+        spots = {("S", street) for street in profile["streets"]}
+        if len(profile["zip5"]) == 5:
+            spots.add(("Z", profile["zip5"]))
+        places[person] |= spots
+        if last:
+            for spot in spots:
+                by_place[(last, spot)].add(person)
+
+    signatures = {}
+    for rid, person in person_of.items():
+        spelling = spellings[rid]
+        # a one-word name can only be a glued pair ("ELLENSTU") of a filer
+        # who also files under another spelling
+        if not spelling or (len(spelling) < 2 and len(members[person]) < 2):
+            continue
+        profile = profiles[rid]
+        if joint_name_exempt(profile["name"]):
+            continue
+        last = _profile_last(profile)
+        others = set()
+        for spot in places[person]:
+            others |= by_place.get((last, spot), set())
+        others.discard(person)
+        if not others:
+            continue
+        household = {
+            spellings[other_rid]
+            for other in others
+            for other_rid in members[other]
+            if _profile_last(profiles[other_rid]) == last
+        }
+        own = {spellings[member] for member in members[person]}
+        partners = joint_partners(spelling, own, household)
+        if partners:
+            signatures[rid] = partners
+    return signatures
+
+
+# Separate joint filings by co-filer pair, preserving the solo matches.
+# Keep the original root for its part; key other parts by their most-filed profile.
+def split_joint_filings(components: dict, signatures: dict, profiles: dict) -> int:
+    moved = 0
+    for root, members in list(components.items()):
+        parts = defaultdict(set)
+        for rid in members:
+            parts[signatures.get(rid, frozenset())].add(rid)
+        if len(parts) < 2:
+            continue
+        del components[root]
+        for signature, part in sorted(parts.items(), key=lambda item: sorted(item[0])):
+            if root in part:
+                new_root = root
+            else:
+                ranked = sorted(
+                    part,
+                    key=lambda rid: (profiles[rid]["record_count"], rid),
+                    reverse=True,
+                )
+                new_root = next(rid for rid in ranked if rid not in components)
+            components[new_root] = part
+            if signature:
+                moved += len(part)
+    return moved

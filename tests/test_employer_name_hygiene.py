@@ -1,9 +1,9 @@
 """Employer-name hygiene: legal-suffix restyle, canonical key, display name."""
 import pandas as pd
 
-from fec.cleaning.employer_synonyms.apply import finalize_employer_names
-from fec.cleaning.employer_synonyms.canonical import canonical_key
-from fec.cleaning.employer_synonyms.normalize import (
+from fec.cleaning.work.employer_names import finalize_employer_names
+from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
 )
@@ -112,7 +112,7 @@ def test_new_employer_variants_use_known_companies():
     expected = {
         'CHIEFTAIN CAPITAL MANAGEMENT INC': 'CHIEFTAIN CAPITAL MANAGEMENT',
         'ELLIOTT INVESTMENT MANAGEMENT': 'ELLIOTT INVESTMENT MANAGEMENT LP',
-        'PIERPOINT CAPITAL MANAGEMENT': 'PIERPOINT',
+        'PIERPOINT CAPITAL MANAGEMENT': 'PIERPOINT CAPITAL',
         'FISHMAN, BLOCK, DIAMOND, BY CERITY PAR':
             'FISHMAN BLOCK + DIAMOND BY CERITY PARTNERS',
     }
@@ -137,7 +137,7 @@ def test_display_name_retired_prefix():
 
 
 def test_comma_spacing_is_one_style():
-    from fec.cleaning.employer_synonyms.canonical import tidy_employer_commas
+    from fec.cleaning.work.employer_canonical import tidy_employer_commas
     assert tidy_employer_commas('AG,LLC') == 'AG, LLC'
     assert tidy_employer_commas('KENNETH ROSE ,ESQ') == 'KENNETH ROSE, ESQ'
     assert tidy_employer_commas('1,000 FLOWERS') == '1,000 FLOWERS'

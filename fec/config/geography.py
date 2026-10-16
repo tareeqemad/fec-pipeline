@@ -10,8 +10,7 @@ US_STATES = frozenset({
 })
 
 
-# Per-state (lat_min, lat_max, lng_min, lng_max). Used by geocoding
-# validation (fec/geocoding/pipeline.py).
+# Geocoding bounds: (lat_min, lat_max, lng_min, lng_max) per state.
 US_STATE_BBOX = {
     'AL': (30.1, 35.0, -88.5, -84.9), 'AK': (51.2, 71.4, -180.0, -129.9),
     'AZ': (31.3, 37.0, -114.8, -109.0), 'AR': (33.0, 36.5, -94.6, -89.6),
@@ -41,4 +40,6 @@ US_STATE_BBOX = {
     'DC': (38.8, 39.0, -77.1, -76.9), 'PR': (17.9, 18.5, -67.3, -65.6),
     'VI': (17.6, 18.4, -65.1, -64.6), 'GU': (13.2, 13.7, 144.6, 145.0),
     'AS': (-14.4, -14.2, -170.8, -170.5),
+    # NOAA, section 3.1.1: https://repository.library.noaa.gov/view/noaa/4693/noaa_4693_DS1.pdf
+    'MP': (14.0, 21.0, 144.0, 146.0),
 }

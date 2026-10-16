@@ -10,7 +10,7 @@ import json
 
 import pandas as pd
 
-from fec.geocoding import employer_locations
+from fec.resolve import addresses, employer_locations
 
 RAW = "20900 N.E. 30th Avenue, Suite 203"
 PLACE = "AVENTURA|FL|33180"
@@ -30,7 +30,8 @@ def _build(tmp_path, monkeypatch, geocodes):
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    monkeypatch.setattr(addresses, "CACHE_DIR", tmp_path)
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
     employer_locations.build()
@@ -64,8 +65,8 @@ def test_the_text_as_resolved_wins_a_tie(tmp_path, monkeypatch):
     assert location["employer_latitude"] == "25.969"
 
 
-def test_a_level_the_ranking_does_not_list_counts_as_a_street_point(tmp_path, monkeypatch):
-    # a new engine or a hand-checked level is never ranked below a ZIP centroid
+def test_an_unknown_cache_source_is_not_assumed_to_be_a_street_point(tmp_path, monkeypatch):
+    # Neither an unknown source nor a ZIP approximation proves a street location.
     geocodes = {
         f"{RAW.upper()}|{PLACE}": _point(25.9565, -80.1392, "zip_centroid"),
         f"20900 NE 30TH AVE|{PLACE}": _point(25.9696, -80.1440, "reviewed"),
@@ -73,7 +74,7 @@ def test_a_level_the_ranking_does_not_list_counts_as_a_street_point(tmp_path, mo
 
     location = _build(tmp_path, monkeypatch, geocodes)
 
-    assert location["employer_latitude"] == "25.9696"
+    assert location["employer_latitude"] == ""
 
 
 def test_a_point_its_own_key_rejects_is_never_taken(tmp_path, monkeypatch):
@@ -85,15 +86,15 @@ def test_a_point_its_own_key_rejects_is_never_taken(tmp_path, monkeypatch):
 
     location = _build(tmp_path, monkeypatch, geocodes)
 
-    assert location["employer_latitude"] == "25.9565"
+    assert location["employer_latitude"] == ""
 
 
 def test_a_hand_checked_point_counts_without_a_cache_entry(tmp_path, monkeypatch):
     # the prune step deletes unused cache keys; a reviewed point lives in the code
-    monkeypatch.setattr(employer_locations, "REVIEWED_POINTS", {
+    monkeypatch.setattr(addresses, "REVIEWED_POINTS", {
         f"20900 NE 30TH AVE|{PLACE}": (25.97, -80.145, "checked by hand"),
     })
-    monkeypatch.setattr("fec.geocoding.accepted.reviewed_point", lambda key: (
+    monkeypatch.setattr("fec.geocoding.validation.reviewed_point", lambda key: (
         (25.97, -80.145) if key == f"20900 NE 30TH AVE|{PLACE}" else None))
 
     location = _build(tmp_path, monkeypatch, {})

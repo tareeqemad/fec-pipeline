@@ -1,12 +1,12 @@
 """AD0 swaps employer/occupation only when other donors already use that occupation string as an employer."""
 import pandas as pd
 
-from fec.cleaning.occupations.clean import _fix_swapped_occ_emp
-from fec.cleaning.pipeline.reclassify_restore import _restore_reclassified_committees
-from fec.cleaning.safety_nets.employer_swaps import (
+from fec.cleaning.work.clean import _fix_swapped_occ_emp
+from fec.cleaning.entities import _restore_reclassified_committees
+from fec.cleaning.rules.employer_swaps import (
     _swap_role_employer_with_known_company,
 )
-from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
+from fec.cleaning.rules.name_fields import _fix_company_name_as_occupation
 
 
 def _frame(rows):
@@ -149,8 +149,8 @@ def test_committees_are_skipped():
 
 def test_runs_before_the_role_net_in_the_registry():
     """AD would otherwise strand the company."""
-    from fec.cleaning.record_rules import SAFETY_RULES
-    from fec.cleaning.safety_nets.employer_swaps import _fix_role_as_employer
+    from fec.cleaning.rules.records import SAFETY_RULES
+    from fec.cleaning.rules.employer_swaps import _fix_role_as_employer
 
     names = [fn for fn, *_ in SAFETY_RULES]
     assert names.index(_swap_role_employer_with_known_company) < names.index(_fix_role_as_employer)

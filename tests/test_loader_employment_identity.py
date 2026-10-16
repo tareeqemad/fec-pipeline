@@ -105,10 +105,10 @@ def _load(db, filings, employers=None):
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
     get_employer_id = _make_employer_resolver(employers or {})
     employment_ids = load_employments(
-        db, db, frame, donor_ids, {"LEGAL": 1}, get_employer_id, HOME, [],
+        db, frame, donor_ids, {"LEGAL": 1}, get_employer_id, HOME, [],
     )
     rows = frame.assign(_donor_id=frame["donor_key"].map(donor_ids))
-    _map_employment_ids(rows, employment_ids, get_employer_id)
+    _map_employment_ids(rows, employment_ids, get_employer_id, {"LEGAL": 1})
     by_id = dict(enumerate(db.rows, 1))
     return {sub_id: by_id[int(employment_id)]
             for sub_id, employment_id in zip(rows["sub_id"], rows["_employment_id"])}
@@ -120,9 +120,9 @@ def test_schema_unique_key_is_the_loader_key():
 
 
 def test_employment_key_treats_nan_as_null():
-    assert employment_key(1.0, np.nan, np.nan, "retired") == (1, None, None, "retired", None, False)
-    assert employment_key(np.int64(2), 5.0, "ATTORNEY", "active") == (2, 5, "ATTORNEY", "active", None, False)
-    assert employment_key(1, None, None, "retired", 7.0) == (1, None, None, "retired", 7, False)
+    assert employment_key(1.0, np.nan, np.nan, "retired") == (1, None, None, "retired", None, False, None)
+    assert employment_key(np.int64(2), 5.0, "ATTORNEY", "active") == (2, 5, "ATTORNEY", "active", None, False, None)
+    assert employment_key(1, None, None, "retired", 7.0) == (1, None, None, "retired", 7, False, None)
     assert employment_key(1, None, None, "retired") != employment_key(1, None, None, "self_employed")
 
 
@@ -279,7 +279,7 @@ def test_self_employed_never_becomes_an_employer_row(monkeypatch):
     ])
 
     names = {}
-    link_previous_employers(cursor, cursor, frame, names)
+    link_previous_employers(cursor, frame, names)
 
     assert cursor.names == ["ACME"]
     assert names == {"ACME": 1}
@@ -293,6 +293,6 @@ def test_other_non_company_previous_values_are_reported(monkeypatch, caplog):
     ])
 
     with caplog.at_level("WARNING"):
-        link_previous_employers(cursor, cursor, frame, {})
+        link_previous_employers(cursor, frame, {})
 
     assert "non-company value(s) not stored: 'RETIRED'" in caplog.text

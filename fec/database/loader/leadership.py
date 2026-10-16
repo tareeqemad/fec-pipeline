@@ -1,9 +1,4 @@
-"""Load leaders and key_accomplices from their hand-maintained CSVs.
-
-Both rosters name committees by committee_short (leaders.committee_ids
-'{AIPAC,DMFI}', key_accomplices.committee_id 'ZOA'); the loader resolves each
-name through the committees table and refuses an unknown one.
-"""
+"""Load both rosters, resolving committee names to database IDs."""
 from __future__ import annotations
 
 from typing import Any
@@ -16,24 +11,18 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# map committee_short to committee_id from the loaded committees table
+# Map committee short names to database IDs.
 def committee_lookup(cur: Any) -> dict[str, int]:
-    """committee_short -> committee_id, read from the committees table the loader just filled.
-
-    The rosters name committees by committee_short (AIPAC, DMFI, ...). The ids are a
-    SERIAL assigned in committees.csv row order, so a roster must never hard-code them.
-    """
     cur.execute(
         "SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL"
     )
     return {short: committee_id for short, committee_id in cur.fetchall()}
 
 
-# resolve one committee_short to its id, or raise if unknown
+# Find a committee ID or reject the unknown name.
 def resolve_committee(
     short: str, committees: dict[str, int], csv_filename: str, who: str,
 ) -> int:
-    """One committee_short -> committee_id; an unknown name stops the load."""
     committee_id = committees.get(short)
     if committee_id is None:
         raise ValueError(
@@ -43,11 +32,10 @@ def resolve_committee(
     return committee_id
 
 
-# parse leaders.csv's committee_ids array field into committee ids
+# Read the committee names listed for one leader.
 def leader_committee_ids(
     raw: str | None, committees: dict[str, int], who: str,
 ) -> list[int]:
-    """Parse leaders.csv committee_ids ('{AIPAC,DMFI}') into committee ids."""
     text = (raw or "").strip()
     if text.startswith("{") and text.endswith("}"):
         text = text[1:-1]
@@ -65,32 +53,30 @@ def leader_committee_ids(
     return ids
 
 
-# parse key_accomplices.csv's committee_id field, blank means none
+# Read the card committee, or None for a blank value.
 def accomplice_committee_id(
     raw: str | None, committees: dict[str, int], who: str,
 ) -> int | None:
-    """Parse key_accomplices.csv committee_id ('ZOA', or blank for none)."""
     short = (raw or "").strip()
     if not short:
         return None
     return resolve_committee(short, committees, "key_accomplices.csv", who)
 
 
-# load leaders.csv into leaders plus the leader_committees junction
-def load_leadership(conn: Any, cur: Any) -> None:
-    """Load leaders.csv into leaders (donor_id) plus the leader_committees M:N junction."""
+# Load leaders and their committee memberships.
+def load_leadership(cur: Any) -> None:
     committees = committee_lookup(cur)
 
-    # verify every row's committee_ids resolve before inserting any
-    def _validate(rows):
+    # Check every leader committee before inserting rows.
+    def validate_leader_committees(rows):
         for _, row in rows.iterrows():
             leader_committee_ids(
                 row.get("committee_ids"), committees, (row.get("leader_name") or "").strip(),
             )
 
-    # upsert one leader and rebuild its committee links
-    def _insert(cur, row, donor_id):
-        kept = leader_committee_ids(
+    # Save the leader and replace its committee links.
+    def insert_leader(cur, row, donor_id):
+        committee_ids = leader_committee_ids(
             row.get("committee_ids"), committees, (row.get("leader_name") or "").strip(),
         )
 
@@ -107,46 +93,51 @@ def load_leadership(conn: Any, cur: Any) -> None:
 
         # Rebuild committee links.
         cur.execute("DELETE FROM leader_committees WHERE leader_id = %s", (leader_id,))
-        if kept:
+        if committee_ids:
             execute_values(
                 cur,
                 "INSERT INTO leader_committees (leader_id, committee_id) VALUES %s",
-                [(leader_id, committee_id) for committee_id in kept],
+                [(leader_id, committee_id) for committee_id in committee_ids],
             )
 
-    _load_donor_linked_csv(conn, cur, "leaders.csv", "leaders", _insert, _validate)
+    _load_donor_linked_csv(
+        cur, "leaders.csv", "leaders", insert_leader, validate_leader_committees,
+    )
 
 
-# load key_accomplices.csv into key_accomplices with its committee FK
-def load_key_accomplices(conn: Any, cur: Any) -> None:
-    """Load key_accomplices.csv into key_accomplices (donor_id FK + card fields)."""
+# Read display order, using zero for missing or invalid text.
+def _accomplice_display_order(raw, who: str) -> int:
+    text = (raw or "").strip()
+    if not text:
+        return 0
+    if text.lstrip("-").isdigit():
+        return int(text)
+    logger.warning("  key_accomplices.csv: %s -- unparseable display_order %r, using 0",
+                   who, text)
+    return 0
+
+
+# Load curated cards and link them to donors.
+def load_key_accomplices(cur: Any) -> None:
     committees = committee_lookup(cur)
 
-    # blank editorial field becomes None
-    def _txt(row, col):
-        value = (row.get(col) or "").strip()
+    # Return trimmed text or None.
+    def optional_text(row, column):
+        value = (row.get(column) or "").strip()
         return value or None
 
-    # verify every row's committee_id resolves before inserting any
-    def _validate(rows):
+    # Check every card committee before inserting rows.
+    def validate_accomplice_committees(rows):
         for _, row in rows.iterrows():
             accomplice_committee_id(
                 row.get("committee_id"), committees, (row.get("accomplice_name") or "").strip(),
             )
 
-    # upsert one key accomplice card
-    def _insert(cur, row, donor_id):
-        # Ignore blank editorial fields.
+    # Save the card text, committee and display order.
+    def insert_accomplice(cur, row, donor_id):
         who = (row.get("accomplice_name") or "").strip()
         committee_id = accomplice_committee_id(row.get("committee_id"), committees, who)
-        sort_raw = (row.get("display_order") or "").strip()
-        display_order = 0
-        if sort_raw:
-            if sort_raw.lstrip("-").isdigit():
-                display_order = int(sort_raw)
-            else:
-                logger.warning("  key_accomplices.csv: %s -- unparseable display_order %r, using 0",
-                               who, sort_raw)
+        display_order = _accomplice_display_order(row.get("display_order"), who)
         cur.execute(
             """
             INSERT INTO key_accomplices
@@ -162,14 +153,17 @@ def load_key_accomplices(conn: Any, cur: Any) -> None:
             """,
             (
                 donor_id,
-                _txt(row, "sign"),
-                _txt(row, "subtitle"),
-                _txt(row, "body_text"),
+                optional_text(row, "sign"),
+                optional_text(row, "subtitle"),
+                optional_text(row, "body_text"),
                 committee_id,
                 display_order,
             ),
         )
 
-    _load_donor_linked_csv(conn, cur, "key_accomplices.csv", "key_accomplices", _insert, _validate)
+    _load_donor_linked_csv(
+        cur, "key_accomplices.csv", "key_accomplices",
+        insert_accomplice, validate_accomplice_committees,
+    )
 
 

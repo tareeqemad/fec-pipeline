@@ -1,7 +1,7 @@
 """Admin-note/refusal employers are nulled without touching real companies containing such words."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.employer import _clear_admin_note_employers
+from fec.cleaning.rules.employer import _clear_admin_note_employers
 
 
 def test_admin_notes_nulled_real_companies_kept():

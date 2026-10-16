@@ -1,7 +1,7 @@
 """A manual override that names work the filing never did is marked as coming from outside it."""
 import pandas as pd
 
-from fec.cleaning.manual_overrides import _brings_outside_work
+from fec.cleaning.rules.manual import _brings_outside_work
 
 
 def _filing(employer, occupation, first="JOSH", last="BLATT"):
