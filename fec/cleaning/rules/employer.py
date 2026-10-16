@@ -1,0 +1,242 @@
+"""Employer-field junk clearing; swap and self-employment fixes live in employer_swaps."""
+from __future__ import annotations
+
+import re
+
+import numpy as np
+import pandas as pd
+
+from fec.cleaning.work.normalize import (
+    _categorize,
+    categorize_final,
+    swap_employer_and_occupation,
+)
+from fec.config.constants import (
+    ADMIN_NOTE_EMPLOYER_RE,
+    OK_SHORT_EMPLOYERS,
+    REFUSAL_EMPLOYERS,
+    RETIRED_TYPO_EMPLOYERS,
+)
+from fec.config.not_employers import (
+    JOB_TITLE_AS_EMPLOYER,
+    NOT_REAL_EMPLOYER,
+    OCCUPATION_AS_EMPLOYER,
+    SECTOR_AS_EMPLOYER,
+)
+
+# Safe structural variants of the status word: RETIR / RETIRE / RETIRED /
+# RETIREE / RETIRD. Full-match only, so "RETIREMENT" is never touched.
+_RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
+
+# 'RETIRED <tail>': the tail is a previous employer or a profession word
+_RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
+# the leading "RETIRED" marker to strip, keeping the tail: "RETIRED - ACME"
+_RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
+
+# the whole value is digits only, e.g. "12345"
+_DIGITS_ONLY_RE = re.compile(r'^\d+$')
+# the same character repeated 4+ times filling the whole value: "XXXXX"
+_REPEATED_CHAR_RE = re.compile(r'^(.)\1{3,}$')
+
+
+# null contributor_employer under mask, optionally set occupation_status
+def _null_employer_where(df: pd.DataFrame, mask: pd.Series, *, set_status='EMPLOYER_MISSING') -> int:
+    """Null contributor_employer under mask, optionally set occupation_status; returns rows changed."""
+    n_changed = int(mask.sum())
+    if n_changed:
+        df.loc[mask, 'contributor_employer'] = np.nan
+        if set_status is not None:
+            df.loc[mask, 'occupation_status'] = set_status
+    return n_changed
+
+
+# clear employer when it is a refusal word (PRIVATE, CONFIDENTIAL)
+def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """M. Employer is a refusal word (PRIVATE, CONFIDENTIAL): clear it."""
+    mask = is_indiv & df['contributor_employer'].fillna('').str.upper().str.strip().isin(REFUSAL_EMPLOYERS)
+    n_fixed = int(mask.sum())
+    if not n_fixed:
+        return 0
+
+    has_real = mask & (df['occupation_status'] == 'DISCLOSED')
+    has_not_disclosed = mask & (df['occupation_status'] == 'NOT_DISCLOSED')
+    df.loc[has_real, 'contributor_employer'] = pd.NA
+    df.loc[has_real, 'occupation_status'] = 'EMPLOYER_MISSING'
+    df.loc[has_not_disclosed, 'contributor_employer'] = pd.NA
+    return n_fixed
+
+
+# clear employer when it is FEC admin-note phrasing, not real
+def _clear_admin_note_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """FEC admin-note phrasing in employer (PER BEST EFFORTS, REQUEST SENT...); full-anchored so a real name CONTAINING such a word is kept."""
+    emp = df['contributor_employer'].fillna('').str.upper().str.strip()
+    mask = is_indiv & emp.str.match(ADMIN_NOTE_EMPLOYER_RE, na=False)
+    return _null_employer_where(df, mask)
+
+
+# null out truncated 2-char employer junk
+def _null_short_employer_junk(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """O. Null out truncated 2-char employer junk."""
+    emp = df['contributor_employer']
+    mask = is_indiv & emp.notna() & emp.str.len().le(2) & ~emp.isin(OK_SHORT_EMPLOYERS)
+    return _null_employer_where(df, mask, set_status=None)
+
+
+# clear a numeric-only employer (card number, ZIP, phone)
+def _fix_numeric_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """Q. Final pass: numeric-only employer (card number, ZIP, phone) -> NaN."""
+    emp = df['contributor_employer'].fillna('')
+    mask = is_indiv & emp.str.match(_DIGITS_ONLY_RE, na=False)
+    return _null_employer_where(df, mask)
+
+
+# clear employer when it holds an email address
+def _fix_email_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """R. Final pass: email in employer -> NaN."""
+    emp = df['contributor_employer'].fillna('')
+    mask = is_indiv & emp.str.contains('@', na=False, regex=False)
+    return _null_employer_where(df, mask)
+
+
+# clear all-same-character junk employer values
+def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """Clear employer values made of one repeated character."""
+    emp = df['contributor_employer'].fillna('')
+    all_same = is_indiv & emp.str.match(_REPEATED_CHAR_RE, na=False)
+    return _null_employer_where(df, all_same, set_status='NOT_DISCLOSED')
+
+
+# normalize RETIRED typos, splitting any trailing text off
+def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """T. RETIRED typos normalized; 'RETIRED <X>' splits X to previous_employer (company) or occupation (profession word)."""
+    emp = df['contributor_employer'].fillna('')
+    retired_marker = (
+        emp.isin(RETIRED_TYPO_EMPLOYERS)
+        | emp.str.fullmatch(_RETIRED_TOKEN_RE, na=False)
+    )
+    mask = is_indiv & retired_marker & emp.ne('RETIRED')
+    n_fixed = int(mask.sum())
+    if n_fixed:
+        df.loc[mask, 'contributor_employer'] = 'RETIRED'
+        df.loc[mask, 'contributor_occupation'] = 'RETIRED'
+        df.loc[mask, 'occupation_category'] = 'RETIRED'
+        df.loc[mask, 'occupation_status'] = 'NOT_APPLICABLE'
+
+    embedded = is_indiv & emp.str.match(_RETIRED_WITH_TAIL_RE, na=False)
+    for idx in df.index[embedded]:
+        rest = _RETIRED_PREFIX_RE.sub('', emp.at[idx]).strip()
+        df.at[idx, 'contributor_employer'] = 'RETIRED'
+        occ = str(df.at[idx, 'contributor_occupation'] or '')
+        if rest in OCCUPATION_AS_EMPLOYER:
+            if not occ or occ == 'RETIRED':
+                df.at[idx, 'contributor_occupation'] = rest
+        elif len(rest) >= 4 and rest != 'MILITARY':
+            if 'previous_employer' not in df.columns:
+                df['previous_employer'] = pd.Series(dtype='object', index=df.index)
+            if not str(df.at[idx, 'previous_employer'] or '').strip():
+                df.at[idx, 'previous_employer'] = rest
+        n_fixed += 1
+    return n_fixed
+
+
+# EXECUTIVE names no company, but remains a title when the paired field names one.
+_TITLE_SECTOR_WORDS = frozenset({'EXECUTIVE'}) & SECTOR_AS_EMPLOYER
+
+# Require company words here; sector words and '&' alone are not enough.
+_ENTITY_WORD_RE = re.compile(
+    r'\b(?:L\.?L\.?C|L\.?L\.?P|L\.?P|INC|CORP|CORPORATION|COMPANY|LTD|PLC'
+    r'|GROUP|HOLDINGS|PARTNERS|ENTERPRISES|INDUSTRIES)\b\.?'
+)
+# a name part that is itself an industry, a kind of workplace or a job
+_NOT_A_COMPANY_NAME = SECTOR_AS_EMPLOYER | NOT_REAL_EMPLOYER | JOB_TITLE_AS_EMPLOYER
+
+
+# Require a company word plus a name that is not itself a sector or job.
+def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Series:
+    upper = occ.fillna('').astype(str).str.strip().str.upper()
+    entity = candidates & upper.str.contains(_ENTITY_WORD_RE, na=False)
+    result = pd.Series(False, index=occ.index)
+    if not entity.any():
+        return result
+    name = (upper[entity]
+            .str.replace(_ENTITY_WORD_RE, ' ', regex=True)
+            .str.replace(r'[^\w&]+', ' ', regex=True)
+            .str.split().str.join(' '))
+    named = (
+        name.ne('')
+        & ~name.isin(_NOT_A_COMPANY_NAME)
+        & ~upper[entity].isin(_NOT_A_COMPANY_NAME)
+        & categorize_final(name).eq('OTHER')
+    )
+    result.loc[named.index] = named.to_numpy()
+    return result
+
+
+# Clear sector names, but recover a company or move an executive title first.
+def _null_sector_as_employer(df: pd.DataFrame) -> int:
+    is_indiv = df['entity_type'] == 'INDIVIDUAL'
+    emp = df['contributor_employer'].fillna('').str.upper()
+    occ = df['contributor_occupation'].fillna('')
+    mask = is_indiv & emp.isin(SECTOR_AS_EMPLOYER)
+    n_fixed = int(mask.sum())
+    if not n_fixed:
+        return 0
+
+    title = mask & emp.isin(_TITLE_SECTOR_WORDS)
+    swap = _occupation_names_a_company(occ, title & occ.ne(''))
+    if swap.any():
+        swap_employer_and_occupation(df, swap, status='DISCLOSED')
+    to_occupation = title & occ.eq('')
+    if to_occupation.any():
+        df.loc[to_occupation, 'contributor_occupation'] = emp[to_occupation]
+        df.loc[to_occupation, 'occupation_category'] = _categorize(emp[to_occupation])
+        df.loc[to_occupation, 'occupation_status'] = 'EMPLOYER_MISSING'
+
+    df.loc[mask & ~swap, 'contributor_employer'] = np.nan
+    return n_fixed
+
+
+# merge FEC's 38-char truncated employer names with their full versions
+def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
+    """AI. FEC truncates employer at 38 chars; merge truncated names with their unique (or most common) longer version."""
+    emp_col = df['contributor_employer']
+    is_indiv = df['entity_type'] == 'INDIVIDUAL'
+    indiv_emp = emp_col[is_indiv].dropna()
+
+    trunc_candidates = set(indiv_emp[indiv_emp.str.len() == 38].unique())
+    if not trunc_candidates:
+        return 0
+
+    all_emps = set(indiv_emp.unique())
+    long_emps = {employer for employer in all_emps if isinstance(employer, str) and len(employer) > 38}
+
+    trunc_to_full = {}
+    counts = indiv_emp.value_counts()
+    for trunc in trunc_candidates:
+        matches = [full for full in long_emps if full.startswith(trunc)]
+        if matches:
+            trunc_to_full[trunc] = max(matches, key=lambda name: counts.get(name, 0))
+
+    if not trunc_to_full:
+        return 0
+
+    mask = is_indiv & emp_col.isin(trunc_to_full.keys())
+    n_fixed = int(mask.sum())
+    if n_fixed:
+        df.loc[mask, 'contributor_employer'] = emp_col[mask].map(trunc_to_full)
+        if 'contributor_employer_original' in df.columns:
+            orig_null = mask & df['contributor_employer_original'].isna()
+            df.loc[orig_null, 'contributor_employer_original'] = emp_col[orig_null]
+    return n_fixed
+
+
+# remove the web-form --CHOOSE-- prefix from employer names
+def _fix_choose_prefix(df: pd.DataFrame) -> int:
+    """Remove the web-form --CHOOSE-- prefix from employer names."""
+    employer = df['contributor_employer'].fillna('')
+    mask = employer.str.startswith('--CHOOSE--')
+    changed = int(mask.sum())
+    if changed:
+        cleaned = employer[mask].str.removeprefix('--CHOOSE--').str.strip()
+        df.loc[mask, 'contributor_employer'] = cleaned.replace({'': np.nan})
+    return changed

@@ -4,7 +4,7 @@ from collections import defaultdict
 import pandas as pd
 import pytest
 
-from fec.cleaning.occupations.normalize import _normalize_text, categorize_final
+from fec.cleaning.work.normalize import _normalize_text, categorize_final
 from fec.config.occupation_rules.categories import (
     RECLASSIFY_CATEGORY_RULES,
     VALID_CATEGORIES,

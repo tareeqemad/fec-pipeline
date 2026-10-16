@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from fec.donor_match import matcher as M
-from fec.donor_match.canonicalize import canonicalize_donor_names
+from fec.cleaning.donors.names import canonicalize_donor_names
 from fec.donor_match.joint import given_tokens, joint_partners
 from fec.donor_match.keys import apply_donor_key
 from fec.donor_match.matcher import match_donors
@@ -186,7 +186,7 @@ def test_a_joint_only_donor_keeps_its_joint_name():
 
 
 def test_review_does_not_list_an_intended_joint_split():
-    from fec.donor_match.dedup_review import _is_joint_pair
+    from fec.cleaning.reports.donors import _is_joint_pair
 
     # SPELLMAN 60022: MARC / MARC MELISSA next to MELISSA
     assert _is_joint_pair("MARC", "MARC MELISSA", {"MARC", "MARC MELISSA", "MELISSA"})

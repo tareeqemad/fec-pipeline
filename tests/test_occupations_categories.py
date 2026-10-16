@@ -9,7 +9,7 @@ SECRETARY inside DEPUTY SECRETARY OF DEFENSE.
 import pandas as pd
 import pytest
 
-from fec.cleaning.occupations.normalize import categorize_final
+from fec.cleaning.work.normalize import categorize_final
 from fec.config.occupation_rules.categories import (
     CATEGORY_RULES,
     RECLASSIFY_CATEGORY_RULES,

@@ -1,4 +1,4 @@
-"""Donor-key hashing, application, key-level merge passes, and the dedup review report."""
+"""Assign donor keys, apply reviewed merges, and separate unresolved filings."""
 
 import hashlib
 from itertools import combinations
@@ -6,7 +6,6 @@ from itertools import combinations
 import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
-from fec.donor_match.normalize import normalize_committee_name
 from fec.donor_match.rules import (
     HELD_ADDRESSES,
     HELD_FILINGS,
@@ -17,7 +16,9 @@ from fec.donor_match.rules import (
     resolve_donor_key,
     split_zip,
 )
+from fec.donor_match.normalize import normalize_committee_name
 from fec.log import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -30,6 +31,11 @@ _STATUS_EMPLOYERS = frozenset(EMPLOYER_STATUS_VALUES) | {"", "NONE", "N/A", "HOM
 # build the individual record id for matching and key assignment
 def individual_record_id(name, city, state, suffix="", zip5="") -> str:
     """Build the individual record ID used by matching and key assignment (zip5 only for a ZIP-split name)."""
+    # Match profile construction: missing cells must not become literal "nan"
+    # or bypass the matched key when the original row is assigned its donor.
+    name, city, state, suffix, zip5 = (
+        "" if pd.isna(value) else value for value in (name, city, state, suffix, zip5)
+    )
     base = f"{name or ''}|{city or ''}|{state or ''}"
     if zip5:
         base = f"{base}|@{zip5}"
@@ -48,6 +54,16 @@ def non_individual_donor_key(name) -> str:
     """Build the shared key used by organizations and committees."""
     normalized = normalize_committee_name(name)
     return hashlib.sha256(normalized.encode()).hexdigest()[:12]
+
+
+# Assign a group root's key to every member.
+def _donor_keys(components: dict) -> dict:
+    rid_to_key = {}
+    for root, members in components.items():
+        key = hashlib.sha256(root.encode()).hexdigest()[:12]
+        for rid in members:
+            rid_to_key[rid] = key
+    return rid_to_key
 
 
 # assign each row its scored or fallback donor_key
@@ -198,16 +214,9 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     return n
 
 
-# give each held filing group its own key, outside anyone
+# Give unresolved filing groups separate keys, away from any person's total.
+# Match holds by sub_id or name, street and ZIP for later filings.
 def hold_unproven_filings(df: pd.DataFrame) -> int:
-    """Give each held filing group its own key, outside every person.
-
-    A hold rule lists filings whose owner is not proven (a joint name cut to
-    one person, a second address two same-name people could share), by sub_id
-    or, for a name at an address, by name+street+ZIP so later filings from
-    there are held too; the group keeps them together and away from any
-    person's total until evidence decides.
-    """
     groups = held_groups(df, HELD_FILINGS, HELD_ADDRESSES)
     held = groups != ""
     found = set(df.loc[held, "sub_id"].astype(str)) if "sub_id" in df.columns else set()
@@ -247,5 +256,3 @@ def validate_separations(df: pd.DataFrame) -> None:
                     "Donor identity rules joined a separation pair under "
                     f"{donor_key}: {person_a} / {person_b}"
                 )
-
-

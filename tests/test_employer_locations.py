@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 
 import fec.database.loader.employers as employer_loader
-from fec.cleaning.employer_status import current_employer_name
-from fec.cleaning.quality.gates import run_quality_gates
+from fec.cleaning.work.status import current_employer_name
+from fec.cleaning.reports.gates import run_quality_gates
 from fec.database.loader.employers import (
     _latest_employment_rows,
     _make_employer_resolver,
@@ -13,12 +13,11 @@ from fec.database.loader.employers import (
 )
 from fec.database.loader.employment_locations import _employment_address_id
 from fec.database.loader.previous_employers import filing_previous
-from fec.resolve.pipeline.apply import ResolveContext, _resolve_row, apply_results
-from fec.resolve.pipeline.manual_overrides import (
-    load_manual_locations,
-    load_manual_previous_employers,
-)
-from fec.resolve.pipeline.steps.previous_employer import _cache_entry, step_cross_record
+from fec.resolve.rows import ResolveContext, _resolve_row
+from fec.resolve.apply import apply_results
+from fec.resolve.manual import load_manual_locations, load_manual_previous_employers
+from fec.resolve.cache import _cache_entry
+from fec.resolve.previous import step_cross_record
 
 
 class FakeCache(dict):
@@ -322,7 +321,7 @@ def test_loader_creates_every_referenced_previous_employer(monkeypatch):
         },
     ])
 
-    result = load_employers(Connection(), Cursor(), rows)
+    result = load_employers(Cursor(), rows)
 
     assert set(result) == {"CURRENT CO", "OLDER CO", "NEWER CO"}
 
@@ -605,7 +604,7 @@ def test_manual_location_keeps_its_evidence(tmp_path):
 
 
 def test_uncertain_manual_address_stays_in_review(tmp_path):
-    from fec.resolve.pipeline.steps.employer_lookups import _needs_ai
+    from fec.resolve.lookups import _needs_ai
 
     path = tmp_path / "manual_employer_addresses.csv"
     path.write_text(
@@ -687,7 +686,7 @@ def test_deleted_manual_locations_leave_the_cache(tmp_path):
 
 
 def test_invalid_manual_address_stays_blank(tmp_path):
-    from fec.resolve.pipeline.steps.employer_lookups import _needs_ai
+    from fec.resolve.lookups import _needs_ai
 
     path = tmp_path / "manual_employer_addresses.csv"
     path.write_text(

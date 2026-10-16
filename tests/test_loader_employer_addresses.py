@@ -102,7 +102,7 @@ def _load_addresses(monkeypatch, donors, locations):
     monkeypatch.setattr(address_loader, "execute_values",
                         lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
     monkeypatch.setattr(address_loader, "_count", lambda *_args: len(cursor.rows))
-    address_ids = load_address_dimension(cursor, cursor, donors, locations)
+    address_ids = load_address_dimension(cursor, donors, locations)
     return cursor.rows, address_ids
 
 

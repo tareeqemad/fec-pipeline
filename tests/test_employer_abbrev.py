@@ -1,7 +1,7 @@
 """Employer abbreviation expansion (MGMT -> MANAGEMENT, run after synonyms)."""
 import pandas as pd
 
-from fec.cleaning.employer_synonyms.apply import (
+from fec.cleaning.work.employer_names import (
     expand_employer_abbreviations,
     expand_employer_associates,
 )

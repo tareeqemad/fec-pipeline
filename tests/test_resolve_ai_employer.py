@@ -4,20 +4,11 @@ import json
 
 import pandas as pd
 
-from fec.resolve.pipeline.cli import _deduplicate_address_cache
-from fec.resolve.pipeline.constants import EMPLOYER_PROMPT_VERSION
-from fec.resolve.pipeline.dedup import dedup_by_resolved_address
-from fec.resolve.pipeline.steps.ai_employer import (
-    _is_explicit_unknown,
-    _resolved_cache_entry,
-    step_ai_lookup,
-)
-from fec.resolve.pipeline.steps.employer_lookups import (
-    EmployerLookup,
-    _needs_ai,
-    build_employer_prompt,
-    collect_employer_lookups,
-)
+from fec.resolve.pipeline import _deduplicate_address_cache
+from fec.resolve.lookups import EMPLOYER_PROMPT_VERSION
+from fec.resolve.cache import dedup_by_resolved_address
+from fec.resolve.employers import _is_explicit_unknown, _resolved_cache_entry, step_ai_lookup
+from fec.resolve.lookups import EmployerLookup, _needs_ai, build_employer_prompt, collect_employer_lookups
 
 
 class _Cache:
@@ -387,11 +378,11 @@ def test_invalid_model_response_is_not_cached(monkeypatch):
     address_cache = _Cache()
 
     monkeypatch.setattr(
-        "fec.resolve.pipeline.steps.ai_employer.get_ai_client",
+        "fec.resolve.employers.get_ai_client",
         lambda: (object(), "model"),
     )
     monkeypatch.setattr(
-        "fec.resolve.pipeline.steps.web_search.ai_web_search_call",
+        "fec.resolve.search.ai_web_search_call",
         lambda *args: (invalid_response, 0.01),
     )
 
@@ -408,11 +399,11 @@ def test_ai_lookup_uses_safe_batch(monkeypatch):
     searched = []
 
     monkeypatch.setattr(
-        "fec.resolve.pipeline.steps.ai_employer.collect_employer_lookups",
+        "fec.resolve.employers.collect_employer_lookups",
         lambda *args: lookups,
     )
     monkeypatch.setattr(
-        "fec.resolve.pipeline.steps.ai_employer.get_ai_client",
+        "fec.resolve.employers.get_ai_client",
         lambda: (object(), "model"),
     )
 
@@ -421,7 +412,7 @@ def test_ai_lookup_uses_safe_batch(monkeypatch):
         return 0
 
     monkeypatch.setattr(
-        "fec.resolve.pipeline.steps.ai_employer.run_web_search",
+        "fec.resolve.employers.run_web_search",
         fake_search,
     )
 

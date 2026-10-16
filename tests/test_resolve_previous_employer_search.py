@@ -1,8 +1,8 @@
 """resolve keeps self-employment as work history and reads every FEC page before 'not found'."""
 import pandas as pd
 
-from fec.resolve.pipeline.steps import fec_previous_employer as fec_search
-from fec.resolve.pipeline.steps import previous_employer as step
+from fec.resolve import fec as fec_search
+from fec.resolve import previous as step
 
 
 class FakeCache(dict):
@@ -75,9 +75,9 @@ def test_not_found_is_recorded_only_after_the_last_page(monkeypatch):
 
 
 def test_an_old_first_page_only_not_found_is_searched_again():
-    assert fec_search._fec_search_due({"employer": "", "method": "fec_api_not_found"})
-    assert not fec_search._fec_search_due({"employer": "", "method": "fec_api_not_found", "all_pages": True})
-    assert not fec_search._fec_search_due({"employer": "ACME", "method": "fec_api"})
+    assert step._fec_search_due({"employer": "", "method": "fec_api_not_found"})
+    assert not step._fec_search_due({"employer": "", "method": "fec_api_not_found", "all_pages": True})
+    assert not step._fec_search_due({"employer": "ACME", "method": "fec_api"})
 
 
 def test_a_spent_hourly_quota_stops_the_search_and_records_nothing(monkeypatch):

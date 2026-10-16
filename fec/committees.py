@@ -1,4 +1,4 @@
-"""Committee identities come from data/rules/committees.csv (single source of truth); to track a new committee, add a row there - no code change."""
+"""Committee names and IDs from data/rules/committees.csv."""
 from __future__ import annotations
 
 import csv
@@ -7,10 +7,9 @@ from functools import lru_cache
 from fec.env import COMMITTEES_CSV
 
 
-# load all committee rows from committees.csv, cached
+# Cache committee rows; empty CSV values become None.
 @lru_cache(maxsize=1)
 def load_committees() -> list[dict]:
-    """All committee rows from committees.csv (cached). Empty strings -> None."""
     if not COMMITTEES_CSV.exists():
         return []
     with open(COMMITTEES_CSV, newline="", encoding="utf-8") as fh:
@@ -18,8 +17,7 @@ def load_committees() -> list[dict]:
                 for row in csv.DictReader(fh)]
 
 
-# map FEC committee_number to committee_short name
+# Map configured FEC committee IDs to their short names.
 def committee_id_to_name() -> dict[str, str]:
-    """{FEC committee_number -> committee_short}, only rows with an FEC number."""
     return {r["committee_number"]: r["committee_short"]
             for r in load_committees() if r.get("committee_number")}

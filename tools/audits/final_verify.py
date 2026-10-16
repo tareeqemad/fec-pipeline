@@ -1,10 +1,11 @@
 """Final handover verification of data/output/contributions_cleaned.csv and its companions.
 
 Exits 1 when data/reports/quality_gates.json shows a gate that failed or never ran. resolve.py --apply
-writes that report on the final data; clean.py's preliminary report (4 gates not_run, because
-employer_status does not exist yet) or a report for a different row count fails here.
+writes that report on the final data; clean.py's preliminary report (resolve-only gates
+not_run because employer_status does not exist yet) or a report for a different row count fails here.
 """
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -52,6 +53,51 @@ def check_quality_gates(path: str = QUALITY_GATES_JSON, rows: int | None = None)
     return problems
 
 
+def held_identity_problems(df: pd.DataFrame) -> list[str]:
+    """Check explicit and address-based holds against their required key and status."""
+    from fec.donor_match import rules as identity_rules
+
+    required = {"sub_id", "donor_key", "identity_status"}
+    if identity_rules.HELD_ADDRESSES:
+        required.update({"contributor_name", "contributor_street_1", "contributor_zip"})
+    missing_columns = sorted(required - set(df.columns))
+    if missing_columns:
+        return ["held identity check missing columns: " + ", ".join(missing_columns)]
+
+    problems = []
+    present_ids = set(df["sub_id"].astype(str).str.strip())
+    missing_ids = set(identity_rules.HELD_FILINGS) - present_ids
+    if missing_ids:
+        problems.append(f"held filings missing: {len(missing_ids)} explicitly listed sub_id(s)")
+
+    groups = identity_rules.held_groups(df)
+    expected = groups.ne("")
+    group_keys = {
+        group: hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
+        for group in set(identity_rules.HELD_FILINGS.values()) | set(identity_rules.HELD_ADDRESSES.values())
+    }
+    expected_keys = groups[expected].map(group_keys)
+    keys = df["donor_key"].fillna("").astype(str)
+    statuses = df["identity_status"].fillna("")
+    wrong_keys = int(keys[expected].ne(expected_keys).sum())
+    wrong_statuses = int(statuses[expected].ne("held").sum())
+    if wrong_keys:
+        problems.append(f"held filings on the wrong donor key: {wrong_keys} row(s)")
+    if wrong_statuses:
+        problems.append(f"held filings without held status: {wrong_statuses} row(s)")
+
+    # Include observed keys too: a misassigned held row must not share a person's key.
+    held_keys = set(group_keys.values()) | set(keys[expected])
+    held_keys.discard("")
+    mixed = int((~expected & keys.isin(held_keys)).sum())
+    falsely_held = int((~expected & statuses.eq("held")).sum())
+    if mixed:
+        problems.append(f"held filings not kept apart: {mixed} unheld row(s) share their keys")
+    if falsely_held:
+        problems.append(f"held status without a matching hold rule: {falsely_held} row(s)")
+    return problems
+
+
 def main() -> int:
     n = pd.read_csv("data/output/contributions_cleaned.csv", dtype=str, keep_default_na=False, low_memory=False)
     n["amt"] = pd.to_numeric(n.contribution_receipt_amount, errors="coerce").fillna(0)
@@ -84,12 +130,8 @@ def main() -> int:
     print("   SMITH, ARTHUR occupations:", smith.contributor_occupation.value_counts().to_dict())
     neub = n[n.contributor_name.str.startswith("NEUBERGER, YEHUDA")].sort_values("contribution_receipt_date").iloc[-1]
     print("   NEUBERGER latest:", neub.contributor_street_1, "|", neub.contributor_street_2, "|", neub.latitude, neub.longitude)
-    chk = subprocess.run([sys.executable, "sync_rosters.py", "--check"], capture_output=True, text=True, encoding="utf-8", env={**os.environ, "PYTHONPATH": ".", "PYTHONIOENCODING": "utf-8"})
-    print("== roster sync --check exit:", chk.returncode, "|", chk.stdout.strip().splitlines()[0] if chk.stdout.strip() else chk.stderr[-300:])
-    if chk.returncode:
-        problems.append(f"sync_rosters.py --check exited {chk.returncode}")
     # a manual override is the final word: every value it sets is in the final file
-    from fec.cleaning.manual_overrides import _read_overrides
+    from fec.cleaning.rules.manual import _read_overrides
     nn_ = n.set_index("sub_id")
     overridden = [
         (sid, col) for sid, fields in _read_overrides(company_names_only=False).items() if sid in nn_.index
@@ -100,7 +142,7 @@ def main() -> int:
     if overridden:
         problems.append(f"{len(overridden)} manual override value(s) changed by a later step: {overridden[:5]}")
     # a previous employer belongs to a retired filing only, and never to a placeholder
-    from fec.cleaning.employer_status import is_real_employer
+    from fec.cleaning.work.status import is_real_employer
     prev = n.previous_employer.str.strip()
     not_retired = int((prev.ne("") & n.employer_status.ne("retired")).sum())
     placeholder = sorted({v for v in prev.unique() if v and v != "SELF-EMPLOYED" and not is_real_employer(v)})
@@ -121,19 +163,30 @@ def main() -> int:
     # donor identity rules all applied
     rules = list(csv.DictReader(open("data/rules/donor_identity_rules.csv", encoding="utf-8-sig", newline="")))
     merges = [r for r in rules if r["action"].lower() == "merge_keys"]
-    keys = set(n.donor_key)
-    dropped_present = [r["donor_key_b"] for r in merges if r["donor_key_b"] in keys]
-    keep_missing = [r["donor_key_a"] for r in merges if r["donor_key_a"] not in keys]
+    dropped_present, keep_missing = [], []
+    for rule in merges:
+        sub_ids = (rule.get("sub_ids") or "").split()
+        selected = n[n.sub_id.isin(sub_ids)] if sub_ids else n
+        if selected.empty:
+            continue
+        keys = set(selected.donor_key)
+        if rule["donor_key_b"] in keys:
+            dropped_present.append(rule["donor_key_b"])
+        if rule["donor_key_a"] not in keys:
+            keep_missing.append(rule["donor_key_a"])
+        if sub_ids and selected.donor_key.ne(rule["donor_key_a"]).any():
+            problems.append(f"reviewed committee filings on a different key: {rule['group']}")
+        if rule.get("canonical_name"):
+            named = selected if sub_ids else selected[selected.donor_key.eq(rule["donor_key_a"])]
+            if named.contributor_name.ne(rule["canonical_name"]).any():
+                problems.append(f"committee name not applied: {rule['canonical_name']}")
     print("== identity rules:", len(rules), "| merges:", len(merges), "| dropped keys still present:", len(dropped_present), "| keep keys absent:", len(keep_missing))
     if dropped_present or keep_missing:
         problems.append(f"identity merges not applied: {len(dropped_present)} dropped key(s) present, {len(keep_missing)} kept key(s) absent")
     # held filings stay together and away from every person's filings
-    held = {r["sub_id"] for r in rules if r["action"].lower() == "hold"}
-    held_keys = set(n.loc[n.sub_id.isin(held), "donor_key"])
-    mixed = int((n.donor_key.isin(held_keys) & ~n.sub_id.isin(held)).sum())
-    print("== held filings:", len(held), "| found:", int(n.sub_id.isin(held).sum()), "| other rows on their keys:", mixed)
-    if mixed or n.sub_id.isin(held).sum() != len(held):
-        problems.append(f"held filings not kept apart: {mixed} other row(s) share their keys")
+    hold_problems = held_identity_problems(n)
+    print("== held filings:", int(n.identity_status.eq("held").sum()), "| hold rule issues:", len(hold_problems))
+    problems.extend(hold_problems)
     ind = n[n.entity_type == "INDIVIDUAL"]
     print("== donors: individuals", ind.donor_key.nunique(), "| all keys", n.donor_key.nunique())
     for who, key in [("SHEAR, HERBERT", "71bff575bdc1"), ("CAYRE, JOSEPH", "1bc54314d330"), ("COLLIS, STEVEN", "7d37f9b78787"), ("FRIEND, DONALD", "6ab402180935"), ("RUDY, DEBORAH", "e0a9ab832bb7")]:

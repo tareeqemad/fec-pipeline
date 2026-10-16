@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.audit_trail import UNTRACKED_STEP, AuditTrail, summarize
+from fec.cleaning.reports.trail import UNTRACKED_STEP, AuditTrail, summarize
 
 
 def _frame():

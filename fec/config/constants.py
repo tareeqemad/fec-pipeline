@@ -1,4 +1,4 @@
-"""Shared status/junk word sets and employer patterns — single source of truth."""
+"""Shared status values and employer patterns."""
 
 from fec.config.employers import EMPLOYER_NORMALIZE
 
@@ -43,7 +43,7 @@ SLASH_BRAND_EMPLOYERS = frozenset({
 # SKIP_EMPLOYERS values are kept as a status instead.
 REFUSAL_EMPLOYERS = frozenset({
     'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
-    'DECLINED TO ANSWER', 'REFUSED', 'NOT PROVIDED',
+    'DECLINED TO ANSWER', 'REFUSED', 'NOT PROVIDED', 'NOT PROVIDED BY CONTRIBUTOR',
     'DECLINED TO STATE', 'NONE OF YOUR BUSINESS',
     'DECLINE TO STATE', 'PREFER NOT TO SAY',
     'NOT YOUR BUSINESS', 'NOTYOURBUSINESS',
@@ -174,6 +174,7 @@ ADMIN_NOTE_EMPLOYER_RE = (
     r'|DECLINED?(?:\s+TO\s+(?:STATE|ANSWER|DISCLOSE|PROVIDE|RESPOND|COMMENT))?'
     r'|PREFERS?\s+NOT\s+TO\s+(?:SAY|ANSWER|DISCLOSE|STATE|PROVIDE|COMMENT)'
     r'|NOT\s+(?:PROVIDED|GIVEN|DISCLOSED|AVAILABLE|APPLICABLE)'
+    r'(?:\s+BY\s+(?:THE\s+)?(?:CONTRIBUTOR|DONOR|INDIVIDUAL|FILER))?'
     r')$'
 )
 

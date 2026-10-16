@@ -1,23 +1,20 @@
-"""Shared helpers for the enhancement sub-modules."""
+"""Shared cleaning helpers."""
 import numpy as np
 import pandas as pd
 
 
-# normalize a series for safe comparison
 def _norm(s: pd.Series) -> pd.Series:
-    """Normalize a Series for safe comparison: NaN -> '', strip, upper."""
+    """Fill blanks, trim spaces and uppercase text."""
     return s.fillna('').astype(str).str.strip().str.upper()
 
 
-# return the index of all individual rows
 def _indiv_idx(df: pd.DataFrame) -> pd.Index:
     """Return the index of all INDIVIDUAL rows."""
     return df.index[df['entity_type'] == 'INDIVIDUAL']
 
 
-# rewrite individuals' occupations found in mapping to the mapped value
 def _map_occupations(df: pd.DataFrame, mapping: dict) -> tuple[pd.DataFrame, int]:
-    """Replace each INDIVIDUAL occupation that is a key of mapping; returns (df, rows changed)."""
+    """Map individual occupations; return the frame and changed row count."""
     individuals = _indiv_idx(df)
     occupation = df.loc[individuals, 'contributor_occupation']
     hits = individuals[occupation.isin(mapping)]
@@ -26,15 +23,13 @@ def _map_occupations(df: pd.DataFrame, mapping: dict) -> tuple[pd.DataFrame, int
     return df, int(len(hits))
 
 
-# mark rows as missing occupation
 def _set_missing(df: pd.DataFrame, idx) -> None:
-    """Mark rows as missing occupation (NaN + MISSING status)."""
+    """Clear occupation and category; mark occupation as missing."""
     df.loc[idx, 'contributor_occupation'] = np.nan
     df.loc[idx, 'occupation_category'] = pd.NA
     df.loc[idx, 'occupation_status'] = 'MISSING'
 
 
-# compute levenshtein edit distance between two strings
 def levenshtein(a: str, b: str) -> int:
     """Levenshtein edit distance between two strings."""
     if len(a) < len(b):

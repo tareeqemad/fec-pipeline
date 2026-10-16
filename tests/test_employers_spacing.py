@@ -1,8 +1,8 @@
 """Spacing variants of one employer: the word breaks the donor's own fuller filings use win (TWINCITY FAN -> TWIN CITY FAN)."""
 import pandas as pd
 
-from fec.cleaning.employer_synonyms.canonical import restore_display_suffixes
-from fec.cleaning.occupations.employer_groups import (
+from fec.cleaning.work.employer_canonical import restore_display_suffixes
+from fec.cleaning.work.employer_groups import (
     _canonicalize_employers,
     _employer_group_key,
     employer_group_words,

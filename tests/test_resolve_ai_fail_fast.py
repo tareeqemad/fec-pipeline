@@ -5,9 +5,9 @@ import json
 import pandas as pd
 import pytest
 
-from fec.resolve.pipeline import cli as resolve_cli
-from fec.resolve.pipeline.ai_client import AIQuotaExhausted, is_ai_quota_error
-from fec.resolve.pipeline.steps import web_search
+from fec.resolve import pipeline as resolve_cli
+from fec.resolve.search import AIQuotaExhausted, is_ai_quota_error
+from fec.resolve import search as web_search
 
 
 class _ProviderError(Exception):
@@ -152,8 +152,8 @@ def test_cli_writes_cached_results_before_reporting_partial(tmp_path, monkeypatc
     monkeypatch.setattr("sys.argv", ["resolve.py", "--apply"])
     monkeypatch.setattr(resolve_cli, "CACHE_DIR", tmp_path)
     monkeypatch.setattr(resolve_cli, "REPORTS_DIR", tmp_path)
-    # the run and column checks have their own tests
-    for name in ("check_same_run", "check_input", "check_output", "record"):
+    # Column checks have their own tests.
+    for name in ("check_input", "check_output"):
         monkeypatch.setattr(resolve_cli, name, lambda *_args: None)
 
     with pytest.raises(SystemExit) as stopped:

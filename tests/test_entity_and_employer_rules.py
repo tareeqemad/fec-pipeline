@@ -2,18 +2,18 @@
 import pandas as pd
 from test_record_rules import _make_df
 
-from fec.cleaning.audit_trail import AuditTrail
-from fec.cleaning.pipeline.core import _clean_people
-from fec.cleaning.pipeline.names import _clean_names
-from fec.cleaning.pipeline.reclassify import _reclassify_entities
-from fec.cleaning.safety_nets.occupation_category import (
+from fec.cleaning.reports.trail import AuditTrail
+from fec.cleaning.pipeline import _clean_people
+from fec.cleaning.names import _clean_names
+from fec.cleaning.entities import _reclassify_entities
+from fec.cleaning.rules.occupation_category import (
     _fix_emp_occ_category_consistency,
 )
 
 
 class TestCommitteeReclassification:
     def test_friends_to_elect(self):
-        from fec.cleaning.entity_classification import fix_remaining_misclassified
+        from fec.cleaning.entities import fix_remaining_misclassified
         df = _make_df([{
             'contributor_name': 'FRIENDS TO ELECT DR. GREG MURPHY, GREGORY',
             'contributor_last_name': 'FRIENDS TO ELECT DR. GREG MURP',
@@ -25,7 +25,7 @@ class TestCommitteeReclassification:
         assert pd.isna(df['contributor_first_name'].iloc[0])
 
     def test_4congress(self):
-        from fec.cleaning.entity_classification import fix_remaining_misclassified
+        from fec.cleaning.entities import fix_remaining_misclassified
         df = _make_df([{
             'contributor_last_name': 'YVETTE4CONGRESS',
             'contributor_name': 'YVETTE4CONGRESS, YVETTE',
@@ -35,7 +35,7 @@ class TestCommitteeReclassification:
         assert df['entity_type'].iloc[0] == 'COMMITTEE/PAC'
 
     def test_campaign_suffix(self):
-        from fec.cleaning.entity_classification import fix_remaining_misclassified
+        from fec.cleaning.entities import fix_remaining_misclassified
         df = _make_df([{
             'contributor_last_name': 'SYLVESTER TURNER CAMPAIGN',
             'contributor_name': 'SYLVESTER TURNER CAMPAIGN, SYLVESTER',
@@ -44,7 +44,7 @@ class TestCommitteeReclassification:
         assert n == 1
 
     def test_normal_name_untouched(self):
-        from fec.cleaning.entity_classification import fix_remaining_misclassified
+        from fec.cleaning.entities import fix_remaining_misclassified
         df = _make_df([{
             'contributor_last_name': 'JOHNSON',
             'contributor_name': 'JOHNSON, MICHAEL',
@@ -56,7 +56,7 @@ class TestCommitteeReclassification:
 
 class TestEmployerSynonyms:
     def test_jpmorgan_variants(self):
-        from fec.cleaning.employer_synonyms.apply import apply_employer_synonyms
+        from fec.cleaning.work.employer_names import apply_employer_synonyms
         df = _make_df([
             {'contributor_employer': 'JP MORGAN'},
             {'contributor_employer': 'JPMORGAN'},
@@ -67,14 +67,14 @@ class TestEmployerSynonyms:
         assert all(df['contributor_employer'] == 'JPMORGAN CHASE')
 
     def test_unknown_employer_untouched(self):
-        from fec.cleaning.employer_synonyms.apply import apply_employer_synonyms
+        from fec.cleaning.work.employer_names import apply_employer_synonyms
         df = _make_df([{'contributor_employer': 'SOME RANDOM COMPANY'}])
         df, n = apply_employer_synonyms(df)
         assert n == 0
         assert df['contributor_employer'].iloc[0] == 'SOME RANDOM COMPANY'
 
     def test_goldman_sachs(self):
-        from fec.cleaning.employer_synonyms.apply import apply_employer_synonyms
+        from fec.cleaning.work.employer_names import apply_employer_synonyms
         df = _make_df([{'contributor_employer': 'GOLDMAN SACHS AND CO'}])
         df, n = apply_employer_synonyms(df)
         assert n == 1
@@ -153,7 +153,7 @@ def test_status_employer_fills_empty_occupation_idempotently():
 
 
 def test_manual_individual_name_correction_keeps_name_columns_consistent():
-    from fec.cleaning.entity_classification import apply_name_corrections
+    from fec.cleaning.entities import apply_name_corrections
 
     df = _make_df([
         {
@@ -180,7 +180,7 @@ def test_manual_individual_name_correction_keeps_name_columns_consistent():
 
 
 def test_swapped_name_correction_is_limited_to_known_rows(monkeypatch):
-    from fec.cleaning import entity_classification
+    from fec.cleaning import entities as entity_classification
 
     monkeypatch.setattr(entity_classification, 'ROW_NAME_CORRECTIONS', {'known': 'DOE, JANE'})
     df = _make_df([
@@ -195,7 +195,7 @@ def test_swapped_name_correction_is_limited_to_known_rows(monkeypatch):
 
 
 def test_a_person_named_only_in_the_employer_field_is_not_the_donor():
-    from fec.cleaning.entity_classification import apply_name_corrections
+    from fec.cleaning.entities import apply_name_corrections
 
     df = _make_df([{'sub_id': '4011420231698186281', 'contributor_name': 'HEALTH, GOOD'}])
 

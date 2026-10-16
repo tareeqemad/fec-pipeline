@@ -2,8 +2,8 @@
 import pandas as pd
 import pytest
 
-from fec.cleaning.quality.gates import run_quality_gates
-from fec.resolve.pipeline import cli
+from fec.cleaning.reports.gates import run_quality_gates
+from fec.resolve import pipeline as cli
 
 
 def _write(tmp_path, amounts):

@@ -108,7 +108,7 @@ def test_reset_rejects_wrong_user_before_drop():
     cur = ResetCursor(user=DATABASE_READER)
 
     with pytest.raises(RuntimeError, match="Loader must run as"):
-        reset_schema(conn, cur)
+        reset_schema(cur)
 
     assert not any(query.startswith("DROP ") for query in cur.queries)
     assert conn.commits == 0
@@ -119,7 +119,7 @@ def test_reset_rejects_wrong_owner_before_drop():
     cur = ResetCursor(tables=(("donors", DATABASE_READER),))
 
     with pytest.raises(RuntimeError, match="Ownership check failed"):
-        reset_schema(conn, cur)
+        reset_schema(cur)
 
     assert not any(query.startswith("DROP ") for query in cur.queries)
     assert conn.commits == 0
@@ -130,8 +130,8 @@ def test_reset_rolls_back_every_drop():
     tables = (("donors", DATABASE_OWNER), ("addresses", DATABASE_OWNER))
     cur = ResetCursor(tables=tables, fail_drop=2)
 
-    with pytest.raises(RuntimeError, match="Schema reset failed"), load_transaction(conn), stage(conn, "schema"):
-        reset_schema(conn, cur)
+    with pytest.raises(RuntimeError, match="Schema reset failed"), load_transaction(conn), stage("schema"):
+        reset_schema(cur)
 
     assert conn.commits == 0
     assert conn.rollbacks == 1
@@ -140,10 +140,10 @@ def test_reset_rolls_back_every_drop():
 def test_a_stage_never_commits_only_the_whole_load_does():
     conn = Connection()
     with load_transaction(conn):
-        with stage(conn, "schema"):
+        with stage("schema"):
             pass
         assert conn.commits == 0
-        with stage(conn, "contributions"):
+        with stage("contributions"):
             pass
         assert conn.commits == 0
     assert conn.commits == 1
@@ -152,9 +152,9 @@ def test_a_stage_never_commits_only_the_whole_load_does():
 def test_a_late_failure_rolls_back_the_drop_too():
     conn = Connection()
     with pytest.raises(ValueError), load_transaction(conn):
-        with stage(conn, "schema"):
+        with stage("schema"):
             pass  # the old tables are gone inside the transaction
-        with stage(conn, "contributions"):
+        with stage("contributions"):
             raise ValueError("bad row")
     assert conn.commits == 0 and conn.rollbacks == 1
 
@@ -167,7 +167,7 @@ def test_reset_drops_owned_objects():
         tables=(("donors", DATABASE_OWNER),),
     )
 
-    reset_schema(conn, cur)
+    reset_schema(cur)
 
     assert cur.drop_count == 3
     assert conn.commits == 0
@@ -178,8 +178,8 @@ def test_reader_gets_select_only():
     conn = Connection()
     cur = PermissionCursor()
 
-    with load_transaction(conn), stage(conn, "read access"):
-        grant_read_access(conn, cur)
+    with load_transaction(conn), stage("read access"):
+        grant_read_access(cur)
 
     sql = "\n".join(cur.queries)
     assert f'GRANT SELECT ON ALL TABLES IN SCHEMA public TO "{DATABASE_READER}"' in sql
@@ -199,7 +199,7 @@ def test_reader_cannot_inherit_roles():
     cur = PermissionCursor(role=(False, True))
 
     with pytest.raises(RuntimeError, match="must not inherit"):
-        grant_read_access(conn, cur)
+        grant_read_access(cur)
 
     assert conn.commits == 0
 
@@ -238,7 +238,7 @@ def test_loader_requires_exact_ready_employer_names(tmp_path, monkeypatch):
         "occupation_category": "EXECUTIVE / C-SUITE",
         "contribution_receipt_date": "2024-01-01",
         "contribution_receipt_amount": "500", "previous_employer": "",
-        "identity_status": "confirmed", "employment_source": "filed",
+        "identity_status": "confirmed",
         "donor_key": "donor-1", "latitude": "40.7", "longitude": "-74.0",
         "employer_status": "active",
     }])

@@ -169,7 +169,7 @@ class TestIdentityMergeQualityGate:
         }
 
     def test_accepts_cross_name_with_zip_anchor(self):
-        from fec.donor_match.chains import _validate_merge_audit
+        from fec.donor_match.matcher import _validate_merge_audit
 
         result = _validate_merge_audit(
             self._keys(), self._audit("zip5=10001(+25); cross_name(+10)")
@@ -179,7 +179,7 @@ class TestIdentityMergeQualityGate:
         assert result["cross_name_zip_only"] == 1
 
     def test_rejects_cross_name_without_identity_anchor(self):
-        from fec.donor_match.chains import _validate_merge_audit
+        from fec.donor_match.matcher import _validate_merge_audit
 
         with pytest.raises(ValueError, match="quality gate rejected"):
             _validate_merge_audit(
@@ -187,7 +187,7 @@ class TestIdentityMergeQualityGate:
             )
 
     def test_ignores_merge_ejected_by_chain_validation(self):
-        from fec.donor_match.chains import _validate_merge_audit
+        from fec.donor_match.matcher import _validate_merge_audit
 
         result = _validate_merge_audit(
             self._keys("one", "two"), self._audit("CROSS_NAME_NO_ANCHOR")
@@ -198,7 +198,7 @@ class TestIdentityMergeQualityGate:
 
 class TestChainValidation:
     def test_record_count_tie_has_a_stable_canonical_rid(self, monkeypatch):
-        from fec.donor_match import chains
+        from fec.donor_match import matcher as chains
 
         rids = ["DOE, JOHN|A|NY", "DOE, JOHN|B|NY",
                 "DOE, JOHN|C|NY", "DOE, JOHN|D|NY"]

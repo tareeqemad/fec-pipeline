@@ -1,12 +1,12 @@
-"""Spelled-out ordinal streets geocode under their numbered form."""
+"""Street formatting belongs to cleaning; geocoding keeps the cleaned text."""
 
 import pandas as pd
 import pytest
 
-from fec.geocoding import employer_locations
+from fec.resolve import addresses, employer_locations
 from fec.geocoding.pipeline import _contributor_keys
-from fec.geocoding.employers import _employer_keys
-from fec.geocoding.street_text import numbered_street
+from fec.geocoding.pipeline import _employer_keys
+from fec.cleaning.addresses.street_text import numbered_street
 
 
 @pytest.mark.parametrize("street, expected", [
@@ -38,8 +38,8 @@ def test_other_streets_are_unchanged(street):
     assert numbered_street(street) == street
 
 
-def test_every_geocode_key_builder_uses_the_numbered_street():
-    expected = "777 3RD AVE|NEW YORK|NY|10017"
+def test_geocode_keys_preserve_text_and_old_numbered_cache_is_reused(tmp_path):
+    expected = "777 THIRD AVE|NEW YORK|NY|10017"
     donors = pd.DataFrame([{
         "contributor_street_1": "777 THIRD AVE", "contributor_city": "NEW YORK",
         "contributor_state": "NY", "contributor_zip": "10017",
@@ -49,8 +49,24 @@ def test_every_geocode_key_builder_uses_the_numbered_street():
         "employer_state": "ny", "employer_zip": "10017",
     }])
     assert _contributor_keys(donors).tolist() == [expected]
-    assert _employer_keys(employers).tolist() == [expected]
-    assert employer_locations._address_key({
+    assert _employer_keys(employers).tolist() == [" 777 third ave |New York|ny|10017"]
+    assert addresses._address_key({
         "employer_address": "777 Third Ave", "employer_city": "New York",
         "employer_state": "NY", "employer_zip": "10017",
-    }) == tuple(expected.split("|"))
+    }) == ("777 3RD AVE", "NEW YORK", "NY", "10017")
+
+    from fec.geocoding.cache import GeoCache
+    cache = GeoCache(str(tmp_path / "geocode_cache.json"))
+    legacy = "777 3RD AVE|NEW YORK|NY|10017"
+    cache.put(legacy, 40.7528, -73.9718, "nominatim")
+    assert cache.get(expected) == cache.get(legacy)
+    assert set(cache.data) == {legacy}
+
+    from fec.geocoding.validation import accepted_coordinates
+    old_wrong_key = "4440 W 25TH ST|MINNEAPOLIS|MN|55416"
+    cleaned_key = "4440 W TWENTY FIFTH ST|MINNEAPOLIS|MN|55416"
+    cache.put(old_wrong_key, 44.957979, -93.3012753, "nominatim")
+    assert cache.get(cleaned_key) == cache.get(old_wrong_key)
+    assert accepted_coordinates(cleaned_key, cache.get(cleaned_key)) == (
+        None, None, "rejected_reviewed_wrong",
+    )

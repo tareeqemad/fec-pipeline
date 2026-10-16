@@ -1,10 +1,10 @@
 """FEC's own entity type decides over every name-based guess; a documented override still wins."""
 import pandas as pd
 
-from fec.cleaning.donor_consistency.entity import _apply_source_entity_types
-from fec.cleaning.donor_consistency.steps import CONSISTENCY_FIXES
-from fec.cleaning.entity_source import attach_source_fields, source_entity_type
-from fec.cleaning.pipeline.reclassify import _reclassify_entities
+from fec.cleaning.donors.entity import _apply_source_entity_types
+from fec.cleaning.donors.steps import CONSISTENCY_FIXES
+from fec.cleaning.entities import attach_source_fields, source_entity_type
+from fec.cleaning.entities import _reclassify_entities
 
 
 def _frame(rows):
@@ -41,7 +41,7 @@ def test_name_consistency_does_not_retype_a_row_fec_typed():
     df = _frame([("DEMOCRACY ENGINE", False, "COM"), ("DEMOCRACY ENGINE LLC", False, "")])
     df.loc[1, "contributor_name"] = "DEMOCRACY ENGINE"  # same name, second row guessed ORGANIZATION
     df["entity_type"] = ["COMMITTEE/PAC", "ORGANIZATION"]
-    from fec.cleaning.pipeline.reclassify import _enforce_entity_name_consistency
+    from fec.cleaning.entities import _enforce_entity_name_consistency
     _enforce_entity_name_consistency(df)
     assert list(df["entity_type"]) == ["COMMITTEE/PAC", "ORGANIZATION"]
 
@@ -77,7 +77,7 @@ def test_a_held_or_unresolved_filing_keeps_its_classification():
 
 
 def test_a_campaign_for_a_state_keeps_the_state():
-    from fec.cleaning.entity_classification import normalize_business_names
+    from fec.cleaning.entities import normalize_business_names
     df = pd.DataFrame({"contributor_name": ["ROB FOR PA", "SMITH & JONES PA", "ACME, LLC"],
                        "entity_type": ["COMMITTEE/PAC", "ORGANIZATION", "ORGANIZATION"]})
     normalize_business_names(df)

@@ -1,4 +1,4 @@
-"""Each retired filing's own previous employer: a company id or the SELF-EMPLOYED flag."""
+"""Read each retired filing's previous company or self-employment flag."""
 from __future__ import annotations
 
 from typing import Any
@@ -6,29 +6,22 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
-from fec.cleaning.employer_status import is_real_employer
+from fec.cleaning.work.status import is_real_employer
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-# The previous_employer contract (fec/cleaning/previous_employer.py) keeps this
-# literal because it is real information, but it is not a company: it gets no
-# employers row and is stored as donor_employments.previous_self_employed.
+# Stored as previous_self_employed, never as a company in employers.
 PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
 
 
-# check whether a previous_employer value means self-employed
+# Check the previous self-employment marker.
 def _is_previous_self_employed(name) -> bool:
     return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
 
 
-# the previous employer one filing names: (company id, self-employed flag)
+# Use this retired filing's company or self-employment flag.
 def filing_previous(status, name, get_employer_id) -> tuple[int | None, bool]:
-    """Only a retired filing has one; it is a company or SELF-EMPLOYED, never both.
-
-    Each filing keeps its own value, so a donor who retired in 2022 and named a
-    clinic only in 2026 keeps an empty previous employer on the 2022 filing.
-    """
     if status != "retired" or pd.isna(name) or not str(name).strip():
         return None, False
     if _is_previous_self_employed(name):
@@ -36,29 +29,28 @@ def filing_previous(status, name, get_employer_id) -> tuple[int | None, bool]:
     return get_employer_id(str(name).strip()), False
 
 
-# insert every company a retired filing names as its previous employer
-def link_previous_employers(conn: Any, cur: Any, df: pd.DataFrame, emp_name_to_id: dict) -> None:
-    """Step 3: give each retired filing's previous company an employers row."""
+# Add missing companies named by retired filings.
+def link_previous_employers(cur: Any, df: pd.DataFrame, employer_ids: dict) -> None:
     logger.info("\n-- 3/8 Linking previous employers --")
     if 'previous_employer' not in df.columns:
         return
     retired = df['employer_status'].eq('retired') & df['previous_employer'].notna()
     names = {str(name).strip() for name in df.loc[retired, 'previous_employer']} - {""}
 
-    dropped = {name for name in names if not is_real_employer(name) and not _is_previous_self_employed(name)}
+    valid_names = {name for name in names if is_real_employer(name)}
+    dropped = {name for name in names - valid_names if not _is_previous_self_employed(name)}
     if dropped:
-        # SELF-EMPLOYED is stored as previous_self_employed; anything else
-        # breaks the previous_employer contract and is not stored.
+        # Other non-company values are rejected; self-employment uses its flag.
         logger.warning(
             "  previous_employer: %d non-company value(s) not stored: %s",
             len(dropped), ", ".join(repr(name) for name in sorted(dropped)[:10]),
         )
-    new_names = {name for name in names if is_real_employer(name) and name not in emp_name_to_id}
+    new_names = valid_names - employer_ids.keys()
     if new_names:
         execute_values(cur,
             "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
             [(name,) for name in sorted(new_names)], page_size=1000)
         cur.execute("SELECT employer_id, name FROM employers")
-        emp_name_to_id.clear()
-        emp_name_to_id.update({row[1]: row[0] for row in cur.fetchall()})
+        employer_ids.clear()
+        employer_ids.update({name: employer_id for employer_id, name in cur.fetchall()})
     logger.info(f"  previous_employer: {int(retired.sum()):,} retired filings name one")

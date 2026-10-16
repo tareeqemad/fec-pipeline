@@ -1,0 +1,210 @@
+"""Quality gates for employment status, categories and previous employers."""
+from fec.cleaning.work.status import classify_employer_statuses, is_real_employer
+from fec.cleaning.rules.manual import categorize_records
+from fec.config.constants import SLASH_BRAND_EMPLOYERS
+from fec.config.occupation_rules.categories import VALID_CATEGORIES
+
+
+# Each gate reads df without mutating.
+def _resolve_only_gate(key, df, required):
+    missing = sorted(required - set(df.columns))
+    if not missing:
+        return None
+    return [(key, {
+        'passed': None,
+        'count': None,
+        'not_run': True,
+        'missing_columns': missing,
+        'reason': 'run after resolve --apply',
+    }, None)]
+
+
+# quality gate: every occupation_category value must be a known one
+def _gate_valid_categories(df):
+    if 'occupation_category' not in df.columns:
+        return []
+    values = df['occupation_category'].astype('string').fillna('').str.strip()
+    invalid = [str(value) for value in values.unique() if value and value not in VALID_CATEGORIES]
+    blank = int(values.eq('').sum())
+    issue = None
+    if invalid or blank:
+        issue = f"Invalid categories: {invalid[:10]}; blank categories: {blank}"
+    return [('valid_categories', {
+        'passed': not invalid and blank == 0,
+        'invalid': invalid[:10],
+        'blank': blank,
+    }, issue)]
+
+
+# quality gate: occupation_category must match the occupation text
+def _gate_occupation_category_consistency(df):
+    required = {'entity_type', 'contributor_occupation', 'occupation_category'}
+    if not required.issubset(df.columns):
+        return []
+
+    is_indiv = df['entity_type'].eq('INDIVIDUAL')
+    expected = categorize_records(df.loc[is_indiv])
+    actual = df.loc[is_indiv, 'occupation_category'].fillna('')
+    mismatched = actual.ne(expected)
+    count = int(mismatched.sum())
+    issue = f"Occupation/category mismatches: {count}" if count else None
+    return [('occupation_category_consistency', {
+        'passed': count == 0,
+        'count': count,
+    }, issue)]
+
+
+# quality gate: a status's field markers and employer_status must agree
+def _status_agreement_gate(df, gate: str, status_value: str, label: str):
+    """Rows whose fields mark status_value must carry that employer_status, and back."""
+    required = {
+        'entity_type', 'contributor_employer', 'contributor_occupation',
+        'occupation_category', 'employer_status',
+    }
+    not_run = _resolve_only_gate(gate, df, required)
+    if not_run:
+        return not_run
+
+    individuals = df['entity_type'].eq('INDIVIDUAL')
+    status = df['employer_status'].fillna('').str.strip().str.lower()
+    expected = classify_employer_statuses(df)
+    marker = individuals & expected.eq(status_value)
+    has_status = individuals & status.eq(status_value)
+
+    marker_without_status = int((marker & ~has_status).sum())
+    status_without_marker = int((has_status & ~marker).sum())
+    count = marker_without_status + status_without_marker
+    issue = f"{label}/status mismatches: {count}" if count else None
+    return [(gate, {
+        'passed': count == 0,
+        'count': count,
+        'marker_without_status': marker_without_status,
+        'status_without_marker': status_without_marker,
+    }, issue)]
+
+
+# quality gate: self-employed fields and employer_status must agree
+def _gate_self_employed_status(df):
+    return _status_agreement_gate(
+        df, 'self_employed_status_consistency', 'self_employed', 'SELF-EMPLOYED',
+    )
+
+
+# quality gate: non-working occupations and employer_status must agree
+def _gate_not_employed_status(df):
+    return _status_agreement_gate(
+        df, 'not_employed_status_consistency', 'not_employed', 'NOT EMPLOYED',
+    )
+
+
+# quality gate: previous_employer must only be set on retired rows
+def _gate_previous_employer_scope(df):
+    """Previous employment belongs only to retired rows."""
+    required = {'employer_status', 'previous_employer'}
+    not_run = _resolve_only_gate('previous_employer_scope', df, required)
+    if not_run:
+        return not_run
+
+    previous = df['previous_employer'].fillna('').astype(str).str.strip()
+    bad = int((previous.ne('') & ~df['employer_status'].eq('retired')).sum())
+    issue = f"Previous employer on non-retired rows: {bad}" if bad else None
+    return [('previous_employer_scope', {
+        'passed': bad == 0,
+        'count': bad,
+    }, issue)]
+
+
+def _gate_employer_names(df):
+    """Only real employer candidates may reach the employer dimension."""
+    required = {
+        'entity_type', 'employer_status', 'contributor_employer', 'previous_employer',
+    }
+    not_run = _resolve_only_gate('employer_names_valid', df, required)
+    if not_run:
+        return not_run
+
+    individuals = df['entity_type'].eq('INDIVIDUAL')
+    status = df['employer_status'].fillna('').astype(str).str.strip().str.lower()
+    samples = []
+    count = 0
+    for column, eligible in (
+        ('contributor_employer', individuals & status.isin({'active', 'self_employed'})),
+        ('previous_employer', individuals & status.eq('retired')),
+    ):
+        values = df[column].fillna('').astype(str).str.strip()
+        # SELF-EMPLOYED is a permitted work-status marker, never a company.
+        marker = values.eq('SELF-EMPLOYED')
+        if column == 'contributor_employer':
+            marker &= status.eq('self_employed')
+        candidates = eligible & values.ne('') & ~marker
+        rejected = [value for value in values[candidates].unique() if not is_real_employer(value)]
+        bad = candidates & values.isin(rejected)
+        count += int(bad.sum())
+        for index in df.index[bad][:max(0, 5 - len(samples))]:
+            samples.append({
+                'sub_id': str(df.at[index, 'sub_id']) if 'sub_id' in df.columns else '',
+                'field': column,
+                'value': values.at[index],
+            })
+    issue = f"Non-employer values in company fields: {count}; examples: {samples}" if count else None
+    return [('employer_names_valid', {
+        'passed': count == 0,
+        'count': count,
+        'examples': samples,
+    }, issue)]
+
+
+# quality gate: RETIRED category must not coexist with active status
+def _gate_retired_active_sync(df):
+    # RETIRED category with employer_status=active contradicts classify_employer_status
+    required = {'entity_type', 'occupation_category', 'employer_status'}
+    not_run = _resolve_only_gate('retired_active_sync', df, required)
+    if not_run:
+        return not_run
+    bad_sync = (
+        (df['entity_type'] == 'INDIVIDUAL')
+        & (df['occupation_category'] == 'RETIRED')
+        & (df['employer_status'] == 'active')
+    )
+    n_bad_sync = int(bad_sync.sum())
+    issue = (
+        f"retired+active contradiction: {n_bad_sync} rows "
+        "-- check classify_employer_status in fec/cleaning/work/previous.py"
+    ) if n_bad_sync else None
+    return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
+
+
+# quality gate: retired rows must carry the RETIRED employer marker
+def _gate_retired_employer_marker(df):
+    """A retired occupation must finish with the canonical RETIRED employer marker."""
+    required = {'entity_type', 'occupation_category', 'contributor_employer'}
+    if not required.issubset(df.columns):
+        return []
+    employer = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
+    bad = (
+        df['entity_type'].eq('INDIVIDUAL')
+        & df['occupation_category'].eq('RETIRED')
+        & employer.ne('RETIRED')
+    )
+    count = int(bad.sum())
+    issue = f"Retired rows without RETIRED employer marker: {count}" if count else None
+    return [('retired_employer_marker', {'passed': count == 0, 'count': count}, issue)]
+
+
+# quality gate: previous_employer must not still contain a slash composite
+def _gate_slash_previous_employer(df):
+    # 'COMPANY/TITLE' composites are resolved by resolve.py (_normalize_previous_employer_column);
+    # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted
+    if 'previous_employer' not in df.columns:
+        return []
+    prev_emp = df['previous_employer'].fillna('').astype(str)
+    slashy = (
+        prev_emp.str.contains('/', regex=False)
+        & ~prev_emp.str.upper().isin(SLASH_BRAND_EMPLOYERS)
+    )
+    n_slash = int(slashy.sum())
+    issue = (
+        f"previous_employer slash leaks: {n_slash} rows "
+        "-- run resolve.py (fec/resolve/apply.py normalizes the column)"
+    ) if n_slash else None
+    return [('no_slash_in_previous_employer', {'passed': n_slash == 0, 'count': n_slash}, issue)]

@@ -38,46 +38,46 @@ class TestNormHelper:
 
 class TestOccupationCanonical:
     def test_chief_executive_officer(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'CHIEF EXECUTIVE OFFICER'}])
         df, n = normalize_occupation_canonical(df)
         assert df['contributor_occupation'].iloc[0] == 'CEO'
         assert n == 1
 
     def test_cfo_stays(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'CFO'}])
         df, n = normalize_occupation_canonical(df)
         assert n == 0
 
     def test_chief_financial_officer_to_cfo(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'CHIEF FINANCIAL OFFICER'}])
         df, n = normalize_occupation_canonical(df)
         assert df['contributor_occupation'].iloc[0] == 'CFO'
 
     def test_vp_to_vice_president(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'VP'}])
         df, n = normalize_occupation_canonical(df)
         assert df['contributor_occupation'].iloc[0] == 'VICE PRESIDENT'
 
     def test_doctor_stays_doctor(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'DOCTOR'}])
         df, n = normalize_occupation_canonical(df)
         assert df['contributor_occupation'].iloc[0] == 'DOCTOR'
         assert n == 0
 
     def test_lawyer_stays_lawyer(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'LAWYER'}])
         df, n = normalize_occupation_canonical(df)
         assert df['contributor_occupation'].iloc[0] == 'LAWYER'
         assert n == 0
 
     def test_home_maker_to_homemaker(self):
-        from fec.cleaning.occupations.clean import normalize_occupation_canonical
+        from fec.cleaning.work.clean import normalize_occupation_canonical
         df = _make_df([{'contributor_occupation': 'HOME MAKER'}])
         df, n = normalize_occupation_canonical(df)
         assert df['contributor_occupation'].iloc[0] == 'HOMEMAKER'
@@ -85,39 +85,39 @@ class TestOccupationCanonical:
 
 class TestOccupationCategorization:
     def test_attorney_is_legal(self):
-        from fec.cleaning.occupations.normalize import _categorize
+        from fec.cleaning.work.normalize import _categorize
         result = _categorize(pd.Series(['ATTORNEY']))
         assert result.iloc[0] == 'LEGAL'
 
     def test_physician_is_medical(self):
-        from fec.cleaning.occupations.normalize import _categorize
+        from fec.cleaning.work.normalize import _categorize
         result = _categorize(pd.Series(['PHYSICIAN']))
         assert result.iloc[0] == 'MEDICAL / HEALTHCARE'
 
     def test_retired_is_retired(self):
-        from fec.cleaning.occupations.normalize import _categorize
+        from fec.cleaning.work.normalize import _categorize
         result = _categorize(pd.Series(['RETIRED']))
         assert result.iloc[0] == 'RETIRED'
 
     def test_software_engineer_is_technology(self):
-        from fec.cleaning.occupations.normalize import _categorize
+        from fec.cleaning.work.normalize import _categorize
         result = _categorize(pd.Series(['SOFTWARE ENGINEER']))
         assert result.iloc[0] == 'TECHNOLOGY'
 
     def test_unknown_is_other(self):
-        from fec.cleaning.occupations.normalize import _categorize
+        from fec.cleaning.work.normalize import _categorize
         result = _categorize(pd.Series(['SOMETHING UNUSUAL']))
         assert result.iloc[0] == 'OTHER'
 
     def test_nan_stays_na(self):
-        from fec.cleaning.occupations.normalize import _categorize
+        from fec.cleaning.work.normalize import _categorize
         result = _categorize(pd.Series([np.nan]))
         assert pd.isna(result.iloc[0])
 
 
 class TestSwappedOccEmp:
     def test_llp_in_occ_attorney_in_emp(self):
-        from fec.cleaning.occupations.clean import fix_remaining_swapped_occ_emp
+        from fec.cleaning.work.clean import fix_remaining_swapped_occ_emp
         df = _make_df([{
             'contributor_occupation': 'MARC BERN & PARTNERS LLP',
             'occupation_category': 'OTHER',
@@ -129,7 +129,7 @@ class TestSwappedOccEmp:
         assert df['contributor_employer'].iloc[0] == 'MARC BERN & PARTNERS LLP'
 
     def test_corp_finance_not_swapped(self):
-        from fec.cleaning.occupations.clean import fix_remaining_swapped_occ_emp
+        from fec.cleaning.work.clean import fix_remaining_swapped_occ_emp
         df = _make_df([{
             'contributor_occupation': 'CORP FINANCE',
             'occupation_category': 'FINANCE / INVESTMENT',
@@ -140,7 +140,7 @@ class TestSwappedOccEmp:
         assert df['contributor_occupation'].iloc[0] == 'CORP FINANCE'
 
     def test_same_value_fix(self):
-        from fec.cleaning.occupations.clean import fix_remaining_swapped_occ_emp
+        from fec.cleaning.work.clean import fix_remaining_swapped_occ_emp
         df = _make_df([{
             'contributor_occupation': 'ATTORNEY',
             'contributor_employer': 'ATTORNEY',
@@ -150,7 +150,7 @@ class TestSwappedOccEmp:
         assert df['contributor_employer'].iloc[0] == 'SELF-EMPLOYED'
 
     def test_hospital_in_occ_physician_in_emp(self):
-        from fec.cleaning.occupations.clean import fix_remaining_swapped_occ_emp
+        from fec.cleaning.work.clean import fix_remaining_swapped_occ_emp
         df = _make_df([{
             'contributor_occupation': 'GREENWICH HOSPITAL',
             'occupation_category': 'OTHER',

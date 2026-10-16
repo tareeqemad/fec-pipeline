@@ -20,41 +20,65 @@ _STREET_TYPE_RE = re.compile(
 )
 
 
-# fill null streets from rows with same name/city/state
-def _recover_null_streets(df: pd.DataFrame) -> int:
-    """Fill NULL streets (e.g. nulled emails) from other records of the same (name, city, state)."""
-    null_street = df["contributor_street_1"].isna()
-    if not null_street.any():
-        return 0
+def _text(value) -> str:
+    return "" if pd.isna(value) else str(value).strip()
 
-    has_street = df["contributor_street_1"].notna()
-    street_lookup = (
-        df.loc[has_street]
-        .groupby(["contributor_name", "contributor_city", "contributor_state"])[
-            "contributor_street_1"
-        ]
-        .agg(lambda values: values.value_counts().index[0])
-        .to_dict()
-    )
 
-    n_recovered = 0
-    for idx in df[null_street].index:
-        key = (
-            df.at[idx, "contributor_name"],
-            df.at[idx, "contributor_city"],
-            df.at[idx, "contributor_state"],
-        )
-        street = street_lookup.get(key)
+def _identity_column(df: pd.DataFrame) -> str:
+    return "donor_key" if "donor_key" in df.columns else "contributor_name"
+
+
+def _source_addresses(df: pd.DataFrame, keys: list[str]) -> dict:
+    """All usable individual addresses, without selecting a modal street."""
+    usable = _is_usable_street(df["contributor_street_1"])
+    if "entity_type" in df.columns:
+        usable &= df["entity_type"].eq("INDIVIDUAL")
+    sources = {}
+    columns = keys + ["contributor_street_1"]
+    if "contributor_street_2" in df:
+        columns.append("contributor_street_2")
+    for row in df.loc[usable, columns].drop_duplicates().to_dict("records"):
+        key = tuple(_text(row[column]) for column in keys)
+        if all(key):
+            sources.setdefault(key, set()).add((
+                _text(row["contributor_street_1"]),
+                _unit_key(_text(row.get("contributor_street_2"))),
+            ))
+    return sources
+
+
+def _unique_street(addresses, unit: str = "") -> str | None:
+    """A filed unit must match a source unit; missing source units prove nothing."""
+    streets = {street for street, source_unit in addresses if not unit or source_unit == _unit_key(unit)}
+    return next(iter(streets)) if len(streets) == 1 else None
+
+
+def _fill_blank_streets(df: pd.DataFrame, targets: pd.Series, keys: list[str]) -> int:
+    sources = _source_addresses(df, keys)
+    if "entity_type" in df.columns:
+        targets &= df["entity_type"].eq("INDIVIDUAL")
+    if "_care_of_blanked" in df.columns:
+        targets &= ~df["_care_of_blanked"].fillna(False).astype(bool)
+    changed = 0
+    for index in df.index[targets]:
+        key = tuple(_text(df.at[index, column]) for column in keys)
+        unit = _text(df.at[index, "contributor_street_2"]) if "contributor_street_2" in df else ""
+        street = _unique_street(sources.get(key, ()), unit)
         if street:
-            # the unit the filing named stays with it: "RING HOUSE APT # 431 ..." keeps APT 431
-            unit = _unit_text(df.at[idx, "contributor_street_1"])
-            df.at[idx, "contributor_street_1"] = street
-            second = df.at[idx, "contributor_street_2"] if "contributor_street_2" in df.columns else ""
-            if unit and (pd.isna(second) or not str(second).strip()):
-                df.at[idx, "contributor_street_2"] = unit
-            n_recovered += 1
+            df.at[index, "contributor_street_1"] = street
+            changed += 1
+    return changed
 
-    return n_recovered
+
+def _recover_null_streets(df: pd.DataFrame) -> int:
+    """Fill a missing street only from an unambiguous, unit-compatible address."""
+    targets = df["contributor_street_1"].isna()
+    if not targets.any():
+        return 0
+    keys = [_identity_column(df), "contributor_city", "contributor_state"]
+    if "contributor_zip" in df:
+        keys.append("contributor_zip")
+    return _fill_blank_streets(df, targets, keys)
 
 
 # check whether street_1 values look geocodable
@@ -70,7 +94,7 @@ def _is_usable_street(s: pd.Series) -> pd.Series:
 
 # replace an unusable street with the donor's real street
 def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
-    """Replace a non-usable street_1 (place-name / fragment) with the same donor's real street."""
+    """Complete an actual street fragment; preserve institution and place names."""
     # individuals only; only a non-usable value is overwritten, a good street never
     usable = _is_usable_street(df["contributor_street_1"])
     target = (
@@ -82,47 +106,48 @@ def _recover_nonstreet_from_donor(df: pd.DataFrame) -> int:
     if not target.any():
         return 0
 
-    # lookup uses ONLY usable streets - never recover one fragment with another
-    clean = df.loc[usable & df["contributor_street_1"].notna()]
-    if clean.empty:
-        return 0
-    # primary key: name + city + state, so the street matches the row's place
-    by_place = (
-        clean.groupby(["contributor_name", "contributor_city", "contributor_state"])[
-            "contributor_street_1"
-        ]
-        .agg(lambda values: values.value_counts().index[0])
-        .to_dict()
-    )
-    # fallback name + state only when the donor has exactly ONE clean street in
-    # the whole state (no city ambiguity, so a garbled city on the fragment row
-    # is safe to look past); two distinct streets -> skip, can't choose
-    state_streets: dict[tuple, set] = {}
-    for (name, _city, state), street in by_place.items():
-        state_streets.setdefault((name, state), set()).add(street)
-    by_state_single = {
-        key: next(iter(streets))
-        for key, streets in state_streets.items()
-        if len(streets) == 1
-    }
-
+    keys = [_identity_column(df), "contributor_city", "contributor_state"]
+    if "contributor_zip" in df:
+        keys.append("contributor_zip")
+    sources = _source_addresses(df, keys)
     n_recovered = 0
     for idx in df[target].index:
-        name = df.at[idx, "contributor_name"]
-        state = df.at[idx, "contributor_state"]
-        street = by_place.get(
-            (name, df.at[idx, "contributor_city"], state)
-        ) or by_state_single.get((name, state))
+        text = _text(df.at[idx, "contributor_street_1"])
+        key = tuple(_text(df.at[idx, column]) for column in keys)
+        candidates = sources.get(key, ())
+        unit = _unit_text(text)
+        standalone_unit = bool(_REAL_UNIT_RE.fullmatch(text) or re.fullmatch(FLOOR_ONLY_RE, text))
+        if standalone_unit and not unit:
+            unit = text
+        second = _text(df.at[idx, "contributor_street_2"]) if "contributor_street_2" in df else ""
+        if unit and second and _unit_key(unit) != _unit_key(second):
+            continue
+        # A building's own numbered street fragment is evidence even when its
+        # unit differs from another filing at that building (RING HOUSE ...).
+        matched = [(street, source_unit) for street, source_unit in candidates
+                   if _contains_street_fragment(text, street)]
+        street = _unique_street(matched)
+        if not street and standalone_unit:
+            street = _unique_street(candidates, second or unit)
         if street:
-            # the unit the filing named stays with it: "RING HOUSE APT # 431 ..." keeps APT 431
-            unit = _unit_text(df.at[idx, "contributor_street_1"])
             df.at[idx, "contributor_street_1"] = street
-            second = df.at[idx, "contributor_street_2"] if "contributor_street_2" in df.columns else ""
-            if unit and (pd.isna(second) or not str(second).strip()):
+            if unit and not second:
                 df.at[idx, "contributor_street_2"] = unit
             n_recovered += 1
 
     return n_recovered
+
+
+def _contains_street_fragment(text: str, street: str) -> bool:
+    """Require a house number and street-name text already present in the filing."""
+    text = _UNIT_TEXT_RE.sub("", text)
+    for match in re.finditer(r"\b\d+[A-Z]?\s+[A-Z]", text):
+        fragment = text[match.start():].strip(" ,.")
+        words = fragment.split()[1:]
+        if any(len(word) >= 2 and word not in {"NE", "NW", "SE", "SW"} for word in words):
+            if street.startswith(fragment):
+                return True
+    return False
 
 
 # every unit a text names, as KEYWORD NUMBER: "STE 103 PMB 132", "#374 LOS ANGELES" -> "# 374"
@@ -151,30 +176,7 @@ def _recover_missing_streets(df: pd.DataFrame) -> int:
     """Fill a blank street from the donor's only street in the same place."""
     keys = ["donor_key", "contributor_city", "contributor_state", "contributor_zip"]
     street = df["contributor_street_1"].fillna("").astype(str).str.strip()
-    is_individual = df["entity_type"] == "INDIVIDUAL"
-    context = df[keys].fillna("").astype(str).apply(lambda column: column.str.strip())
-    has_context = context.ne("").all(axis=1)
-
-    sources = df.loc[is_individual & has_context & street.ne(""), keys].copy()
-    sources["contributor_street_1"] = street[sources.index]
-    if sources.empty:
-        return 0
-
-    candidates = (
-        sources.groupby(keys)["contributor_street_1"]
-        .agg(lambda values: values.iloc[0] if values.nunique() == 1 else None)
-        .dropna()
-        .to_dict()
-    )
-    recovered = 0
-    targets = is_individual & has_context & street.eq("")
-    for index in df.index[targets]:
-        key = tuple(df.at[index, column] for column in keys)
-        value = candidates.get(key)
-        if value:
-            df.at[index, "contributor_street_1"] = value
-            recovered += 1
-    return recovered
+    return _fill_blank_streets(df, street.eq(""), keys)
 
 
 # FEC cuts street_1 at 34 characters, so a filer who typed the whole address

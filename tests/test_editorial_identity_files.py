@@ -1,6 +1,10 @@
 import csv
 import re
 
+import pandas as pd
+
+from fec.cleaning.addresses.foreign import foreign_address_mask
+from fec.cleaning.addresses.streets import clean_streets
 from fec.env import RULES_DIR
 
 
@@ -96,9 +100,20 @@ def test_known_affiliations_carry_their_own_committee():
 _PREFIX = {"leaders.csv": "leader", "key_accomplices.csv": "accomplice"}
 
 
+def _is_foreign_row(row, prefix):
+    country = row.get(f"{prefix}_country", "").strip().upper()
+    if country and country not in {"US", "USA"}:
+        return True
+    fields = ("street_1", "street_2", "city", "state")
+    frame = pd.DataFrame([{
+        f"contributor_{field}": row.get(f"{prefix}_{field}", "") or ""
+        for field in fields
+    }])
+    return bool(foreign_address_mask(frame).iloc[0])
+
+
 def _editorial_rows():
     """(filename, prefix, row) for rows whose donor has no filing in the cleaned data."""
-    import pandas as pd
     import pytest
 
     from fec.donor_match.rules import resolve_donor_key
@@ -114,28 +129,38 @@ def _editorial_rows():
 
 
 def test_editorial_roster_streets_are_unchanged_by_the_pipeline_normaliser():
-    # FEC-linked rows are synced from cleaned filings; editorial ones must be in the same
-    # USPS style or the loader stores '1211 AVENUE OF THE AMERICAS' and '1211 AVE OF THE
-    # AMERICAS' as two addresses (run sync_rosters.py to rewrite them)
-    from fec.database.roster_sync import editorial_street_changes, is_foreign_row
-
+    # Consistent street spelling avoids duplicate address rows during loading.
     rows = _editorial_rows()
     assert rows
     checked = 0
     for filename, prefix, row in rows:
-        if is_foreign_row(row, prefix):
+        if _is_foreign_row(row, prefix):
             continue
         checked += 1
-        assert editorial_street_changes(row, prefix) == {}, (filename, row["donor_key"])
+        first = row.get(f"{prefix}_first_name", "").strip()
+        last = row.get(f"{prefix}_last_name", "").strip()
+        name = row.get(f"{prefix}_name", "").strip()
+        if (not first or not last) and "," in name:
+            last_part, _, first_part = name.partition(",")
+            first, last = first or first_part.strip(), last or last_part.strip()
+        streets = [row.get(f"{prefix}_{field}", "").strip()
+                   for field in ("street_1", "street_2")]
+        frame = pd.DataFrame([{
+            "contributor_street_1": streets[0] or None,
+            "contributor_street_2": streets[1] or None,
+            "contributor_first_name": first.upper(),
+            "contributor_last_name": last.upper(),
+        }])
+        cleaned, _ = clean_streets(frame)
+        actual = cleaned.loc[0, ["contributor_street_1", "contributor_street_2"]].fillna("").tolist()
+        assert actual == streets, (filename, row["donor_key"])
     assert checked > 40
 
 
 def test_us_roster_zip_is_five_digits_or_blank():
-    from fec.database.roster_sync import is_foreign_row
-
     for filename, prefix in _PREFIX.items():
         for row in _rows(filename):
-            if is_foreign_row(row, prefix):
+            if _is_foreign_row(row, prefix):
                 continue
             value = row[f"{prefix}_zip"]
             assert value == "" or re.fullmatch(r"\d{5}", value), (filename, row["donor_key"], value)
@@ -144,16 +169,15 @@ def test_us_roster_zip_is_five_digits_or_blank():
 def test_roster_zip_agrees_with_the_rows_own_coordinates():
     # Sandberg's 94027 (Atherton) sat 41 km from her San Francisco office pin; the largest
     # remaining gaps are ~12 km in big suburban ZIPs
-    from fec.database.roster_sync import is_foreign_row
-    from fec.geocoding.places import distance_km
-    from fec.resolve.pipeline.location_choice import _zip_centroids
+    from fec.geocoding.validation import distance_km
+    from fec.resolve.locations import _zip_centroids
 
     centroids = _zip_centroids()
     compared = 0
     for filename, prefix in _PREFIX.items():
         for row in _rows(filename):
             zip_code, lat, lng = row[f"{prefix}_zip"], row["address_lat"], row["address_lng"]
-            if is_foreign_row(row, prefix) or not (zip_code and lat and lng) or zip_code not in centroids:
+            if _is_foreign_row(row, prefix) or not (zip_code and lat and lng) or zip_code not in centroids:
                 continue
             compared += 1
             km = distance_km((float(lat), float(lng)), centroids[zip_code])

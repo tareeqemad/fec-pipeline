@@ -2,10 +2,10 @@
 
 import pandas as pd
 
-from fec.donor_match.canonicalize import canonicalize_donor_names
-from fec.donor_match.canonical_addresses import canonicalize_donor_pobox_typos
-from fec.donor_match.canonical_employers import canonicalize_donor_employers
-from fec.donor_match.canonical_addresses import canonicalize_donor_addresses
+from fec.cleaning.donors.names import canonicalize_donor_names
+from fec.cleaning.addresses.fixes.unify import canonicalize_donor_pobox_typos
+from fec.cleaning.donors.employer_variants import canonicalize_donor_employers
+from fec.cleaning.addresses.fixes.unify import canonicalize_donor_addresses
 
 
 def _df(rows, cols):
@@ -207,7 +207,7 @@ def test_pobox_keeps_same_length_numbers_separate():
 
 
 def test_a_cut_off_surname_piece_is_not_kept_as_a_middle_name():
-    from fec.donor_match.canonicalize import _canonical_person_name
+    from fec.cleaning.donors.names import _canonical_person_name
 
     # 'CHRYSTAL, GLENN STUART CHRYSTA': the name field ran out mid-surname
     last, first = _canonical_person_name(
@@ -219,7 +219,7 @@ def test_a_cut_off_surname_piece_is_not_kept_as_a_middle_name():
 
 
 def test_a_real_middle_name_that_starts_the_surname_stays():
-    from fec.donor_match.canonicalize import _canonical_person_name
+    from fec.cleaning.donors.names import _canonical_person_name
 
     # JOHN is a given name other donors file: MARY JOHN JOHNSON keeps it
     last, first = _canonical_person_name(
@@ -230,7 +230,7 @@ def test_a_real_middle_name_that_starts_the_surname_stays():
 
 
 def test_the_surname_repeated_as_a_first_name_word_is_not_a_fuller_name():
-    from fec.donor_match.canonicalize import _canonical_person_name
+    from fec.cleaning.donors.names import _canonical_person_name
 
     # 'FADER, STEVE FADER' once must not outrank STEVEN filed twenty times
     last, first = _canonical_person_name(
@@ -241,7 +241,7 @@ def test_the_surname_repeated_as_a_first_name_word_is_not_a_fuller_name():
 
 
 def test_a_short_employer_name_does_not_join_two_different_fuller_names():
-    from fec.donor_match.canonical_employers import _employer_variant_map
+    from fec.cleaning.donors.employer_variants import _employer_variant_map
 
     # ADVISORS and PRIVATE BANK are two units: WELLS FARGO must not bridge them
     assert _employer_variant_map(["WELLS FARGO", "WELLS FARGO ADVISORS", "WELLS FARGO PRIVATE BANK"]) == {}
@@ -251,7 +251,7 @@ def test_a_short_employer_name_does_not_join_two_different_fuller_names():
 
 def test_an_initial_glued_to_the_name_after_it_gets_its_space():
     import pandas as pd
-    from fec.cleaning.pipeline.name_parsing import _strip_individual_titles_suffixes
+    from fec.cleaning.names import _strip_individual_titles_suffixes
 
     df = pd.DataFrame({"contributor_name": ["WEINER, W.DAVID", "HELLER, J. DAVID", "DOE, J.R."],
                        "contributor_first_name": ["W.DAVID", "J. DAVID", "J.R."],

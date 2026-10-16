@@ -11,12 +11,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.safety_nets.employer import _null_sector_as_employer
-from fec.cleaning.safety_nets.employer_swaps import (
+from fec.cleaning.rules.employer import _null_sector_as_employer
+from fec.cleaning.rules.employer_swaps import (
     _COMPANY_NAME_RE, _fix_employer_equals_occupation, _fix_role_as_employer,
     _fix_self_employed_consistency,
 )
-from fec.cleaning.safety_nets.name_fields import _fix_company_name_as_occupation
+from fec.cleaning.rules.name_fields import _fix_company_name_as_occupation
 
 
 def _frame(rows):

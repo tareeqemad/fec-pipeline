@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from fec.cleaning.occupations.style import (
+from fec.cleaning.work.style import (
     apply_occupation_typo_fixes,
     normalize_occupation_style,
     normalize_occupation_style_step,

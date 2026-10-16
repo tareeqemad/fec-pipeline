@@ -8,7 +8,7 @@ from fec.donor_match import keys as K
 from fec.donor_match import rules as R
 from fec.donor_match.keys import apply_donor_key
 from fec.donor_match.matcher import match_donors
-from fec.donor_match.name_choice import _choose_first
+from fec.cleaning.donors.name_choice import _choose_first
 
 
 def test_equal_length_spellings_go_to_the_majority_not_the_first_filed():
@@ -119,7 +119,7 @@ def test_separation_check_fails_when_a_joint_row_shares_the_filers_key():
 def test_a_one_letter_slip_is_not_a_fuller_first_name():
     """LAWERENCE filed once beside LAWRENCE filed ten times is a typo, not a longer name;
     only a spelling the whole dataset barely knows counts as a slip."""
-    from fec.donor_match.name_choice import _choose_first, rare_spellings
+    from fec.cleaning.donors.name_choice import _choose_first, rare_spellings
 
     with rare_spellings({"LAWERENCE", "LAWRRENCE", "ADDM"}):
         assert _choose_first(["LAWRENCE"] * 10 + ["LARRY", "LAWRRENCE"]) == "LAWRENCE"

@@ -1,13 +1,4 @@
-"""Which columns each stage needs, adds and drops in contributions_cleaned.csv.
-
-Stages run in this order and each rewrites the cleaned CSV:
-
-    clean.py -> geocode.py -> resolve.py --apply -> geocode.py --employer-only
-    (which ends by building employer_locations.csv)
-
-A stage checks the file it reads (check_input) and the frame it is about to
-write (check_output); the loader accepts only LOADED_COLUMNS, exactly.
-"""
+"""Required input and output columns for each pipeline stage."""
 from dataclasses import dataclass
 
 # clean.py writes exactly these, in this order
@@ -19,7 +10,7 @@ CLEAN_COLUMNS = (
     'contributor_city', 'contributor_state', 'contributor_zip',
     'contributor_employer', 'contributor_occupation', 'occupation_category',
     'contribution_receipt_date', 'contribution_receipt_amount',
-    'previous_employer', 'identity_status', 'donor_key', 'employment_source',
+    'previous_employer', 'identity_status', 'donor_key',
 )
 DONOR_COORDINATES = ('latitude', 'longitude')
 EMPLOYER_ADDRESS = ('employer_address', 'employer_city', 'employer_state', 'employer_zip')
@@ -51,8 +42,7 @@ STAGES = {
     'resolve': Stage(
         'resolve.py --apply', needs=CLEAN_COLUMNS,
         adds=EMPLOYER_ADDRESS + ('employer_status',) + RESOLVE_WORKING,
-        # it reads previous_employer as what the donor filed: run on its own
-        # output it reads back its earlier answers (ROBINSON lost it on 14 filings)
+        # Resolve must read filed employers, not its own earlier answers.
         refuses=('employer_status',),
     ),
     'employer_geocode': Stage(
@@ -68,12 +58,12 @@ STAGES = {
 }
 
 
-# the stage that first adds a column, for the "run X first" hint
+# Find the command that first creates a column.
 def _added_by(column: str) -> str:
     return next((stage.command for stage in STAGES.values() if column in stage.adds), 'clean.py')
 
 
-# raise unless the file a stage reads has every column it needs
+# Check required columns and reject a stage run on its own output.
 def check_input(stage_name: str, columns) -> None:
     stage = STAGES[stage_name]
     rerun = [column for column in stage.refuses if column in set(columns)]
@@ -89,19 +79,20 @@ def check_input(stage_name: str, columns) -> None:
         )
 
 
-# raise unless a stage writes its input columns plus adds, minus drops
+# Check output columns against the stage, including duplicates.
 def check_output(stage_name: str, input_columns, output_columns) -> None:
     stage = STAGES[stage_name]
     expected = (set(input_columns) | set(stage.adds)) - set(stage.drops)
     written = list(output_columns)
+    written_columns = set(written)
     problems = []
     duplicated = sorted({column for column in written if written.count(column) > 1})
     if duplicated:
         problems.append(f"duplicated {', '.join(duplicated)}")
-    extra = sorted(set(written) - expected)
+    extra = sorted(written_columns - expected)
     if extra:
         problems.append(f"unexpected {', '.join(extra)}")
-    missing = sorted(expected - set(written))
+    missing = sorted(expected - written_columns)
     if missing:
         problems.append(f"missing {', '.join(missing)}")
     working = sorted(column for column in written if column.startswith('_'))
@@ -111,7 +102,7 @@ def check_output(stage_name: str, input_columns, output_columns) -> None:
         raise ContractError(f"{stage.command} would write a broken file: " + '; '.join(problems))
 
 
-# raise unless the file holds exactly the columns the loader reads
+# Require the finished columns expected by the loader.
 def check_loadable(columns) -> None:
     columns = list(columns)
     missing = [column for column in LOADED_COLUMNS if column not in columns]

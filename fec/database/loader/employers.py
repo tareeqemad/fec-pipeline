@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
-from fec.cleaning.employer_status import (
+from fec.cleaning.work.status import (
     current_employer_name,
     referenced_employers,
 )
@@ -15,7 +15,6 @@ from fec.config.not_employers import NOT_REAL_EMPLOYER
 from fec.database.loader._base import _count, to_native
 from fec.database.loader.employment_locations import (
     _employment_address_id,
-    _location_employer,
     _location_index,
 )
 from fec.database.loader.previous_employers import filing_previous
@@ -24,24 +23,20 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# One donor_employments row per filing identity.  employer_status is part of
-# it because RETIRED / SELF-EMPLOYED / NOT EMPLOYED / blank all resolve to
-# employer_id NULL: without the status a donor's SELF-EMPLOYED ATTORNEY and
-# RETIRED ATTORNEY filings would share one row and one status.  The previous
-# employer is part of it so each retired filing keeps its own.  Must match the
-# UNIQUE NULLS NOT DISTINCT constraint in schema.sql.
+# Match the seven-field UNIQUE NULLS NOT DISTINCT key in schema.sql.
 EMPLOYMENT_KEY_COLUMNS = (
     "donor_id", "employer_id", "occupation", "employer_status",
-    "previous_employer_id", "previous_self_employed",
+    "previous_employer_id", "previous_self_employed", "occupation_category_id",
 )
 
 
-# build the dedup identity tuple for one employment row
+# Build the seven-field employment key with None for missing values.
 def employment_key(donor_id, employer_id, occupation, employer_status,
-                   previous_employer_id=None, previous_self_employed=False) -> tuple:
-    """The identity of an employment; NaN becomes None so NULL equals NULL, like the constraint."""
+                   previous_employer_id=None, previous_self_employed=False,
+                   occupation_category_id=None) -> tuple:
     employer_id = to_native(employer_id)
     previous_employer_id = to_native(previous_employer_id)
+    occupation_category_id = to_native(occupation_category_id)
     return (
         int(donor_id),
         None if employer_id is None else int(employer_id),
@@ -49,24 +44,33 @@ def employment_key(donor_id, employer_id, occupation, employer_status,
         to_native(employer_status),
         None if previous_employer_id is None else int(previous_employer_id),
         bool(previous_self_employed),
+        None if occupation_category_id is None else int(occupation_category_id),
     )
 
 
-# keep only the latest filing per raw employment and status
+# Build an employment key from this filing only.
+def filing_employment_key(donor_id, employer_id, occupation, employer_status,
+                          previous_employer, occupation_category_id, get_employer_id) -> tuple:
+    previous_employer_id, previous_self_employed = filing_previous(
+        employer_status, previous_employer, get_employer_id,
+    )
+    return employment_key(
+        donor_id, employer_id, occupation, employer_status,
+        previous_employer_id, previous_self_employed, occupation_category_id,
+    )
+
+
+# Keep the newest filing for each distinct employment.
 def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
-    """Keep the latest complete filing per raw employment and status."""
     keys = [
         "donor_key",
         "contributor_employer",
         "contributor_occupation",
     ]
-    # A status is part of the employment identity, so a filing whose status
-    # differs from a newer one with the same raw text keeps its own candidate.
-    if "employer_status" in individuals.columns:
-        keys.append("employer_status")
-    # so is the previous employer: each retired filing keeps its own
-    if "previous_employer" in individuals.columns:
-        keys.append("previous_employer")
+    # Older CSVs may omit these fields.
+    for column in ("employer_status", "previous_employer", "occupation_category"):
+        if column in individuals.columns:
+            keys.append(column)
     return (
         individuals.sort_values(
             "contribution_receipt_date",
@@ -76,24 +80,22 @@ def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-# build a resolver mapping cleaned employer name to id
-def _make_employer_resolver(emp_name_to_id: dict):
-    """Map a cleaned employer name exactly."""
-    # look up one employer name's database id, or None
-    def _get_employer_id(emp_name):
-        if pd.isna(emp_name):
+# Create an exact company-name lookup.
+def _make_employer_resolver(employer_ids: dict):
+    # Reject non-company values and find the exact company name.
+    def get_employer_id(name):
+        if pd.isna(name):
             return None
-        emp = str(emp_name).strip()
-        if emp.upper() in NOT_REAL_EMPLOYER:
+        employer = str(name).strip()
+        if employer.upper() in NOT_REAL_EMPLOYER:
             return None
-        return emp_name_to_id.get(emp)
+        return employer_ids.get(employer)
 
-    return _get_employer_id
+    return get_employer_id
 
 
-# insert unique individual employers and return name-to-id mapping
-def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
-    """Step 2: unique employers of INDIVIDUAL donors; returns name -> employer_id."""
+# Load referenced companies and return their IDs.
+def load_employers(cur: Any, df: pd.DataFrame) -> dict:
     logger.info("\n-- 2/8 Loading employers --")
     start = time.time()
 
@@ -104,14 +106,20 @@ def load_employers(conn: Any, cur: Any, df: pd.DataFrame) -> dict:
         employer_rows, page_size=5000)
 
     cur.execute("SELECT employer_id, name FROM employers")
-    emp_name_to_id = {row[1]: row[0] for row in cur.fetchall()}
+    employer_ids = {row[1]: row[0] for row in cur.fetchall()}
     logger.info(f"  employers: {_count(cur, 'employers'):,} ({time.time()-start:.1f}s)")
-    return emp_name_to_id
+    return employer_ids
 
 
-# bulk insert donor_employments rows, skipping duplicate keys
-def _insert_employments(conn: Any, cur: Any, rows: list[tuple]) -> None:
-    """Insert donor_employments rows; a repeated key is skipped."""
+# Load employment rows and return their IDs.
+def load_employments(cur: Any, df: pd.DataFrame, donor_ids: dict,
+                     occupation_category_ids: dict, get_employer_id, address_ids: dict | None = None,
+                     employer_locations: list[dict] | None = None) -> dict:
+    logger.info("\n-- 6/8 Loading donor employments --")
+    start = time.time()
+    rows = _employment_rows(
+        df, donor_ids, occupation_category_ids, get_employer_id, address_ids, employer_locations,
+    )
     execute_values(cur,
         """INSERT INTO donor_employments
            (donor_id, employer_id, occupation, occupation_category_id,
@@ -119,103 +127,82 @@ def _insert_employments(conn: Any, cur: Any, rows: list[tuple]) -> None:
             address_id)
            VALUES %s ON CONFLICT DO NOTHING""",
         rows, page_size=5000)
-
-
-# load donor_employments rows and return their key-to-id mapping
-def load_employments(conn: Any, cur: Any, df: pd.DataFrame, donor_key_to_id: dict,
-                     occ_cat_map: dict, get_employer_id, addr_dim_id: dict | None = None,
-                     employer_locations: list[dict] | None = None) -> dict:
-    """Step 6: donor_employments rows; returns employment_key(...) -> donor_employment_id.
-
-    The key is EMPLOYMENT_KEY_COLUMNS, so every filing keeps the status it
-    reported, and a retired filing its own previous employer, even when several
-    statuses share employer_id NULL.
-    """
-    logger.info("\n-- 6/8 Loading donor employments --")
-    start = time.time()
-    rows = _employment_rows(
-        df, donor_key_to_id, occ_cat_map, get_employer_id, addr_dim_id, employer_locations,
-    )
-    _insert_employments(conn, cur, rows)
-    empl_donor_emp_to_id = _employment_ids(cur)
+    employment_ids = _employment_ids(cur)
     logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
-    return empl_donor_emp_to_id
+    return employment_ids
 
 
-# build one row per distinct employment from latest filings
-def _employment_rows(df: pd.DataFrame, donor_key_to_id: dict, occ_cat_map: dict,
-                     get_employer_id, addr_dim_id: dict | None,
+# Build each employment from its newest filing.
+def _employment_rows(df: pd.DataFrame, donor_ids: dict, occupation_category_ids: dict,
+                     get_employer_id, address_ids: dict | None,
                      employer_locations: list[dict] | None) -> list[tuple]:
-    """One donor_employments row per distinct employment_key, from each donor's latest filings."""
     individuals = df[df['entity_type'] == 'INDIVIDUAL']
-    empl_rows = []
-    seen_empl = set()
+    employment_rows = []
+    seen = set()
 
     locations = (
         _location_index(employer_locations)
-        if addr_dim_id else {}
+        if address_ids else {}
     )
-    empl_agg = _latest_employment_rows(individuals)
+    latest_filings = _latest_employment_rows(individuals)
 
-    for _, row in empl_agg.iterrows():
+    for _, row in latest_filings.iterrows():
         donor_key = row['donor_key']
-        emp_val = row['contributor_employer']
-        occ = to_native(row['contributor_occupation'])
 
-        donor_id = donor_key_to_id.get(donor_key)
+        donor_id = donor_ids.get(donor_key)
         if not donor_id:
             continue
 
-        emp_status = to_native(row.get('employer_status'))
-        employer_name, emp_id = _current_employer(
-            emp_status, emp_val, donor_key, get_employer_id,
+        status = to_native(row.get('employer_status'))
+        employer_name, employer_id = _current_employer(
+            status, row['contributor_employer'], donor_key, get_employer_id,
         )
-
-        prev_emp_id, prev_self_employed = filing_previous(
-            emp_status, row.get('previous_employer'), get_employer_id,
+        category_id = occupation_category_ids.get(to_native(row.get('occupation_category')))
+        key = filing_employment_key(
+            donor_id, employer_id, row['contributor_occupation'], status,
+            row.get('previous_employer'), category_id, get_employer_id,
         )
-        dedup_key = employment_key(donor_id, emp_id, occ, emp_status, prev_emp_id, prev_self_employed)
-        if dedup_key in seen_empl:
+        if key in seen:
             continue
-        seen_empl.add(dedup_key)
+        seen.add(key)
 
-        occ_cat = to_native(row.get('occupation_category'))
-        occ_cat_id = occ_cat_map.get(occ_cat)
-
+        location_employer = employer_name
+        if not employer_id:
+            location_employer = row.get('previous_employer') if status == 'retired' else None
         location_address_id = _employment_address_id(
             row,
-            _location_employer(row, emp_id, employer_name, emp_status),
+            location_employer,
             locations,
-            addr_dim_id or {},
+            address_ids or {},
         )
 
-        empl_rows.append((
-            donor_id, emp_id, occ, occ_cat_id,
-            emp_status, prev_emp_id, prev_self_employed, location_address_id,
+        (donor_id, employer_id, occupation, status,
+         previous_employer_id, previous_self_employed, category_id) = key
+        employment_rows.append((
+            donor_id, employer_id, occupation, category_id,
+            status, previous_employer_id, previous_self_employed, location_address_id,
         ))
 
-    return empl_rows
+    return employment_rows
 
 
-# resolve a filing's current employer name and database id
-def _current_employer(emp_status, emp_val, donor_key, get_employer_id):
-    """The filing's current employer name and its database id."""
-    employer_name = current_employer_name(emp_status, emp_val)
-    if emp_status == 'active' and not employer_name:
+# Find the filing company and require its database ID.
+def _current_employer(status, employer, donor_key, get_employer_id):
+    employer_name = current_employer_name(status, employer)
+    if status == 'active' and not employer_name:
         raise RuntimeError(
             f"active employment has no employer: donor_key={donor_key}"
         )
-    emp_id = get_employer_id(employer_name)
-    if employer_name and emp_id is None:
+    employer_id = get_employer_id(employer_name)
+    if employer_name and employer_id is None:
         raise RuntimeError(
             f"cleaned employer has no exact database match: {employer_name!r}"
         )
-    return employer_name, emp_id
+    return employer_name, employer_id
 
 
-# map each loaded employment's key to its database id
+# Map each employment key to its database ID.
 def _employment_ids(cur) -> dict:
-    """employment_key(...) -> donor_employment_id for every loaded row."""
     cur.execute(
         "SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS)
         + " FROM donor_employments"

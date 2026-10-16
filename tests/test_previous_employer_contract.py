@@ -1,15 +1,15 @@
 """previous_employer has one contract shared by every writer (post-merge steps and resolve)."""
 import pandas as pd
 
-from fec.cleaning.donor_consistency.retired import _normalize_previous_employer
-from fec.cleaning.employer_status import referenced_employers
-from fec.cleaning.previous_employer import (
+from fec.cleaning.donors.retired import _normalize_previous_employer
+from fec.cleaning.work.status import referenced_employers
+from fec.cleaning.work.previous import (
     normalize_previous_employer_column,
 )
-from fec.cleaning.previous_employer import (
+from fec.cleaning.work.previous import (
     normalize_previous_employer_value as V,
 )
-from fec.resolve.pipeline.quality_fixes import _normalize_previous_employer_column
+from fec.resolve.apply import _normalize_previous_employer_column
 
 
 def test_referenced_employers_are_individual_only():
@@ -170,7 +170,7 @@ def _resolved_retiree(
     contributor_name="DOE, JANE", address_cache=None,
 ):
     """Run the resolve apply stage on one already-built retired donor."""
-    from fec.resolve.pipeline.apply import apply_results
+    from fec.resolve.apply import apply_results
 
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL"],
@@ -207,7 +207,7 @@ def test_resolve_keeps_build_owned_display_for_the_same_company():
 
 def test_resolve_uses_current_canonical_employer_spelling():
     """A prior company must not create a case-only duplicate employer."""
-    from fec.resolve.pipeline.apply import apply_results
+    from fec.resolve.apply import apply_results
 
     df = pd.DataFrame([
         {
@@ -292,7 +292,7 @@ def test_resolve_keeps_own_named_legal_company_and_is_idempotent():
 
 
 def test_fec_previous_employer_requires_a_zip_the_donor_files_from():
-    from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor
+    from fec.resolve.fec import _same_fec_donor
 
     person = {
         "name": "JOHNSON, JAMES",
@@ -323,7 +323,7 @@ def test_fec_previous_employer_requires_a_zip_the_donor_files_from():
 
 def test_a_cached_fec_answer_from_a_zip_the_donor_never_uses_is_dropped():
     import pandas as pd
-    from fec.resolve.pipeline.steps.fec_previous_employer import drop_unproven_source_entries
+    from fec.resolve.fec import drop_unproven_source_entries
 
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * 2, "donor_key": ["A", "B"],
                        "contributor_zip": ["33432", "10024-1234"]})
@@ -338,7 +338,7 @@ def test_a_cached_fec_answer_from_a_zip_the_donor_never_uses_is_dropped():
 
 
 def test_fec_previous_employer_rejects_conflicting_middle_initials():
-    from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor
+    from fec.resolve.fec import _same_fec_donor
 
     person = {
         "name": "JOHNSON, JAMES R",
@@ -377,7 +377,7 @@ def _rudy():
 
 
 def test_each_retired_filing_gets_the_employer_it_had_retired_from():
-    from fec.resolve.pipeline.apply import apply_results
+    from fec.resolve.apply import apply_results
 
     cache = {"donor:RUDY": {"employer": "KINZIE HOUSE DESIGNS", "method": "cross_record"}}
 
@@ -388,7 +388,7 @@ def test_each_retired_filing_gets_the_employer_it_had_retired_from():
 
 
 def test_a_hand_set_previous_employer_still_wins_over_the_filing_history():
-    from fec.resolve.pipeline.apply import apply_results
+    from fec.resolve.apply import apply_results
 
     cache = {"donor:RUDY": {"employer": "ACME INDUSTRIES", "method": "manual_override"}}
 
@@ -410,7 +410,7 @@ def test_resolve_expands_abbreviations_in_a_previous_employer_from_the_fec_api()
 
 def test_a_two_person_filing_is_not_the_donor_s_work_history():
     """SANDBERG, ADELE AND JOEL: the ophthalmology practice was Joel's, not Adele's."""
-    from fec.resolve.pipeline.steps.fec_previous_employer import _same_fec_donor, drop_joint_source_entries
+    from fec.resolve.fec import _same_fec_donor, drop_joint_source_entries
 
     person = {"name": "SANDBERG, ADELE", "state": "OH", "city": "CINCINNATI", "zip": "45208"}
     joint = {"contributor_name": "SANDBERG, ADELE AND JOEL", "contributor_state": "OH",
@@ -431,8 +431,8 @@ def test_a_two_person_filing_is_not_the_donor_s_work_history():
 
 def test_a_zip_another_same_name_donor_files_from_proves_nothing():
     import pandas as pd
-    from fec.resolve.pipeline.steps.fec_previous_employer import (
-        _same_fec_donor, _shared_zips, drop_unproven_source_entries)
+    from fec.resolve.fec import _same_fec_donor, drop_unproven_source_entries
+    from fec.resolve.previous import _shared_zips
 
     # a retiree and a working attorney, both RICHARD GOLDSTEIN in Boca Raton 33432
     df = pd.DataFrame({
@@ -457,7 +457,8 @@ def test_a_zip_another_same_name_donor_files_from_proves_nothing():
 
 def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_path, monkeypatch):
     import pandas as pd
-    import fec.resolve.pipeline.steps.fec_previous_employer as step
+    from fec.resolve import manual as step
+    from fec.resolve.fec import drop_unproven_source_entries
 
     overrides = tmp_path / "overrides.csv"
     overrides.write_text("sub_id,contributor_employer,contributor_occupation,note\n"
@@ -472,7 +473,7 @@ def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_
     cleared = step.cleared_employers(df)
     assert cleared == {"ADELE": {"EYE SURGERY ASSOCIATES"}}
     cache = {"donor:ADELE": {"employer": "EYE SURGERY ASSOCIATES", "method": "fec_api", "source_zip": "331794324"}}
-    assert step.drop_unproven_source_entries(cache, df, cleared) == 1
+    assert drop_unproven_source_entries(cache, df, cleared) == 1
 
 
 def test_a_short_status_word_stays_exact():
@@ -492,7 +493,7 @@ def test_a_job_title_names_no_company():
 
 def test_a_cached_fec_answer_that_is_a_job_title_is_searched_again():
     import pandas as pd
-    from fec.resolve.pipeline.steps.fec_previous_employer import drop_unproven_source_entries
+    from fec.resolve.fec import drop_unproven_source_entries
 
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * 2, "donor_key": ["A", "B"],
                        "contributor_zip": ["60611", "10028"]})

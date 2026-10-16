@@ -117,7 +117,7 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
         "sub_id": "1",
         "committee_id": "C00000001",
         "two_year_transaction_period": 2026,
-        "contribution_receipt_date": "2026-01-01T00:00:00",
+        "contribution_receipt_date": "2026-08-31T00:00:00",
         "contribution_receipt_amount": 10,
     })
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
@@ -129,17 +129,20 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
 
     def fake_pages(_session, params, _limiter):
         params_seen.update(params)
+        late_filing = {
+            "sub_id": "2",
+            "committee_id": "C00000001",
+            "two_year_transaction_period": 2026,
+            "contributor_name": "JOSÉ TEST",
+            "contribution_receipt_date": "2026-02-03T12:00:00",
+            "contribution_receipt_amount": "25.50",
+        }
         yield {"results": [
             {"sub_id": "1", "committee_id": "C00000001"},
-            {
-                "sub_id": "2",
-                "committee_id": "C00000001",
-                "contributor_name": "JOSÉ TEST",
-                "contribution_receipt_date": "2026-02-03T12:00:00",
-                "contribution_receipt_amount": "25.50",
-            },
+            late_filing, late_filing,
             {"committee_id": "C00000001"},
         ], "pagination": {}}
+        yield {"results": [late_filing], "pagination": {}}
 
     class FakeSession:
         def get(self, *args, **kwargs):
@@ -151,13 +154,18 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
     monkeypatch.setenv("FEC_API_KEY", "test")
 
     pull.run("C00000001", 2026)
+    pull.run("C00000001", 2026)
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert [row["sub_id"] for row in rows] == ["1", "2"]
     assert rows[1]["contributor_name"] == "JOSÉ TEST"
     assert rows[1]["contributor_year"] == "2026"
-    assert params_seen["min_date"] == "2026-01-01"
+    assert rows[0]["contribution_receipt_amount"] == "10"
+    assert rows[1]["contribution_receipt_amount"] == "25.50"
+    assert "min_date" not in params_seen
+    with pull.source_path(csv_path).open(encoding="utf-8", newline="") as handle:
+        assert [row["sub_id"] for row in csv.DictReader(handle)] == ["2"]
 
 
 @pytest.mark.parametrize("sub_id", [None, "", "   "])
@@ -220,7 +228,7 @@ def test_cli_missing_api_key_returns_error(monkeypatch):
     assert len(calls) == 1
 
 
-def test_cli_full_rechecks_selected_period(monkeypatch):
+def test_cli_accepts_legacy_full_option(monkeypatch):
     calls = []
     monkeypatch.setattr(
         pull_cli,
@@ -236,23 +244,18 @@ def test_cli_full_rechecks_selected_period(monkeypatch):
     assert calls == [{
         "committee_id": "C00000001",
         "period": 2024,
-        "full": True,
     }]
 
 
-def test_full_pull_omits_latest_date_filter():
-    params = pull._pull_params(
-        "key",
-        "C00000001",
-        2024,
-        "2024-12-01",
-        True,
-    )
+def test_pull_omits_latest_date_filter():
+    params = pull._pull_params("key", "C00000001", 2024)
 
     assert "min_date" not in params
+    assert params["committee_id"] == "C00000001"
+    assert params["two_year_transaction_period"] == 2024
 
 
-def test_committee_state_is_scoped_to_period(tmp_path):
+def test_existing_ids_are_scoped_to_period(tmp_path):
     csv_path = tmp_path / "contributions.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=pull.COLUMNS)
@@ -270,10 +273,9 @@ def test_committee_state_is_scoped_to_period(tmp_path):
             "contribution_receipt_date": "2026-05-31",
         })
 
-    ids, latest = pull.read_committee_state(csv_path, "C00000001", 2024)
+    ids = pull.read_existing_ids(csv_path, "C00000001", 2024)
 
     assert ids == {"2024-row"}
-    assert latest == "2024-12-01"
 
 
 def _saved_committee(tmp_path):
@@ -305,21 +307,30 @@ def _pull_with(monkeypatch, csv_path, pages):
 
 def test_a_pull_cut_off_part_way_is_redone_in_full_next_time(tmp_path, monkeypatch):
     csv_path = _saved_committee(tmp_path)
+    newer = {
+        "sub_id": "2", "committee_id": "C00000001", "two_year_transaction_period": 2026,
+        "contribution_receipt_date": "2026-09-01", "contribution_receipt_amount": 25,
+    }
+    older = {
+        "sub_id": "3", "committee_id": "C00000001", "two_year_transaction_period": 2026,
+        "contribution_receipt_date": "2026-02-01", "contribution_receipt_amount": 50,
+    }
 
     def cut_off():
-        yield {"results": [], "pagination": {}}
+        yield {"results": [newer], "pagination": {}}
         raise KeyboardInterrupt
 
     _pull_with(monkeypatch, csv_path, cut_off())
     with pytest.raises(KeyboardInterrupt):
         pull.run("C00000001", 2026)
 
-    # the newest date is saved, the older pages are not: no min_date this time
-    params_seen = _pull_with(monkeypatch, csv_path, [{"results": [], "pagination": {}}])
+    params_seen = _pull_with(monkeypatch, csv_path, [{"results": [newer, older], "pagination": {}}])
     pull.run("C00000001", 2026)
     assert "min_date" not in params_seen
 
-    # finished once, the next pull starts from the newest saved date again
-    params_seen = _pull_with(monkeypatch, csv_path, [{"results": [], "pagination": {}}])
+    params_seen = _pull_with(monkeypatch, csv_path, [{"results": [newer, older], "pagination": {}}])
     pull.run("C00000001", 2026)
-    assert params_seen["min_date"] == "2026-07-01"
+    assert "min_date" not in params_seen
+    with csv_path.open(encoding="utf-8", newline="") as handle:
+        assert [row["sub_id"] for row in csv.DictReader(handle)] == ["1", "2", "3"]
+    assert not (tmp_path / "pull_state.json").exists()

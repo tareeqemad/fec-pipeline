@@ -3,7 +3,7 @@ import json
 
 import pandas as pd
 
-from fec.cleaning.pipeline.fec_recovery import recover_addresses_from_fec
+from fec.cleaning.addresses.fec_recovery import recover_addresses_from_fec
 
 
 def _seed(tmp_path, entries):
@@ -26,7 +26,7 @@ def test_applies_cached_address_and_normalizes(tmp_path):
     _seed(tmp_path, {"GHITIS, LEO|FL": {
         "street": "240 GOLDEN BEACH DR.", "city": "GOLDEN BEACH",
         "zip": "33160", "n": 22, "method": "fec_api"}})
-    df = pd.DataFrame([_row("GOLDEN BEACH", zip_="")])
+    df = pd.DataFrame([_row("", zip_="")])
     n = recover_addresses_from_fec(df, str(tmp_path))   # all cached -> no network
     assert n == 1
     assert df.loc[0, "contributor_street_1"] == "240 GOLDEN BEACH DR"  # normalised

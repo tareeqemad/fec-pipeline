@@ -6,12 +6,12 @@ Every case is a real filing pattern from data/raw/contributions.csv (audit of
 
 import pandas as pd
 
-from fec.donor_match.canonicalize import (
+from fec.cleaning.donors.names import (
     _canonical_person_name,
     canonicalize_donor_names,
 )
-from fec.donor_match.name_choice import _first_core
-from fec.donor_match.canonical_employers import unify_org_donor_suffix_variants
+from fec.cleaning.donors.name_choice import _first_core
+from fec.cleaning.donors.employer_variants import unify_org_donor_suffix_variants
 
 COLS = [
     "entity_type",
@@ -254,8 +254,8 @@ def _person(sub_id, name, employer):
 def test_org_alignment_sees_entity_overrides_and_final_employer(tmp_path, monkeypatch):
     """Pachulski: the override makes the row an ORGANIZATION only in donor consistency,
     so the alignment must run after it (and after employer finalisation)."""
-    from fec.cleaning.donor_consistency import entity
-    from fec.cleaning.pipeline.core import standardize_donors
+    from fec.cleaning.donors import entity
+    from fec.cleaning.pipeline import standardize_donors
 
     (tmp_path / "entity_overrides.csv").write_text(
         'contributor_name,entity_type,note\n"PACHULSKI STANG ZIEHL & JONES",ORGANIZATION,law firm\n',
@@ -282,7 +282,7 @@ def test_org_alignment_sees_entity_overrides_and_final_employer(tmp_path, monkey
 
 
 def test_filed_given_names_beyond_the_first_name_field_are_kept():
-    from fec.cleaning.pipeline.names import _keep_filed_given_names
+    from fec.cleaning.names import _keep_filed_given_names
 
     df = pd.DataFrame({
         'contributor_name': ['HARRIS, S. WOLF', 'MORRIS, ELLEN STUN', 'SMITH, J',

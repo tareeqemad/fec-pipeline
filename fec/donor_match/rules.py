@@ -1,4 +1,4 @@
-"""Read curated donor identity rules from one CSV."""
+"""Read and evaluate reviewed donor identity rules."""
 
 import csv
 import re
@@ -59,15 +59,8 @@ def _read_rules() -> list[dict[str, str]]:
     return rows
 
 
-# load pairs of identities that must never merge
+# Load name and place separation rules; split profiles by ZIP for names with ZIP-scoped rules.
 def _load_separations(rows):
-    """(name pairs, name+city+state pairs, names whose rules also give ZIP codes).
-
-    Two people with one name in one city (a physician and a lawyer, both ANDREW
-    ROSENBERG in NEW YORK) share one name+city+state profile; a rule in one city
-    that also gives zip_a/zip_b splits that name's profiles by ZIP, and every
-    rule of that name giving ZIPs then compares profiles by ZIP.
-    """
     separations = []
     for row in rows:
         if _normalize(row.get("action")) != "SEPARATE":
@@ -106,7 +99,7 @@ def _load_separations(rows):
 def _load_key_merges(rows) -> dict[str, str]:
     merges = {}
     for row in rows:
-        if _normalize(row.get("action")) != "MERGE_KEYS":
+        if _normalize(row.get("action")) != "MERGE_KEYS" or row.get("sub_ids"):
             continue
         keep = (row.get("donor_key_a") or "").strip()
         drop = (row.get("donor_key_b") or "").strip()
@@ -183,14 +176,8 @@ def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
     return last.strip(), tuple(re.findall(r"[A-Z]+", first))
 
 
-# longer names of verified merges exempt from the joint-filing guard
+# Find longer names verified as the same person by merge_keys rules.
 def _load_joint_exemptions(rows) -> frozenset[str]:
-    """Longer names of verified merge_keys pairs 'LAST, A' + 'LAST, A W...'.
-
-    Such a rule is a reviewed statement that the extra word is the filer's own
-    name (GOTTESMAN, MARGERY ARCHIE: Archie is Margery's public name), so the
-    joint-filing guard must not split it off.
-    """
     exempt = set()
     for row in rows:
         if _normalize(row.get("action")) != "MERGE_KEYS":
@@ -209,6 +196,12 @@ def _load_joint_exemptions(rows) -> frozenset[str]:
 _RULES = _read_rules()
 SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES)
 KEY_MERGES = _load_key_merges(_RULES)
+COMMITTEE_NAMES = tuple(
+    (row["donor_key_a"], row["donor_key_b"], row["canonical_name"],
+     frozenset((row.get("sub_ids") or "").split()))
+    for row in _RULES
+    if _normalize(row.get("action")) == "MERGE_KEYS" and row.get("canonical_name")
+)
 HELD_FILINGS = _load_holds(_RULES)
 HELD_ADDRESSES = _load_held_addresses(_RULES)
 NAME_MERGES = _load_name_merges(_RULES)
@@ -218,13 +211,8 @@ _MERGED_NAME_PREFIXES = tuple(
 )
 
 
-# true when a verified rule owns this multi-word first name
+# Check whether a verified merge identifies this multi-word first name as one person.
 def joint_name_exempt(name: str) -> bool:
-    """True when a verified rule says this multi-word first name is its filer's own.
-
-    A merge_names group covers every name that starts with one of its names
-    (all one person); a merge_keys pair 'LAST, A' / 'LAST, A W' covers 'LAST, A W'.
-    """
     last, words = _name_words(name)
     if not last or not words:
         return False

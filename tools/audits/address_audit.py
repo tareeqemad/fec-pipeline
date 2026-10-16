@@ -76,8 +76,8 @@ def core_and_unit(street_1, street_2) -> tuple[str, str]:
     return s, re.sub(r"\s+", "", _UNIT_STRIP_RE.sub(" ", unit))
 
 
+# Compare house number and street words, ignoring type, direction and spacing.
 def sig(core: str) -> tuple:
-    """What a human would call 'the same address': house number + street words, ignoring type/direction/spacing."""
     t = core.split()
     if not t:
         return ("", "")
@@ -104,9 +104,8 @@ def _reviewed(state: str, raw_city: str, cleaned_city: str, z: str) -> bool:
     return (state, raw_city, cleaned_city) in REVIEWED_SAME_PLACE or (state, raw_city, cleaned_city, z) in REVIEWED_SAME_PLACE
 
 
+# Match vowel-free word abbreviations, excluding direction letters.
 def _abbreviates(short: str, full: str) -> bool:
-    """BRK/BROOK, HTS/HEIGHTS, SPGS/SPRINGS: a vowel-less short form of one word, letters in order.
-    Direction letters never abbreviate anything (N is not NEW, E is not W)."""
     if short == full:
         return True
     if len(short) < 2 or len(short) >= len(full) or short[0] != full[0] or short in _DIRS:
@@ -117,16 +116,15 @@ def _abbreviates(short: str, full: str) -> bool:
     return all(ch in rest for ch in short)
 
 
+# Compare city words, allowing vowel-free abbreviations.
 def same_city_name(a: str, b: str) -> bool:
-    """Same normalised city name, word by word, allowing vowel-less abbreviations of a word."""
     ta, tb = a.split(), b.split()
     return len(ta) == len(tb) and all(_abbreviates(x, y) or _abbreviates(y, x) for x, y in zip(ta, tb))
 
 
+# Find city changes unsupported by another raw filing at the cleaned ZIP.
+# Both input frames are indexed by sub_id.
 def zip_city_contradictions(raw: pd.DataFrame, cln: pd.DataFrame, steps: pd.Series | None = None) -> pd.DataFrame:
-    """Rows (every entity type) whose cleaned city differs from the filed city and that no other filing pairs
-    with the row's cleaned ZIP5. ``raw`` = every raw filing (the evidence), ``cln`` = cleaned rows; both indexed
-    by sub_id. The row's own filing never supports it (its filed city is a different name by construction)."""
     filed = defaultdict(Counter)
     for city, z in zip(raw.contributor_city.map(norm), raw.contributor_zip.map(zip5)):
         if city and len(z) == 5:
@@ -160,8 +158,8 @@ def zip_city_contradictions(raw: pd.DataFrame, cln: pd.DataFrame, steps: pd.Seri
     return out
 
 
+# Count city changes that only expand abbreviations.
 def abbreviation_expansions(raw: pd.DataFrame, cln: pd.DataFrame) -> pd.Series:
-    """City changes accepted as the same name (MOUNTAIN BRK -> MOUNTAIN BROOK): distinct mapping -> rows."""
     r_city = raw.contributor_city.reindex(cln.index).fillna("").map(norm)
     c_city = cln.contributor_city.map(norm)
     pairs = [(r, c) for r, c in zip(r_city, c_city) if r and c and r != c and same_city_name(c, r)]

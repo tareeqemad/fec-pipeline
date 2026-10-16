@@ -45,22 +45,9 @@ STATE_IN_CITY = re.compile(r'\s*,?\s+(' + '|'.join(sorted(US_STATES)) + r')\s*$'
 
 # direction abbreviations
 
-# A direction word that IS the street's name stays spelled out (USPS Pub 28:
-# right to left, the suffix is read first and the word left of it is the
-# name): "650 WEST AVE", "5555 SOUTH ST, STE 200", "3500 SOUTHWEST BLVD". The
-# direction is the name only when the suffix closes the street: end of text,
-# a comma, a unit, or a number that can only be a unit. Lincoln NE has both a
-# South St and a lettered S St, so abbreviating names a different street.
-# Still abbreviated: "123 NORTH MAIN ST", "4550 NORTH PARK AVE" (PARK is the
-# name), "123 NORTH ST JOHNS AVE" (ST is SAINT), "2100 WEST LOOP S" (a
-# post-directional follows, Houston's W LOOP S) and "1704 NORTH AVENUE 54" (LA's
-# numbered Avenue 54, where the number is the name, not a unit). "WEST END
-# AVE" stays "W END AVE": END is not a suffix, and the filers themselves write
-# "W END AVE" (452 rows / 63 donors in New York) far more than "WEST END".
-#
-# Only thoroughfare types that are not themselves common street names count:
-# PARK, CENTER, GREEN, HILL, VIEW, PLAZA ... are left out, because
-# "100 WEST CENTER" is usually W Center St with its type dropped.
+# Keep directions that form the street name: WEST AVE stays WEST AVE (USPS Pub 28).
+# NORTH MAIN ST becomes N MAIN ST. A closing suffix or unit distinguishes the two.
+# PARK, CENTER and similar words can be names, so they are not closing suffixes.
 _NAME_SUFFIXES = (
     'ALLEY|ALY|AVENUE|AVE|AV|BOULEVARD|BLVD|BYPASS|BYP|CAUSEWAY|CSWY'
     '|CIRCLE|CIR|COURT|CT|CRESCENT|CRES|DRIVE|DR|EXPRESSWAY|EXPY'
@@ -89,9 +76,8 @@ _DIRECTION_IS_NAME = (
 )
 
 
-# build a regex/replacement pair to abbreviate one direction word
+# Build a direction replacement while preserving street names.
 def _direction_rule(word: str, abbr: str, prefix: bool = True) -> tuple:
-    """Build a (regex, replacement) pair for direction abbreviation."""
     if prefix:
         return (re.compile(rf'^{word}\b(?!{_DIRECTION_IS_NAME})\s+', re.IGNORECASE), f'{abbr} ')
     return (re.compile(rf'\s+{word}\s*$', re.IGNORECASE), f' {abbr}')
@@ -153,13 +139,8 @@ ORDINAL_TENS = {
     'SIXTY': 60, 'SEVENTY': 70, 'EIGHTY': 80, 'NINETY': 90,
 }
 
-# Unit designators in the USPS form (Publication 28, C2): the designator is
-# abbreviated and written before the identifier, the identifier is kept as
-# written. '10TH FLOOR' / '10TH FL' / 'SEVENTH FLOOR' / 'FLOOR 24' -> 'FL 10' /
-# 'FL 10' / 'FL 7' / 'FL 24'; 'SUITE 200' / 'SUITE #200' / 'STE #200' -> 'STE 200'.
-# A spelled identifier after SUITE is not guessed at: 'SUITE ONE' -> 'STE ONE'
-# (only the designator changes; a word there can be the suite's name), while a
-# spelled ordinal before FLOOR can only be the floor's number.
+# USPS Pub 28, C2: 10TH FLOOR becomes FL 10; SUITE #200 becomes STE 200.
+# Keep suite identifiers as written: SUITE ONE becomes STE ONE.
 _NUMBERED_FLOOR = r'(\d{1,3})(?:(?:ST|ND|RD|TH)\s+(?:FLOOR|FLR|FL)|\s+(?:FLOOR|FLR))\b\.?'
 _SPELLED_ORDINAL = rf"(?:({'|'.join(ORDINAL_TENS)})[\s-]+)?({'|'.join(ORDINAL_WORDS)})"
 _SPELLED_FLOOR = _SPELLED_ORDINAL + r'\s+(?:FLOOR|FLR|FL)\b\.?'
@@ -172,13 +153,8 @@ def _spelled_floor(match: re.Match) -> str:
     return f'FL {tens + ORDINAL_WORDS[match.group(2).upper()]}'
 
 
-# The same designators inside a street line that keeps its unit (employer
-# addresses: '450 7TH AVE 10TH FLOOR', '399 PARK AVE 25TH FLOOR STE 2502',
-# '666 THIRD AVE FLOOR 24 STE 2402') or after another unit in a street_2
-# ('STE 200 10TH FLOOR'). Never the line's first word (the house number), and a
-# spelled floor only after a word ('9460 WILSHIRE BLVD SEVENTH FLOOR'), so
-# '100 FIRST FLOOR' is not guessed at. A bare FL after a direction and an
-# ordinal is a street without its type, not a floor: '3 W 3RD FL' stays.
+# Match units after street text or another unit, never the house number.
+# Keep ambiguous names such as 100 FIRST FLOOR and 3 W 3RD FL unchanged.
 _AFTER_TOKEN = r'(?<=\S\s)'
 _AFTER_WORD = r'(?<=[A-Z.,\-]\s)'
 _NOT_A_STREET_NAME = r'(?<!\s[NSEW]\s)(?<!\s[NS][EW]\s)'
@@ -198,9 +174,7 @@ USPS_UNIT_RULES = [
                 r'|(?<=\s)SUITE\s+(?!(?:' + _NAME_SUFFIXES + r')\b)(?=\w)', re.IGNORECASE), 'STE '),
 ]
 
-# street_2 units (the donor cleaning's _normalize_unit): the leading designator,
-# then the in-line rules above, so a donor's '10TH FLOOR' / 'STE 200 10TH FLOOR'
-# reads 'FL 10' / 'STE 200 FL 10' like the employer line '... FL 10'.
+# In street_2, normalize the leading unit before applying the rules above.
 UNIT_RULES = [
     (re.compile(rf'^{pattern}', re.IGNORECASE), abbr)
     for pattern, abbr in [
@@ -217,9 +191,8 @@ UNIT_RULES = [
 ] + USPS_UNIT_RULES
 
 
-# apply USPS floor/suite designator abbreviations to a street line
+# Abbreviate floor and suite designators while keeping the rest of the street.
 def usps_unit_designators(street: str) -> str:
-    """'450 7TH AVE 10TH FLOOR' -> '450 7TH AVE FL 10', '11160 WARNER AVE SUITE #211' -> '11160 WARNER AVE STE 211'; the rest of the line is unchanged."""
     for pattern, replacement in USPS_UNIT_RULES:
         street = pattern.sub(replacement, street)
     return street

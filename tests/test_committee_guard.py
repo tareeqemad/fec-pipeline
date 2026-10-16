@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from fec.cleaning import cli
+import clean as cli
 from fec.committees import load_committees
 
 

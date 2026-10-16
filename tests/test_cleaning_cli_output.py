@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from fec.cleaning import cli
+import clean as cli
 
 
 def test_foreign_postcode_is_kept_and_us_zip_is_five_digits():

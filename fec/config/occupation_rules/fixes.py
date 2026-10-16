@@ -339,7 +339,7 @@ EMPLOYER_TYPO_FIXES = (
 
 # Curated occupation typo / abbreviation fixes (reviewed 2026-09-22 from the
 # rare-value audit). Keys are spellings as they look AFTER the style step
-# (fec.cleaning.occupations.style), which runs right before this map.
+# (fec.cleaning.work.style), which runs right before this map.
 OCCUPATION_TYPO_FIXES = {
     'SCHOOL PYSHOLOGIST': 'SCHOOL PSYCHOLOGIST',
     'COLLEGE COUNSELOT': 'COLLEGE COUNSELOR',

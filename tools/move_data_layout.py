@@ -14,9 +14,9 @@ from pathlib import Path
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 
-RAW = ("contributions.csv", "fec_source_fields.csv", "pull_state.json")
+RAW = ("contributions.csv", "fec_source_fields.csv")
 CACHE = ("geocode_cache.json", "fec_address_cache.json", "resolve_employer_addr.json", "resolve_prev_employer.json")
-OUTPUT = ("contributions_cleaned.csv", "employer_locations.csv", "pipeline_run.json")
+OUTPUT = ("contributions_cleaned.csv", "employer_locations.csv")
 RULES = ("manual_employer_overrides.csv", "manual_employer_addresses.csv")
 REPORTS = (
     "amount_flags.csv", "audit_changes.csv", "audit_summary.json", "auto_city_fixes.json",

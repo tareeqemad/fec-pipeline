@@ -1,4 +1,4 @@
-"""Environment configuration and database connection; all secrets come from .env or environment variables."""
+"""Environment settings, database connection and project paths."""
 import os
 from pathlib import Path
 
@@ -12,9 +12,8 @@ DATABASE_OWNER = "fec_owner"
 DATABASE_READER = "fec_app"
 
 
-# parse a .env file and set any unset environment variables
+# Load .env without replacing existing environment variables.
 def load_env(env_path: Path | None = None) -> None:
-    """Load .env file into os.environ (simple parser, no dependency)."""
     path = env_path or PROJECT_ROOT / ".env"
     if not path.exists():
         logger.warning(".env not found at %s - using environment variables only", path)
@@ -23,9 +22,7 @@ def load_env(env_path: Path | None = None) -> None:
     with open(path) as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
+            if not line or line.startswith("#") or "=" not in line:
                 continue
             key, _, value = line.partition("=")
             key = key.strip()
@@ -34,9 +31,8 @@ def load_env(env_path: Path | None = None) -> None:
                 os.environ[key] = value
 
 
-# read an environment variable, raising if required and missing
+# Read a setting and report missing required values.
 def get_env(key: str, default: str | None = None, required: bool = False) -> str | None:
-    """Read an environment variable with validation."""
     value = os.environ.get(key, default)
     if required and not value:
         raise EnvironmentError(
@@ -46,9 +42,8 @@ def get_env(key: str, default: str | None = None, required: bool = False) -> str
     return value
 
 
-# build PostgreSQL connection config from environment variables
+# Build PostgreSQL connection settings from the environment.
 def get_db_config() -> dict:
-    """Build PostgreSQL connection config from environment."""
     return {
         "host": get_env("PG_HOST", "localhost"),
         "port": int(get_env("PG_PORT", "5432")),

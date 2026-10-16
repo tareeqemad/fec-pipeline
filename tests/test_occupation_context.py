@@ -1,7 +1,7 @@
 """Bare DEVELOPER is specialised per filing from its employer, never by a blanket rule."""
 import pandas as pd
 
-from fec.cleaning.safety_nets.occupation_context import (
+from fec.cleaning.rules.occupation_context import (
     _disambiguate_vague_occupation,
     _employer_signal,
 )

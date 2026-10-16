@@ -1,27 +1,11 @@
-"""Address review cases: the open review items grouped into one case per question.
+"""Group address questions by donor, reason and ZIP, with filed values and evidence.
 
-address_manual_review.csv lists one row per item; many items ask the same
-question (one donor, one ZIP, one reason). Each case here carries what a
-reviewer needs to answer it without opening other files:
-
-* every address form in the case and how the forms differ, part by part
-  (house number, direction, street type, unit, PO box) or by spelling only;
-* every filing in the full file that uses one of those forms, with its
-  address as filed (full, original ZIP) and as cleaned;
-* the steps that changed those filings and the reasons they give;
-* the evidence: a verified source (a manual override, a postal check) or
-  none. That the same donor filed a form elsewhere is shown but is not proof.
-* a decision: ``pending`` unless every place-moving change is backed by a
-  source (``supported_correction``). A reviewer writes ``keep_original``
-  when the filing as filed is right.
-
-Priority: ``high`` when forms or changes differ in a part that may move the
-place, ``medium`` for spelling only, ``low`` for care-of, entity and
-descriptive items with no such change. A PO box is a geocoding limit (the
-point lands on the ZIP), not an address error, and is noted as such.
+Include unsupported house-number changes even when final addresses agree.
+Other filings from the same donor are context, not independent proof.
 """
 from __future__ import annotations
 
+import re
 from collections import Counter
 from itertools import combinations
 
@@ -40,6 +24,9 @@ ADDRESS_COLUMNS = (S1, S2, CITY, STATE, ZIP)
 PENDING, SUPPORTED, KEEP_ORIGINAL = "pending", "supported_correction", "keep_original"
 SPELLING_ONLY, FORMATTING_ONLY = "spelling only", "formatting only"
 PO_BOX_NOTE = "PO box: the geocoder places it at the ZIP point; a geocoding limit, not an address error"
+INFERRED_NUMBER_REASON = "house number inferred from other filings without a checked source"
+AMBIGUOUS_NUMBER_REASON = "leading house-number punctuation removed despite a conflicting filed number"
+NUMBER_REVIEW_REASONS = frozenset({INFERRED_NUMBER_REASON, AMBIGUOUS_NUMBER_REASON})
 
 # steps that only rewrite the row's own text (no other filing involved)
 FORMAT_STEPS = frozenset({
@@ -58,12 +45,10 @@ CASE_COLUMNS = (
 )
 
 
-# cell text with blanks as ""
 def _text(series: pd.Series) -> pd.Series:
     return series.astype(object).where(series.notna(), "").astype(str).str.strip()
 
 
-# the first five digits of a ZIP
 def _zip5(series: pd.Series) -> pd.Series:
     return _text(series).str.replace(r"\D", "", regex=True).str[:5]
 
@@ -96,7 +81,6 @@ def _form_differences(forms: list[tuple[str, str]]) -> tuple[list[str], str]:
     return [], FORMATTING_ONLY if same else SPELLING_ONLY
 
 
-# a PO box appears among the forms
 def _has_po_box(forms) -> bool:
     return any(parse_street(street_and_unit(s1, s2)[0]).po_box for s1, s2 in forms)
 
@@ -139,11 +123,76 @@ def _evidence(changes: pd.DataFrame, cleaned: pd.DataFrame, person_filed: Counte
     return " || ".join(parts) or "none"
 
 
-# priority from place-moving parts and how forms differ
 def _priority(moves: list[str], differences: str) -> str:
     if moves:
         return "high"
     return "medium" if differences == SPELLING_ONLY else "low"
+
+
+# Surface numeric guesses even when all final street spellings now agree.
+def _number_review_items(rows: pd.DataFrame, filed: pd.DataFrame, changes: pd.DataFrame) -> pd.DataFrame:
+    street_changes_trail = changes[changes["field"].eq(S1)]
+    sourced = set(street_changes_trail.loc[
+        street_changes_trail["step"].isin(SOURCED_STEPS) & street_changes_trail["source"].ne(""), "sub_id"
+    ])
+    inferred = set(street_changes_trail.loc[
+        street_changes_trail["step"].eq("donor_repair_house_numbers")
+        & street_changes_trail["source"].eq(""), "sub_id"
+    ]) - sourced
+    stripped = set(street_changes_trail.loc[
+        street_changes_trail["step"].eq("streets_safe_fixes")
+        & street_changes_trail["source"].eq(""), "sub_id"
+    ]) - sourced
+    punctuation = set(filed.index[_text(filed[S1]).str.upper().str.match(r"^[^A-Z0-9\s]+\d")])
+    candidates = rows[rows["_sid"].isin(inferred | (stripped & punctuation))]
+    items = []
+    for _, row in candidates.iterrows():
+        sid = row["_sid"]
+        if sid not in filed.index:
+            continue
+        original = filed.loc[sid]
+        after = street_and_unit(row[S1], row[S2])
+        reason = ""
+        note = ""
+        if sid in inferred and "house_number_changed" in street_changes(
+            original[S1], original[S2], row[S1], row[S2]
+        ):
+            reason = INFERRED_NUMBER_REASON
+        elif sid in punctuation:
+            # A removed symbol may be a damaged digit; require a conflicting filed number.
+            stripped_street = re.sub(r"^[^A-Z0-9]+", "", str(original[S1]).upper())
+            if street_and_unit(stripped_street, original[S2]) != after:
+                continue
+            current = parse_street(after[0])
+            if not current.house or not current.name:
+                continue
+            others = filed.reindex(rows.loc[rows["_person"].eq(row["_person"]), "_sid"]).fillna("")
+            same_place = (
+                _text(others[CITY]).str.upper().eq(str(original[CITY]).strip().upper())
+                & _text(others[STATE]).str.upper().eq(str(original[STATE]).strip().upper())
+                & _zip5(others[ZIP]).eq(re.sub(r"\D", "", str(original[ZIP]))[:5])
+            )
+            supporting_forms = []
+            for s1, s2 in zip(_text(others.loc[same_place, S1]), _text(others.loc[same_place, S2])):
+                street, unit = street_and_unit(s1, s2)
+                support = parse_street(street)
+                same_street = (
+                    unit == after[1]
+                    and support.name == current.name
+                    and support.directions == current.directions
+                    and support.street_type == current.street_type
+                )
+                if (same_street and len(support.house) == len(current.house) + 1
+                        and support.house.endswith(current.house)):
+                    reason = AMBIGUOUS_NUMBER_REASON
+                    supporting_forms.append(f"{s1} | {s2}" if s2 else s1)
+            if supporting_forms:
+                note = "possible damaged leading digit; other raw filings (not proof): " + _counted(supporting_forms)
+        if not reason:
+            continue
+        note = f"house-number ambiguity in sub_id {sid}" + (f"; {note}" if note else "")
+        items.append(row.to_dict() | {"review_reason": reason, "status": "open", "_number_note": note})
+    return pd.DataFrame(items)
 
 
 # group the open review items into cases with their evidence
@@ -153,48 +202,64 @@ def build_review_cases(
     filed: pd.DataFrame,
     trail_records: list[dict],
 ) -> pd.DataFrame:
-    """One row per (person, review reason, ZIP5) among the open review items.
-
-    ``df`` is the final frame, ``filed`` the address columns as filed (by
-    sub_id), ``trail_records`` the audit trail's net records. Never edits data.
-    """
-    if review_df is None or review_df.empty or "status" not in review_df.columns:
-        return pd.DataFrame(columns=CASE_COLUMNS)
-    items = review_df[review_df["status"].eq("open")].copy()
-    if items.empty:
-        return pd.DataFrame(columns=CASE_COLUMNS)
+    """Build cases from final rows, filed addresses and net audit records; leave inputs unchanged."""
+    if review_df is not None and "status" in review_df.columns:
+        items = review_df[review_df["status"].eq("open")].copy()
+    else:
+        items = df.iloc[:0].assign(review_reason="", status="open")
     items["_person"] = _person(items)
     items["_zip5"] = _zip5(items[ZIP])
 
     rows = df.assign(_sid=df["sub_id"].astype(str), _person=_person(df), _zip5=_zip5(df[ZIP]))
-    rows = rows[rows["_person"].isin(set(items["_person"]))]
     filed = filed.assign(_sid=filed["sub_id"].astype(str)).drop_duplicates("_sid").set_index("_sid")
+    changes = _address_changes(trail_records)
+    extra = _number_review_items(rows, filed, changes)
+    if not extra.empty:
+        # Existing cases already expand to every filing using their final forms.
+        covered_columns = ["_person", "_zip5", S1, S2]
+        covered = set(items[covered_columns].fillna("").itertuples(index=False, name=None))
+        extra_keys = extra[covered_columns].fillna("").itertuples(index=False, name=None)
+        extra = extra[[key not in covered for key in extra_keys]]
+        items = pd.concat([items, extra], ignore_index=True)
+    if items.empty:
+        return pd.DataFrame(columns=CASE_COLUMNS)
+    rows = rows[rows["_person"].isin(set(items["_person"]))]
     rows_filed = filed.reindex(rows["_sid"]).set_axis(rows.index).fillna("")
     person_filed = _place_keys(rows_filed).groupby(rows["_person"]).agg(Counter)
-    changes = _address_changes(trail_records)
     changes = changes[changes["sub_id"].isin(set(rows["_sid"]))]
 
+    rows_by_id = rows.drop_duplicates("_sid").set_index("_sid")
     cases = []
     for (person, reason, zip5), group in items.groupby(["_person", "review_reason", "_zip5"], sort=False):
         forms = list(dict.fromkeys(zip(_text(group[S1]), _text(group[S2]))))
         mine = rows[rows["_person"].eq(person) & rows["_zip5"].eq(zip5)]
-        mine = mine[pd.Series(list(zip(_text(mine[S1]), _text(mine[S2]))), index=mine.index).isin(forms)]
+        mine_forms = pd.Series(list(zip(_text(mine[S1]), _text(mine[S2]))), index=mine.index)
+        mine = mine[mine_forms.isin(forms)]
         sub_ids = list(dict.fromkeys(list(_text(group["sub_id"])) + list(mine["_sid"])))
         mine_filed = filed.reindex(sub_ids).fillna("")
-        case_rows = rows.drop_duplicates("_sid").set_index("_sid").reindex(sub_ids).fillna("")
-        moved = sorted({
-            kind
-            for sid in sub_ids
-            for kind in street_changes(
-                *(_text(mine_filed[column]).get(sid, "") for column in (S1, S2)),
-                *(_text(case_rows[column]).get(sid, "") for column in (S1, S2)),
-            )
-        })
+        case_rows = rows_by_id.reindex(sub_ids).fillna("")
+        filed_text = {column: _text(mine_filed[column]) for column in (S1, S2)}
+        cleaned_text = {column: _text(case_rows[column]) for column in (S1, S2)}
+        moved_kinds = set()
+        for sid in sub_ids:
+            moved_kinds.update(street_changes(
+                filed_text[S1].get(sid, ""), filed_text[S2].get(sid, ""),
+                cleaned_text[S1].get(sid, ""), cleaned_text[S2].get(sid, ""),
+            ))
+        moved = sorted(moved_kinds)
         kinds, differences = _form_differences(forms)
         case_changes = changes[changes["sub_id"].isin(sub_ids)]
         decision, basis = _decision(moved, case_changes)
+        priority = _priority(moved + kinds, differences)
+        if reason in NUMBER_REVIEW_REASONS:
+            decision, basis = PENDING, "no independent source verifies this house number; check the original filing"
+            priority = "high"
+        note = PO_BOX_NOTE if _has_po_box(forms) else ""
+        if not note and "_number_note" in group:
+            notes = _text(group["_number_note"])
+            note = " || ".join(dict.fromkeys(notes[notes.ne("")]))
         cases.append({
-            "priority": _priority(moved + kinds, differences),
+            "priority": priority,
             "donor_key": _text(group["donor_key"]).iloc[0] if "donor_key" in group.columns else "",
             "contributor_name": _text(group["contributor_name"]).iloc[0],
             "review_reason": reason,
@@ -208,7 +273,7 @@ def build_review_cases(
             "changes_filed_to_cleaned": ", ".join(moved),
             "changed_by": _counted(case_changes["step"] + ": " + case_changes["reason"].astype(str)),
             "evidence": _evidence(case_changes, case_rows, person_filed.get(person, Counter())),
-            "note": PO_BOX_NOTE if _has_po_box(forms) else "",
+            "note": note,
             "decision": decision,
             "decision_basis": basis,
         })

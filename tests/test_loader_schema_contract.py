@@ -1,17 +1,13 @@
-"""schema.sql, the schema verifier and the health checks agree on the
-employment identity and the previous-employer columns."""
+"""The schema and loader agree on employment keys and previous-employer fields."""
 import re
 
 import pytest
 
-from fec.database import healthcheck
-from fec.database.healthcheck import _employment_status_mismatches
 from fec.database.loader.employers import EMPLOYMENT_KEY_COLUMNS
 from fec.database.loader.schema_create import (
     _is_employment_key,
     _verify_schema_integrity,
 )
-from fec.database.query_checks import CHECKS
 from fec.env import SCHEMA_SQL
 
 SCHEMA = SCHEMA_SQL.read_text(encoding="utf-8")
@@ -110,71 +106,3 @@ def test_verifier_requires_the_flag_column():
     _verify_schema_integrity(SchemaCursor([new]))
     with pytest.raises(RuntimeError, match="previous_self_employed"):
         _verify_schema_integrity(SchemaCursor([new], has_flag=False))
-
-
-def _check(name):
-    return next(check for check in CHECKS if check.name == name)
-
-
-class ScalarCursor:
-    def __init__(self, value):
-        self.value = value
-        self.sql = []
-
-    def execute(self, sql):
-        self.sql.append(sql)
-
-    def fetchone(self):
-        return (self.value,)
-
-
-def test_dedup_check_uses_the_loader_employment_key():
-    check = _check("dedup: donor_employments (donor,employer,occupation,status,previous employer)")
-    cursor = ScalarCursor(0)
-
-    assert check.run(cursor) == (True, "0 duplicate employment group(s)")
-    group_by = " ".join(cursor.sql[0].split("GROUP BY", 1)[1].split("HAVING", 1)[0].split())
-    assert tuple(column.strip() for column in group_by.split(",")) == EMPLOYMENT_KEY_COLUMNS
-    assert not any(c.name == "dedup: donor_employments (donor,employer,occupation)" for c in CHECKS)
-
-
-@pytest.mark.parametrize("name", [
-    "previous employer only on retired rows",
-    "previous employer is a company or SELF-EMPLOYED, not both",
-    "v_donor_profile: previous_employer matches employment view",
-])
-def test_previous_employer_checks_can_fail(name):
-    check = _check(name)
-
-    assert check.run(ScalarCursor(0))[0] is True
-    assert check.run(ScalarCursor(3))[0] is False
-
-
-def test_check_names_are_unique():
-    names = [check.name for check in CHECKS]
-    assert len(names) == len(set(names))
-
-
-def test_status_word_check_still_exists():
-    assert _check("no employer is a status word").severity == "crit"
-
-
-def test_csv_status_comparison_counts_missing_and_differing_filings():
-    csv_rows = [
-        ("4082220242014751681", "INDIVIDUAL", "self_employed"),  # stored as retired
-        ("2", "INDIVIDUAL", "retired"),
-        ("3", "INDIVIDUAL", "missing"),                          # no employment link
-        ("4", "COMMITTEE/PAC", "committee"),                     # not an individual
-    ]
-    db_status = {4082220242014751681: "retired", 2: "retired"}
-
-    assert _employment_status_mismatches(csv_rows, db_status) == (1, 1)
-    assert _employment_status_mismatches(csv_rows[1:2], db_status) == (0, 0)
-
-
-def test_csv_status_check_skips_without_the_csv(monkeypatch, tmp_path):
-    monkeypatch.setattr(healthcheck, "CLEANED_CSV", tmp_path / "absent.csv")
-
-    severity, name, detail = healthcheck._csv_employment_status_check(object())
-    assert (severity, name) == (healthcheck.OK, "employment_status_vs_csv")
-    assert "skipped" in detail

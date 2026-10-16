@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning import name_rules
-from fec.cleaning.pipeline.names import _clean_names, _fix_garbled_first_names
+from fec.cleaning import names as name_rules
+from fec.cleaning.names import _clean_names, _fix_garbled_first_names
 
 
 def _people(rows):

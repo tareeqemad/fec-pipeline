@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from fec.donor_match import dedup_review
+from fec.cleaning.reports import donors as dedup_review
 from fec.donor_match import keys as K
 from fec.donor_match import rules as R
 from fec.donor_match.matcher import match_donors

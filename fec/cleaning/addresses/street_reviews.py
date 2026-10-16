@@ -92,13 +92,8 @@ def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
     return out
 
 
-# flag near-duplicate street spellings for the same donor/location
+# Report one row per similar street spelling, grouped by donor key or, before matching, name.
 def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
-    """Return one representative row per near street spelling; never edits data.
-
-    Grouped by donor_key once donors are identified (one person under several
-    name spellings is one group), by contributor_name before that.
-    """
     person = "donor_key" if "donor_key" in df.columns else "contributor_name"
     needed = {person, S1, CITY, STATE, ZIP}
     if not needed.issubset(df.columns):
@@ -175,6 +170,7 @@ def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
         tokens.str.len().eq(2)
         & tokens.str[1].isin(US_STATES)
         & ~s2_upper.str.contains(r"\d")
+        & ~s2_upper.str.match(_CO_RE)
     )
     is_fragment = s2_upper.map(is_state_zip_fragment) | _is_city_prefix(s2_upper, df["contributor_city"])
     bad2 = incomplete | is_state_abbrev | is_fragment

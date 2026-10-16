@@ -1,7 +1,7 @@
 """Digits stuck to a word are noise in an occupation but part of a company's name."""
 import pandas as pd
 
-from fec.cleaning.occupations.normalize import EMPLOYER_STATUS_TEXT, _normalize_text
+from fec.cleaning.work.normalize import EMPLOYER_STATUS_TEXT, _normalize_text
 from fec.config.employers import EMPLOYER_NORMALIZE
 
 

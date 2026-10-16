@@ -92,15 +92,17 @@ def _donor_rows(first_street, first_unit):
     })
 
 
-def test_moved_floor_row_is_refilled_from_the_donor_history():
+def test_moved_floor_row_needs_a_matching_source_unit():
     df, _ = clean_streets(_streets([('3RD FLOOR', np.nan)]))
     rows = _donor_rows(df['contributor_street_1'].iloc[0], df['contributor_street_2'].iloc[0])
-    assert _recover_null_streets(rows) == 1
-    assert rows['contributor_street_1'].tolist() == ['15 W 72ND ST', '15 W 72ND ST']
+    assert _recover_null_streets(rows) == 0
+    assert pd.isna(rows['contributor_street_1'].iloc[0])
+    assert rows['contributor_street_1'].iloc[1] == '15 W 72ND ST'
     assert rows['contributor_street_2'].iloc[0] == 'FL 3'
 
 
-def test_floor_only_street_with_a_unit_is_replaced_by_the_donor_street():
+def test_floor_only_street_with_an_unverified_unit_stays_as_filed():
     rows = _donor_rows('3RD FLOOR', 'STE 5')
-    assert _recover_nonstreet_from_donor(rows) == 1
-    assert rows['contributor_street_1'].iloc[0] == '15 W 72ND ST'
+    assert _recover_nonstreet_from_donor(rows) == 0
+    assert rows['contributor_street_1'].iloc[0] == '3RD FLOOR'
+    assert rows['contributor_street_2'].iloc[0] == 'STE 5'

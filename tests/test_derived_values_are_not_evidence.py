@@ -1,8 +1,8 @@
 """A value taken from other filings is not evidence, and a value an override rejected is not reused."""
 import pandas as pd
 
-from fec.cleaning.audit_trail import AuditTrail
-from fec.cleaning.donor_consistency import steps
+from fec.cleaning.reports.trail import AuditTrail
+from fec.cleaning.donors import steps
 from fec.donor_match.matcher import build_profiles
 
 

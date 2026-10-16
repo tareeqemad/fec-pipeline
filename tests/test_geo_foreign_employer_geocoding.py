@@ -11,8 +11,8 @@ import pandas as pd
 import pytest
 from geo_patch import patch_geo
 
-from fec.geocoding import employer_locations
-from fec.geocoding import accepted, employers, engines
+from fec.resolve import addresses, employer_locations
+from fec.geocoding import validation as accepted, pipeline as employers, providers as engines
 from fec.geocoding import pipeline as geo
 from fec.geocoding.cache import GeoCache
 
@@ -53,50 +53,47 @@ def test_foreign_office_uses_only_the_international_engine(monkeypatch):
         calls.append((street, city, state, zipcode))
         return 51.5234, -0.1530, "GB"
 
-    for name in ("census", "nominatim", "city_level"):
+    for name in ("census",):
         patch_geo(monkeypatch, name, _no_us_engine)
-    patch_geo(monkeypatch, "nominatim_international", international)
-    monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
+    patch_geo(monkeypatch, "nominatim", international)
 
     result = geo._geocode_one("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")
 
-    assert result == (51.5234, -0.1530, "GB", "nominatim_intl")
+    assert result == (51.5234, -0.1530, "GB", "nominatim")
     assert calls == [("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")]
 
 
 def test_foreign_office_rejects_a_us_answer_from_the_international_engine(monkeypatch):
-    for name in ("census", "nominatim", "city_level"):
-        patch_geo(monkeypatch, name, _no_us_engine)
+    monkeypatch.setattr(engines.requests, "get", _no_us_engine)
     # street query and city query both come back in the US (Providence RI)
-    patch_geo(monkeypatch, "nominatim_international",
+    patch_geo(monkeypatch, "nominatim",
                         lambda *_args: (41.8174424, -71.4018816, "US"))
-    monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
 
     result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
 
     assert result == (None, None, None, "not_found")
 
 
-def test_foreign_office_falls_back_to_its_city_abroad(monkeypatch):
+def test_foreign_office_does_not_fall_back_to_its_city_abroad(monkeypatch):
     answers = iter([(None, None, None), (32.0853, 34.7818, "IL")])
-    patch_geo(monkeypatch, "nominatim_international", lambda *_args: next(answers))
-    monkeypatch.setattr(geo.time, "sleep", lambda _delay: None)
+    patch_geo(monkeypatch, "nominatim", lambda *_args: next(answers))
 
     result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
 
-    assert result == (32.0853, 34.7818, "IL", "nominatim_intl_city")
+    assert result == (None, None, None, "not_found")
+    assert next(answers) == (32.0853, 34.7818, "IL")
 
 
 def test_cached_us_match_for_a_foreign_office_is_looked_up_again(tmp_path):
     cache = GeoCache(str(tmp_path / "geocode_cache.json"))
     # the exact wrong entry that put KIFO in Connecticut
     cache.put(KIFO_KEY, 41.5300962, -72.0896919, "nominatim_city", "US")
-    cache.put(STANTON_KEY, 4.4256051, -74.2930194, "nominatim_intl", "CO", validated=True)
+    cache.put(STANTON_KEY, 4.4256051, -74.2930194, "nominatim_intl", "CO")
 
     assert geo._needs_lookup(KIFO_KEY, cache)
     assert not geo._needs_lookup(STANTON_KEY, cache)
 
-    cache.put(KIFO_KEY, 51.5234, -0.1530, "nominatim_intl", "GB", validated=True)
+    cache.put(KIFO_KEY, 51.5234, -0.1530, "nominatim_intl", "GB")
     assert not geo._needs_lookup(KIFO_KEY, cache)
 
 
@@ -113,7 +110,7 @@ def test_us_match_for_a_foreign_office_is_never_published(tmp_path):
     result = employers.apply_employer_to_dataframe(rows, cache)
 
     assert np.isnan(result.loc[0, "employer_latitude"])
-    assert result.loc[0, "employer_geocode_level"] == "rejected_us_match_for_foreign"
+    assert result.loc[0, "employer_geocode_level"] == "not_found"
     assert geo.accepted_coordinates(STANTON_KEY, {
         "lat": 4.4256051, "lng": -74.2930194, "source": "nominatim_intl", "country": "CO",
     })[:2] == (4.4256051, -74.2930194)
@@ -144,7 +141,8 @@ def test_build_keeps_the_foreign_office_text_and_drops_its_us_coordinates(tmp_pa
     (tmp_path / "resolve_employer_addr.json").write_text(json.dumps(resolve_cache), encoding="utf-8")
     (tmp_path / "geocode_cache.json").write_text(json.dumps(geocodes), encoding="utf-8")
     monkeypatch.setattr(employer_locations, "CLEANED_CSV", cleaned)
-    for folder in ("CACHE_DIR", "RULES_DIR", "REPORTS_DIR"):
+    monkeypatch.setattr(addresses, "CACHE_DIR", tmp_path)
+    for folder in ("CACHE_DIR", "REPORTS_DIR"):
         monkeypatch.setattr(employer_locations, folder, tmp_path)
     monkeypatch.setattr(employer_locations, "EMPLOYER_LOCATIONS_CSV", output)
 
@@ -161,10 +159,14 @@ def test_build_keeps_the_foreign_office_text_and_drops_its_us_coordinates(tmp_pa
 
 def test_international_query_skips_empty_parts(monkeypatch):
     seen = []
-    monkeypatch.setattr(engines, "_nominatim_request",
-                        lambda params: seen.append(params["q"]) or (None, None, None))
+    from test_geo_town_level_search import _Response
+    monkeypatch.setattr(engines, "_wait_for_nominatim", lambda _url: None)
+    monkeypatch.setattr(engines.requests, "get", lambda _url, params, **kwargs: seen.append(params) or _Response([]))
 
-    engines.nominatim_international("", "London", "", "NW1 5DX")
-    engines.nominatim_international("Km 25 Via a Sibate", "Sibate", "CUNDINAMARCA", "")
+    engines.nominatim("100 Marylebone Road", "London", "", "NW1 5DX")
+    engines.nominatim("Km 25 Via a Sibate", "Sibate", "CUNDINAMARCA", "")
 
-    assert seen == ["London NW1 5DX", "Km 25 Via a Sibate, Sibate, CUNDINAMARCA"]
+    assert [entry["q"] for entry in seen] == [
+        "100 Marylebone Road, London, NW1 5DX", "Km 25 Via a Sibate, Sibate, CUNDINAMARCA",
+    ]
+    assert all("countrycodes" not in entry for entry in seen)

@@ -1,25 +1,11 @@
-"""Write verified employer / title / public work address into the editorial-only roster rows.
+"""Manually apply sourced jobs and public work addresses to unlinked roster rows.
 
-Input: a JSON list of verification records (one per person) produced by the
-`verify-editorial-roster` research workflow, each with `person` {id, files, name}
-and `final` {status, employer, occupation, office_kind, office{...},
-current_address_assessment, confidence, role_sources, office_sources, ...}.
+Input is a JSON list of research records with `person` and `final` fields.
+Low-confidence records do not change jobs or addresses. US streets use the
+cleaning rules; foreign streets stay as sourced. Changes and sources are logged
+to data/reports/review/roster_editorial_verification.csv.
 
-Rules
-- Only rows whose donor_key has NO filing in data/output/contributions_cleaned.csv are
-  touched (FEC-linked rows are owned by sync_rosters.py).
-- Employer / occupation are written when the record is not low confidence.
-  The employer is matched to the spelling already used in the cleaned data
-  (same canonical_key or an employer_name_rules synonym) so one company has one
-  name across donors and rosters.
-- The address is replaced only by a sourced public work address (office_kind
-  other than none_public, confidence not low). Rows with no public work
-  address keep their existing address untouched and are listed for review.
-  Home addresses are never researched. A US office street is written in the
-  pipeline's own style (clean_streets via roster_sync.pipeline_streets: AVE,
-  BLVD, suite in street_2); a foreign office is kept exactly as sourced.
-- Every change is written to data/reports/review/roster_editorial_verification.csv
-  (old value, new value, sources, confidence) so any row can be reverted.
+This tool is not part of the normal pipeline.
 
     python tools/roster_editorial_apply.py results.json [--dry-run]
 """
@@ -28,26 +14,40 @@ from __future__ import annotations
 import csv
 import json
 import sys
-import time
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fec.cleaning.employer_synonyms.canonical import canonical_key
-from fec.cleaning.employer_synonyms.synonyms import EMPLOYER_SYNONYMS  # noqa: E402
-from fec.database.roster_sync import (  # noqa: E402
-    pipeline_streets,
-    read_roster,
-    write_roster,
-)
-from fec.env import CLEANED_CSV, PROJECT_ROOT  # noqa: E402
-from fec.geocoding import engines
+from fec.cleaning.addresses.streets import clean_streets  # noqa: E402
+from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS  # noqa: E402
+from fec.env import CLEANED_CSV, PROJECT_ROOT, load_env  # noqa: E402
+from fec.geocoding.pipeline import _geocode_one
+from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable
+from fec.io import replace_file  # noqa: E402
 
 ROSTER_DIR = PROJECT_ROOT / "data" / "rules"
 PREFIX = {"leaders": "leader", "key_accomplices": "accomplice"}
 REVIEW = PROJECT_ROOT / "data" / "reports" / "review" / "roster_editorial_verification.csv"
+
+
+def read_roster(path: Path) -> tuple[list[dict], list[str]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader), list(reader.fieldnames or [])
+
+
+def write_roster(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
+    """Replace the CSV atomically, preserving its line endings."""
+    terminator = "\r\n" if path.exists() and b"\r\n" in path.read_bytes() else "\n"
+    temp = path.with_suffix(path.suffix + ".tmp")
+    with temp.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator=terminator)
+        writer.writeheader()
+        writer.writerows(rows)
+    replace_file(str(temp), str(path))
 
 
 def _employer_vocabulary() -> dict[str, str]:
@@ -71,39 +71,41 @@ def canonical_employer(name: str, vocab: dict[str, str]) -> str:
 
 
 def office_streets(office: dict) -> tuple[str, str]:
-    """A US office in the pipeline's own street style (clean_streets); a foreign one exactly as sourced."""
+    """Format US office streets; keep foreign streets as sourced."""
     street_1, street_2 = office["street_1"], office.get("street_2", "") or ""
     if (office.get("country") or "US") != "US":
         return street_1, street_2
-    return pipeline_streets(street_1, street_2)
+    frame = pd.DataFrame([{
+        "contributor_street_1": (street_1 or "").strip() or None,
+        "contributor_street_2": street_2.strip() or None,
+        "contributor_first_name": "",
+        "contributor_last_name": "",
+    }])
+    frame, _ = clean_streets(frame)
+    return tuple("" if pd.isna(frame.at[0, column]) else str(frame.at[0, column])
+                 for column in ("contributor_street_1", "contributor_street_2"))
 
 
 def geocode(office: dict) -> tuple[str, str]:
-    """Census for US offices (Nominatim fallback); Nominatim worldwide for foreign ones."""
-    street = " ".join(x for x in [office["street_1"], office["street_2"]] if x)
+    """Use the shared provider order; a missing address result stays blank."""
+    country = office.get("country") or "US"
+    street, state = office["street_1"], office["state"]
+    if country not in {"US", "USA"}:
+        street = " ".join(part for part in (street, office.get("street_2")) if part)
+        state = country
     try:
-        if (office.get("country") or "US") == "US":
-            lat, lng, _ = engines.census(office["street_1"], office["city"], office["state"], office["zip"])
-            if lat is None:
-                time.sleep(engines.NOMINATIM_DELAY)
-                lat, lng, *_ = engines.nominatim(office["street_1"], office["city"], office["state"], office["zip"])
-        else:
-            time.sleep(engines.NOMINATIM_DELAY)
-            lat, lng, *_ = engines.nominatim_international(street, office["city"], office.get("country", ""), office["zip"])
-    except (engines.CensusUnavailable, engines.NominatimUnavailable):
-        lat = None
+        lat, lng, _country, _source = _geocode_one(
+            street, office["city"], state, office["zip"],
+        )
+    except (CensusUnavailable, NominatimUnavailable):
+        return "", ""
     if lat is None:
-        # PO boxes / mail drops do not geocode to a street: fall back to the ZIP centroid,
-        # never to the row's previous coordinates (they belong to the old address)
-        from fec.geocoding.zip_checks import _zip_centroids
-        centroid = _zip_centroids().get(str(office.get("zip", "")).zfill(5)) if (office.get("country") or "US") == "US" else None
-        if not centroid:
-            return "", ""
-        lat, lng = centroid
+        return "", ""
     return f"{float(lat):.7f}", f"{float(lng):.7f}"
 
 
 def main(results_path: str, dry_run: bool) -> int:
+    load_env()
     records = json.loads(Path(results_path).read_text(encoding="utf-8"))
     linked = set(pd.read_csv(CLEANED_CSV, dtype=str, keep_default_na=False, usecols=["donor_key"]).donor_key)
     vocab = _employer_vocabulary()

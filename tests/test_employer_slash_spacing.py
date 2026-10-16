@@ -1,7 +1,7 @@
 """Two employers joined by a slash get one spacing style; tight slashes stay."""
 import pandas as pd
 
-from fec.cleaning.employer_synonyms.apply import tidy_employer_slashes, tidy_slash_spacing
+from fec.cleaning.work.employer_names import tidy_employer_slashes, tidy_slash_spacing
 
 
 def test_loose_or_doubled_slashes_become_spaced():
