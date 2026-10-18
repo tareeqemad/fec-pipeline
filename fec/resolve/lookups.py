@@ -15,6 +15,12 @@ from fec.resolve.cache import (
     _previous_employer_identity,
     _s,
 )
+from fec.resolve.locations import (
+    address_cache_lookup,
+    is_publishable_location,
+    location_candidates,
+    resolve_cache_entry,
+)
 
 
 EMPLOYER_PROMPT_VERSION = "us-employer-locations-v3"
@@ -38,7 +44,7 @@ class EmployerLookup:
 
 
 def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
-    """Retry legacy, stale, missing, and incomplete AI entries."""
+    """Reuse accepted addresses regardless of the search version."""
     if not isinstance(entry, dict):
         return True
     method = entry.get("method", "")
@@ -46,17 +52,17 @@ def _needs_ai(entry: dict | None, resolver_tag: str) -> bool:
         return False
     if method == "manual_review":
         return True
+    if method != "ai_not_found":
+        return not any(
+            is_publishable_location(location)
+            for location in location_candidates(entry)
+        )
 
     previous_resolver = entry.get("resolver") or entry.get("provider")
     current_version = (
         previous_resolver == resolver_tag
         and entry.get("prompt_version") == EMPLOYER_PROMPT_VERSION
     )
-    if method.endswith("_search") and bool(_s(entry.get("employer_address")).strip()):
-        return not current_version
-    if method != "ai_not_found":
-        return True
-
     return not current_version
 
 
@@ -87,9 +93,14 @@ def collect_employer_lookups(
         else {}
     )
 
+    address_lookup = address_cache_lookup(addr_cache.data, publishable_only=True)
+    # Keep explicit manual decisions, including a deliberately blank address.
+    for name, entry in addr_cache.data.items():
+        if entry.get("method") in {"manual_override", "manual_invalid"}:
+            address_lookup[name.strip().upper()] = entry
     misses = chain(
-        _active_misses(individuals, addr_cache, resolver_tag),
-        _retired_misses(individuals, prev_cache, addr_cache, resolver_tag),
+        _active_misses(individuals, addr_cache, address_lookup, resolver_tag),
+        _retired_misses(individuals, prev_cache, addr_cache, address_lookup, resolver_tag),
     )
     for employer, row in misses:
         donor_total_for_row = totals.get(row.get("donor_key"), 0)
@@ -119,16 +130,17 @@ def collect_employer_lookups(
     ]
 
 
-def _active_misses(individuals, addr_cache, resolver_tag):
+def _active_misses(individuals, addr_cache, address_lookup, resolver_tag):
     """Yield (employer, row) for active donors whose employer needs AI."""
     active = classify_employer_statuses(individuals).eq("active")
     for _, row in individuals.loc[active].iterrows():
         employer = _s(row.get("contributor_employer")).strip()
-        if _needs_ai(addr_cache.get(employer.upper()), resolver_tag):
+        entry = resolve_cache_entry(address_lookup, employer) or addr_cache.get(employer.upper())
+        if _needs_ai(entry, resolver_tag):
             yield employer, row
 
 
-def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
+def _retired_misses(individuals, prev_cache, addr_cache, address_lookup, resolver_tag):
     """Yield (previous employer, row) for retirees whose old employer needs AI."""
     retired_mask = (
         individuals["contributor_employer"].map(_s).str.strip().str.upper() == RETIRED
@@ -140,7 +152,8 @@ def _retired_misses(individuals, prev_cache, addr_cache, resolver_tag):
         if employer == SELF_EMPLOYED:
             continue
         if employer and all(
-            _needs_ai(addr_cache.get(key), resolver_tag) for key in address_keys
+            _needs_ai(resolve_cache_entry(address_lookup, key) or addr_cache.get(key), resolver_tag)
+            for key in address_keys
         ):
             yield employer, row
 
