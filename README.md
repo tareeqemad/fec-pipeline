@@ -11,6 +11,13 @@ It tracks the committees configured in
 
 ## Setup
 
+Clone the repository and enter its directory:
+
+```bash
+git clone https://github.com/tareeqemad/fec-pipeline.git
+cd fec-pipeline
+```
+
 Use Python 3.12 and install the dependencies:
 
 The direct runtime dependencies in `requirements.txt` and pytest in
