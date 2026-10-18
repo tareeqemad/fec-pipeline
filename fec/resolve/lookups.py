@@ -23,7 +23,7 @@ from fec.resolve.locations import (
 )
 
 
-EMPLOYER_PROMPT_VERSION = "us-employer-locations-v3"
+EMPLOYER_PROMPT_VERSION = "us-employer-locations-v4"
 
 
 _CONTEXT_LIMIT = 3
