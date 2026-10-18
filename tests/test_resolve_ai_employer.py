@@ -109,14 +109,14 @@ def test_address_aliases_are_idempotent():
     assert cache.saves == 1
 
 
-def test_retry_policy_retries_legacy_and_stale_cache_entries():
+def test_retry_policy_keeps_accepted_addresses_and_retries_missing():
     resolver = "openai+search"
 
     assert _needs_ai({
         "employer_address": "1 Main St",
         "method": "ai_openai",
     }, resolver)
-    assert _needs_ai({
+    assert not _needs_ai({
         "employer_address": "1 Main St",
         "method": "ai_openai_search",
     }, resolver)

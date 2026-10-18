@@ -103,7 +103,12 @@ Optional `.env` settings are `NOMINATIM_URL` (search endpoint),
 (application identification). The public endpoint keeps the 15-second minimum
 even when a shorter interval is configured.
 
-External lookups are cached in `data/cache/*.json`. If AI credits run out, resolve
+External lookups are cached in `data/cache/*.json`. Resolve reuses accepted employer
+addresses, including equivalent company names, even when `OPENAI_API_KEY` is set.
+Changing the model or search version does not fetch those addresses again.
+Leave the key blank to disable paid lookups for missing addresses.
+
+If AI credits run out, resolve
 writes the cached results, leaves unresolved employers blank, and exits with code
 2. Stop the command sequence there. After adding credits, rebuild resolve's input:
 
