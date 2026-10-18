@@ -53,17 +53,14 @@ def get_db_config() -> dict:
     }
 
 
-# data folders: what FEC sent, what people curate, what lookups cached,
-# what the pipeline builds, and what it reports
+# Project data folders.
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 RULES_DIR = DATA_DIR / "rules"
+REFERENCE_DIR = DATA_DIR / "reference"
 CACHE_DIR = DATA_DIR / "cache"
 OUTPUT_DIR = DATA_DIR / "output"
 REPORTS_DIR = DATA_DIR / "reports"
-# audits and hand reviews; not in git
-REVIEW_DIR = REPORTS_DIR / "review"
-
 # raw FEC data; pull.py appends, nothing rewrites it
 RAW_CSV = RAW_DIR / "contributions.csv"
 # FEC's own entity type and contributor id per sub_id; the raw file is never rewritten
@@ -73,7 +70,7 @@ CLEANED_CSV = OUTPUT_DIR / "contributions_cleaned.csv"
 EMPLOYER_LOCATIONS_CSV = OUTPUT_DIR / "employer_locations.csv"
 SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 # single source of truth for committee identities; add a row for every new committee
-COMMITTEES_CSV = RULES_DIR / "committees.csv"
+COMMITTEES_CSV = REFERENCE_DIR / "committees.csv"
 # Curated employer spelling rules
 EMPLOYER_NAME_RULES_CSV = RULES_DIR / "employer_name_rules.csv"
 # Curated contributor name rules

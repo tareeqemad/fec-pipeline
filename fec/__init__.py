@@ -1,1 +1,1 @@
-"""FEC contributions pipeline: pull -> clean -> resolve -> geocode -> load."""
+"""FEC contributions pipeline."""

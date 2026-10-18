@@ -7,7 +7,7 @@ pull -> clean -> geocode donors -> resolve employers -> geocode employers -> Pos
 ```
 
 It tracks the committees configured in
-[`data/rules/committees.csv`](data/rules/committees.csv).
+[`data/reference/committees.csv`](data/reference/committees.csv).
 
 ## Setup
 
@@ -53,6 +53,9 @@ The loader reads `data/output/contributions_cleaned.csv` and
 same version of the project. It validates their contents without requiring
 API keys or another cleaning run.
 
+The included files contain the coordinates already cached. Geocoding is still
+partial; run the pipeline below to look up missing addresses.
+
 ## Run the pipeline
 
 To fetch new records and rebuild the outputs, run the stages in this order:
@@ -74,7 +77,7 @@ rebuild the cleaned data, resolve work locations, and reload the database.
 `resolve.py --apply` runs only on a fresh `clean.py` output: it reads
 `previous_employer` as what the donor filed, so it refuses a file it already resolved.
 
-`data/rules/leaders.csv` and `data/rules/key_accomplices.csv` are curated inputs.
+`data/reference/leaders.csv` and `data/reference/key_accomplices.csv` are curated inputs.
 The pipeline reads them without updating their addresses or jobs from new filings.
 Edit these files manually when needed. Current donor profiles still follow the
 latest contribution records.
@@ -116,11 +119,31 @@ After resolve succeeds, continue with employer geocoding and loading below.
 Run one pipeline command at a time, and stop if
 any command reports an error.
 
+### Continue on a Linux server
+
+Pull the same `main` version, create the Python environment there, and set up
+`.env`. Keep `data/cache/`; it works on both Windows and Linux.
+For the existing raw data, run from the project directory:
+
+```bash
+set -e
+python clean.py
+python geocode.py
+OPENAI_API_KEY='' python resolve.py --apply
+python geocode.py --employer-only
+python tools/audits/final_verify.py
+python loader.py --reset
+```
+
+The empty OpenAI key disables paid lookups for this run. A free `FEC_API_KEY`
+can still supply previous employers. Do not add another resolve after employer
+geocoding. Run this sequence inside `tmux` or `screen` if you will disconnect SSH.
+
 ## Pull committee data
 
 After setup, run from the project directory with the Python environment active.
 Each command pulls one committee from
-[`data/rules/committees.csv`](data/rules/committees.csv). To update all three
+[`data/reference/committees.csv`](data/reference/committees.csv). To update all three
 configured FEC committees for the current election period:
 
 ```bash
@@ -146,7 +169,7 @@ Each update reads the whole period, so large committees take longer and use more
 FEC requests. Run pulls one at a time.
 
 To add a committee, add its FEC ID, name and unique short name to
-`data/rules/committees.csv` (`committee_number`, `committee_name`,
+`data/reference/committees.csv` (`committee_number`, `committee_name`,
 `committee_short`). The other four fields can be blank. Then use its ID with the
 same pull command. Period 2026 covers 2025 and 2026; use `--period 2024` for 2023
 and 2024.
@@ -175,9 +198,9 @@ the pull does not reconcile amended versions of a transaction.
 
 - `data/raw/`: what FEC sent. `contributions.csv` (only appended by `pull.py`) and
   `fec_source_fields.csv`.
-- `data/rules/`: what people curate: committees, identity/name/address/employer
-  rules, entity overrides, manual employer overrides and addresses, the two
-  rosters, and the ZIP/state reference tables.
+- `data/rules/`: corrections for names, donor identities, entity types, addresses
+  and employment.
+- `data/reference/`: committees, leaders, key accomplices, states and ZIP tables.
 - `data/cache/`: external lookups (geocoder, FEC API, AI resolve). Costly to
   rebuild; keep them.
 - `data/output/`: what the pipeline builds: `contributions_cleaned.csv` and
@@ -187,8 +210,7 @@ the pull does not reconcile amended versions of a transaction.
   address review queues are regenerated each run outside Git.
   `data/reports/review/` holds the audit tools' output (not in Git).
 
-Rules and caches are real project inputs. Keep them in Git and do not replace
-them with an older snapshot after a pipeline run.
+Keep rules, reference data and caches in Git.
 
 ## Database views
 
@@ -286,7 +308,7 @@ rejects a reader with admin privileges or membership in another role.
   A rule using `[CLEAR]` to remove a unit must specify `match_unit`.
   Institution/place descriptions stay as filed. Street recovery needs matching
   address evidence and must preserve the filing's unit without mixing addresses.
-- Per-filing work corrections in `data/rules/manual_employer_overrides.csv` can
+- Per-filing corrections in `data/rules/manual_employer_overrides.csv` can
   set `occupation_category` when the reviewed context is more specific than
   the generic occupation mapping. `preserve_fields` lists explicit fields
   (separated by `;`) to keep through the final donor-consistency pass, such as
@@ -306,8 +328,9 @@ rejects a reader with admin privileges or membership in another role.
   but is never an employer-table entry.
 - Only verified or web-grounded employer addresses are loaded. Uncertain rows
   stay in `employer_locations.csv` for review and are not published.
-- A same-state office is preferred when verified; otherwise the primary company
-  location is used. This is not proof of the donor's exact workplace.
+- A verified office in the same city and state is preferred, then the nearest
+  same-state office by ZIP, then the primary company location. This is not proof
+  of the donor's exact workplace.
 
 ## Tests
 
@@ -326,7 +349,7 @@ python tools/audits/final_verify.py
 
 - Root scripts are the command-line entry points.
 - `fec/` contains the pipeline logic.
-- `data/` holds `raw/`, `rules/`, `cache/`, `output/` and `reports/` (see Data folders).
+- `data/` holds `raw/`, `rules/`, `reference/`, `cache/`, `output/` and `reports/` (see Data folders).
 - `tests/` protects cleaning, matching, resolving, and loading behavior.
 - `tools/audits/` holds optional raw-vs-cleaned audits and `final_verify.py`.
 

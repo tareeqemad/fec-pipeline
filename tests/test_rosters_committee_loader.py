@@ -66,10 +66,10 @@ def test_accomplice_committee_resolves_by_short_name():
 
 
 def _roster(tmp_path, monkeypatch, filename, header, rows):
-    database = tmp_path / "rules"
+    database = tmp_path / "reference"
     database.mkdir(parents=True)
     pd.DataFrame(rows, columns=header).to_csv(database / filename, index=False)
-    monkeypatch.setattr(people, "RULES_DIR", database)
+    monkeypatch.setattr(people, "REFERENCE_DIR", database)
 
     calls = {"donors": [], "employment": []}
 

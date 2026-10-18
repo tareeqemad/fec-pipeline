@@ -23,12 +23,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fec.cleaning.addresses.streets import clean_streets  # noqa: E402
 from fec.cleaning.work.employer_canonical import canonical_key
 from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS  # noqa: E402
-from fec.env import CLEANED_CSV, PROJECT_ROOT, load_env  # noqa: E402
+from fec.env import CLEANED_CSV, PROJECT_ROOT, REFERENCE_DIR, load_env  # noqa: E402
 from fec.geocoding.pipeline import _geocode_one
 from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable
 from fec.io import replace_file  # noqa: E402
 
-ROSTER_DIR = PROJECT_ROOT / "data" / "rules"
+ROSTER_DIR = REFERENCE_DIR
 PREFIX = {"leaders": "leader", "key_accomplices": "accomplice"}
 REVIEW = PROJECT_ROOT / "data" / "reports" / "review" / "roster_editorial_verification.csv"
 

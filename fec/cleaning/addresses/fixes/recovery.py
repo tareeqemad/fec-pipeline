@@ -192,8 +192,6 @@ _NOT_A_FRAGMENT_RE = re.compile(
 )
 # a proper unit value: keyword plus number/letters, e.g. "APT 4B", "STE 200"
 _REAL_UNIT_RE = re.compile(r"^(?:APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PH|PMB|LOT|SPC|BOX|TRLR|#)\s*[A-Z0-9-]+$")
-# a unit keyword anywhere in text: "APT 4", "# 5", "STE"
-_UNIT_IN_FRAGMENT_RE = re.compile(r"(?:^|\s)(?:#|APT|STE|SUITE|UNIT|FL|FLOOR|RM|BLDG|PMB|BOX)\b|#\d")
 # the first unit in a text, keyword and number: "RING HOUSE APT # 431 1801 E JE" -> "APT 431"
 _UNIT_TEXT_RE = re.compile(r"\b(APT|STE|SUITE|UNIT|RM|PMB)\b\s*#?\s*([A-Z0-9][A-Z0-9-]*)\b|#\s*([A-Z0-9][A-Z0-9-]*)\b")
 # a tail that starts a new street address: house number, then a name word ("233 E BAY")

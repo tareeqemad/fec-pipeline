@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     if not re.fullmatch(r"C\d{8}", committee_id):
         ap.error("invalid committee id (expected C + 8 digits)")
     if committee_id not in committee_id_to_name():
-        ap.error(f"{committee_id} is not configured in data/rules/committees.csv")
+        ap.error(f"{committee_id} is not configured in data/reference/committees.csv")
 
     period = _current_period(args.period)
     logger.info("=" * 60)

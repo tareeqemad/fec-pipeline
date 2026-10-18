@@ -34,12 +34,6 @@ _PO_BOX_RE = re.compile(r"^(?:P ?O ?(?:BOX|B)?|BOX) ?(\d\S*)")
 # a unit number after the street type with no unit word: "155 STEELE ST 616", "5500 ISLAND DR 601 N"
 _BARE_UNIT_RE = re.compile(r"\b(?:ST|AVE|RD|DR|BLVD|LN|CT|PL|CIR|TER|PKWY|WAY|TRL|SQ) (\d+(?: [A-Z])?)$")
 
-CHANGE_KINDS = (
-    "house_number_changed", "street_direction_changed", "street_type_changed", "street_type_added",
-    "unit_changed", "unit_removed", "unit_added", "po_box_number_changed", "street_replaced",
-)
-
-
 # uppercase abbreviated tokens: "123 North Main Street." -> "123 N MAIN ST"
 def normalize(text) -> str:
     text = str(text or "").upper().replace("&", " AND ")

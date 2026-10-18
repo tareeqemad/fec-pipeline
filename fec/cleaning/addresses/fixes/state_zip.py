@@ -5,9 +5,9 @@ from functools import lru_cache
 import numpy as np
 import pandas as pd
 
-from fec.env import RULES_DIR
+from fec.env import REFERENCE_DIR
 
-_DATA_DIR = RULES_DIR
+_DATA_DIR = REFERENCE_DIR
 
 
 # load the ZCTA and state-code CSVs, or None
@@ -26,7 +26,7 @@ def _read_crosswalk() -> tuple[pd.DataFrame, dict] | None:
 # build the ZCTA5-to-state lookup, caching the result
 @lru_cache(maxsize=1)
 def _load_zcta_to_state() -> dict[str, str]:
-    """Load ZCTA5 to state code mapping from data/rules/ (cached)."""
+    """Load ZCTA5 to state code mapping (cached)."""
     crosswalk = _read_crosswalk()
     if crosswalk is None:
         return {}

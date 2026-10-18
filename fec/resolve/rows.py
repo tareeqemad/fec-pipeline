@@ -72,19 +72,20 @@ def _cached_address(
     keys: tuple[str, ...],
     donor_zip: str = "",
     donor_state: str = "",
+    donor_city: str = "",
 ) -> dict | None:
     """Return the first usable address under an exact or canonical cache key."""
     for key in keys:
         exact_key = str(key).upper()
         exact = addr_cache.get(exact_key)
-        selected = select_location(exact, donor_zip, donor_state)
+        selected = select_location(exact, donor_zip, donor_state, donor_city)
         if selected:
             return selected
         if exact is not None:
             continue
 
         alias = addr_cache.get(canonical_key(exact_key))
-        selected = select_location(alias, donor_zip, donor_state)
+        selected = select_location(alias, donor_zip, donor_state, donor_city)
         if selected:
             return selected
     return None
@@ -95,12 +96,14 @@ def _resolve_active(
     state: str,
     zip_code: str,
     context: ResolveContext,
+    city: str = "",
 ) -> dict:
     cached = _cached_address(
         context.address_lookup,
         (employer.upper(),),
         zip_code,
         state,
+        city,
     )
     if not cached:
         return _result("active", method="pending")
@@ -191,7 +194,9 @@ def _resolve_retired(
     )
     legal_key = prev_name.strip().upper()
     address_keys = (legal_key, *(key for key in address_keys if key != legal_key))
-    cached = _cached_address(context.address_lookup, address_keys, zip_code, state)
+    cached = _cached_address(
+        context.address_lookup, address_keys, zip_code, state, _s(row.get("contributor_city"))
+    )
     if not cached:
         return _result("retired", method="pending_address", previous=prev_name)
 
@@ -223,7 +228,7 @@ def _resolve_row(row: pd.Series, context: ResolveContext, index=None) -> dict:
         row.get("occupation_category"),
     )
     if status == "active":
-        return _resolve_active(employer, state, zip_code, context)
+        return _resolve_active(employer, state, zip_code, context, _s(row.get("contributor_city")))
     if status == "retired":
         return _resolve_retired(row, context, state, zip_code, index)
     if status == "self_employed":

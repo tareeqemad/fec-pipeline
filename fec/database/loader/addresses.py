@@ -56,6 +56,10 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
             "employer_latitude": row.get("employer_latitude"),
             "employer_longitude": row.get("employer_longitude"),
             "is_primary": str(row.get("is_primary")).lower() == "true",
+            "method": "manual_override" if (
+                row.get("address_source") == "manual"
+                and row.get("address_trust") == "verified"
+            ) else "",
         })
 
     grouped: dict[str, list[dict]] = {}

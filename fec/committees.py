@@ -1,4 +1,4 @@
-"""Committee names and IDs from data/rules/committees.csv."""
+"""Committee names and IDs from data/reference/committees.csv."""
 from __future__ import annotations
 
 import csv

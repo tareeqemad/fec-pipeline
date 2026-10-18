@@ -27,10 +27,6 @@ from fec.config.not_employers import (
 
 __all__ = [
     "is_real_employer",
-    "classify_employer_status",
-    "classify_employer_statuses",
-    "current_employer_name",
-    "referenced_employers",
     "normalize_previous_employer_value",
     "normalize_previous_employer_column",
     "preserve_own_named_legal_employer",

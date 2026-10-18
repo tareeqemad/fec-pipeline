@@ -10,7 +10,7 @@ from psycopg2.extras import execute_values
 
 from fec.committees import load_committees
 from fec.database.loader._base import _count
-from fec.env import CLEANED_CSV, RULES_DIR
+from fec.env import CLEANED_CSV, REFERENCE_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -52,14 +52,14 @@ def _read_reference_rows(path: Path, table: str, required: list[str], optional: 
 
 # Load the available reference CSV files.
 def load_reference_tables(cur: Any) -> None:
-    if not RULES_DIR.exists():
-        logger.info(f"\n  {RULES_DIR} not found -- skipping reference tables")
+    if not REFERENCE_DIR.exists():
+        logger.info(f"\n  {REFERENCE_DIR} not found -- skipping reference tables")
         return
 
     logger.info("\n-- Loading reference tables --")
 
     for table_name, required, optional in REF_TABLES:
-        csv_path = RULES_DIR / f"{table_name}.csv"
+        csv_path = REFERENCE_DIR / f"{table_name}.csv"
         if not csv_path.exists():
             logger.info(f"  {csv_path.name} not found -- skipping {table_name}")
             continue

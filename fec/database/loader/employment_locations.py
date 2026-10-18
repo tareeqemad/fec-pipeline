@@ -65,6 +65,7 @@ def _employment_address_id(
         entry,
         str(to_native(row.get("contributor_zip")) or ""),
         str(to_native(row.get("contributor_state")) or ""),
+        str(to_native(row.get("contributor_city")) or ""),
     )
     if not location:
         return None
