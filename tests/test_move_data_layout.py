@@ -28,7 +28,7 @@ def test_old_files_move_and_a_taken_place_is_left(tmp_path, monkeypatch):
 
     assert code == 1
     assert (data / "reports" / "audit_changes.csv").read_text(encoding="utf-8") == "old audit"
-    assert (data / "rules" / "leaders.csv").read_text(encoding="utf-8") == "roster"
+    assert (data / "reference" / "leaders.csv").read_text(encoding="utf-8") == "roster"
     assert (data / "reports" / "review" / "sub" / "flags.csv").exists()
     assert not (data / "database").exists() and not (data / "_review").exists()
     assert (data / "cache" / "geocode_cache.json").read_text(encoding="utf-8") == "pulled cache"

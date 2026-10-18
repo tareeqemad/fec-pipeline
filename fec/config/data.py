@@ -114,7 +114,7 @@ COMM_TAIL_RE = re.compile(r',\s+(?!INC|LLC|LLP|CORP|JR|SR|PA\s*$)[A-Z][A-Z.\s]{0
 RETIRE_RE = re.compile(r'RETIRE', re.IGNORECASE)
 
 # Output column order. recipient_committee is the PAC that RECEIVED the money,
-# resolved from the FEC committee_id via data/rules/committees.csv.
+# resolved from the FEC committee_id via data/reference/committees.csv.
 OUTPUT_COLUMNS = [
     # ids
     'sub_id', 'transaction_id', 'two_year_transaction_period', 'recipient_committee',

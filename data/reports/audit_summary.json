@@ -1,6 +1,6 @@
 {
-  "changes": 879035,
-  "changed_cells": 847138,
+  "changes": 879233,
+  "changed_cells": 847311,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -266,9 +266,9 @@
       }
     },
     "address_same_street_align": {
-      "changes": 747,
+      "changes": 743,
       "reasons": {
-        "aligned_to_donor_dominant_at_same_street": 747
+        "aligned_to_donor_dominant_at_same_street": 743
       }
     },
     "streets_unify_units": {
@@ -554,9 +554,9 @@
       }
     },
     "manual_overrides": {
-      "changes": 336,
+      "changes": 539,
       "reasons": {
-        "curated_row_override": 336
+        "curated_row_override": 539
       }
     },
     "network_organization_classification": {
@@ -704,9 +704,9 @@
       }
     },
     "donor_settle_retired_employer": {
-      "changes": 286,
+      "changes": 285,
       "reasons": {
-        "retired_recovered_company_demoted_to_previous": 286
+        "retired_recovered_company_demoted_to_previous": 285
       }
     },
     "donor_normalize_previous_employers": {

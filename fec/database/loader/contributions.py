@@ -42,7 +42,7 @@ def _map_required_ids(df, donor_ids, committee_ids):
         raise RuntimeError(
             f"{CLEANED_CSV.name}: {int(missing_committee.sum())} contribution row(s) reference "
             f"recipient_committee value(s) with no committees-table match: {shown}{more} -- "
-            "add them to data/rules/committees.csv"
+            "add them to data/reference/committees.csv"
         )
 
     if missing_donor.any():

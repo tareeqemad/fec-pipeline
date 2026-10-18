@@ -14,7 +14,7 @@ from fec.database.leadership_matcher import (
 )
 from fec.database.loader._base import savepoint
 from fec.database.loader.employment_locations import _location_index
-from fec.env import RULES_DIR
+from fec.env import REFERENCE_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -149,7 +149,7 @@ def _load_donor_linked_csv(
     cur: Any, csv_filename: str, table: str, insert_row,
     validate_rows=None,
 ) -> None:
-    csv_path = RULES_DIR / csv_filename
+    csv_path = REFERENCE_DIR / csv_filename
     if not csv_path.exists():
         logger.info(f"  {csv_path.name} not found -- skipping {table}")
         return
@@ -202,6 +202,7 @@ def _load_person(cur, row, csv_filename: str, locations, insert_row):
         _person_value(row, "employer"),
         _person_value(row, "occupation"),
         state=state,
+        city=city,
         zip_5=_person_value(row, "zip"),
         locations=locations,
     )

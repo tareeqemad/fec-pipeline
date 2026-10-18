@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from fec.cleaning.addresses.street_text import normalize_street
 from fec.cleaning.work.employer_canonical import canonical_key
-from fec.env import RULES_DIR
+from fec.env import REFERENCE_DIR
 from fec.geocoding.validation import EARTH_RADIUS_MILES, great_circle
 
 
@@ -127,6 +127,8 @@ def _preferred_entry(
         return exact
     for entry in matches:
         if entry.get("method") == "manual_invalid":
+            if exact and exact.get("method") == "manual_override" and location_candidates(exact):
+                return exact
             return entry
 
     manual = [
@@ -182,7 +184,7 @@ def address_cache_lookup(
 
     for key, matches in grouped.items():
         preferred = _preferred_entry(None, matches)
-        if preferred is not None:
+        if preferred is not None and key not in lookup:
             lookup[key] = preferred
 
     return lookup
@@ -223,7 +225,7 @@ def publishable_first_entry(
 
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
-    path = RULES_DIR / "zip_centroids.csv"
+    path = REFERENCE_DIR / "zip_centroids.csv"
     if not path.exists():
         return {}
 
@@ -241,8 +243,9 @@ def select_location(
     entry: dict | None,
     donor_zip: str = "",
     donor_state: str = "",
+    donor_city: str = "",
 ) -> dict | None:
-    """Prefer a same-state office, then the primary location."""
+    """Prefer the same city and state, then the nearest state office or primary."""
     candidates = location_candidates(entry)
     if not candidates:
         return None
@@ -262,6 +265,12 @@ def select_location(
             candidates[0],
         )
 
+    donor_city = _text(donor_city).upper()
+    same_city = [
+        location for location in same_state
+        if donor_city and _text(location.get("employer_city")).upper() == donor_city
+    ]
+    same_state = same_city or same_state
     centroids = _zip_centroids()
     donor_point = centroids.get(donor_zip)
 

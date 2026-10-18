@@ -90,7 +90,7 @@ def _assert_known_committees(df):
     logger.error("  ABORT - %s rows have an unknown recipient:", f"{len(unknown):,}")
     for committee, count in unknown.value_counts().items():
         logger.error("    %-14s %s rows", committee, f"{count:,}")
-    logger.error("  Add each recipient to data/rules/committees.csv.")
+    logger.error("  Add each recipient to data/reference/committees.csv.")
     raise SystemExit(1)
 
 

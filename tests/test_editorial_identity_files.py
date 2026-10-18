@@ -5,11 +5,11 @@ import pandas as pd
 
 from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.addresses.streets import clean_streets
-from fec.env import RULES_DIR
+from fec.env import REFERENCE_DIR
 
 
 def _rows(filename):
-    path = RULES_DIR / filename
+    path = REFERENCE_DIR / filename
     with path.open(encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
 

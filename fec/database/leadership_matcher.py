@@ -112,14 +112,15 @@ def upsert_donor_address(
     )
 
 
-# Choose and reuse the nearest same-state office, or the default.
+# Choose a same-city office, then a nearby state office or the default.
 def employment_address_id(
     cur: Any, employer: str, locations: dict | None,
     state: str | None = "", zip_5: str | None = "",
+    city: str | None = "",
 ) -> int | None:
     if not employer or not locations:
         return None
-    location = select_location(locations.get(employer), zip_5 or "", state or "")
+    location = select_location(locations.get(employer), zip_5 or "", state or "", city or "")
     if not location:
         return None
 
@@ -171,6 +172,7 @@ def employment_address_id(
 def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
                              occupation: str | None = None, *,
                              state: str | None = "", zip_5: str | None = "",
+                             city: str | None = "",
                              locations: dict | None = None) -> None:
     employer_name = (employer or '').strip()
     occupation = (occupation or '').strip() or None
@@ -201,7 +203,7 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
         category_id = found[0] if found else None
 
     address_id = (
-        employment_address_id(cur, employer_name, locations, state, zip_5)
+        employment_address_id(cur, employer_name, locations, state, zip_5, city)
         if status == 'active' else None
     )
 

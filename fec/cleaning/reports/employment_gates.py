@@ -169,7 +169,7 @@ def _gate_retired_active_sync(df):
     n_bad_sync = int(bad_sync.sum())
     issue = (
         f"retired+active contradiction: {n_bad_sync} rows "
-        "-- check classify_employer_status in fec/cleaning/work/previous.py"
+        "-- check classify_employer_status in fec/cleaning/work/status.py"
     ) if n_bad_sync else None
     return [('retired_active_sync', {'passed': n_bad_sync == 0, 'count': n_bad_sync}, issue)]
 
