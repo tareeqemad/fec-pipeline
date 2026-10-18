@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 PROVIDER = "openai"
 
 
-DEFAULT_MODEL = "gpt-5-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 
 _CREDIT_ERROR_MARKERS = (
@@ -84,6 +84,7 @@ def ai_web_search_call(client, model: str, system_prompt: str,
             {"role": "user", "content": user_prompt},
         ],
         tools=[{"type": "web_search"}],
+        tool_choice="required",
     )
     data = response.model_dump()
     text = ""

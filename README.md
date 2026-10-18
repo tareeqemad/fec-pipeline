@@ -107,6 +107,9 @@ External lookups are cached in `data/cache/*.json`. Resolve reuses accepted empl
 addresses, including equivalent company names, even when `OPENAI_API_KEY` is set.
 Changing the model or search version does not fetch those addresses again.
 Leave the key blank to disable paid lookups for missing addresses.
+The default model is `gpt-6-luna`; `AI_MODEL` can override it. Employer searches
+require web search and a source for every address. Historical addresses for the
+same company are accepted and marked in the cached source description.
 
 If AI credits run out, resolve
 writes the cached results, leaves unresolved employers blank, and exits with code
