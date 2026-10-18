@@ -11341,19 +11341,27 @@
   },
   "CROMWELL LEATHER": {
     "employer_address": "147 PALMER AVE",
-    "method": "manual_override",
-    "confidence": "HIGH",
     "employer_city": "MAMARONECK",
     "employer_state": "NY",
     "employer_zip": "10543",
-    "source_name": "Cromwell Leather trademark application – published filing copy",
-    "source_url": "https://uspto.report/TM/98851823/FTK20241113220349/"
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "Cromwell Leather Group - official privacy policy (2021)",
+    "source_url": "https://cromwellgroup.com/privacy-policy/",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Official company policy identifies Cromwell Leather Group at 147 Palmer Ave; the company locations page identifies Mamaroneck as headquarters. Same company as CROMWELL LEATHER CO; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "CROMWELL LEATHER CO": {
-    "employer_address": "",
-    "method": "ai_not_found",
-    "provider": "openai",
-    "confidence": "UNKNOWN"
+    "employer_address": "147 PALMER AVE",
+    "employer_city": "MAMARONECK",
+    "employer_state": "NY",
+    "employer_zip": "10543",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "Cromwell Leather Group - official privacy policy (2021)",
+    "source_url": "https://cromwellgroup.com/privacy-policy/",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Official company policy identifies Cromwell Leather Group at 147 Palmer Ave; the company locations page identifies Mamaroneck as headquarters. Same company as CROMWELL LEATHER CO; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "CRONIN AUTO INC": {
     "employer_address": "26875 N Dixie Hwy",
@@ -49931,10 +49939,16 @@
     "source_url": "https://www.firebirdgrove.com/"
   },
   "FIRST WASHINGTON REALTY, INC.": {
-    "employer_address": "",
-    "method": "ai_not_found",
-    "provider": "openai",
-    "confidence": "UNKNOWN"
+    "employer_address": "7200 WISCONSIN AVE STE 600",
+    "employer_city": "BETHESDA",
+    "employer_state": "MD",
+    "employer_zip": "20814",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "First Washington Realty - official corporate headquarters",
+    "source_url": "https://www.firstwash.com/contact",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Official contact page confirms the corporate headquarters. Existing same-company spelling; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "FISCHLER & FRIEDMAN, PA": {
     "employer_address": "2000 Glades Rd, Suite 336W",
@@ -56026,12 +56040,16 @@
     "confidence": "MEDIUM"
   },
   "THE ZITELMAN GROUP, INC.": {
-    "employer_address": "450 Lexington Ave",
-    "employer_city": "New York",
-    "employer_state": "NY",
-    "employer_zip": "10017",
-    "method": "ai_openai",
-    "confidence": "MEDIUM"
+    "employer_address": "12250 ROCKVILLE PIKE STE 200",
+    "employer_city": "ROCKVILLE",
+    "employer_state": "MD",
+    "employer_zip": "20852",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "The Zitelman Group - SEC Form D (historical, 2013)",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/775547/000077554713000005/xslFormDX01/primary_doc.xml",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Historical principal business address reported by the company in its 2013 SEC filing, not a claim of its current location. Replaces unsupported 450 Lexington Ave legacy entry. Same-company name variants; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "THINKEDU, LLC": {
     "employer_address": "",
@@ -57073,10 +57091,16 @@
     "confidence": "UNKNOWN"
   },
   "FIRST WASHINGTON REALTY": {
-    "employer_address": "",
-    "method": "ai_not_found",
-    "provider": "openai",
-    "confidence": "UNKNOWN"
+    "employer_address": "7200 WISCONSIN AVE STE 600",
+    "employer_city": "BETHESDA",
+    "employer_state": "MD",
+    "employer_zip": "20814",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "First Washington Realty - official corporate headquarters",
+    "source_url": "https://www.firstwash.com/contact",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Official contact page confirms the corporate headquarters. Existing same-company spelling; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "GEBHARDT AND KIEFER": {
     "employer_address": "",
@@ -60894,10 +60918,16 @@
     "confidence": "HIGH"
   },
   "THE ZITELMAN GROUP": {
-    "employer_address": "",
-    "method": "ai_not_found",
-    "provider": "openai",
-    "confidence": "UNKNOWN"
+    "employer_address": "12250 ROCKVILLE PIKE STE 200",
+    "employer_city": "ROCKVILLE",
+    "employer_state": "MD",
+    "employer_zip": "20852",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "The Zitelman Group - SEC Form D (historical, 2013)",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/775547/000077554713000005/xslFormDX01/primary_doc.xml",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Historical principal business address reported by the company in its 2013 SEC filing, not a claim of its current location. Replaces unsupported 450 Lexington Ave legacy entry. Same-company name variants; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "UNIVERSITY HOSPITALS CLEVELAND": {
     "employer_address": "11100 EUCLID AVE",
@@ -62872,10 +62902,16 @@
     "confidence": "UNKNOWN"
   },
   "FIRST WASHINGTON REALTY, INC": {
-    "employer_address": "",
-    "method": "ai_not_found",
-    "provider": "openai",
-    "confidence": "UNKNOWN"
+    "employer_address": "7200 WISCONSIN AVE STE 600",
+    "employer_city": "BETHESDA",
+    "employer_state": "MD",
+    "employer_zip": "20814",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "First Washington Realty - official corporate headquarters",
+    "source_url": "https://www.firstwash.com/contact",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Official contact page confirms the corporate headquarters. Existing same-company spelling; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "FORSIGHT, INC": {
     "employer_address": "",
@@ -64212,10 +64248,16 @@
     "confidence": "UNKNOWN"
   },
   "THE ZITELMAN GROUP, INC": {
-    "employer_address": "",
-    "method": "ai_not_found",
-    "provider": "openai",
-    "confidence": "UNKNOWN"
+    "employer_address": "12250 ROCKVILLE PIKE STE 200",
+    "employer_city": "ROCKVILLE",
+    "employer_state": "MD",
+    "employer_zip": "20852",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "The Zitelman Group - SEC Form D (historical, 2013)",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/775547/000077554713000005/xslFormDX01/primary_doc.xml",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Historical principal business address reported by the company in its 2013 SEC filing, not a claim of its current location. Replaces unsupported 450 Lexington Ave legacy entry. Same-company name variants; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "TIME EQUITIES, INC": {
     "employer_address": "60 East 42nd Street",
@@ -69338,8 +69380,10 @@
     "employer_zip": "20852",
     "method": "manual_override",
     "confidence": "HIGH",
-    "source_name": "The Zitelman Group original SEC Form D",
-    "source_url": "https://www.sec.gov/Archives/edgar/data/775547/000077554713000005/xslFormDX01/primary_doc.xml"
+    "source_name": "The Zitelman Group - SEC Form D (historical, 2013)",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/775547/000077554713000005/xslFormDX01/primary_doc.xml",
+    "reviewed_on": "2026-10-18",
+    "review_note": "HIGH (VERIFIED): Historical principal business address reported by the company in its 2013 SEC filing, not a claim of its current location. Replaces unsupported 450 Lexington Ave legacy entry. Same-company name variants; reviewed 2026-10-18. Company address only; does not establish an individual donor workplace."
   },
   "THINKEDU LLC": {
     "employer_address": "1001 E. Hebron Parkway, Suite 118-279",
