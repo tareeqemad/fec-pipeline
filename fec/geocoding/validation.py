@@ -7,7 +7,7 @@ from fec.cleaning.addresses.street_text import numbered_street
 from fec.config.geography import US_STATES, US_STATE_BBOX
 
 EARTH_RADIUS_MILES = 3958.8
-STREET_LEVEL_SOURCES = {"nominatim", "census", "google", "manual_census", "nominatim_intl"}
+STREET_LEVEL_SOURCES = {"nominatim", "census", "google", "manual_census", "manual_verified", "nominatim_intl"}
 US_TERRITORIES = {"AS", "GU", "MP", "PR", "VI"}
 REVIEWED_WRONG_KM = 0.5
 
