@@ -25,8 +25,8 @@ _TRAILING_UNIT_WORD_RE = re.compile(r"\s+(?:APT|UNIT|STE|SUITE)\s*$")
 
 
 def _level_rank(level: str) -> int:
-    """Prefer manual Census corrections among accepted address points."""
-    return 4 if level == "manual_census" else 3
+    """Prefer verified manual corrections."""
+    return 4 if level in {"manual_census", "manual_verified"} else 3
 
 
 def _address_key(values) -> tuple[str, ...]:
@@ -35,7 +35,7 @@ def _address_key(values) -> tuple[str, ...]:
 
 
 def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
-    """Read accepted cached points, preferring manual Census corrections."""
+    """Read accepted cached points, preferring manual corrections."""
     cache = _read_json(CACHE_DIR / "geocode_cache.json")
     # a hand-checked point counts even when its key has no cache entry
     keys = {**{key: None for key in REVIEWED_POINTS}, **cache}
