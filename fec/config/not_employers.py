@@ -101,8 +101,7 @@ JOB_TITLE_AS_EMPLOYER = frozenset({
 SELF_EMPLOYED_OCC_AS_EMP = frozenset({
     'DESIGNER', 'CATER', 'CATERER', 'WRITER', 'ARTIST', 'SALES',
     'REAL ESTATE', 'PERSONAL', 'BUSINESS', 'FARMING', 'TRADER',
-    # filed both ways by one donor (SELF EMPLOYED / TRUST DEED INVESTMENTS and
-    # TRUST DEED INVESTMENTS / SELF-EMPLOYED): a line of work, not a firm
+    # Generic phrase; verified company filings use their legal name.
     'TRUST DEED INVESTMENTS',
 })
 

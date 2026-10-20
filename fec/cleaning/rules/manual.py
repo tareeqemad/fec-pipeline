@@ -80,10 +80,15 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
 
 
 # load the overrides CSV into a sub_id -> fields mapping
-def _read_overrides(company_names_only: bool) -> dict[str, dict[str, str]]:
+def _read_overrides(
+    company_names_only: bool, *, before_matching: bool = False,
+) -> dict[str, dict[str, str]]:
     overrides = {}
     with OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
+            # Display-only corrections must not influence donor matching.
+            if before_matching and (row.get("after_matching") or "").strip().lower() == "true":
+                continue
             sid = (row.get("sub_id") or "").strip()
             fields = _override_fields(row, company_names_only)
             if sid and fields:
@@ -164,7 +169,7 @@ def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
     """Return IDs whose override adds work absent from the raw filing."""
     if not OVERRIDES_CSV.exists():
         return set()
-    overrides = _read_overrides(company_names_only=False)
+    overrides = _read_overrides(company_names_only=False, before_matching=True)
     rows = filed[filed["sub_id"].astype(str).str.strip().isin(overrides)]
     outside = set()
     for sub_id, row in zip(rows["sub_id"], rows.itertuples(index=False)):
@@ -175,21 +180,21 @@ def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
     return outside
 
 
-# write each override's fields onto its matching sub_id row
+# Apply corrections by column to matching filing IDs.
 def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
-    changed = 0
-    missing = 0
-    for sid, fields in overrides.items():
-        mask = sub_ids == sid
-        matched = int(mask.sum())
-        if not matched:
-            missing += 1
-            continue
-        for column, value in fields.items():
-            if column in df.columns:
-                df.loc[mask, column] = value
-        changed += matched
+    changed = int(sub_ids.isin(overrides).sum())
+    missing = len(overrides.keys() - set(sub_ids))
+    for column in df.columns:
+        values = {
+            sid: fields[column]
+            for sid, fields in overrides.items()
+            if column in fields
+        }
+        if values:
+            mask = sub_ids.isin(values)
+            if mask.any():
+                df.loc[mask, column] = [values[sid] for sid in sub_ids[mask]]
     return changed, missing
 
 
@@ -220,7 +225,9 @@ def apply_manual_employer_overrides(
     if not OVERRIDES_CSV.exists():
         return 0
 
-    overrides = _read_overrides(company_names_only)
+    overrides = _read_overrides(
+        company_names_only, before_matching=not company_names_only,
+    )
 
     if not overrides:
         return 0

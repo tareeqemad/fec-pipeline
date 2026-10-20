@@ -15971,6 +15971,16 @@
         "resolver": "openai+search",
         "prompt_version": "us-employer-locations-v3",
         "resolved_on": "2026-09-22"
+      },
+      {
+        "employer_address": "1001 4TH AVE STE 4500",
+        "employer_city": "SEATTLE",
+        "employer_state": "WA",
+        "employer_zip": "98154",
+        "method": "manual_override",
+        "confidence": "HIGH",
+        "source_name": "Washington courts original filing",
+        "source_url": "https://www.courts.wa.gov/content/petitions/102044-9%20Answer%20to%20Petition%20for%20Review.pdf"
       }
     ]
   },
@@ -16890,10 +16900,12 @@
     "employer_city": "Los Angeles",
     "employer_state": "CA",
     "employer_zip": "90067",
-    "method": "ai_openai_search",
+    "method": "manual_override",
     "confidence": "HIGH",
     "recheck": "corrected",
-    "superseded": "300 First Stamford Place, 5th Floor, Stamford, CT"
+    "superseded": "300 First Stamford Place, 5th Floor, Stamford, CT",
+    "source_name": "George Smith Partners - contact",
+    "source_url": "https://www.gspartners.com/contact"
   },
   "GEORGE WASHINGTON UNIVERSITY": {
     "employer_address": "2121 I Street NW",
@@ -32283,10 +32295,12 @@
     "employer_city": "Houston",
     "employer_state": "TX",
     "employer_zip": "77042",
-    "method": "ai_openai_search",
+    "method": "manual_override",
     "confidence": "HIGH",
     "recheck": "corrected",
-    "superseded": "1515 Pacific Ave Suite 700, Tacoma, WA"
+    "superseded": "1515 Pacific Ave Suite 700, Tacoma, WA",
+    "source_name": "Precision Task Group company LinkedIn",
+    "source_url": "https://mx.linkedin.com/company/precision-task-group"
   },
   "PREDICTIVE SERVICES INC.": {
     "employer_address": "1000 Town Center Drive",
@@ -34521,7 +34535,19 @@
     "method": "manual_override",
     "confidence": "HIGH",
     "source_name": "www.rgrdlaw.com",
-    "source_url": "https://www.rgrdlaw.com/contact.html"
+    "source_url": "https://www.rgrdlaw.com/contact.html",
+    "locations": [
+      {
+        "employer_address": "261 OLD YORK RD STE 507-A",
+        "employer_city": "JENKINTOWN",
+        "employer_state": "PA",
+        "employer_zip": "19046",
+        "method": "manual_override",
+        "confidence": "HIGH",
+        "source_name": "County Commissioners Association of Pennsylvania - associate directory",
+        "source_url": "https://www.pacounties.org/vendors/associate-directory-list"
+      }
+    ]
   },
   "ROBERT FINVARB COMPANIES": {
     "employer_address": "20807 BISCAYNE BLVD STE 200",
@@ -39510,9 +39536,9 @@
     "employer_zip": "19004",
     "confidence": "HIGH",
     "address_type": "HEADQUARTERS",
-    "source_name": "Susquehanna (Official website)",
-    "source_url": "https://sig.com/who-we-are/office-locations/",
-    "method": "ai_openai_search",
+    "source_name": "Susquehanna International Group — letter filed with CFTC",
+    "source_url": "https://comments.cftc.gov/Handlers/PdfHandler.ashx?id=35610",
+    "method": "manual_override",
     "resolver": "openai+search",
     "prompt_version": "us-employer-locations-v3",
     "resolved_on": "2026-09-22",
@@ -58073,10 +58099,12 @@
     "employer_city": "New York",
     "employer_state": "NY",
     "employer_zip": "10022",
-    "method": "ai_openai_search",
+    "method": "manual_override",
     "confidence": "HIGH",
     "recheck": "corrected",
-    "superseded": "1111 Lincoln Rd, Miami Beach, FL"
+    "superseded": "1111 Lincoln Rd, Miami Beach, FL",
+    "source_name": "Indigo Capital — official Contact and Founding Partners",
+    "source_url": "https://www.indigocap.com/contact.html"
   },
   "IPASS INC.": {
     "employer_address": "55 Challenger Road",
@@ -122512,7 +122540,19 @@
     "method": "manual_override",
     "confidence": "HIGH",
     "source_name": "Official Eversheds Sutherland office directory",
-    "source_url": "https://www.eversheds-sutherland.com/lv/united-states/locations/offices/atlanta"
+    "source_url": "https://www.eversheds-sutherland.com/lv/united-states/locations/offices/atlanta",
+    "locations": [
+      {
+        "employer_address": "1114 Avenue of the Americas, 40th Floor",
+        "employer_city": "New York",
+        "employer_state": "NY",
+        "employer_zip": "10036",
+        "method": "manual_override",
+        "confidence": "HIGH",
+        "source_name": "Eversheds Sutherland - US office locations",
+        "source_url": "https://www.eversheds-sutherland.com/en/united-states/locations/offices/atlanta"
+      }
+    ]
   },
   "EVERSHEDS SUTHERLAND LLP": {
     "employer_address": "999 PEACHTREE ST NE STE 2300",
@@ -135895,5 +135935,15 @@
     "confidence": "HIGH",
     "source_name": "SEC EDGAR official RTI International Metals filing header, 9 March 2015",
     "source_url": "https://www.sec.gov/Archives/edgar/data/1068717/000119312515082789/0001193125-15-082789-index-headers.html"
+  },
+  "TRUST DEED INVESTMENTS INC": {
+    "employer_address": "8 WOLFE AVE",
+    "employer_city": "SAN RAFAEL",
+    "employer_state": "CA",
+    "employer_zip": "94901",
+    "method": "manual_override",
+    "confidence": "HIGH",
+    "source_name": "California Department of Real Estate",
+    "source_url": "https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935"
   }
 }
