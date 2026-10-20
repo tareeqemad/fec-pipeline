@@ -167,6 +167,9 @@ def _read_previous_employers(csv_path: Path, df: pd.DataFrame) -> dict:
     entries = {}
     with csv_path.open(encoding="utf-8", newline="") as handle:
         for override in csv.DictReader(handle):
+            # Display corrections do not establish new work history.
+            if (override.get("after_matching") or "").strip().lower() == "true":
+                continue
             sub_id = (override.get("sub_id") or "").strip()
             raw_previous = (override.get("previous_employer") or "").strip()
             clear = raw_previous.upper() == CLEAR_PREVIOUS_EMPLOYER

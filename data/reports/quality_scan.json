@@ -88,8 +88,8 @@
     ]
   },
   "uncategorized_occupations": {
-    "distinct": 177,
-    "rows": 458,
+    "distinct": 176,
+    "rows": 455,
     "examples": [
       {
         "value": "ANALYST",
@@ -148,10 +148,6 @@
         "rows": 3
       },
       {
-        "value": "BIG SCREEN STORES",
-        "rows": 3
-      },
-      {
         "value": "CDOAP",
         "rows": 3
       },
@@ -189,6 +185,10 @@
       },
       {
         "value": "PA",
+        "rows": 2
+      },
+      {
+        "value": "OFFICE STAFF",
         "rows": 2
       }
     ]

@@ -1,4 +1,4 @@
-sub_id,contributor_employer,contributor_occupation,contributor_city,note,previous_employer,contributor_street_1,contributor_street_2,contributor_zip,source,occupation_category,preserve_fields
+sub_id,contributor_employer,contributor_occupation,contributor_city,note,previous_employer,contributor_street_1,contributor_street_2,contributor_zip,source,occupation_category,preserve_fields,after_matching
 4032520241885655422,JEWISH FEDERATION OF GREATER HOUSTON,,,"OLEARY, MARI (Houston TX) — local federation, disambiguated from generic JEWISH FEDERATION"
 4072420241978924963,JEWISH FEDERATION OF GREATER FAIRFIELD COUNTY,,,"SAVEL, CARIN (Fairfield CT) — local federation [full name — the 38-char FEC truncation is repaired in manual_typo_overrides.json]"
 4072420241978924966,JEWISH FEDERATION OF GREATER FAIRFIELD COUNTY,,,"SAVEL, CARIN (Fairfield CT) — local federation [full name — the 38-char FEC truncation is repaired in manual_typo_overrides.json]"
@@ -558,3 +558,132 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4042820231745858220,,,,Correct the filed address using the cited official source and matching filings; retain unit details.,,13702 ARTISAN CIR,,,https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResultDetail?aggregateId=flal-l04000069705-7d8bddd1-4754-463d-b43d-35dd37505f30&directionType=PreviousList&inquirytype=EntityName&listNameOrder=NORAPROPERTIES+L070000612500&searchNameOrder=NORAREALTYINVESTMENTS+L040000697050&searchTerm=NORA+RODRIGUEZ,,contributor_street_1
 4062420241962025829,,,,Correct filed ZIP to 95070; the SEC filing and Saratoga property record confirm the same address.,,,,95070,https://ir.kla.com/sec-filings/all-sec-filings/content/0000319201-02-000035/0000319201-02-000035.pdf ; https://www.saratoga.ca.us/ArchiveCenter/ViewFile/Item/2224,,contributor_zip
 4062320251206918753,,,,Exact filing reports Friends of Yemin Orde and retired. Official biography identifies the New Hope PA donor; remove legacy Univision misattribution. Same-key history propagation does not assert a job on each filing date. Reviewed 2026-10-17.,FRIENDS OF YEMIN ORDE,,,,FEC sub_id 4062320251206918753; https://www.yeminorde.org/wp-content/uploads/2016/03/Friends-of-Yemin-Orde-Announces-New-Board-Chair.pdf; https://www.sec.gov/Archives/edgar/data/1017008/000091205702012377/a2067358z10-k.htm,,
+4012120261303039572,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4012120261303038114,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4011620261302587208,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4011620261302586506,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011620261302592442,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011620261302592342,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4011620261302592150,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4011620261302592125,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4011620261302592027,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4092220251291773019,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4092220251291772744,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4092220251291772060,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4092420251292198903,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4092420251292197834,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011320231697776098,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4020920241823944122,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4082520251233303838,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4032020251180457506,HOSPITAL FOR SPECIAL SURGERY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hss.edu/locations/ny/main-campus,,
+4011320231697776097,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4021120221406549788,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mit.edu/contact/,,
+4011320231697776119,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776089,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4102420231807010292,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4072420241978927043,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4030320251179410710,MILLENNIUM MANAGEMENT,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mlp.com/global-presence/,,
+4011320231697776115,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4102420231807009787,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4020920241823944109,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011320231697776110,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776107,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4060420241953436691,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4110120231808000224,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4112020241071383634,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4102420231807009984,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4072420241978927654,HACKENSACK UNIVERSITY MEDICAL CENTER,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hackensackmeridianhealth.org/en/healthcare-professionals/humc/internal-medicine-residency,,
+4080620251215492504,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4122920221645227617,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mit.edu/contact/,,
+4011320231697776114,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776111,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4082520251233304071,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4112020241071383633,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4110120231808001197,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4011320231697776087,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4110720231809900045,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4112220231811442083,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4080620251215491663,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4112020241071383631,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4122920221645227616,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mit.edu/contact/,,
+4122320221644863530,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mit.edu/contact/,,
+4052120241949842125,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4052120241949842265,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4112020241071382258,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4060420241953437194,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4011320231697776102,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776109,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4082120231799935731,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4072420241978927655,HACKENSACK UNIVERSITY MEDICAL CENTER,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hackensackmeridianhealth.org/en/healthcare-professionals/humc/internal-medicine-residency,,
+4011320231697776090,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4122320221644864126,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4011320231697776113,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4112020241071383630,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4080620251215491731,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4011320231697776088,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776116,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776094,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776106,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4122120231813094031,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4123020221645490716,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4080620251215492502,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4092320242041364558,MILLENNIUM MANAGEMENT,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mlp.com/global-presence/,,
+4080620251215491732,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4112020241071383632,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4020920241823944209,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mit.edu/contact/,,
+4011320231697776099,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776096,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4072420241978923226,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4122120231813093093,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4011320231697776103,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4123020221645490532,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4020920241823944119,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4072420241978927656,HACKENSACK UNIVERSITY MEDICAL CENTER,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hackensackmeridianhealth.org/en/healthcare-professionals/humc/internal-medicine-residency,,
+4011320231697776105,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4020920241823944104,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011320231697776117,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011420251130090154,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011320231697776101,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011420251130090736,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011320231697776104,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4122120231813092818,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4021120221406549783,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4052120241949841867,PRECISION TASK GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.ptg.com/about-us,,
+4122920221645232844,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4062420241962025501,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4080620251215492503,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4011320231697776108,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011420251130090153,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4080620251215491730,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4110720231809900096,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4011320231697776091,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776100,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776112,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4020920241823944124,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4011320231697776118,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4011320231697776095,INDIGO CAPITAL LLC,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://indigocap.com/founding-partners.html,,
+4080620251215491733,SUSQUEHANNA INTERNATIONAL GROUP,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://sig.com/disclosures/sis-uk-tax-strategy/,,
+4122920221645235017,GEORGE SMITH PARTNERS,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.gspartners.com/about,,
+4052120241949841849,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4060420241953436797,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4032120241885412611,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mit.edu/contact/,,
+4032320261425014992,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4052620261511335567,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4070720261523713658,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,MASSACHUSETTS INSTITUTE OF TECHNOLOGY,,,,https://www.mit.edu/contact/,,,true
+4080120261540164902,HOSPITAL FOR SPECIAL SURGERY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hss.edu/locations/ny/main-campus,,
+4082720261585276211,HOSPITAL FOR SPECIAL SURGERY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hss.edu/locations/ny/main-campus,,
+4082720261585275896,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4082720261585275187,MERRIMACK VALLEY DISTRIBUTING COMPANY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://mvdc.com/docs/NewAcctCredit.pdf,,
+4082720261585275128,MILLENNIUM MANAGEMENT,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.mlp.com/global-presence/,,
+4092220261599306093,HOSPITAL FOR SPECIAL SURGERY,,,Verified company name for this filing; reviewed 2026-10-20.,,,,,https://www.hss.edu/locations/ny/main-campus,,
+4092220261599305715,,,,Verified company name for this filing; preserve the dated work-history source. Reviewed 2026-10-20.,LINQUEST,,,,https://www.sinaitemple.org/about/lay-leadership/dr-leon-biederman/,,,true
+4072120251209630037,,[CLEAR],,"BIG SCREEN STORES was filed as occupation; it is a company name, not a job title. Clear this source before donor-history filling; no title inferred.",,,,,data/raw/contributions.csv:173840; FEC sub_id 4072120251209630037 (employer SELF; occupation BIG SCREEN STORES),,
+4011620261302591845,JEFFER MANGELS BUTLER & MITCHELL LLP,,,Verified company display name; apply after matching to preserve existing donor identities. Reviewed 2026-10-20.,,,,,https://pressreleases.jeffer.com/2024/04/25/jeffer-mangels-butler-mitchell-llp-expands-litigation-practice-with-two-new-partners-john-s-cha-and-michael-h-strub-jr/,,,true
+4082520251233304415,JEFFER MANGELS BUTLER & MITCHELL LLP,,,Verified company display name; apply after matching to preserve existing donor identities. Reviewed 2026-10-20.,,,,,https://pressreleases.jeffer.com/2024/04/25/jeffer-mangels-butler-mitchell-llp-expands-litigation-practice-with-two-new-partners-john-s-cha-and-michael-h-strub-jr/,,,true
+4062420241962025042,JEFFER MANGELS BUTLER & MITCHELL LLP,,,Verified company display name; apply after matching to preserve existing donor identities. Reviewed 2026-10-20.,,,,,https://pressreleases.jeffer.com/2024/04/25/jeffer-mangels-butler-mitchell-llp-expands-litigation-practice-with-two-new-partners-john-s-cha-and-michael-h-strub-jr/,,,true
+4122320221644863287,TRUST DEED INVESTMENTS INC,SELF-EMPLOYED,,Restore the filed company and explicit self-employment status; no job title inferred. California DRE license 01076935 identifies Philip Bruce Goldstein and matches the filed San Rafael office and Newark mailing address.,,,,,FEC sub_id 4122320221644863287; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01111336,,contributor_occupation,true
+4021220241824545372,TRUST DEED INVESTMENTS INC,SELF-EMPLOYED,,Restore the filed company and explicit self-employment status; no job title inferred. California DRE license 01076935 identifies Philip Bruce Goldstein and matches the filed San Rafael office and Newark mailing address.,,,,,FEC sub_id 4021220241824545372; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01111336,,contributor_occupation,true
+4092320221576718324,TRUST DEED INVESTMENTS INC,SELF-EMPLOYED,,Restore the filed company and explicit self-employment status; no job title inferred. California DRE license 01076935 identifies Philip Bruce Goldstein and matches the filed San Rafael office and Newark mailing address.,,,,,FEC sub_id 4092320221576718324; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01111336,,contributor_occupation,true
+4022620261359401134,TRUST DEED INVESTMENTS INC,SELF-EMPLOYED,,Restore the filed company and explicit self-employment status; no job title inferred. California DRE license 01076935 identifies Philip Bruce Goldstein and matches the filed San Rafael office and Newark mailing address.,,,,,FEC sub_id 4022620261359401134; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01111336,,contributor_occupation,true
+4082720261585276260,TRUST DEED INVESTMENTS INC,SELF-EMPLOYED,,Restore the filed company and explicit self-employment status; no job title inferred. California DRE license 01076935 identifies Philip Bruce Goldstein and matches the filed San Rafael office and Newark mailing address.,,,,,FEC sub_id 4082720261585276260; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01111336,,contributor_occupation,true
+4090820261595851562,TRUST DEED INVESTMENTS INC,SELF-EMPLOYED,,Restore the filed company and explicit self-employment status; no job title inferred. California DRE license 01076935 identifies Philip Bruce Goldstein and matches the filed San Rafael office and Newark mailing address.,,,,,FEC sub_id 4090820261595851562; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01076935; https://www2.dre.ca.gov/publicasp/pplinfo.asp?License_id=01111336,,contributor_occupation,true
