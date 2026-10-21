@@ -310,6 +310,17 @@ rejects a reader with admin privileges or membership in another role.
   `RETIRED`, `NOT EMPLOYED`, `SELF-EMPLOYED`, `STUDENT`, or `HOMEMAKER` value.
   A retiree's `previous_employer` may come only from an earlier filing for the
   same `donor_key`; otherwise resolve leaves it for verified lookup.
+- External FEC work history is searched in the filing's election cycle,
+  from other committees than those in the donor's local records for that cycle. A 2026 filing
+  searches 2025–2026 only; later records do not fill an earlier filing.
+  Matching also requires a compatible name and the same filed street, unit,
+  state and ZIP. The cache keeps the source filing ID, date, cycle and committee.
+  Known nicknames and earlier addresses from reviewed donor merges are allowed.
+  Misses retry when matching rules or filed evidence change.
+  Older answers without this evidence remain in the cache for rechecking;
+  they do not fill `previous_employer`.
+- Officially reviewed historical roles can be saved as `manual_override` with
+  sources in the previous-employer cache. They do not imply current or paid work.
 - ZIP codes are zero-padded text, never integers.
   Same-street alignment fills missing ZIP/state values only with unambiguous
   place evidence; conflicting filed values need a verified correction.

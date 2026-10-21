@@ -11,7 +11,7 @@ from fec.config.constants import SKIP_OCCUPATIONS
 from fec.resolve.cache import (
     RETIRED,
     SELF_EMPLOYED,
-    _prev_key,
+    _previous_for_row,
     _previous_employer_identity,
     _s,
 )
@@ -145,9 +145,12 @@ def _retired_misses(individuals, prev_cache, addr_cache, address_lookup, resolve
     retired_mask = (
         individuals["contributor_employer"].map(_s).str.strip().str.upper() == RETIRED
     )
-    retired_rows = individuals.loc[retired_mask].drop_duplicates("donor_key")
+    retired_rows = individuals.loc[retired_mask].assign(
+        _cycle=individuals.get("two_year_transaction_period", ""),
+        _filed=pd.to_datetime(individuals.get("contribution_receipt_date"), errors="coerce"),
+    ).sort_values("_filed").drop_duplicates(["donor_key", "_cycle"], keep="last")
     for _, row in retired_rows.iterrows():
-        previous = prev_cache.get(_prev_key(row.get("donor_key")))
+        previous = _previous_for_row(prev_cache, row)
         employer, address_keys = _previous_employer_identity(previous)
         if employer == SELF_EMPLOYED:
             continue

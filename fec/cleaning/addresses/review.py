@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from fec.cleaning.addresses.review_cases import REVIEW_CASES_CSV, build_review_cases
 from fec.cleaning.addresses.street_reviews import (
     _REPORT_COLUMNS,
     CITY,
@@ -38,6 +39,9 @@ from fec.cleaning.addresses.street_reviews import (
     _review_street2,
 )
 from fec.io import write_csv_atomic
+from fec.log import get_logger
+
+logger = get_logger(__name__)
 
 MANUAL_REVIEW_CSV = "address_manual_review.csv"
 REGEOCODE_CSV = "address_regeocode_suspects.csv"
@@ -135,6 +139,37 @@ def queue_counts(review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> dict:
         "auto_fixed": int(status.eq(AUTO_FIXED).sum()),
         "regeocode": len(regeocode_df),
     }
+
+
+# Show the review queue counts.
+def log_review_queues(counts: dict, log) -> None:
+    if counts["manual_review"] or counts["auto_fixed"] or counts["regeocode"]:
+        log(
+            f"Address review: {counts['manual_review']:,} open for manual review, "
+            f"{counts['auto_fixed']:,} emptied street_2 listed as auto_fixed, "
+            f"{counts['regeocode']:,} for re-geocoding"
+        )
+
+
+# Write reports after donor repairs and foreign-address restoration.
+def write_final_address_reports(
+    df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail,
+    *, log=logger.info,
+) -> None:
+    review_df, regeocode_df = build_review_queues(
+        df_clean,
+        address_reports.get("street2_auto_fixed"),
+        exclude_sub_ids=foreign_sub_ids,
+    )
+    write_review_queues(out_dir, review_df, regeocode_df)
+    log_review_queues(queue_counts(review_df, regeocode_df), log)
+    cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
+    write_csv_atomic(cases, Path(out_dir) / REVIEW_CASES_CSV, index=False)
+    high_priority = int(cases['priority'].eq('high').sum())
+    log(
+        "  Address review cases: %s (%s high priority)",
+        f"{len(cases):,}", f"{high_priority:,}",
+    )
 
 
 # run the street_2 fix and build review reports at once

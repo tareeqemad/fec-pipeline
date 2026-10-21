@@ -7,7 +7,7 @@ import pandas as pd
 from fec.cleaning.work.employer_canonical import canonical_key
 from fec.cleaning.work.previous import normalize_previous_employer_value, preserve_own_named_legal_employer
 from fec.cleaning.work.status import classify_employer_status
-from fec.resolve.cache import _prev_key, _previous_employer_identity, _s
+from fec.resolve.cache import _previous_for_row, _previous_employer_identity, _s
 from fec.resolve.locations import select_location
 from fec.resolve.previous import PROTECTED_METHODS
 
@@ -22,6 +22,7 @@ class ResolveContext:
     filed_employers: dict = field(default_factory=dict)
     # (donor_key, employer) -> the first date the donor filed that employer
     first_filed: dict = field(default_factory=dict)
+    previous_display_names: dict = field(default_factory=dict)
 
 
 def _result(
@@ -137,16 +138,16 @@ def _first_filed_employers(df: pd.DataFrame) -> dict:
 
 def _learned_later(entry: dict, row: pd.Series, first_filed: dict) -> bool:
     """Check whether the cached employer was first learned after this filing."""
-    filed = pd.to_datetime(row.get("contribution_receipt_date"), errors="coerce")
+    filed = pd.to_datetime(row.get("contribution_receipt_date"), errors="coerce", utc=True)
     if pd.isna(filed):
         return False
-    source = pd.to_datetime(entry.get("source_date"), errors="coerce")
+    source = pd.to_datetime(entry.get("source_date"), errors="coerce", utc=True)
     if pd.notna(source):
         return source > filed
     donor = row.get("donor_key", "")
     names = {str(entry.get(key) or "").strip().upper() for key in ("employer", "employer_source")} - {""}
     firsts = [first_filed[(donor, name)] for name in names if (donor, name) in first_filed]
-    return bool(firsts) and min(firsts) > filed
+    return bool(firsts) and pd.to_datetime(min(firsts), utc=True) > filed
 
 
 def _filed_previous(row: pd.Series, filed_employers: dict) -> dict | None:
@@ -172,7 +173,7 @@ def _resolve_retired(
     if row.get("identity_status", "confirmed") != "confirmed":
         prev_entry = own_entry
     else:
-        prev_entry = context.previous_cache.get(_prev_key(row.get("donor_key", "")))
+        prev_entry = _previous_for_row(context.previous_cache, row)
         protected = bool(prev_entry) and prev_entry.get("method") in PROTECTED_METHODS
         dated = context.dated_previous.get(index)
         if protected:
@@ -192,6 +193,10 @@ def _resolve_retired(
         prev_entry,
         row.get("contributor_name", ""),
     )
+    # Rename established history before choosing its company address.
+    prev_name = context.previous_display_names.get(_s(row.get("sub_id")).strip(), prev_name)
+    if not prev_name:
+        return _result("retired")
     legal_key = prev_name.strip().upper()
     address_keys = (legal_key, *(key for key in address_keys if key != legal_key))
     cached = _cached_address(

@@ -1,6 +1,29 @@
 """Shared cleaning helpers."""
+from functools import lru_cache
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+
+
+def read_raw_employer_evidence(path) -> pd.DataFrame:
+    """Read employer evidence once per file version; callers must not mutate it."""
+    path = Path(path).resolve()
+    stat = path.stat()
+    return _read_raw_employer_evidence(path, stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=1)
+def _read_raw_employer_evidence(path: Path, mtime_ns: int, size: int) -> pd.DataFrame:
+    return pd.read_csv(
+        path,
+        usecols=lambda column: column in (
+            'sub_id', 'contributor_name', 'contributor_employer',
+        ),
+        dtype=str,
+        keep_default_na=False,
+        low_memory=False,
+    )
 
 
 def _norm(s: pd.Series) -> pd.Series:

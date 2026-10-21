@@ -17,7 +17,7 @@ def _context(entry, first_filed=None):
 
 
 def test_an_entry_sourced_after_the_filing_does_not_apply():
-    entry = {"employer": CLINIC, "method": "cleaned_previous", "source_date": "2026-05-03"}
+    entry = {"employer": CLINIC, "method": "cleaned_previous", "source_date": "2026-05-03T00:00:00+00:00"}
     assert _resolve_retired(_retired("2022-02-02"), _context(entry), "NJ", "07000")["previous_employer"] == ""
     assert _resolve_retired(_retired("2026-05-03"), _context(entry), "NJ", "07000")["previous_employer"] == CLINIC
 

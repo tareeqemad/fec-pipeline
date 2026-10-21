@@ -150,15 +150,6 @@ _ALIGN_STEPS = (
 )
 
 
-def log_review_queues(counts: dict, log) -> None:
-    if counts["manual_review"] or counts["auto_fixed"] or counts["regeocode"]:
-        log(
-            f"Address review: {counts['manual_review']:,} open for manual review, "
-            f"{counts['auto_fixed']:,} emptied street_2 listed as auto_fixed, "
-            f"{counts['regeocode']:,} for re-geocoding"
-        )
-
-
 def _report_address_issues(
     df: pd.DataFrame, trail: AuditTrail, log, reports: dict | None = None,
 ) -> pd.DataFrame:

@@ -15,7 +15,7 @@ from fec.cleaning.addresses.review import (
 from fec.cleaning.addresses.street_reviews import CARE_OF_WITH_STREET_REASON
 from fec.cleaning.reports.trail import ADDRESS_FIELDS, AuditTrail
 from fec.cleaning.addresses.clean import _report_address_issues
-from fec.cleaning.pipeline import _write_address_queues
+from fec.cleaning.addresses.review import write_final_address_reports as _write_address_queues
 
 
 def _row(sub_id, name, street_1, street_2=np.nan, city="DENVER", state="CO", zip_="80202",

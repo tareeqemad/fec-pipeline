@@ -35,8 +35,8 @@ def test_a_value_an_override_rejected_is_put_back_after_every_step(monkeypatch):
         return 1
 
     monkeypatch.setattr(steps, "CONSISTENCY_FIXES", (
-        ("refill", refill, ("contributor_employer",), "r", None),
-        ("look", look, ("contributor_employer",), "r", None),
+        ("refill", "donor_refill", refill, ("contributor_employer",), "r", None),
+        ("look", "donor_look", look, ("contributor_employer",), "r", None),
     ))
     monkeypatch.setattr(steps, "apply_manual_employer_overrides", keep_cleared)
     df = pd.DataFrame({"sub_id": ["1"], "contributor_employer": [pd.NA]})

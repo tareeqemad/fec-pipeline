@@ -21,7 +21,7 @@ from fec.log import get_logger
 from fec.resolve.apply import apply_results
 from fec.resolve.cache import Cache, EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE, dedup_by_resolved_address
 from fec.resolve.employers import step_ai_lookup
-from fec.resolve.fec import step_fec_api
+from fec.resolve.fec import drop_unproven_source_entries, step_fec_api
 from fec.resolve.manual import load_manual_locations, load_manual_previous_employers
 from fec.resolve.previous import step_cross_record
 from fec.resolve.search import PROVIDER, AIQuotaExhausted, get_ai_model
@@ -89,6 +89,10 @@ def _run_steps(
     logger.info("\n-- Step 0: Manual overrides --")
     load_manual_locations(MANUAL_EMPLOYER_ADDRESSES_CSV, addr_cache)
     load_manual_previous_employers(MANUAL_EMPLOYER_OVERRIDES_CSV, df, prev_cache)
+    unverified = drop_unproven_source_entries(prev_cache, df)
+    if unverified:
+        prev_cache.save()
+        logger.info(f"    FEC history: withheld {unverified:,} answers without matching source evidence")
 
     logger.info("\n-- Step 1: Cross-record previous employers --")
     step_cross_record(df, prev_cache)

@@ -130,12 +130,16 @@ def main() -> int:
     print("   SMITH, ARTHUR occupations:", smith.contributor_occupation.value_counts().to_dict())
     neub = n[n.contributor_name.str.startswith("NEUBERGER, YEHUDA")].sort_values("contribution_receipt_date").iloc[-1]
     print("   NEUBERGER latest:", neub.contributor_street_1, "|", neub.contributor_street_2, "|", neub.latitude, neub.longitude)
-    # a manual override is the final word: every value it sets is in the final file
+    # Display-only company names do not create previous work history.
     from fec.cleaning.rules.manual import _read_overrides
+    display_previous_ids = set()
+    overrides = _read_overrides(False, display_previous_ids=display_previous_ids)
     nn_ = n.set_index("sub_id")
     overridden = [
-        (sid, col) for sid, fields in _read_overrides(company_names_only=False).items() if sid in nn_.index
+        (sid, col) for sid, fields in overrides.items() if sid in nn_.index
         for col, val in fields.items() if col in nn_.columns
+        and not (col == "previous_employer" and sid in display_previous_ids
+                 and not nn_.at[sid, col].strip())
         and nn_.at[sid, col].strip().upper() != ("" if val is pd.NA else str(val)).strip().upper()
     ]
     print("== manual overrides not in the final file:", len(overridden), overridden[:5])

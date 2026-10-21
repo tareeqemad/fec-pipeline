@@ -5,6 +5,7 @@ from fec.cleaning.donors.retired import dated_previous_employers
 from fec.cleaning.work.employer_canonical import canonical_key, recanonicalize_employers
 from fec.cleaning.work.employer_names import expand_abbreviation_text
 from fec.resolve.locations import ADDRESS_FIELDS, address_cache_lookup
+from fec.resolve.manual import previous_employer_display_names
 from fec.resolve.rows import ResolveContext, _first_filed_employers, _resolve_row
 import re
 from fec.cleaning.work.previous import normalize_previous_employer_column
@@ -39,6 +40,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dic
         dated_previous=dated,
         first_filed=first_filed,
         filed_employers=filed_employers or {},
+        previous_display_names=previous_employer_display_names(),
     )
     for index, row in df.iterrows():
         result = _resolve_row(row, context, index)

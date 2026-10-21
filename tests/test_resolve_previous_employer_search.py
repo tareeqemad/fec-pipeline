@@ -41,17 +41,23 @@ class Response:
 
 def _filing(employer):
     return {"contributor_name": "DOE, JANE", "contributor_state": "NY", "contributor_zip": "10001",
+            "contributor_street_1": "10 OAK ST", "contributor_street_2": "APT 2", "sub_id": "OLD-1",
+            "two_year_transaction_period": 2026, "committee_id": "C00123456",
             "contributor_employer": employer, "contributor_occupation": "RETIRED" if employer == "RETIRED" else "CEO",
-            "contribution_receipt_date": "2020-01-01"}
+            "contribution_receipt_date": "2025-01-01"}
 
 
-PERSON = {"prev_key": "donor:D1", "name": "DOE, JANE", "state": "NY", "city": "NEW YORK", "zip": "10001"}
+PERSON = {"prev_key": "donor:D1:2026", "name": "DOE, JANE", "state": "NY", "city": "NEW YORK", "zip": "10001",
+          "street_1": "10 OAK ST", "street_2": "APT 2", "latest_date": "2025-01-01",
+          "cycle": 2026, "committee_ids": {"C00797670"}}
 
 
 def test_the_employer_on_the_second_page_is_found(monkeypatch):
     monkeypatch.setattr(fec_search, "FEC_PAGE_SIZE", 2)
     pages = [
-        Response([_filing("RETIRED"), _filing("RETIRED")], {"last_index": "9"}),
+        Response([_filing("RETIRED"),
+                  {**_filing("FUTURE COMPANY"), "contribution_receipt_date": "2025-02-01"}],
+                 {"last_index": "9"}),
         Response([_filing("ACME INDUSTRIES")]),
     ]
     calls = []
@@ -63,19 +69,36 @@ def test_the_employer_on_the_second_page_is_found(monkeypatch):
     key, entry = fec_search._fetch_fec_previous_employer(PERSON, "k", get)
 
     assert entry["employer"] == "ACME INDUSTRIES"
+    assert entry["source_street_1"] == "10 OAK ST"
+    assert entry["source_street_2"] == "APT 2"
+    assert entry["source_sub_id"] == "OLD-1"
+    assert entry["source_cycle"] == "2026"
+    assert entry["source_committee_id"] == "C00123456"
+    assert key == "donor:D1:2026"
+    assert calls[0]["two_year_transaction_period"] == 2026
+    assert calls[0]["min_date"] == "2025-01-01"
+    assert calls[0]["max_date"] == "2025-01-01"
     assert calls[1]["last_index"] == "9"
 
 
 def test_not_found_is_recorded_only_after_the_last_page(monkeypatch):
     monkeypatch.setattr(fec_search, "FEC_PAGE_SIZE", 2)
-    pages = [Response([_filing("RETIRED"), _filing("RETIRED")], {"last_index": "9"}), Response([])]
+    pages = [Response([
+        {**_filing("OWN COMMITTEE COMPANY"), "committee_id": "C00797670"},
+        {**_filing("OLD CYCLE COMPANY"), "two_year_transaction_period": 2024,
+         "contribution_receipt_date": "2024-10-01"},
+    ], {"last_index": "9"}), Response([])]
     key, entry = fec_search._fetch_fec_previous_employer(PERSON, "k", lambda url, params, timeout: pages.pop(0))
 
-    assert entry == {"employer": "", "method": "fec_api_not_found", "all_pages": True}
+    assert entry == {
+        "employer": "", "method": "fec_api_not_found", "all_pages": True,
+        "searched_through": "2025-01-01",
+    }
 
 
 def test_an_old_first_page_only_not_found_is_searched_again():
     assert step._fec_search_due({"employer": "", "method": "fec_api_not_found"})
+    assert step._fec_search_due({"employer": "ACME", "method": "fec_api_unverified"})
     assert not step._fec_search_due({"employer": "", "method": "fec_api_not_found", "all_pages": True})
     assert not step._fec_search_due({"employer": "ACME", "method": "fec_api"})
 

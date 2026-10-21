@@ -1,4 +1,4 @@
-"""Search older FEC filings for a retired donor's previous employer."""
+"""Find a retiree's employer from another committee in the same election cycle."""
 import os
 import re
 import threading
@@ -9,48 +9,37 @@ import requests
 
 from fec.cleaning.work.previous import normalize_previous_employer_value
 from fec.cleaning.work.status import classify_employer_status
+from fec.cleaning.addresses.compare import _ABBREVIATIONS
+from fec.donor_match.normalize import NAME_SUFFIXES, NICKNAME_MAP, extract_generational_suffix
 from fec.log import get_logger
 from fec.resolve.cache import _cache_entry, _s
 from fec.resolve.manual import cleared_employers
 from fec.resolve.previous import (
-    _donor_zips,
+    _donor_evidence,
     _joint_name,
     _pending_fec_searches,
-    _shared_zips,
     _zip5,
 )
 
 logger = get_logger(__name__)
-
-
 FEC_BASE = "https://api.open.fec.gov/v1"
-
-
 FEC_PAGE_SIZE = 100
-
-
 FEC_MAX_PAGES = 20
-
-
 RATE_LIMIT_WAIT_SECONDS = 5
-
-
 RATE_LIMITED = object()
-
 
 def _fec_filings(person: dict, fec_key: str, request_get,
                  quota_spent: threading.Event | None = None):
-    """Every FEC filing under the donor's name and state, newest first, page by page.
-
-    Yields RATE_LIMITED when the shared quota is spent, or None on other page
-    errors: an incomplete search must not be recorded as 'not found'.
-    """
+    """Read this cycle; failed or quota-limited searches are not cached as misses."""
     if quota_spent is None:
         quota_spent = threading.Event()
     params = {
         "api_key": fec_key,
-        "contributor_name": person["name"],
-        "contributor_state": person["state"],
+        "contributor_name": person.get("search_terms", {}).get("names", person["name"]),
+        "contributor_state": person.get("search_terms", {}).get("states", person["state"]),
+        "two_year_transaction_period": person["cycle"],
+        "min_date": f"{person['cycle'] - 1}-01-01",
+        "max_date": min(person["latest_date"][:10], f"{person['cycle']}-12-31"),
         "per_page": FEC_PAGE_SIZE,
         "sort": "-contribution_receipt_date",
         "is_individual": "true",
@@ -74,13 +63,13 @@ def _fec_filings(person: dict, fec_key: str, request_get,
             yield None
             return
         body = response.json()
-        results = body.get("results", [])
+        results = body["results"]
         yield from results
         last = (body.get("pagination") or {}).get("last_indexes")
         if len(results) < FEC_PAGE_SIZE or not last:
             return
         params = {**params, **last}
-
+    yield None
 
 def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get,
                                 quota_spent: threading.Event | None = None):
@@ -91,15 +80,10 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get,
                 return None, RATE_LIMITED
             if record is None:
                 return None, None
-            if not _same_fec_donor(person, record):
+            if not _same_fec_donor(person, record) or not _dated_source(person, record):
                 continue
-            if (
-                classify_employer_status(
-                    record.get("contributor_employer", ""),
-                    record.get("contributor_occupation", ""),
-                )
-                != "active"
-            ):
+            if classify_employer_status(record.get("contributor_employer", ""),
+                                        record.get("contributor_occupation", "")) != "active":
                 continue
             entry = _cache_entry(
                 record.get("contributor_employer", ""),
@@ -109,6 +93,11 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get,
                 source_name=record.get("contributor_name", ""),
                 source_city=record.get("contributor_city", ""),
                 source_zip=record.get("contributor_zip", ""),
+                source_street_1=record.get("contributor_street_1", ""),
+                source_street_2=record.get("contributor_street_2", ""),
+                source_sub_id=record.get("sub_id", ""),
+                source_cycle=record.get("two_year_transaction_period", ""),
+                source_committee_id=record.get("committee_id", ""),
             )
             if entry.get("employer") and entry["employer"].upper() not in person.get("cleared_employers", ()):
                 return person["prev_key"], entry
@@ -116,11 +105,11 @@ def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get,
         return person["prev_key"], {
             "employer": "",
             "method": "fec_api_not_found",
-            "all_pages": True,
+            "all_pages": True, "searched_through": person["latest_date"][:10],
+            **({"search_terms": person["search_terms"]} if person.get("search_terms") else {}),
         }
     except Exception:
         return None, None
-
 
 def step_fec_api(
     df: pd.DataFrame,
@@ -128,15 +117,11 @@ def step_fec_api(
     donor_totals: pd.DataFrame,
 ) -> int:
     """Find remaining retired donors' latest real employer through the FEC API."""
-    dropped = drop_joint_source_entries(prev_cache)
-    if dropped:
-        prev_cache.save()
-        logger.info(f"    FEC API: dropped {dropped:,} cached answer(s) read off a two-person filing")
     cleared = cleared_employers(df)
     unproven = drop_unproven_source_entries(prev_cache, df, cleared)
     if unproven:
         prev_cache.save()
-        logger.info(f"    FEC API: dropped {unproven:,} cached answer(s) with unproven donor locality or rejected employer values")
+        logger.info(f"    FEC API: {unproven:,} cached answers need verification or were rejected")
 
     fec_key = os.environ.get("FEC_API_KEY", "").strip()
     if not fec_key:
@@ -146,7 +131,7 @@ def step_fec_api(
 
     searches = _pending_fec_searches(df, prev_cache, donor_totals)
     for person in searches:
-        person["cleared_employers"] = cleared.get(person["prev_key"].split(":", 1)[-1], set())
+        person["cleared_employers"] = cleared.get(person["prev_key"].split(":")[1], set())
     if not searches:
         logger.info("    FEC API: 0 retired donors to search")
         return 0
@@ -184,28 +169,27 @@ def step_fec_api(
     logger.info(f"    FEC API: found {found:,} previous employers")
     return found
 
-
 def _words(value) -> list[str]:
     """Return uppercase name/locality words without punctuation."""
     return re.findall(r"[A-Z0-9]+", _s(value).upper())
 
-
-def _name_parts(value) -> tuple[str, str, str]:
-    """Return (last, first, middle initial) from an FEC-style name."""
+def _name_parts(value) -> tuple[str, str, str, str]:
+    """Recognize known nicknames, keeping middle names and generation suffixes."""
     text = _s(value).strip()
     if "," in text:
         last, given = text.split(",", 1)
         last_words = _words(last)
         given_words = _words(given)
     else:
-        words = _words(text)
+        words = [word for word in _words(text) if word not in NAME_SUFFIXES]
         last_words, given_words = words[-1:], words[:-1]
 
+    last_words = [word for word in last_words if word not in NAME_SUFFIXES]
+    given_words = [word for word in given_words if word not in NAME_SUFFIXES]
     last = " ".join(last_words)
     first = given_words[0] if given_words else ""
-    middle = given_words[1][0] if len(given_words) > 1 else ""
-    return last, first, middle
-
+    middle = " ".join(given_words[1:])
+    return last, NICKNAME_MAP.get(first, first), middle, extract_generational_suffix(text)
 
 def drop_joint_source_entries(prev_cache) -> int:
     """A previous employer read off a joint filing is the household's, not the donor's."""
@@ -219,57 +203,97 @@ def drop_joint_source_entries(prev_cache) -> int:
         data.pop(key, None)
     return len(joint)
 
-
 def _same_fec_donor(person: dict, record: dict) -> bool:
-    """Require matching identity and locality before trusting an FEC record."""
-    if _joint_name(record.get("contributor_name")) and not _joint_name(person.get("name")):
+    """Match a compatible name and one complete filed address."""
+    if _joint_name(record.get("contributor_name")) or _joint_name(person.get("name")):
         return False
-    expected = _name_parts(person.get("name"))
-    reported = _name_parts(record.get("contributor_name"))
-    if not all(expected[:2]) or expected[:2] != reported[:2]:
+    address = _filed_address(record)
+    if not address or address[-1] in (person.get("shared_zips") or ()):
         return False
-    if expected[2] and reported[2] and expected[2] != reported[2]:
+    filings = person.get("filings")
+    if filings is None:
+        filings = [{f"contributor_{field}": person.get(field, "") for field in
+                    ("name", "street_1", "street_2", "state", "zip")}]
+    return any(_filed_address(filing) == address
+               and _same_name(filing.get("contributor_name"), record.get("contributor_name"))
+               for filing in filings)
+
+def _same_name(expected_name, reported_name) -> bool:
+    if _joint_name(expected_name) or _joint_name(reported_name):
         return False
-
-    expected_state = _s(person.get("state")).strip().upper()
-    reported_state = _s(record.get("contributor_state")).strip().upper()
-    if expected_state and reported_state and expected_state != reported_state:
+    expected, reported = _name_parts(expected_name), _name_parts(reported_name)
+    if not expected[0] or len(expected[1]) < 2 or expected[:2] != reported[:2] or expected[3] != reported[3]:
         return False
+    left, right = expected[2].split(), reported[2].split()
+    return not left or not right or (len(left) == len(right) and all(
+        a == b or (len(a) == 1 or len(b) == 1) and a[0] == b[0]
+        for a, b in zip(left, right)))
 
-    # the filing must come from a ZIP the donor files from: a name and a city
-    # are not proof (two RICHARD GOLDSTEINs file from Boca Raton 33431/33432)
-    # nor is a ZIP another donor of the same name also files from: the filing
-    # could be either (RICHARD GOLDSTEIN, retiree and attorney, both in 33432)
-    reported_zip = _zip5(record.get("contributor_zip"))
-    return (bool(reported_zip) and reported_zip in _person_zips(person)
-            and reported_zip not in (person.get("shared_zips") or ()))
+def _filed_address(record: dict) -> tuple | None:
+    street = _address_text(record.get("contributor_street_1"))
+    unit = _address_text(record.get("contributor_street_2"))
+    marker = re.search(r"\b(?:UNIT|STE|FL|RM|PH|BLDG|LOT|SPC|PMB)\b", street)
+    if marker:
+        unit = " ".join(filter(None, (street[marker.start():], unit)))
+        street = street[:marker.start()].strip()
+    street = " ".join(_ABBREVIATIONS.get(word.rstrip("."), word.rstrip(".")) for word in street.split())
+    street = re.sub(r"\b([NS])\.? ?([EW])\.?(?= |$)", r"\1\2", street)
+    state, zipcode = _s(record.get("contributor_state")).strip().upper(), _zip5(record.get("contributor_zip"))
+    if not re.match(r"^\d+(?:[A-Z]|-\d+)?\s+\S", street) or len(state) != 2 or len(zipcode) != 5:
+        return None
+    return street, unit, state, zipcode
 
+def _address_text(value) -> str:
+    """Normalize unit labels without changing numbers or dropping text."""
+    labels = {"APARTMENT": "UNIT", "APT": "UNIT", "UNIT": "UNIT", "SUITE": "STE",
+              "STE": "STE", "FLOOR": "FL", "FL": "FL", "ROOM": "RM", "RM": "RM",
+              "BUILDING": "BLDG", "BLDG": "BLDG"}
+    text = _s(value).upper().replace(",", " ").replace("#", " UNIT ")
+    text = re.sub(r"\b(" + "|".join(labels) + r")\.?(?=\s|\d|$)",
+                  lambda match: labels[match.group(1)] + " ", text)
+    return " ".join(text.split())
 
-def _person_zips(person: dict) -> set[str]:
-    zips = {_zip5(value) for value in person.get("zips") or ()}
-    zips.add(_zip5(person.get("zip")))
-    return zips - {""}
-
+def _dated_source(person: dict, record: dict) -> bool:
+    cycle = _s(person.get("cycle"))
+    excluded, committee = set(person.get("committee_ids") or ()), _s(record.get("committee_id")).strip()
+    if (not cycle.isdigit() or int(cycle) % 2 or _s(record.get("two_year_transaction_period")) != cycle
+            or not excluded or not committee or committee in excluded):
+        return False
+    source = pd.to_datetime(record.get("contribution_receipt_date"), errors="coerce", utc=True)
+    latest = pd.to_datetime(person.get("latest_date"), errors="coerce", utc=True)
+    if not _s(record.get("sub_id")).strip() or pd.isna(source) or pd.isna(latest):
+        return False
+    start, end = pd.Timestamp(f"{int(cycle) - 1}-01-01", tz="UTC"), pd.Timestamp(f"{cycle}-12-31", tz="UTC")
+    return start <= source.normalize() <= min(latest.normalize(), end)
 
 def drop_unproven_source_entries(prev_cache, df: pd.DataFrame, cleared: dict | None = None) -> int:
-    """Such an answer, or one from a ZIP another same-name donor files from, may be another person."""
+    """Retain unverified candidates without using them as work history."""
     data = getattr(prev_cache, "data", prev_cache)
-    donor_zips, shared_zips = _donor_zips(df), _shared_zips(df)
-    unproven = []
-    for key, entry in data.items():
-        if not (isinstance(entry, dict) and entry.get("method") == "fec_api"):
+    candidates = {key: entry for key, entry in data.items()
+                  if isinstance(entry, dict) and entry.get("method") in {"fec_api", "fec_api_unverified"}}
+    if not candidates:
+        return 0
+    evidence = _donor_evidence(df)
+    rejected, changed = [], 0
+    for key, entry in candidates.items():
+        parts = key.split(":")
+        donor_key = parts[1] if len(parts) > 1 else key
+        cycle = int(parts[2]) if len(parts) == 3 and parts[0] == "donor" and parts[2].isdigit() else 0
+        if (str(entry.get("employer", "")).upper() in (cleared or {}).get(donor_key, ())
+                or not normalize_previous_employer_value(entry.get("employer", ""))):
+            rejected.append(key)
             continue
-        source_zip = _zip5(entry.get("source_zip"))
-        donor_key = key.split(":", 1)[-1]
-        zips = donor_zips.get(donor_key)
-        if source_zip and zips and (source_zip not in zips or source_zip in shared_zips.get(donor_key, ())):
-            unproven.append(key)
-        elif str(entry.get("employer", "")).upper() in (cleared or {}).get(donor_key, ()):
-            unproven.append(key)
-        # an answer the current contract no longer reads as a company (ADVISOR,
-        # COMPUTER ANALIST: a job title): searched again for a real employer
-        elif not normalize_previous_employer_value(entry.get("employer", "")):
-            unproven.append(key)
-    for key in unproven:
+        person = {**evidence.get((donor_key, cycle), {}), "cycle": cycle}
+        record = {f"contributor_{field}": entry.get(f"source_{field}", "") for field in
+                  ("name", "street_1", "street_2", "zip")}
+        record.update(contributor_state=entry.get("state", ""), sub_id=entry.get("source_sub_id", ""),
+                      contribution_receipt_date=entry.get("source_date", ""),
+                      two_year_transaction_period=entry.get("source_cycle", ""),
+                      committee_id=entry.get("source_committee_id", ""))
+        if not (_same_fec_donor(person, record) and _dated_source(person, record)):
+            if entry.get("method") != "fec_api_unverified":
+                entry["method"] = "fec_api_unverified"
+                changed += 1
+    for key in rejected:
         data.pop(key, None)
-    return len(unproven)
+    return changed + len(rejected)

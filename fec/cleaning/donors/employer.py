@@ -3,6 +3,7 @@ import re
 
 import pandas as pd
 
+from fec.cleaning._helpers import read_raw_employer_evidence
 from fec.cleaning.rules.manual import overridden_employer_sub_ids
 from fec.cleaning.work.normalize import categorize_final
 from fec.config.constants import (
@@ -121,13 +122,10 @@ def _fill_employer_from_raw(df: pd.DataFrame, empty_mask: pd.Series) -> int:
     if not RAW_CSV.exists():
         return 0
 
-    raw = pd.read_csv(
-        RAW_CSV,
-        dtype=str,
-        usecols=['sub_id', 'contributor_employer'],
-        low_memory=False,
-        keep_default_na=False,
-    )
+    raw = read_raw_employer_evidence(RAW_CSV)
+    missing = [column for column in ('sub_id', 'contributor_employer') if column not in raw.columns]
+    if missing:
+        raise ValueError(f"Usecols do not match columns, columns expected but not found: {missing}")
     raw_employer = raw.drop_duplicates('sub_id').set_index('sub_id')['contributor_employer']
 
     # a filing whose employer a manual override cleared or replaced is neither

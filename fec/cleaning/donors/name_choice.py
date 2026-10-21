@@ -127,7 +127,11 @@ def rare_spellings(words):
 
 def _drop_misspellings(candidates: list[str]) -> list[str]:
     """Drop a rare one-letter variant only when this donor files the other spelling more often."""
-    firsts = Counter(_first_core(value).split()[0] for value in candidates if _first_core(value).split())
+    first_words = []
+    for value in candidates:
+        words = _first_core(value).split()
+        first_words.append(words[0] if words else "")
+    firsts = Counter(word for word in first_words if word)
     slips = {
         word for word in firsts
         if len(word) >= 4 and word in _RARE_SPELLINGS and any(
@@ -135,8 +139,8 @@ def _drop_misspellings(candidates: list[str]) -> list[str]:
         )
     }
     kept = [
-        value for value in candidates
-        if not (_first_core(value).split() and _first_core(value).split()[0] in slips)
+        value for value, word in zip(candidates, first_words)
+        if word not in slips
     ]
     return kept or candidates
 
