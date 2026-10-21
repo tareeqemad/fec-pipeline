@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning.rules.manual import CLEAR_PREVIOUS_EMPLOYER
+from fec.cleaning.rules.manual import CLEAR_PREVIOUS_EMPLOYER, _read_overrides
 from fec.cleaning.work.previous import normalize_previous_employer_value
 from fec.config.cities import expand_city_abbreviations
 from fec.env import MANUAL_EMPLOYER_OVERRIDES_CSV, RAW_CSV
@@ -15,6 +15,15 @@ from fec.resolve.cache import _prev_key, _s
 logger = get_logger(__name__)
 
 _REVIEW_MARKERS = ("MEDIUM", "LIKELY", "UNCERTAIN", "VERIFY")
+
+
+def previous_employer_display_names() -> dict[str, str]:
+    """Read filing-specific names without treating them as work history."""
+    if not MANUAL_EMPLOYER_OVERRIDES_CSV.exists():
+        return {}
+    display_ids = set()
+    overrides = _read_overrides(False, display_previous_ids=display_ids)
+    return {sid: overrides[sid]["previous_employer"] for sid in display_ids}
 
 
 def _manual_method(note: str) -> str:

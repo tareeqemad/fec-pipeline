@@ -15,13 +15,10 @@ from fec.cleaning.work.previous import (
 )
 from fec.cleaning.work.status import is_real_employer, single_letters
 from fec.io import write_json_atomic
-
-
 RETIRED = "RETIRED"
 SELF_EMPLOYED = "SELF-EMPLOYED"
 EMPLOYER_ADDR_CACHE = "resolve_employer_addr.json"
 PREV_EMPLOYER_CACHE = "resolve_prev_employer.json"
-
 
 class Cache:
     def __init__(self, path):
@@ -46,13 +43,11 @@ class Cache:
     def __len__(self):
         return len(self.data)
 
-
 def _read_json(path) -> dict:
     if not path.exists():
         return {}
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
-
 
 def _s(val, default: str = "") -> str:
     """Safely convert a value to string, handling pd.NA/NaN/None."""
@@ -60,15 +55,33 @@ def _s(val, default: str = "") -> str:
         return default
     return str(val)
 
+def _prev_key(donor_key, cycle=None) -> str:
+    """Scope external history to the donor's election cycle."""
+    key = f"donor:{_s(donor_key).strip()}"
+    return f"{key}:{_s(cycle).strip()}" if _s(cycle).strip() else key
 
-def _prev_key(donor_key) -> str:
-    """Build a previous-employer key for one donor identity."""
-    return f"donor:{_s(donor_key).strip()}"
-
+def _previous_for_row(prev_cache, row) -> dict | None:
+    """Use dated local history, otherwise FEC evidence from this cycle only."""
+    donor, cycle = row.get("donor_key"), _s(row.get("two_year_transaction_period")).strip()
+    filed = pd.to_datetime(row.get("contribution_receipt_date"), errors="coerce", utc=True)
+    entry = prev_cache.get(_prev_key(donor))
+    if entry and not str(entry.get("method", "")).startswith("fec_api"):
+        source = pd.to_datetime(entry.get("source_date"), errors="coerce", utc=True)
+        if entry.get("method") in {"manual_clear", "manual_override", "cleared_swapped_record"}:
+            return entry
+        if pd.isna(source) or pd.isna(filed) or source <= filed:
+            return entry
+    entry = prev_cache.get(_prev_key(donor, cycle)) if cycle else None
+    if not entry or entry.get("method") != "fec_api" or _s(entry.get("source_cycle")) != cycle:
+        return None
+    source = pd.to_datetime(entry.get("source_date"), errors="coerce", utc=True)
+    if pd.notna(source) and pd.notna(filed) and source <= filed:
+        return entry
+    return None
 
 def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...]]:
     """Return the clean employer name and compatible old cache keys."""
-    if not entry:
+    if not entry or entry.get("method") == "fec_api_unverified":
         return "", ()
 
     raw_name = _s(entry.get("employer")).strip()
@@ -91,7 +104,6 @@ def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...
             keys.append(key)
     return clean_name, tuple(keys)
 
-
 def _same_entity(a: str, b: str) -> bool:
     """Match canonical keys or a prefix whose full name is at most twice as long."""
     key_a, key_b = canonical_key(a), canonical_key(b)
@@ -103,7 +115,6 @@ def _same_entity(a: str, b: str) -> bool:
     if not long_.startswith(short):
         return False
     return len(long_) <= 2 * len(short)
-
 
 def _address_key(entry: dict) -> str:
     """Normalize a complete cached address."""
@@ -119,7 +130,6 @@ def _address_key(entry: dict) -> str:
         re.sub(r'[^A-Z0-9]+', ' ', str(value or '').upper()).strip()
         for value in fields
     )
-
 
 def _score(entry: dict) -> tuple:
     """Rank the address, confidence, then source method."""
@@ -138,7 +148,6 @@ def _score(entry: dict) -> tuple:
         method_priority = 0
     return (has_address, confidence_rank, method_priority)
 
-
 def _entries_by_address(data: dict) -> dict[str, list[str]]:
     """Group eligible cache names by complete normalized address."""
     grouped: dict[str, list[str]] = defaultdict(list)
@@ -156,7 +165,6 @@ def _entries_by_address(data: dict) -> dict[str, list[str]]:
             grouped[address].append(name)
     return grouped
 
-
 def _cluster_company_names(names: list[str]) -> list[list[str]]:
     """Cluster same-company spellings while preserving cache order."""
     clusters: list[list[str]] = []
@@ -169,14 +177,12 @@ def _cluster_company_names(names: list[str]) -> list[list[str]]:
             clusters.append([name])
     return clusters
 
-
 def _canonical_name(cluster: list[str], frequency: dict) -> str:
     """Prefer the common filing spelling, then longest, then alphabetical."""
     return min(
         cluster,
         key=lambda name: (-frequency.get(name, 0), -len(name), name),
     )
-
 
 def _alias_mapping(
     grouped: dict[str, list[str]], frequency: dict,
@@ -197,13 +203,11 @@ def _alias_mapping(
             )
     return mapping, groups
 
-
 def _settle_canonical_entries(data: dict, mapping: dict[str, str]) -> None:
     """Give each canonical name the strongest entry among its aliases."""
     for variant, canonical in mapping.items():
         if _score(data[variant]) > _score(data[canonical]):
             data[canonical] = data[variant]
-
 
 def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
     """Keep every spelling resolvable without triggering another lookup."""
@@ -216,7 +220,6 @@ def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
         }
         alias['alias_of'] = canonical
         data[variant] = alias
-
 
 def dedup_by_resolved_address(
     addr_cache, freq: dict | None = None,
@@ -235,7 +238,6 @@ def dedup_by_resolved_address(
     addr_cache.save()
     return len(mapping), groups
 
-
 def _explicit_self_employment(value) -> bool:
     """True only when the filer explicitly reported self-employment."""
     upper = _s(value).strip().upper()
@@ -247,7 +249,6 @@ def _explicit_self_employment(value) -> bool:
         or bool(SELF_EMPLOYED_TAIL_RE.search(upper))
     )
 
-
 def _cache_entry(
     raw_employer,
     *,
@@ -257,6 +258,10 @@ def _cache_entry(
     source_name="",
     source_city="",
     source_zip="",
+    source_street_1="",
+    source_street_2="",
+    source_sub_id="",
+    source_cycle="", source_committee_id="",
 ) -> dict:
     """Build one clean cache entry while retaining raw spelling as provenance."""
     raw_name = _s(raw_employer).strip()
@@ -285,6 +290,10 @@ def _cache_entry(
         "source_name": source_name,
         "source_city": source_city,
         "source_zip": source_zip,
+        "source_street_1": source_street_1,
+        "source_street_2": source_street_2,
+        "source_sub_id": source_sub_id,
+        "source_cycle": source_cycle, "source_committee_id": source_committee_id,
     }
     entry.update({key: _s(value).strip() for key, value in provenance.items() if value})
     return entry

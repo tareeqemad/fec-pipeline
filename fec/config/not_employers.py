@@ -134,7 +134,7 @@ OCCUPATION_TITLE_EMPLOYERS = frozenset({
     'INTERIOR DESIGNER', 'PERSONAL TRAINER', 'BOOKKEEPER', 'FARMER',
     'CONTRACTOR', 'BUILDER', 'LAND DEVELOPER', 'REAL ESTATE BROKER',
     'PROPERTY OWNER', 'FUNDRAISER', 'MANAGEMENT CONSULTANT',
-    'FINANCIAL CONSULTANT',
+    'FINANCIAL CONSULTANT', "ARTISTS' AGENT",
     # professions cached from a retiree's older FEC filing (each is the whole
     # cached employer; no filer ever used one as a current employer)
     'BUILDING CONSULTANT', 'PLANNING CONSULTANT', 'COMPUTER CONSULTANT',
@@ -170,9 +170,10 @@ NOT_REAL_EMPLOYER = frozenset({
     "INFORMATION REQUESTED", "INFORMATION REQUESTED PER BEST EFFORTS",
     # a request for the donor's details, not a company
     "MORE INFO NEEDED", "MORE INFORMATION NEEDED", "MORE INFO REQUESTED", "INFO NEEDED", "NEED MORE INFO",
-    "DISABLED",
+    "DISABLED", "CHOOSE NOT TO DISCLOSE", "MANY ORGANIZATIONS",
     # status / housewife variants
     "RETIREE", "RETIEED", "RETIRE", "HOUSEWIFE", "HOUSWIFE", "HOUSE WIFE", "HOME MANAGER",
+    "STAY-AT-HOME MOM",
     # occupations / job titles — these belong in occupation, not employer
     "PHYSICIAN", "ATTORNEY", "CONSULTANT", "INVESTOR", "PRIVATE INVESTOR",
     "BUSINESSMAN", "BUSINESSWOMAN", "ENTREPRENEUR", "PHILANTHROPIST", "EXECUTIVE",

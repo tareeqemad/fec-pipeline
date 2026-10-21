@@ -1,6 +1,6 @@
 {
-  "changes": 879403,
-  "changed_cells": 847479,
+  "changes": 879377,
+  "changed_cells": 847453,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -602,9 +602,9 @@
       }
     },
     "manual_overrides_kept": {
-      "changes": 44,
+      "changes": 17,
       "reasons": {
-        "curated_row_override": 44
+        "curated_row_override": 17
       }
     },
     "donor_repair_house_numbers": {
@@ -668,9 +668,9 @@
       }
     },
     "donor_recover_previous_employer": {
-      "changes": 3300,
+      "changes": 3301,
       "reasons": {
-        "previous_employer_from_latest_earlier_filing": 3300
+        "previous_employer_from_latest_earlier_filing": 3301
       }
     },
     "donor_clear_refusal_employers": {

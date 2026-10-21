@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _norm
+from fec.cleaning._helpers import _indiv_idx, _norm, read_raw_employer_evidence
 from fec.cleaning.work.employer_normalize import _TRAILING_PAREN_RE
 from fec.cleaning.work.employer_groups import (
     _employer_group_key,
@@ -92,13 +92,7 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     if not Path(raw_csv_path).exists():
         return 0
 
-    raw = pd.read_csv(
-        raw_csv_path,
-        usecols=lambda column: column in ("contributor_employer", "contributor_name"),
-        dtype=str,
-        keep_default_na=False,
-        low_memory=False,
-    )
+    raw = read_raw_employer_evidence(raw_csv_path).copy()
     # uppercase, collapse whitespace and `+`, drop ticker tails "(ITCI)" and stray
     # trailing dots so the restored display form carries no FEC keying junk
     raw["emp"] = (

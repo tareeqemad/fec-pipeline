@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import re
+from functools import lru_cache
+from pathlib import Path
 
 import pandas as pd
 
@@ -79,21 +81,50 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     return company_fields
 
 
-# load the overrides CSV into a sub_id -> fields mapping
+@lru_cache(maxsize=8)
+def _override_rows(path: Path, mtime_ns: int, size: int) -> tuple[dict, ...]:
+    """Read each file version once; modes share the same rows."""
+    with path.open(encoding="utf-8", newline="") as handle:
+        return tuple(csv.DictReader(handle))
+
+
+@lru_cache(maxsize=32)
+def _parsed_overrides(path, mtime_ns, size, company_names_only, before_matching):
+    overrides = {}
+    display_previous_ids = set()
+    for row in _override_rows(path, mtime_ns, size):
+        after_matching = (row.get("after_matching") or "").strip().lower() == "true"
+        if before_matching and after_matching:
+            continue
+        sid = (row.get("sub_id") or "").strip()
+        fields = _override_fields(row, company_names_only)
+        if sid and fields:
+            overrides[sid] = fields
+            display_previous_ids.discard(sid)
+            if after_matching and "previous_employer" in fields:
+                display_previous_ids.add(sid)
+    columns = {}
+    for sid, fields in overrides.items():
+        for column, value in fields.items():
+            columns.setdefault(column, {})[sid] = value
+    return overrides, columns, frozenset(display_previous_ids)
+
+
+def _prepared_overrides(company_names_only, before_matching=False):
+    path = OVERRIDES_CSV.resolve()
+    stat = path.stat()
+    return _parsed_overrides(path, stat.st_mtime_ns, stat.st_size, company_names_only, before_matching)
+
+
 def _read_overrides(
     company_names_only: bool, *, before_matching: bool = False,
+    display_previous_ids: set[str] | None = None,
 ) -> dict[str, dict[str, str]]:
-    overrides = {}
-    with OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
-        for row in csv.DictReader(handle):
-            # Display-only corrections must not influence donor matching.
-            if before_matching and (row.get("after_matching") or "").strip().lower() == "true":
-                continue
-            sid = (row.get("sub_id") or "").strip()
-            fields = _override_fields(row, company_names_only)
-            if sid and fields:
-                overrides[sid] = fields
-    return overrides
+    overrides, _, display_ids = _prepared_overrides(company_names_only, before_matching)
+    if display_previous_ids is not None:
+        display_previous_ids.difference_update(overrides)
+        display_previous_ids.update(display_ids)
+    return {sid: fields.copy() for sid, fields in overrides.items()}
 
 
 def categorize_records(df: pd.DataFrame) -> pd.Series:
@@ -181,18 +212,25 @@ def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
 
 
 # Apply corrections by column to matching filing IDs.
-def _apply_overrides(df, overrides: dict[str, dict[str, str]]) -> tuple[int, int]:
+def _apply_overrides(
+    df, overrides: dict[str, dict[str, str]], display_previous_ids=(),
+    *, column_values=None,
+) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
     changed = int(sub_ids.isin(overrides).sum())
     missing = len(overrides.keys() - set(sub_ids))
     for column in df.columns:
-        values = {
+        values = column_values.get(column, {}) if column_values is not None else {
             sid: fields[column]
             for sid, fields in overrides.items()
             if column in fields
         }
         if values:
             mask = sub_ids.isin(values)
+            if column == "previous_employer":
+                # A display correction can rename known history, never create it.
+                has_previous = df[column].fillna("").astype(str).str.strip().ne("")
+                mask &= ~sub_ids.isin(display_previous_ids) | has_previous
             if mask.any():
                 df.loc[mask, column] = [values[sid] for sid in sub_ids[mask]]
     return changed, missing
@@ -225,7 +263,7 @@ def apply_manual_employer_overrides(
     if not OVERRIDES_CSV.exists():
         return 0
 
-    overrides = _read_overrides(
+    overrides, columns, display_previous_ids = _prepared_overrides(
         company_names_only, before_matching=not company_names_only,
     )
 
@@ -236,7 +274,7 @@ def apply_manual_employer_overrides(
         logger.warning("  manual_overrides: no sub_id column - skipping")
         return 0
 
-    changed, missing = _apply_overrides(df, overrides)
+    changed, missing = _apply_overrides(df, overrides, display_previous_ids, column_values=columns)
     if missing:
         logger.info(
             f"  manual_overrides: {missing} sub_id(s) in the override file "

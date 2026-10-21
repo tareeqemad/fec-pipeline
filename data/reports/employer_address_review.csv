@@ -10,7 +10,7 @@ LONESTAR DATA HOLDINGS INC,grounded_alias_outside_donor_states,450 8th Ave SE,St
 MAJOR BRANDS INC,grounded_alias_outside_donor_states,6701 Southwest Ave,St. Louis,MO,63143,True,,ai_openai_search,KS
 MEDICALLY HOME GROUP INC,grounded_alias_outside_donor_states,133 Brookline Ave,Boston,MA,02215,True,,ai_openai_search,PA
 METRON INC,grounded_alias_outside_donor_states,"1818 Library Street, Suite 600",Reston,VA,20190,True,,ai_openai_search,MD
-MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Philadelphia,PA,19103,True,,ai_openai_search,DC;MA;MD;NY;VA
+MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Philadelphia,PA,19103,True,,ai_openai_search,DC;MA;MD;VA
 NATIONAL COLLECTOR''S MINT INC,grounded_alias_outside_donor_states,"2975 Westchester Ave, Suite 300",Purchase,NY,10577,True,,ai_openai_search,CT
 RIMON PC,grounded_alias_outside_donor_states,355 S Grand Ave Suite 2450,Los Angeles,CA,90071,True,,ai_openai_search,NY
 TAYLOR MORRISON NW LLC,grounded_alias_outside_donor_states,"3620 1st Ave S, Suite 300",Seattle,WA,98134,True,,ai_openai_search,OR

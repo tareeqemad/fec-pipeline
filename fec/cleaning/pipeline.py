@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 
 import pandas as pd
 
@@ -11,12 +10,7 @@ from fec.cleaning.addresses.foreign import (
     restore_foreign_addresses,
     snapshot_foreign_addresses,
 )
-from fec.cleaning.addresses.review import (
-    build_review_queues,
-    queue_counts,
-    write_review_queues,
-)
-from fec.cleaning.addresses.review_cases import REVIEW_CASES_CSV, build_review_cases
+from fec.cleaning.addresses.review import write_final_address_reports
 from fec.cleaning.reports.trail import (
     ADDRESS_FIELDS,
     ENTITY_FIELDS,
@@ -38,7 +32,7 @@ from fec.cleaning.rules.manual import (
     outside_work_sub_ids,
 )
 from fec.cleaning.work.clean import clean_employer_occupation
-from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses, log_review_queues
+from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
 from fec.cleaning.names import _clean_names, _preclean_name_punctuation
 from fec.cleaning.reports.audit import _build_missing_report, _sanity_check
@@ -47,7 +41,6 @@ from fec.committees import committee_id_to_name
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
 from fec.config.geography import US_STATES
 from fec.donor_match.normalize import extract_generational_suffix
-from fec.io import write_csv_atomic
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -60,6 +53,7 @@ def clean_pipeline(
     out_dir: str | None = None,
     cache_dir: str | None = None,
 ):
+    df = df.copy()
     trail = AuditTrail()
 
     # Preserve filed values before repairs.
@@ -89,8 +83,9 @@ def clean_pipeline(
         f"{len(foreign):,}", f"{n_foreign:,}",
     )
     if out_dir:
-        _write_address_queues(
+        write_final_address_reports(
             df_clean, out_dir, address_reports, foreign.index, filed_addresses, trail,
+            log=logger.info,
         )
 
     unexplained = trail.finish(df_clean)
@@ -241,27 +236,6 @@ def _finish_records(df: pd.DataFrame, log):
     if "_care_of_blanked" in df.columns:
         columns.append("_care_of_blanked")
     return df[columns], missing
-
-
-def _write_address_queues(
-    df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail,
-) -> None:
-    """Write review queues after donor repairs; exclude foreign filings."""
-
-    review_df, regeocode_df = build_review_queues(
-        df_clean,
-        address_reports.get("street2_auto_fixed"),
-        exclude_sub_ids=foreign_sub_ids,
-    )
-    write_review_queues(out_dir, review_df, regeocode_df)
-    log_review_queues(queue_counts(review_df, regeocode_df), logger.info)
-    cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
-    write_csv_atomic(cases, Path(out_dir) / REVIEW_CASES_CSV, index=False)
-    high_priority = int(cases['priority'].eq('high').sum())
-    logger.info(
-        "  Address review cases: %s (%s high priority)",
-        f"{len(cases):,}", f"{high_priority:,}",
-    )
 
 
 # Mark work from other filings or outside-source overrides as inferred; keep the rest filed.

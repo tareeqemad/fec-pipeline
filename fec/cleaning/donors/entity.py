@@ -68,19 +68,14 @@ def _apply_source_entity_types(df: pd.DataFrame) -> int:
 # set rows' entity_type and the fields that type carries
 def _set_entity_type(df: pd.DataFrame, mask: pd.Series, et: str) -> None:
     df.loc[mask, 'entity_type'] = et
-    if et == 'ORGANIZATION':
+    if et in ('ORGANIZATION', 'COMMITTEE/PAC'):
         df.loc[mask, 'is_individual'] = False
-        df.loc[mask, 'occupation_category'] = 'ORGANIZATION'
+        df.loc[mask, 'occupation_category'] = (
+            'ORGANIZATION' if et == 'ORGANIZATION' else 'POLITICAL COMMITTEE'
+        )
         # Names clear after consistency.
         df.loc[mask, 'contributor_occupation'] = np.nan
         df.loc[mask, 'contributor_employer'] = np.nan
-    elif et == 'COMMITTEE/PAC':
-        # mirror a real committee row: no employer, POLITICAL COMMITTEE
-        # category, no personal occupation
-        df.loc[mask, 'is_individual'] = False
-        df.loc[mask, 'contributor_employer'] = np.nan
-        df.loc[mask, 'contributor_occupation'] = np.nan
-        df.loc[mask, 'occupation_category'] = 'POLITICAL COMMITTEE'
     elif et == 'INDIVIDUAL':
         # a real person mistyped as a committee - parse 'LAST, FIRST' back out
         df.loc[mask, 'is_individual'] = True

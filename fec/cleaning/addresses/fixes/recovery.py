@@ -224,9 +224,11 @@ def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
     # and looks like a unit (not a "# NY1179" state/ZIP fragment left by a bad split)
     unit_like = short["street_2"].str.match(_REAL_UNIT_RE) & ~short["street_2"].map(is_state_zip_fragment)
     with_unit = short[(short["street_2"] != "") & unit_like]
-    unit_counts = with_unit.groupby(["name", "zip5", "street"])["street_2"].agg(lambda s: s.value_counts().iloc[0])
-    unit_value = with_unit.groupby(["name", "zip5", "street"])["street_2"].agg(lambda s: s.value_counts().index[0])
-    units = pd.DataFrame({"unit": unit_value, "unit_cnt": unit_counts}).reset_index()
+    units = []
+    for key, values in with_unit.groupby(["name", "zip5", "street"])["street_2"]:
+        frequencies = values.value_counts()
+        units.append((*key, frequencies.index[0], frequencies.iloc[0]))
+    units = pd.DataFrame(units, columns=["name", "zip5", "street", "unit", "unit_cnt"])
     dominant = dominant.merge(units, on=["name", "zip5", "street"], how="left")
     dominant["unit"] = dominant["unit"].where(dominant["unit_cnt"] * 2 >= dominant["cnt"], "").fillna("")
     lookup = dominant.set_index(["name", "zip5"])[["street", "unit"]]

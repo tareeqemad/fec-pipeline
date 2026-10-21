@@ -291,7 +291,7 @@ def test_resolve_keeps_own_named_legal_company_and_is_idempotent():
     assert second["previous_employer"].iloc[0] == first_name
 
 
-def test_fec_previous_employer_requires_a_zip_the_donor_files_from():
+def test_fec_previous_employer_requires_a_full_address_the_donor_files_from():
     from fec.resolve.fec import _same_fec_donor
 
     person = {
@@ -299,12 +299,16 @@ def test_fec_previous_employer_requires_a_zip_the_donor_files_from():
         "state": "CA",
         "city": "GREENBRAE",
         "zip": "94904",
+        "street_1": "10 OAK ST",
+        "street_2": "APT 2",
     }
     same_person = {
         "contributor_name": "JOHNSON, JAMES M",
         "contributor_state": "CA",
         "contributor_city": "GREENBRAE",
         "contributor_zip": "94904-1234",
+        "contributor_street_1": "10 OAK STREET",
+        "contributor_street_2": "APT 2",
     }
     different_person = {
         **same_person,
@@ -314,27 +318,58 @@ def test_fec_previous_employer_requires_a_zip_the_donor_files_from():
 
     assert _same_fec_donor(person, same_person)
     assert not _same_fec_donor(person, different_person)
-    # the same city is not enough: two RICHARD GOLDSTEINs file from Boca Raton
+    # A shared city, ZIP or building is insufficient.
     assert not _same_fec_donor(person, {**same_person, "contributor_zip": "94939"})
-    # any ZIP the donor files from counts, not only the latest
-    assert _same_fec_donor({**person, "zips": {"94904", "94939"}},
-                           {**same_person, "contributor_zip": "94939"})
+    assert not _same_fec_donor(person, {**same_person, "contributor_street_1": "20 OAK ST"})
+    assert not _same_fec_donor(person, {**same_person, "contributor_street_2": "APT 3"})
+    assert not _same_fec_donor(person, {**same_person, "contributor_street_2": ""})
+    assert not _same_fec_donor(person, {**same_person, "contributor_street_1": ""})
+    # Match one complete historical address, without mixing rows.
+    moved = {**same_person, "contributor_zip": "94939", "contributor_street_1": "20 OAK ST"}
+    history = {**person, "filings": [same_person, moved]}
+    assert _same_fec_donor(history, moved)
+    assert not _same_fec_donor(history, {**moved, "contributor_street_1": "10 OAK ST"})
 
 
-def test_a_cached_fec_answer_from_a_zip_the_donor_never_uses_is_dropped():
+def test_a_cached_fec_answer_without_matching_full_evidence_is_retained_unverified(tmp_path, monkeypatch):
     import pandas as pd
     from fec.resolve.fec import drop_unproven_source_entries
+    from fec.resolve import previous
 
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * 2, "donor_key": ["A", "B"],
+                       "sub_id": ["A1", "B1"],
+                       "contributor_name": ["DOE, JOHN", "DOE, JANE"],
+                       "contributor_street_1": ["10 OAK ST", "20 PINE ST"],
+                       "contributor_street_2": ["APT 2", ""],
+                       "contributor_state": ["FL", "NY"],
+                       "contribution_receipt_date": ["2025-01-01"] * 2,
+                       "two_year_transaction_period": [2026] * 2,
+                       "recipient_committee": ["AIPAC"] * 2,
+                       "committee_id": ["C00797670"] * 2,
                        "contributor_zip": ["33432", "10024-1234"]})
+    raw = tmp_path / "raw.csv"
+    df.to_csv(raw, index=False)
+    monkeypatch.setattr(previous, "RAW_CSV", raw)
     cache = {
-        "donor:A": {"employer": "HANGLEY ARONCHICK", "method": "fec_api", "source_zip": "334317148"},
-        "donor:B": {"employer": "ACME", "method": "fec_api", "source_zip": "10024"},
+        "donor:A:2026": {"employer": "HANGLEY ARONCHICK", "method": "fec_api", "source_zip": "334317148",
+                    "source_name": "DOE, JOHN", "state": "FL", "source_street_1": "10 OAK ST",
+                    "source_street_2": "APT 2", "source_sub_id": "OLD-A", "source_date": "2025-01-01",
+                    "source_cycle": 2026, "source_committee_id": "C00123456"},
+        "donor:B:2026": {"employer": "ACME", "method": "fec_api", "source_zip": "10024",
+                    "source_name": "DOE, JANE", "state": "NY", "source_street_1": "20 PINE ST",
+                    "source_street_2": "", "source_sub_id": "OLD-B", "source_date": "2025-01-01",
+                    "source_cycle": 2026, "source_committee_id": "C00123456"},
         "donor:C": {"employer": "OLD", "method": "fec_api"},
     }
 
+    before = {key: dict(value) for key, value in cache.items()}
+    assert drop_unproven_source_entries(cache, df) == 2
+    assert cache["donor:B:2026"] == before["donor:B:2026"]
+    for key in ("donor:A:2026", "donor:C"):
+        assert cache[key] == {**before[key], "method": "fec_api_unverified"}
+    monkeypatch.setattr(previous, "RAW_CSV", tmp_path / "missing.csv")
     assert drop_unproven_source_entries(cache, df) == 1
-    assert sorted(cache) == ["donor:B", "donor:C"]
+    assert cache["donor:B:2026"] == {**before["donor:B:2026"], "method": "fec_api_unverified"}
 
 
 def test_fec_previous_employer_rejects_conflicting_middle_initials():
@@ -345,15 +380,24 @@ def test_fec_previous_employer_rejects_conflicting_middle_initials():
         "state": "CA",
         "city": "GREENBRAE",
         "zip": "94904",
+        "street_1": "10 OAK ST",
+        "street_2": "",
     }
     record = {
         "contributor_name": "JOHNSON, JAMES M",
         "contributor_state": "CA",
         "contributor_city": "GREENBRAE",
         "contributor_zip": "94904",
+        "contributor_street_1": "10 OAK ST",
+        "contributor_street_2": "",
     }
 
     assert not _same_fec_donor(person, record)
+    assert not _same_fec_donor({**person, "name": "JOHNSON, JAMES ROBERT"},
+                               {**record, "contributor_name": "JOHNSON, JAMES RICHARD"})
+    assert _same_fec_donor({**person, "name": "JOHNSON, JAMES ROBERT"},
+                           {**record, "contributor_name": "JOHNSON, JAMES R"})
+    assert not _same_fec_donor(person, {**record, "contributor_name": "JOHNSON, JAMES R JR"})
 
 
 def _filing(date, employer, occupation, category):
@@ -378,6 +422,7 @@ def _rudy():
 
 def test_each_retired_filing_gets_the_employer_it_had_retired_from():
     from fec.resolve.apply import apply_results
+    from fec.resolve.cache import _previous_for_row
 
     cache = {"donor:RUDY": {"employer": "KINZIE HOUSE DESIGNS", "method": "cross_record"}}
 
@@ -385,6 +430,19 @@ def test_each_retired_filing_gets_the_employer_it_had_retired_from():
 
     # the donor's one cached answer (their latest) is not taken from the future
     assert resolved["previous_employer"].tolist() == ["", "BASCO INC", "", "KINZIE HOUSE DESIGNS"]
+    fec_history = {
+        "donor:RUDY:2024": {"employer": "BASCO INC", "method": "fec_api",
+                            "source_cycle": 2024, "source_date": "2024-04-05"},
+        "donor:RUDY:2026": {"employer": "KINZIE HOUSE DESIGNS", "method": "fec_api",
+                            "source_cycle": 2026, "source_date": "2026-05-01"},
+    }
+    older = {"donor_key": "RUDY", "two_year_transaction_period": 2024,
+             "contribution_receipt_date": "2024-06-01"}
+    newer = {**older, "two_year_transaction_period": 2026, "contribution_receipt_date": "2026-07-14"}
+    assert _previous_for_row(fec_history, older)["employer"] == "BASCO INC"
+    assert _previous_for_row(fec_history, newer)["employer"] == "KINZIE HOUSE DESIGNS"
+    assert _previous_for_row(fec_history, {**newer, "contribution_receipt_date": "2025-10-25"}) is None
+    assert _previous_for_row({"donor:RUDY:2026": fec_history["donor:RUDY:2026"]}, older) is None
 
 
 def test_a_hand_set_previous_employer_still_wins_over_the_filing_history():
@@ -412,9 +470,11 @@ def test_a_two_person_filing_is_not_the_donor_s_work_history():
     """SANDBERG, ADELE AND JOEL: the ophthalmology practice was Joel's, not Adele's."""
     from fec.resolve.fec import _same_fec_donor, drop_joint_source_entries
 
-    person = {"name": "SANDBERG, ADELE", "state": "OH", "city": "CINCINNATI", "zip": "45208"}
+    person = {"name": "SANDBERG, ADELE", "state": "OH", "city": "CINCINNATI", "zip": "45208",
+              "street_1": "10 OAK ST", "street_2": ""}
     joint = {"contributor_name": "SANDBERG, ADELE AND JOEL", "contributor_state": "OH",
-             "contributor_city": "CINCINNATI", "contributor_zip": "45208"}
+             "contributor_city": "CINCINNATI", "contributor_zip": "45208",
+             "contributor_street_1": "10 OAK ST", "contributor_street_2": ""}
     assert not _same_fec_donor(person, joint)
     assert _same_fec_donor(person, {**joint, "contributor_name": "SANDBERG, ADELE"})
     assert _same_fec_donor({**person, "name": "ANDERSON, ANDREW"},
@@ -429,46 +489,74 @@ def test_a_two_person_filing_is_not_the_donor_s_work_history():
     assert set(cache) == {"donor:b", "donor:c"}
 
 
-def test_a_zip_another_same_name_donor_files_from_proves_nothing():
+def test_a_zip_another_same_name_donor_files_from_proves_nothing(tmp_path, monkeypatch):
     import pandas as pd
     from fec.resolve.fec import _same_fec_donor, drop_unproven_source_entries
     from fec.resolve.previous import _shared_zips
+    from fec.resolve import previous
 
     # a retiree and a working attorney, both RICHARD GOLDSTEIN in Boca Raton 33432
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL"] * 4,
         "donor_key": ["RET", "ATTY", "SPOUSES", "COUPLE"],
+        "sub_id": ["R1", "A1", "S1", "C1"],
         "contributor_name": ["GOLDSTEIN, RICHARD", "GOLDSTEIN, RICHARD", "GOLDSTEIN, RICHARD AND JANE",
                              "GOLDSTEIN, RICHARD JANE"],
         "contributor_last_name": ["GOLDSTEIN"] * 4,
         "contributor_first_name": ["RICHARD", "RICHARD", "RICHARD AND JANE", "RICHARD JANE"],
         "contributor_zip": ["33432", "33432-2944", "33496", "33432"],
+        "contributor_street_1": ["10 OAK ST", "20 PINE ST", "30 ELM ST", "40 ASH ST"],
+        "contributor_street_2": [""] * 4,
+        "contributor_state": ["FL"] * 4,
+        "contribution_receipt_date": ["2025-01-01"] * 4,
+        "two_year_transaction_period": [2026] * 4,
+        "recipient_committee": ["AIPAC"] * 4,
+        "committee_id": ["C00797670"] * 4,
     })
+    raw = tmp_path / "raw.csv"
+    df.to_csv(raw, index=False)
+    monkeypatch.setattr(previous, "RAW_CSV", raw)
     shared = _shared_zips(df)
     assert shared == {"RET": {"33432"}, "ATTY": {"33432"}}
 
-    person = {"name": "GOLDSTEIN, RICHARD", "state": "FL", "zip": "33432", "shared_zips": shared["RET"]}
-    record = {"contributor_name": "GOLDSTEIN, RICHARD", "contributor_state": "FL", "contributor_zip": "334322944"}
+    person = {"name": "GOLDSTEIN, RICHARD", "state": "FL", "zip": "33432", "shared_zips": shared["RET"],
+              "street_1": "10 OAK ST", "street_2": ""}
+    record = {"contributor_name": "GOLDSTEIN, RICHARD", "contributor_state": "FL", "contributor_zip": "334322944",
+              "contributor_street_1": "20 PINE ST", "contributor_street_2": ""}
     assert not _same_fec_donor(person, record)
 
-    cache = {"donor:RET": {"employer": "NIXON PEABODY", "method": "fec_api", "source_zip": "334322944"}}
+    cache = {"donor:RET:2026": {"employer": "NIXON PEABODY", "method": "fec_api", "source_zip": "334322944",
+                          "source_name": "GOLDSTEIN, RICHARD", "state": "FL",
+                          "source_street_1": "20 PINE ST", "source_street_2": "",
+                          "source_sub_id": "OLD-ATTY", "source_date": "2025-01-01",
+                          "source_cycle": 2026, "source_committee_id": "C00123456"}}
     assert drop_unproven_source_entries(cache, df) == 1
+    assert cache["donor:RET:2026"]["method"] == "fec_api_unverified"
 
 
 def test_an_employer_a_manual_override_cleared_is_not_brought_back_from_fec(tmp_path, monkeypatch):
     import pandas as pd
     from fec.resolve import manual as step
+    from fec.resolve import previous
     from fec.resolve.fec import drop_unproven_source_entries
 
     overrides = tmp_path / "overrides.csv"
     overrides.write_text("sub_id,contributor_employer,contributor_occupation,note\n"
                          "S1,[CLEAR],[CLEAR],her husband's practice\n", encoding="utf-8")
     raw = tmp_path / "raw.csv"
-    raw.write_text("sub_id,contributor_employer\nS1,EYE SURGERY ASSOCIATES\nS2,RETIRED\n", encoding="utf-8")
+    raw.write_text(
+        "sub_id,contributor_employer,contributor_name,contributor_street_1,contributor_street_2,"
+        "contributor_state,contributor_zip,two_year_transaction_period,committee_id\n"
+        'S1,EYE SURGERY ASSOCIATES,"SANDBERG, ADELE",10 OAK ST,,FL,33179,2026,C00797670\n'
+        'S2,RETIRED,"SANDBERG, ADELE",10 OAK ST,,FL,33179,2026,C00797670\n',
+        encoding="utf-8",
+    )
     monkeypatch.setattr(step, "MANUAL_EMPLOYER_OVERRIDES_CSV", overrides)
     monkeypatch.setattr(step, "RAW_CSV", raw)
+    monkeypatch.setattr(previous, "RAW_CSV", raw)
     df = pd.DataFrame({"sub_id": ["S1", "S2"], "donor_key": ["ADELE", "ADELE"], "entity_type": ["INDIVIDUAL"] * 2,
-                       "contributor_zip": ["33179", "33179"]})
+                       "contributor_zip": ["33179", "33179"], "two_year_transaction_period": [2026] * 2,
+                       "recipient_committee": ["AIPAC"] * 2})
 
     cleared = step.cleared_employers(df)
     assert cleared == {"ADELE": {"EYE SURGERY ASSOCIATES"}}
@@ -491,20 +579,36 @@ def test_a_job_title_names_no_company():
         assert V(company) != "", company
 
 
-def test_a_cached_fec_answer_that_is_a_job_title_is_searched_again():
+def test_a_cached_fec_answer_that_is_a_job_title_is_searched_again(tmp_path, monkeypatch):
     import pandas as pd
     from fec.resolve.fec import drop_unproven_source_entries
+    from fec.resolve import previous
 
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * 2, "donor_key": ["A", "B"],
-                       "contributor_zip": ["60611", "10028"]})
+                       "sub_id": ["A1", "B1"],
+                       "contributor_zip": ["60611", "10028"],
+                       "contributor_name": ["DOE, JOHN", "DOE, JANE"],
+                       "contributor_street_1": ["10 OAK ST", "20 PINE ST"],
+                       "contributor_street_2": [""] * 2,
+                       "contributor_state": ["IL", "NY"],
+                       "two_year_transaction_period": [2026] * 2,
+                       "recipient_committee": ["AIPAC"] * 2,
+                       "committee_id": ["C00797670"] * 2,
+                       "contribution_receipt_date": ["2025-01-01"] * 2})
+    raw = tmp_path / "raw.csv"
+    df.to_csv(raw, index=False)
+    monkeypatch.setattr(previous, "RAW_CSV", raw)
     cache = {
         "donor:A": {"employer": "ADVISOR", "method": "fec_api", "employer_source": "ADVISOR/RETIRED",
                     "source_zip": "606112130"},
-        "donor:B": {"employer": "ACME", "method": "fec_api", "source_zip": "10028"},
+        "donor:B:2026": {"employer": "ACME", "method": "fec_api", "source_zip": "10028",
+                    "source_name": "DOE, JANE", "state": "NY", "source_street_1": "20 PINE ST",
+                    "source_street_2": "", "source_sub_id": "OLD-B", "source_date": "2025-01-01",
+                    "source_cycle": 2026, "source_committee_id": "C00123456"},
     }
 
     assert drop_unproven_source_entries(cache, df) == 1
-    assert sorted(cache) == ["donor:B"]
+    assert sorted(cache) == ["donor:B:2026"]
 
 
 def test_status_typos_activists_and_a_trailing_self_employed():

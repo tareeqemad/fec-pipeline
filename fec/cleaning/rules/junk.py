@@ -49,10 +49,8 @@ def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Final pass for junk that slipped through; returns (df, n_fixed)."""
     indiv_idx = _indiv_idx(df)
     n_fixed = 0
-    n_fixed += _clean_junk_employer_xxx(df, indiv_idx)
-    n_fixed += _clean_junk_employer_patterns(df, indiv_idx)
-    n_fixed += _clean_junk_short_occ(df, indiv_idx)
-    n_fixed += _clean_junk_occ_patterns(df, indiv_idx)
+    n_fixed += _clean_junk_employers(df, indiv_idx)
+    n_fixed += _clean_junk_occupations(df, indiv_idx)
     n_fixed += _clean_junk_number_tail(df, indiv_idx)
     n_fixed += _clean_junk_llp_standalone(df, indiv_idx)
     n_fixed += _clean_junk_not_disclosed(df, indiv_idx)
@@ -61,42 +59,24 @@ def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, n_fixed
 
 
-# blank employer values that are just x's
-def _clean_junk_employer_xxx(df: pd.DataFrame, ii: pd.Index) -> int:
+def _clean_junk_employers(df: pd.DataFrame, ii: pd.Index) -> int:
+    """Blank x placeholders and structurally junk employer values."""
     emp = _norm(df.loc[ii, 'contributor_employer'])
-    xxx = ii[emp.isin({'XXX', 'XX', 'XXXX', 'X'})]
-    if len(xxx):
-        df.loc[xxx, 'contributor_employer'] = np.nan
-        return len(xxx)
-    return 0
-
-
-# blank employers matching structurally-junk patterns
-def _clean_junk_employer_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
-    """Blank employers that are structurally not a company name (dates, numbers, masked digits)."""
-    emp = _norm(df.loc[ii, 'contributor_employer'])
-    junk = ii[(emp != '') & emp.str.match(JUNK_EMPLOYER_RE, na=False)]
+    xxx = emp.isin({'XXX', 'XX', 'XXXX', 'X'})
+    pattern = (emp != '') & emp.str.match(JUNK_EMPLOYER_RE, na=False)
+    junk = ii[xxx | pattern]
     if len(junk):
         df.loc[junk, 'contributor_employer'] = np.nan
         return len(junk)
     return 0
 
 
-# blank occupations too short to be real
-def _clean_junk_short_occ(df: pd.DataFrame, ii: pd.Index) -> int:
+def _clean_junk_occupations(df: pd.DataFrame, ii: pd.Index) -> int:
+    """Blank short or structurally junk occupations; mark MISSING for later refill."""
     occ = _norm(df.loc[ii, 'contributor_occupation'])
-    short = ii[(occ.str.len() <= 2) & (occ != '') & ~occ.isin(FINAL_SHORT_OCCUPATIONS)]
-    if len(short):
-        _set_missing(df, short)
-        return len(short)
-    return 0
-
-
-# blank structurally junk occupations, mark missing for refill
-def _clean_junk_occ_patterns(df: pd.DataFrame, ii: pd.Index) -> int:
-    """Blank structurally junk occupations; set MISSING so a later same-donor pass can refill."""
-    occ = _norm(df.loc[ii, 'contributor_occupation'])
-    junk = ii[(occ != '') & occ.str.match(JUNK_EMPLOYER_RE, na=False)]
+    short = (occ.str.len() <= 2) & (occ != '') & ~occ.isin(FINAL_SHORT_OCCUPATIONS)
+    pattern = (occ != '') & occ.str.match(JUNK_EMPLOYER_RE, na=False)
+    junk = ii[short | pattern]
     if len(junk):
         _set_missing(df, junk)
         return len(junk)
