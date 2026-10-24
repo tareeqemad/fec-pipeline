@@ -5,6 +5,7 @@ import re
 
 import numpy as np
 import pandas as pd
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 
 from fec.cleaning.work.normalize import (
     _categorize,
@@ -213,6 +214,8 @@ def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
     trunc_to_full = {}
     counts = indiv_emp.value_counts()
     for trunc in trunc_candidates:
+        if preserved_employer_name(trunc):
+            continue
         matches = [full for full in long_emps if full.startswith(trunc)]
         if matches:
             trunc_to_full[trunc] = max(matches, key=lambda name: counts.get(name, 0))

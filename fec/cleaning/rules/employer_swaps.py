@@ -62,7 +62,7 @@ _KNOWN_OCCUPATIONS = (
     | ROLE_AS_EMPLOYER
     | JOB_TITLE_AS_EMPLOYER
     | SELF_EMPLOYED_OCC_AS_EMP
-    | {"ADVOCATE"}
+    | {"ADVOCATE", "SCULPTOR"}
 )
 
 # Titles that name a position OF an organisation ("CEO of X"). Filed alone in

@@ -7,6 +7,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
 from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 from fec.config.constants import (
     EMPLOYER_STATUS_VALUES,
     SKIP_EMPLOYERS,
@@ -18,7 +19,7 @@ def _donor_employer_groups(df: pd.DataFrame):
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     for dk, grp in indiv.groupby('donor_key'):
         emps = grp['contributor_employer'].dropna().unique()
-        real = [e for e in emps if e not in SKIP_EMPLOYERS]
+        real = [e for e in emps if e not in SKIP_EMPLOYERS and not preserved_employer_name(e)]
         if len(real) < 2:
             continue
         yield dk, real, grp['contributor_employer'].value_counts()
@@ -183,7 +184,9 @@ def _employer_variant_map(names: list[str]) -> dict[str, str]:
         ]
         widest = [other for other in fuller if not any(other < more for more in fuller)]
         target = display[widest[0]] if len(widest) == 1 else display[core]
-        remap.update({name: target for name in members if name != target})
+        if not preserved_employer_name(target):
+            remap.update({name: target for name in members
+                          if name != target and not preserved_employer_name(name)})
     return remap
 
 

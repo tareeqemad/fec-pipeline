@@ -8,6 +8,7 @@ from collections import defaultdict
 import pandas as pd
 
 from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 from fec.cleaning.work.previous import (
     SELF_EMPLOYED_TAIL_RE,
     normalize_previous_employer_value,
@@ -50,7 +51,6 @@ def _read_json(path) -> dict:
         return json.load(handle)
 
 def _s(val, default: str = "") -> str:
-    """Safely convert a value to string, handling pd.NA/NaN/None."""
     if val is None or pd.isna(val):
         return default
     return str(val)
@@ -88,8 +88,12 @@ def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...
     normalized_name = _s(entry.get("employer_normalized")).strip()
     source_name = _s(entry.get("employer_source")).strip()
 
+    candidates = (raw_name, normalized_name, source_name)
+    if (preserved_employer_name(source_name)
+            and entry.get("method") in {"fec_api", "cross_record", "cleaned_previous"}):
+        candidates = (source_name,)
     clean_name = ""
-    for candidate in (raw_name, normalized_name, source_name):
+    for candidate in candidates:
         cleaned = normalize_previous_employer_value(candidate)
         if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned):
             clean_name = cleaned
@@ -100,7 +104,8 @@ def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...
     keys = []
     for name in (clean_name, normalized_name, raw_name, source_name):
         key = name.strip().upper()
-        if key and key not in keys:
+        if (key and key not in keys
+                and canonical_key(normalize_previous_employer_value(key)) == canonical_key(clean_name)):
             keys.append(key)
     return clean_name, tuple(keys)
 
@@ -111,13 +116,12 @@ def _same_entity(a: str, b: str) -> bool:
         return False
     if key_a == key_b:
         return True
-    short, long_ = sorted([key_a, key_b], key=len)
-    if not long_.startswith(short):
+    if key_a.startswith('SEPARATE:') or key_b.startswith('SEPARATE:'):
         return False
-    return len(long_) <= 2 * len(short)
+    short, long_ = sorted([key_a, key_b], key=len)
+    return long_.startswith(short) and len(long_) <= 2 * len(short)
 
 def _address_key(entry: dict) -> str:
-    """Normalize a complete cached address."""
     fields = (
         entry.get('employer_address'),
         entry.get('employer_city'),
@@ -136,8 +140,7 @@ def _score(entry: dict) -> tuple:
     has_address = 1 if entry.get('employer_address') else 0
     confidence_rank = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}.get(entry.get('confidence', ''), 0)
     method = entry.get('method', '')
-    # by pattern, not by model name, so a new model's methods rank correctly;
-    # ai_not_found is an AI MISS and must stay in the generic tier
+    # Search results rank above other AI answers; misses stay in the generic tier.
     if method.startswith('ai_') and method.endswith('_search'):
         method_priority = 3
     elif method.startswith('ai_') and not method.endswith('_not_found'):
@@ -149,7 +152,6 @@ def _score(entry: dict) -> tuple:
     return (has_address, confidence_rank, method_priority)
 
 def _entries_by_address(data: dict) -> dict[str, list[str]]:
-    """Group eligible cache names by complete normalized address."""
     grouped: dict[str, list[str]] = defaultdict(list)
     for name, entry in data.items():
         if not isinstance(entry, dict):
@@ -187,7 +189,6 @@ def _canonical_name(cluster: list[str], frequency: dict) -> str:
 def _alias_mapping(
     grouped: dict[str, list[str]], frequency: dict,
 ) -> tuple[dict[str, str], int]:
-    """Return variant-to-canonical aliases and the number of merged groups."""
     mapping: dict[str, str] = {}
     groups = 0
     for names in grouped.values():
@@ -239,7 +240,6 @@ def dedup_by_resolved_address(
     return len(mapping), groups
 
 def _explicit_self_employment(value) -> bool:
-    """True only when the filer explicitly reported self-employment."""
     upper = _s(value).strip().upper()
     compact = single_letters(re.sub(r"[^A-Z]", "", upper))
     return (

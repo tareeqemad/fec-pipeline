@@ -2,7 +2,7 @@
 import pandas as pd
 
 from fec.cleaning.work.employer_names import finalize_employer_names
-from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_canonical import canonical_key, employer_text_key
 from fec.cleaning.work.employer_normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
@@ -54,7 +54,9 @@ def test_restyle_never_strips_suffix():
 def test_canonical_key_incorporated_and_tokens():
     assert canonical_key('MOVIL INCORPORATED') == canonical_key('MOVIL INC')
     assert canonical_key('UNIV OF CHICAGO') == canonical_key('UNIVERSITY OF CHICAGO')
-    assert canonical_key('MT SINAI HOSPITAL') == canonical_key('MOUNT SINAI HOSPITAL')
+    assert employer_text_key('MT SINAI HOSPITAL') == employer_text_key('MOUNT SINAI HOSPITAL')
+    # Text expansion is not identity proof for the reviewed Mount Sinai name.
+    assert canonical_key('MT SINAI HOSPITAL') != canonical_key('MOUNT SINAI HOSPITAL')
     # ASSOC deliberately NOT folded (ASSOCIATES vs ASSOCIATION is contextual)
     assert canonical_key('RADIOLOGY ASSOC') != canonical_key('RADIOLOGY ASSOCIATES')
 
@@ -108,11 +110,11 @@ def test_display_name_converges_on_synonyms():
     assert normalize_employer_display_name('IBM') == 'IBM CORP'
 
 
-def test_new_employer_variants_use_known_companies():
+def test_reviewed_employer_variants_keep_unverified_entities_separate():
     expected = {
-        'CHIEFTAIN CAPITAL MANAGEMENT INC': 'CHIEFTAIN CAPITAL MANAGEMENT',
+        'CHIEFTAIN CAPITAL MANAGEMENT INC': 'CHIEFTAIN CAPITAL MANAGEMENT INC',
         'ELLIOTT INVESTMENT MANAGEMENT': 'ELLIOTT INVESTMENT MANAGEMENT LP',
-        'PIERPOINT CAPITAL MANAGEMENT': 'PIERPOINT CAPITAL',
+        'PIERPOINT CAPITAL MANAGEMENT': 'PIERPOINT CAPITAL MANAGEMENT',
         'FISHMAN, BLOCK, DIAMOND, BY CERITY PAR':
             'FISHMAN BLOCK + DIAMOND BY CERITY PARTNERS',
     }

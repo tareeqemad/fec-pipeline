@@ -10,7 +10,7 @@ from fec.cleaning.work.employer_normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
 )
-from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
+from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS, preserved_employer_name
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
     JUNK_EMPLOYER_RE,
@@ -60,11 +60,9 @@ _WS_RE = re.compile(r'\s+')
 
 # Match whole-word RETIRED around a company; preserve RETIREE and RETIREMENT names.
 _RETIRED_WORD = r'(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY)[\s-]?)?RETIRED'
-# a leading retirement marker: "RETIRED FROM", "(SEMI RETIRED)"
 _RETIRED_PREFIX_RE = re.compile(
     rf'^\(?{_RETIRED_WORD}\b\)?(?:\s+FROM\b)?[\s,;:/-]*'
 )
-# a trailing retirement marker: "GOLDMAN SACHS-RETIRED", "(SEMI RETIRED)"
 _RETIRED_SUFFIX_RE = re.compile(rf'[\s,;:/-]*\(?\s*{_RETIRED_WORD}\s*\)?$')
 # Keep RETIRED when it belongs to a truncated organization name.
 _NAME_BEFORE_RETIRED_RE = re.compile(r'\b(?:OF|FOR|THE|AND|&)$')
@@ -209,7 +207,6 @@ def normalize_previous_employer_value(v) -> str:
 
 # Apply company aliases and display rules to a previous employer.
 def _previous_company_name(text: str, upper: str) -> str:
-    # Use the same company aliases as the current-employer field.
     mapped = EMPLOYER_SYNONYMS.get(upper)
     mapped_from_alias = bool(mapped)
     if mapped:
@@ -219,9 +216,16 @@ def _previous_company_name(text: str, upper: str) -> str:
             return ''
 
     if '/' in text:
-        text = _resolve_slash(text)
+        if preserved_employer_name(text) and text.upper() not in SLASH_BRAND_EMPLOYERS:
+            parts = [part.strip() for part in text.split('/')
+                     if is_real_employer(part.strip()) and not is_job_title(part.strip())]
+            text = parts[0] if len(parts) == 1 else ''
+        else:
+            text = _resolve_slash(text)
         if not text:
             return ''
+    if preserved := preserved_employer_name(text):
+        return preserved if is_real_employer(preserved) else ''
     if not mapped_from_alias and text.upper() in _CANONICAL_SYNONYM_NAMES:
         # Canonical alias targets stay uppercase regardless of input casing.
         return text.upper()

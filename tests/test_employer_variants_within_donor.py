@@ -13,18 +13,20 @@ def _df(rows):
     return pd.DataFrame(rows, columns=_COLS)
 
 
-def test_truncated_short_form_takes_the_full_name_regardless_of_counts():
+def test_reviewed_ambiguous_short_name_stays_separate_regardless_of_counts():
     df = _df([('INDIVIDUAL', 'k1', 'SYNERGY')] * 4 + [('INDIVIDUAL', 'k1', 'SYNERGY HEALTH PARTNERS')] * 4)
-    assert _employer_substring_variants(df) == 4
-    assert set(df.contributor_employer) == {'SYNERGY HEALTH PARTNERS'}
+    assert _employer_substring_variants(df) == 0
+    assert df.contributor_employer.tolist() == ['SYNERGY'] * 4 + ['SYNERGY HEALTH PARTNERS'] * 4
 
 
-def test_widely_used_parent_brand_absorbs_its_division():
+def test_widely_used_parent_brand_does_not_absorb_a_reviewed_medical_unit():
     rows = [('INDIVIDUAL', 'k1', 'NYU')] * 8 + [('INDIVIDUAL', 'k1', 'NYU LANGONE HEALTH HUNTINGTON MEDICAL')] * 14
     rows += [('INDIVIDUAL', f'k{i}', 'NYU') for i in range(2, 8)]          # six other people file plain NYU
     df = _df(rows)
-    assert _employer_substring_variants(df) == 14
-    assert set(df.contributor_employer) == {'NYU'}
+    assert _employer_substring_variants(df) == 0
+    assert df.contributor_employer.tolist() == (
+        ['NYU'] * 8 + ['NYU LANGONE HEALTH HUNTINGTON MEDICAL'] * 14 + ['NYU'] * 6
+    )
 
 
 def test_containment_is_by_whole_words_only():

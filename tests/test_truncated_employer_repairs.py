@@ -1,10 +1,11 @@
-"""38-char FEC truncation repairs."""
+"""Accepted and rejected 38-char FEC truncation repairs."""
 import csv
 
 from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
+from fec.cleaning.work.employer_normalize import normalize_employer_display_name
 from fec.env import EMPLOYER_NAME_RULES_CSV
 
-# 38-char truncations repaired from external sources.
+# Original proposals remain covered, including those the source review rejected.
 REPAIRED = {
     "THE RENFREW CENTER FOR EATING DISORDER": "THE RENFREW CENTER FOR EATING DISORDERS",
     "NORTHERN VALLEY MEDICAL ASSOCIATION, P": "NORTHERN VALLEY MEDICAL ASSOCIATION",
@@ -19,18 +20,29 @@ REPAIRED = {
     "SPOTTSWOOD SPOTTSWOOD SPOTTSWOOD & STE": "SPOTTSWOOD SPOTTSWOOD SPOTTSWOOD & STERLING",
 }
 
+PRESERVED = {
+    "NORTHERN VALLEY MEDICAL ASSOCIATION, P",  # do not discard an unknown legal suffix
+    "CARDIOLOGY PC OF HARTFORD HEALTHCARE M",  # official name does not confirm this completion
+    "DENTAL IMPLANTS AND PERIODONTAL HEALTH",  # Rochester cannot be inferred globally
+}
+
 
 def test_repairs_are_wired_into_the_synonym_map():
     for truncated, full in REPAIRED.items():
-        assert EMPLOYER_SYNONYMS.get(truncated) == full, truncated
+        if truncated in PRESERVED:
+            assert truncated not in EMPLOYER_SYNONYMS
+            assert normalize_employer_display_name(truncated) == truncated
+            assert normalize_employer_display_name(truncated) != full
+        else:
+            assert EMPLOYER_SYNONYMS.get(truncated) == full, truncated
 
 
 def test_every_repair_extends_the_truncated_string():
-    """A completion continues the stored prefix."""
+    """Every stored proposal is a completion or a rejected suffix deletion."""
     for truncated, full in REPAIRED.items():
         assert len(truncated) == 38, f"{truncated!r} is not a 38-char truncation"
         extends = full.startswith(truncated)
-        # a cut inside a legal suffix (', P.A.') legitimately gets shorter after suffix stripping
+        # The rejected Northern Valley proposal deleted an incomplete legal suffix.
         shortens_to_prefix = truncated.startswith(full)
         assert extends or shortens_to_prefix, (
             f"{full!r} neither extends nor trims {truncated!r} — different organisation?"
@@ -41,11 +53,14 @@ def test_rules_file_stays_consistent_with_this_list():
     """The CSV is authoritative."""
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8", newline="") as handle:
         overrides = {
-            row["variant"]: row["canonical"]
+            row["variant"]: row
             for row in csv.DictReader(handle)
         }
     for truncated, full in REPAIRED.items():
-        assert overrides.get(truncated) == full, truncated
+        assert overrides[truncated]["canonical"] == full, truncated
+        assert overrides[truncated]["action"] == (
+            "separate" if truncated in PRESERVED else "rename"
+        )
 
 
 def test_no_override_maps_a_name_to_itself():

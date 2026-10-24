@@ -10,7 +10,7 @@ from fec.cleaning.work.employer_canonical import (
     tidy_employer_commas,
 )
 from fec.cleaning.work.employer_normalize import restyle_legal_suffix
-from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
+from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS, preserved_employer_name
 from fec.cleaning.work.normalize import _categorize
 from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
@@ -59,9 +59,11 @@ _EMPLOYER_ABBREV = [
 
 def expand_abbreviation_text(values: pd.Series) -> pd.Series:
     """Expand verified abbreviations in employer names."""
+    preserved = values.map(preserved_employer_name)
     for regex, replacement in _EMPLOYER_ABBREV:
         values = values.str.replace(regex, replacement, regex=True)
-    return values.str.replace(r'\s+', ' ', regex=True).str.strip().str.rstrip('.,').str.strip()
+    values = values.str.replace(r'\s+', ' ', regex=True).str.strip().str.rstrip('.,').str.strip()
+    return values.where(preserved.isna(), preserved)
 
 
 def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -91,6 +93,7 @@ def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     indiv_idx = _indiv_idx(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
     has_assoc = (emp.notna() & ~emp.isin(SKIP_EMPLOYERS)
+           & emp.map(preserved_employer_name).isna()
            & emp.str.upper().str.contains(r'\bASSOCS?\b', regex=True, na=False))
     target = indiv_idx[has_assoc]
     if len(target) == 0:
@@ -121,7 +124,7 @@ _LOOSE_SLASH_RE = re.compile(r'\s/|/\s|//')
 
 def tidy_employer_slashes(name):
     """Normalize loose slashes; leave tight slashes like BRIDGESTONE/FIRESTONE alone."""
-    if not isinstance(name, str) or not _LOOSE_SLASH_RE.search(name):
+    if not isinstance(name, str) or not _LOOSE_SLASH_RE.search(name) or preserved_employer_name(name):
         return name
     return re.sub(r'\s*/+\s*', ' / ', name).strip()
 
@@ -197,6 +200,7 @@ def fix_normalized_mid_suffix(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     col = 'employer_name_normalized'
     vals = df[col].fillna('')
     has_mid = vals.str.contains(_MID_SUFFIX_RE, na=False)
+    has_mid &= vals.map(preserved_employer_name).isna()
     target = df.index[has_mid]
 
     if len(target) == 0:

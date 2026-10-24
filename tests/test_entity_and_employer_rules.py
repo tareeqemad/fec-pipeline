@@ -63,8 +63,11 @@ class TestEmployerSynonyms:
             {'contributor_employer': 'JP MORGAN CHASE'},
         ])
         df, n = apply_employer_synonyms(df)
-        assert n == 3
-        assert all(df['contributor_employer'] == 'JPMORGAN CHASE')
+        # The broader J.P. Morgan brand does not select a Chase legal employer.
+        assert n == 1
+        assert df['contributor_employer'].tolist() == [
+            'JP MORGAN', 'JPMORGAN', 'JPMORGAN CHASE',
+        ]
 
     def test_unknown_employer_untouched(self):
         from fec.cleaning.work.employer_names import apply_employer_synonyms
@@ -77,8 +80,9 @@ class TestEmployerSynonyms:
         from fec.cleaning.work.employer_names import apply_employer_synonyms
         df = _make_df([{'contributor_employer': 'GOLDMAN SACHS AND CO'}])
         df, n = apply_employer_synonyms(df)
-        assert n == 1
-        assert df['contributor_employer'].iloc[0] == 'GOLDMAN SACHS'
+        # Goldman Sachs & Co. is a specific subsidiary, not the group name.
+        assert n == 0
+        assert df['contributor_employer'].iloc[0] == 'GOLDMAN SACHS AND CO'
 
 
 def test_person_names_survive_false_committee_filing():

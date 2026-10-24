@@ -18,16 +18,17 @@ def test_expands_mgmt_grp_svcs():
     emps, n = _emps(["FOO HOLDINGS MGMT", "SUTHERLAND CAPITAL MGMT. INC.", "X GRP", "ACME SVCS"])
     assert n == 4
     assert "FOO HOLDINGS MANAGEMENT" in emps
-    assert "SUTHERLAND CAPITAL MANAGEMENT INC" in emps   # MGMT expanded, trailing '.' trimmed
+    # The reviewed legal-entity name keeps MGMT; only trailing punctuation changes.
+    assert "SUTHERLAND CAPITAL MGMT. INC" in emps
     assert "X GROUP" in emps
     assert "ACME SERVICES" in emps
 
 
-def test_expands_inv_to_investment():
-    # verified by hand: every INV employer in this dataset is an Investment firm
+def test_expands_inv_except_reviewed_separations():
+    # EMA's underspecified aliases were not verified, so its filed text is protected.
     emps, n = _emps(["EMA INV MGMT", "SSI INV MGT", "TRIPLE S INV LLP"])
-    assert n == 3
-    assert "EMA INVESTMENT MANAGEMENT" in emps
+    assert n == 2
+    assert "EMA INV MGMT" in emps
     assert "SSI INVESTMENT MANAGEMENT" in emps
     assert "TRIPLE S INVESTMENT LLP" in emps
 
