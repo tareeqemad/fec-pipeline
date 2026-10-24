@@ -135,6 +135,19 @@ def main() -> int:
     display_previous_ids = set()
     overrides = _read_overrides(False, display_previous_ids=display_previous_ids)
     nn_ = n.set_index("sub_id")
+    # Compare company overrides using the same documented names as cleaning.
+    from fec.cleaning.work.employer_aliases import reviewed_employer_name, scoped_employer_rules
+    scoped = scoped_employer_rules(n)
+    for sid, fields in overrides.items():
+        if sid not in nn_.index or nn_.at[sid, "entity_type"] != "INDIVIDUAL":
+            continue
+        row = nn_.loc[sid]
+        for column in ("contributor_employer", "previous_employer"):
+            if column in fields and fields[column] is not pd.NA:
+                fields[column] = reviewed_employer_name(
+                    fields[column], row["donor_key"], row["two_year_transaction_period"],
+                    scoped if row["identity_status"] == "confirmed" else None,
+                )
     overridden = [
         (sid, col) for sid, fields in overrides.items() if sid in nn_.index
         for col, val in fields.items() if col in nn_.columns

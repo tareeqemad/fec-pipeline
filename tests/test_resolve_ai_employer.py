@@ -42,21 +42,21 @@ def _address(city):
 
 def test_address_aliases_never_rewrite_clean_employer_names():
     df = pd.DataFrame({
-        "contributor_employer": ["ACME", "ACME LLC"],
+        "contributor_employer": ["IBM", "IBM CORP"],
     })
     original = df.copy()
-    cache = _Cache({"ACME": _address("NEW YORK"), "ACME LLC": _address("NEW YORK")})
+    cache = _Cache({"IBM": _address("NEW YORK"), "IBM CORP": _address("NEW YORK")})
 
     _deduplicate_address_cache(df, cache)
 
     pd.testing.assert_frame_equal(df, original)
-    assert cache.data["ACME"]["alias_of"] == "ACME LLC"
+    assert cache.data["IBM"]["alias_of"] == "IBM CORP"
 
 
 def test_address_aliases_require_the_complete_address():
     cache = _Cache({
-        "ACME": _address("NEW YORK"),
-        "ACME LLC": _address("ALBANY"),
+        "IBM": _address("NEW YORK"),
+        "IBM CORP": _address("ALBANY"),
     })
 
     aliases, groups = dedup_by_resolved_address(cache)
@@ -64,20 +64,20 @@ def test_address_aliases_require_the_complete_address():
     assert (aliases, groups) == (0, 0)
 
 
-def test_address_aliases_prefer_frequency_but_keep_best_evidence():
+def test_address_aliases_prefer_reviewed_name_and_keep_best_evidence():
     common = _address("NEW YORK")
     common["method"] = "ai_openai"
     common["confidence"] = "MEDIUM"
     searched = _address("NEW YORK")
-    cache = _Cache({"ACME": common, "ACME LLC": searched})
+    cache = _Cache({"IBM": common, "IBM CORP": searched})
 
     aliases, groups = dedup_by_resolved_address(
-        cache, freq={"ACME": 20, "ACME LLC": 1}
+        cache, freq={"IBM": 20, "IBM CORP": 1}
     )
 
     assert (aliases, groups) == (1, 1)
-    assert cache.data["ACME"]["method"] == "ai_openai_search"
-    assert cache.data["ACME LLC"]["alias_of"] == "ACME"
+    assert cache.data["IBM CORP"]["method"] == "ai_openai_search"
+    assert cache.data["IBM"]["alias_of"] == "IBM CORP"
 
 
 def test_address_aliases_skip_manual_low_confidence_and_existing_aliases():
@@ -99,7 +99,7 @@ def test_address_aliases_skip_manual_low_confidence_and_existing_aliases():
 
 
 def test_address_aliases_are_idempotent():
-    cache = _Cache({"ACME": _address("NEW YORK"), "ACME LLC": _address("NEW YORK")})
+    cache = _Cache({"IBM": _address("NEW YORK"), "IBM CORP": _address("NEW YORK")})
 
     assert dedup_by_resolved_address(cache) == (1, 1)
     snapshot = {key: value.copy() for key, value in cache.data.items()}

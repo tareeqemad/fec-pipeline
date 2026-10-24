@@ -1,7 +1,6 @@
 """Keep each donor consistent across filings."""
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.house_numbers import _truncated_house_numbers
 from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
 from fec.cleaning.reports.trail import (
     EMPLOYMENT_FIELDS,
@@ -17,11 +16,7 @@ from fec.cleaning.donors.employer import (
     _fill_employer_from_raw_filings,
     _own_firm_absorbs_self_employed,
 )
-from fec.cleaning.donors.employer_variants import (
-    _employer_acronym_variants,
-    _employer_substring_variants,
-    _employer_typos,
-)
+from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.donors.entity import (
     _apply_entity_overrides,
     _apply_source_entity_types,
@@ -54,14 +49,8 @@ ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
 CONSISTENCY_FIXES = (
     ("recover missing streets", "donor_recover_missing_streets", _recover_missing_streets, STREET_FIELDS,
      "street_filled_from_donor_only_street_same_place", None),
-    ("repair house numbers", "donor_repair_house_numbers", _truncated_house_numbers, STREET_FIELDS,
-     "truncated_house_number_repaired_from_donor_common_form", None),
-    ("employer typos", "donor_employer_typos", _employer_typos, WORK_FIELDS,
-     "employer_spelling_converged_to_donor_dominant", None),
-    ("employer substring variants", "donor_employer_substring_variants", _employer_substring_variants, WORK_FIELDS,
-     "employer_short_form_merged_into_full_name_same_donor", None),
-    ("employer acronym variants", "donor_employer_acronym_variants", _employer_acronym_variants, WORK_FIELDS,
-     "employer_acronym_expanded_same_donor", None),
+    ("reviewed employer names", "donor_reviewed_employers", apply_reviewed_employer_names, EMPLOYMENT_FIELDS,
+     "documented_company_alias", "data/rules/employer_name_rules.csv"),
     ("own firm absorbs self-employed", "donor_own_firm_absorbs_self_employed", _own_firm_absorbs_self_employed, WORK_FIELDS,
      "self_employed_rows_moved_to_donors_own_firm", None),
     ("fill employer from donor", "donor_fill_employer_from_donor", _fill_employer_from_donor, WORK_FIELDS,

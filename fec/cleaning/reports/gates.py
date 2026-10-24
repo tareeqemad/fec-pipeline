@@ -1,6 +1,4 @@
-"""Quality gates, outlier reports, and report saving."""
-from pathlib import Path
-
+"""Check cleaned data quality."""
 import pandas as pd
 
 from fec.cleaning.reports.employment_gates import (
@@ -14,7 +12,6 @@ from fec.cleaning.reports.employment_gates import (
     _gate_slash_previous_employer,
     _gate_valid_categories,
 )
-from fec.io import write_csv_atomic
 
 _ZIP_PREFIX_STATES = {
     '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
@@ -190,12 +187,3 @@ def run_quality_gates(df: pd.DataFrame) -> dict:
         if isinstance(check, dict) and check.get('passed') is not None
     )
     return {'passed': passed, 'checks': checks, 'issues': issues}
-
-
-# save a DataFrame as CSV
-def save_report(df: pd.DataFrame, dir_path: str, name: str) -> None:
-    if df is None or df.empty:
-        return
-    base = Path(dir_path) / name
-    base.parent.mkdir(parents=True, exist_ok=True)
-    write_csv_atomic(df, base.with_suffix('.csv'), index=False)

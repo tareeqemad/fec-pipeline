@@ -24,8 +24,8 @@ VERIFIED = {
     'C21 STORES': 'CENTURY 21 STORES',            # the Gindi family's store, c21stores.com
     'C21STORES': 'CENTURY 21 STORES',
     'KW REALTY': 'KELLER WILLIAMS',               # local offices do not establish a franchisor employer
-    'TWINCITY FAN': 'TWIN CITY FAN COMPANIES',    # Twin City Fan Companies Ltd, Minneapolis
-    'TWIN CITY FAN': 'TWIN CITY FAN COMPANIES',
+    'TWINCITY FAN': 'TWIN CITY FAN COMPANIES LTD',  # Official company legal name
+    'TWIN CITY FAN': 'TWIN CITY FAN COMPANIES LTD',
     'MILE ONE': 'MILEONE AUTOGROUP',              # MileOne Autogroup, Towson MD
     'WARNER BROTHERS': 'WARNER BROS',
     'ARMY': 'US ARMY',
@@ -50,6 +50,7 @@ PRESERVED = {
     'MILLENNIUM CAPITAL MANAGEMENT', 'MILLENNIUM CAPITAL',
     'VETERANS ADMINISTRATION', 'US VET ADMIN', 'CORDISH CO', 'ATRIUM',
     'ATRIUM HEALTH CAROLINAS MEDICAL CENTER',
+    'WARNER BROTHERS',
 }
 
 
@@ -84,30 +85,38 @@ def test_softerware_is_a_real_company_not_a_typo():
     assert normalize_employer_display_name('SOFTERWARE') == 'SOFTERWARE'
 
 
-def test_new_manual_targets_are_uppercase_and_suffix_free():
-    rows = [row for row in _rows() if row['variant'] in VERIFIED]
+def test_new_manual_targets_use_documented_uppercase_names():
+    rows = [row for row in _rows() if row['variant'] in VERIFIED
+            and row['canonical'] == VERIFIED[row['variant']] and not row.get('anchor_sub_id')]
     targets = {row['canonical'] for row in rows}
     assert targets == set(VERIFIED.values())
     for row in rows:
         assert row['action'] == ('separate' if row['variant'] in PRESERVED else 'rename')
     for target in targets:
         assert target == target.upper()
-        assert not LEGAL_SUFFIX_RE.search(target), target
+        if target != 'TWIN CITY FAN COMPANIES LTD':
+            assert not LEGAL_SUFFIX_RE.search(target), target
 
 
 def test_no_rule_points_at_the_joined_spellings():
     # the misspellings must never be a canonical target again
-    values = {row['canonical'] for row in _rows()}
+    values = {row['canonical'] for row in _rows() if row.get('action', 'rename') == 'rename'}
     assert not values & {'TWINCITY FAN', 'ATRIUMHEALTH', 'ABINITIO SOFTWARE', 'VETERANS ADMINISTRATION'}
 
 
-def test_no_duplicate_variants():
-    variants = [row['variant'].strip().upper() for row in _rows()]
-    assert len(variants) == len(set(variants))
+def test_no_conflicting_variants_within_one_scope():
+    targets = {}
+    for row in _rows():
+        if row['action'] != 'rename':
+            continue
+        key = (row.get('anchor_sub_id', ''), row.get('cycle', ''), row['variant'].strip().upper())
+        assert key not in targets or targets[key] == row['canonical']
+        targets[key] = row['canonical']
+        if row.get('anchor_sub_id'):
+            assert row['source'].startswith('https://')
 
 
-def test_barry_history_converges_on_one_twin_city_fan_row():
-    # one donor's 26 filings were split across TWINCITY FAN and TWIN CITY FAN COMPANIES LTD
+def test_reviewed_twin_city_spelling_uses_the_documented_legal_suffix():
     df = pd.DataFrame({
         'entity_type': ['INDIVIDUAL'] * 4,
         'contributor_employer': ['TWINCITY FAN', 'TWIN CITY FAN',
@@ -115,8 +124,10 @@ def test_barry_history_converges_on_one_twin_city_fan_row():
         'previous_employer': [''] * 4,
     })
     finalize_employer_names(df)
-    assert df['contributor_employer'].nunique() == 1
-    assert df['contributor_employer'].iloc[0] == 'TWIN CITY FAN COMPANIES LTD'
+    assert df['contributor_employer'].tolist() == [
+        'TWIN CITY FAN COMPANIES LTD', 'TWIN CITY FAN COMPANIES LTD',
+        'TWIN CITY FAN COMPANIES LTD', 'TWIN CITY FAN COMPANIES LTD',
+    ]
 
 
 def test_apply_synonyms_rewrites_the_audit_examples():

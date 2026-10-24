@@ -81,4 +81,4 @@ def test_a_campaign_for_a_state_keeps_the_state():
     df = pd.DataFrame({"contributor_name": ["ROB FOR PA", "SMITH & JONES PA", "ACME, LLC"],
                        "entity_type": ["COMMITTEE/PAC", "ORGANIZATION", "ORGANIZATION"]})
     normalize_business_names(df)
-    assert list(df["contributor_name"]) == ["ROB FOR PA", "SMITH & JONES", "ACME"]
+    assert list(df["contributor_name"]) == ["ROB FOR PA", "SMITH AND JONES PA", "ACME LLC"]

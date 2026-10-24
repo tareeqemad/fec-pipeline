@@ -145,21 +145,26 @@ def run(committee_id: str, period: int) -> None:
                         progress.update(1)
 
                     sources = []
+                    # Validate this page before saving any of its rows.
+                    page = []
+                    page_ids = set()
                     for result in data.get("results", []):
-                        row = build_row(result)
-                        if row is None:
+                        sub_id = str(result.get("sub_id") or "").strip()
+                        if not sub_id:
                             stats["missing_ids"] += 1
                             continue
-                        sub_id = row[0]
-                        if sub_id in existing_ids:
+                        if sub_id in existing_ids or sub_id in page_ids:
                             stats["duplicates"] += 1
                             continue
-                        writer.writerow(row)
-                        existing_ids.add(sub_id)
+                        page.append(build_row(result))
+                        page_ids.add(sub_id)
                         sources.append(_source_record(sub_id, result, "pulled"))
-                        stats["new_rows"] += 1
-                    handle.flush()
+                    # Save metadata first so saved filings always have their source fields.
                     append_source_fields(source_path(csv_path), sources)
+                    writer.writerows(page)
+                    handle.flush()
+                    existing_ids.update(page_ids)
+                    stats["new_rows"] += len(page)
         finally:
             if progress:
                 progress.close()

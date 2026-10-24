@@ -8,7 +8,7 @@ from collections import defaultdict
 import pandas as pd
 
 from fec.cleaning.work.employer_canonical import canonical_key
-from fec.cleaning.work.employer_aliases import preserved_employer_name
+from fec.cleaning.work.employer_aliases import reviewed_employer_name
 from fec.cleaning.work.previous import (
     SELF_EMPLOYED_TAIL_RE,
     normalize_previous_employer_value,
@@ -16,6 +16,7 @@ from fec.cleaning.work.previous import (
 )
 from fec.cleaning.work.status import is_real_employer, single_letters
 from fec.io import write_json_atomic
+from fec.log import get_logger
 RETIRED = "RETIRED"
 SELF_EMPLOYED = "SELF-EMPLOYED"
 EMPLOYER_ADDR_CACHE = "resolve_employer_addr.json"
@@ -89,9 +90,10 @@ def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...
     source_name = _s(entry.get("employer_source")).strip()
 
     candidates = (raw_name, normalized_name, source_name)
-    if (preserved_employer_name(source_name)
-            and entry.get("method") in {"fec_api", "cross_record", "cleaned_previous"}):
-        candidates = (source_name,)
+    if source_name and entry.get("method") in {"fec_api", "cross_record", "cleaned_previous"}:
+        filed = normalize_previous_employer_value(source_name)
+        if filed == SELF_EMPLOYED or is_real_employer(filed):
+            candidates = (source_name,)
     clean_name = ""
     for candidate in candidates:
         cleaned = normalize_previous_employer_value(candidate)
@@ -110,16 +112,21 @@ def _previous_employer_identity(entry: dict | None) -> tuple[str, tuple[str, ...
     return clean_name, tuple(keys)
 
 def _same_entity(a: str, b: str) -> bool:
-    """Match canonical keys or a prefix whose full name is at most twice as long."""
+    """Match only names joined by the employer rules."""
     key_a, key_b = canonical_key(a), canonical_key(b)
-    if not key_a or not key_b:
-        return False
-    if key_a == key_b:
-        return True
-    if key_a.startswith('SEPARATE:') or key_b.startswith('SEPARATE:'):
-        return False
-    short, long_ = sorted([key_a, key_b], key=len)
-    return long_.startswith(short) and len(long_) <= 2 * len(short)
+    return bool(key_a) and key_a == key_b
+
+def verified_address_entries(entries: dict) -> dict:
+    """Ignore unsupported old aliases without deleting saved cache entries."""
+    kept = {name: entry for name, entry in entries.items() if isinstance(entry, dict)
+            and (not entry.get("alias_of") or _same_entity(name, entry["alias_of"])
+                 or entry.get("method") == "manual_invalid")}
+    if len(kept) != len(entries):
+        get_logger(__name__).warning(
+            "%s unsupported employer cache aliases ignored; saved entries kept",
+            len(entries) - len(kept),
+        )
+    return kept
 
 def _address_key(entry: dict) -> str:
     fields = (
@@ -179,16 +186,12 @@ def _cluster_company_names(names: list[str]) -> list[list[str]]:
             clusters.append([name])
     return clusters
 
-def _canonical_name(cluster: list[str], frequency: dict) -> str:
-    """Prefer the common filing spelling, then longest, then alphabetical."""
-    return min(
-        cluster,
-        key=lambda name: (-frequency.get(name, 0), -len(name), name),
-    )
+def _canonical_name(cluster: list[str]) -> str:
+    """Prefer the reviewed name already cached; otherwise use a stable spelling."""
+    reviewed = {reviewed_employer_name(name) for name in cluster} & set(cluster)
+    return min(reviewed or cluster)
 
-def _alias_mapping(
-    grouped: dict[str, list[str]], frequency: dict,
-) -> tuple[dict[str, str], int]:
+def _alias_mapping(grouped: dict[str, list[str]]) -> tuple[dict[str, str], int]:
     mapping: dict[str, str] = {}
     groups = 0
     for names in grouped.values():
@@ -198,7 +201,7 @@ def _alias_mapping(
             if len(cluster) < 2:
                 continue
             groups += 1
-            canonical = _canonical_name(cluster, frequency)
+            canonical = _canonical_name(cluster)
             mapping.update(
                 {name: canonical for name in cluster if name != canonical}
             )
@@ -226,10 +229,7 @@ def dedup_by_resolved_address(
     addr_cache, freq: dict | None = None,
 ) -> tuple[int, int]:
     """Alias same-company entries resolved to the same complete address."""
-    mapping, groups = _alias_mapping(
-        _entries_by_address(addr_cache.data),
-        freq or {},
-    )
+    mapping, groups = _alias_mapping(_entries_by_address(addr_cache.data))
 
     if not mapping:
         return 0, 0

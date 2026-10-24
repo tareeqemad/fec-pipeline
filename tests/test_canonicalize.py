@@ -3,7 +3,6 @@
 import pandas as pd
 
 from fec.cleaning.donors.names import canonicalize_donor_names
-from fec.cleaning.addresses.fixes.unify import canonicalize_donor_pobox_typos
 from fec.cleaning.donors.employer_variants import canonicalize_donor_employers
 from fec.cleaning.addresses.fixes.unify import canonicalize_donor_addresses
 
@@ -110,7 +109,7 @@ def test_names_surname_in_first_field_still_collapses_when_no_real_first():
     assert df["contributor_name"].unique().tolist() == ["COHEN"]
 
 
-def test_employers_merge_same_firm_to_most_complete():
+def test_longer_company_name_does_not_establish_identity():
     df = _df(
         [
             ["INDIVIDUAL", "H", "HARBERG HUVARD LLP"],
@@ -123,7 +122,7 @@ def test_employers_merge_same_firm_to_most_complete():
     canonicalize_donor_employers(df)
     emps = set(df["contributor_employer"])
     assert "HARBERG HUVARD JACOBS WADLER LLP" in emps
-    assert "HARBERG HUVARD LLP" not in emps
+    assert "HARBERG HUVARD LLP" in emps
     assert "INTERFAITH MINISTRIES FOR GREATER HOUSTON" in emps
 
 
@@ -178,7 +177,7 @@ def test_addresses_different_zip_stays_separate():
     assert set(df["contributor_zip"]) == {"10001", "90001"}  # zips untouched
 
 
-def test_pobox_unifies_rare_inserted_digit_only():
+def test_pobox_keeps_rare_numbers_as_filed():
     df = _df(
         [
             ["A", "PO BOX 123", "10001"],
@@ -190,11 +189,10 @@ def test_pobox_unifies_rare_inserted_digit_only():
         ["donor_key", "contributor_street_1", "contributor_zip"],
     )
 
-    assert canonicalize_donor_pobox_typos(df) == 1
-    assert set(df.loc[df["donor_key"] == "A", "contributor_street_1"]) == {"PO BOX 123"}
-    assert df.loc[df["donor_key"] == "B", "contributor_street_1"].item() == (
-        "PO BOX 1233"
-    )
+    df["entity_type"] = "INDIVIDUAL"
+    before = df["contributor_street_1"].tolist()
+    assert canonicalize_donor_addresses(df) == 0
+    assert df["contributor_street_1"].tolist() == before
 
 
 def test_pobox_keeps_same_length_numbers_separate():
@@ -203,7 +201,8 @@ def test_pobox_keeps_same_length_numbers_separate():
         ["donor_key", "contributor_street_1", "contributor_zip"],
     )
 
-    assert canonicalize_donor_pobox_typos(df) == 0
+    df["entity_type"] = "INDIVIDUAL"
+    assert canonicalize_donor_addresses(df) == 0
 
 
 def test_a_cut_off_surname_piece_is_not_kept_as_a_middle_name():
@@ -245,8 +244,10 @@ def test_a_short_employer_name_does_not_join_two_different_fuller_names():
 
     # ADVISORS and PRIVATE BANK are two units: WELLS FARGO must not bridge them
     assert _employer_variant_map(["WELLS FARGO", "WELLS FARGO ADVISORS", "WELLS FARGO PRIVATE BANK"]) == {}
-    # A reviewed legal name cannot absorb an unsuffixed label by heuristic.
-    assert _employer_variant_map(["KIRKLAND ELLIS", "KIRKLAND & ELLIS LLP"]) == {}
+    # The verified firm alias uses its documented legal name.
+    assert _employer_variant_map(["KIRKLAND ELLIS", "KIRKLAND & ELLIS LLP"]) == {
+        "KIRKLAND ELLIS": "KIRKLAND & ELLIS LLP",
+    }
 
 
 def test_an_initial_glued_to_the_name_after_it_gets_its_space():

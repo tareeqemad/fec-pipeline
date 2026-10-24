@@ -24,13 +24,11 @@ from fec.cleaning.entities import apply_name_corrections
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.addresses.fixes.unify import (
     canonicalize_donor_addresses,
-    canonicalize_donor_pobox_typos,
     canonicalize_donor_units,
 )
 from fec.cleaning.donors.employer_variants import (
     align_org_donor_company_names,
     canonicalize_donor_employers,
-    unify_org_donor_suffix_variants,
 )
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
 from fec.cleaning.reports.donors import build_donor_dedup_review
@@ -115,21 +113,15 @@ def standardize(
 
     consistency_updates = apply_donor_consistency(df, trail)
 
-    df, employer_updates = finalize_employer_names(df, trail)
-    log_count(logger, "final employer names", employer_updates)
-    employer_variant_updates = trail.run(
-        df, canonicalize_donor_employers, "final_donor_employers",
-        "donor_employer_variant_merged_to_fullest_name", ("contributor_employer",),
-    )
-    log_count(logger, "final donor employers", employer_variant_updates)
-
-    # Curated values are final, after donor-history inference.
+    # Restore curated fields after donor-history inference.
     override_updates = trail.run(
         df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
         "curated_employer_names", "curated_row_override", OVERRIDE_FIELDS,
         source="data/rules/manual_employer_overrides.csv",
     )
     log_count(logger, "curated employer names", override_updates)
+    df, employer_updates = finalize_employer_names(df, trail)
+    log_count(logger, "final employer names", employer_updates)
     organization_name_updates = _align_organization_names(df, trail)
     committee_updates = trail.run(
         df, canonicalize_committee_names, "reviewed_committee_names",
@@ -147,7 +139,7 @@ def standardize(
     df.loc[original_keys.index, "donor_key"] = original_keys
 
     canonical_updates += (
-        name_updates + employer_updates + employer_variant_updates
+        name_updates + employer_updates
         + override_updates + organization_name_updates + committee_updates + cleared_names
     )
     logger.info(
@@ -208,13 +200,11 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
         (canonicalize_donor_names, "donor_canonical_names",
          "donor_name_unified_to_modal_last_and_longest_first", NAME_FIELDS),
         (canonicalize_donor_employers, "donor_canonical_employers",
-         "donor_employer_variant_merged_to_fullest_name", ("contributor_employer",)),
+         "documented_company_alias", ("contributor_employer",)),
         (canonicalize_donor_addresses, "donor_canonical_addresses",
          "donor_street_spelling_unified", STREET_FIELDS),
         (canonicalize_donor_units, "donor_canonical_units",
          "donor_unit_designator_unified", STREET_FIELDS),
-        (canonicalize_donor_pobox_typos, "donor_pobox_typos",
-         "donor_pobox_digit_typo_fixed_to_majority", STREET_FIELDS),
     )
     total = 0
     for fix, step, reason, fields in steps:
@@ -226,18 +216,12 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
 
 def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
     """Align organization names after entity overrides and employer cleanup; keep donor keys."""
-    steps = (
-        (align_org_donor_company_names, "donor_align_org_names",
-         "organization_name_aligned_to_employer_spelling"),
-        (unify_org_donor_suffix_variants, "donor_org_suffix_variants",
-         "organization_name_unified_to_suffix_free_spelling"),
+    count = trail.run(
+        df, align_org_donor_company_names, "donor_align_org_names",
+        "documented_company_name", NAME_FIELDS,
     )
-    total = 0
-    for fix, step, reason in steps:
-        count = trail.run(df, fix, step, reason, NAME_FIELDS)
-        total += count
-        log_count(logger, fix.__name__.replace("_", " "), count)
-    return total
+    log_count(logger, "align org donor company names", count)
+    return count
 
 
 def _clear_non_individual_names(df: pd.DataFrame) -> int:

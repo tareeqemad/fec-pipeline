@@ -99,7 +99,7 @@ def ai_web_search_call(client, model: str, system_prompt: str,
 WEB_SEARCH_WORKERS = 5
 
 
-def _parse_ai_json(text: str) -> list | None:
+def _parse_ai_json(text: str) -> list:
     """Robustly parse JSON from AI response."""
     text = text.strip()
     if text.startswith("```"):
@@ -115,7 +115,7 @@ def _parse_ai_json(text: str) -> list | None:
                 if isinstance(value, list):
                     return value
             return [result]
-        return result
+        return result if isinstance(result, list) else []
 
     start = text.find("[")
     end = text.rfind("]")
@@ -190,6 +190,7 @@ def _run_search_pool(search, store, items, cache, label, total):
             pool.shutdown(wait=True, cancel_futures=True)
         else:
             pool.shutdown(wait=True)
+        cache.save()
     return found, cost, quota_error
 
 
@@ -242,10 +243,8 @@ def run_web_search(
     cost += pool_cost
 
     if quota_error:
-        cache.save()
         raise quota_error
 
-    cache.save()
     logger.info(
         f"    {label} (web search): found {found:,}/{total:,} - cost ~${cost:.2f}"
     )

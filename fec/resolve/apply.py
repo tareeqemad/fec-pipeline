@@ -2,7 +2,8 @@
 
 import pandas as pd
 from fec.cleaning.donors.retired import dated_previous_employers
-from fec.cleaning.work.employer_canonical import canonical_key, recanonicalize_employers
+from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names, scoped_employer_rules
 from fec.cleaning.work.employer_names import expand_abbreviation_text
 from fec.resolve.locations import ADDRESS_FIELDS, address_cache_lookup
 from fec.resolve.manual import previous_employer_display_names
@@ -41,6 +42,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dic
         first_filed=first_filed,
         filed_employers=filed_employers or {},
         previous_display_names=previous_employer_display_names(),
+        scoped_employer_rules=scoped_employer_rules(df),
     )
     for index, row in df.iterrows():
         result = _resolve_row(row, context, index)
@@ -53,7 +55,7 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dic
     _fix_employer_address_quality(df)
     _preserve_previous_employer_display(df, prior_previous)
     _expand_previous_employer_abbreviations(df)
-    recanonicalize_employers(df)
+    apply_reviewed_employer_names(df)
     # A committee/org IS the entity - its address is already the donor address,
     # so don't duplicate it into employer_*.
     _clear_nonindividual_employer(df)

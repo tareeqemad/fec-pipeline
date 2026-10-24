@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
+from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.cleaning.work.normalize import _categorize
 from fec.config.constants import JUNK_EMPLOYER_RE
 from fec.config.occupation_rules.rules import (
@@ -33,7 +34,7 @@ _SELF_COMPANY_TAIL_RE = re.compile(
     r'STRATEGIES|LAW|LAW OFFICES?|TRADING CO)\b',
 )
 _SELF_COMPANY_OVERRIDES = {
-    'SELF EMPLOYED- STANDARDIZED SUCCESS, L': 'STANDARDIZED SUCCESS LLC',
+    'SELF EMPLOYED- STANDARDIZED SUCCESS L': 'STANDARDIZED SUCCESS LLC',
     'SELF EMPLOYED AND TOTAL REALTY': 'TOTAL REALTY',
     'SELF AND STEVENSON UNIVERSITY': 'STEVENSON UNIVERSITY',
 }
@@ -157,7 +158,7 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
         ).str.strip().str.lstrip(',').str.lstrip('-').str.lstrip('/').str.strip()
         for idx, tail in extracted.items():
             original = emp_raw.at[idx].strip().upper()
-            company = _SELF_COMPANY_OVERRIDES.get(original)
+            company = _SELF_COMPANY_OVERRIDES.get(employer_rule_key(original))
             clean_tail = tail.strip('() ').strip()
             if (not company and clean_tail not in _GENERIC_SELF_TAILS
                     and _SELF_COMPANY_TAIL_RE.search(clean_tail)):

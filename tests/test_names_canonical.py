@@ -219,10 +219,10 @@ def _orgs(names, entity="ORGANIZATION"):
     )
 
 
-def test_org_name_with_legal_form_takes_the_suffix_free_spelling():
+def test_org_name_keeps_legal_form_without_an_explicit_alias():
     df = _orgs(["EATON STEEL", "EATON STEEL CORPORATION"])
-    assert unify_org_donor_suffix_variants(df) == 1
-    assert df["contributor_name"].tolist() == ["EATON STEEL", "EATON STEEL"]
+    assert unify_org_donor_suffix_variants(df) == 0
+    assert df["contributor_name"].tolist() == ["EATON STEEL", "EATON STEEL CORPORATION"]
     assert df["donor_key"].tolist() == ["k0", "k1"]
 
 

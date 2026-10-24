@@ -14,8 +14,8 @@ from fec.cleaning.addresses.review import build_address_reports
 from fec.cleaning.addresses.streets import clean_streets
 
 
-def test_house_number_leading_symbol_and_zeros():
-    assert _fix_house_number("!6854 MOONCREST DR") == "6854 MOONCREST DR"
+def test_house_number_preserves_symbols_and_removes_leading_zeros():
+    assert _fix_house_number("!6854 MOONCREST DR") == "!6854 MOONCREST DR"
     assert _fix_house_number("02393 SW MILITARY RD") == "2393 SW MILITARY RD"
     assert _fix_house_number("00000 X") == "00000 X"          # all-zeros untouched
     assert _fix_house_number("123 MAIN ST") == "123 MAIN ST"  # no change

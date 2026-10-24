@@ -19,6 +19,10 @@ from fec.cleaning.work.normalize import (
     _normalize_text,
     map_occupation_fixes,
 )
+from fec.cleaning.work.employer_aliases import (
+    documented_employer_name, employer_rule_key, reviewed_employer_name,
+)
+from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES
 from fec.config.employers import EMPLOYER_NORMALIZE
@@ -185,17 +189,26 @@ def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame,
     return df, n_fixed
 
 
-# a committee name ending in FOR and a state code: "ROB FOR PA"
+# Keep campaign phrases such as ROB FOR PA intact.
 _FOR_STATE_RE = re.compile(r'\bFOR (?:' + '|'.join(sorted(US_STATES)) + r')$')
 
 
 def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Strip legal suffixes (LLC, LLP, INC) from non-individual contributor names."""
-    names = df['contributor_name'].fillna('')
-    # ROB FOR PA is a campaign for Pennsylvania, not a professional association
-    mask = (df['entity_type'] != 'INDIVIDUAL') & ~names.str.contains(_FOR_STATE_RE)
-    names = names[mask]
-    cleaned = names.str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
+    """Retain company legal forms and the existing committee-name format."""
+    from fec.cleaning.donors.entity import read_entity_overrides
+
+    names = df.loc[df['entity_type'].ne('INDIVIDUAL'), 'contributor_name'].fillna('')
+    types = df.loc[names.index, 'entity_type']
+    cleaned = names.copy()
+    company_names = set(names[types.eq('ORGANIZATION')].map(employer_rule_key))
+    company_names.update(employer_rule_key(name) for name, kind in read_entity_overrides().items()
+                         if kind == 'ORGANIZATION')
+    organizations = names.map(employer_rule_key).isin(company_names)
+    cleaned.loc[organizations] = names[organizations].map(reviewed_employer_name)
+    committees = types.eq('COMMITTEE/PAC') & ~organizations & ~names.str.contains(_FOR_STATE_RE)
+    cleaned.loc[committees] = names[committees].str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
+    # A documented company alias can also correct a guessed committee name.
+    cleaned = names.map(documented_employer_name).fillna(cleaned)
     changed = (cleaned != names) & (cleaned != '')
     n_fixed = changed.sum()
     if n_fixed:
@@ -204,15 +217,22 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 
 def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """When a non-generic company name sits in both employer and occupation, fix occupation."""
+    """Keep a duplicated job in occupation; keep a duplicated company in employer."""
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
 
-    same = indiv_idx[(emp == occ) & (emp != '') & ~emp.isin(_GENERIC_EMP_OCC)]
+    same = indiv_idx[
+        emp.map(employer_rule_key).eq(occ.map(employer_rule_key))
+        & emp.ne('') & ~emp.isin(_GENERIC_EMP_OCC)
+    ]
     n_fixed = len(same)
 
-    for idx in same:
+    jobs = same[occ.loc[same].map(is_job_title)]
+    df.loc[jobs, 'contributor_employer'] = np.nan
+    df.loc[jobs, 'occupation_status'] = 'EMPLOYER_MISSING'
+
+    for idx in same.difference(jobs):
         val = df.at[idx, 'contributor_occupation']
         first_name = (df.at[idx, 'contributor_first_name'] or '').upper()
         last_name = (df.at[idx, 'contributor_last_name'] or '').upper()
@@ -561,8 +581,14 @@ def _restore_individual_occupations(
         EMPLOYER_NORMALIZE,
         digits_only_before=EMPLOYER_STATUS_TEXT,
     )
+    # Keep a field swap already established before reclassification.
+    kept_swap = (
+        df.loc[restored.index, "contributor_employer"].map(employer_rule_key)
+        .eq(restored.map(employer_rule_key))
+        & df.loc[restored.index, "contributor_employer"].map(is_real_employer)
+    )
     swapped = raw_employer.isin(SWAP_JOB_TITLES) & (
-        restored.str.contains(_ORG_BUSINESS_RE, na=False) | restored.eq("SELF-EMPLOYED")
+        restored.str.contains(_ORG_BUSINESS_RE, na=False) | restored.eq("SELF-EMPLOYED") | kept_swap
     )
     restored.loc[swapped] = raw_employer.loc[swapped]
     restored = restored[~restored.isin(MISSING_VALUES) & restored.notna()]

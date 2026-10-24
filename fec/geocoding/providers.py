@@ -40,7 +40,8 @@ class CensusUnavailable(RuntimeError):
 def _same_house_number(street: str, returned_number: str) -> bool:
     expected = _HOUSE_NUMBER.match(street)
     if expected is None:
-        return True
+        first = street.split()[0] if street.strip() else ""
+        return not any(char.isdigit() for char in first) or first.upper() == returned_number.strip().upper()
     return expected.group(1).upper() == returned_number.strip().upper()
 
 
@@ -165,7 +166,9 @@ def census(street: str, city: str, state: str, zipcode: str) -> tuple:
                     return None, None, None
                 match = matches[0]
                 returned = _HOUSE_NUMBER.match(str(match.get("matchedAddress") or ""))
-                if returned and not _same_house_number(street, returned.group(1)):
+                first = str(match.get("matchedAddress") or "").split()
+                number = returned.group(1) if returned else (first[0] if first else "")
+                if not _same_house_number(street, number):
                     return None, None, None
                 components = match.get("addressComponents") or {}
                 if not _same_us_place(state, zipcode, components.get("state"), components.get("zip")):

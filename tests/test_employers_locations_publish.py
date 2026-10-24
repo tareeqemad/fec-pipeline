@@ -76,7 +76,7 @@ def test_a_sibling_outside_the_donor_states_goes_to_review(tmp_path, monkeypatch
     cache = {
         "WILLIAMS & CONNOLLY LLP": {**CLOSED_BOOK, "employer_state": "MD", "employer_zip": "20814",
                                     "employer_city": "Bethesda"},
-        "WILLIAMS & CONNOLLY LLC": {
+        "WILLIAMS & CONNOLLY, L.L.P.": {
             "employer_address": "725 Twelfth Street, N.W", "employer_city": "Washington",
             "employer_state": "DC", "employer_zip": "20005", "method": "ai_openai_search",
         },
@@ -93,8 +93,8 @@ def test_a_sibling_outside_the_donor_states_goes_to_review(tmp_path, monkeypatch
     assert review.loc[0, "donor_states"] == "MD"
 
 
-def test_an_explicit_not_found_still_blocks_a_sibling(tmp_path, monkeypatch):
-    # the tested F2 rule is unchanged: an exact ai_not_found beats a canonical sibling
+def test_not_found_reuses_a_grounded_canonical_sibling(tmp_path, monkeypatch):
+    # A previous miss does not hide a verified address for the same company.
     cache = {
         "SURFACE TECHNOLOGY INC": {"employer_address": "", "method": "ai_not_found"},
         "SURFACE TECHNOLOGY, INC": {**GROUNDED, "employer_state": "NJ"},
@@ -103,7 +103,7 @@ def test_an_explicit_not_found_still_blocks_a_sibling(tmp_path, monkeypatch):
 
     locations, review = _build(tmp_path, monkeypatch, filings, cache)
 
-    assert _published(locations).empty
+    assert _published(locations)["employer_address"].tolist() == ["555 SE 6TH AVE STE 200"]
     assert review.empty
 
 

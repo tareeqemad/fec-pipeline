@@ -2,6 +2,7 @@
 import re
 
 from fec.cleaning._helpers import levenshtein
+from fec.cleaning.work.employer_aliases import employer_rule_key
 
 
 _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
@@ -167,7 +168,7 @@ def extract_middle(name: str) -> str:
 
 def normalize_employer(emp: str) -> str:
     """Normalize employer name for comparison."""
-    emp = str(emp or "").strip().upper()
+    emp = employer_rule_key(str(emp or ""))
     for suffix in _EMPLOYER_STRIP:
         emp = emp.replace(suffix, "")
     return emp.strip()

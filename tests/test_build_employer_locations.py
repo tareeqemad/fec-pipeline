@@ -224,7 +224,7 @@ def test_manual_canonical_address_beats_old_exact_ai(tmp_path, monkeypatch):
             "employer_zip": "19801",
             "method": "ai_openai",
         },
-        "GOLDENBERG HELLER & ANTOGNOLI": {
+        "GOLDENBERG HELLER & ANTOGNOLI, P.C.": {
             "employer_address": "2227 S State Route 157",
             "employer_city": "Edwardsville",
             "employer_state": "IL",

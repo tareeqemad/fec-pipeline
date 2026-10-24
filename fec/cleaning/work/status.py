@@ -109,7 +109,7 @@ def _employer_rejection_reason(upper: str) -> str:
     if upper in ('NAN', 'NONE', 'N/A', 'NA', ''):
         return 'missing_value'
     # Ignore terminal punctuation on statuses/admin notes, not punctuation inside names.
-    canonical = upper.rstrip(' .;,:!?')
+    canonical = re.sub(r'\s*;\s*', '; ', upper).rstrip(' .;,:!?')
     # RET is ambiguous; suppress it as a company without inventing retirement.
     if canonical == 'RET':
         return 'ambiguous_placeholder'

@@ -1,124 +1,155 @@
-"""Load and prepare employer spelling rules."""
+"""Company names supported by the shared rules file."""
 import csv
 import re
 
+import pandas as pd
+
 from fec.config.constants import SKIP_EMPLOYERS
-from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.env import EMPLOYER_NAME_RULES_CSV
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 
-# read employer rename rules from the csv file
-def _load_rules() -> tuple[dict[str, str], set[str]]:
-    """Read the single rules file."""
-    if not EMPLOYER_NAME_RULES_CSV.exists():
-        raise FileNotFoundError(
-            f"Missing employer rules: {EMPLOYER_NAME_RULES_CSV}"
-        )
+# Formatting only: keep words, their order, and legal forms.
+def employer_rule_key(name) -> str:
+    if not isinstance(name, str):
+        return ""
+    name = name.upper().replace("&", " AND ")
+    return " ".join(name.replace(",", " ").replace(".", "").split())
 
-    rules, separate = {}, set()
-    with EMPLOYER_NAME_RULES_CSV.open(
-        encoding="utf-8-sig", newline=""
-    ) as handle:
+
+def _load_rules():
+    aliases, separate, scoped, decisions = {}, set(), [], set()
+    with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
             variant = (row.get("variant") or "").strip().upper()
-            canonical = (row.get("canonical") or "").strip()
+            canonical = (row.get("canonical") or "").strip().upper()
             source = (row.get("source") or "").strip()
             action = (row.get("action") or "rename").strip()
-            if not variant or not canonical or not source:
-                raise ValueError(
-                    f"Invalid employer rule on row {number}"
-                )
-            if action == "separate":
-                separate.update((variant, canonical.upper()))
-                # Keep legal forms when a job label is removed from a compound value.
-                separate.update(part.strip() for name in (variant, canonical.upper())
-                                for part in name.split('/') if part.strip())
-            elif action == "rename":
-                rules[variant] = canonical
+            anchor = (row.get("anchor_sub_id") or "").strip()
+            cycle = (row.get("cycle") or "").strip()
+            if not variant or not canonical or not source or action not in {"rename", "separate"}:
+                raise ValueError(f"Invalid employer rule on row {number}")
+            if cycle and (not anchor or not cycle.isdigit() or int(cycle) % 2):
+                raise ValueError(f"Invalid employer rule cycle on row {number}")
+            if anchor:
+                if action != "rename":
+                    raise ValueError(f"Scoped employer rule must rename on row {number}")
+                scoped.append((anchor, cycle, employer_rule_key(variant), canonical))
+                separate.update((variant, canonical))
+            elif action == "separate":
+                separate.update((variant, canonical))
+                decisions.add(frozenset((employer_rule_key(variant), employer_rule_key(canonical))))
+                separate.update(part.strip() for name in (variant, canonical)
+                                for part in name.split("/") if part.strip())
             else:
-                raise ValueError(f"Unknown employer rule action on row {number}: {action}")
-    return rules, separate
+                if variant in aliases and aliases[variant] != canonical:
+                    raise ValueError(f"Conflicting employer rule on row {number}")
+                aliases[variant] = canonical
+    return aliases, separate, scoped, decisions
 
 
-EMPLOYER_SYNONYMS, _SEPARATE_NAMES = _load_rules()
+EMPLOYER_SYNONYMS, _SEPARATE_NAMES, _SCOPED_RULES, _SEPARATE_PAIRS = _load_rules()
+
+# Resolve explicit chains; a spelling cannot acquire two meanings globally.
+for _variant in EMPLOYER_SYNONYMS:
+    _seen = {_variant}
+    _target = EMPLOYER_SYNONYMS[_variant]
+    while _target in EMPLOYER_SYNONYMS and EMPLOYER_SYNONYMS[_target] != _target:
+        if _target in _seen:
+            raise ValueError(f"Cycle in employer rules: {_variant}")
+        _seen.add(_target)
+        _target = EMPLOYER_SYNONYMS[_target]
+    EMPLOYER_SYNONYMS[_variant] = _target
+
+_ALIASES = {}
+for _variant, _canonical in EMPLOYER_SYNONYMS.items():
+    for _name in (_variant, _canonical):
+        _key = employer_rule_key(_name)
+        if _key in _ALIASES and _ALIASES[_key] != _canonical:
+            raise ValueError(f"Conflicting company spellings in employer rules: {_name}")
+        _ALIASES[_key] = _canonical
+_SEPARATE_KEYS = {employer_rule_key(name) for name in _SEPARATE_NAMES if name not in SKIP_EMPLOYERS}
 
 
-# Ignore punctuation only; keep name words and legal forms.
-def _separation_key(name: str) -> str:
-    name = name.upper().replace('&', ' AND ')
-    return ' '.join(re.sub(r'[.,]', '', name).split())
-
-
-_SEPARATE_KEYS = {_separation_key(name) for name in _SEPARATE_NAMES if name not in SKIP_EMPLOYERS}
-
-
-# Reviewed distinct or ambiguous names cannot be merged by a heuristic.
 def preserved_employer_name(name) -> str | None:
-    if isinstance(name, str) and _separation_key(name) in _SEPARATE_KEYS:
-        return ' '.join(name.upper().split()).rstrip('.,')
-    return None
+    if isinstance(name, str) and employer_rule_key(name) in _SEPARATE_KEYS:
+        return " ".join(name.upper().split()).rstrip(".,")
 
 
-# rewrite each synonym key to the end of its chain
-def _flatten_synonym_chains() -> int:
-    """Rewrite each key to the end of its chain - apply_employer_synonyms maps once, so A->B, B->C would strand A at B; cycles stay at one hop."""
-    count = 0
-    for key in list(EMPLOYER_SYNONYMS):
-        seen = {key}
-        val = EMPLOYER_SYNONYMS[key]
-        while val in EMPLOYER_SYNONYMS and val not in seen:
-            seen.add(val)
-            val = EMPLOYER_SYNONYMS[val]
-        if val in EMPLOYER_SYNONYMS:
-            logger.warning("Cycle in EMPLOYER_SYNONYMS - %r left at one hop", key)
+def reviewed_employer_pair(left: str, right: str) -> bool:
+    """A documented no-merge decision need not be queued on every run."""
+    pair = frozenset((employer_rule_key(left), employer_rule_key(right)))
+    return pair in _SEPARATE_PAIRS
+
+
+def documented_employer_name(name) -> str | None:
+    return _ALIASES.get(employer_rule_key(name))
+
+
+# Resolve the evidence filing to its current donor; never match people by company.
+def scoped_employer_rules(df: pd.DataFrame) -> dict:
+    needed = {"sub_id", "donor_key", "entity_type", "identity_status"}
+    if not _SCOPED_RULES or not needed.issubset(df.columns):
+        return {}
+    confirmed = df["entity_type"].eq("INDIVIDUAL") & df["identity_status"].eq("confirmed")
+    anchors = df.loc[confirmed, ["sub_id", "donor_key"]].copy()
+    anchors["sub_id"] = anchors["sub_id"].astype(str)
+    anchors = anchors.set_index("sub_id")["donor_key"].to_dict()
+    rules = {}
+    for anchor, cycle, variant, canonical in _SCOPED_RULES:
+        donor = anchors.get(anchor)
+        if not donor:
             continue
-        if val != EMPLOYER_SYNONYMS[key]:
-            EMPLOYER_SYNONYMS[key] = val
-            count += 1
-    return count
+        canonical = reviewed_employer_name(canonical)
+        key = (str(donor), cycle, variant)
+        if key in rules and rules[key] != canonical:
+            raise ValueError(f"Conflicting employer rules for evidence filing {anchor}")
+        rules[key] = canonical
+    return rules
 
 
-# normalize a string the way match-time lookups expect
-def _canonicalize_for_match(s: str) -> str:
-    """Reduce a string to what apply_employer_synonyms sees at match time; mirrors the regex chain in normalize_employer_canonical - keep in sync."""
-    s = (s or '').upper().strip()
-    s = re.sub(r'\s*\([A-Z]{1,5}\)\s*$', '', s)
-    s = LEGAL_SUFFIX_RE.sub('', s)
-    s = re.sub(r'[&$]', ' AND ', s)
-    s = re.sub(r'\s+', ' ', s).strip()
-    return s.rstrip('.,').strip()
+def reviewed_employer_name(name, donor_key="", cycle="", scoped=None) -> str:
+    if not isinstance(name, str):
+        return ""
+    key = employer_rule_key(name)
+    if scoped:
+        spellings = (key, employer_rule_key(_ALIASES.get(key, key)))
+        for period in (str(cycle), ""):
+            for spelling in spellings:
+                if target := scoped.get((str(donor_key), period, spelling)):
+                    return target
+    if key in _ALIASES:
+        return _ALIASES[key]
+    # Keep domain dots, name words and legal forms; tidy punctuation only.
+    text = name.upper().replace("&", " AND ").replace(",", " ")
+    text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
+    return " ".join(text.split())
 
 
-# add each key's normalized form as an alias too
-def _expand_synonym_keys() -> int:
-    """Register each key's post-normalize form as an alias, since matching happens after normalize_employer_canonical has run."""
-    added = 0
-    for key in list(EMPLOYER_SYNONYMS):
-        target = EMPLOYER_SYNONYMS[key]
-        norm_key = _canonicalize_for_match(key)
-        # skip identity and self-maps: that form is already canonical
-        if not norm_key or norm_key in (key, target) or preserved_employer_name(norm_key):
+# Existing values only: an alias never fills missing work or creates work history.
+def apply_reviewed_employer_names(
+    df: pd.DataFrame, columns=("contributor_employer", "previous_employer"),
+) -> int:
+    scoped = scoped_employer_rules(df)
+    mask = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df else pd.Series(True, index=df.index)
+    donors = df.get("donor_key", pd.Series("", index=df.index)).fillna("").astype(str)
+    cycles = df.get("two_year_transaction_period", pd.Series("", index=df.index)).fillna("").astype(str)
+    confirmed = df.get("identity_status", pd.Series("", index=df.index)).eq("confirmed")
+    changed = 0
+    for column in columns:
+        if column not in df:
             continue
-        existing = EMPLOYER_SYNONYMS.get(norm_key)
-        if existing is not None:
-            if existing != target:
-                # two raw keys normalize to the same alias; keep the first
-                logger.debug(
-                    "Synonym alias collision on %r - keeping existing target", norm_key)
-            continue
-        EMPLOYER_SYNONYMS[norm_key] = target
-        added += 1
-    return added
-
-
-# Runs at import time so the rest of the pipeline sees the merged dict
-# transparently; DEBUG because it precedes the run's user-facing output.
-_n_alias = _expand_synonym_keys()
-_n_flat = _flatten_synonym_chains()
-logger.debug(
-    "employer synonyms ready: %s rules, %s aliases, %s chains flattened",
-    f"{len(EMPLOYER_SYNONYMS):,}", _n_alias, _n_flat,
-)
+        values = df.loc[mask & df[column].notna(), column]
+        if scoped:
+            names = pd.Series([
+                reviewed_employer_name(value, donor, cycle, scoped if known else None)
+                for value, donor, cycle, known in zip(
+                    values, donors.loc[values.index], cycles.loc[values.index],
+                    confirmed.loc[values.index],
+                )
+            ], index=values.index, dtype=object)
+        else:
+            names = values.map(reviewed_employer_name)
+        different = names.ne(values)
+        df.loc[values.index[different], column] = names[different]
+        changed += int(different.sum())
+    return changed

@@ -102,7 +102,8 @@ def test_retired_marker_around_a_company_keeps_the_company(filed, company):
     'ANN MARGOLIN CONSULTING', 'OFFICE OF THE COUNTY EXECUTIVE',
 ])
 def test_named_firms_near_title_words_are_kept(company):
-    assert V(company) == company
+    expected = "W FLORIDA MEDICAL SPECIALIST" if company == "W. FLORIDA MEDICAL SPECIALIST" else company
+    assert V(company) == expected
 
 
 @pytest.mark.parametrize('typo', ['RETURED', 'REITRED', 'RETIREF', 'REIRED'])
@@ -180,5 +181,5 @@ def test_tail_rerun_does_not_restore_a_mixed_case_spelling():
     df = pd.DataFrame({'previous_employer': ['WHATSAPP LLC', 'ACME']})
     prior = pd.Series(['WhatsApp LLC', 'ACME INC'])
     _preserve_previous_employer_display(df, prior)
-    # same company: prior display spelling kept, but uppercase
-    assert df['previous_employer'].tolist() == ['WHATSAPP LLC', 'ACME INC']
+    # Case changes preserve identity; a different legal form needs evidence.
+    assert df['previous_employer'].tolist() == ['WHATSAPP LLC', 'ACME']

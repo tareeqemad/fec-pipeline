@@ -6,8 +6,6 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.donor_match.matcher import UnionFind
-
 # '10 17 GREENTREE DR': a house number cut in two by a space
 _SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
 
@@ -147,10 +145,6 @@ def _unify_street_types(df: pd.DataFrame) -> int:
 _ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 
-# a PO box with its number captured: "PO BOX 123", "P.O. BOX #45"
-_POBOX_RE = re.compile(r"\bP\.?\s*O\.?\s*BOX\s*#?\s*(\d+)")
-
-
 def _addr_fingerprint(street: str) -> str:
     """Anchor the house number and sort the remaining address tokens."""
     toks = _ADDR_TOKEN_RE.findall(street.upper())
@@ -218,80 +212,3 @@ def canonicalize_donor_units(df: pd.DataFrame) -> int:
         df, "contributor_street_2", _unit_bucket,
         lambda form, forms: (forms.count(form), len(form)),
     )
-
-
-def _pobox_num(street: str) -> str:
-    """Extract the box number from a PO-box street, else ''."""
-    m = _POBOX_RE.search(street.upper())
-    return m.group(1) if m else ""
-
-
-def _is_insertion_typo(a: str, b: str) -> bool:
-    """True iff one string is the other with exactly one extra digit inserted; same-length pairs never match."""
-    if abs(len(a) - len(b)) != 1:
-        return False
-    short, long = (a, b) if len(a) < len(b) else (b, a)
-    i = 0
-    for ch in long:
-        if i < len(short) and ch == short[i]:
-            i += 1
-    return i == len(short)
-
-
-def _pobox_rows_by_zip(df: pd.DataFrame, indexes) -> dict[str, list]:
-    by_zip = defaultdict(list)
-    for index in indexes:
-        street = df.at[index, "contributor_street_1"]
-        box = _pobox_num(street) if isinstance(street, str) else ""
-        if not box:
-            continue
-        zip_code = df.at[index, "contributor_zip"]
-        zip_code = zip_code if isinstance(zip_code, str) else ""
-        by_zip[zip_code].append((index, street.strip(), box))
-    return by_zip
-
-
-def _pobox_clusters(numbers: list[str]) -> list[list[str]]:
-    union = UnionFind()
-    for left in numbers:
-        for right in numbers:
-            if left < right and _is_insertion_typo(left, right):
-                union.union(left, right)
-
-    clusters = defaultdict(list)
-    for number in numbers:
-        clusters[union.find(number)].append(number)
-    return list(clusters.values())
-
-
-def _apply_pobox_cluster(df: pd.DataFrame, rows: list, members: list[str]) -> int:
-    frequencies = defaultdict(int)
-    for _, _, box in rows:
-        frequencies[box] += 1
-    canonical_box = max(
-        members,
-        key=lambda box: (frequencies[box], -len(box)),
-    )
-    canonical_forms = [street for _, street, box in rows if box == canonical_box]
-    canonical = max(set(canonical_forms), key=canonical_forms.count)
-
-    changed = 0
-    for index, street, box in rows:
-        if box in members and street != canonical:
-            df.at[index, "contributor_street_1"] = canonical
-            changed += 1
-    return changed
-
-
-def canonicalize_donor_pobox_typos(df: pd.DataFrame) -> int:
-    """Unify one-digit insertion typos in a donor's same-ZIP PO boxes."""
-    changed = 0
-    for indexes in df.groupby("donor_key").groups.values():
-        for rows in _pobox_rows_by_zip(df, indexes).values():
-            numbers = sorted({box for _, _, box in rows})
-            if len(numbers) < 2:
-                continue
-            for members in _pobox_clusters(numbers):
-                if len(members) >= 2:
-                    changed += _apply_pobox_cluster(df, rows, members)
-    return changed

@@ -1,4 +1,4 @@
-"""One donor, one company name: substring and acronym variants converge; different companies stay."""
+"""Company similarities need an explicit rule even within one donor's filings."""
 import pandas as pd
 
 from fec.cleaning.donors.employer_variants import (
@@ -34,13 +34,24 @@ def test_containment_is_by_whole_words_only():
     assert _employer_substring_variants(df) == 0
 
 
-def test_acronym_next_to_its_expansion_takes_the_full_name():
+def test_acronym_next_to_its_expansion_needs_a_scoped_rule(monkeypatch):
     df = _df([('INDIVIDUAL', 'k1', 'WPCM')] * 3 + [('INDIVIDUAL', 'k1', 'WHITE PINE CAPITAL MANAGEMENT')] * 11
              + [('INDIVIDUAL', 'k1', 'JHU APL'), ('INDIVIDUAL', 'k1', 'JOHNS HOPKINS UNIVERSITY APPLIED PHYSICS LABORATORY')]
              + [('INDIVIDUAL', 'k2', 'HCC')] * 8 + [('INDIVIDUAL', 'k2', 'HOWARD COMMUNITY COLLEGE')] * 2
              + [('INDIVIDUAL', 'k3', 'HCC')] * 5)                            # another person's HCC is untouched
-    assert _employer_acronym_variants(df) == 3 + 1 + 8
-    assert df[df.donor_key == 'k1'].contributor_employer.isin({'WHITE PINE CAPITAL MANAGEMENT', 'JOHNS HOPKINS UNIVERSITY APPLIED PHYSICS LABORATORY'}).all()
+    before = df.contributor_employer.tolist()
+    assert _employer_acronym_variants(df) == 0
+    assert df.contributor_employer.tolist() == before
+    # A reviewed filing anchors this donor and this cycle only.
+    from fec.cleaning.work import employer_aliases
+    df['sub_id'] = df.index.astype(str)
+    df['identity_status'] = 'confirmed'
+    df['two_year_transaction_period'] = '2024'
+    anchor = df.index[df.donor_key.eq('k2')][0]
+    monkeypatch.setattr(employer_aliases, '_SCOPED_RULES', [
+        (str(anchor), '2024', 'HCC', 'HOWARD COMMUNITY COLLEGE'),
+    ])
+    assert _employer_acronym_variants(df) == 8
     assert set(df[df.donor_key == 'k2'].contributor_employer) == {'HOWARD COMMUNITY COLLEGE'}
     assert set(df[df.donor_key == 'k3'].contributor_employer) == {'HCC'}
 

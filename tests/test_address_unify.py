@@ -3,8 +3,10 @@
 import pandas as pd
 
 from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
-from fec.cleaning.addresses.fixes.house_numbers import _truncated_house_numbers
-from fec.cleaning.addresses.fixes.unify import _unify_street_spacing
+from fec.cleaning.addresses.fixes.unify import (
+    _unify_street_spacing,
+    canonicalize_donor_addresses,
+)
 
 
 def _df(streets):
@@ -109,24 +111,19 @@ def test_recovers_blank_street_only_from_one_exact_donor_address():
     assert _recover_missing_streets(df) == 0
 
 
-def test_repairs_rare_truncated_house_number_per_donor():
+def test_keeps_rare_house_numbers_as_filed():
     df = pd.DataFrame(
         {
             "entity_type": ["INDIVIDUAL"] * 8,
             "donor_key": ["same"] * 7 + ["different"],
             "contributor_street_1": ["12345 OAK ST"] * 6 + ["123 OAK ST"] * 2,
+            "contributor_zip": ["10001"] * 8,
         }
     )
 
-    assert _truncated_house_numbers(df) == 1
-    assert (
-        df.loc[df["donor_key"] == "same", "contributor_street_1"]
-        .eq("12345 OAK ST")
-        .all()
-    )
-    assert df.loc[df["donor_key"] == "different", "contributor_street_1"].item() == (
-        "123 OAK ST"
-    )
+    before = df["contributor_street_1"].tolist()
+    assert canonicalize_donor_addresses(df) == 0
+    assert df["contributor_street_1"].tolist() == before
 
 
 def test_a_house_number_split_by_a_space_loses_to_the_joined_one():

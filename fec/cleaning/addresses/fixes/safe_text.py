@@ -59,10 +59,10 @@ _CO_RE = re.compile(r"^C\s*/\s*O\b\.?\s*", re.IGNORECASE)
 
 
 def _fix_house_number(s):
-    """Strip leading symbols and house-number zeros; keep an all-zero number."""
+    """Remove leading zeros; preserve unclear house numbers."""
     if pd.isna(s):
         return s
-    text = re.sub(r"^[^A-Z0-9]+", "", str(s)).strip()
+    text = str(s).strip()
     match = re.match(r"^(\d+)(\b.*)$", text)
     if match and set(match.group(1)) != {"0"}:
         text = (match.group(1).lstrip("0") or "0") + match.group(2)

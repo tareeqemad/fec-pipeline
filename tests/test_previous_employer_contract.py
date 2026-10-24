@@ -54,14 +54,14 @@ def test_non_companies_are_cleared():
 
 
 def test_real_companies_are_normalized():
-    assert V("MARCUM LLP") == "MARCUM"
-    assert V("SIDLEY AUSTIN LLP") == "SIDLEY AUSTIN"
+    assert V("MARCUM LLP") == "MARCUM LLP"
+    assert V("SIDLEY AUSTIN LLP") == "SIDLEY AUSTIN LLP"
     assert V("CHAPEL HAVEN") == "CHAPEL HAVEN"
 
 
 def test_previous_employer_abbreviations_respect_reviewed_separations():
-    assert V("AMERICAN PSYCHOLOGICAL ASSOC.") == "AMERICAN PSYCHOLOGICAL ASSOCIATION"
-    assert V("HARBOR CAPITAL MGMT LLC") == "HARBOR CAPITAL MANAGEMENT"
+    assert V("AMERICAN PSYCHOLOGICAL ASSOC.") == "AMERICAN PSYCHOLOGICAL ASSOC"
+    assert V("HARBOR CAPITAL MGMT LLC") == "HARBOR CAPITAL MANAGEMENT LLC"
     # Unverified rules cannot invent a professional-corporation form or expansion.
     assert V("NUCLEAR ONCOLOGY ASSOC.") == "NUCLEAR ONCOLOGY ASSOC"
     assert V("SNOWS & ASSOC. LLP/CONSULTANT") == "SNOWS & ASSOC. LLP"
@@ -255,7 +255,7 @@ def test_resolve_uses_current_canonical_employer_spelling():
 def test_resolve_still_applies_a_real_previous_employer_correction():
     """Display stability must never freeze a different cached company."""
     resolved = _resolved_retiree("APPLE INC", "MICROSOFT CORP")
-    assert resolved["previous_employer"].iloc[0] == "MICROSOFT"
+    assert resolved["previous_employer"].iloc[0] == "MICROSOFT CORP"
 
 
 def test_resolve_keeps_self_employed_as_known_work_history():
@@ -457,14 +457,16 @@ def test_a_hand_set_previous_employer_still_wins_over_the_filing_history():
     assert resolved["previous_employer"].tolist()[1::2] == ["ACME INDUSTRIES", "ACME INDUSTRIES"]
 
 
-def test_resolve_expands_abbreviations_in_a_previous_employer_from_the_fec_api():
-    """A previous employer another filer wrote (RTI INTL METALS) gets clean.py's expansion."""
-    for cached, expected in (("RTI INTL METALS", "RTI INTERNATIONAL METALS"),
-                             ("CHILO MFG. & PLATING CO", "CHILO MANUFACTURING & PLATING CO"),
-                             ("EAST BAY DERMATOLOGY MEDICAL GRP", "EAST BAY DERMATOLOGY MEDICAL GROUP")):
+def test_resolve_keeps_unverified_abbreviations_from_the_fec_api():
+    """An abbreviated filing is kept unless an employer rule establishes its meaning."""
+    for cached, expected in (
+        ("RTI INTL METALS", "RTI INTL METALS"),
+        ("CHILO MFG. & PLATING CO", "CHILO MFG AND PLATING CO"),
+        ("EAST BAY DERMATOLOGY MEDICAL GRP", "EAST BAY DERMATOLOGY MEDICAL GRP"),
+    ):
         first = _resolved_retiree("", cached)
         assert first["previous_employer"].iloc[0] == expected
-        again = _resolved_retiree(expected, cached)
+        again = _resolved_retiree(cached, cached)
         assert again["previous_employer"].iloc[0] == expected
 
 
@@ -631,13 +633,14 @@ def test_titles_typos_sectors_and_a_firm_run_alone():
 def test_one_character_and_form_placeholders_name_no_company():
     # cached FEC answers: "~~BLANK~~", RRETIRED -> "R", "RETIRED Z" -> "Z"
     assert V("~~BLANK~~") == V("A") == V("R") == V("Z") == ""
-    assert V("BLANK ROME LLP") == V("BLANK ROME") == "BLANK ROME"
+    assert V("BLANK ROME LLP") == "BLANK ROME LLP"
+    assert V("BLANK ROME") == "BLANK ROME"
     assert V("3M") == "3M"
 
 
-def test_truncated_previous_employers_take_their_full_name():
-    assert V("CALIFORNIA CABLE TELEVISION ASSOCIATIO") == "CALIFORNIA CABLE TELEVISION ASSOCIATION"
-    assert V("KASOWITZ, BENSON, TORRES & FRIEDMAN LL") == "KASOWITZ, BENSON, TORRES & FRIEDMAN"
+def test_truncated_previous_employers_follow_documented_rules_only():
+    assert V("CALIFORNIA CABLE TELEVISION ASSOCIATIO") == "CALIFORNIA CABLE TELEVISION ASSOCIATIO"
+    assert V("KASOWITZ, BENSON, TORRES & FRIEDMAN LL") == "KASOWITZ, BENSON, TORRES & FRIEDMAN LL"
     assert V("INST. FOR THE ANALYSIS OF GLOBAL SECUR") == "INSTITUTE FOR THE ANALYSIS OF GLOBAL SECURITY"
 
 

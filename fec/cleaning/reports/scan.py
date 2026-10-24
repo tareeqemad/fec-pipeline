@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from difflib import SequenceMatcher
+from itertools import combinations
 
 import pandas as pd
 
@@ -13,6 +15,7 @@ from fec.cleaning.reports.occupation_scan import (
 )
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.employers import EMPLOYER_ABBREVIATIONS
+from fec.cleaning.work.employer_aliases import reviewed_employer_pair
 
 # every abbreviation token is worth surfacing, auto-expanded or not
 _ABBR_RES = {token: re.compile(rf"\b{token}\b") for token in EMPLOYER_ABBREVIATIONS}
@@ -75,19 +78,32 @@ def _emp_fp(name: str) -> str:
 
 # group employer strings that reduce to the same fingerprint
 def scan_employer_near_duplicates(df: pd.DataFrame) -> dict:
-    emp = df.loc[df["entity_type"] == "INDIVIDUAL", "contributor_employer"]
+    columns = [name for name in ("contributor_employer", "previous_employer") if name in df]
+    people = df.loc[df["entity_type"] == "INDIVIDUAL"]
+    emp = pd.concat([people[column] for column in columns], ignore_index=True).fillna("")
     groups = defaultdict(set)
     for employer in emp.unique():
         if employer and employer.upper() not in EMPLOYER_STATUS_VALUES:
             fingerprint = _emp_fp(employer)
             if fingerprint:
                 groups[fingerprint].add(employer)
-    dupes = [group for group in groups.values() if len(group) > 1]
+    candidates = {tuple(sorted(pair)) for group in groups.values()
+                  for pair in combinations(group, 2)}
+    # Same-donor similarity is a suggestion, never a rename.
+    if "donor_key" in people:
+        for _, donor in people.groupby("donor_key"):
+            names = {name for column in columns for name in donor[column].dropna().unique()
+                     if name and name.upper() not in EMPLOYER_STATUS_VALUES}
+            for left, right in combinations(sorted(names), 2):
+                if SequenceMatcher(None, left, right).ratio() >= 0.9:
+                    candidates.add((left, right))
+    dupes = [pair for pair in sorted(candidates) if not reviewed_employer_pair(*pair)]
     examples = [
         sorted(group)
         for group in sorted(dupes, key=lambda group: -len(group))[:8]
     ]
-    return {"groups": len(dupes), "examples": examples}
+    return {"groups": len(dupes), "examples": examples,
+            "kept_separate_by_rule": len(candidates) - len(dupes)}
 
 
 # find contributor_name values that don't match the rebuilt canonical name
