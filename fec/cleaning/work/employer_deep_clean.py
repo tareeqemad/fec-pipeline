@@ -5,14 +5,14 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.reports.trail import WORK_FIELDS
-from fec.cleaning.work.employer_aliases import preserved_employer_name
+from fec.cleaning.work.employer_aliases import documented_employer_name, preserved_employer_name
 from fec.config.constants import (
     OK_SHORT_EMPLOYERS,
     OK_SHORT_OCCUPATIONS,
     SELF_EMPLOYED_TYPOS,
 )
 from fec.config.data import MISSING_VALUES
-from fec.config.occupation_rules.fixes import EMPLOYER_TYPO_FIXES, OCCUPATION_FIXES
+from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
 
 # a leading job title before the employer name: "CEO, ACME CORP"
@@ -34,7 +34,7 @@ def _deep_clean_employer(df: pd.DataFrame, trail) -> int:
     return n_changed
 
 
-# Clear numbers and emails; restore DUN & BRADSTREET when it contains @.
+# Clear numbers and emails; keep exact company corrections from the rules.
 def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> int:
     emp = df['contributor_employer']
     n_changed = 0
@@ -46,12 +46,8 @@ def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> int:
 
     email = emp.str.contains('@', na=False, regex=False)
     if email.any():
-        dun = email & emp.str.contains('DUN.*BRADSTREET', na=False, case=False)
-        pure_email = email & ~dun
-        if dun.any():
-            df.loc[dun, 'contributor_employer'] = 'DUN & BRADSTREET'
-        if pure_email.any():
-            df.loc[pure_email, 'contributor_employer'] = np.nan
+        reviewed = emp[email].map(documented_employer_name)
+        df.loc[email, 'contributor_employer'] = reviewed.where(reviewed.notna(), np.nan)
         n_changed += int(email.sum())
 
     return n_changed
@@ -159,21 +155,10 @@ def _deep_clean_emp_homemaker_sync(df: pd.DataFrame) -> int:
     return n_changed
 
 
-# fix common employer typo patterns via configured regex replacements
+# Apply documented full-name corrections, not word substitutions.
 def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> int:
-    n_changed = 0
-    emp_col = df['contributor_employer']
-    editable = emp_col.map(preserved_employer_name).isna()
-    for typo_pattern, fix in EMPLOYER_TYPO_FIXES:
-        mask = emp_col.str.contains(typo_pattern, na=False, regex=True)
-        mask &= editable
-        if mask.any():
-            df.loc[mask, 'contributor_employer'] = (
-                emp_col[mask].str.replace(typo_pattern, fix, regex=True)
-            )
-            n_changed += int(mask.sum())
-            emp_col = df['contributor_employer']
-    return n_changed
+    from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
+    return apply_reviewed_employer_names(df, ("contributor_employer",))
 
 
 # Clear short work values unless an allowed name or occupation fix preserves them.

@@ -42,12 +42,15 @@ COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-# Parse an exact amount; use zero for missing or invalid values.
-def _number(value) -> Decimal:
+# Reject missing or invalid amounts instead of recording them as zero.
+def _number(value, sub_id: str) -> Decimal:
     try:
-        return Decimal(str(value).strip() or "0") if value is not None else Decimal("0")
+        amount = Decimal(str(value).strip())
     except (InvalidOperation, ValueError):
-        return Decimal("0")
+        raise ValueError(f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}") from None
+    if not amount.is_finite():
+        raise ValueError(f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}")
+    return amount
 
 
 # Build a raw CSV row, skipping filings without an ID.
@@ -67,7 +70,7 @@ def build_row(result: dict[str, Any]) -> list | None:
     values["contribution_receipt_date"] = receipt_date
     values["contributor_year"] = year
     values["contribution_receipt_amount"] = _number(
-        result.get("contribution_receipt_amount")
+        result.get("contribution_receipt_amount"), sub_id
     )
     return [values.get(column) for column in COLUMNS]
 

@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from fec.cleaning._helpers import levenshtein
+from fec.cleaning.work.employer_aliases import reviewed_employer_name
 from fec.cleaning.work.normalize import _categorize, categorize_final
 from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
 from fec.config.not_employers import NOT_REAL_EMPLOYER
@@ -50,6 +51,10 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
         fields["previous_employer"] = (
             "" if previous.upper() == CLEAR_PREVIOUS_EMPLOYER else previous
         )
+    # Row corrections use the same company spelling as the shared rules.
+    for column in ("contributor_employer", "previous_employer"):
+        if isinstance(fields.get(column), str):
+            fields[column] = reviewed_employer_name(fields[column])
     category = (row.get("occupation_category") or "").strip()
     if category:
         if category not in VALID_CATEGORIES:

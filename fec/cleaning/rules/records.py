@@ -12,14 +12,11 @@ from fec.cleaning.reports.trail import (
 )
 from fec.cleaning.work.employer_names import (
     apply_employer_synonyms,
-    expand_employer_abbreviations,
-    expand_employer_associates,
     fix_normalized_mid_suffix,
     fix_occupation_as_employer,
 )
 from fec.cleaning.work.employer_canonical import (
     recanonicalize_employers,
-    restore_display_suffixes,
 )
 from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 from fec.cleaning.entities import (
@@ -47,7 +44,6 @@ from fec.cleaning.rules.junk import (
     clean_remaining_junk,
 )
 from fec.cleaning.rules.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
-from fec.env import RAW_CSV
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -69,7 +65,7 @@ _AUDITED_RULES = (
     (fix_misclassified_business_entities, _CLASSIFICATION_FIELDS,
      'enh_reclassify_business', 'business_suffix_or_org_pattern'),
     (normalize_business_names, _NAME_ONLY,
-     'enh_normalize_business_names', 'strip_legal_suffix'),
+     'enh_normalize_business_names', 'documented_company_name'),
     (normalize_name_periods, _NAME_ONLY,
      'enh_normalize_name_periods', 'remove_periods_from_initials'),
     (fix_credential_in_name, NAME_FIELDS,
@@ -85,24 +81,19 @@ _AUDITED_RULES = (
     (clean_remaining_junk, WORK_FIELDS,
      'enh_clean_junk', 'junk_cleanup'),
     (normalize_employer_canonical, _NORMALIZED_EMPLOYER_ONLY + _EMPLOYER_ONLY,
-     'enh_normalize_employer', 'strip_suffix_normalize_and'),
+     'enh_normalize_employer', 'company_name_formatting'),
     (fix_fullname_in_both_fields, NAME_FIELDS,
      'enh_fix_fullname_both', 'fullname_copied_to_both_fields'),
     (fix_employer_equals_occupation,
-     ('contributor_occupation', 'occupation_category'),
+     WORK_FIELDS,
      'enh_fix_emp_eq_occ', 'employer_equals_occupation'),
     (fix_normalized_mid_suffix, _NORMALIZED_EMPLOYER_ONLY + _EMPLOYER_ONLY,
-     'enh_fix_norm_mid_suffix', 'strip_mid_string_llc_inc'),
+     'enh_fix_norm_mid_suffix', 'documented_company_name'),
     (apply_employer_synonyms, _EMPLOYER_ONLY,
      'enh_employer_synonyms', 'verified_same_company'),
     (fix_occupation_as_employer, WORK_FIELDS,
      'enh_fix_occ_as_employer', 'occupation_word_in_employer'),
 )
-
-
-def _restore_suffixes_from_raw(df: pd.DataFrame) -> int:
-    """Restore employer display suffixes from the raw filings."""
-    return restore_display_suffixes(df, RAW_CSV)
 
 
 # In order: transform, audit name, reason, fields, log message.
@@ -115,23 +106,8 @@ _LATE_STEPS = (
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
      "Fixed {n:,} curated occupation typos/abbreviations"),
     (recanonicalize_employers, 'employer_recanonicalize',
-     'employer_variant_unified_by_canonical_key', EMPLOYMENT_FIELDS,
-     "Re-canonicalized {n:,} employer variants"),
-    (_restore_suffixes_from_raw, 'employer_restore_suffixes',
-     'employer_display_form_restored_from_raw', WORK_FIELDS,
-     "Restored display suffixes for {n:,} rows (HOUSING -> HOUSING INC etc.)"),
-    # Restore curated synonyms after the raw spelling pass.
-    (apply_employer_synonyms, 'enh_employer_synonyms_final',
-     'verified_same_company', _EMPLOYER_ONLY,
-     "Re-applied {n:,} employer synonyms (final pass)"),
-    # Expand abbreviations introduced by synonyms too.
-    (expand_employer_abbreviations, 'employer_expand_abbreviations',
-     'employer_abbreviation_expanded', _EMPLOYER_ONLY,
-     "Expanded {n:,} employer abbreviations (MGMT->MANAGEMENT, ...)"),
-    # ASSOC can mean ASSOCIATION or ASSOCIATES.
-    (expand_employer_associates, 'employer_expand_assoc',
-     'employer_assoc_expanded', _EMPLOYER_ONLY,
-     "Normalized {n:,} ASSOC employers (-> ASSOCIATES / ASSOCIATION)"),
+     'documented_company_alias', EMPLOYMENT_FIELDS,
+     "Applied {n:,} documented company aliases"),
     (_clean_self_employed_variants, 'self_employed_variants',
      'self_employed_variant_unified', WORK_FIELDS,
      "Unified {n:,} self-employed variants -> SELF-EMPLOYED"),

@@ -52,7 +52,8 @@ def test_restyle_never_strips_suffix():
 
 
 def test_canonical_key_incorporated_and_tokens():
-    assert canonical_key('MOVIL INCORPORATED') == canonical_key('MOVIL INC')
+    assert canonical_key('MOVIL INCORPORATED') != canonical_key('MOVIL INC')
+    # This full-name abbreviation has an explicit rule.
     assert canonical_key('UNIV OF CHICAGO') == canonical_key('UNIVERSITY OF CHICAGO')
     assert employer_text_key('MT SINAI HOSPITAL') == employer_text_key('MOUNT SINAI HOSPITAL')
     # Text expansion is not identity proof for the reviewed Mount Sinai name.
@@ -65,14 +66,14 @@ def test_canonical_key_keeps_glued_brand_suffix_on_one_word():
     # GOLDCO (precious metals) is not GOLD AND COMPANY (Baltimore real estate)
     assert canonical_key('GOLDCO') != canonical_key('GOLD AND COMPANY')
     assert canonical_key('TERRACO') != canonical_key('TERRA')
-    assert canonical_key('PEPSICO INC') == canonical_key('PEPSICO')
-    # a separate CO word, or a glued suffix on a longer name, still folds
-    assert canonical_key('ACME CO') == canonical_key('ACME')
-    assert canonical_key('ACMECOINC') == canonical_key('ACMECO INC')
-    assert canonical_key('SCOTT FANE,CPA PA') == canonical_key('SCOTT FANE CPA')
+    assert canonical_key('PEPSICO INC') != canonical_key('PEPSICO')
+    # Legal forms and word boundaries remain part of an unreviewed name.
+    assert canonical_key('ACME CO') != canonical_key('ACME')
+    assert canonical_key('ACMECOINC') != canonical_key('ACMECO INC')
+    assert canonical_key('SCOTT FANE,CPA PA') == canonical_key('SCOTT FANE CPA PA')
 
 
-def test_final_employer_pass_collapses_late_variants():
+def test_final_employer_pass_keeps_unproven_late_variants():
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL", "INDIVIDUAL"],
         "contributor_employer": ["ACME MGMT LLC", "ACME MANAGEMENT"],
@@ -81,11 +82,10 @@ def test_final_employer_pass_collapses_late_variants():
 
     finalize_employer_names(df)
 
-    assert df["contributor_employer"].nunique() == 1
-    assert df["contributor_employer"].iloc[0] == "ACME MANAGEMENT LLC"
+    assert df["contributor_employer"].tolist() == ["ACME MGMT LLC", "ACME MANAGEMENT"]
 
 
-def test_current_employer_spelling_wins_over_previous_history():
+def test_current_employer_does_not_rename_unproven_previous_history():
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL"] * 3,
         "contributor_employer": ["ACME LLC", "", ""],
@@ -95,14 +95,14 @@ def test_current_employer_spelling_wins_over_previous_history():
     finalize_employer_names(df)
 
     assert df["contributor_employer"].iloc[0] == "ACME LLC"
-    assert set(df.loc[1:, "previous_employer"]) == {"ACME LLC"}
+    assert set(df.loc[1:, "previous_employer"]) == {"ACME"}
 
 
 def test_display_name_trailing_connectors_and_co():
     assert normalize_employer_display_name('C/O SCHUWARGER & ASSOCIATES') == \
         'SCHUWARGER & ASSOCIATES'
     assert normalize_employer_display_name('SOUTHERN GLAZERS WINE AND') == \
-        'SOUTHERN GLAZERS WINE'
+        'SOUTHERN GLAZERS WINE AND'
 
 
 def test_display_name_converges_on_synonyms():

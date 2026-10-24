@@ -27,6 +27,8 @@ def _one_confirmed_role(df, donor_key, employer):
         & df['entity_type'].eq('INDIVIDUAL')
         & df['contributor_employer'].eq(employer)
     )
+    if 'occupation_status' in df:
+        same_job &= df['occupation_status'].ne('DERIVED')
     occupations = df.loc[same_job, 'contributor_occupation'].dropna()
     occupations = occupations[
         occupations.ne('') & ~occupations.isin(SKIP_OCCUPATIONS)
@@ -91,6 +93,8 @@ def _fill_missing_occupations(df: pd.DataFrame, missing_occ: pd.DataFrame) -> in
             & ~df['contributor_occupation'].isin(SKIP_OCCUPATIONS)
             & df['contributor_occupation'].ne('')
         ]
+        if 'occupation_status' in real_recs:
+            real_recs = real_recs[real_recs['occupation_status'].ne('DERIVED')]
         if real_recs.empty:
             continue
 
@@ -126,6 +130,8 @@ def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
     if not vague.any():
         return 0
     real = indiv[(occ != '') & ~occ.isin(SKIP_OCCUPATIONS)]
+    if 'occupation_status' in real:
+        real = real[real['occupation_status'].ne('DERIVED')]
     by_job = real.groupby(['donor_key', 'contributor_employer'])['contributor_occupation'].agg(lambda s: s.value_counts().index[0])
     by_donor = real.groupby('donor_key')['contributor_occupation'].agg(lambda s: s.value_counts().index[0])
     n_fixed = 0
@@ -139,5 +145,6 @@ def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
             continue
         df.at[idx, 'contributor_occupation'] = new
         df.at[idx, 'occupation_category'] = categorize_final(pd.Series([new])).iloc[0]
+        df.at[idx, 'occupation_status'] = 'DERIVED'
         n_fixed += 1
     return n_fixed

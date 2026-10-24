@@ -8,7 +8,7 @@ from fec.cleaning.addresses.street_text import normalize_street
 from fec.cleaning.work.employer_canonical import canonical_key
 from fec.env import REFERENCE_DIR
 from fec.geocoding.validation import EARTH_RADIUS_MILES, great_circle
-
+from fec.resolve.cache import verified_address_entries
 
 ADDRESS_FIELDS = (
     "employer_address",
@@ -119,11 +119,8 @@ def _publishable_entry(entry: dict | None) -> dict | None:
     return result
 
 
-def _preferred_entry(
-    exact: dict | None,
-    matches: list[dict],
-) -> dict | None:
-    if exact and exact.get("method") in {"manual_invalid", "ai_not_found"}:
+def _preferred_entry(exact: dict | None, matches: list[dict]) -> dict | None:
+    if exact and exact.get("method") == "manual_invalid":
         return exact
     for entry in matches:
         if entry.get("method") == "manual_invalid":
@@ -140,18 +137,20 @@ def _preferred_entry(
     if len(manual_addresses) == 1:
         return max(manual, key=lambda entry: len(location_candidates(entry)))
 
-    if exact is not None:
+    if exact is not None and exact.get("method") != "ai_not_found":
         return exact
 
+    if exact is not None:
+        matches = [
+            entry for entry in map(_publishable_entry, matches)
+            if entry and entry.get("method") not in _CACHE_BLOCK_METHODS
+        ]
     usable = [entry for entry in matches if location_candidates(entry)]
-    addresses = {
-        _signature(location_candidates(entry)[0])
-        for entry in usable
-    }
+    addresses = {_signature(location_candidates(entry)[0]) for entry in usable}
     if len(addresses) == 1:
         return usable[0]
 
-    return None
+    return exact
 
 
 def address_cache_lookup(
@@ -160,6 +159,7 @@ def address_cache_lookup(
     publishable_only: bool = False,
 ) -> dict[str, dict]:
     """Index safe cache matches."""
+    entries = verified_address_entries(entries)
     if publishable_only:
         entries = {
             name: trusted

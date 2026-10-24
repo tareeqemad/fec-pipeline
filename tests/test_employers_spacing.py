@@ -1,4 +1,4 @@
-"""Spacing variants of one employer: the word breaks the donor's own fuller filings use win (TWINCITY FAN -> TWIN CITY FAN)."""
+"""Reviewed spelling wins; word boundaries and legal forms remain significant."""
 import pandas as pd
 
 from fec.cleaning.work.employer_canonical import restore_display_suffixes
@@ -18,21 +18,21 @@ def _frame(rows):
     return pd.DataFrame(records)
 
 
-def test_group_words_keep_breaks_and_key_ignores_them():
-    assert employer_group_words('TWIN CITY FAN COMPANIES, LTD.') == ('TWIN', 'CITY', 'FAN', 'COMPANIES')
-    assert employer_group_words('KIRKLAND&ELLIS') == ('KIRKLAND', 'AND', 'ELLIS')
-    assert _employer_group_key('TWINCITY FAN') == _employer_group_key('TWIN CITY FAN') == 'TWINCITYFAN'
-    assert _employer_group_key('KIRKLAND & ELLIS LLP') == 'KIRKLANDANDELLIS'
+def test_group_words_keep_breaks_and_legal_forms():
+    assert employer_group_words('TWIN CITY FAN COMPANIES, LTD.') == ('TWIN', 'CITY', 'FAN', 'COMPANIES', 'LTD')
+    assert employer_group_words('ACME&SONS') == ('ACME', 'AND', 'SONS')
+    assert _employer_group_key('TWINCITY FAN') == _employer_group_key('TWIN CITY FAN') == 'TWIN CITY FAN COMPANIES LTD'
+    assert _employer_group_key('ACME & SONS LLP') == 'ACME AND SONS LLP'
 
 
-def test_donors_full_name_spacing_beats_a_more_frequent_misspelling():
+def test_documented_spelling_beats_a_more_frequent_misspelling():
     df = _frame([
         ('TWINCITY FAN', 'BARRY, MICHAEL', 7),
         ('TWIN CITY FAN', 'BARRY, MICHAEL', 4),
         ('TWIN CITY FAN COMPANIES LTD', 'BARRY, MICHAEL', 13),
     ])
     _canonicalize_employers(df)
-    assert set(df['contributor_employer']) == {'TWIN CITY FAN', 'TWIN CITY FAN COMPANIES LTD'}
+    assert set(df['contributor_employer']) == {'TWIN CITY FAN COMPANIES LTD'}
 
 
 def test_unrelated_company_sharing_the_spaced_prefix_cannot_flip_the_group():
@@ -47,8 +47,7 @@ def test_unrelated_company_sharing_the_spaced_prefix_cannot_flip_the_group():
     assert set(df['contributor_employer']) == {'BLACKROCK', 'BLACK ROCK', 'BLACK ROCK COFFEE'}
 
 
-def test_conflicting_evidence_keeps_the_frequency_winner():
-    # the same donor writes AB INITIO SOFTWARE and ABINITIO SOFTWARE
+def test_explicit_rule_wins_regardless_of_frequency():
     df = _frame([
         ('AB INITIO', 'DALEZMAN, ALLEN', 17),
         ('ABINITIO', 'DALEZMAN, ALLEN', 10),
@@ -56,7 +55,7 @@ def test_conflicting_evidence_keeps_the_frequency_winner():
         ('ABINITIO SOFTWARE', 'DALEZMAN, ALLEN', 10),
     ])
     _canonicalize_employers(df)
-    assert (df['contributor_employer'].isin(['AB INITIO', 'ABINITIO SOFTWARE'])).all()
+    assert df['contributor_employer'].eq('AB INITIO SOFTWARE').all()
 
 
 def test_punctuation_breaks_are_not_spacing_evidence():
@@ -66,19 +65,19 @@ def test_punctuation_breaks_are_not_spacing_evidence():
         ('BANK OF AMERICA/MERRILL LYNCH', 'MORSE, RICHARD', 6),
     ])
     _canonicalize_employers(df)
-    # Preserve all reviewed compound labels, including their filed slash spacing.
+    # An explicit formatting rule changes slash spacing, not the affiliation.
     assert df['contributor_employer'].tolist() == (
-        ['BANK OF AMERICA/ MERRILL'] * 4
+        ['BANK OF AMERICA/MERRILL'] * 4
         + ['BANK OF AMERICA/MERRILL'] * 2
         + ['BANK OF AMERICA/MERRILL LYNCH'] * 6
     )
 
 
-def test_without_filer_names_the_frequency_rule_is_unchanged():
+def test_global_rule_does_not_need_filer_names():
     df = pd.DataFrame({'contributor_employer': ['TWINCITY FAN'] * 7 + ['TWIN CITY FAN'] * 4
                        + ['TWIN CITY FAN COMPANIES LTD'] * 13})
     _canonicalize_employers(df)
-    assert set(df['contributor_employer']) == {'TWINCITY FAN', 'TWIN CITY FAN COMPANIES LTD'}
+    assert set(df['contributor_employer']) == {'TWIN CITY FAN COMPANIES LTD'}
 
 
 def test_restore_display_suffixes_does_not_revert_the_attested_spacing(tmp_path):
@@ -95,12 +94,12 @@ def test_restore_display_suffixes_does_not_revert_the_attested_spacing(tmp_path)
         'contributor_employer': ['TWIN CITY FAN', 'TWINCITY FAN', 'ACME'],
     })
     restore_display_suffixes(df, raw_csv)
-    assert df['contributor_employer'].tolist() == ['TWIN CITY FAN', 'TWIN CITY FAN', 'ACME INC']
+    assert df['contributor_employer'].tolist() == ['TWIN CITY FAN COMPANIES LTD', 'TWIN CITY FAN COMPANIES LTD', 'ACME']
 
 
-def test_restore_display_suffixes_without_filer_column_keeps_the_raw_mode(tmp_path):
+def test_raw_mode_cannot_overwrite_a_documented_name(tmp_path):
     raw_csv = tmp_path / 'contributions.csv'
     pd.DataFrame({'contributor_employer': ['TWINCITY FAN'] * 7 + ['TWIN CITY FAN'] * 4}).to_csv(raw_csv, index=False)
     df = pd.DataFrame({'entity_type': ['INDIVIDUAL'], 'contributor_employer': ['TWIN CITY FAN']})
     restore_display_suffixes(df, raw_csv)
-    assert df['contributor_employer'].iloc[0] == 'TWINCITY FAN'
+    assert df['contributor_employer'].iloc[0] == 'TWIN CITY FAN COMPANIES LTD'

@@ -27,8 +27,8 @@ def test_flags_employer_abbreviations():
 def test_near_duplicates_collapse_abbrev_but_split_different_firms():
     df = _df(
         [
-            ["INDIVIDUAL", "ROBICO MANAGEMENT"],
-            ["INDIVIDUAL", "ROBICO MGMT"],
+            ["INDIVIDUAL", "EXAMPLE VENTURE MANAGEMENT"],
+            ["INDIVIDUAL", "EXAMPLE VENTURE MGMT"],
             ["INDIVIDUAL", "M&R MANAGEMENT"],
             ["INDIVIDUAL", "S&A MANAGEMENT"],
         ],
@@ -36,7 +36,7 @@ def test_near_duplicates_collapse_abbrev_but_split_different_firms():
     )
     r = qs.scan_employer_near_duplicates(df)
     # the MGMT/MANAGEMENT pair is one group
-    assert any("ROBICO MANAGEMENT" in g and "ROBICO MGMT" in g for g in r["examples"])
+    assert any("EXAMPLE VENTURE MANAGEMENT" in g and "EXAMPLE VENTURE MGMT" in g for g in r["examples"])
     # M&R vs S&A keep their single letters and do not collide
     assert not any(
         "M&R MANAGEMENT" in g and "S&A MANAGEMENT" in g for g in r["examples"]

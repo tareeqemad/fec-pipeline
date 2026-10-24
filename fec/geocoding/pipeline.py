@@ -8,7 +8,7 @@ import pandas as pd
 from fec.cleaning.addresses.foreign import kept_as_filed_mask
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, census, nominatim
-from fec.geocoding.validation import accepted_coordinates, is_po_box, reviewed_point
+from fec.geocoding.validation import accepted_coordinates, is_po_box, reviewed_point, unclear_house_number
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ def _needs_lookup(key: str, cache: GeoCache) -> bool:
 
 # Try OpenStreetMap, then Census; keep an unmatched address blank.
 def _geocode_one(street: str, city: str, state: str, zipcode: str) -> tuple:
-    if not street.strip() or is_po_box(street):
+    if not street.strip() or is_po_box(street) or unclear_house_number(street):
         return None, None, None, "not_found"
     key = "|".join((street, city, state, zipcode))
     reviewed = reviewed_point(key)

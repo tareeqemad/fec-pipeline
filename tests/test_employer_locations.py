@@ -171,7 +171,7 @@ def test_manual_alias_beats_an_old_exact_ai_address():
             "employer_zip": "19801",
             "method": "ai_openai",
         },
-        "GOLDENBERG HELLER & ANTOGNOLI": {
+        "GOLDENBERG HELLER & ANTOGNOLI, P.C.": {
             "employer_address": "2227 S State Route 157",
             "employer_city": "Edwardsville",
             "employer_state": "IL",
@@ -537,7 +537,7 @@ def test_cleaned_previous_employer_refreshes_a_failed_cache_entry():
 
     step_cross_record(rows, cache)
 
-    assert cache["donor:D1"]["employer"] == "ACME"
+    assert cache["donor:D1"]["employer"] == "ACME INC"
     assert cache["donor:D1"]["method"] == "cleaned_previous"
 
 
@@ -546,7 +546,7 @@ def test_same_previous_company_keeps_richer_cache_entry():
         "entity_type": "INDIVIDUAL", "donor_key": "D1",
         "contributor_name": "RETIRED, JANE", "contributor_state": "NY",
         "contributor_employer": "RETIRED", "contributor_occupation": "RETIRED",
-        "occupation_category": "RETIRED", "previous_employer": "ACME",
+        "occupation_category": "RETIRED", "previous_employer": "ACME, INC.",
         "contribution_receipt_date": "2024-01-01",
     }])
     original = {
@@ -703,7 +703,7 @@ def test_invalid_manual_address_stays_blank(tmp_path):
     assert not _needs_ai(cache["LINE G"], "current-resolver")
 
 
-def test_explicit_not_found_is_not_replaced_by_an_alias():
+def test_verified_same_company_address_replaces_an_old_not_found():
     df = pd.DataFrame([_row("CRESSON MANAGEMENT VIRGIN ISLANDS LLC", "VI", "00802")])
     cache = FakeCache({
         "CRESSON MANAGEMENT VIRGIN ISLANDS LLC": {
@@ -715,8 +715,8 @@ def test_explicit_not_found_is_not_replaced_by_an_alias():
 
     result = apply_results(df, FakeCache(), cache)
 
-    assert result.loc[0, "employer_address"] == ""
-    assert result.loc[0, "resolve_method"] == "pending"
+    assert result.loc[0, "employer_address"] == PRIMARY["employer_address"]
+    assert result.loc[0, "resolve_method"] == "manual_override"
 
 
 def test_a_local_entry_whose_evidence_is_gone_is_removed():

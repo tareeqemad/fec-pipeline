@@ -6,6 +6,7 @@ import pandas as pd
 
 from fec.cleaning.entities import deciding_source_type
 from fec.cleaning.entities import _enforce_entity_name_consistency
+from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.env import RULES_DIR
 
 
@@ -26,10 +27,10 @@ def _apply_entity_overrides(df: pd.DataFrame) -> int:
     if not overrides:
         return 0
 
-    name_u = df['contributor_name'].fillna('').str.upper().str.strip()
+    name_u = df['contributor_name'].map(employer_rule_key)
     n = 0
     for nm_u, et in overrides.items():
-        mask = name_u == nm_u
+        mask = name_u == employer_rule_key(nm_u)
         if mask.any():
             _set_entity_type(df, mask, et)
             n += int(mask.sum())

@@ -94,13 +94,14 @@ def collect_employer_lookups(
     )
 
     address_lookup = address_cache_lookup(addr_cache.data, publishable_only=True)
+    cached_lookup = address_cache_lookup(addr_cache.data)
     # Keep explicit manual decisions, including a deliberately blank address.
-    for name, entry in addr_cache.data.items():
+    for name, entry in cached_lookup.items():
         if entry.get("method") in {"manual_override", "manual_invalid"}:
             address_lookup[name.strip().upper()] = entry
     misses = chain(
-        _active_misses(individuals, addr_cache, address_lookup, resolver_tag),
-        _retired_misses(individuals, prev_cache, addr_cache, address_lookup, resolver_tag),
+        _active_misses(individuals, cached_lookup, address_lookup, resolver_tag),
+        _retired_misses(individuals, prev_cache, cached_lookup, address_lookup, resolver_tag),
     )
     for employer, row in misses:
         donor_total_for_row = totals.get(row.get("donor_key"), 0)

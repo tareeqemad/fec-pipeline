@@ -1,4 +1,4 @@
-"""Employer abbreviation expansion (MGMT -> MANAGEMENT, run after synonyms)."""
+"""Only documented company aliases expand abbreviations."""
 import pandas as pd
 
 from fec.cleaning.work.employer_names import (
@@ -14,28 +14,24 @@ def _emps(rows):
     return list(df["contributor_employer"]), n
 
 
-def test_expands_mgmt_grp_svcs():
+def test_generic_abbreviations_are_not_company_identity():
     emps, n = _emps(["FOO HOLDINGS MGMT", "SUTHERLAND CAPITAL MGMT. INC.", "X GRP", "ACME SVCS"])
-    assert n == 4
-    assert "FOO HOLDINGS MANAGEMENT" in emps
-    # The reviewed legal-entity name keeps MGMT; only trailing punctuation changes.
-    assert "SUTHERLAND CAPITAL MGMT. INC" in emps
-    assert "X GROUP" in emps
-    assert "ACME SERVICES" in emps
+    assert n == 1  # punctuation only; MGMT is not expanded
+    assert emps == ["FOO HOLDINGS MGMT", "SUTHERLAND CAPITAL MGMT INC", "X GRP", "ACME SVCS"]
 
 
 def test_expands_inv_except_reviewed_separations():
     # EMA's underspecified aliases were not verified, so its filed text is protected.
     emps, n = _emps(["EMA INV MGMT", "SSI INV MGT", "TRIPLE S INV LLP"])
-    assert n == 2
+    assert n == 0
     assert "EMA INV MGMT" in emps
-    assert "SSI INVESTMENT MANAGEMENT" in emps
-    assert "TRIPLE S INVESTMENT LLP" in emps
+    assert "SSI INV MGT" in emps
+    assert "TRIPLE S INV LLP" in emps
 
 
-def test_collapses_abbrev_variants_to_one():
+def test_unreviewed_abbreviation_variants_stay_apart():
     emps, _ = _emps(["FOO CAPITAL MGMT", "FOO CAPITAL MANAGEMENT"])
-    assert set(emps) == {"FOO CAPITAL MANAGEMENT"}        # the two unify
+    assert set(emps) == {"FOO CAPITAL MGMT", "FOO CAPITAL MANAGEMENT"}
 
 
 def test_leaves_substrings_and_ambiguous_untouched():
@@ -59,20 +55,15 @@ def _assoc(pairs):
     return list(df["contributor_employer"]), n
 
 
-def test_assoc_expands_to_associates_including_midstring():
+def test_assoc_is_not_guessed_from_its_position():
     emps, _ = _assoc([("GOLDBERG REALTY ASSOC.", "GOLDBERG REALTY ASSOC"),
                       ("EIGHTEEN ASSOC", "EIGHTEEN ASSOC"),
                       ("RAD ASSOC HLYWD", "RAD ASSOC HLYWD"),
                       ("JBRODSKY & ASSOC", "JBRODSKY & ASSOC")])
-    assert "GOLDBERG REALTY ASSOCIATES" in emps
-    assert "EIGHTEEN ASSOCIATES" in emps
-    assert "RAD ASSOCIATES HLYWD" in emps          # mid-string handled
-    assert "JBRODSKY & ASSOCIATES" in emps
+    assert emps == ["GOLDBERG REALTY ASSOC", "EIGHTEEN ASSOC", "RAD ASSOC HLYWD", "JBRODSKY AND ASSOC"]
 
 
-def test_assoc_keeps_real_associations():
-    # association detected from the original ("...ASSOCIATION") or an "ASSOC FOR" opener
+def test_assoc_needs_a_reviewed_company_rule():
     emps, _ = _assoc([("BRAMAN MANAGEMENT ASSOC", "BRAMAN MANAGEMENT ASSOCIATION"),
                       ("ASSOC FOR WOMENS HEALTH CARE", "ASSOC FOR WOMENS HEALTH CARE")])
-    assert "BRAMAN MANAGEMENT ASSOCIATION" in emps
-    assert "ASSOCIATION FOR WOMENS HEALTH CARE" in emps
+    assert emps == ["BRAMAN MANAGEMENT ASSOC", "ASSOC FOR WOMENS HEALTH CARE"]

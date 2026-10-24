@@ -1,16 +1,34 @@
 employer_name,reason,employer_address,employer_city,employer_state,employer_zip,is_primary,address_source,method,donor_states
+ADLER,carried_over_without_source,1400 NW 107TH AVE FL 5,MIAMI,FL,33172,True,manual,previous:uncorroborated,
+AES MANAGEMENT CORP,carried_over_without_source,539 EASTERN PKWY,BROOKLYN,NY,11216,True,ai,previous:uncorroborated,
+AI EDUCATION INC,carried_over_without_source,9309 N FLORIDA AVE,TAMPA,FL,33612,True,manual,previous:uncorroborated,
+AMAZON.COM,carried_over_without_source,410 TERRY AVE N,SEATTLE,WA,98109,True,manual,previous:uncorroborated,
+AMAZON.COM,carried_over_without_source,424 FIFTH AVE,NEW YORK,NY,,False,manual,previous:uncorroborated,
+AMAZON.COM,carried_over_without_source,9336 W WASHINGTON BLVD,CULVER CITY,CA,90232,False,manual,previous:uncorroborated,
+APRIO,carried_over_without_source,2002 SUMMIT BLVD NE STE 120,ATLANTA,GA,30319,True,manual,previous:uncorroborated,
+BRAMAN,carried_over_without_source,2020 BISCAYNE BLVD,MIAMI,FL,33137,True,manual,previous:uncorroborated,
+DORIS DAVIS INC,carried_over_without_source,835 BLOSSOM HILL RD STE 215,SAN JOSE,CA,95123,True,ai,previous:uncorroborated,
+FACTORY MOTOR PARTS CO,carried_over_without_source,1380 CORPORATE CENTER CURVE STE 200,EAGAN,MN,55121,True,ai,previous:uncorroborated,
+GALLO VITUCCI KLAR LLP,carried_over_without_source,711 THIRD AVE STE 500,NEW YORK,NY,10017,True,ai,previous:uncorroborated,
+IVY ASSET MANAGEMENT,carried_over_without_source,591 STEWART AVE,GARDEN CITY,NY,11530,True,manual,previous:uncorroborated,
+MERCURY AVIATION COMPANIES,carried_over_without_source,2780 SKYPARK DR STE 300,TORRANCE,CA,90505,True,ai,previous:uncorroborated,
+MOODY'S CORPORATION,carried_over_without_source,250 GREENWICH ST,NEW YORK,NY,10007,True,manual,previous:uncorroborated,
+PRICEMDS.COM INC,carried_over_without_source,19321 US HWY 19 N BUILDING C - STE 509,CLEARWATER,FL,33764,True,ai,previous:uncorroborated,
+THE CORCORAN GROUP,carried_over_without_source,590 MADISON AVE,NEW YORK,NY,10022,True,manual,previous:uncorroborated,
+THE CORCORAN GROUP,carried_over_without_source,660 MADISON AVE FL 12,NEW YORK,NY,10065,False,manual,previous:uncorroborated,
+THE CORCORAN GROUP,carried_over_without_source,400 ROYAL PALM WAY STE 110,PALM BEACH,FL,33480,False,manual,previous:uncorroborated,
+ZIDELL MARINE CO,carried_over_without_source,1501 NW NAITO PKWY,PORTLAND,OR,97209,True,ai,previous:corroborated,
 BDO USA PC,grounded_alias_outside_donor_states,"330 North Wabash Avenue, Suite 3200",Chicago,IL,60611,True,,ai_openai_search,GA
 BOULEVARD HEALTHCARE MANAGEMENT LLC,grounded_alias_outside_donor_states,"6400 Shafer Ct, Suite 600",Rosemont,IL,60018,True,,ai_openai_search,NY
-CUNEO GILBERT & LADUCA LLP,grounded_alias_outside_donor_states,"1001 Pennsylvania Avenue NW, Suite 1300S",Washington,DC,20004,True,,ai_openai_search,FL
+CUNEO GILBERT AND LADUCA LLP,grounded_alias_outside_donor_states,"1001 Pennsylvania Avenue NW, Suite 1300S",Washington,DC,20004,True,,ai_openai_search,FL
 DEREK SMITH LAW GROUP PLLC,grounded_alias_outside_donor_states,"The Nelson Tower, 450 7th Avenue, 30th Floor",New York,NY,10123,True,,ai_openai_search,FL;PA
-EQUIPMENTSHARE,grounded_alias_outside_donor_states,5710 Bull Run Drive,Columbia,MO,65201,True,,ai_openai_search,CA
-HANGLEY ARONCHICK SEGAL PUDLIN & SCHILLER PC,grounded_alias_outside_donor_states,"One Logan Square, 27th Floor",Philadelphia,PA,19103,True,,ai_openai_search,FL
+EQUIPMENTSHARE INC,grounded_alias_outside_donor_states,5710 Bull Run Drive,Columbia,MO,65201,True,,ai_openai_search,CA
+"HANGLEY ARONCHICK SEGAL PUDLIN & SCHILLER, P.C.",grounded_alias_outside_donor_states,"One Logan Square, 27th Floor",Philadelphia,PA,19103,True,,ai_openai_search,FL
 HY-VEE INC,grounded_alias_outside_donor_states,5820 Westown Pkwy,West Des Moines,IA,50266,True,,ai_openai_search,MN
 LONESTAR DATA HOLDINGS INC,grounded_alias_outside_donor_states,450 8th Ave SE,St. Petersburg,FL,33701,True,,ai_openai_search,NY
 MAJOR BRANDS INC,grounded_alias_outside_donor_states,6701 Southwest Ave,St. Louis,MO,63143,True,,ai_openai_search,KS
 MEDICALLY HOME GROUP INC,grounded_alias_outside_donor_states,133 Brookline Ave,Boston,MA,02215,True,,ai_openai_search,PA
 METRON INC,grounded_alias_outside_donor_states,"1818 Library Street, Suite 600",Reston,VA,20190,True,,ai_openai_search,MD
-MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Philadelphia,PA,19103,True,,ai_openai_search,DC;MA;MD;VA
 NATIONAL COLLECTOR''S MINT INC,grounded_alias_outside_donor_states,"2975 Westchester Ave, Suite 300",Purchase,NY,10577,True,,ai_openai_search,CT
 RIMON PC,grounded_alias_outside_donor_states,355 S Grand Ave Suite 2450,Los Angeles,CA,90071,True,,ai_openai_search,NY
 TAYLOR MORRISON NW LLC,grounded_alias_outside_donor_states,"3620 1st Ave S, Suite 300",Seattle,WA,98134,True,,ai_openai_search,OR
@@ -21,5 +39,3 @@ US CABINET DEPOT,grounded_alias_outside_donor_states,1950 N Norcross-Tucker Rd,N
 US CABINET DEPOT,grounded_alias_outside_donor_states,5125 W Hudson Way,Lehi,UT,84048,False,,ai_openai_search,TX
 US CABINET DEPOT,grounded_alias_outside_donor_states,6301 Lyons Rd,Coconut Creek,FL,33073,False,,ai_openai_search,TX
 US CABINET DEPOT,grounded_alias_outside_donor_states,"11079 Success St, Suite 100",Ashland,VA,23005,False,,ai_openai_search,TX
-WHEELS INC,grounded_alias_outside_donor_states,666 Garland Place,Des Plaines,IL,60016,True,,ai_openai_search,CA
-WILLIAMS & CONNOLLY LLP,grounded_alias_outside_donor_states,"725 Twelfth Street, N.W",Washington,DC,20005,True,,ai_openai_search,MD

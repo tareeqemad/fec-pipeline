@@ -21,3 +21,6 @@ contributor_name,entity_type,note
 "DEMOCRATIC MAJORITY FOR ISRAEL",ORGANIZATION,"the organization, separate from DMFI PAC (C00710848): FEC returns entity_type ORG for all 7 rows (e.g. docquery 202410249710503666)"
 "DEMOCRACY ENGINE",ORGANIZATION,"filed as DEMOCRACY ENGINE, LLC, a payment processor: FEC returns entity_type ORG (docquery 202603309856884852)"
 "HDS HERCULES",ORGANIZATION,"FEC returns entity_type ORG (docquery 202608209899671209); was COMMITTEE/PAC only because no identity token was found"
+"DEMOCRACY ENGINE LLC",ORGANIZATION,"Filed legal name from the existing DEMOCRACY ENGINE review; FEC entity_type ORG, https://docquery.fec.gov/cgi-bin/fecimg/?202603309856884852"
+"ROYAL OAK LP",ORGANIZATION,"Filed legal name from the existing ROYAL OAK review: Royal Oak LP, FEC entity_type ORG; classification only, no company alias."
+"THE CORMAC GROUP LLC",ORGANIZATION,"Filed legal name of the lobbying firm in the existing THE CORMAC GROUP review; https://efile.fara.gov/docs/7219-Registration-Statement-20230113-1.pdf"

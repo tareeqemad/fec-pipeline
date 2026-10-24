@@ -1,85 +1,85 @@
 {
   "rows": 222603,
   "employer_abbreviations": {
-    "distinct_employers_flagged": 9,
+    "distinct_employers_flagged": 66,
     "by_token": {
       "MGMT": {
-        "count": 4,
+        "count": 21,
         "examples": [
-          "ELLIOTT MGMT",
-          "EMA INV MGMT",
-          "GLEN UNA MGMT",
-          "SUTHERLAND CAPITAL MGMT. INC"
+          "AAG MGMT",
+          "ARBITER PARTNERS CAPITAL MGMT",
+          "CALIFORNIA NETWORK MGMT",
+          "COLUMBUS SQUARE MGMT",
+          "ELLIOTT MGMT"
         ]
       },
       "MGT": {
-        "count": 1,
+        "count": 6,
         "examples": [
-          "ARES MGT LLC"
+          "ARES MGT LLC",
+          "DEVON MGT",
+          "EVENSKY & KATZ / FOLDES WEALTH MGT",
+          "NORTH OCEAN MGT",
+          "PALADIN MGT"
         ]
       },
       "INV": {
-        "count": 4,
+        "count": 8,
         "examples": [
           "EISENBERG INV GROUP",
           "EMA INV",
           "EMA INV MGMT",
-          "EMAI INV"
+          "EMAI INV",
+          "FELDMAN INV MGMT"
+        ]
+      },
+      "INTL": {
+        "count": 2,
+        "examples": [
+          "INTL SEAWAYS INC",
+          "MARK BRUCE INTL"
         ]
       },
       "MFG": {
+        "count": 9,
+        "examples": [
+          "BLEEMA MFG CO LLC",
+          "BLEEMA MFG CORP",
+          "INTERNATIONAL MFG CO",
+          "KIMBER MFG",
+          "RICHARDS MFG"
+        ]
+      },
+      "GRP": {
+        "count": 3,
+        "examples": [
+          "GRP",
+          "LION REAL ESTATE GRP",
+          "THE FLATIRON GRP"
+        ]
+      },
+      "INFO": {
         "count": 1,
         "examples": [
-          "RICHARDS MFG"
+          "CAMBRIDGE INFO GROUP"
+        ]
+      },
+      "ASSOC": {
+        "count": 19,
+        "examples": [
+          "ADVOCARE GROVE FAMILY MEDICAL ASSOC",
+          "AHTIRSKI AND ASSOC",
+          "ASSOC FOR WOMENS HEALTH CARE",
+          "BRAMAN MANAGEMENT ASSOC",
+          "BRYN MAWR MEDICAL SPECIALTY ASSOC"
         ]
       }
     }
   },
   "employer_near_duplicates": {
-    "groups": 91,
-    "examples": [
-      [
-        "STROOCK & STROOCK & LAVAN",
-        "STROOCK & STROOCK & LAVAN LLP",
-        "STROOCK AND STROOCK AND LAVAN",
-        "STROOCK&STROOCK&LAVAN"
-      ],
-      [
-        "CEDARS SINAI",
-        "CEDARS- SINAI",
-        "CEDARS-SINAI"
-      ],
-      [
-        "SCHOSTAK BROTHERS",
-        "SCHOSTAK BROTHERS & COMPANY",
-        "SCHOSTAK BROTHERS & COMPANY, INC."
-      ],
-      [
-        "GOLDMAN SACHS",
-        "GOLDMAN SACHS & CO",
-        "GOLDMAN, SACHS & CO"
-      ],
-      [
-        "WEIL GOTSHAL & MANGES LLP",
-        "WEIL, GOTSHAL & MANGES",
-        "WEIL, GOTSHAL & MANGES LLP"
-      ],
-      [
-        "KING & SPALDING",
-        "KING AND SPALDING",
-        "KING&SPALDING"
-      ],
-      [
-        "A & R KATZ MANAGEMENT",
-        "A & R KATZ MANAGEMENT INC",
-        "A AND R KATZ MANAGEMENT"
-      ],
-      [
-        "GLEN UNA MANAGEMENT",
-        "GLEN UNA MANAGEMENT CO",
-        "GLEN UNA MGMT"
-      ]
-    ]
+    "groups": 0,
+    "examples": [],
+    "kept_separate_by_rule": 1082
   },
   "name_composite_drift": {
     "rows": 0,

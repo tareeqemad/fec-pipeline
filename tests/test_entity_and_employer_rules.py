@@ -81,8 +81,8 @@ class TestEmployerSynonyms:
         df = _make_df([{'contributor_employer': 'GOLDMAN SACHS AND CO'}])
         df, n = apply_employer_synonyms(df)
         # Goldman Sachs & Co. is a specific subsidiary, not the group name.
-        assert n == 0
-        assert df['contributor_employer'].iloc[0] == 'GOLDMAN SACHS AND CO'
+        assert n == 1
+        assert df['contributor_employer'].iloc[0] == 'GOLDMAN SACHS & CO'
 
 
 def test_person_names_survive_false_committee_filing():

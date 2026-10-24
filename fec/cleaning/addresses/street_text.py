@@ -128,10 +128,6 @@ def normalize_street(s: str) -> str:
     # like BOX CANYON RD are untouched
     s = _SHORT_POBOX_RE.sub(r'PO BOX \1', s)
 
-    # leading OCR digit/letter confusion (E to 3, I to 1)
-    s = re.sub(r'^E(\d{2,})\b', lambda match: '3' + match.group(1), s)
-    s = re.sub(r'^I(\d{3,})\b', lambda match: '1' + match.group(1), s)
-
     # unit/suite written before the address: move it to the end
     match = re.match(r'^((?:UNIT|APT|STE|SUITE)\s+\S+)\s+(\d+\s+.+)$', s)
     if match:

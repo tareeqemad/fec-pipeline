@@ -16,6 +16,10 @@ def is_po_box(street: str) -> bool:
     return bool(re.match(r"^P[.\s]*O[.\s]*BOX\b", street.strip(), re.IGNORECASE))
 
 
+def unclear_house_number(street: str) -> bool:
+    return bool(re.match(r"^[^A-Z0-9\s]+\d", street.strip(), re.IGNORECASE))
+
+
 def is_foreign_address(state: str, zipcode: str) -> bool:
     state, zipcode = str(state or "").strip().upper(), str(zipcode or "").strip().upper()
     if state:
@@ -81,7 +85,7 @@ def accepted_coordinates(key: str, entry: dict | None) -> tuple:
         return None, None, "rejected_address"
     street, _, state, zipcode = parts
     state = state.strip().upper()
-    if not street.strip() or is_po_box(street):
+    if not street.strip() or is_po_box(street) or unclear_house_number(street):
         return None, None, "not_found"
     foreign = is_foreign_address(state, zipcode)
     country = (entry.get("country") or ("US" if not foreign else "")).upper()

@@ -1,24 +1,15 @@
-"""Canonical grouping keys and cross-column re-canonicalization."""
-
+"""Company identity follows reviewed rules; loose keys are for text comparison."""
 import re
-from collections import defaultdict
-from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _norm, read_raw_employer_evidence
-from fec.cleaning.work.employer_normalize import _TRAILING_PAREN_RE
-from fec.cleaning.work.employer_aliases import preserved_employer_name
-from fec.cleaning.work.employer_groups import (
-    _employer_group_key,
-    employer_filers,
-    employer_group_words,
-    prefer_attested_spacing,
-    spacing_index,
+from fec.cleaning.work.employer_aliases import (
+    apply_reviewed_employer_names,
+    employer_rule_key,
+    preserved_employer_name,
+    reviewed_employer_name,
 )
 
-# COMPANY listed before CO (and INCORPORATED before INC) so iteration strips
-# the longer suffix first - otherwise "MPANY" residue would be left behind.
 _CORP_SUFFIXES = (
     "INCORPORATED",
     "CORPORATION",
@@ -44,15 +35,12 @@ _GLUED_BRAND_SUFFIXES = frozenset({"CO", "PC", "PA", "LP"})
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
 
 
-# normalize an employer name into a strict grouping key
+
 def canonical_key(name: str) -> str:
-    """Group employer spellings while preserving reviewed separations."""
-    if preserved := preserved_employer_name(name):
-        return 'SEPARATE:' + ' '.join(re.sub(r'[.,]', '', preserved.replace('&', ' AND ')).split())
-    return employer_text_key(name)
+    """Only explicit aliases can join differently named companies."""
+    return employer_rule_key(reviewed_employer_name(name))
 
 
-# Compare text for misplaced company labels; this does not establish identity.
 def employer_text_key(name: str) -> str:
     """Ignore punctuation and suffixes when comparing employer text."""
     key = name.strip().upper()
@@ -87,166 +75,19 @@ def employer_text_key(name: str) -> str:
     return key
 
 
-# one comma style: "AG,LLC" / "KENNETH ROSE ,ESQ" -> "AG, LLC" / "KENNETH ROSE, ESQ"
+
 def tidy_employer_commas(name):
-    """Style only: no space before a comma, one after it before a letter (1,000 kept)."""
+    """Style only: keep every name word and legal form."""
     if not isinstance(name, str) or "," not in name or preserved_employer_name(name):
         return name
     return re.sub(r"\s*,(?=[A-Z])", ", ", re.sub(r"\s+,", ",", name))
 
 
-# restore each employer's most-common raw display form from raw CSV
 def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
-    """End-of-cleaning pass: restore each employer's most-common raw suffix-bearing form (per canonical_key) so the saved CSV reads naturally; idempotent."""
-    if not Path(raw_csv_path).exists():
-        return 0
-
-    raw = read_raw_employer_evidence(raw_csv_path).copy()
-    # uppercase, collapse whitespace and `+`, drop ticker tails "(ITCI)" and stray
-    # trailing dots so the restored display form carries no FEC keying junk
-    raw["emp"] = (
-        raw["contributor_employer"]
-        .str.strip()
-        .str.upper()
-        .str.replace(r"[\s+]+", " ", regex=True)
-        .str.replace(_TRAILING_PAREN_RE, "", regex=True)
-        .str.replace(r"(?:\s*\.)+\s*$", "", regex=True)
-        .str.strip()
-        .map(tidy_employer_commas)
-    )
-    raw = raw[raw["emp"] != ""]
-    raw["key"] = raw["emp"].map(canonical_key)
-    raw = raw[raw["key"] != ""]
-
-    if raw.empty:
-        return 0
-
-    most_common_form = (
-        raw.groupby("key")["emp"].agg(lambda values: values.mode().iloc[0]).to_dict()
-    )
-    _prefer_attested_spacing_forms(raw, most_common_form)
-
-    indiv_idx = _indiv_idx(df)
-    current = _norm(df.loc[indiv_idx, "contributor_employer"])
-    has_emp = current != ""
-    target = indiv_idx[has_emp]
-    if len(target) == 0:
-        return 0
-
-    current_clean = current[has_emp]
-    keys = current_clean.map(canonical_key)
-    new_values = keys.map(most_common_form).fillna(current_clean)
-    preserved = current_clean.map(preserved_employer_name)
-    new_values = new_values.where(preserved.isna(), preserved)
-
-    changed_mask = new_values != current_clean
-    n_changed = int(changed_mask.sum())
-    if n_changed:
-        df.loc[target[changed_mask], "contributor_employer"] = new_values[changed_mask]
-    return n_changed
+    """Use reviewed names, never the most frequent raw spelling."""
+    return apply_reviewed_employer_names(df)
 
 
-# prefer the spacing variant filers actually wrote over raw mode
-def _prefer_attested_spacing_forms(raw: pd.DataFrame, most_common_form: dict) -> None:
-    """Keep the display form's word breaks consistent with occ_canonicalize_employers: a raw mode 'TWINCITY FAN' yields to 'TWIN CITY FAN' when the same filers write 'TWIN CITY FAN COMPANIES LTD'."""
-    if "contributor_name" not in raw.columns:
-        return
-    # imported here: the occupations package imports this one at load time
-
-    candidates = {}
-    for key, forms in raw.groupby("key")["emp"].unique().items():
-        if len(forms) < 2:
-            continue
-        # only the mode's strict spacing variants compete, never a different
-        # name that merely shares the looser canonical_key
-        strict = _employer_group_key(most_common_form[key])
-        siblings = [form for form in forms if _employer_group_key(form) == strict]
-        if len({employer_group_words(form) for form in siblings}) > 1:
-            candidates[key] = siblings
-    if not candidates:
-        return
-
-    counts = raw["emp"].value_counts()
-    filers = employer_filers(raw["emp"], raw["contributor_name"])
-    index = spacing_index(counts.index)
-    for key, siblings in candidates.items():
-        most_common_form[key] = prefer_attested_spacing(
-            most_common_form[key], siblings, counts, filers, index,
-        )
-
-
-# tally employer name occurrences across given columns for individuals
-def _employer_counts(df: pd.DataFrame, indiv_idx, columns: list[str]):
-    series = []
-    current_counts = pd.Series(dtype="int64")
-    for column in columns:
-        values = df.loc[indiv_idx, column]
-        values = values[_norm(values) != ""]
-        series.append(values)
-        if column == "contributor_employer":
-            current_counts = values.value_counts()
-    if not series:
-        return pd.Series(dtype="int64"), current_counts
-    all_names = pd.concat(series, ignore_index=True)
-    return all_names.value_counts(), current_counts
-
-
-# build variant-to-canonical-name mapping grouped by canonical key
-def _canonical_employer_mapping(counts, current_counts) -> dict:
-    groups = defaultdict(list)
-    for name in counts.index:
-        if preserved_employer_name(name):
-            continue
-        key = canonical_key(name)
-        if key:
-            groups[key].append(name)
-
-    mapping = {}
-    for variants in groups.values():
-        if len(variants) < 2:
-            continue
-        canonical = min(
-            variants,
-            key=lambda variant: (
-                -current_counts.get(variant, 0),
-                -counts.get(variant, 0),
-                -len(variant),
-                variant,
-            ),
-        )
-        for variant in variants:
-            if variant != canonical:
-                mapping[variant] = canonical
-    return mapping
-
-
-# apply the variant-to-canonical mapping to each employer column
-def _apply_employer_mapping(
-    df: pd.DataFrame,
-    columns: list[str],
-    mapping: dict,
-) -> int:
-    changed = 0
-    for column in columns:
-        to_fix = df[column].isin(mapping)
-        n_col = int(to_fix.sum())
-        if n_col:
-            df.loc[to_fix, column] = df.loc[to_fix, column].map(mapping)
-            changed += n_col
-    return changed
-
-
-# merge employer variants that later cleaning steps introduced
 def recanonicalize_employers(df: pd.DataFrame) -> int:
-    """Unify employer variants created by later cleaning steps."""
-    columns = [
-        column
-        for column in ("contributor_employer", "previous_employer")
-        if column in df.columns
-    ]
-    counts, current_counts = _employer_counts(df, _indiv_idx(df), columns)
-    if counts.empty:
-        return 0
-
-    mapping = _canonical_employer_mapping(counts, current_counts)
-    return _apply_employer_mapping(df, columns, mapping) if mapping else 0
+    """Apply the same evidence to current and previous companies."""
+    return apply_reviewed_employer_names(df)

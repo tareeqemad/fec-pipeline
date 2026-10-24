@@ -10,7 +10,9 @@ from fec.cleaning.work.employer_normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
 )
-from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS, preserved_employer_name
+from fec.cleaning.work.employer_aliases import (
+    EMPLOYER_SYNONYMS, documented_employer_name, preserved_employer_name,
+)
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
     JUNK_EMPLOYER_RE,
@@ -172,6 +174,11 @@ def _is_explicit_self(upper: str) -> bool:
 # Return a company, SELF-EMPLOYED, or empty text.
 def normalize_previous_employer_value(v) -> str:
     text = _WS_RE.sub(' ', str(v)).strip()
+    reviewed = documented_employer_name(text)
+    if reviewed:
+        text = reviewed
+        if is_real_employer(reviewed):
+            return reviewed
     upper = text.upper()
 
     # Strip retirement markers, then judge the remaining company or profession.
@@ -207,14 +214,6 @@ def normalize_previous_employer_value(v) -> str:
 
 # Apply company aliases and display rules to a previous employer.
 def _previous_company_name(text: str, upper: str) -> str:
-    mapped = EMPLOYER_SYNONYMS.get(upper)
-    mapped_from_alias = bool(mapped)
-    if mapped:
-        text = mapped
-        upper = text.upper()
-        if _is_null_previous(upper):
-            return ''
-
     if '/' in text:
         if preserved_employer_name(text) and text.upper() not in SLASH_BRAND_EMPLOYERS:
             parts = [part.strip() for part in text.split('/')
@@ -226,9 +225,6 @@ def _previous_company_name(text: str, upper: str) -> str:
             return ''
     if preserved := preserved_employer_name(text):
         return preserved if is_real_employer(preserved) else ''
-    if not mapped_from_alias and text.upper() in _CANONICAL_SYNONYM_NAMES:
-        # Canonical alias targets stay uppercase regardless of input casing.
-        return text.upper()
 
     # Normalization can expose another alias; stop once the name settles.
     normalized = text

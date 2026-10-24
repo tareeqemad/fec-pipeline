@@ -21,6 +21,7 @@ EMPLOYER_NORMALIZE = {
     'SELF  EMPLOYED': 'SELF-EMPLOYED',
     'SELF WMPLOYED': 'SELF-EMPLOYED',
     'SELF EMPLOYEF': 'SELF-EMPLOYED',
+    'SE;F EMPLOYED': 'SELF-EMPLOYED',
     'SELF-EMPLOYEED': 'SELF-EMPLOYED',
     'SELF EMPLOYED COMPANY OWNER': 'SELF-EMPLOYED',
     'SOLE PROPRIETOR': 'SELF-EMPLOYED',
@@ -29,10 +30,12 @@ EMPLOYER_NORMALIZE = {
     'RETIREE': 'RETIRED',
     'MOSTLY RETIRED': 'RETIRED',
     'UCLA RETIRED': 'RETIRED',
+    '(RETIRED)': 'RETIRED',
 
     # not employed
     'NOT EMPLOYED': 'NOT EMPLOYED',
     'UNEMPLOYED': 'NOT EMPLOYED',
+    'UN EMPLOYED': 'NOT EMPLOYED',
     'NOT WORKING': 'NOT EMPLOYED',
     'JOBLESS': 'NOT EMPLOYED',
     'I AM UNEMPLOYED': 'NOT EMPLOYED',
@@ -42,21 +45,18 @@ EMPLOYER_NORMALIZE = {
 }
 
 
-# The cleaner expands these tokens; quality_scan lists them for review.
-# None means the token needs review and is not expanded automatically.
+# Suggestions for the quality report; not automatic name replacements.
 EMPLOYER_ABBREVIATIONS = {
     'MGMT': 'MANAGEMENT',
     'MGMNT': 'MANAGEMENT',
     'MGT': 'MANAGEMENT',
-    'INV': 'INVESTMENT',    # verified by hand for this dataset
+    'INV': 'INVESTMENT',
     'INTL': 'INTERNATIONAL',
     'MFG': 'MANUFACTURING',
     'GRP': 'GROUP',
     'SVCS': 'SERVICES',
     'SVC': 'SERVICES',
-    'INFO': 'INFORMATION',  # verified by hand; the \b guards protect INFOSYS/INFOSEC
-    # ASSOC splits between ASSOCIATES and ASSOCIATION - decided contextually
-    # in expand_employer_associates; the rest lack a verified single expansion
+    'INFO': 'INFORMATION',
     'ASSOC': None,
     'ASSOCS': None,
     'INTNL': None,

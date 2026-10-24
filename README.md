@@ -98,6 +98,22 @@ the finished column set.
 Cleaning always processes the complete raw file. Donor matching groups filings
 under `donor_key`; it never combines or removes contribution rows.
 
+House and PO box digits are not added, removed or replaced by comparing frequency
+with another filing. Unclear numbers need a documented correction.
+
+Company names use `data/rules/employer_name_rules.csv` for both current and previous
+employers. `rename` applies a documented alias; `separate` keeps an unproven link
+apart. The source and chosen name stay fixed when more filings arrive. Similarity
+only appears in the quality report; it does not choose a company or its address.
+Punctuation is standardized without removing name words or legal forms.
+
+For a donor-specific abbreviation, `anchor_sub_id` identifies a reviewed filing
+whose donor has been confirmed. An optional `cycle` limits the rule to that election
+period. These rules run after donor matching and affect only the listed spelling;
+they never fill missing employment. Keep the historical filings when pulling new
+data, so the evidence anchor remains available. Leave both fields blank for a
+documented global alias. An unresolved name stays as filed.
+
 Geocoding reuses accepted results from `data/cache/geocode_cache.json`. For a new
 address, it tries OpenStreetMap Nominatim, then the Census Geocoder for US
 addresses. If neither returns an accepted address result, coordinates stay blank;
@@ -224,6 +240,11 @@ the pull does not reconcile amended versions of a transaction.
   holds every net cleaning change with its step, reason and source; it and the
   address review queues are regenerated each run outside Git.
   `data/reports/review/` holds the audit tools' output (not in Git).
+
+`missing_report.csv` lists individuals whose original filings lack occupation or
+employer information, using their final names. It records missing source fields;
+some may have been resolved later. `amount_flags.csv` preserves filed negative
+and zero amounts for inspection.
 
 Keep rules, reference data and caches in Git.
 

@@ -9,7 +9,7 @@ from fec import env
 from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.reports.audit import write_audit
 from fec.cleaning.pipeline import clean_pipeline
-from fec.cleaning.reports.gates import run_quality_gates, save_report
+from fec.cleaning.reports.gates import run_quality_gates
 from fec.cleaning.reports.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
@@ -184,7 +184,10 @@ def _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path)
         f"{audit['untracked_changes']:,}",
     )
 
-    save_report(missing, out_dir, 'missing_report')
+    people = cleaned.loc[cleaned['entity_type'].eq('INDIVIDUAL')].set_index('sub_id')
+    missing = missing[missing['sub_id'].isin(people.index)].copy()
+    missing['contributor_name'] = missing['sub_id'].map(people['contributor_name'])
+    write_csv_atomic(missing, os.path.join(out_dir, 'missing_report.csv'), index=False)
 
     scan_report = _write_quality_scan(output_path, out_dir)
     logger.info(

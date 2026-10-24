@@ -197,40 +197,10 @@ def _null_sector_as_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# merge FEC's 38-char truncated employer names with their full versions
+# A truncated name expands only when the rules document its full name.
 def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
-    """AI. FEC truncates employer at 38 chars; merge truncated names with their unique (or most common) longer version."""
-    emp_col = df['contributor_employer']
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    indiv_emp = emp_col[is_indiv].dropna()
-
-    trunc_candidates = set(indiv_emp[indiv_emp.str.len() == 38].unique())
-    if not trunc_candidates:
-        return 0
-
-    all_emps = set(indiv_emp.unique())
-    long_emps = {employer for employer in all_emps if isinstance(employer, str) and len(employer) > 38}
-
-    trunc_to_full = {}
-    counts = indiv_emp.value_counts()
-    for trunc in trunc_candidates:
-        if preserved_employer_name(trunc):
-            continue
-        matches = [full for full in long_emps if full.startswith(trunc)]
-        if matches:
-            trunc_to_full[trunc] = max(matches, key=lambda name: counts.get(name, 0))
-
-    if not trunc_to_full:
-        return 0
-
-    mask = is_indiv & emp_col.isin(trunc_to_full.keys())
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'contributor_employer'] = emp_col[mask].map(trunc_to_full)
-        if 'contributor_employer_original' in df.columns:
-            orig_null = mask & df['contributor_employer_original'].isna()
-            df.loc[orig_null, 'contributor_employer_original'] = emp_col[orig_null]
-    return n_fixed
+    from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
+    return apply_reviewed_employer_names(df, ("contributor_employer",))
 
 
 # remove the web-form --CHOOSE-- prefix from employer names

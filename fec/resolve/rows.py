@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_aliases import reviewed_employer_name
 from fec.cleaning.work.previous import normalize_previous_employer_value, preserve_own_named_legal_employer
 from fec.cleaning.work.status import classify_employer_status
 from fec.resolve.cache import _previous_for_row, _previous_employer_identity, _s
@@ -23,6 +24,7 @@ class ResolveContext:
     # (donor_key, employer) -> the first date the donor filed that employer
     first_filed: dict = field(default_factory=dict)
     previous_display_names: dict = field(default_factory=dict)
+    scoped_employer_rules: dict = field(default_factory=dict)
 
 
 def _result(
@@ -150,11 +152,15 @@ def _learned_later(entry: dict, row: pd.Series, first_filed: dict) -> bool:
     return bool(firsts) and pd.to_datetime(min(firsts), utc=True) > filed
 
 
-def _filed_previous(row: pd.Series, filed_employers: dict) -> dict | None:
+def _filed_previous(row: pd.Series, context: ResolveContext) -> dict | None:
     """The clean stage's previous_employer when it is the filing's own employer."""
     text = str(row.get("previous_employer") or "").strip()
     previous = normalize_previous_employer_value(text)
-    filed = normalize_previous_employer_value(filed_employers.get(str(row.get("sub_id", "")), ""))
+    filed = normalize_previous_employer_value(context.filed_employers.get(str(row.get("sub_id", "")), ""))
+    filed = reviewed_employer_name(
+        filed, row.get("donor_key", ""), row.get("two_year_transaction_period", ""),
+        context.scoped_employer_rules if row.get("identity_status") == "confirmed" else None,
+    )
     if previous and filed and canonical_key(previous) == canonical_key(filed):
         # the text as set keeps an own-named firm's legal form: AMY N DEAN PA
         return {"employer": previous, "employer_source": text, "method": "filed"}
@@ -169,7 +175,7 @@ def _resolve_retired(
     index=None,
 ) -> dict:
     """Prefer reviewed history, then this filing, then dated history; keep unconfirmed filings separate."""
-    own_entry = _filed_previous(row, context.filed_employers)
+    own_entry = _filed_previous(row, context)
     if row.get("identity_status", "confirmed") != "confirmed":
         prev_entry = own_entry
     else:
@@ -195,10 +201,15 @@ def _resolve_retired(
     )
     # Rename established history before choosing its company address.
     prev_name = context.previous_display_names.get(_s(row.get("sub_id")).strip(), prev_name)
+    prev_name = reviewed_employer_name(
+        prev_name, row.get("donor_key", ""), row.get("two_year_transaction_period", ""),
+        context.scoped_employer_rules if row.get("identity_status") == "confirmed" else None,
+    )
     if not prev_name:
         return _result("retired")
     legal_key = prev_name.strip().upper()
-    address_keys = (legal_key, *(key for key in address_keys if key != legal_key))
+    address_keys = (legal_key, *(key for key in address_keys
+                                if key != legal_key and canonical_key(key) == canonical_key(legal_key)))
     cached = _cached_address(
         context.address_lookup, address_keys, zip_code, state, _s(row.get("contributor_city"))
     )

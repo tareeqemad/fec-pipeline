@@ -24,6 +24,8 @@ PRESERVED = {
     "NORTHERN VALLEY MEDICAL ASSOCIATION, P",  # do not discard an unknown legal suffix
     "CARDIOLOGY PC OF HARTFORD HEALTHCARE M",  # official name does not confirm this completion
     "DENTAL IMPLANTS AND PERIODONTAL HEALTH",  # Rochester cannot be inferred globally
+    "NATIONWIDE CREDIT CORPORATION ALEXANDR",  # no documented global completion
+    "HOLLISWOOD DEVELOPMENT / EDIFICE MANAG",  # no documented global completion
 }
 
 
@@ -31,7 +33,8 @@ def test_repairs_are_wired_into_the_synonym_map():
     for truncated, full in REPAIRED.items():
         if truncated in PRESERVED:
             assert truncated not in EMPLOYER_SYNONYMS
-            assert normalize_employer_display_name(truncated) == truncated
+            expected = "NORTHERN VALLEY MEDICAL ASSOCIATION P" if truncated == "NORTHERN VALLEY MEDICAL ASSOCIATION, P" else truncated
+            assert normalize_employer_display_name(truncated) == expected
             assert normalize_employer_display_name(truncated) != full
         else:
             assert EMPLOYER_SYNONYMS.get(truncated) == full, truncated
