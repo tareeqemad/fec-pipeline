@@ -9,7 +9,7 @@ from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER
 from fec.config.constants import SKIP_EMPLOYERS
 
-from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
+from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS, preserved_employer_name
 
 # Trailing trademark/ticker/marker parentheticals - (R), (TM), (BEP), (SELF).
 # 1-5 letters only: longer or digit-bearing tags are kept as disambiguators.
@@ -156,6 +156,8 @@ def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     stripped = stripped.str.replace(r'[&$]', ' AND ', regex=True)
     stripped = stripped.str.replace(r'\s+', ' ', regex=True).str.strip()
     stripped = stripped.str.rstrip('.,').str.strip()
+    preserved = raw.map(preserved_employer_name)
+    stripped = stripped.where(preserved.isna(), preserved)
 
     # Keep the suffix when stripping leaves an ambiguous generic or <=2 chars.
     # "JB INC" is a company; "JB" would be mistaken for short junk.
@@ -201,6 +203,8 @@ def normalize_employer_display_name(name) -> str | None:
         text = match.group(1).strip()
         if not text or text in OCCUPATION_AS_EMPLOYER or text == 'MILITARY':
             return None
+    if preserved := preserved_employer_name(text):
+        return EMPLOYER_SYNONYMS.get(text, preserved)
     text = _TRAILING_PAREN_RE.sub('', text).strip()
 
     # strip legal suffixes, possibly stacked ("CO., INC.")

@@ -8,6 +8,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, read_raw_employer_evidence
 from fec.cleaning.work.employer_normalize import _TRAILING_PAREN_RE
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 from fec.cleaning.work.employer_groups import (
     _employer_group_key,
     employer_filers,
@@ -45,7 +46,15 @@ _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIA
 
 # normalize an employer name into a strict grouping key
 def canonical_key(name: str) -> str:
-    """Strict grouping key: whitespace/punctuation/TLD/legal-suffix/THE/ampersand variants collapse to one key (KIRKLAND & ELLIS LLP -> KIRKLANDELLIS)."""
+    """Group employer spellings while preserving reviewed separations."""
+    if preserved := preserved_employer_name(name):
+        return 'SEPARATE:' + ' '.join(re.sub(r'[.,]', '', preserved.replace('&', ' AND ')).split())
+    return employer_text_key(name)
+
+
+# Compare text for misplaced company labels; this does not establish identity.
+def employer_text_key(name: str) -> str:
+    """Ignore punctuation and suffixes when comparing employer text."""
     key = name.strip().upper()
     if not key:
         return ""
@@ -81,7 +90,7 @@ def canonical_key(name: str) -> str:
 # one comma style: "AG,LLC" / "KENNETH ROSE ,ESQ" -> "AG, LLC" / "KENNETH ROSE, ESQ"
 def tidy_employer_commas(name):
     """Style only: no space before a comma, one after it before a letter (1,000 kept)."""
-    if not isinstance(name, str) or "," not in name:
+    if not isinstance(name, str) or "," not in name or preserved_employer_name(name):
         return name
     return re.sub(r"\s*,(?=[A-Z])", ", ", re.sub(r"\s+,", ",", name))
 
@@ -127,6 +136,8 @@ def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
     current_clean = current[has_emp]
     keys = current_clean.map(canonical_key)
     new_values = keys.map(most_common_form).fillna(current_clean)
+    preserved = current_clean.map(preserved_employer_name)
+    new_values = new_values.where(preserved.isna(), preserved)
 
     changed_mask = new_values != current_clean
     n_changed = int(changed_mask.sum())
@@ -184,6 +195,8 @@ def _employer_counts(df: pd.DataFrame, indiv_idx, columns: list[str]):
 def _canonical_employer_mapping(counts, current_counts) -> dict:
     groups = defaultdict(list)
     for name in counts.index:
+        if preserved_employer_name(name):
+            continue
         key = canonical_key(name)
         if key:
             groups[key].append(name)

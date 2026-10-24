@@ -5,6 +5,7 @@ from collections import defaultdict
 import pandas as pd
 
 from fec.config.constants import CANONICAL_EMPLOYER_SKIP_VALUES
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -156,6 +157,8 @@ def _employer_variant_mapping(df: pd.DataFrame, active: pd.Series) -> tuple[dict
     counts = active.value_counts()
     groups = defaultdict(list)
     for name in counts.index:
+        if preserved_employer_name(name):
+            continue
         key = _employer_group_key(name)
         if key:
             groups[key].append(name)

@@ -133,7 +133,7 @@ def test_legacy_title_contract_is_unchanged():
 @pytest.mark.parametrize(('raw', 'expected'), [
     ('WhatsApp LLC', 'WHATSAPP LLC'),
     ('WhatsApp llc', 'WHATSAPP LLC'),
-    ('whatsapp', 'WHATSAPP LLC'),
+    ('whatsapp', 'WHATSAPP'),  # a bare brand does not establish the LLC legal entity
     ('Edison Properties', 'EDISON PROPERTIES'),
     ('Grace Communications Foundation', 'GRACE COMMUNICATIONS FOUNDATION'),
     ('QFS Asset Management', 'QFS ASSET MANAGEMENT'),

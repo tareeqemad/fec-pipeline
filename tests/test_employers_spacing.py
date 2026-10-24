@@ -43,7 +43,8 @@ def test_unrelated_company_sharing_the_spaced_prefix_cannot_flip_the_group():
         ('BLACK ROCK COFFEE', 'LEE, CARL', 20),
     ])
     _canonicalize_employers(df)
-    assert set(df['contributor_employer']) == {'BLACKROCK', 'BLACK ROCK COFFEE'}
+    # The reviewed BLACK ROCK spelling is not a verified global BlackRock alias.
+    assert set(df['contributor_employer']) == {'BLACKROCK', 'BLACK ROCK', 'BLACK ROCK COFFEE'}
 
 
 def test_conflicting_evidence_keeps_the_frequency_winner():
@@ -65,7 +66,12 @@ def test_punctuation_breaks_are_not_spacing_evidence():
         ('BANK OF AMERICA/MERRILL LYNCH', 'MORSE, RICHARD', 6),
     ])
     _canonicalize_employers(df)
-    assert (df['contributor_employer'].iloc[:6] == 'BANK OF AMERICA/ MERRILL').all()
+    # Preserve all reviewed compound labels, including their filed slash spacing.
+    assert df['contributor_employer'].tolist() == (
+        ['BANK OF AMERICA/ MERRILL'] * 4
+        + ['BANK OF AMERICA/MERRILL'] * 2
+        + ['BANK OF AMERICA/MERRILL LYNCH'] * 6
+    )
 
 
 def test_without_filer_names_the_frequency_rule_is_unchanged():

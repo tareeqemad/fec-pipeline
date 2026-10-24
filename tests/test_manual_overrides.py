@@ -184,8 +184,12 @@ def test_no_override_reinstates_a_known_truncation():
         truncations = {
             row["variant"].strip().upper()
             for row in csv.DictReader(handle)
-            if row["source"] == "manual"
+            if row.get("action", "rename") == "rename"
+            and len(row["variant"].strip()) == 38
+            and len(row["canonical"].strip()) > 38
+            and row["canonical"].strip().upper().startswith(row["variant"].strip().upper())
         }
+    assert truncations, "no active 38-character prefix repairs were checked"
     with open("data/rules/manual_employer_overrides.csv", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 

@@ -5,6 +5,8 @@ import pandas as pd
 
 from fec.cleaning._helpers import read_raw_employer_evidence
 from fec.cleaning.rules.manual import overridden_employer_sub_ids
+from fec.cleaning.work.employer_aliases import preserved_employer_name
+from fec.cleaning.work.employer_canonical import canonical_key
 from fec.cleaning.work.normalize import categorize_final
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
@@ -203,6 +205,9 @@ _NO_FIELD = frozenset({'OTHER', 'SELF-EMPLOYED', 'EXECUTIVE / C-SUITE', 'BUSINES
 # Require a business name, not a joint personal name.
 def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
+    original = df.get('contributor_employer_original', pd.Series('', index=df.index))
+    preserved_original = (original.map(preserved_employer_name).notna()
+                          & ~original.fillna('').str.upper().str.strip().isin(SKIP_EMPLOYERS))
     n_fixed = 0
     for dk, grp in indiv.groupby('donor_key'):
         emps = grp['contributor_employer'].dropna()
@@ -219,6 +224,11 @@ def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
         ]
         if len(firms) != 1:
             continue
+        # A preserved alternative makes the donor's firm ambiguous.
+        if any(e not in SKIP_EMPLOYERS and preserved_employer_name(e)
+               and re.search(rf'\b{re.escape(surname)}\b', e.upper())
+               and canonical_key(e) != canonical_key(firms[0]) for e in emps.unique()):
+            continue
         donor_rows = df['donor_key'] == dk
         # the field of each filing's own occupation (a SELF-EMPLOYED filing's
         # category still reads SELF-EMPLOYED here, so it cannot be compared)
@@ -229,6 +239,8 @@ def _own_firm_absorbs_self_employed(df: pd.DataFrame) -> int:
         if not firm_fields:
             same_field[:] = True
         mask = donor_rows & (df['contributor_employer'] == 'SELF-EMPLOYED')
+        # A status cleanup must not bridge a reviewed employer separation.
+        mask &= ~preserved_original
         mask &= same_field.reindex(df.index, fill_value=False)
         n = int(mask.sum())
         if n:

@@ -59,14 +59,16 @@ def test_real_companies_are_normalized():
     assert V("CHAPEL HAVEN") == "CHAPEL HAVEN"
 
 
-def test_curated_previous_employer_abbreviations_are_expanded():
+def test_previous_employer_abbreviations_respect_reviewed_separations():
     assert V("AMERICAN PSYCHOLOGICAL ASSOC.") == "AMERICAN PSYCHOLOGICAL ASSOCIATION"
     assert V("HARBOR CAPITAL MGMT LLC") == "HARBOR CAPITAL MANAGEMENT"
-    assert V("NUCLEAR ONCOLOGY ASSOC.") == "NUCLEAR ONCOLOGY SC"
-    assert V("SNOWS & ASSOC. LLP/CONSULTANT") == "SNOWS AND ASSOCIATES"
-    assert V("TIGER MGMT") == "TIGER MANAGEMENT"
+    # Unverified rules cannot invent a professional-corporation form or expansion.
+    assert V("NUCLEAR ONCOLOGY ASSOC.") == "NUCLEAR ONCOLOGY ASSOC"
+    assert V("SNOWS & ASSOC. LLP/CONSULTANT") == "SNOWS & ASSOC. LLP"
+    assert V("TIGER MGMT") == "TIGER MGMT"
+    # The one-letter slash segment is discarded; the surviving protected name stays.
     assert V("SOUTH JERSEY PROSTHODONTIC ASSOC./O") == \
-        "SOUTH JERSEY PROSTHODONTIC ASSOCIATES PA"
+        "SOUTH JERSEY PROSTHODONTIC ASSOC"
 
 
 def test_slash_composites_are_collapsed():

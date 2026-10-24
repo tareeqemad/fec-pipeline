@@ -2,6 +2,7 @@
 import csv
 import re
 
+from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.env import EMPLOYER_NAME_RULES_CSV
 from fec.log import get_logger
@@ -10,14 +11,14 @@ logger = get_logger(__name__)
 
 
 # read employer rename rules from the csv file
-def _load_rules() -> dict[str, str]:
+def _load_rules() -> tuple[dict[str, str], set[str]]:
     """Read the single rules file."""
     if not EMPLOYER_NAME_RULES_CSV.exists():
         raise FileNotFoundError(
             f"Missing employer rules: {EMPLOYER_NAME_RULES_CSV}"
         )
 
-    rules = {}
+    rules, separate = {}, set()
     with EMPLOYER_NAME_RULES_CSV.open(
         encoding="utf-8-sig", newline=""
     ) as handle:
@@ -25,15 +26,40 @@ def _load_rules() -> dict[str, str]:
             variant = (row.get("variant") or "").strip().upper()
             canonical = (row.get("canonical") or "").strip()
             source = (row.get("source") or "").strip()
+            action = (row.get("action") or "rename").strip()
             if not variant or not canonical or not source:
                 raise ValueError(
                     f"Invalid employer rule on row {number}"
                 )
-            rules[variant] = canonical
-    return rules
+            if action == "separate":
+                separate.update((variant, canonical.upper()))
+                # Keep legal forms when a job label is removed from a compound value.
+                separate.update(part.strip() for name in (variant, canonical.upper())
+                                for part in name.split('/') if part.strip())
+            elif action == "rename":
+                rules[variant] = canonical
+            else:
+                raise ValueError(f"Unknown employer rule action on row {number}: {action}")
+    return rules, separate
 
 
-EMPLOYER_SYNONYMS = _load_rules()
+EMPLOYER_SYNONYMS, _SEPARATE_NAMES = _load_rules()
+
+
+# Ignore punctuation only; keep name words and legal forms.
+def _separation_key(name: str) -> str:
+    name = name.upper().replace('&', ' AND ')
+    return ' '.join(re.sub(r'[.,]', '', name).split())
+
+
+_SEPARATE_KEYS = {_separation_key(name) for name in _SEPARATE_NAMES if name not in SKIP_EMPLOYERS}
+
+
+# Reviewed distinct or ambiguous names cannot be merged by a heuristic.
+def preserved_employer_name(name) -> str | None:
+    if isinstance(name, str) and _separation_key(name) in _SEPARATE_KEYS:
+        return ' '.join(name.upper().split()).rstrip('.,')
+    return None
 
 
 # rewrite each synonym key to the end of its chain
@@ -74,7 +100,7 @@ def _expand_synonym_keys() -> int:
         target = EMPLOYER_SYNONYMS[key]
         norm_key = _canonicalize_for_match(key)
         # skip identity and self-maps: that form is already canonical
-        if not norm_key or norm_key in (key, target):
+        if not norm_key or norm_key in (key, target) or preserved_employer_name(norm_key):
             continue
         existing = EMPLOYER_SYNONYMS.get(norm_key)
         if existing is not None:

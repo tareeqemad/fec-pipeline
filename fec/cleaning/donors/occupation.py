@@ -1,7 +1,7 @@
 """Occupation, occupation_status and occupation_category fixes that need donor_key."""
 import pandas as pd
 
-from fec.cleaning.work.employer_canonical import canonical_key
+from fec.cleaning.work.employer_canonical import employer_text_key
 from fec.cleaning.rules.manual import categorize_records
 from fec.cleaning.work.normalize import categorize_final
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
@@ -32,9 +32,9 @@ def _one_confirmed_role(df, donor_key, employer):
         occupations.ne('') & ~occupations.isin(SKIP_OCCUPATIONS)
     ]
 
-    employer_key = canonical_key(employer)
+    employer_key = employer_text_key(employer)
     occupations = occupations[
-        occupations.map(canonical_key).ne(employer_key)
+        occupations.map(employer_text_key).ne(employer_key)
     ].unique()
     return occupations[0] if len(occupations) == 1 else None
 
@@ -66,8 +66,8 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     # ELLIS beside KIRKLAND & ELLIS LLP). Legal suffixes and punctuation are
     # ignored only for detecting this placeholder; the role still needs unique
     # same-donor, same-employer evidence.
-    occupation_key = occupation.fillna('').map(canonical_key)
-    employer_key = employer.fillna('').map(canonical_key)
+    occupation_key = occupation.fillna('').map(employer_text_key)
+    employer_key = employer.fillna('').map(employer_text_key)
     company_as_occupation = indiv[
         occupation_key.ne('') & occupation_key.eq(employer_key) & real_employer
     ]

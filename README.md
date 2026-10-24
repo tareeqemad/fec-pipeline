@@ -227,6 +227,12 @@ the pull does not reconcile amended versions of a transaction.
 
 Keep rules, reference data and caches in Git.
 
+In `employer_name_rules.csv`, `action=rename` applies the sourced name correction.
+`action=separate` records a rejected mapping: keep the two names distinct, including
+during automatic spelling and substring matching. It can mean different entities
+or insufficient evidence to combine them. The `source` column records the evidence;
+formatting-only changes do not establish a company's legal identity.
+
 ## Database views
 
 `fec/database/schema.sql` is the source of truth for the public database schema.

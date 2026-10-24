@@ -245,8 +245,8 @@ def test_a_short_employer_name_does_not_join_two_different_fuller_names():
 
     # ADVISORS and PRIVATE BANK are two units: WELLS FARGO must not bridge them
     assert _employer_variant_map(["WELLS FARGO", "WELLS FARGO ADVISORS", "WELLS FARGO PRIVATE BANK"]) == {}
-    # one fuller name still absorbs its short forms
-    assert _employer_variant_map(["KIRKLAND ELLIS", "KIRKLAND & ELLIS LLP"]) == {"KIRKLAND ELLIS": "KIRKLAND & ELLIS LLP"}
+    # A reviewed legal name cannot absorb an unsuffixed label by heuristic.
+    assert _employer_variant_map(["KIRKLAND ELLIS", "KIRKLAND & ELLIS LLP"]) == {}
 
 
 def test_an_initial_glued_to_the_name_after_it_gets_its_space():

@@ -1,12 +1,85 @@
 {
   "rows": 222603,
   "employer_abbreviations": {
-    "distinct_employers_flagged": 0,
-    "by_token": {}
+    "distinct_employers_flagged": 9,
+    "by_token": {
+      "MGMT": {
+        "count": 4,
+        "examples": [
+          "ELLIOTT MGMT",
+          "EMA INV MGMT",
+          "GLEN UNA MGMT",
+          "SUTHERLAND CAPITAL MGMT. INC"
+        ]
+      },
+      "MGT": {
+        "count": 1,
+        "examples": [
+          "ARES MGT LLC"
+        ]
+      },
+      "INV": {
+        "count": 4,
+        "examples": [
+          "EISENBERG INV GROUP",
+          "EMA INV",
+          "EMA INV MGMT",
+          "EMAI INV"
+        ]
+      },
+      "MFG": {
+        "count": 1,
+        "examples": [
+          "RICHARDS MFG"
+        ]
+      }
+    }
   },
   "employer_near_duplicates": {
-    "groups": 0,
-    "examples": []
+    "groups": 91,
+    "examples": [
+      [
+        "STROOCK & STROOCK & LAVAN",
+        "STROOCK & STROOCK & LAVAN LLP",
+        "STROOCK AND STROOCK AND LAVAN",
+        "STROOCK&STROOCK&LAVAN"
+      ],
+      [
+        "CEDARS SINAI",
+        "CEDARS- SINAI",
+        "CEDARS-SINAI"
+      ],
+      [
+        "SCHOSTAK BROTHERS",
+        "SCHOSTAK BROTHERS & COMPANY",
+        "SCHOSTAK BROTHERS & COMPANY, INC."
+      ],
+      [
+        "GOLDMAN SACHS",
+        "GOLDMAN SACHS & CO",
+        "GOLDMAN, SACHS & CO"
+      ],
+      [
+        "WEIL GOTSHAL & MANGES LLP",
+        "WEIL, GOTSHAL & MANGES",
+        "WEIL, GOTSHAL & MANGES LLP"
+      ],
+      [
+        "KING & SPALDING",
+        "KING AND SPALDING",
+        "KING&SPALDING"
+      ],
+      [
+        "A & R KATZ MANAGEMENT",
+        "A & R KATZ MANAGEMENT INC",
+        "A AND R KATZ MANAGEMENT"
+      ],
+      [
+        "GLEN UNA MANAGEMENT",
+        "GLEN UNA MANAGEMENT CO",
+        "GLEN UNA MGMT"
+      ]
+    ]
   },
   "name_composite_drift": {
     "rows": 0,

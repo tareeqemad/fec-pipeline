@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.reports.trail import WORK_FIELDS
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 from fec.config.constants import (
     OK_SHORT_EMPLOYERS,
     OK_SHORT_OCCUPATIONS,
@@ -162,8 +163,10 @@ def _deep_clean_emp_homemaker_sync(df: pd.DataFrame) -> int:
 def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> int:
     n_changed = 0
     emp_col = df['contributor_employer']
+    editable = emp_col.map(preserved_employer_name).isna()
     for typo_pattern, fix in EMPLOYER_TYPO_FIXES:
         mask = emp_col.str.contains(typo_pattern, na=False, regex=True)
+        mask &= editable
         if mask.any():
             df.loc[mask, 'contributor_employer'] = (
                 emp_col[mask].str.replace(typo_pattern, fix, regex=True)

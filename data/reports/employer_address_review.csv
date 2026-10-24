@@ -1,5 +1,5 @@
 employer_name,reason,employer_address,employer_city,employer_state,employer_zip,is_primary,address_source,method,donor_states
-BDO USA PC,grounded_alias_outside_donor_states,"330 North Wabash Avenue, Suite 3200",Chicago,IL,60611,True,,ai_openai_search,FL;GA;OH
+BDO USA PC,grounded_alias_outside_donor_states,"330 North Wabash Avenue, Suite 3200",Chicago,IL,60611,True,,ai_openai_search,GA
 BOULEVARD HEALTHCARE MANAGEMENT LLC,grounded_alias_outside_donor_states,"6400 Shafer Ct, Suite 600",Rosemont,IL,60018,True,,ai_openai_search,NY
 CUNEO GILBERT & LADUCA LLP,grounded_alias_outside_donor_states,"1001 Pennsylvania Avenue NW, Suite 1300S",Washington,DC,20004,True,,ai_openai_search,FL
 DEREK SMITH LAW GROUP PLLC,grounded_alias_outside_donor_states,"The Nelson Tower, 450 7th Avenue, 30th Floor",New York,NY,10123,True,,ai_openai_search,FL;PA
@@ -14,5 +14,12 @@ MORGAN LEWIS & BOCKIUS LLP,grounded_alias_outside_donor_states,2222 Market St,Ph
 NATIONAL COLLECTOR''S MINT INC,grounded_alias_outside_donor_states,"2975 Westchester Ave, Suite 300",Purchase,NY,10577,True,,ai_openai_search,CT
 RIMON PC,grounded_alias_outside_donor_states,355 S Grand Ave Suite 2450,Los Angeles,CA,90071,True,,ai_openai_search,NY
 TAYLOR MORRISON NW LLC,grounded_alias_outside_donor_states,"3620 1st Ave S, Suite 300",Seattle,WA,98134,True,,ai_openai_search,OR
+US CABINET DEPOT,grounded_alias_outside_donor_states,2050 Roswell Rd,Marietta,GA,30062,True,,ai_openai_search,TX
+US CABINET DEPOT,grounded_alias_outside_donor_states,14874 Jurupa Ave,Fontana,CA,92337,False,,ai_openai_search,TX
+US CABINET DEPOT,grounded_alias_outside_donor_states,1077 W Taylor Rd,Romeoville,IL,60446,False,,ai_openai_search,TX
+US CABINET DEPOT,grounded_alias_outside_donor_states,1950 N Norcross-Tucker Rd,Norcross,GA,30071,False,,ai_openai_search,TX
+US CABINET DEPOT,grounded_alias_outside_donor_states,5125 W Hudson Way,Lehi,UT,84048,False,,ai_openai_search,TX
+US CABINET DEPOT,grounded_alias_outside_donor_states,6301 Lyons Rd,Coconut Creek,FL,33073,False,,ai_openai_search,TX
+US CABINET DEPOT,grounded_alias_outside_donor_states,"11079 Success St, Suite 100",Ashland,VA,23005,False,,ai_openai_search,TX
 WHEELS INC,grounded_alias_outside_donor_states,666 Garland Place,Des Plaines,IL,60016,True,,ai_openai_search,CA
 WILLIAMS & CONNOLLY LLP,grounded_alias_outside_donor_states,"725 Twelfth Street, N.W",Washington,DC,20005,True,,ai_openai_search,MD

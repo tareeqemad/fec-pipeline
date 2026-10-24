@@ -39,11 +39,14 @@ def test_short_title_and_known_company_alias_are_swapped():
         ("OMNINET CAPITAL", "EXECUTIVE"),
     ])
 
-    assert _swap_role_employer_with_known_company(df) == 2
+    # The rejected OMNINET/OMNINET CAPITAL alias cannot corroborate a swap.
+    assert _swap_role_employer_with_known_company(df) == 1
     assert df.loc[0, "contributor_employer"] == "CIBC"
     assert df.loc[0, "contributor_occupation"] == "VICE PRESIDENT"
-    assert df.loc[2, "contributor_employer"] == "OMNINET"
-    assert df.loc[2, "contributor_occupation"] == "CEO"
+    assert df.loc[2, "contributor_employer"] == "CEO"
+    assert df.loc[2, "contributor_occupation"] == "OMNINET"
+    assert df.loc[3, "contributor_employer"] == "OMNINET CAPITAL"
+    assert df.loc[3, "contributor_occupation"] == "EXECUTIVE"
 
 
 def test_early_swap_preserves_short_titles_and_company_names():
