@@ -7,9 +7,6 @@ from fec.database.loader._base import _quote_identifier
 from fec.env import (
     DATABASE_READER,
 )
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 
 # Require a reader without admin rights or inherited roles.
@@ -39,7 +36,6 @@ def _check_reader(cur: Any) -> None:
 
 # Give the reader SELECT access to tables and views.
 def grant_read_access(cur: Any) -> None:
-    logger.info("\n-- Granting permissions --")
     _check_reader(cur)
 
     reader = _quote_identifier(DATABASE_READER)
@@ -57,6 +53,3 @@ def grant_read_access(cur: Any) -> None:
             cur.execute(statement)
     except Exception as error:
         raise RuntimeError(f"Permission update failed: {error}") from error
-
-    # ALL TABLES covers tables, views and materialized views
-    logger.info("  %s: SELECT on tables, views and materialized views; nothing else", DATABASE_READER)

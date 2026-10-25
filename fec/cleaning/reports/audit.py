@@ -66,23 +66,9 @@ def _write_amount_flags(df, row_idx, out_dir):
     write_csv_atomic(flags, path, index=False)
 
 
-# check for unusual amounts and dates, returning warning strings
+# Warn about dates that need attention; amount flags are saved separately.
 def _sanity_check(df: pd.DataFrame) -> list[str]:
-    """Check for unusual amounts and dates; returns warning strings (empty = all OK)."""
     warnings = []
-    amounts = df['contribution_receipt_amount']
-
-    n_negative = int((amounts < 0).sum())
-    n_zero = int((amounts == 0).sum())
-    n_extreme = int((amounts.abs() > 100_000).sum())
-
-    if n_negative:
-        warnings.append(f"negative amounts: {n_negative:,}")
-    if n_zero:
-        warnings.append(f"zero amounts: {n_zero:,}")
-    if n_extreme:
-        warnings.append(f"amounts > $100K: {n_extreme:,}")
-
     today = pd.Timestamp.now()
     n_future = int((df['contribution_receipt_date'] > today + pd.Timedelta(days=30)).sum())
     if n_future:

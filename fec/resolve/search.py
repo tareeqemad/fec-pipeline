@@ -59,7 +59,7 @@ def get_ai_client():
     model = get_ai_model()
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
-        logger.info("    OPENAI_API_KEY not set - AI step skipped")
+        logger.warning("SKIPPED: OPENAI_API_KEY is not set; using cached employer addresses")
         return None, model
     return OpenAI(api_key=key), model
 

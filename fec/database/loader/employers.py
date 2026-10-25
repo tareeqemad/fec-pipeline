@@ -1,7 +1,6 @@
 """Load employers and donor employments."""
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pandas as pd
@@ -12,15 +11,12 @@ from fec.cleaning.work.status import (
     referenced_employers,
 )
 from fec.config.not_employers import NOT_REAL_EMPLOYER
-from fec.database.loader._base import _count, to_native
+from fec.database.loader._base import to_native
 from fec.database.loader.employment_locations import (
     _employment_address_id,
     _location_index,
 )
 from fec.database.loader.previous_employers import filing_previous
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 
 # Match the seven-field UNIQUE NULLS NOT DISTINCT key in schema.sql.
@@ -96,9 +92,6 @@ def _make_employer_resolver(employer_ids: dict):
 
 # Load referenced companies and return their IDs.
 def load_employers(cur: Any, df: pd.DataFrame) -> dict:
-    logger.info("\n-- 2/8 Loading employers --")
-    start = time.time()
-
     employer_rows = [(name,) for name in sorted(referenced_employers(df))]
 
     execute_values(cur,
@@ -107,7 +100,6 @@ def load_employers(cur: Any, df: pd.DataFrame) -> dict:
 
     cur.execute("SELECT employer_id, name FROM employers")
     employer_ids = {row[1]: row[0] for row in cur.fetchall()}
-    logger.info(f"  employers: {_count(cur, 'employers'):,} ({time.time()-start:.1f}s)")
     return employer_ids
 
 
@@ -115,8 +107,6 @@ def load_employers(cur: Any, df: pd.DataFrame) -> dict:
 def load_employments(cur: Any, df: pd.DataFrame, donor_ids: dict,
                      occupation_category_ids: dict, get_employer_id, address_ids: dict | None = None,
                      employer_locations: list[dict] | None = None) -> dict:
-    logger.info("\n-- 6/8 Loading donor employments --")
-    start = time.time()
     rows = _employment_rows(
         df, donor_ids, occupation_category_ids, get_employer_id, address_ids, employer_locations,
     )
@@ -128,7 +118,6 @@ def load_employments(cur: Any, df: pd.DataFrame, donor_ids: dict,
            VALUES %s ON CONFLICT DO NOTHING""",
         rows, page_size=5000)
     employment_ids = _employment_ids(cur)
-    logger.info(f"  donor_employments: {_count(cur, 'donor_employments'):,} ({time.time()-start:.1f}s)")
     return employment_ids
 
 

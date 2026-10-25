@@ -31,43 +31,40 @@ from fec.cleaning.rules.junk import _clean_junk_status_word_employer
 from fec.cleaning.rules.occupation_category import (
     _fix_emp_occ_category_consistency,
 )
-from fec.log import get_logger, log_count
-
-logger = get_logger(__name__)
 
 PREVIOUS = ("previous_employer",)
 ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
 
-# (label, audit step, fix, fields, reason, source)
+# (audit step, fix, fields, reason, source)
 CONSISTENCY_FIXES = (
-    ("reviewed employer names", "donor_reviewed_employers", apply_reviewed_employer_names, EMPLOYMENT_FIELDS,
+    ("donor_reviewed_employers", apply_reviewed_employer_names, EMPLOYMENT_FIELDS,
      "documented_company_alias", "data/rules/employer_name_rules.csv"),
-    ("fill occupation from donor", "donor_fill_occupation_from_donor", _fill_occupation_from_donor, WORK_FIELDS,
+    ("donor_fill_occupation_from_donor", _fill_occupation_from_donor, WORK_FIELDS,
      "occupation_derived_from_donor_same_employer", None),
-    ("fill self-employed occupation from donor", "donor_fill_self_employed_occupation_from_donor",
+    ("donor_fill_self_employed_occupation_from_donor",
      _fill_self_employed_occupation_from_donor, WORK_FIELDS,
      "self_employed_occupation_replaced_by_donors_real_one", None),
-    ("fill employer from occupation", "donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,
+    ("donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,
      "employer_derived_from_occupation_or_category", None),
-    ("recover previous employer", "donor_recover_previous_employer", _fill_prev_employer_from_donor, PREVIOUS,
+    ("donor_recover_previous_employer", _fill_prev_employer_from_donor, PREVIOUS,
      "previous_employer_from_latest_earlier_filing", None),
-    ("clear refusal employers", "donor_clear_refusal_employers", _clean_junk_status_word_employer, WORK_FIELDS,
+    ("donor_clear_refusal_employers", _clean_junk_status_word_employer, WORK_FIELDS,
      "refusal_placeholder_employer_nulled", None),
-    ("enforce entity consistency", "donor_enforce_entity_consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
+    ("donor_enforce_entity_consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
      "entity_type_unified_by_name", None),
-    ("apply fec source entity type", "donor_apply_fec_source_entity_type", _apply_source_entity_types, ENTITY_AND_WORK,
+    ("donor_apply_fec_source_entity_type", _apply_source_entity_types, ENTITY_AND_WORK,
      "entity_type_as_fec_reports_it", None),
-    ("apply entity overrides", "donor_apply_entity_overrides", _apply_entity_overrides, ENTITY_AND_WORK,
+    ("donor_apply_entity_overrides", _apply_entity_overrides, ENTITY_AND_WORK,
      "curated_entity_type_override", "data/rules/entity_overrides.csv"),
-    ("sync employer and occupation", "donor_sync_employer_and_occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
+    ("donor_sync_employer_and_occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
      "employer_occupation_category_consistency_fixed", None),
-    ("rebuild occupation category", "donor_rebuild_occupation_category", _rederive_occupation_category, WORK_FIELDS,
+    ("donor_rebuild_occupation_category", _rederive_occupation_category, WORK_FIELDS,
      "occupation_category_rederived_from_final_occupation", None),
-    ("settle retired employer", "donor_settle_retired_employer", _settle_retired_employer, EMPLOYMENT_FIELDS,
+    ("donor_settle_retired_employer", _settle_retired_employer, EMPLOYMENT_FIELDS,
      "retired_recovered_company_demoted_to_previous", None),
-    ("clear non-individual employers", "donor_clear_non_individual_employers", _clear_nonindividual_employer_field, WORK_FIELDS,
+    ("donor_clear_non_individual_employers", _clear_nonindividual_employer_field, WORK_FIELDS,
      "non_individual_employer_cleared", None),
-    ("normalize previous employers", "donor_normalize_previous_employers", _normalize_previous_employer, PREVIOUS,
+    ("donor_normalize_previous_employers", _normalize_previous_employer, PREVIOUS,
      "previous_employer_contract_normalized", None),
 )
 
@@ -79,17 +76,13 @@ INFERRED_WORK_STEPS = frozenset({
 })
 
 
-def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> int:
+def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> None:
     """Repair values using donor history."""
-    total = 0
-    for label, step, fix, fields, reason, source in CONSISTENCY_FIXES:
-        count = trail.run(df, fix, step, reason, fields, source=source)
-        total += count
-        log_count(logger, label, count)
+    for step, fix, fields, reason, source in CONSISTENCY_FIXES:
+        trail.run(df, fix, step, reason, fields, source=source)
         # Keep curated values before the next rule uses them.
         trail.run(
             df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
             "manual_overrides_kept", "curated_row_override", OVERRIDE_FIELDS,
             source="data/rules/manual_employer_overrides.csv",
         )
-    return total

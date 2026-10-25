@@ -121,22 +121,21 @@ def step_fec_api(
     unproven = drop_unproven_source_entries(prev_cache, df, cleared)
     if unproven:
         prev_cache.save()
-        logger.info(f"    FEC API: {unproven:,} cached answers need verification or were rejected")
+        logger.warning("WARNING: %s FEC cache answers need verification or were rejected", f"{unproven:,}")
 
     fec_key = os.environ.get("FEC_API_KEY", "").strip()
     if not fec_key:
-        logger.info("    FEC_API_KEY not found in .env - skipping")
-        logger.info("    Get a free key at: https://api.open.fec.gov/developers/")
+        logger.warning("SKIPPED: FEC_API_KEY is not set; free key: https://api.open.fec.gov/developers/")
         return 0
 
     searches = _pending_fec_searches(df, prev_cache, donor_totals)
     for person in searches:
         person["cleared_employers"] = cleared.get(person["prev_key"].split(":")[1], set())
     if not searches:
-        logger.info("    FEC API: 0 retired donors to search")
+        logger.info("FEC: no pending lookups")
         return 0
 
-    logger.info(f"    FEC API: {len(searches):,} retired donors to search")
+    logger.info("FEC: %s pending lookups", f"{len(searches):,}")
     found = 0
     quota_spent = threading.Event()
     quota_logged = False
@@ -153,8 +152,7 @@ def step_fec_api(
             cache_key, result = future.result()
             if result is RATE_LIMITED:
                 if not quota_logged:
-                    logger.info(f"    FEC API: hourly request limit reached after {done:,} donors; "
-                                "the rest are searched on the next run")
+                    logger.warning("PARTIAL: FEC hourly limit reached; remaining lookups will be retried next run")
                     quota_logged = True
                 continue
             if cache_key and result:
@@ -163,10 +161,10 @@ def step_fec_api(
                     found += 1
             if done % 50 == 0 and not quota_spent.is_set():
                 prev_cache.save()
-                logger.info(f"      ... {done}/{len(searches)} ({found:,} found)")
+                logger.info("FEC: %s/%s searched | %s found", f"{done:,}", f"{len(searches):,}", f"{found:,}")
 
     prev_cache.save()
-    logger.info(f"    FEC API: found {found:,} previous employers")
+    logger.info("FEC: %s previous employers found", f"{found:,}")
     return found
 
 def _words(value) -> list[str]:

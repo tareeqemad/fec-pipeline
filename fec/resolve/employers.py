@@ -184,13 +184,10 @@ def step_ai_lookup(
     )
     pending = len(lookups)
     batch = lookups[:AI_LOOKUP_BATCH_SIZE]
-    logger.info(
-        f"    AI Lookup [{EMPLOYER_PROMPT_VERSION}]: {pending:,} employers pending "
-        f"({len(addr_cache):,} total cache entries)"
-    )
+    logger.info("Employer addresses: %s pending | %s cache entries", f"{pending:,}", f"{len(addr_cache):,}")
     if len(batch) < pending:
         logger.info(
-            f"    Processing {len(batch):,} highest-priority employers this run; "
+            f"Processing {len(batch):,} highest-priority employers this run; "
             "rerun to continue"
         )
 
@@ -200,7 +197,7 @@ def step_ai_lookup(
     try:
         client, model = get_ai_client()
     except ImportError:
-        logger.info("    openai package not installed - run: pip install openai")
+        logger.warning("SKIPPED: employer web search; install the openai package")
         return 0
     if client is None:
         return 0
@@ -214,7 +211,7 @@ def step_ai_lookup(
         if _is_explicit_unknown(lookup, result):
             addr_cache.put(lookup.key, _not_found_entry(resolver_tag))
         else:
-            logger.warning(f"      {lookup.name}: invalid AI response was not cached")
+            logger.warning("WARNING: %s: invalid AI response was not cached", lookup.name)
         return False
 
     return run_web_search(

@@ -50,78 +50,61 @@ def _address_rule_source(df: pd.DataFrame) -> pd.Series:
     return df["_address_rule"]
 
 
-def _clean_street_text(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
+def _clean_street_text(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Normalize street text, then apply the safe text fixes."""
-    df = trail.run_logged(
+    df = trail.run(
         df, clean_streets, "streets_normalize", _street_reason, STREET_FIELDS,
-        "Streets: {streets_normalized:,} normalized, {units_extracted:,} units extracted",
-        log, always=True,
     )
-    return trail.run_logged(
+    df, _ = trail.run(
         df, apply_safe_fixes, "streets_safe_fixes",
         "care_of_house_number_or_trailing_unit_fixed", ADDRESS_FIELDS,
-        "Streets: {house_number:,} house-number/dup fixes, "
-        "{unit_split:,} trailing units split, {care_of:,} C/O prefixes moved, "
-        "{second_line:,} streets moved from line 2",
-        log,
     )
+    return df
 
 
 # Recovered streets are not evidence for matching donors.
 INFERRED_STREET_STEPS = frozenset({"streets_trim_truncated"})
 
 
-def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
+def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Normalize city names and ZIP codes."""
-    df = trail.run_logged(
+    df, _ = trail.run(
         df, clean_cities,
         "cities_normalize", "city_alias_typo_or_punctuation_normalized", PLACE_FIELDS,
-        "Cities: {known_fixes:,} known fixes, "
-        "{punctuation_cleaned:,} punctuation cleaned",
-        log, always=True,
     )
-    return trail.run_logged(
+    df = trail.run(
         df, clean_zips, "zips_normalize", "zip_reduced_to_five_digits_or_invalid_nulled",
-        PLACE_FIELDS, "ZIPs: {cleaned:,} cleaned, {invalid_nulled:,} invalid -> null",
-        log, always=True,
+        PLACE_FIELDS,
     )
+    return df
 
 
 # Address alignment passes, in order.
 _ALIGN_STEPS = (
     (_fix_impossible_city_states, "address_city_state_conflict",
-     "state_fixed_from_person_history_same_city", PLACE_FIELDS,
-     "City-state: {n:,} impossible states fixed (city is the witness)"),
+     "state_fixed_from_person_history_same_city", PLACE_FIELDS),
     (_fix_state_zip_mismatches, "address_zip_state_conflict",
-     "state_fixed_or_zip_nulled_by_city_witness", PLACE_FIELDS,
-     "State-ZIP: {state_fixed:,} states fixed (ZIP kept), {zip_nulled:,} ZIPs nulled (state kept)"),
+     "state_fixed_or_zip_nulled_by_city_witness", PLACE_FIELDS),
     (_unify_street_spellings, "streets_unify_spelling",
-     "street_spelling_unified_to_donor_dominant", STREET_FIELDS,
-     "Streets: unified {n:,} spelling variants (same donor + same address)"),
+     "street_spelling_unified_to_donor_dominant", STREET_FIELDS),
     (_unify_street_types, "streets_unify_types",
-     "street_type_unified_to_donor_dominant", STREET_FIELDS,
-     "Streets: unified {n:,} with/without-type variants (same donor)"),
+     "street_type_unified_to_donor_dominant", STREET_FIELDS),
     (_unify_street_spacing, "streets_unify_spacing",
-     "street_spacing_unified_to_donor_dominant", STREET_FIELDS,
-     "Streets: unified {n:,} spacing/punctuation variants (same address)"),
+     "street_spacing_unified_to_donor_dominant", STREET_FIELDS),
     (_recover_address_from_same_street, "address_same_street_align",
-     "aligned_to_donor_dominant_at_same_street", PLACE_FIELDS,
-     "Same-street: {zip:,} ZIPs filled, {city:,} cities + {state:,} states aligned"),
+     "aligned_to_donor_dominant_at_same_street", PLACE_FIELDS),
     (_unify_unit_designators, "streets_unify_units",
-     "unit_designator_unified_to_donor_dominant", STREET_FIELDS,
-     "Streets: unified {n:,} unit-designator variants (same donor + same unit)"),
+     "unit_designator_unified_to_donor_dominant", STREET_FIELDS),
 )
 
 
 def _report_address_issues(
-    df: pd.DataFrame, trail: AuditTrail, log, reports: dict | None = None,
+    df: pd.DataFrame, trail: AuditTrail, reports: dict | None = None,
 ) -> pd.DataFrame:
-    df, auto_fixed, emptied = trail.run(
+    df, auto_fixed, _ = trail.run(
         df, apply_street2_fixes,
         "address_review", "street_2_nulled_unit_keyword_or_state_only", STREET_FIELDS,
     )
-    if emptied:
-        log(f"Address review: {emptied:,} bad street_2 emptied")
     if reports is not None:
         # clean_pipeline writes the queues after the donor stage
         reports["street2_auto_fixed"] = auto_fixed
@@ -129,28 +112,23 @@ def _report_address_issues(
 
 
 def clean_addresses(
-    df: pd.DataFrame, trail: AuditTrail, log, reports: dict | None = None,
+    df: pd.DataFrame, trail: AuditTrail, reports: dict | None = None,
 ) -> pd.DataFrame:
     """Clean addresses and collect review details for the final rows."""
-    df = _clean_street_text(df, trail, log)
-    trail.run_logged(
+    df = _clean_street_text(df, trail)
+    trail.run(
         df, _trim_street_to_donor_short_form, "streets_trim_truncated",
         "filed_street_tail_trimmed", STREET_FIELDS,
-        "Streets: trimmed {n:,} trailing fragments, keeping filed units", log,
     )
-    df = _clean_city_zip(df, trail, log)
-    verified = trail.run(
+    df = _clean_city_zip(df, trail)
+    trail.run(
         df, lambda frame: apply_verified_address_fixes(frame, city_only=False), "address_verified_rules",
         "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
     )
-    if verified:
-        log(f"Streets: applied {verified:,} verified postal corrections")
-    for transform, step, reason, fields, message in _ALIGN_STEPS:
-        trail.run_logged(df, transform, step, reason, fields, message, log)
-    verified = trail.run(
+    for transform, step, reason, fields in _ALIGN_STEPS:
+        trail.run(df, transform, step, reason, fields)
+    trail.run(
         df, lambda frame: apply_verified_address_fixes(frame, city_only=True), "address_verified_rules",
         "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
     )
-    if verified:
-        log(f"Cities: applied {verified:,} verified corrections")
-    return _report_address_issues(df, trail, log, reports)
+    return _report_address_issues(df, trail, reports)

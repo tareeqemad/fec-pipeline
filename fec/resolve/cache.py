@@ -176,15 +176,13 @@ def _entries_by_address(data: dict) -> dict[str, list[str]]:
 
 def _cluster_company_names(names: list[str]) -> list[list[str]]:
     """Cluster same-company spellings while preserving cache order."""
-    clusters: list[list[str]] = []
-    for name in names:
-        for cluster in clusters:
-            if any(_same_entity(name, member) for member in cluster):
-                cluster.append(name)
-                break
-        else:
-            clusters.append([name])
-    return clusters
+    clusters: dict[str | int, list[str]] = {}
+    for index, name in enumerate(names):
+        key = canonical_key(name)
+        # Each name without a key stays separate.
+        group_key = key if key else index
+        clusters.setdefault(group_key, []).append(name)
+    return list(clusters.values())
 
 def _canonical_name(cluster: list[str]) -> str:
     """Prefer the reviewed name already cached; otherwise use a stable spelling."""

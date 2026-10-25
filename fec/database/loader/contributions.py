@@ -1,20 +1,16 @@
 """Load contribution records."""
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.cleaning.work.status import current_employer_name
-from fec.database.loader._base import _count, to_float_or_none, to_int_or_none
+from fec.database.loader._base import to_float_or_none, to_int_or_none
 from fec.database.loader.addresses import DONOR_ADDRESS_COLUMNS
 from fec.database.loader.employers import filing_employment_key
 from fec.env import CLEANED_CSV
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 _INSERT_SQL = """
     INSERT INTO contributions (
@@ -142,14 +138,8 @@ def _build_rows(rows):
 def load_contributions(cur: Any, df: pd.DataFrame, donor_ids: dict,
                        committee_ids: dict, address_ids: dict,
                        employment_ids: dict, get_employer_id, occupation_category_ids: dict) -> None:
-    logger.info("\n-- 7/8 Loading contributions --")
-    start = time.time()
-
     rows = _map_required_ids(df, donor_ids, committee_ids)
     _map_address_ids(rows, address_ids)
     _map_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids)
 
     execute_values(cur, _INSERT_SQL, _build_rows(rows), page_size=5000)
-
-    total = _count(cur, "contributions")
-    logger.info("  contributions: %s (%0.1fs)", f"{total:,}", time.time() - start)

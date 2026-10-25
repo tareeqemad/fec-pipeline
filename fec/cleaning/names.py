@@ -12,7 +12,6 @@ from fec.config.data import (
     SUFFIX_RE,
     TITLE_RE,
 )
-from fec.log import get_logger
 from fec.cleaning.reports.trail import NAME_FIELDS, AuditTrail
 
 
@@ -91,8 +90,6 @@ ROW_NAME_CORRECTIONS = _RULES["sub_id"]
 FIRST_NAME_FIXES = _RULES["first_name"]
 COMMITTEE_NAME_FIXES = _RULES["committee_name"]
 
-
-logger = get_logger(__name__)
 
 # professional/religious titles appearing after the comma in a name
 _NAME_TITLE_RE = re.compile(
@@ -274,7 +271,6 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
         df.loc[candidates, 'contributor_zip'].astype('string').fillna('')
         .str.replace(r'\D', '', regex=True).str[:5]
     )
-    n_garbled = 0
     for idx in df.index[candidates]:
         old_first = _text(df.at[idx, 'contributor_first_name'])
         last = _text(df.at[idx, 'contributor_last_name'])
@@ -286,9 +282,6 @@ def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None
         new_first = f"{new_first_word} {rest}" if rest else new_first_word
         df.at[idx, 'contributor_first_name'] = new_first
         df.at[idx, 'contributor_name'] = f"{last}, {new_first}"
-        n_garbled += 1
-    if n_garbled:
-        logger.info("Fixed %d garbled first names (keyboard errors)", n_garbled)
 
 
 # a plain given-name word: letters, apostrophes, hyphens, e.g. "O'BRIEN"
@@ -362,10 +355,8 @@ def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> Non
         )
         current = df.loc[has_both, 'contributor_name']
         changed_mask = (current != rebuilt)
-        n_rebuilt = int(changed_mask.sum())
-        if n_rebuilt:
+        if changed_mask.any():
             df.loc[changed_mask[changed_mask].index, 'contributor_name'] = rebuilt[changed_mask]
-            logger.info("Rebuilt %d contributor_name values from clean first/last", n_rebuilt)
 
 
 # (function, scope, step, reason)

@@ -1,8 +1,6 @@
 """Cleaning stages in execution order. Start with clean_pipeline."""
 from __future__ import annotations
 
-import time
-
 import pandas as pd
 
 from fec.cleaning.addresses.foreign import (
@@ -39,7 +37,6 @@ from fec.cleaning.reports.audit import _build_missing_report, _sanity_check
 from fec.cleaning.rules.records import apply_record_rules
 from fec.committees import committee_id_to_name
 from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
-from fec.config.geography import US_STATES
 from fec.donor_match.normalize import extract_generational_suffix
 from fec.log import get_logger
 
@@ -67,28 +64,25 @@ def clean_pipeline(
     df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(
         trail.keys_set_by(INFERRED_STREET_STEPS, STREET_FIELDS)
     )
+    logger.info("[4/5] Matching and standardizing donors")
     df_clean = identify_donors(df_clean)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
 
-    n_foreign = trail.run(
+    logger.info("[5/5] Checking data and saving")
+    trail.run(
         df_clean, lambda frame: restore_foreign_addresses(frame, foreign),
         "foreign_address_restore", kept_as_filed_reason, ADDRESS_FIELDS,
-    )
-    logger.info(
-        "  Foreign addresses: %s rows kept as filed (%s cells restored)",
-        f"{len(foreign):,}", f"{n_foreign:,}",
     )
     if out_dir:
         write_final_address_reports(
             df_clean, out_dir, address_reports, foreign.index, filed_addresses, trail,
-            log=logger.info,
         )
 
     unexplained = trail.finish(df_clean)
     df_clean["employment_source"] = _employment_sources(df_clean, trail, filed_work)
     if unexplained:
         logger.warning(
-            "  Audit: %s field values changed outside tracked steps", f"{unexplained:,}"
+            "WARNING: %s field values changed outside tracked steps", f"{unexplained:,}"
         )
     return df_clean, missing, trail
 
@@ -99,50 +93,39 @@ def clean_records(
     address_reports: dict | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Clean fields, apply record rules, then apply curated overrides."""
-    start = time.time()
-    log = logger.info
-
-    df = _prepare_records(df, log)
+    logger.info("[1/5] Cleaning names and work")
+    df = _prepare_records(df)
     trail.start(df)
-    df = _clean_people(df, trail, log)
-    df = clean_addresses(df, trail, log, reports=address_reports)
-    df, missing = _finish_records(df, log)
-    elapsed = time.time() - start
-    log(f"Done: {len(df):,} rows in {elapsed:.1f}s")
+    df = _clean_people(df, trail)
+    logger.info("[2/5] Cleaning addresses")
+    df = clean_addresses(df, trail, reports=address_reports)
+    df, missing = _finish_records(df)
 
-    logger.info("\n-- Record rules --")
-
+    logger.info("[3/5] Applying corrections")
     df = apply_record_rules(df, trail)
 
-    n_overrides = trail.run(
+    trail.run(
         df, apply_manual_employer_overrides, "manual_overrides",
         "curated_row_override", WORK_FIELDS + ("previous_employer",
         "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
         source="data/rules/manual_employer_overrides.csv",
     )
-    if n_overrides:
-        logger.info(f"  Manual employer overrides applied: {n_overrides:,} rows")
-
     return df, missing
 
 
-def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
+def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     """Prepare IDs, states, dates and missing-work flags."""
     df["_generational_suffix"] = df["contributor_name"].map(
         extract_generational_suffix
     )
     dup_count = int(df["sub_id"].duplicated().sum())
     if dup_count:
-        log(f"WARNING: Duplicates: {dup_count} duplicate sub_ids -> dropping")
+        logger.warning("WARNING: Dropping %s duplicate sub_ids", f"{dup_count:,}")
         df = df.drop_duplicates(subset="sub_id", keep="first").copy()
-    else:
-        log("Duplicates: none")
 
+    # Keep foreign and unknown states; they do not invalidate a contribution.
     state = df["contributor_state"].astype("string").str.strip().str.upper()
     df["contributor_state"] = state.where(state.fillna("") != "", pd.NA).astype(object)
-    # Keep foreign and unknown states; they do not invalidate a contribution.
-    unknown = int((~df["contributor_state"].isin(US_STATES)).sum())
-    log(f"States: {unknown:,} filing(s) with a state outside the US list, kept as filed")
 
     # Record missing work fields before filling them.
     for field, flag in (
@@ -158,9 +141,7 @@ def _prepare_records(df: pd.DataFrame, log) -> pd.DataFrame:
 
     warnings = _sanity_check(df)
     if warnings:
-        log(f"Sanity: {'; '.join(warnings)}")
-    else:
-        log("Sanity: all amounts & dates OK")
+        logger.warning("WARNING: %s", '; '.join(warnings))
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
     attach_source_fields(df)
@@ -172,7 +153,7 @@ def _reclassify_reason(df: pd.DataFrame) -> pd.Series:
     return reasons.where(reasons.notna(), "entity_type_from_business_or_committee_signal")
 
 
-def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
+def _clean_people(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Clean names, work fields and entity types."""
     trail.run(
         df,
@@ -185,23 +166,16 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     # Reclassification restores raw work fields.
     raw_occupations = df["contributor_occupation"].copy()
     raw_employers = df["contributor_employer"].copy()
-    df, occ_counts = clean_employer_occupation(df, trail)
-    log(
-        f"Occupations: {occ_counts['normalized']:,} normalized, "
-        f"{occ_counts['occ_fixed']:,} typo-fixed, {occ_counts['comm_filled']:,} committees filled"
-    )
+    clean_employer_occupation(df, trail)
 
-    n_to_indiv, n_to_comm = trail.run(
+    trail.run(
         df, _reclassify_entities, "reclassify", _reclassify_reason,
         ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS,
-    )
-    log(
-        f"Reclassified {n_to_indiv:,} committee -> INDIVIDUAL, {n_to_comm:,} individual -> COMMITTEE"
     )
     trail.run(
         df,
         lambda frame: _restore_reclassified_committees(
-            frame, raw_occupations, raw_employers, log
+            frame, raw_occupations, raw_employers
         ),
         "reclassify_restore_work_fields",
         "raw_work_fields_restored_for_reclassified_committee", WORK_FIELDS,
@@ -214,14 +188,14 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     return df
 
 
-def _finish_records(df: pd.DataFrame, log):
+def _finish_records(df: pd.DataFrame):
     """Attach committee names and collect missing fields."""
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])
     unknown_mask = df["committee_id"].notna() & ~df["committee_id"].isin(names)
     unknown = sorted(set(df.loc[unknown_mask, "committee_id"]))
     if unknown:
-        log(f"WARNING: committee_id(s) not in committees.csv (kept raw): {unknown}")
+        logger.warning("WARNING: committee_id(s) not in committees.csv (kept raw): %s", unknown)
 
     missing = _build_missing_report(df)
 

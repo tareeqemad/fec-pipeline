@@ -2,6 +2,7 @@
 """Read, clean, check and save FEC contributions."""
 
 import os
+import time
 
 import pandas as pd
 
@@ -23,6 +24,7 @@ logger = get_logger(__name__)
 
 # Read, clean, check and save contributions.
 def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
+    start = time.perf_counter()
     env.load_env()
 
     input_path = str(RAW_CSV)
@@ -31,14 +33,8 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     for folder in (out_dir, CLEANED_CSV.parent):
         os.makedirs(folder, exist_ok=True)
 
-    logger.info('=' * 55)
-    logger.info('  FEC Contributions Cleaner')
-    logger.info('=' * 55)
-    logger.info("\n  Reading: %s", input_path)
-
     df = read_pipeline_csv(input_path)
-    logger.info("  %s rows, %d columns", f"{len(df):,}", len(df.columns))
-    logger.info("\n-- Cleaning records --")
+    logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
 
     original_rows = df[['sub_id']].copy()
     original_rows['row_index'] = original_rows.index.astype(int)
@@ -54,9 +50,11 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     if expected is not None:
         _check_reclean(expected, output)
 
-    quality = _save_if_gates_pass(output, out_dir, output_path)
+    _save_if_gates_pass(output, out_dir, output_path)
     _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path)
-    _print_summary(output, quality, output_path)
+    _print_summary(output, output_path, out_dir, time.perf_counter() - start)
+    if expected is None:
+        logger.info("Next: python geocode.py")
     return output
 
 
@@ -137,48 +135,19 @@ def _ensure_zip_format(df):
     df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
 
 
-# Show row counts, donor counts and quality results.
-def _print_summary(df, quality, output):
-    individuals = df[df['entity_type'] == 'INDIVIDUAL']
-    committees = int(df['entity_type'].eq('COMMITTEE/PAC').sum())
-    organizations = int(df['entity_type'].eq('ORGANIZATION').sum())
-    donors = individuals['donor_key'].nunique()
-
-    logger.info("\n" + '=' * 55)
-    logger.info("  Output: %s", output)
-    logger.info("  Rows:   %s", f"{len(df):,}")
-    logger.info("  Donors: %s individuals", f"{donors:,}")
-    logger.info(
-        "  Filings: %s individual, %s committee, %s organization",
-        f"{len(individuals):,}",
-        f"{committees:,}",
-        f"{organizations:,}",
-    )
-
-    if quality['issues']:
-        logger.info("  Quality issues: %s", quality['issues'])
-    else:
-        logger.info("  Quality gates: all applicable checks passed")
-    not_run = [
-        name for name, check in quality['checks'].items()
-        if isinstance(check, dict) and check.get('not_run')
-    ]
-    if not_run:
-        logger.info(
-            "  Quality gates not run yet (need resolve.py --apply): %s",
-            ", ".join(not_run),
-        )
-
-    if not individuals.empty:
-        logger.info("\n  Top occupation categories:")
-        top = individuals['occupation_category'].value_counts().head(10)
-        for category, total in top.items():
-            logger.info("    %-30s %7s", category, f"{total:,}")
-    logger.info('=' * 55)
+# Show the final counts, files and total duration.
+def _print_summary(df, output, out_dir, elapsed):
+    donors = df.loc[df['entity_type'].eq('INDIVIDUAL'), 'donor_key'].nunique()
+    minutes, seconds = divmod(round(elapsed), 60)
+    logger.info("Clean checks passed.")
+    logger.info("Rows: %s | Individual donors: %s", f"{len(df):,}", f"{donors:,}")
+    logger.info("Saved: %s", os.path.relpath(output, env.PROJECT_ROOT))
+    logger.info("Reports: %s", os.path.relpath(out_dir, env.PROJECT_ROOT))
+    logger.info("Completed in %dm %02ds.", minutes, seconds)
 
 
 # Save the CSV only after the applicable checks pass.
-def _save_if_gates_pass(output, out_dir, output_path) -> dict:
+def _save_if_gates_pass(output, out_dir, output_path) -> None:
     # Resolve reruns the checks that need employer_status.
     quality = run_quality_gates(output)
     write_json_atomic(os.path.join(out_dir, 'quality_gates.json'), {**quality, 'stage': 'clean'}, indent=2)
@@ -189,33 +158,20 @@ def _save_if_gates_pass(output, out_dir, output_path) -> dict:
         raise SystemExit(1)
     check_output('clean', (), output.columns)
     write_csv_atomic(output, output_path, index=False)
-    return quality
 
 
 # Write the change audit, missing fields and quality scan.
 def _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path) -> None:
-    audit = write_audit(cleaned, original_rows, out_dir, trail)
-    logger.info(
-        "  Audit: %s changes in %s cells, %s untracked",
-        f"{audit['changes']:,}",
-        f"{audit['changed_cells']:,}",
-        f"{audit['untracked_changes']:,}",
-    )
+    write_audit(cleaned, original_rows, out_dir, trail)
 
-    people = cleaned.loc[cleaned['entity_type'].eq('INDIVIDUAL')].set_index('sub_id')
+    people = cleaned.loc[
+        cleaned['entity_type'].eq('INDIVIDUAL'), ['sub_id', 'contributor_name']
+    ].set_index('sub_id')
     missing = missing[missing['sub_id'].isin(people.index)].copy()
     missing['contributor_name'] = missing['sub_id'].map(people['contributor_name'])
     write_csv_atomic(missing, os.path.join(out_dir, 'missing_report.csv'), index=False)
 
-    scan_report = _write_quality_scan(output_path, out_dir)
-    logger.info(
-        "  Quality scan: %s employer abbreviations, %s near-duplicate groups, "
-        "%s name-drift rows, %s address-variant groups",
-        f"{scan_report['employer_abbreviations']['distinct_employers_flagged']:,}",
-        f"{scan_report['employer_near_duplicates']['groups']:,}",
-        f"{scan_report['name_composite_drift']['rows']:,}",
-        f"{scan_report['address_order_variants']['groups']:,}",
-    )
+    _write_quality_scan(output_path, out_dir)
 
 
 if __name__ == '__main__':

@@ -161,10 +161,10 @@ def load_manual_locations(csv_path: Path, addr_cache) -> tuple[int, int]:
 
     if added or updated or removed:
         addr_cache.save()
-    logger.info(
-        f"    manual locations: {added:,} added, {updated:,} updated "
-        f"and {removed:,} removed from {csv_path.name}"
-    )
+        logger.info(
+            "Reviewed addresses: %s added, %s updated, %s removed",
+            f"{added:,}", f"{updated:,}", f"{removed:,}",
+        )
     return added, updated
 
 
@@ -231,10 +231,7 @@ def load_manual_previous_employers(
     added, updated = _store_previous_employers(prev_cache, entries)
     if added or updated:
         prev_cache.save()
-    logger.info(
-        f"    manual previous employers: {added:,} added, {updated:,} updated "
-        f"from {csv_path.name}"
-    )
+        logger.info("Reviewed work history: %s added, %s updated", f"{added:,}", f"{updated:,}")
     return added, updated
 
 

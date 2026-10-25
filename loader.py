@@ -31,9 +31,7 @@ from fec.database.loader.leadership import (
 from fec.database.loader.previous_employers import link_previous_employers
 from fec.database.loader.reference import load_lookups, load_reference_tables
 from fec.database.loader.schema_create import (
-    MAT_VIEWS,
     TABLES,
-    VIEWS,
     create_schema,
     verify_extensions,
 )
@@ -48,16 +46,6 @@ logger = get_logger("fec.database.loader.run")
 __all__ = ["main", "connect"]
 
 
-# log row counts for every table, view, and matview
-def show_stats(cur: Any) -> None:
-    logger.info("\n  -- Database Stats --")
-    logger.info(f"  {'Name':35s} {'Type':8s} {'Rows':>10s}")
-    logger.info(f"  {'-' * 35} {'-' * 8} {'-' * 10}")
-    for names, kind in ((TABLES, "table"), (VIEWS, "view"), (MAT_VIEWS, "matview")):
-        for name in names:
-            logger.info(f"  {name:35s} {kind:8s} {_count(cur, name):>10,}")
-
-
 # Load tables in order and reuse their ID maps.
 def load_all(
     cur: Any,
@@ -69,6 +57,7 @@ def load_all(
 
     committee_ids = committee_lookup(cur)
 
+    logger.info("[3/6] Loading donors and employers")
     with stage("donors"):
         donor_ids = load_donors(cur, df)
     with stage("employers"):
@@ -76,6 +65,7 @@ def load_all(
         link_previous_employers(cur, df, employer_ids)
     get_employer_id = _make_employer_resolver(employer_ids)
 
+    logger.info("[4/6] Loading addresses, employments and contributions")
     with stage("addresses"):
         address_ids = load_address_dimension(cur, df, employer_locations)
         donor_address_ids = load_donor_addresses(cur, df, donor_ids, address_ids)
@@ -95,14 +85,8 @@ def load_all(
 
 # Refresh the donor view using its existing unique index.
 def refresh_materialized_views(cur: Any) -> None:
-    logger.info("\n-- Refreshing materialized views --")
-    start = time.time()
-
     cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
     cur.execute("ANALYZE mv_donor_profile")
-    logger.info(
-        f"  mv_donor_profile: {_count(cur, 'mv_donor_profile'):,} rows ({time.time() - start:.1f}s)"
-    )
 
 
 # Require --reset before reloading the database.
@@ -121,15 +105,14 @@ def _require_reset_flag() -> None:
 
 # Update PostgreSQL statistics for non-empty tables.
 def _analyze_tables(cur: Any) -> None:
-    logger.info("\n-- Analyzing tables --")
     for table in TABLES:
         if _count(cur, table) > 0:
             cur.execute(f"ANALYZE {table}")
-    logger.info("  ANALYZE complete")
 
 
 # entry point: reset and reload the database from cleaned CSV
 def main() -> None:
+    total_start = time.perf_counter()
     _require_reset_flag()
     try:
         df, employer_locations = _read_input()
@@ -140,48 +123,40 @@ def main() -> None:
     conn.autocommit = False
     cur = conn.cursor()
 
-    logger.info(f"\n{'=' * 60}")
-    logger.info("  FEC Database v1")
-    logger.info(f"  Database: {conn.info.dbname}")
-    logger.info(f"{'=' * 60}")
-
+    logger.info("Reading: %s (%s rows)", CLEANED_CSV.name, f"{len(df):,}")
+    logger.info("Database: %s", conn.info.dbname)
+    logger.info("[1/6] Checking database")
     _check_reader(cur)
     verify_extensions(cur)
-
-    total_start = time.time()
-
-    logger.info(f"\n-- Reading {CLEANED_CSV.name} --")
-    logger.info(f"  {len(df):,} rows, {df['donor_key'].nunique():,} donors")
 
     # one transaction from the drop to the grants (_base.load_transaction):
     # a failure anywhere leaves the previous load in place
     with load_transaction(conn):
+        logger.info("[2/6] Resetting schema and loading lookups")
         with stage("schema"):
             reset_schema(cur)
             create_schema(cur)
         with stage("lookups"):
             load_lookups(cur)
         load_all(cur, df, employer_locations)
+        logger.info("[5/6] Loading reference and roster data")
         with stage("reference tables"):
             load_reference_tables(cur)
         with stage("leaders and accomplices"):
             load_leadership(cur)
             load_key_accomplices(cur)
+        logger.info("[6/6] Updating views and read access")
         with stage("statistics and views"):
             _analyze_tables(cur)
             refresh_materialized_views(cur)
         with stage("read access"):
             grant_read_access(cur)
 
-    elapsed = time.time() - total_start
-    minutes, seconds = divmod(int(elapsed), 60)
-
-    logger.info(f"\n{'=' * 60}")
-    show_stats(cur)
-    logger.info(f"\n  Total time: {minutes}m {seconds}s")
-    logger.info(f"{'=' * 60}")
-
     conn.close()
+    minutes, seconds = divmod(round(time.perf_counter() - total_start), 60)
+    logger.info("Database load committed.")
+    logger.info("Input: %s rows | %s donor groups", f"{len(df):,}", f"{df['donor_key'].nunique():,}")
+    logger.info("Completed in %dm %02ds.", minutes, seconds)
 
 
 if __name__ == "__main__":

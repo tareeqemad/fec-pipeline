@@ -1,7 +1,5 @@
 """Cache, OpenStreetMap, then Census for each cleaned address."""
 
-import time
-
 import numpy as np
 import pandas as pd
 
@@ -64,12 +62,12 @@ def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | Non
 
 # Look up each uncached address once.
 def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int,
-                  progress_logger, *, employer: bool = False) -> None:
+                  *, employer: bool = False) -> None:
     keys = list(dict.fromkeys(key for key in keys if key != "|||"))
     todo = [key for key in keys if _needs_lookup(key, cache)]
-    progress_logger.info("%s: %s | cached: %s | remaining: %s",
-                         "Employer addresses" if employer else "Addresses",
-                         len(keys), len(keys) - len(todo), len(todo))
+    logger.info("%s: %s | cached: %s | remaining: %s",
+                "Employer addresses" if employer else "Addresses",
+                f"{len(keys):,}", f"{len(keys) - len(todo):,}", f"{len(todo):,}")
     if todo:
         _geocode_todo(todo, cache, batch_size)
 
@@ -77,7 +75,6 @@ def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int,
 # Save lookup results in batches and when the run stops.
 def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     found = missed = transient = 0
-    start = time.monotonic()
     try:
         for done, key in enumerate(todo, 1):
             try:
@@ -99,14 +96,14 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
                             done, len(todo), found, missed, transient)
     finally:
         cache.save()
-    logger.info("Finished %s addresses in %.0fs | found: %s | not found: %s | retry later: %s",
-                len(todo), time.monotonic() - start, found, missed, transient)
+    logger.info("Lookups finished: %s | found: %s | not found: %s | retry later: %s",
+                len(todo), found, missed, transient)
 
 
 # Look up donor addresses eligible for geocoding.
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
     keys = _contributor_keys(df)[~kept_as_filed_mask(df)]
-    _geocode_keys(keys, cache, batch_size, logger)
+    _geocode_keys(keys, cache, batch_size)
 
 
 # Save city evidence for clean to apply before donor matching.
@@ -154,7 +151,7 @@ def prepare_city_corrections(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame 
 # Look up nonblank employer addresses.
 def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
     keys = _employer_keys(df.loc[df["employer_address"].fillna("") != ""])
-    _geocode_keys(keys, cache, batch_size, logger, employer=True)
+    _geocode_keys(keys, cache, batch_size, employer=True)
 
 
 # Read accepted coordinates once per distinct address.

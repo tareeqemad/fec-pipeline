@@ -267,15 +267,13 @@ def build() -> tuple[int, int]:
         & locations["address_trust"].isin(PUBLISHABLE_ADDRESS_TRUST)
     ).sum()
     logger.info(
-        f"  employer_locations.csv: {len(locations):,} locations, "
-        f"{len(set(locations['employer_name'])):,} companies, {publishable:,} publishable"
+        "Employer locations: %s rows | %s approved addresses (%s)",
+        f"{len(locations):,}", f"{publishable:,}", EMPLOYER_LOCATIONS_CSV,
     )
     if len(review):
-        counts = ", ".join(f"{count:,} {reason}" for reason, count in review["reason"].value_counts().items())
-        logger.info(f"  {REVIEW_CSV}: {counts}")
+        logger.info("Review: %s employer addresses (%s)", f"{len(review):,}", REPORTS_DIR / REVIEW_CSV)
 
     slim = df.drop(columns=[column for column in ADDRESS_COLUMNS if column in df.columns])
     check_output("employers", df.columns, slim.columns)
     write_csv_atomic(slim, CLEANED_CSV, index=False, na_rep="")
-    logger.info(f"  contributions_cleaned.csv: {len(slim.columns)} columns")
     return len(locations), len(slim.columns)

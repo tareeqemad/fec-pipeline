@@ -31,7 +31,6 @@ def filing_previous(status, name, get_employer_id) -> tuple[int | None, bool]:
 
 # Add missing companies named by retired filings.
 def link_previous_employers(cur: Any, df: pd.DataFrame, employer_ids: dict) -> None:
-    logger.info("\n-- 3/8 Linking previous employers --")
     if 'previous_employer' not in df.columns:
         return
     retired = df['employer_status'].eq('retired') & df['previous_employer'].notna()
@@ -53,4 +52,3 @@ def link_previous_employers(cur: Any, df: pd.DataFrame, employer_ids: dict) -> N
         cur.execute("SELECT employer_id, name FROM employers")
         employer_ids.clear()
         employer_ids.update({name: employer_id for employer_id, name in cur.fetchall()})
-    logger.info(f"  previous_employer: {int(retired.sum()):,} retired filings name one")

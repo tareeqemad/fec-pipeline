@@ -1,6 +1,6 @@
 {
-  "changes": 870111,
-  "changed_cells": 843466,
+  "changes": 870113,
+  "changed_cells": 843468,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -212,9 +212,9 @@
       }
     },
     "address_verified_rules": {
-      "changes": 2102,
+      "changes": 2104,
       "reasons": {
-        "verified_postal_correction": 2102
+        "verified_postal_correction": 2104
       }
     },
     "address_city_state_conflict": {

@@ -196,5 +196,5 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
 
     rows.sort(key=lambda row: -row["combined_amount"])
     write_csv_atomic(pd.DataFrame(rows), path, index=False, na_rep="")
-    logger.info(f"  Donor-dedup review -> {path} ({len(rows):,} candidate pairs)")
+    logger.info("Review: %s donor pairs", f"{len(rows):,}")
     return len(rows)

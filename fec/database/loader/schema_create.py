@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import re
 import sys
-from collections import Counter
 from typing import Any
 
 import sqlparse
@@ -61,32 +60,17 @@ def _read_schema_statements() -> list[str]:
     ]
 
 
-# Classify the created object for the load summary.
-def _schema_object_kind(statement: str) -> str:
-    upper = " ".join(sqlparse.format(statement, strip_comments=True).split()).upper()
-    if upper.startswith("CREATE TABLE"):
-        return "tables"
-    if upper.startswith(("CREATE INDEX", "CREATE UNIQUE INDEX")):
-        return "indexes"
-    if upper.startswith(("CREATE VIEW", "CREATE OR REPLACE VIEW", "CREATE MATERIALIZED VIEW")):
-        return "views"
-    if upper.startswith(("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", "CREATE TRIGGER")):
-        return "functions"
-    return ""
-
-
 # Run one SQL statement; skip objects that already exist.
-def _execute_schema_statement(cur: Any, idx: int, statement: str) -> bool:
+def _execute_schema_statement(cur: Any, idx: int, statement: str) -> None:
     savepoint = f"sp_{idx}"
     try:
         cur.execute(f"SAVEPOINT {savepoint}")
         cur.execute(statement)
         cur.execute(f"RELEASE SAVEPOINT {savepoint}")
-        return True
     except Exception as error:
         cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
         if "already exists" in str(error):
-            return False
+            return
 
         first_line = str(error).splitlines()[0][:120]
         preview = statement[:200].replace("\n", " ")
@@ -107,24 +91,13 @@ def _verify_tables(cur: Any) -> None:
             f"Schema creation completed but {len(missing)} expected table(s) "
             f"are missing: {missing}. Review schema.sql."
         )
-    logger.info(f"  all {len(TABLES)} expected tables present")
 
 
 # Create the schema and check its required objects.
 def create_schema(cur: Any) -> None:
-    logger.info(f"\n-- Creating schema from {SCHEMA_SQL.name} --")
     statements = _read_schema_statements()
-    counts = Counter()
     for idx, statement in enumerate(statements):
-        if _execute_schema_statement(cur, idx, statement):
-            kind = _schema_object_kind(statement)
-            if kind:
-                counts[kind] += 1
-
-    logger.info(
-        f"  {counts['tables']} tables, {counts['indexes']} indexes, "
-        f"{counts['views']} views, {counts['functions']} functions"
-    )
+        _execute_schema_statement(cur, idx, statement)
 
     _verify_tables(cur)
     _verify_schema_integrity(cur)
@@ -156,11 +129,6 @@ def _verify_schema_integrity(cur: Any) -> None:
 
     _verify_employments_table(cur)
     _reject_legacy_columns(cur)
-
-    logger.info(
-        f"  schema v1 checks passed "
-        f"(views={len(VIEWS)}, mvs={len(MAT_VIEWS)}, constraints OK)"
-    )
 
 
 # Reject missing names from a catalog query.
@@ -231,10 +199,6 @@ def verify_extensions(cur: Any) -> None:
     missing = sorted(set(required) - present)
 
     if not missing:
-        logger.info(
-            f"  all {len(required)} required extensions present "
-            f"({', '.join(sorted(required))})"
-        )
         return
 
     details = ", ".join(

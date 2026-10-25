@@ -133,7 +133,7 @@ def _move_street_from_second_line(df: pd.DataFrame) -> int:
 
     df[S1], df[S2] = df[S1].astype(object), df[S2].astype(object)
     candidates = second[eligible].map(normalize_street)
-    streets, _, _, _ = _extract_units(candidates, pd.Series("", index=candidates.index))
+    streets, _, _ = _extract_units(candidates, pd.Series("", index=candidates.index))
     moved = 0
     for index, street in streets.items():
         if pd.isna(street):

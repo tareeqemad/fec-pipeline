@@ -52,9 +52,3 @@ def get_logger(name: str) -> logging.Logger:
     if not _CONFIGURED:
         setup_logging()
     return logging.getLogger(name)
-
-
-# Log a label and count only when the count is nonzero.
-def log_count(logger: logging.Logger, label: str, count: int) -> None:
-    if count:
-        logger.info("  %-38s %s", label, f"{count:,}")

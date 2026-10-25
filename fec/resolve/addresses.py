@@ -97,7 +97,7 @@ def _bare_street(street: str) -> str:
 
 def _donor_form_streets(streets: pd.Series) -> pd.Series:
     """Match the street form produced by donor address cleaning."""
-    street_1, _street_2, _count, _leftovers = _extract_units(streets, pd.Series("", index=streets.index))
+    street_1, _street_2, _leftovers = _extract_units(streets, pd.Series("", index=streets.index))
     street_1 = street_1.fillna("").astype(str).str.replace(_TRAILING_UNIT_WORD_RE, "", regex=True)
     return street_1.str.strip()
 
