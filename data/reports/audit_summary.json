@@ -1,6 +1,6 @@
 {
-  "changes": 872697,
-  "changed_cells": 844171,
+  "changes": 872891,
+  "changed_cells": 844233,
   "untracked_changes": 0,
   "steps": {
     "names_preclean_punctuation": {
@@ -230,9 +230,9 @@
       }
     },
     "address_verified_rules": {
-      "changes": 1920,
+      "changes": 2092,
       "reasons": {
-        "verified_postal_correction": 1920
+        "verified_postal_correction": 2092
       }
     },
     "address_city_state_conflict": {
@@ -260,9 +260,9 @@
       }
     },
     "streets_unify_spacing": {
-      "changes": 81,
+      "changes": 80,
       "reasons": {
-        "street_spacing_unified_to_donor_dominant": 81
+        "street_spacing_unified_to_donor_dominant": 80
       }
     },
     "address_same_street_align": {
@@ -272,9 +272,9 @@
       }
     },
     "streets_unify_units": {
-      "changes": 444,
+      "changes": 463,
       "reasons": {
-        "unit_designator_unified_to_donor_dominant": 444
+        "unit_designator_unified_to_donor_dominant": 463
       }
     },
     "address_review": {
@@ -536,9 +536,9 @@
       }
     },
     "donor_canonical_units": {
-      "changes": 12,
+      "changes": 16,
       "reasons": {
-        "donor_unit_designator_unified": 12
+        "donor_unit_designator_unified": 16
       }
     },
     "curated_name_corrections": {
