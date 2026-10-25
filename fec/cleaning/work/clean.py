@@ -7,7 +7,7 @@ import pandas as pd
 from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm, _set_missing
 from fec.cleaning.reports.trail import WORK_FIELDS
 from fec.cleaning.work.employer_deep_clean import _deep_clean_employer
-from fec.cleaning.work.employer_groups import _canonicalize_employers
+from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.work.normalize import (
     EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT,
     _categorize,
@@ -129,17 +129,16 @@ def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
     swap_employer_and_occupation(df, df.index[mask], canonical=False)
 
 
-def _normalize_work_text(df: pd.DataFrame) -> int:
-    df['contributor_employer'], n_emp = _normalize_text(
+def _normalize_work_text(df: pd.DataFrame) -> None:
+    df['contributor_employer'] = _normalize_text(
         df['contributor_employer'], EMPLOYER_NORMALIZE, digits_only_before=_EMPLOYER_STATUS_TEXT
     )
-    df['contributor_occupation'], n_occ = _normalize_text(
+    df['contributor_occupation'] = _normalize_text(
         df['contributor_occupation'], OCCUPATION_NORMALIZE, collapse_retire=True
     )
-    return n_emp + n_occ
 
 
-def _derive_status_and_category(df: pd.DataFrame) -> int:
+def _derive_status_and_category(df: pd.DataFrame) -> None:
     """Initial occupation_status and category."""
     has_occ = df['contributor_occupation'].notna()
     has_emp = df['contributor_employer'].notna()
@@ -147,14 +146,13 @@ def _derive_status_and_category(df: pd.DataFrame) -> int:
     df.loc[has_occ & has_emp, 'occupation_status'] = 'DISCLOSED'
     df.loc[has_occ & ~has_emp, 'occupation_status'] = 'EMPLOYER_MISSING'
     df['occupation_category'] = _categorize(df['contributor_occupation'])
-    return int(len(df))
 
 
 # Apply occupation fixes, then distinguish refusals from junk.
-def _apply_occupation_fixes(df: pd.DataFrame) -> int:
+def _apply_occupation_fixes(df: pd.DataFrame) -> None:
     original = map_occupation_fixes(df, df.index)
     if original.empty:
-        return 0
+        return
     # refusals keep NOT DISCLOSED; junk becomes NaN
     now_not_disclosed = df.loc[original.index, 'contributor_occupation'] == 'NOT DISCLOSED'
     refusal = original.isin(OCCUPATION_REFUSAL_INPUTS)
@@ -162,15 +160,14 @@ def _apply_occupation_fixes(df: pd.DataFrame) -> int:
     is_junk = original.index[now_not_disclosed & ~refusal]
     df.loc[is_refusal, 'occupation_status'] = 'NOT_DISCLOSED'
     _set_missing(df, is_junk)
-    return len(original)
 
 
-def _clear_committee_work_fields(df: pd.DataFrame) -> int:
+def _clear_committee_work_fields(df: pd.DataFrame) -> None:
     """Committees: committee_type from the name, no occupation."""
     is_committee = ~df['is_individual']
     df['committee_type'] = pd.Series(dtype='object', index=df.index)
     if not is_committee.any():
-        return 0
+        return
     df.loc[is_committee, 'committee_type'] = _classify_committee_names(
         df.loc[is_committee, 'contributor_name']
     )
@@ -178,40 +175,35 @@ def _clear_committee_work_fields(df: pd.DataFrame) -> int:
     # N/A would read back as NaN
     df.loc[is_committee, 'occupation_status'] = 'NOT_APPLICABLE'
     df.loc[is_committee, 'contributor_occupation'] = np.nan
-    return int(is_committee.sum())
 
 
-def _mark_still_missing(df: pd.DataFrame) -> int:
+def _mark_still_missing(df: pd.DataFrame) -> None:
     """Individuals still missing stay NaN."""
     still_missing_occ = df['is_individual'] & df['contributor_occupation'].isna()
     df.loc[still_missing_occ, 'occupation_category'] = pd.NA
     df.loc[still_missing_occ, 'occupation_status'] = 'MISSING'
-    return int(still_missing_occ.sum())
 
 
-def clean_employer_occupation(df: pd.DataFrame, trail) -> tuple[pd.DataFrame, dict[str, int]]:
+def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
     """Run the employer/occupation pipeline in place."""
-    counts = {'normalized': 0}
-
-    counts['normalized'] += trail.run(
+    trail.run(
         df, _normalize_work_text, 'occ_normalize_text',
         'text_normalized_or_missing_placeholder_nulled', WORK_FIELDS,
     )
     # swap before short titles are dropped
     trail.run(df, _fix_swapped_occ_emp, 'occ_swap_fields', 'occupation_and_employer_swapped', WORK_FIELDS)
-    counts['normalized'] += _deep_clean_employer(df, trail)
-    counts['normalized'] += trail.run(
-        df, _canonicalize_employers, 'occ_canonicalize_employers',
+    _deep_clean_employer(df, trail)
+    trail.run(
+        df, canonicalize_current_employers, 'occ_canonicalize_employers',
         'employer_variant_unified_by_group_key', WORK_FIELDS,
     )
     trail.run(df, _derive_status_and_category, 'occ_derive_status_category', 'derived_from_occupation', WORK_FIELDS)
-    counts['occ_fixed'] = trail.run(
+    trail.run(
         df, _apply_occupation_fixes, 'occ_known_fixes',
         'known_occupation_typo_fixed_or_junk_nulled', WORK_FIELDS,
     )
-    counts['comm_filled'] = trail.run(
+    trail.run(
         df, _clear_committee_work_fields, 'occ_committee_rows', 'committee_has_no_occupation', WORK_FIELDS,
     )
     trail.run(df, _cross_fill, 'occ_cross_fill', 'filled_from_paired_field', WORK_FIELDS)
     trail.run(df, _mark_still_missing, 'occ_mark_missing', 'occupation_missing', WORK_FIELDS)
-    return df, counts

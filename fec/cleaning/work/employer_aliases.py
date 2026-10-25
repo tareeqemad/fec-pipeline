@@ -153,3 +153,8 @@ def apply_reviewed_employer_names(
         df.loc[values.index[different], column] = names[different]
         changed += int(different.sum())
     return changed
+
+
+# Apply documented names to the current employer only.
+def canonicalize_current_employers(df: pd.DataFrame) -> int:
+    return apply_reviewed_employer_names(df, ("contributor_employer",))

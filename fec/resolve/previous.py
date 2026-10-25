@@ -146,10 +146,8 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
         prev_cache.save()
     no_local = len(eligible) - len(rows_by_donor)
     logger.info(
-        f"    Cross-record: {found:,} new, {refreshed:,} refreshed, "
-        f"{unchanged:,} current, {cleared:,} cleared, "
-        f"{no_local:,} no local employer, "
-        f"{protected:,} protected"
+        "Work history: %s cache changes | %s kept | %s without a local employer",
+        f"{changed:,}", f"{unchanged + protected:,}", f"{no_local:,}",
     )
     return changed
 

@@ -1,23 +1,16 @@
 """Load the donors table."""
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.database.loader._base import to_native
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 
 # Load one donor per donor_key and return its ID.
 def load_donors(cur: Any, df: pd.DataFrame) -> dict:
-    logger.info("\n-- 1/8 Loading donors --")
-    start = time.time()
-
     donor_rows = []
     for donor_key, group in df.groupby('donor_key'):
         # Names are already cleaned.
@@ -39,5 +32,4 @@ def load_donors(cur: Any, df: pd.DataFrame) -> dict:
 
     cur.execute("SELECT donor_id, donor_key FROM donors")
     donor_ids = {donor_key: donor_id for donor_id, donor_key in cur.fetchall()}
-    logger.info(f"  donors: {len(donor_ids):,} ({time.time()-start:.1f}s)")
     return donor_ids

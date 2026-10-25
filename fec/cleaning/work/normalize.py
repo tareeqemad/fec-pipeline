@@ -40,15 +40,13 @@ EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOY
 
 # clean, dedupe-normalize a text column, optionally collapsing retired
 def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
-                    digits_only_before: frozenset | set | None = None) -> tuple[pd.Series, int]:
-    """Strip/uppercase, fix entities and junk, optionally collapse RETIRE* to RETIRED, then apply normalize_map; returns (cleaned, n_changed).
+                    digits_only_before: frozenset | set | None = None) -> pd.Series:
+    """Clean text and apply the supplied spelling map.
 
     Digits stuck to a word are keying noise in an occupation (OWNER3 -> OWNER) but part
     of a company's name in an employer (GENESIS10, ROC360, CENTURY21 KING REALTY). With
     `digits_only_before`, they are stripped only when what remains is one of those values
     (SELF EMPLOYED47 -> SELF EMPLOYED); without it, always (occupations)."""
-    before = series.copy()
-
     cleaned = series.astype('string').str.strip().str.upper()
 
     cleaned = cleaned.str.translate(_CYRILLIC_TO_ASCII)
@@ -86,12 +84,7 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
         cleaned.loc[cleaned.str.contains(RETIRE_RE.pattern, na=False, regex=True)] = 'RETIRED'
 
     cleaned = cleaned.replace(normalize_map)
-    result = cleaned.astype(object)
-
-    n_changed = int(
-        (before.fillna('__NULL__').astype(str) != result.fillna('__NULL__').astype(str)).sum()
-    )
-    return result, n_changed
+    return cleaned.astype(object)
 
 
 # assign occupation category by override then first matching regex

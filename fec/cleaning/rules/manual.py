@@ -266,12 +266,12 @@ def apply_manual_employer_overrides(
         return 0
 
     if "sub_id" not in df.columns:
-        logger.warning("  manual_overrides: no sub_id column - skipping")
+        logger.warning("WARNING: manual_overrides has no sub_id column - skipping")
         return 0
 
     changed, missing = _apply_overrides(df, overrides, display_previous_ids, column_values=columns)
     if missing:
-        logger.info(
+        logger.debug(
             f"  manual_overrides: {missing} sub_id(s) in the override file "
             f"not found in this dataset (may be from a different committee/period)"
         )

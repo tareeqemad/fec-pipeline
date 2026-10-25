@@ -1,20 +1,7 @@
 """Apply documented company aliases after donor identity is established."""
 import pandas as pd
 
-from fec.cleaning.work.employer_aliases import (
-    apply_reviewed_employer_names,
-    reviewed_employer_name,
-)
-
-
-def _employer_variant_map(names: list[str]) -> dict[str, str]:
-    """Similar words alone do not establish company identity."""
-    return {name: target for name in names
-            if (target := reviewed_employer_name(name)) != name}
-
-
-def canonicalize_donor_employers(df: pd.DataFrame) -> int:
-    return apply_reviewed_employer_names(df, ("contributor_employer",))
+from fec.cleaning.work.employer_aliases import reviewed_employer_name
 
 
 def align_org_donor_company_names(df: pd.DataFrame) -> int:

@@ -20,22 +20,17 @@ from fec.cleaning.reports.trail import (
 )
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_names import finalize_employer_names
+from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.entities import apply_name_corrections
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.addresses.fixes.unify import (
     canonicalize_donor_addresses,
     canonicalize_donor_units,
 )
-from fec.cleaning.donors.employer_variants import (
-    align_org_donor_company_names,
-    canonicalize_donor_employers,
-)
+from fec.cleaning.donors.employer_variants import align_org_donor_company_names
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
 from fec.cleaning.reports.donors import build_donor_dedup_review
 from fec.donor_match.keys import non_individual_donor_key
-from fec.log import get_logger, log_count
-
-logger = get_logger(__name__)
 
 
 def identify_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
@@ -43,34 +38,17 @@ def identify_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
     df_clean = df_clean.reset_index(drop=True)
     if "_generational_suffix" not in df_clean.columns:
         df_clean["_generational_suffix"] = ""
-    logger.info("\n-- Donor identity --")
-
     # Hold rules and network classification can change this status later.
     df_clean["identity_status"] = "confirmed"
-    rid_to_key, match_audit = match_donors(df_clean)
+    rid_to_key, _ = match_donors(df_clean)
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
-    repointed = merge_split_name_donors(df_clean)
-    repointed += apply_curated_key_merges(df_clean)
-    held = hold_unproven_filings(df_clean)
+    merge_split_name_donors(df_clean)
+    apply_curated_key_merges(df_clean)
+    hold_unproven_filings(df_clean)
     _validate_generational_suffixes(df_clean)
     validate_separations(df_clean)
 
-    profiles = len(rid_to_key)
-    donors = df_clean.loc[
-        df_clean["entity_type"].eq("INDIVIDUAL"), "donor_key"
-    ].nunique()
-    logger.info(
-        "  %s profiles -> %s donors (%s merged; %s pairs scored)",
-        f"{profiles:,}",
-        f"{donors:,}",
-        f"{profiles - donors:,}",
-        f"{len(match_audit):,}",
-    )
-    if repointed:
-        logger.info("  %s rows joined by identity rules", f"{repointed:,}")
-    if held:
-        logger.info("  %s filings held outside every person", f"{held:,}")
     return df_clean
 
 
@@ -82,9 +60,7 @@ def standardize(
     """Make each donor consistent across filings."""
     trail = trail or AuditTrail()
     df = df_clean.reset_index(drop=True)
-    logger.info("\n-- Donor consistency --")
-
-    organizations = trail.run(
+    trail.run(
         df,
         _classify_network_organizations,
         "network_organization_classification",
@@ -92,8 +68,6 @@ def standardize(
         PEOPLE_FIELDS + ("donor_key",),
         source="FEC_network_name_pattern",
     )
-    log_count(logger, "political-network filings kept unresolved", organizations)
-
     # Keep unconfirmed filings separate during all donor-history repairs.
     if "identity_status" in df.columns:
         unconfirmed = df["identity_status"].ne("confirmed")
@@ -103,50 +77,37 @@ def standardize(
     filing_ids = df.loc[unconfirmed, "sub_id"].astype(str)
     df.loc[unconfirmed, "donor_key"] = original_keys + "|" + filing_ids
 
-    canonical_updates = _canonicalize(df, trail)
+    _canonicalize(df, trail)
 
-    df, name_updates = trail.run(
+    df, _ = trail.run(
         df, apply_name_corrections, "curated_name_corrections", "manual_correction", NAME_FIELDS,
         source="data/rules/contributor_name_rules.csv",
     )
-    log_count(logger, "curated name corrections", name_updates)
-
-    consistency_updates = apply_donor_consistency(df, trail)
+    apply_donor_consistency(df, trail)
 
     # Restore curated fields after donor-history inference.
-    override_updates = trail.run(
+    trail.run(
         df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
         "curated_employer_names", "curated_row_override", OVERRIDE_FIELDS,
         source="data/rules/manual_employer_overrides.csv",
     )
-    log_count(logger, "curated employer names", override_updates)
-    df, employer_updates = finalize_employer_names(df, trail)
-    log_count(logger, "final employer names", employer_updates)
-    organization_name_updates = _align_organization_names(df, trail)
-    committee_updates = trail.run(
+    df, _ = finalize_employer_names(df, trail)
+    trail.run(
+        df, align_org_donor_company_names, "donor_align_org_names",
+        "documented_company_name", NAME_FIELDS,
+    )
+    trail.run(
         df, canonicalize_committee_names, "reviewed_committee_names",
         "verified_same_fec_committee", NAME_FIELDS + ("donor_key",),
         source="data/rules/donor_identity_rules.csv",
     )
-    log_count(logger, "reviewed committee names and keys", committee_updates)
     build_donor_dedup_review(df, out_dir)
 
-    cleared_names = trail.run(
+    trail.run(
         df, _clear_non_individual_names, "non_individual_names",
         "non_individual_person_names_cleared", NAME_FIELDS,
     )
-    log_count(logger, "non-individual names cleared", cleared_names)
     df.loc[original_keys.index, "donor_key"] = original_keys
-
-    canonical_updates += (
-        name_updates + employer_updates
-        + override_updates + organization_name_updates + committee_updates + cleared_names
-    )
-    logger.info(
-        "  %s canonical updates, %s consistency updates",
-        f"{canonical_updates:,}",
-        f"{consistency_updates:,}",
-    )
     return df
 
 
@@ -195,33 +156,19 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     return int(targets.sum())
 
 
-def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> int:
+def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> None:
     steps = (
         (canonicalize_donor_names, "donor_canonical_names",
          "donor_name_unified_to_modal_last_and_longest_first", NAME_FIELDS),
-        (canonicalize_donor_employers, "donor_canonical_employers",
+        (canonicalize_current_employers, "donor_canonical_employers",
          "documented_company_alias", ("contributor_employer",)),
         (canonicalize_donor_addresses, "donor_canonical_addresses",
          "donor_street_spelling_unified", STREET_FIELDS),
         (canonicalize_donor_units, "donor_canonical_units",
          "donor_unit_designator_unified", STREET_FIELDS),
     )
-    total = 0
     for fix, step, reason, fields in steps:
-        count = trail.run(df, fix, step, reason, fields)
-        total += count
-        log_count(logger, fix.__name__.lstrip("_").replace("_", " "), count)
-    return total
-
-
-def _align_organization_names(df: pd.DataFrame, trail: AuditTrail) -> int:
-    """Align organization names after entity overrides and employer cleanup; keep donor keys."""
-    count = trail.run(
-        df, align_org_donor_company_names, "donor_align_org_names",
-        "documented_company_name", NAME_FIELDS,
-    )
-    log_count(logger, "align org donor company names", count)
-    return count
+        trail.run(df, fix, step, reason, fields)
 
 
 def _clear_non_individual_names(df: pd.DataFrame) -> int:

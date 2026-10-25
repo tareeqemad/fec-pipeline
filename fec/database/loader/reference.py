@@ -1,7 +1,6 @@
 """Load occupation categories, committees and reference tables."""
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +8,6 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.committees import load_committees
-from fec.database.loader._base import _count
 from fec.env import CLEANED_CSV, REFERENCE_DIR
 from fec.log import get_logger
 
@@ -56,15 +54,12 @@ def load_reference_tables(cur: Any) -> None:
         logger.info(f"\n  {REFERENCE_DIR} not found -- skipping reference tables")
         return
 
-    logger.info("\n-- Loading reference tables --")
-
     for table_name, required, optional in REF_TABLES:
         csv_path = REFERENCE_DIR / f"{table_name}.csv"
         if not csv_path.exists():
             logger.info(f"  {csv_path.name} not found -- skipping {table_name}")
             continue
 
-        start = time.time()
         columns, rows = _read_reference_rows(csv_path, table_name, required, optional)
         if not columns:
             continue
@@ -75,12 +70,9 @@ def load_reference_tables(cur: Any) -> None:
                 f"INSERT INTO {table_name} ({columns_sql}) VALUES %s ON CONFLICT DO NOTHING",
                 rows, page_size=5000)
 
-        logger.info(f"  {table_name}: {_count(cur, table_name):,} ({time.time()-start:.1f}s)")
-
 
 # Load occupation categories and committees.
 def load_lookups(cur: Any) -> None:
-    logger.info("-- Loading lookups --")
     _load_occupation_categories(cur)
     _load_committees(cur)
 
@@ -92,7 +84,6 @@ def _load_occupation_categories(cur: Any) -> None:
     rows = [(category,) for category in categories]
     execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING",
                    rows, page_size=50)
-    logger.info("  occupation_categories: %d", _count(cur, 'occupation_categories'))
 
 
 # Load committees without duplicating non-FEC organizations.
@@ -124,5 +115,3 @@ def _load_committees(cur: Any) -> None:
                 insert_sql + "SELECT %s, %s, %s, %s, %s, %s, %s "
                 "WHERE NOT EXISTS (SELECT 1 FROM committees WHERE committee_name = %s)",
                 values + (committee['committee_name'],))
-
-    logger.info("  committees: %d", _count(cur, 'committees'))

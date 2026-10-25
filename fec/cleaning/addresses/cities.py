@@ -32,8 +32,7 @@ def _zip5(df: pd.DataFrame) -> pd.Series | None:
     """ZIP5 derived from the raw contributor_zip (clean_zips runs after the cities); None without that column."""
     if 'contributor_zip' not in df.columns:
         return None
-    zip5, _n_invalid = _clean_zip_raw(df['contributor_zip'])
-    return zip5
+    return _clean_zip_raw(df['contributor_zip'])
 
 
 # run all city-cleaning steps and return updated counts
@@ -41,9 +40,7 @@ def clean_cities(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """Apply formatting and table corrections; return their counts."""
     counts = {'known_fixes': 0, 'punctuation_cleaned': 0}
 
-    # city/state/ZIP that clean_streets read from a street whose ZIP box held
-    # the house number (counted there); written first so the tables below see
-    # the real place
+    # Apply the place recovered from the street before the city rules.
     _apply_house_number_zip(df)
 
     cities, counts['punctuation_cleaned'] = _strip_city_text(df['contributor_city'])

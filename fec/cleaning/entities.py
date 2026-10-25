@@ -564,19 +564,18 @@ def _restore_individual_occupations(
     df: pd.DataFrame,
     raw_occupations: pd.Series,
     raw_employers: pd.Series,
-    log,
 ) -> None:
     """Restore filed occupations after reclassification as people."""
     has_occupation = raw_occupations.notna() & raw_occupations.astype(str).str.strip().ne("")
     if not has_occupation.any():
         return
 
-    restored, _ = _normalize_text(
+    restored = _normalize_text(
         raw_occupations[has_occupation],
         OCCUPATION_NORMALIZE,
         collapse_retire=True,
     )
-    raw_employer, _ = _normalize_text(
+    raw_employer = _normalize_text(
         raw_employers[has_occupation],
         EMPLOYER_NORMALIZE,
         digits_only_before=EMPLOYER_STATUS_TEXT,
@@ -600,11 +599,6 @@ def _restore_individual_occupations(
     df.loc[restored.index, "occupation_status"] = "DISCLOSED"
     map_occupation_fixes(df, restored.index)
 
-    log(
-        f"  -> restored {len(restored):,} occupations for reclassified "
-        "committee->individual records"
-    )
-
 
 def _restore_individual_employers(
     df: pd.DataFrame,
@@ -621,7 +615,7 @@ def _restore_individual_employers(
     if not restore.any():
         return
 
-    restored, _ = _normalize_text(
+    restored = _normalize_text(
         raw_employers[restore],
         EMPLOYER_NORMALIZE,
         digits_only_before=EMPLOYER_STATUS_TEXT,
@@ -664,7 +658,6 @@ def _restore_reclassified_committees(
     df: pd.DataFrame,
     raw_occ_backup: pd.Series,
     raw_emp_backup: pd.Series,
-    log,
 ) -> None:
     """Restore work fields for committee rows reclassified as individuals."""
     reclassified = df["is_individual"] & df["_reclass_reason"].str.startswith(
@@ -673,5 +666,5 @@ def _restore_reclassified_committees(
     if reclassified.any():
         raw_occupations = raw_occ_backup.loc[reclassified]
         raw_employers = raw_emp_backup.loc[reclassified]
-        _restore_individual_occupations(df, raw_occupations, raw_employers, log)
+        _restore_individual_occupations(df, raw_occupations, raw_employers)
         _restore_individual_employers(df, reclassified, raw_employers)

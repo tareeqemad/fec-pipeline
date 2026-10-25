@@ -5,10 +5,6 @@ from typing import Any
 
 from fec.database.loader._base import _quote_identifier
 from fec.env import DATABASE_OWNER
-from fec.log import get_logger
-
-logger = get_logger(__name__)
-
 OBJECTS_SQL = """
     SELECT matviewname, 'MATERIALIZED VIEW', matviewowner
     FROM pg_matviews WHERE schemaname = 'public'
@@ -21,8 +17,6 @@ OBJECTS_SQL = """
 
 # Check ownership, drop public tables and views, then verify removal.
 def reset_schema(cur: Any) -> None:
-    logger.info("\n  Dropping all objects in public schema...")
-
     cur.execute("SELECT current_user")
     current_user = cur.fetchone()[0]
 
@@ -51,7 +45,6 @@ def reset_schema(cur: Any) -> None:
         )
 
     if not objects:
-        logger.info("  Already empty")
         return
 
     try:
@@ -66,5 +59,3 @@ def reset_schema(cur: Any) -> None:
             raise RuntimeError(f"Schema reset left objects: {names}")
     except Exception as error:
         raise RuntimeError(f"Schema reset failed: {error}") from error
-
-    logger.info("  Dropped %s objects", len(objects))

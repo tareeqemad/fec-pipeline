@@ -1,26 +1,4 @@
-"""Address hygiene beside clean_streets: safe mechanical text fixes are applied; anything needing a guess goes to the review reports.
-
-Two review files, both regenerated every clean run (nothing reads them back):
-
-* address_manual_review.csv - one row per item, with a ``status`` column:
-    ``open``        needs a human (near-duplicate street spellings, care-of or
-                    entity names in street_1, descriptive addresses, non-US state);
-    ``auto_fixed``  a street_2 the address_review step already emptied (a unit
-                    word with no number, a state/city abbreviation, a state/ZIP/city
-                    fragment). Listed after the open items so the removal stays
-                    visible; the row shows the address as the step saw it, with
-                    street_2 as it was before it was emptied.
-* address_regeocode_suspects.csv - rows whose point can only be approximate:
-  missing street_1 or ZIP, a truncated city, and PO Box / PMB mail addresses of
-  INDIVIDUAL donors. Committee and organization mailboxes are not listed: they
-  are normal for a filer's office address and the geocoder already places every
-  PO box at its ZIP/city point.
-
-In the clean pipeline the street_2 fix runs inside the address stage, and the files
-are written after the donor stage (``build_review_queues`` + ``write_review_queues``)
-so they reflect the final rows and carry donor_key; foreign filings, kept exactly
-as filed, are left out.
-"""
+"""Write address review reports from the final cleaned records."""
 
 from pathlib import Path
 
@@ -46,10 +24,6 @@ logger = get_logger(__name__)
 MANUAL_REVIEW_CSV = "address_manual_review.csv"
 REGEOCODE_CSV = "address_regeocode_suspects.csv"
 OPEN, AUTO_FIXED = "open", "auto_fixed"
-
-
-# Bare trailing number -> unit. Excludes HWY/RTE so route numbers
-# ("HWY 9", "RTE 1") aren't mistaken for unit numbers.
 
 
 # concatenate report fragments into one dataframe
@@ -131,30 +105,9 @@ def write_review_queues(out_dir, review_df: pd.DataFrame, regeocode_df: pd.DataF
     write_csv_atomic(regeocode_df, out_path / REGEOCODE_CSV, index=False, na_rep="")
 
 
-# summarize row counts per review queue status
-def queue_counts(review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> dict:
-    status = review_df["status"] if "status" in review_df.columns else pd.Series(dtype=object)
-    return {
-        "manual_review": int(status.eq(OPEN).sum()),
-        "auto_fixed": int(status.eq(AUTO_FIXED).sum()),
-        "regeocode": len(regeocode_df),
-    }
-
-
-# Show the review queue counts.
-def log_review_queues(counts: dict, log) -> None:
-    if counts["manual_review"] or counts["auto_fixed"] or counts["regeocode"]:
-        log(
-            f"Address review: {counts['manual_review']:,} open for manual review, "
-            f"{counts['auto_fixed']:,} emptied street_2 listed as auto_fixed, "
-            f"{counts['regeocode']:,} for re-geocoding"
-        )
-
-
 # Write reports after donor repairs and foreign-address restoration.
 def write_final_address_reports(
     df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail,
-    *, log=logger.info,
 ) -> None:
     review_df, regeocode_df = build_review_queues(
         df_clean,
@@ -162,26 +115,11 @@ def write_final_address_reports(
         exclude_sub_ids=foreign_sub_ids,
     )
     write_review_queues(out_dir, review_df, regeocode_df)
-    log_review_queues(queue_counts(review_df, regeocode_df), log)
     cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
     write_csv_atomic(cases, Path(out_dir) / REVIEW_CASES_CSV, index=False)
-    high_priority = int(cases['priority'].eq('high').sum())
-    log(
-        "  Address review cases: %s (%s high priority)",
-        f"{len(cases):,}", f"{high_priority:,}",
-    )
-
-
-# run the street_2 fix and build review reports at once
-def build_address_reports(
-    df: pd.DataFrame, out_dir: str | None
-) -> tuple[pd.DataFrame, dict]:
-    """Empty clearly bad street_2 values, then flag questionable addresses (one-shot form)."""
-    df, auto_fixed, street2_emptied = apply_street2_fixes(df)
-    review_df, regeocode_df = build_review_queues(df, auto_fixed)
-    counts = {**queue_counts(review_df, regeocode_df), "street2_emptied": street2_emptied}
-
-    if out_dir:
-        write_review_queues(out_dir, review_df, regeocode_df)
-
-    return df, counts
+    if not cases.empty:
+        high_priority = int(cases['priority'].eq('high').sum())
+        logger.info(
+            "Review: %s address cases (%s high priority)",
+            f"{len(cases):,}", f"{high_priority:,}",
+        )

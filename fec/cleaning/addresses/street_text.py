@@ -223,21 +223,19 @@ _FLOOR_ECHO_RE = re.compile(r'(\s(?:ST|AVE|RD|DR|LN|CT|PL|WAY|BLVD|CIR|TER|HWY|P
 
 
 # Move embedded units to an empty second line.
-# Return both lines, the count and per-row leftovers for the audit.
+# Return both lines and per-row leftovers for the audit.
 def _extract_units(
     street1: pd.Series, street2: pd.Series,
-) -> tuple[pd.Series, pd.Series, int, pd.Series]:
+) -> tuple[pd.Series, pd.Series, pd.Series]:
     s1 = street1.fillna('').astype(str).replace({'nan': ''})
     s2 = street2.fillna('').astype(str).replace({'nan': ''})
     s2_blank = s2.str.strip().eq('')
-    n_extracted = 0
     leftovers = pd.Series('', index=s1.index, dtype=object)
 
     # named units (APT, STE, UNIT, ...)
     named_unit = s1.str.extract(UNIT_EXTRACT)[0]
     move_named = named_unit.notna() & s2_blank
     if move_named.any():
-        n_extracted += int(move_named.sum())
         s2 = s2.where(~move_named, named_unit.str.strip())
         s1 = s1.where(~move_named, _strip_named_unit(s1))
         s2_blank = s2.str.strip().eq('')
@@ -262,7 +260,6 @@ def _extract_units(
     has_hash = match_hash[0].notna() & s2_blank
     leftovers[has_hash & s1.str.contains('##', regex=False)] = DOUBLED_HASH_REASON
     if has_hash.any():
-        n_extracted += int(has_hash.sum())
         s2 = s2.where(~has_hash, match_hash[0].str.strip())
         s1 = s1.where(
             ~has_hash,
@@ -277,7 +274,7 @@ def _extract_units(
         s1 = s1.where(~drop_echo, s1.str.replace(_FLOOR_ECHO_RE, r'\1', regex=True))
         leftovers[drop_echo] = FLOOR_ORDINAL_REASON
 
-    return s1.replace({'': np.nan}), s2.replace({'': np.nan}), n_extracted, leftovers
+    return s1.replace({'': np.nan}), s2.replace({'': np.nan}), leftovers
 
 
 # the number of a unit, without its word: "APT 1" -> "1", "#1" -> "1"

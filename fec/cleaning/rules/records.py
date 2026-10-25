@@ -1,6 +1,4 @@
 """Apply record cleaning rules in order."""
-from collections.abc import Callable
-
 import pandas as pd
 
 from fec.cleaning.reports.trail import (
@@ -41,9 +39,6 @@ from fec.cleaning.rules.junk import (
     clean_remaining_junk,
 )
 from fec.cleaning.rules.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
-from fec.log import get_logger
-
-logger = get_logger(__name__)
 
 
 _CLASSIFICATION_FIELDS = ENTITY_FIELDS + (
@@ -90,32 +85,25 @@ _AUDITED_RULES = (
 )
 
 
-# In order: transform, audit name, reason, fields, log message.
+# In order: transform, audit name, reason, fields.
 _LATE_STEPS = (
     # Fix swapped company names before changing occupation spelling.
     (normalize_occupation_style_step, 'enh_normalize_occupation_style',
-     'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY,
-     "Unified occupation style for {n:,} rows (separators, CO-, plurals)"),
+     'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY),
     (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
-     'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
-     "Fixed {n:,} curated occupation typos/abbreviations"),
+     'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY),
     (apply_reviewed_employer_names, 'employer_recanonicalize',
-     'documented_company_alias', EMPLOYMENT_FIELDS,
-     "Applied {n:,} documented company aliases"),
+     'documented_company_alias', EMPLOYMENT_FIELDS),
     (_clean_self_employed_variants, 'self_employed_variants',
-     'self_employed_variant_unified', WORK_FIELDS,
-     "Unified {n:,} self-employed variants -> SELF-EMPLOYED"),
+     'self_employed_variant_unified', WORK_FIELDS),
     # Normalization can expose more placeholders.
     (_clean_junk_status_word_employer, 'late_placeholder_employers',
-     'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY,
-     "Nulled {n:,} refusal/placeholder employers (N/A, PRIVATE, etc.)"),
+     'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY),
 )
 
 
 def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Apply all record-level rules."""
-    log = logger.info
-
     df['is_individual'] = (df['entity_type'] == 'INDIVIDUAL')
     if 'previous_employer' not in df.columns:
         df['previous_employer'] = pd.Series(dtype='object', index=df.index)
@@ -123,21 +111,21 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
                   ('previous_employer',))
 
     for transform, fields, audit_name, reason in _AUDITED_RULES:
-        df, *counts = trail.run(df, transform, audit_name, reason, fields)
-        log(f"  {audit_name}: {', '.join(f'{count:,}' for count in counts)}")
+        df = trail.run(df, transform, audit_name, reason, fields)[0]
 
-    _apply_safety_rules(df, trail, log)
-    for transform, audit_name, reason, fields, message in _LATE_STEPS:
-        df = trail.run_logged(df, transform, audit_name, reason, fields, message, log)
+    _apply_safety_rules(df, trail)
+    for transform, audit_name, reason, fields in _LATE_STEPS:
+        result = trail.run(df, transform, audit_name, reason, fields)
+        if isinstance(result, tuple):
+            df = result[0]
 
     return df
 
 
-def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str], None]) -> None:
+def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail) -> None:
     """Run each safety rule on its declared rows."""
     individuals = df['is_individual'].astype(bool)
     non_individuals = ~individuals
-    fixed = 0
 
     for rule, scope, fields, reason in SAFETY_RULES:
         if scope == ALL_ROWS:
@@ -147,7 +135,4 @@ def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail, log: Callable[[str]
         else:
             transform = lambda frame, rule=rule: rule(frame, non_individuals)
         step = 'safety_' + rule.__name__.lstrip('_')
-        fixed += trail.run(df, transform, step, reason, fields)
-
-    if fixed:
-        log(f"Safety rules: fixed {fixed:,} remaining inconsistencies")
+        trail.run(df, transform, step, reason, fields)

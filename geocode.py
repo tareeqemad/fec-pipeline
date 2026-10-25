@@ -5,12 +5,13 @@ import argparse
 import json
 import os
 import sys
+import time
 
 import pandas as pd
 
 from fec.cleaning.work.status import referenced_employers
 from fec.contract import EMPLOYER_ADDRESS, RESOLVE_WORKING, STAGES, check_input, check_output
-from fec.env import CACHE_DIR, CLEANED_CSV, GEOCODE_CACHE_JSON, load_env
+from fec.env import CACHE_DIR, CLEANED_CSV, GEOCODE_CACHE_JSON, PROJECT_ROOT, load_env
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.pipeline import (
     apply_employer_to_dataframe,
@@ -31,7 +32,7 @@ logger = get_logger(__name__)
 def _find_csv() -> str:
     if CLEANED_CSV.exists():
         return str(CLEANED_CSV)
-    logger.info("  Error: no cleaned CSV found in data/")
+    logger.error("No cleaned CSV found. Run python clean.py first.")
     sys.exit(1)
 
 
@@ -71,7 +72,7 @@ def _geocode_contributors(
     df: pd.DataFrame,
     cache: GeoCache,
 ) -> pd.DataFrame:
-    logger.info("\n-- Contributor Addresses --")
+    logger.info("[1/2] Finding contributor coordinates")
     geocode_addresses(df, cache)
     corrected = prepare_city_corrections(df, cache)
     if corrected is not None:
@@ -83,10 +84,9 @@ def _geocode_contributors(
         df = clean(expected=corrected)
     df = apply_to_dataframe(df, cache)
 
-    has_coordinates = df["latitude"].notna()
     logger.info(
-        f"\n  Contributor coords: {has_coordinates.sum():,} / {len(df):,} "
-        f"({has_coordinates.mean() * 100:.1f}%)"
+        "Rows with contributor coordinates: %s / %s",
+        f"{df['latitude'].notna().sum():,}", f"{len(df):,}",
     )
     return df
 
@@ -97,21 +97,18 @@ def _geocode_employers(
     cache: GeoCache,
 ) -> tuple[pd.DataFrame, bool]:
     if "employer_address" not in df.columns:
-        logger.info("\n  No employer_address column - run resolve.py --apply first")
+        logger.warning("No employer_address column. Run python resolve.py --apply first.")
         return df, False
 
-    logger.info("\n-- Employer Addresses --")
+    logger.info("[1/3] Finding employer coordinates")
     addresses = _all_employer_addresses(df)
     geocode_employer_addresses(addresses, cache)
     df = apply_employer_to_dataframe(df, cache)
 
-    has_coordinates = df["employer_latitude"].notna()
     logger.info(
-        f"\n  Employer coords: {has_coordinates.sum():,} / {len(df):,} "
-        f"({has_coordinates.mean() * 100:.1f}%)"
+        "Rows with employer coordinates: %s / %s",
+        f"{df['employer_latitude'].notna().sum():,}", f"{len(df):,}",
     )
-    for source, count in df["employer_geocode_level"].value_counts().items():
-        logger.info(f"    {source:25s} {count:>7,}")
     return df, True
 
 
@@ -123,22 +120,17 @@ def _write_output(df: pd.DataFrame, csv_path: str, stage: str, input_columns) ->
     kept = set(RESOLVE_WORKING) - set(STAGES[stage].drops)
     df = df.drop(columns=[c for c in INTERNAL_OUTPUT_COLUMNS if c not in kept], errors="ignore")
     check_output(stage, input_columns, df.columns)
-    logger.info(f"\n  Writing -> {csv_path}")
     write_csv_atomic(df, csv_path, index=False)
 
 
 # Read the cleaned data, geocode the selected addresses and save.
 def main():
+    start = time.perf_counter()
     args = _parse_args()
     load_env()
 
     csv_path = _find_csv()
     cache = GeoCache(str(GEOCODE_CACHE_JSON))
-
-    logger.info("=" * 60)
-    logger.info("  FEC Geocoder")
-    logger.info("=" * 60)
-    logger.info(f"\n  File: {csv_path}")
 
     from fec.io import read_pipeline_csv
 
@@ -146,7 +138,7 @@ def main():
     df = read_pipeline_csv(csv_path)
     check_input(stage, df.columns)
     input_columns = list(df.columns)
-    logger.info(f"  Rows: {len(df):,}")
+    logger.info("Reading: %s (%s rows)", os.path.relpath(csv_path, PROJECT_ROOT), f"{len(df):,}")
 
     if not args.employer_only:
         df = _geocode_contributors(df, cache)
@@ -154,15 +146,20 @@ def main():
     else:
         df, changed = _geocode_employers(df, cache)
 
-    if changed:
-        _write_output(df, csv_path, stage, input_columns)
-        if args.employer_only:
-            from fec.resolve.employer_locations import build
+    if not changed:
+        return
+    logger.info("[2/%s] Checking data and saving", 3 if args.employer_only else 2)
+    _write_output(df, csv_path, stage, input_columns)
+    if args.employer_only:
+        from fec.resolve.employer_locations import build
 
-            logger.info("\n-- Building employer locations --")
-            build()
+        logger.info("[3/3] Saving employer locations")
+        build()
 
-    logger.info("=" * 60)
+    minutes, seconds = divmod(round(time.perf_counter() - start), 60)
+    logger.info("Saved: %s", os.path.relpath(csv_path, PROJECT_ROOT))
+    logger.info("Completed in %dm %02ds.", minutes, seconds)
+    logger.info("Next: python %s", "loader.py --reset" if args.employer_only else "resolve.py --apply")
 
 
 if __name__ == "__main__":

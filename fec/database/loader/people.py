@@ -1,8 +1,6 @@
 """Load roster identities, addresses, jobs and images."""
 from __future__ import annotations
 
-import time
-from collections import defaultdict
 from typing import Any
 
 import pandas as pd
@@ -154,29 +152,21 @@ def _load_donor_linked_csv(
         logger.info(f"  {csv_path.name} not found -- skipping {table}")
         return
 
-    start = time.time()
     rows = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
     if validate_rows is not None:
         # Validate the whole roster before writing any row.
         validate_rows(rows)
     # Use the same office choices as the FEC loader.
     locations = _location_index()
-    match_counts: dict[str, int] = defaultdict(int)
     skipped = 0
 
     for _, row in rows.iterrows():
-        method = _load_person(cur, row, csv_filename, locations, insert_row)
-        if method is None:
+        if _load_person(cur, row, csv_filename, locations, insert_row) is None:
             skipped += 1
-            continue
-        match_counts[method] += 1
 
     _reset_id_sequence(cur, table)
-    inserted = len(rows) - skipped
-    logger.info(
-        f"  {table}: {inserted} rows ({skipped} skipped), "
-        f"match methods: {dict(match_counts)} ({time.time() - start:.1f}s)"
-    )
+    if skipped:
+        logger.warning("WARNING: %s has %s rows without a name; skipped", csv_path.name, skipped)
 
 
 # Save one roster donor and return the matching method.

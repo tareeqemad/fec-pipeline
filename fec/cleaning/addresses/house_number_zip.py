@@ -73,7 +73,7 @@ class _FiledPlaces:
 
     # index the other filings' places, skipping the rows being fixed
     def __init__(self, df: pd.DataFrame, exclude: pd.Series):
-        zip5, _n_invalid = _clean_zip_raw(df['contributor_zip'])
+        zip5 = _clean_zip_raw(df['contributor_zip'])
         frame = pd.DataFrame({
             'city': _upper_text(df, 'contributor_city').str.rstrip('.,'),
             'state': _upper_text(df, 'contributor_state'),
@@ -149,9 +149,9 @@ def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str,
 
 # Recover a house number filed as ZIP when the street contains the real city and ZIP.
 # Use the donor's matching filings for state, then the ZIP; leave unreadable places alone.
-def _split_house_number_zip(df: pd.DataFrame) -> int:
+def _split_house_number_zip(df: pd.DataFrame) -> None:
     if 'contributor_street_1' not in df.columns or 'contributor_zip' not in df.columns:
-        return 0
+        return
     street1 = _upper_text(df, 'contributor_street_1')
     digits = _upper_text(df, 'contributor_zip').str.replace(r'\D', '', regex=True)
     house = street1.str.extract(_LEADING_HOUSE_NUMBER_RE)[0].fillna('')
@@ -159,7 +159,7 @@ def _split_house_number_zip(df: pd.DataFrame) -> int:
         (digits == house + '0001') | ((digits == house) & (house.str.len() == 5))
     )
     if not candidate.any():
-        return 0
+        return
 
 
     street2 = _upper_text(df, 'contributor_street_2')
@@ -193,7 +193,6 @@ def _split_house_number_zip(df: pd.DataFrame) -> int:
         df.at[index, HOUSE_ZIP_CITY] = city
         df.at[index, HOUSE_ZIP_STATE] = state
         df.at[index, HOUSE_ZIP_ZIP] = zip5
-    return len(fixes)
 
 
 # write the recovered place into city/state/ZIP, drop temp columns

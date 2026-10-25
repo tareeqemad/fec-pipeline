@@ -1,18 +1,14 @@
 """Shared address loading and links."""
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pandas as pd
 from psycopg2.extras import execute_values
 
-from fec.database.loader._base import _count, to_float_or_none, to_native
+from fec.database.loader._base import to_float_or_none, to_native
 from fec.env import EMPLOYER_LOCATIONS_CSV
-from fec.log import get_logger
 from fec.resolve.locations import PUBLISHABLE_ADDRESS_TRUST
-
-logger = get_logger(__name__)
 
 DONOR_ADDRESS_COLUMNS = [
     "contributor_street_1", "contributor_street_2", "contributor_city",
@@ -88,9 +84,6 @@ def load_address_dimension(
     df: pd.DataFrame,
     employer_locations: list[dict] | None = None,
 ) -> dict:
-    logger.info("\n-- 4/8 Loading addresses (shared dimension) --")
-    start = time.time()
-
     address_rows = _address_rows(df, _employer_locations(employer_locations))
     execute_values(cur,
         """INSERT INTO addresses
@@ -103,7 +96,6 @@ def load_address_dimension(
                           COALESCE(city,''), COALESCE(state_code,''), COALESCE(zip_code,'')
                    FROM addresses""")
     address_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
-    logger.info(f"  addresses: {_count(cur, 'addresses'):,} ({time.time()-start:.1f}s)")
     return address_ids
 
 
@@ -117,7 +109,10 @@ def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
 # Collect distinct donor and company addresses.
 def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
     address_rows = {}
-    for (street_1, street_2, city, state, zip_code), group in df.groupby(
+    columns = DONOR_ADDRESS_COLUMNS + [
+        column for column in ('latitude', 'longitude') if column in df.columns
+    ]
+    for (street_1, street_2, city, state, zip_code), group in df[columns].groupby(
         DONOR_ADDRESS_COLUMNS, dropna=False
     ):
         first_row = group.iloc[0]
@@ -152,12 +147,10 @@ def _add_address(address_rows: dict, street_1, street_2, city, state, zip_code, 
 # Link donor addresses and return their IDs.
 def load_donor_addresses(cur: Any, df: pd.DataFrame,
                          donor_ids: dict, address_ids: dict) -> dict:
-    logger.info("\n-- 5/8 Loading donor addresses --")
-    start = time.time()
-
     donor_address_rows = []
-    for (donor_key, street_1, street_2, city, state, zip_code), _group in df.groupby(
-        ['donor_key', *DONOR_ADDRESS_COLUMNS], dropna=False
+    columns = ['donor_key', *DONOR_ADDRESS_COLUMNS]
+    for (donor_key, street_1, street_2, city, state, zip_code), _group in df[columns].groupby(
+        columns, dropna=False
     ):
         donor_id = donor_ids.get(donor_key)
         if not donor_id:
@@ -179,7 +172,6 @@ def load_donor_addresses(cur: Any, df: pd.DataFrame,
         JOIN addresses a ON a.address_id = da.address_id
     """)
     donor_address_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
-    logger.info(f"  donor_addresses: {_count(cur, 'donor_addresses'):,} ({time.time()-start:.1f}s)")
     return donor_address_ids
 
 
@@ -190,9 +182,6 @@ def link_employer_locations(
     get_employer_id,
     employer_locations: list[dict] | None = None,
 ) -> None:
-    logger.info("\n-- 8/8 Linking employer locations --")
-    start = time.time()
-
     employer_rows = _primary_location_rows(
         _employer_locations(employer_locations), address_ids, get_employer_id,
     )
@@ -206,9 +195,6 @@ def link_employer_locations(
         employer_rows,
         template="(%s::int, %s::int)",
         page_size=5000)
-    cur.execute("SELECT COUNT(*) FROM employers WHERE address_id IS NOT NULL")
-    linked = cur.fetchone()[0]
-    logger.info(f"  employers with location: {linked:,} ({time.time()-start:.1f}s)")
     _prune_orphan_addresses(cur)
 
 
@@ -246,6 +232,3 @@ def _prune_orphan_addresses(cur) -> None:
           AND NOT EXISTS (SELECT 1 FROM employers e WHERE e.address_id = a.address_id)
           AND NOT EXISTS (SELECT 1 FROM donor_employments de WHERE de.address_id = a.address_id)
     """)
-    orphan_count = cur.rowcount
-    if orphan_count:
-        logger.info(f"  pruned {orphan_count:,} orphan addresses")
