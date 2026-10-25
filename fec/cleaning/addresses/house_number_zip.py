@@ -196,10 +196,10 @@ def _split_house_number_zip(df: pd.DataFrame) -> None:
 
 
 # write the recovered place into city/state/ZIP, drop temp columns
-def _apply_house_number_zip(df: pd.DataFrame) -> int:
-    """Write the place clean_streets read from the street into city/state/ZIP (a ZIP left '' is blanked) and drop the working columns; returns rows changed."""
+def _apply_house_number_zip(df: pd.DataFrame) -> None:
+    """Apply the recovered place, blank missing ZIPs and remove working columns."""
     if HOUSE_ZIP_CITY not in df.columns:
-        return 0
+        return
     fixed = df[HOUSE_ZIP_CITY].notna()
     for column, source in (
         ('contributor_city', HOUSE_ZIP_CITY),
@@ -209,4 +209,3 @@ def _apply_house_number_zip(df: pd.DataFrame) -> int:
         if fixed.any() and column in df.columns:
             df.loc[fixed, column] = df.loc[fixed, source].replace('', np.nan)
     df.drop(columns=list(_HOUSE_ZIP_COLUMNS), inplace=True)
-    return int(fixed.sum())

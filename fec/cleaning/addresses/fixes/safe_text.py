@@ -119,7 +119,7 @@ def _looks_like_street(street: str) -> bool:
     return any(len(t) >= 2 for t in names)
 
 
-def _move_street_from_second_line(df: pd.DataFrame) -> int:
+def _move_street_from_second_line(df: pd.DataFrame) -> None:
     """Put a filed street first and keep its C/O name, mailbox and unit."""
     first = df[S1].fillna("").astype(str).str.strip()
     second = df[S2].fillna("").astype(str).str.strip()
@@ -129,12 +129,11 @@ def _move_street_from_second_line(df: pd.DataFrame) -> int:
     eligible &= df[STATE].fillna("").str.upper().isin(US_STATES)
     eligible &= ~kept_as_filed_mask(df)
     if not eligible.any():
-        return 0
+        return
 
     df[S1], df[S2] = df[S1].astype(object), df[S2].astype(object)
     candidates = second[eligible].map(normalize_street)
     streets, _, _ = _extract_units(candidates, pd.Series("", index=candidates.index))
-    moved = 0
     for index, street in streets.items():
         if pd.isna(street):
             continue
@@ -152,8 +151,6 @@ def _move_street_from_second_line(df: pd.DataFrame) -> int:
         unit = candidates.at[index][len(street):].strip(" ,")
         df.at[index, S1] = street
         df.at[index, S2] = " ".join(part for part in (unit, first.at[index]) if part) or np.nan
-        moved += 1
-    return moved
 
 
 def _strip_city_state_tail(street, city, state, zip_code):
@@ -198,19 +195,14 @@ def _strip_city_state_tail(street, city, state, zip_code):
 CARE_OF_BLANKED = "_care_of_blanked"
 
 
-def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+def apply_safe_fixes(df: pd.DataFrame) -> pd.DataFrame:
     """Fix street text and split units before donor address recovery."""
-    counts = {"house_number": 0, "unit_split": 0, "care_of": 0}
-
-    before = df[S1].copy()
-    counts["second_line"] = _move_street_from_second_line(df)
-    was_care_of = before.fillna("").astype(str).str.match(_CO_RE)
+    was_care_of = df[S1].fillna("").astype(str).str.match(_CO_RE)
+    _move_street_from_second_line(df)
     df[S1] = df[S1].map(_strip_care_of)
     df[S1] = df[S1].map(_fix_house_number)
     df[S1] = df[S1].map(_collapse_dup_words)
     df[S1] = df[S1].map(_drop_repeated_address_start)
-    still_care_of = df[S1].fillna("").astype(str).str.match(_CO_RE)
-    counts["care_of"] = int((was_care_of & ~still_care_of).sum())
     # A blanked C/O address must not inherit the donor's home city.
     df[CARE_OF_BLANKED] = was_care_of & df[S1].isna()
 
@@ -232,7 +224,6 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
             .str.replace(r"[,\s]+$", "", regex=True)
             .str.strip()
         )
-    counts["house_number"] = int((before.fillna("") != df[S1].fillna("")).sum())
 
     # A copy of street_1 in street_2 is not a unit.
     same = df[S2].notna() & (df[S2].astype(str).str.strip() != "") \
@@ -266,9 +257,8 @@ def apply_safe_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     if apply_mask.any():
         df.loc[apply_mask, S1] = base[apply_mask].str.strip()
         df.loc[apply_mask, S2] = unit[apply_mask].str.strip()
-        counts["unit_split"] = int(apply_mask.sum())
 
-    return df, counts
+    return df
 
 
 # City tail followed by state and partial ZIP: "ANTA GA3034".

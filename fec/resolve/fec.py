@@ -189,18 +189,6 @@ def _name_parts(value) -> tuple[str, str, str, str]:
     middle = " ".join(given_words[1:])
     return last, NICKNAME_MAP.get(first, first), middle, extract_generational_suffix(text)
 
-def drop_joint_source_entries(prev_cache) -> int:
-    """A previous employer read off a joint filing is the household's, not the donor's."""
-    data = getattr(prev_cache, "data", prev_cache)
-    joint = [
-        key for key, entry in data.items()
-        if isinstance(entry, dict) and str(entry.get("method", "")).startswith("fec_api")
-        and _joint_name(entry.get("source_name"))
-    ]
-    for key in joint:
-        data.pop(key, None)
-    return len(joint)
-
 def _same_fec_donor(person: dict, record: dict) -> bool:
     """Match a compatible name and one complete filed address."""
     if _joint_name(record.get("contributor_name")) or _joint_name(person.get("name")):

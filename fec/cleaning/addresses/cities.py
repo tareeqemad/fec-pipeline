@@ -21,12 +21,6 @@ from fec.config.streets import (
 CITY_TABLE_FIXED = '_city_table_fixed'
 
 
-# count rows where a value actually differs, ignoring blank-to-blank
-def _changed(before: pd.Series, after: pd.Series) -> int:
-    """Rows whose value changed; a blank that stays blank is not a change."""
-    return int((before.fillna('') != after.fillna('')).sum())
-
-
 # derive cleaned ZIP5 from the raw contributor_zip column, if present
 def _zip5(df: pd.DataFrame) -> pd.Series | None:
     """ZIP5 derived from the raw contributor_zip (clean_zips runs after the cities); None without that column."""
@@ -35,21 +29,17 @@ def _zip5(df: pd.DataFrame) -> pd.Series | None:
     return _clean_zip_raw(df['contributor_zip'])
 
 
-# run all city-cleaning steps and return updated counts
-def clean_cities(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Apply formatting and table corrections; return their counts."""
-    counts = {'known_fixes': 0, 'punctuation_cleaned': 0}
-
+# Apply city formatting and configured corrections.
+def clean_cities(df: pd.DataFrame) -> pd.DataFrame:
     # Apply the place recovered from the street before the city rules.
     _apply_house_number_zip(df)
 
-    cities, counts['punctuation_cleaned'] = _strip_city_text(df['contributor_city'])
+    cities = _strip_city_text(df['contributor_city'])
     states = df['contributor_state'].fillna('').astype(str).str.strip().str.upper()
     zip5 = _zip5(df)
     before = cities.copy()
     cities = _table_city_fixes(cities, states, zip5)
     table_fixed = before.fillna('') != cities.fillna('')
-    counts['known_fixes'] = int(table_fixed.sum())
     df['contributor_city'] = cities
 
     df[CITY_TABLE_FIXED] = table_fixed
@@ -57,12 +47,11 @@ def clean_cities(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     # Expand ST./MT./FT. after table corrections.
     df['contributor_city'] = df['contributor_city'].map(expand_city_abbreviations)
 
-    return df, counts
+    return df
 
 
 # strip ZIPs, states, units and punctuation from the city text
-def _strip_city_text(raw: pd.Series) -> tuple[pd.Series, int]:
-    """Returns (cities, rows whose punctuation or trailing state was removed)."""
+def _strip_city_text(raw: pd.Series) -> pd.Series:
     cities = raw.astype(str).str.strip().str.upper()
 
     cities = cities.str.lstrip('`~')
@@ -78,16 +67,12 @@ def _strip_city_text(raw: pd.Series) -> tuple[pd.Series, int]:
     # a unit string is not a city
     cities = cities.where(~cities.str.match(r'^APT\s|^STE\s|^UNIT\s|^#\d', case=False, na=False), other=np.nan)
 
-    before = cities.copy()
     cities = cities.str.rstrip('.,;:')
-    cleaned = _changed(before, cities)
 
     # state codes stuck at end of city
-    before = cities.copy()
     cities = cities.str.replace(STATE_IN_CITY, '', regex=True).str.strip()
-    cleaned += _changed(before, cities)
 
-    return cities.str.replace(r'\s{2,}', ' ', regex=True), cleaned
+    return cities.str.replace(r'\s{2,}', ' ', regex=True)
 
 
 # fix city names using the hand-curated lookup tables
