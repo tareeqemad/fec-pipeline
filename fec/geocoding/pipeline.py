@@ -6,9 +6,10 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.addresses.foreign import kept_as_filed_mask
+from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes, save_verified_city_corrections
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, census, nominatim
-from fec.geocoding.validation import accepted_coordinates, is_po_box, reviewed_point, unclear_house_number
+from fec.geocoding.validation import accepted_coordinates, confirmed_city, is_po_box, reviewed_point, unclear_house_number
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -37,26 +38,28 @@ def _needs_lookup(key: str, cache: GeoCache) -> bool:
 
 
 # Try OpenStreetMap, then Census; keep an unmatched address blank.
-def _geocode_one(street: str, city: str, state: str, zipcode: str) -> tuple:
+def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | None:
     if not street.strip() or is_po_box(street) or unclear_house_number(street):
-        return None, None, None, "not_found"
+        return None
     key = "|".join((street, city, state, zipcode))
     reviewed = reviewed_point(key)
     if reviewed is not None:
-        return *reviewed, "US", "google"
+        return {"lat": reviewed[0], "lng": reviewed[1], "country": "US", "source": "google"}
     unavailable = None
     for source, provider in (("nominatim", nominatim), ("census", census)):
         try:
-            lat, lng, country = provider(street, city, state, zipcode)
+            entry = provider(street, city, state, zipcode)
         except (NominatimUnavailable, CensusUnavailable) as error:
             unavailable = error
             continue
-        entry = {"lat": lat, "lng": lng, "country": country, "source": source}
+        if entry is None:
+            continue
+        entry = {**entry, "source": source}
         if accepted_coordinates(key, entry)[0] is not None:
-            return lat, lng, country, source
+            return entry
     if unavailable is not None:
         raise unavailable
-    return None, None, None, "not_found"
+    return None
 
 
 # Look up each uncached address once.
@@ -78,17 +81,17 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     try:
         for done, key in enumerate(todo, 1):
             try:
-                lat, lng, country, source = _geocode_one(*key.split("|"))
+                entry = _geocode_one(*key.split("|"))
             except (NominatimUnavailable, CensusUnavailable) as error:
                 cache.put_transient(key)
                 transient += 1
                 logger.debug("Geocoding unavailable for %s: %s", key, error)
             else:
-                if lat is None:
+                if entry is None:
                     cache.put_failed(key)
                     missed += 1
                 else:
-                    cache.put(key, lat, lng, source, country)
+                    cache.put(key, **entry)
                     found += 1
             if done % batch_size == 0:
                 cache.save()
@@ -104,6 +107,48 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
     keys = _contributor_keys(df)[~kept_as_filed_mask(df)]
     _geocode_keys(keys, cache, batch_size, logger)
+
+
+# Save city evidence for clean to apply before donor matching.
+def save_city_corrections(df: pd.DataFrame, cache: GeoCache) -> int:
+    if "sub_id" not in df.columns:
+        return 0
+    keys = _contributor_keys(df.loc[~kept_as_filed_mask(df)])
+    cities = {key: confirmed_city(key, cache.get(key)) for key in keys.unique()}
+    rows = []
+    for index, key in keys.items():
+        city = cities[key]
+        sub_id = df.at[index, "sub_id"]
+        if city is None or pd.isna(sub_id) or not str(sub_id).strip():
+            continue
+        street, _, state, zipcode = key.split("|")
+        rows.append({
+            "match_street": street, "match_state": state, "match_zip": zipcode,
+            "match_sub_id": str(sub_id).strip(), "street": street, "city": city,
+            "source": cache.get(key)["matched_address"]["source_url"],
+        })
+    return save_verified_city_corrections(rows) if rows else 0
+
+
+# Keep coordinates under both city names before clean applies the saved rules.
+def prepare_city_corrections(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame | None:
+    save_city_corrections(df, cache)
+    corrected = df.copy()
+    pending = apply_verified_address_fixes(corrected, city_only=True)
+    if not pending:
+        return None
+    pairs = pd.DataFrame({'old': _contributor_keys(df), 'new': _contributor_keys(corrected)})
+    saved = False
+    for old, new in pairs.loc[pairs.old.ne(pairs.new)].drop_duplicates().itertuples(index=False, name=None):
+        entry = cache.get(old)
+        lat, lng, source = accepted_coordinates(old, entry)
+        if lat is not None and accepted_coordinates(new, cache.get(new))[0] is None:
+            cache.data[new] = {**(entry or {}), 'lat': lat, 'lng': lng, 'source': source}
+            cache.data[new].pop('lookup_status', None)
+            saved = True
+    if saved:
+        cache.save()
+    return corrected
 
 
 # Look up nonblank employer addresses.

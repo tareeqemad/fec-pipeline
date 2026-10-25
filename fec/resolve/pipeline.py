@@ -70,12 +70,9 @@ def _load_data(csv_path: str):
     return df, totals, previous, employers
 
 
-def _deduplicate_address_cache(df: pd.DataFrame, addr_cache) -> None:
+def _deduplicate_address_cache(addr_cache) -> None:
     logger.info("\n-- Step 3b: Address-cache aliases --")
-    frequencies = df["contributor_employer"].value_counts().to_dict()
-    aliases, groups = dedup_by_resolved_address(
-        addr_cache, freq=frequencies
-    )
+    aliases, groups = dedup_by_resolved_address(addr_cache)
     logger.info(f"    created {aliases:,} aliases across {groups:,} groups")
 
 
@@ -116,7 +113,7 @@ def _run_steps(
             "  Continuing with cached addresses; unresolved employers stay blank."
         )
 
-    _deduplicate_address_cache(df, addr_cache)
+    _deduplicate_address_cache(addr_cache)
     return ai_incomplete
 
 

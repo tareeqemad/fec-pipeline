@@ -1,16 +1,13 @@
 """Only documented company aliases expand abbreviations."""
 import pandas as pd
 
-from fec.cleaning.work.employer_names import (
-    expand_employer_abbreviations,
-    expand_employer_associates,
-)
+from fec.cleaning.work.employer_names import apply_employer_synonyms
 
 
 def _emps(rows):
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * len(rows),
                        "contributor_employer": rows})
-    df, n = expand_employer_abbreviations(df)
+    df, n = apply_employer_synonyms(df)
     return list(df["contributor_employer"]), n
 
 
@@ -51,7 +48,7 @@ def _assoc(pairs):
     df = pd.DataFrame({"entity_type": ["INDIVIDUAL"] * len(pairs),
                        "contributor_employer": [p[0] for p in pairs],
                        "contributor_employer_original": [p[1] for p in pairs]})
-    df, n = expand_employer_associates(df)
+    df, n = apply_employer_synonyms(df)
     return list(df["contributor_employer"]), n
 
 

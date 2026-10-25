@@ -1,21 +1,14 @@
 """Keep each donor consistent across filings."""
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
 from fec.cleaning.reports.trail import (
     EMPLOYMENT_FIELDS,
     ENTITY_FIELDS,
     NAME_FIELDS,
-    STREET_FIELDS,
     WORK_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.donors.employer import (
-    _fill_employer_from_donor,
-    _fill_employer_from_occupation,
-    _fill_employer_from_raw_filings,
-    _own_firm_absorbs_self_employed,
-)
+from fec.cleaning.donors.employer import _fill_employer_from_occupation
 from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.donors.entity import (
     _apply_entity_overrides,
@@ -47,14 +40,8 @@ ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
 
 # (label, audit step, fix, fields, reason, source)
 CONSISTENCY_FIXES = (
-    ("recover missing streets", "donor_recover_missing_streets", _recover_missing_streets, STREET_FIELDS,
-     "street_filled_from_donor_only_street_same_place", None),
     ("reviewed employer names", "donor_reviewed_employers", apply_reviewed_employer_names, EMPLOYMENT_FIELDS,
      "documented_company_alias", "data/rules/employer_name_rules.csv"),
-    ("own firm absorbs self-employed", "donor_own_firm_absorbs_self_employed", _own_firm_absorbs_self_employed, WORK_FIELDS,
-     "self_employed_rows_moved_to_donors_own_firm", None),
-    ("fill employer from donor", "donor_fill_employer_from_donor", _fill_employer_from_donor, WORK_FIELDS,
-     "employer_filled_from_donor_latest_filing", None),
     ("fill occupation from donor", "donor_fill_occupation_from_donor", _fill_occupation_from_donor, WORK_FIELDS,
      "occupation_derived_from_donor_same_employer", None),
     ("fill self-employed occupation from donor", "donor_fill_self_employed_occupation_from_donor",
@@ -62,8 +49,6 @@ CONSISTENCY_FIXES = (
      "self_employed_occupation_replaced_by_donors_real_one", None),
     ("fill employer from occupation", "donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,
      "employer_derived_from_occupation_or_category", None),
-    ("fill employer from raw filings", "donor_fill_employer_from_raw_filings", _fill_employer_from_raw_filings, WORK_FIELDS,
-     "employer_recovered_from_donors_other_raw_filings", None),
     ("recover previous employer", "donor_recover_previous_employer", _fill_prev_employer_from_donor, PREVIOUS,
      "previous_employer_from_latest_earlier_filing", None),
     ("clear refusal employers", "donor_clear_refusal_employers", _clean_junk_status_word_employer, WORK_FIELDS,
@@ -89,11 +74,8 @@ CONSISTENCY_FIXES = (
 
 # Work fields inferred from other filings.
 INFERRED_WORK_STEPS = frozenset({
-    "donor_own_firm_absorbs_self_employed",
-    "donor_fill_employer_from_donor",
     "donor_fill_occupation_from_donor",
     "donor_fill_self_employed_occupation_from_donor",
-    "donor_fill_employer_from_raw_filings",
 })
 
 

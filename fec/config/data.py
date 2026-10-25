@@ -50,28 +50,6 @@ TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Title -> occupation when occupation is empty; only titles that strongly imply one.
-TITLE_TO_OCCUPATION = {
-    'DR': ('DOCTOR', 'MEDICAL / HEALTHCARE'),
-    'RABBI': ('RABBI', 'RELIGIOUS'),
-    'CANTOR': ('CANTOR', 'RELIGIOUS'),
-    'PASTOR': ('PASTOR', 'RELIGIOUS'),
-    'DEACON': ('DEACON', 'RELIGIOUS'),
-    'BISHOP': ('BISHOP', 'RELIGIOUS'),
-    'FATHER': ('PRIEST', 'RELIGIOUS'),
-    'SISTER': ('RELIGIOUS SISTER', 'RELIGIOUS'),
-    'IMAM': ('IMAM', 'RELIGIOUS'),
-    'REV': ('CLERGY', 'RELIGIOUS'),
-    'REVEREND': ('CLERGY', 'RELIGIOUS'),
-    'JUDGE': ('JUDGE', 'LEGAL'),
-    'HON': ('JUDGE', 'LEGAL'),
-    'HONORABLE': ('JUDGE', 'LEGAL'),
-    'PROF': ('PROFESSOR', 'EDUCATION'),
-    'PROFESSOR': ('PROFESSOR', 'EDUCATION'),
-    'AMB': ('AMBASSADOR', 'GOVERNMENT'),
-    'AMBASSADOR': ('AMBASSADOR', 'GOVERNMENT'),
-}
-
 # Suffixes stripped from last names (SMITH JR. -> SMITH). V/IV need the comma
 # prefix so names like RAVIV or ones ending in IV survive.
 SUFFIX_RE = re.compile(

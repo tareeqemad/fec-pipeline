@@ -81,7 +81,7 @@ def test_sute_typo_becomes_suite_and_is_extracted():
     assert df.loc[0, "contributor_street_2"] == "STE E"
 
 
-def test_verified_postal_corrections_are_exact():
+def test_verified_postal_corrections_are_exact(tmp_path, monkeypatch):
     df = pd.DataFrame([
         {"contributor_street_1": "3750 LAS VEGAS BLVD S",
          "contributor_street_2": np.nan, "contributor_state": "NV",
@@ -121,6 +121,69 @@ def test_verified_postal_corrections_are_exact():
     assert df.loc[5, "contributor_street_2"] == "STE G101"
     assert df.loc[6, "contributor_state"] == "NJ"
     assert df.loc[6, "contributor_zip"] == "07631"
+
+    import pytest
+    from fec.cleaning.addresses.fixes import verified
+
+    path = tmp_path / "address_rules.csv"
+    columns = ["match_street", "match_state", "match_zip", "street", "unit", "city",
+               "state", "zip", "source", "match_unit", "match_sub_id", "note"]
+    manual = {field: "" for field in columns}
+    manual.update(match_street="10 MAIN ST", match_state="NY", match_zip="11542",
+                  street="10 MAIN ST", unit="[CLEAR]", source="manual_verified",
+                  match_unit="APT 2", note="Keep this source and note.")
+    pd.DataFrame([manual], columns=columns).to_csv(path, index=False)
+    monkeypatch.setattr(verified, "ADDRESS_RULES_CSV", path)
+    candidate = {"match_street": "45 HIGHFIELD RD", "match_state": "NY", "match_zip": "11542",
+                 "street": "45 HIGHFIELD RD", "city": "GLEN COVE", "match_sub_id": "001",
+                 "source": "https://geocoding.geo.census.gov/example?address=45+HIGHFIELD+RD"}
+    blocked = {**candidate, "match_street": "10 MAIN ST", "street": "10 MAIN ST"}
+    assert verified.save_verified_city_corrections([candidate, candidate, blocked]) == 1
+    with path.open(newline="", encoding="utf-8") as handle:
+        saved = csv.DictReader(handle)
+        assert saved.fieldnames == columns
+        records = list(saved)
+    assert records[0] == manual
+    assert records[1]["source"] == candidate["source"]
+    assert records[1]["match_sub_id"] == "001"
+    before = path.read_bytes()
+    assert verified.save_verified_city_corrections([candidate, {**candidate, "city": "OTHER CITY"}]) == 0
+    assert path.read_bytes() == before
+    with pytest.raises(ValueError, match="exact filing"):
+        verified.save_verified_city_corrections([{**candidate, "match_sub_id": "002"},
+                                                 {**candidate, "unit": "APT 7"}])
+    assert path.read_bytes() == before
+    same_address = pd.DataFrame([{
+        "sub_id": sub_id, "contributor_street_1": "45 HIGHFIELD RD", "contributor_street_2": "APT 7",
+        "contributor_city": "GLENCOVE", "contributor_state": "NY", "contributor_zip": "11542",
+    } for sub_id in ("001", "002")])
+    untouched = same_address.drop(columns=["contributor_city"]).copy()
+    assert verified.apply_verified_address_fixes(same_address, city_only=False) == 0
+    assert same_address["contributor_city"].eq("GLENCOVE").all()
+    assert verified.apply_verified_address_fixes(same_address, city_only=True) == 1
+    assert same_address["contributor_city"].tolist() == ["GLEN COVE", "GLENCOVE"]
+    pd.testing.assert_frame_equal(same_address[untouched.columns], untouched, check_dtype=False)
+
+    from fec.cleaning.addresses.clean import clean_addresses
+    from fec.cleaning.reports.trail import AuditTrail
+
+    aligned = pd.DataFrame([{
+        "sub_id": sub_id, "entity_type": "INDIVIDUAL", "contributor_name": name,
+        "contributor_first_name": "JANE", "contributor_last_name": name.split(",")[0],
+        "contributor_street_1": street, "contributor_street_2": "APT 7",
+        "contributor_city": "GLENCOVE", "contributor_state": "NY", "contributor_zip": "11542",
+    } for sub_id, name, street in (
+        ("001", "DOE, JANE", "45 HIGHFIELD"),
+        ("002", "DOE, JANE", "45 HIGHFIELD RD"),
+        ("003", "DOE, JANE", "45 HIGHFIELD RD"),
+        ("004", "OTHER, JANE", "45 HIGHFIELD RD"),
+    )])
+    trail = AuditTrail()
+    trail.start(aligned)
+    aligned = clean_addresses(aligned, trail, lambda _message: None)
+    assert aligned["contributor_street_1"].eq("45 HIGHFIELD RD").all()
+    assert aligned["contributor_city"].tolist() == ["GLEN COVE", "GLENCOVE", "GLENCOVE", "GLENCOVE"]
+    assert aligned["contributor_street_2"].eq("APT 7").all()
 
 
 def test_care_of_prefix_recovered_or_flagged(tmp_path):

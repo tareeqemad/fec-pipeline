@@ -4,6 +4,7 @@ import csv
 import pandas as pd
 
 from fec.env import ADDRESS_RULES_CSV
+from fec.io import write_csv_atomic
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
@@ -12,13 +13,17 @@ CLEAR_UNIT = "[CLEAR]"
 
 
 # apply exact, externally verified address corrections to the frame
-def apply_verified_address_fixes(df: pd.DataFrame) -> int:
+def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = None) -> int:
     """Apply exact, externally verified address corrections."""
     rules = _read_address_rules()
     changed = 0
     df[S2] = df[S2].astype(object)
     for (street, state, zipcode, match_unit, match_sub_id), fixed in rules.items():
         fixed_street, fixed_unit, fixed_city, fixed_state, fixed_zip, source = fixed
+        scoped_city = (match_sub_id is not None and fixed_street == street and fixed_city is not None
+                       and fixed_unit is None and fixed_state is None and fixed_zip is None)
+        if city_only is not None and scoped_city != city_only:
+            continue
         mask = (
             df[S1].fillna("").eq(street)
             & df[STATE].fillna("").eq(state)
@@ -84,3 +89,37 @@ def _read_address_rules() -> dict[tuple[str, str, str, str | None, str | None], 
                 raise ValueError(f"Duplicate address rule on row {number}: {key}")
             rules[key] = fixed + (source,)
     return rules
+
+
+# Save city-only corrections for the filings whose full addresses were verified.
+def save_verified_city_corrections(rows: list[dict]) -> int:
+    if not rows:
+        return 0
+    with ADDRESS_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        columns = reader.fieldnames or []
+        existing = list(reader)
+    required = {"match_street", "match_state", "match_zip", "match_sub_id", "street", "city", "source"}
+    if not required.issubset(columns):
+        raise ValueError("Address rules are missing columns for city corrections")
+    match_fields = ("match_street", "match_state", "match_zip", "match_sub_id")
+    occupied = {tuple((row.get(field) or "").strip().upper() for field in match_fields)
+                for row in existing}
+
+    added = []
+    for row in rows:
+        candidate = {field: str(row.get(field) or "").strip() for field in columns}
+        if (any(not candidate[field] for field in required)
+                or any(str(value or "").strip() for field, value in row.items() if field not in required)
+                or candidate["street"].upper() != candidate["match_street"].upper()
+                or not candidate["source"].startswith(("https://", "http://"))):
+            raise ValueError("A verified city correction needs an exact filing and unchanged street")
+        for field in required - {"match_sub_id", "source"}:
+            candidate[field] = candidate[field].upper()
+        key = tuple(candidate[field].upper() for field in match_fields)
+        if key not in occupied and (*key[:3], "") not in occupied:
+            added.append(candidate)
+            occupied.add(key)
+    if added:
+        write_csv_atomic(pd.DataFrame(existing + added, columns=columns), ADDRESS_RULES_CSV, index=False)
+    return len(added)

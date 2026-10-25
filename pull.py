@@ -9,7 +9,6 @@ from datetime import date
 from fec.committees import committee_id_to_name
 from fec.log import get_logger
 from fec.fec_api import PullError
-from fec.pull import backfill_source
 from fec.pull import run as pull_run
 
 logger = get_logger(__name__)
@@ -22,18 +21,13 @@ def _current_period(year: int) -> int:
 CURRENT_PERIOD = _current_period(date.today().year)
 
 
-# Validate the committee and period, then pull or backfill its records.
+# Validate the committee and period, then pull new records.
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
     ap.add_argument("committee_id", help="Committee ID from committees.csv.")
     ap.add_argument("--period", type=int, default=CURRENT_PERIOD,
                     help="Two-year transaction period (even year, default %(default)s).")
     ap.add_argument("--full", action="store_true", help=argparse.SUPPRESS)
-    ap.add_argument(
-        "--backfill-source",
-        action="store_true",
-        help="Fill FEC source fields for saved rows without changing the raw CSV.",
-    )
     args = ap.parse_args(argv)
 
     from fec import env
@@ -48,20 +42,13 @@ def main(argv: list[str] | None = None) -> int:
     period = _current_period(args.period)
     logger.info("=" * 60)
     logger.info(
-        "  FEC pull - %s, period %s, %s",
+        "  FEC pull - %s, period %s, full period, new records only",
         committee_id,
         period,
-        "backfill FEC source fields" if args.backfill_source else "full period, new records only",
     )
     logger.info("=" * 60)
 
     try:
-        if args.backfill_source:
-            stats = backfill_source(committee_id, period)
-            if stats["unmatched"] or stats["ambiguous"]:
-                logger.warning("  %s rows left without FEC source fields (see counts above)",
-                               f"{stats['unmatched'] + stats['ambiguous']:,}")
-            return 0
         pull_run(committee_id=committee_id, period=period)
     except PullError as error:
         logger.error("  %s", error)

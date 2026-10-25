@@ -47,7 +47,7 @@ def _others(city, state, zip5, n=3, street='1 MAIN ST'):
 
 def _clean(df):
     df, _ = clean_streets(df)
-    df, _ = clean_cities(df, fuzzy=False)
+    df, _ = clean_cities(df)
     df, _ = clean_zips(df)
     return df
 
@@ -88,8 +88,8 @@ def test_sackheim_state_comes_from_her_own_filings(monkeypatch):
         ('MICHELE', 'SACKHEIM', '12230 BONE HOLLOW RD', '', 'KAMAS', 'UT', '840369340'),
         ('MICHELE', 'SACKHEIM', '12230 BONE HOLLOW RD', '', 'KAMAS', 'UT', '840369340'),
     ])
-    # the street word the filing dropped (BONE) comes back from her own filings too
-    assert _place(_clean(df), '0') == ('12230 BONE HOLLOW RD', '', 'KAMAS', 'UT', '84036')
+    # Keep the filed street words, even when another filing includes BONE.
+    assert _place(_clean(df), '0') == ('12230 HOLLOW RD', '', 'KAMAS', 'UT', '84036')
 
 
 def test_street_is_never_completed_from_another_persons_filings():
@@ -101,7 +101,7 @@ def test_street_is_never_completed_from_another_persons_filings():
     assert _place(_clean(df), '0') == ('12230 HOLLOW RD', '', 'KAMAS', 'UT', '84036')
 
 
-def test_own_street_needs_the_same_house_number():
+def test_street_does_not_borrow_words_from_another_house():
     df = _frame([
         ('MICHELE', 'SACKHEIM', '12230 HOLLOW ROAD KAMAS 84036', '', 'ALBANY', 'NY', '122300001'),
         ('MICHELE', 'SACKHEIM', '900 BONE HOLLOW RD', '', 'KAMAS', 'UT', '84036'),
@@ -196,7 +196,7 @@ def test_changes_are_recorded_by_the_steps_that_own_the_fields():
     trail = AuditTrail()
     trail.start(df)
     df, _ = trail.run(df, clean_streets, 'streets_normalize', 'r', STREET_FIELDS)
-    df, _ = trail.run(df, lambda f: clean_cities(f, fuzzy=False), 'cities_normalize', 'r', PLACE_FIELDS)
+    df, _ = trail.run(df, clean_cities, 'cities_normalize', 'r', PLACE_FIELDS)
     df, _ = trail.run(df, clean_zips, 'zips_normalize', 'r', PLACE_FIELDS)
     assert trail.finish(df) == 0
     steps = {(r['sub_id'], r['field']): r['step'] for r in trail.records if r['sub_id'] == '0'}

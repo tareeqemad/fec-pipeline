@@ -24,7 +24,7 @@ class TestCityNormalize:
             'contributor_state': ['MA', 'NY', 'OH', 'NJ', 'NY', 'CA'],
         })
 
-        cleaned, _ = clean_cities(rows, fuzzy=False)
+        cleaned, _ = clean_cities(rows)
 
         assert cleaned['contributor_city'].tolist() == [
             'EASTHAMPTON', 'EAST HAMPTON',

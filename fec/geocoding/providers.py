@@ -90,9 +90,9 @@ def _wait_for_nominatim(url: str) -> None:
 
 
 # Look up the supplied address; omit the US filter for foreign addresses.
-def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
+def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
     if not street:
-        return None, None, None
+        return None
     params = {
         "q": ", ".join(part for part in (street, city, state, zipcode) if part),
         "format": "jsonv2", "limit": 1, "addressdetails": 1,
@@ -120,19 +120,30 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
                 if not isinstance(results, list):
                     raise ValueError("expected a result list")
                 if not results:
-                    return None, None, None
+                    return None
                 result = results[0]
                 if not _is_address_result(result, street):
-                    return None, None, None
+                    return None
                 address = result.get("address") or {}
                 if not foreign and not _same_us_place(
                     state, zipcode,
                     address.get("ISO3166-2-lvl4") or address.get("state_code"),
                     address.get("postcode"),
                 ):
-                    return None, None, None
+                    return None
                 country = str(address.get("country_code") or "").upper() or None
-                return float(result["lat"]), float(result["lon"]), country
+                return {
+                    "lat": float(result["lat"]), "lng": float(result["lon"]), "country": country,
+                    "matched_address": {
+                        "text": result.get("display_name") or "",
+                        "house_number": address.get("house_number") or "",
+                        "street": address.get("road") or "",
+                        "city": address.get("city") or address.get("town") or address.get("village") or "",
+                        "state": (address.get("ISO3166-2-lvl4") or address.get("state_code") or "").removeprefix("US-"),
+                        "zip": address.get("postcode") or "",
+                        "source_url": requests.Request("GET", url, params=params).prepare().url,
+                    },
+                }
         except requests.exceptions.RequestException as error:
             last_error = f"Nominatim {type(error).__name__}"
         except (KeyError, TypeError, ValueError, AttributeError) as error:
@@ -143,9 +154,9 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> tuple:
 
 
 # Match the supplied US address with Census.
-def census(street: str, city: str, state: str, zipcode: str) -> tuple:
+def census(street: str, city: str, state: str, zipcode: str) -> dict | None:
     if not street or is_foreign_address(state, zipcode):
-        return None, None, None
+        return None
     params = {
         "address": ", ".join(part for part in (street, city, state, zipcode) if part),
         "benchmark": "Public_AR_Current", "format": "json",
@@ -163,18 +174,30 @@ def census(street: str, city: str, state: str, zipcode: str) -> tuple:
                 if not isinstance(matches, list):
                     raise ValueError("expected an address match list")
                 if not matches:
-                    return None, None, None
+                    return None
                 match = matches[0]
-                returned = _HOUSE_NUMBER.match(str(match.get("matchedAddress") or ""))
-                first = str(match.get("matchedAddress") or "").split()
+                street_text = str(match.get("matchedAddress") or "").split(",", 1)[0].strip()
+                returned = _HOUSE_NUMBER.match(street_text)
+                first = street_text.split()
                 number = returned.group(1) if returned else (first[0] if first else "")
                 if not _same_house_number(street, number):
-                    return None, None, None
+                    return None
                 components = match.get("addressComponents") or {}
                 if not _same_us_place(state, zipcode, components.get("state"), components.get("zip")):
-                    return None, None, None
+                    return None
                 coordinates = match["coordinates"]
-                return float(coordinates["y"]), float(coordinates["x"]), "US"
+                return {
+                    "lat": float(coordinates["y"]), "lng": float(coordinates["x"]), "country": "US",
+                    "matched_address": {
+                        "text": match.get("matchedAddress") or "",
+                        "house_number": number,
+                        "street": street_text[returned.end():].strip() if returned else "",
+                        "city": components.get("city") or "",
+                        "state": components.get("state") or "",
+                        "zip": components.get("zip") or "",
+                        "source_url": requests.Request("GET", CENSUS_URL, params=params).prepare().url,
+                    },
+                }
         except requests.exceptions.RequestException as error:
             last_error = f"Census {type(error).__name__}"
         except (KeyError, TypeError, ValueError, AttributeError) as error:

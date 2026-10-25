@@ -11,7 +11,7 @@ from fec.cleaning.donors.names import (
     canonicalize_donor_names,
 )
 from fec.cleaning.donors.name_choice import _first_core
-from fec.cleaning.donors.employer_variants import unify_org_donor_suffix_variants
+from fec.cleaning.donors.employer_variants import align_org_donor_company_names
 
 COLS = [
     "entity_type",
@@ -221,16 +221,16 @@ def _orgs(names, entity="ORGANIZATION"):
 
 def test_org_name_keeps_legal_form_without_an_explicit_alias():
     df = _orgs(["EATON STEEL", "EATON STEEL CORPORATION"])
-    assert unify_org_donor_suffix_variants(df) == 0
+    assert align_org_donor_company_names(df) == 0
     assert df["contributor_name"].tolist() == ["EATON STEEL", "EATON STEEL CORPORATION"]
     assert df["donor_key"].tolist() == ["k0", "k1"]
 
 
 def test_org_suffix_needs_the_bare_spelling_on_file():
     df = _orgs(["ACME CORPORATION", "ACME GROUP"])
-    assert unify_org_donor_suffix_variants(df) == 0
+    assert align_org_donor_company_names(df) == 0
     df = _orgs(["EATON STEEL", "EATON STEEL CORPORATION"], entity="COMMITTEE/PAC")
-    assert unify_org_donor_suffix_variants(df) == 0
+    assert align_org_donor_company_names(df) == 0
 
 
 # --- donor stage ordering ------------------------------------------------

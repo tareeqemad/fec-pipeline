@@ -46,22 +46,25 @@ PostgreSQL and OpenAI settings are used by later stages. Keep secrets in `.env`,
 which Git ignores. `.env.example` lists the supported settings. Copy it only for
 the first setup; keep an existing `.env` and its values.
 
-## Load the included data
+## Use the included data
 
-After installing dependencies, completing [database setup](#first-database-setup),
-and setting the PostgreSQL values in `.env`, run:
+The included `data/output/contributions_cleaned.csv` is the output of `clean.py`.
+After setup, finish the remaining stages before loading it into PostgreSQL:
 
 ```bash
+python geocode.py
+python resolve.py --apply
+python geocode.py --employer-only
 python loader.py --reset
 ```
 
-The loader reads `data/output/contributions_cleaned.csv` and
-`data/output/employer_locations.csv` included in Git. Keep both files from the
-same version of the project. It validates their contents without requiring
-API keys or another cleaning run.
+These stages reuse the included caches and look up missing addresses. You do not
+need to pull or clean again to use this snapshot. Complete
+[database setup](#first-database-setup) and set the PostgreSQL values in `.env`
+before running the loader.
 
-The included files contain the coordinates already cached. Geocoding is still
-partial; run the pipeline below to look up missing addresses.
+If both output files already came from a completed pipeline run, you can run
+`python loader.py --reset` directly, without API keys or another cleaning run.
 
 ## Run the pipeline
 
@@ -118,7 +121,18 @@ Geocoding reuses accepted results from `data/cache/geocode_cache.json`. For a ne
 address, it tries OpenStreetMap Nominatim, then the Census Geocoder for US
 addresses. If neither returns an accepted address result, coordinates stay blank;
 the pipeline does not substitute a city or ZIP centre. Temporary provider errors
-are retried on the next run. Address text is sent as supplied and is not rewritten.
+are retried on the next run. Each lookup uses the cleaned address as supplied.
+
+New results also cache the provider's matched address and source URL. A different
+city is saved in `data/rules/address_rules.csv` for that filing only when the house
+number, street, state and ZIP match. Existing manual rules take precedence. If a
+saved city correction still needs applying, `geocode.py` reruns `clean` once from
+the raw data, then applies coordinates from the cache without another lookup.
+The rerun applies the city before donor matching and writes it in the same run.
+Contributions, amounts and donor groups must stay unchanged before saving; key
+values may change with the city. Run donor geocoding before `resolve.py --apply`.
+Old cache entries stay usable for coordinates, but entries without the returned
+address cannot establish a city correction.
 
 The public Nominatim service uses a minimum 15-second interval between requests.
 Optional `.env` settings are `NOMINATIM_URL` (search endpoint),
@@ -205,22 +219,9 @@ To add a committee, add its FEC ID, name and unique short name to
 same pull command. Period 2026 covers 2025 and 2026; use `--period 2024` for 2023
 and 2024.
 
-To fill missing FEC source fields for previously saved rows:
-
-```bash
-python pull.py C00797670 --period 2024 --backfill-source
-```
-
-`--backfill-source` fills `data/raw/fec_source_fields.csv`:
-  FEC's own `fec_entity_type`, `fec_contributor_id` and `fec_image_number` (the
-  filing page) per `sub_id`. A row is matched by `sub_id`, or, when FEC now returns
-  the transaction under a newer `sub_id`, by one exact match on committee,
-  transaction id, date and amount; never by name. It reads
-  `data/raw/contributions.csv` and never writes it, and reports the rows it could not
-  match. Run it once per committee and period.
-
 `data/raw/contributions.csv` is only ever appended to by a pull; nothing rewrites
 it. A pull writes each new row's source fields to `data/raw/fec_source_fields.csv`.
+These are FEC's entity type, contributor ID and filing image number.
 Existing rows are skipped by `sub_id`, so a normal pull does not fill source
 fields for them. An amended filing with a different `sub_id` is a new raw row;
 the pull does not reconcile amended versions of a transaction.
@@ -335,6 +336,8 @@ rejects a reader with admin privileges or membership in another role.
   (`inferred_employment_sub_ids`), outside the cleaned CSV and database.
 - Work status is historical per filing. A later job never replaces an earlier
   `RETIRED`, `NOT EMPLOYED`, `SELF-EMPLOYED`, `STUDENT`, or `HOMEMAKER` value.
+  Missing current employers stay blank unless a documented correction applies.
+  Other filings and surname-matching firms do not supply a current employer.
   A retiree's `previous_employer` may come only from an earlier filing for the
   same `donor_key`; otherwise resolve leaves it for verified lookup.
 - External FEC work history is searched in the filing's election cycle,
@@ -349,24 +352,28 @@ rejects a reader with admin privileges or membership in another role.
 - Officially reviewed historical roles can be saved as `manual_override` with
   sources in the previous-employer cache. They do not imply current or paid work.
 - ZIP codes are zero-padded text, never integers.
+- City-name normalization uses formatting and configured corrections.
   Same-street alignment fills missing ZIP/state values only with unambiguous
   place evidence; conflicting filed values need a verified correction.
 - `recipient_committee` is the receiver of the contribution.
 - Negative amounts are refunds or redesignations.
-- Occupations stay as filed; `occupation_category` groups them.
+- Name titles are removed without filling occupations. `occupation_category` groups the reported occupations.
 - Verified contributor address corrections live in
   `data/rules/address_rules.csv`; generic address normalization stays in code.
   Optional `match_unit` restricts the entire correction to that normalized unit.
   Optional `match_sub_id` restricts it to one reviewed FEC filing as well.
   A rule using `[CLEAR]` to remove a unit must specify `match_unit`.
-  Institution/place descriptions stay as filed. Street recovery needs matching
-  address evidence and must preserve the filing's unit without mixing addresses.
+  Missing streets and house numbers stay missing unless a documented correction
+  applies. Units are not copied from another filing. Formatting can move a street
+  or unit already present in the filing to its proper column.
+- `clean.py` runs without external lookups. It does not search FEC for donor
+  addresses or apply the old address-recovery cache.
 - Per-filing corrections in `data/rules/manual_employer_overrides.csv` can
   set `occupation_category` when the reviewed context is more specific than
   the generic occupation mapping. `preserve_fields` lists explicit fields
   (separated by `;`) to keep through the final donor-consistency pass, such as
   an approved occupation or the filing's original unit designator.
-- Geocode preserves cleaned addresses and leaves coordinates blank when no
+- Geocode applies verified city rules through clean and leaves coordinates blank when no
   accepted address result is available.
 - Clean owns employer names. Resolve only finds employer locations.
   Combined affiliations keep every employer; a standalone name is not expanded
@@ -417,7 +424,7 @@ fec/cleaning/
   pipeline.py   execution order
   names.py      name rules and name cleaning
   entities.py   individuals, organizations and committees
-  addresses/   streets, cities, ZIPs and address recovery
+  addresses/   streets, cities, ZIPs and verified corrections
   work/        occupations and current/previous employers
   donors/      donor matching and consistency across filings
   rules/       record corrections and reviewed exceptions

@@ -40,16 +40,12 @@ def _address(city):
     }
 
 
-def test_address_aliases_never_rewrite_clean_employer_names():
-    df = pd.DataFrame({
-        "contributor_employer": ["IBM", "IBM CORP"],
-    })
-    original = df.copy()
+def test_address_cache_aliases_use_reviewed_company_names():
     cache = _Cache({"IBM": _address("NEW YORK"), "IBM CORP": _address("NEW YORK")})
 
-    _deduplicate_address_cache(df, cache)
+    _deduplicate_address_cache(cache)
 
-    pd.testing.assert_frame_equal(df, original)
+    assert cache.data["IBM CORP"] == _address("NEW YORK")
     assert cache.data["IBM"]["alias_of"] == "IBM CORP"
 
 
@@ -71,9 +67,7 @@ def test_address_aliases_prefer_reviewed_name_and_keep_best_evidence():
     searched = _address("NEW YORK")
     cache = _Cache({"IBM": common, "IBM CORP": searched})
 
-    aliases, groups = dedup_by_resolved_address(
-        cache, freq={"IBM": 20, "IBM CORP": 1}
-    )
+    aliases, groups = dedup_by_resolved_address(cache)
 
     assert (aliases, groups) == (1, 1)
     assert cache.data["IBM CORP"]["method"] == "ai_openai_search"

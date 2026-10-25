@@ -1,7 +1,5 @@
 """Shared status values and employer patterns."""
 
-from fec.config.employers import EMPLOYER_NORMALIZE
-
 # Occupations that are really life statuses.
 STATUS_WORDS = frozenset({
     'RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'HOUSEWIFE',
@@ -93,10 +91,7 @@ OK_SHORT_OCCUPATIONS = frozenset({
     'PM', 'PMO', 'SRE', 'DJ',
 })
 
-# Every observed misspelling of SELF-EMPLOYED. The deep-clean step rewrites
-# them during cleaning, and RAW_STATUS_MAP below derives from this set so the
-# raw-recovery step re-normalizes them too (the SWLF lesson: a typo cleaning
-# already fixed comes back raw unless the map knows it as well).
+# Misspellings normalized to SELF-EMPLOYED during cleaning.
 SELF_EMPLOYED_TYPOS = frozenset({
     'SLEF', 'SLEF-EMPLOYED', 'SLEF EMPLOYED',
     'SELF-EMPOLYED', 'SELF EMPOLYED', 'SELF-EMPLOYE', 'SELF EMPLOYE',
@@ -118,36 +113,7 @@ RETIRED_TYPO_EMPLOYERS = frozenset({
     'RETIREF',
 })
 
-# Raw FEC status words -> normalized. The raw-recovery step (post-merge AL)
-# re-reads the ORIGINAL filing, so every self-employed typo above is folded in.
-RAW_STATUS_MAP = {
-    'RETIRED': 'RETIRED',
-    'HOMEMAKER': 'HOMEMAKER', 'HOUSEWIFE': 'HOMEMAKER',
-    'STUDENT': 'STUDENT',
-    'RETITED': 'RETIRED', 'NAT EMPLOYED': 'NOT EMPLOYED',
-    'GARY-SELF': 'SELF-EMPLOYED',  # a donor who typed his name onto SELF
-    **{typo: 'SELF-EMPLOYED' for typo in SELF_EMPLOYED_TYPOS},
-    # every raw variant the cleaner itself normalizes (MYSELF, RETIREE,
-    # SOLE PROPRIETOR...) - so the raw-recovery step can never resurrect a
-    # status typo as a "company" the cleaner would have normalized
-    **EMPLOYER_NORMALIZE,
-}
-
-# Junk employer values from raw FEC data (used in _fill_employer_from_raw).
-# 'SE' (could be SELF-EMPLOYED) and 'BD' (could be a real company) deliberately absent.
-RAW_JUNK_EMPLOYERS = frozenset({
-    '', 'NONE', 'N/A', 'INFORMATION REQUESTED',
-    'INFORMATION REQUESTED PER BEST EFFORTS',
-    'NOT APPLICABLE', '--NONE--', 'PRIVATE', 'REFUSED',
-    'DECLINED TO STATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
-    'NONE OF YOUR BUSINESS', 'AN EMPLOYER', 'EMPLOYED', 'JOB',
-    'XX', 'TO', 'RPC', 'DT', 'KP', '.', 'FPC', 'ALPA',
-})
-
-# Structural non-company patterns — pattern-based (vs the denylist above) so
-# new junk is caught without enumerating it. Anchored full-match; values are
-# upper-cased before testing. Used by the cleaning pipeline AND the
-# raw-recovery step, so blanked junk never reappears.
+# Structural junk checked against the whole uppercased employer value.
 JUNK_EMPLOYER_RE = (
     r'^(?:'
     r'[\W_]+'                            # pure punctuation / symbols
@@ -157,11 +123,7 @@ JUNK_EMPLOYER_RE = (
     r')$'
 )
 
-# Admin-note / refusal phrasings written INSTEAD of a company. Family-based +
-# FULL-anchored so new wording is caught while a real name merely CONTAINING
-# such a word (REQUEST FOODS INC, PENDING SYSTEMS LLC) survives. Values are
-# upper-cased before testing. Used by the cleaning safety net AND the
-# raw-recovery filter, so a blanked admin-note never reappears.
+# Full-value admin notes and refusals; company names containing these words stay.
 ADMIN_NOTE_EMPLOYER_RE = (
     r'^(?:'
     r'(?:PER\s+)?BEST\s+EFFORTS?'

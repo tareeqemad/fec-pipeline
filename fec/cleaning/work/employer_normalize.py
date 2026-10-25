@@ -38,16 +38,14 @@ _SUFFIX_DEDOT = [(re.compile(r'\bL\.L\.C\.?$'), 'LLC'), (re.compile(r'\bL\.L\.P\
                  (re.compile(r'\bCO\.(?=\s+(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA)\b)'), 'CO'),
                  (re.compile(r'\bCO\.$'), 'CO')]
 
-# Keep matching/display fields consistent without discarding company words.
+# Apply reviewed names and keep the original employer.
 def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     indiv_idx = _indiv_idx(df)
     emp = df.loc[indiv_idx, 'contributor_employer']
     values = emp[emp.notna() & ~emp.isin(SKIP_EMPLOYERS)]
     if 'contributor_employer_original' not in df:
         df['contributor_employer_original'] = df['contributor_employer'].copy()
-    df['employer_name_normalized'] = pd.Series(dtype=object, index=df.index)
     names = values.map(reviewed_employer_name)
-    df.loc[values.index, 'employer_name_normalized'] = names
     changed = names.ne(values)
     df.loc[values.index[changed], 'contributor_employer'] = names[changed]
     return df, int(changed.sum())

@@ -9,7 +9,7 @@ import sys
 import pandas as pd
 
 from fec.cleaning.work.status import referenced_employers
-from fec.contract import RESOLVE_WORKING, STAGES, check_input, check_output
+from fec.contract import EMPLOYER_ADDRESS, RESOLVE_WORKING, STAGES, check_input, check_output
 from fec.env import CACHE_DIR, CLEANED_CSV, GEOCODE_CACHE_JSON, load_env
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.pipeline import (
@@ -17,6 +17,7 @@ from fec.geocoding.pipeline import (
     apply_to_dataframe,
     geocode_addresses,
     geocode_employer_addresses,
+    prepare_city_corrections,
 )
 from fec.io import write_csv_atomic
 from fec.log import get_logger
@@ -72,6 +73,14 @@ def _geocode_contributors(
 ) -> pd.DataFrame:
     logger.info("\n-- Contributor Addresses --")
     geocode_addresses(df, cache)
+    corrected = prepare_city_corrections(df, cache)
+    if corrected is not None:
+        if set(df.columns) & {*EMPLOYER_ADDRESS, *RESOLVE_WORKING, "employer_status"}:
+            raise ValueError("City corrections need clean.py, then geocode.py before resolve.py --apply")
+        from clean import main as clean
+
+        logger.info("Applying verified city corrections: running clean once before donor matching.")
+        df = clean(expected=corrected)
     df = apply_to_dataframe(df, cache)
 
     has_coordinates = df["latitude"].notna()

@@ -191,7 +191,7 @@ def _clean_junk_nist(df: pd.DataFrame, ii: pd.Index) -> int:
 
 # unify self-employed spelling variants to one form
 def _clean_self_employed_variants(df: pd.DataFrame) -> int:
-    """Unify self-employed spellings to SELF-EMPLOYED; must run after restore_display_suffixes."""
+    """Unify self-employed spellings after employer names are cleaned."""
     indiv_idx = _indiv_idx(df)
     n_fixed = 0
     for col in ('contributor_employer', 'contributor_occupation'):

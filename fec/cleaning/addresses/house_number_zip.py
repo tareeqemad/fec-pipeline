@@ -10,9 +10,6 @@ from fec.cleaning.addresses.street_text import (
     normalize_street,
 )
 from fec.cleaning.addresses.zips import _clean_zip_raw
-from fec.config.streets import (
-    STREET_TYPES,
-)
 
 # ZIP box holding the house number
 #
@@ -57,12 +54,6 @@ _MAX_CITY_WORDS = 3
 _MIN_PLACE_FILERS = 3
 
 
-# a typed street of only these words ('12230 RD') names no street to match
-_STREET_WORDS_ONLY = frozenset(abbr for _pattern, abbr in STREET_TYPES) | {
-    'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW',
-}
-
-
 # read a column as stripped uppercase text, blank if missing
 def _upper_text(df: pd.DataFrame, column: str) -> pd.Series:
     """Column as stripped uppercase text ('' for blanks); an absent column is all ''."""
@@ -78,7 +69,7 @@ def _person_key(df: pd.DataFrame) -> pd.Series:
 
 
 class _FiledPlaces:
-    """City / state / ZIP5 of the other filings: which city names exist at a ZIP (anyone's filings) and the state and street one person files there (that person's own)."""
+    """Filed cities, states and ZIP codes used to read a typed place."""
 
     # index the other filings' places, skipping the rows being fixed
     def __init__(self, df: pd.DataFrame, exclude: pd.Series):
@@ -88,7 +79,6 @@ class _FiledPlaces:
             'state': _upper_text(df, 'contributor_state'),
             'zip5': zip5.fillna('').astype(str),
             'person': _person_key(df),
-            'street': _upper_text(df, 'contributor_street_1'),
         })
         self.frame = frame[~exclude & (frame['city'] != '') & (frame['zip5'] != '')]
         self.city_zips = set(zip(self.frame['city'], self.frame['zip5']))
@@ -109,18 +99,6 @@ class _FiledPlaces:
         """The single state this person files the city and ZIP under; '' when none or several."""
         states = set(self._own_rows(person, city, zip5)['state']) - {''}
         return states.pop() if len(states) == 1 else ''
-
-    # recover a dropped street word from this person's other filings
-    def own_street(self, person: str, city: str, zip5: str, typed: str) -> str:
-        """The person's own street at the city/ZIP with the same house number that ends with the typed street ('12230 BONE HOLLOW RD' for '12230 HOLLOW RD'); '' unless exactly one fits."""
-        house, _space, rest = typed.partition(' ')
-        if not set(rest.split()) - _STREET_WORDS_ONLY:
-            return ''
-        fits = {
-            own for own in map(normalize_street, set(self._own_rows(person, city, zip5)['street']))
-            if isinstance(own, str) and own.startswith(house + ' ') and own.endswith(' ' + rest)
-        }
-        return fits.pop() if len(fits) == 1 else ''
 
     # fill in a cut-off city/ZIP fragment from widely filed places
     def complete(self, city_start: str, zip_start: str) -> tuple[str, str, str] | None:
@@ -202,11 +180,8 @@ def _split_house_number_zip(df: pd.DataFrame) -> int:
         state = places.own_state(person[index], city, zip5) or place_state or zip_state(zip5)
         if not state:
             continue
-        # the street typed twice and cut by the field ('11425 TWINING LN 11425
-        # TWINING L'); a word the filing dropped ('12230 HOLLOW ROAD') comes back
-        # from the person's own filings of the same house at that city and ZIP
+        # Remove a repeated street already present in this filing.
         new_street1 = _drop_repeated_street(normalize_street(new_street1))
-        new_street1 = places.own_street(person[index], city, zip5, new_street1) or new_street1
         fixes[index] = (new_street1, clear_street2, city, state, zip5)
 
     for column in _HOUSE_ZIP_COLUMNS:

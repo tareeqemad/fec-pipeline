@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from fec.cleaning.addresses.fixes.recovery import _recover_missing_streets
+from fec.cleaning.addresses.streets import clean_streets
 from fec.cleaning.addresses.fixes.unify import (
     _unify_street_spacing,
     canonicalize_donor_addresses,
@@ -78,7 +78,7 @@ def test_scoped_per_donor_never_across_people():
     assert df["contributor_street_1"].tolist() == before  # untouched
 
 
-def test_recovers_blank_street_only_from_one_exact_donor_address():
+def test_keeps_blank_streets_even_with_one_exact_donor_address():
     df = pd.DataFrame(
         {
             "entity_type": ["INDIVIDUAL"] * 6,
@@ -103,12 +103,17 @@ def test_recovers_blank_street_only_from_one_exact_donor_address():
             "contributor_zip": ["10705", "10705", "10705", "10705", "10705", "10706"],
         }
     )
-
-    assert _recover_missing_streets(df) == 1
-    assert df.loc[1, "contributor_street_1"] == "129 ALTA AVE"
+    df["contributor_street_2"] = ""
+    df["contributor_first_name"] = "JANE"
+    df["contributor_last_name"] = "DOE"
+    df, _ = clean_streets(df)
+    assert df.loc[0, "contributor_street_1"] == "129 ALTA AVE"
+    assert pd.isna(df.loc[1, "contributor_street_1"])
     assert pd.isna(df.loc[4, "contributor_street_1"])
     assert pd.isna(df.loc[5, "contributor_street_1"])
-    assert _recover_missing_streets(df) == 0
+    before = df["contributor_street_1"].copy()
+    df, _ = clean_streets(df)
+    pd.testing.assert_series_equal(df["contributor_street_1"], before)
 
 
 def test_keeps_rare_house_numbers_as_filed():

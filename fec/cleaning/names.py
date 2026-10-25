@@ -11,10 +11,9 @@ from fec.config.data import (
     PRO_SUFFIX_RE,
     SUFFIX_RE,
     TITLE_RE,
-    TITLE_TO_OCCUPATION,
 )
 from fec.log import get_logger
-from fec.cleaning.reports.trail import NAME_FIELDS, WORK_FIELDS, AuditTrail
+from fec.cleaning.reports.trail import NAME_FIELDS, AuditTrail
 
 
 RULE_TYPES = {
@@ -104,9 +103,6 @@ _NAME_TITLE_RE = re.compile(
 )
 
 
-_EMPTY_OCC = {np.nan, None, '', 'NOT DISCLOSED', 'NOT EMPLOYED'}
-
-
 # LAST, <titles/suffixes>, FIRST: WIENIR, MD, MICHAEL
 _EMBEDDED_TITLE_RE = re.compile(
     r'^([A-Z][A-Z\'\-]+)\s*,?\s*'
@@ -146,33 +142,18 @@ def _preclean_name_punctuation(df: pd.DataFrame) -> None:
     )
 
 
-def _extract_title_to_occupation(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Extract professional/religious titles from the name; enrich occupation if empty."""
-    n_title_enriched = 0
-
+def _remove_name_titles(df: pd.DataFrame, is_individual: pd.Series) -> None:
+    """Remove titles from names without changing work fields."""
     for idx in df.loc[is_individual].index:
         name = str(df.at[idx, 'contributor_name'])
         match = _NAME_TITLE_RE.search(name)
         if not match:
             continue
 
-        title_raw = match.group(1).upper().rstrip('.')
         clean_name = name[:match.start(1)] + name[match.end(1):]
         clean_name = re.sub(r',\s*,', ',', clean_name)
         clean_name = re.sub(r'\s{2,}', ' ', clean_name).strip()
         df.at[idx, 'contributor_name'] = clean_name
-
-        occ = df.at[idx, 'contributor_occupation']
-        if occ in _EMPTY_OCC or (isinstance(occ, float) and pd.isna(occ)):
-            mapping = TITLE_TO_OCCUPATION.get(title_raw)
-            if mapping:
-                occ_val, cat_val = mapping
-                df.at[idx, 'contributor_occupation'] = occ_val
-                df.at[idx, 'occupation_category'] = cat_val
-                n_title_enriched += 1
-
-    if n_title_enriched:
-        logger.info("Enriched %d occupations from name titles (DR->DOCTOR, RABBI->RABBI, etc.)", n_title_enriched)
 
 
 def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
@@ -389,8 +370,7 @@ def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> Non
 
 # (function, scope, step, reason)
 NAME_STEPS = (
-    (_extract_title_to_occupation, 'individual', 'names_title_to_occupation',
-     'title_removed_from_name_or_occupation_enriched_from_it'),
+    (_remove_name_titles, 'individual', 'names_remove_titles', 'title_removed_from_name'),
     (_handle_multi_comma_names, 'individual', 'names_multi_comma',
      'embedded_credential_removed_and_name_split'),
     (_split_missing_names, 'individual', 'names_split_missing', 'first_last_split_from_composite_name'),
@@ -418,4 +398,4 @@ def _clean_names(df: pd.DataFrame, trail=None) -> None:
     }
     for fn, scope, step, reason in NAME_STEPS:
         transform = lambda d, fn=fn, mask=masks[scope]: fn(d, mask)
-        trail.run(df, transform, step, reason, NAME_FIELDS + WORK_FIELDS)
+        trail.run(df, transform, step, reason, NAME_FIELDS)

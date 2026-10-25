@@ -1,10 +1,7 @@
 """Company identity follows reviewed rules; loose keys are for text comparison."""
 import re
 
-import pandas as pd
-
 from fec.cleaning.work.employer_aliases import (
-    apply_reviewed_employer_names,
     employer_rule_key,
     preserved_employer_name,
     reviewed_employer_name,
@@ -81,13 +78,3 @@ def tidy_employer_commas(name):
     if not isinstance(name, str) or "," not in name or preserved_employer_name(name):
         return name
     return re.sub(r"\s*,(?=[A-Z])", ", ", re.sub(r"\s+,", ",", name))
-
-
-def restore_display_suffixes(df: pd.DataFrame, raw_csv_path) -> int:
-    """Use reviewed names, never the most frequent raw spelling."""
-    return apply_reviewed_employer_names(df)
-
-
-def recanonicalize_employers(df: pd.DataFrame) -> int:
-    """Apply the same evidence to current and previous companies."""
-    return apply_reviewed_employer_names(df)

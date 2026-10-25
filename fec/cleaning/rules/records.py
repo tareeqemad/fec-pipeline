@@ -12,12 +12,9 @@ from fec.cleaning.reports.trail import (
 )
 from fec.cleaning.work.employer_names import (
     apply_employer_synonyms,
-    fix_normalized_mid_suffix,
     fix_occupation_as_employer,
 )
-from fec.cleaning.work.employer_canonical import (
-    recanonicalize_employers,
-)
+from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 from fec.cleaning.entities import (
     apply_name_corrections,
@@ -56,7 +53,6 @@ _CLASSIFICATION_FIELDS = ENTITY_FIELDS + (
 _NAME_ONLY = ('contributor_name',)
 _OCCUPATION_ONLY = ('contributor_occupation',)
 _EMPLOYER_ONLY = ('contributor_employer',)
-_NORMALIZED_EMPLOYER_ONLY = ('employer_name_normalized',)
 
 # In order: transform, fields, audit name, reason.
 _AUDITED_RULES = (
@@ -80,15 +76,13 @@ _AUDITED_RULES = (
      'enh_normalize_occupation', 'canonical_variant'),
     (clean_remaining_junk, WORK_FIELDS,
      'enh_clean_junk', 'junk_cleanup'),
-    (normalize_employer_canonical, _NORMALIZED_EMPLOYER_ONLY + _EMPLOYER_ONLY,
+    (normalize_employer_canonical, _EMPLOYER_ONLY,
      'enh_normalize_employer', 'company_name_formatting'),
     (fix_fullname_in_both_fields, NAME_FIELDS,
      'enh_fix_fullname_both', 'fullname_copied_to_both_fields'),
     (fix_employer_equals_occupation,
      WORK_FIELDS,
      'enh_fix_emp_eq_occ', 'employer_equals_occupation'),
-    (fix_normalized_mid_suffix, _NORMALIZED_EMPLOYER_ONLY + _EMPLOYER_ONLY,
-     'enh_fix_norm_mid_suffix', 'documented_company_name'),
     (apply_employer_synonyms, _EMPLOYER_ONLY,
      'enh_employer_synonyms', 'verified_same_company'),
     (fix_occupation_as_employer, WORK_FIELDS,
@@ -105,7 +99,7 @@ _LATE_STEPS = (
     (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY,
      "Fixed {n:,} curated occupation typos/abbreviations"),
-    (recanonicalize_employers, 'employer_recanonicalize',
+    (apply_reviewed_employer_names, 'employer_recanonicalize',
      'documented_company_alias', EMPLOYMENT_FIELDS,
      "Applied {n:,} documented company aliases"),
     (_clean_self_employed_variants, 'self_employed_variants',
@@ -136,8 +130,6 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     for transform, audit_name, reason, fields, message in _LATE_STEPS:
         df = trail.run_logged(df, transform, audit_name, reason, fields, message, log)
 
-    df.drop(columns=['employer_name_normalized'], inplace=True)
-    log("  -> Dropped employer_name_normalized (merged into contributor_employer)")
     return df
 
 
