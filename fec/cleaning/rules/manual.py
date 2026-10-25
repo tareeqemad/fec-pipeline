@@ -241,16 +241,6 @@ def _apply_overrides(
     return changed, missing
 
 
-# sub_ids whose employer a manual override clears or replaces
-def overridden_employer_sub_ids() -> set[str]:
-    if not OVERRIDES_CSV.exists():
-        return set()
-    return {
-        sub_id for sub_id, fields in _read_overrides(company_names_only=False).items()
-        if "contributor_employer" in fields
-    }
-
-
 # every field an override row can set, for the audit trail
 OVERRIDE_FIELDS = (
     "contributor_employer", "contributor_occupation", "occupation_category",

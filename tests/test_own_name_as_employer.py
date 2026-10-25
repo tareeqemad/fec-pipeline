@@ -94,7 +94,6 @@ def test_self_employed_occupation_does_not_hide_a_company():
 
 
 def test_short_legal_company_keeps_its_suffix():
-    from fec.cleaning.work.employer_names import fix_normalized_mid_suffix
     from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 
     df = pd.DataFrame({
@@ -102,7 +101,6 @@ def test_short_legal_company_keeps_its_suffix():
         "contributor_employer": ["JB INC"],
     })
     normalize_employer_canonical(df)
-    fix_normalized_mid_suffix(df)
 
     assert df["contributor_employer"].iloc[0] == "JB INC"
 

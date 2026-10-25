@@ -1,4 +1,4 @@
-"""A 34-char FEC street that extends the donor's own shorter street is trimmed back to it."""
+"""Trim an existing street prefix without borrowing missing street or unit text."""
 import pandas as pd
 
 from fec.cleaning.addresses.fixes.recovery import _trim_street_to_donor_short_form
@@ -9,7 +9,7 @@ def _df(rows):
                                        "contributor_street_2", "contributor_zip"])
 
 
-def test_trailing_building_fragment_is_dropped_and_unit_restored():
+def test_trailing_building_fragment_is_dropped_without_borrowing_a_unit():
     df = _df([
         ("INDIVIDUAL", "NEUBERGER, YEHUDA", "1777 REISTERSTOWN RD", "STE 290", "21208"),
         ("INDIVIDUAL", "NEUBERGER, YEHUDA", "1777 REISTERSTOWN RD", "STE 290", "21208"),
@@ -17,16 +17,20 @@ def test_trailing_building_fragment_is_dropped_and_unit_restored():
     ])
     assert _trim_street_to_donor_short_form(df) == 1
     assert df.loc[2, "contributor_street_1"] == "1777 REISTERSTOWN RD"
-    assert df.loc[2, "contributor_street_2"] == "STE 290"
+    assert df.loc[2, "contributor_street_2"] == ""
 
 
 def test_city_fragment_is_dropped():
     df = _df([
         ("INDIVIDUAL", "A, B", "1474 BIENVENEDA AVE", "", "90272"),
         ("INDIVIDUAL", "A, B", "1474 BIENVENEDA AVE PACIFIC PALIS", "", "90272"),
+        ("INDIVIDUAL", "C, D", "100 LONGWATER RD", "", "90272"),
+        ("INDIVIDUAL", "C, D", "100 LONGWATER RD NORTHWING", "", "90272"),
+        ("INDIVIDUAL", "C, D", "100 LONGWATER RD NORTHWING WESTFIELD", "", "90272"),
     ])
     assert _trim_street_to_donor_short_form(df) == 1
     assert df.loc[1, "contributor_street_1"] == "1474 BIENVENEDA AVE"
+    assert df.loc[4, "contributor_street_1"] == "100 LONGWATER RD NORTHWING WESTFIELD"
 
 
 def test_directional_tail_is_part_of_the_street_not_a_fragment():
@@ -97,9 +101,7 @@ def test_other_people_and_other_zips_are_no_evidence():
     assert _trim_street_to_donor_short_form(df) == 0
 
 
-def test_a_replaced_non_street_keeps_its_unit():
-    # CHAPMAN, JEROME: RING HOUSE APT # 431, 1801 EAST JE -> 1801 E JEFFERSON ST | APT 431
-    from fec.cleaning.addresses.fixes.recovery import _recover_nonstreet_from_donor
+def test_a_partial_street_is_not_expanded_from_another_filing():
     df = pd.DataFrame({
         "entity_type": ["INDIVIDUAL"] * 2,
         "contributor_name": ["CHAPMAN, JEROME"] * 2,
@@ -107,9 +109,10 @@ def test_a_replaced_non_street_keeps_its_unit():
         "contributor_street_2": ["", ""],
         "contributor_city": ["ROCKVILLE"] * 2,
         "contributor_state": ["MD"] * 2,
+        "contributor_zip": ["20852"] * 2,
     })
-    assert _recover_nonstreet_from_donor(df) == 1
-    assert (df.loc[1, "contributor_street_1"], df.loc[1, "contributor_street_2"]) == ("1801 E JEFFERSON ST", "APT 431")
+    assert _trim_street_to_donor_short_form(df) == 0
+    assert (df.loc[1, "contributor_street_1"], df.loc[1, "contributor_street_2"]) == ("RING HOUSE APT # 431 1801 E JE", "")
 
 
 def test_a_filing_that_named_an_office_keeps_its_city():

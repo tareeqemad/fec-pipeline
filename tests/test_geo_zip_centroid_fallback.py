@@ -1,6 +1,6 @@
 """Failed address lookups never publish a city or ZIP approximation."""
 import pytest
-from geo_patch import patch_geo
+from geo_patch import patch_geo, point
 
 from fec.geocoding import pipeline as geo
 from fec.geocoding.cache import GeoCache
@@ -13,8 +13,8 @@ Z33434 = (26.3806, -80.1683)
 
 @pytest.fixture
 def boca(monkeypatch):
-    patch_geo(monkeypatch, "census", lambda *_args: (None, None, None))
-    patch_geo(monkeypatch, "nominatim", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "census", lambda *_args: None)
+    patch_geo(monkeypatch, "nominatim", lambda *_args: None)
 
 
 def test_cached_city_pins_are_withheld_without_rewriting_cache(tmp_path, boca):
@@ -36,15 +36,11 @@ def test_cached_city_pins_are_withheld_without_rewriting_cache(tmp_path, boca):
 
 
 def test_failed_street_lookup_leaves_coordinates_blank(boca, monkeypatch):
-    assert geo._geocode_one("17104 NORTHWAY CIR", "BOCA RATON", "FL", "33496") == (
-        None, None, None, "not_found",
-    )
+    assert geo._geocode_one("17104 NORTHWAY CIR", "BOCA RATON", "FL", "33496") is None
 
 
 def test_po_box_does_not_use_the_zip_centroid(boca, monkeypatch):
-    assert geo._geocode_one("PO BOX 5", "BOCA RATON", "FL", "33434") == (
-        None, None, None, "not_found",
-    )
+    assert geo._geocode_one("PO BOX 5", "BOCA RATON", "FL", "33434") is None
 
 
 def test_outage_followed_by_other_provider_miss_stays_retryable(tmp_path, boca, monkeypatch):
@@ -77,15 +73,11 @@ def test_po_box_town_pins_are_not_published(tmp_path, key, town_pin):
 
 
 def test_unknown_po_box_zip_does_not_get_a_city_pin(boca, monkeypatch):
-    assert geo._geocode_one("PO BOX 6", "BOCA RATON", "FL", "33429") == (
-        None, None, None, "not_found",
-    )
+    assert geo._geocode_one("PO BOX 6", "BOCA RATON", "FL", "33429") is None
 
 
 def test_city_zip_conflict_gives_no_coordinate_for_a_street(boca, monkeypatch):
-    assert geo._geocode_one("1 MAIN ST", "BOCA RATON", "FL", "33496") == (
-        None, None, None, "not_found",
-    )
+    assert geo._geocode_one("1 MAIN ST", "BOCA RATON", "FL", "33496") is None
 
 
 def test_osm_outage_still_tries_census_with_the_same_address(boca, monkeypatch):
@@ -94,9 +86,9 @@ def test_osm_outage_still_tries_census_with_the_same_address(boca, monkeypatch):
         calls.append(("osm", args))
         raise NominatimUnavailable("temporary failure")
     patch_geo(monkeypatch, "nominatim", outage)
-    patch_geo(monkeypatch, "census", lambda *args: calls.append(("census", args)) or (*Z33496, "US"))
+    patch_geo(monkeypatch, "census", lambda *args: calls.append(("census", args)) or point(*Z33496, "US"))
     address = ("17104 NORTHWAY CIR", "BOCA RATON", "FL", "33496")
-    assert geo._geocode_one(*address) == (*Z33496, "US", "census")
+    assert geo._geocode_one(*address) == point(*Z33496, "US", source="census")
     assert calls == [("osm", address), ("census", address)]
 
 

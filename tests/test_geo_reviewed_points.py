@@ -3,7 +3,7 @@ import json
 import re
 
 import pytest
-from geo_patch import patch_geo
+from geo_patch import patch_geo, point
 
 from fec.env import GEOCODE_CACHE_JSON
 from fec.geocoding import validation as accepted
@@ -159,28 +159,28 @@ class _Engine:
 
 def _engines(monkeypatch, census_answer):
     census = _Engine(census_answer)
-    nominatim = _Engine((*MANALAPAN, "US"))
+    nominatim = _Engine(point(*MANALAPAN, "US"))
     patch_geo(monkeypatch, "census", census)
     patch_geo(monkeypatch, "nominatim", nominatim)
     return census, nominatim
 
 
 def test_both_providers_answering_the_wrong_point_leave_coordinates_blank(monkeypatch, palm_beach_zip):
-    census, nominatim = _engines(monkeypatch, (26.5570, -80.0420, "US"))
-    assert geo._geocode_one(*PALM_BEACH.split("|")) == (None, None, None, "not_found")
+    census, nominatim = _engines(monkeypatch, point(26.5570, -80.0420, "US"))
+    assert geo._geocode_one(*PALM_BEACH.split("|")) is None
     assert len(census.calls) == len(nominatim.calls) == 1
 
 
 def test_a_census_miss_after_a_wrong_osm_point_leaves_coordinates_blank(monkeypatch, palm_beach_zip):
-    census, nominatim = _engines(monkeypatch, (None, None, None))
-    assert geo._geocode_one(*PALM_BEACH.split("|")) == (None, None, None, "not_found")
+    census, nominatim = _engines(monkeypatch, None)
+    assert geo._geocode_one(*PALM_BEACH.split("|")) is None
     assert len(census.calls) == len(nominatim.calls) == 1
 
 
 def test_a_census_point_away_from_the_wrong_one_is_taken(monkeypatch, palm_beach_zip):
-    _engines(monkeypatch, (*PALM_BEACH_2660, "US"))
+    _engines(monkeypatch, point(*PALM_BEACH_2660, "US"))
 
-    assert geo._geocode_one(*PALM_BEACH.split("|")) == (*PALM_BEACH_2660, "US", "census")
+    assert geo._geocode_one(*PALM_BEACH.split("|")) == point(*PALM_BEACH_2660, "US", source="census")
 
 
 def test_a_census_outage_retries_next_run(tmp_path, monkeypatch, palm_beach_zip):
@@ -195,7 +195,7 @@ def test_a_census_outage_retries_next_run(tmp_path, monkeypatch, palm_beach_zip)
 
 
 def test_the_run_withholds_the_wrong_point_without_deleting_cache_evidence(tmp_path, monkeypatch, palm_beach_zip):
-    _engines(monkeypatch, (None, None, None))
+    _engines(monkeypatch, None)
     cache = _cache(tmp_path, PALM_BEACH, *MANALAPAN, "nominatim")
     geo._geocode_todo([PALM_BEACH], cache, 50)
     entry = cache.get(PALM_BEACH)
@@ -206,11 +206,11 @@ def test_the_run_withholds_the_wrong_point_without_deleting_cache_evidence(tmp_p
 
 
 def test_other_keys_keep_the_whole_chain(monkeypatch, palm_beach_zip):
-    census, nominatim = _engines(monkeypatch, (None, None, None))
+    census, nominatim = _engines(monkeypatch, None)
 
     result = geo._geocode_one("2500 S OCEAN BLVD", "PALM BEACH", "FL", "33480")
 
-    assert result[3] == "nominatim" and nominatim.calls
+    assert result["source"] == "nominatim" and nominatim.calls
 
 
 def test_rejected_points_are_the_cached_points():
@@ -252,8 +252,8 @@ def _as_cache(data: dict) -> GeoCache:
     ("100 MAIN ST", "100 MAIN ST"),
 ])
 def test_building_and_unit_text_is_sent_as_cleaned(monkeypatch, filed, sent):
-    nominatim = _Engine((None, None, None))
-    census = _Engine((None, None, None))
+    nominatim = _Engine(None)
+    census = _Engine(None)
     patch_geo(monkeypatch, "nominatim", nominatim)
     patch_geo(monkeypatch, "census", census)
     geo._geocode_one(filed, "TULSA", "OK", "74172")
@@ -261,10 +261,10 @@ def test_building_and_unit_text_is_sent_as_cleaned(monkeypatch, filed, sent):
 
 
 def test_census_gets_the_same_cleaned_address_as_openstreetmap(monkeypatch, no_sleep):
-    census = _Engine((36.1563, -95.9928, "US"))
-    nominatim = _Engine((None, None, None))
+    census = _Engine(point(36.1563, -95.9928, "US"))
+    nominatim = _Engine(None)
     patch_geo(monkeypatch, "census", census)
     patch_geo(monkeypatch, "nominatim", nominatim)
     address = ("ONE WILLIAMS CENTER 101 E 2ND ST", "TULSA", "OK", "74172")
-    assert geo._geocode_one(*address) == (36.1563, -95.9928, "US", "census")
+    assert geo._geocode_one(*address) == point(36.1563, -95.9928, "US", source="census")
     assert census.calls == nominatim.calls == [address]

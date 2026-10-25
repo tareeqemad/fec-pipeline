@@ -47,11 +47,10 @@ logger = get_logger(__name__)
 
 
 # Clean records, match donors and align their filings.
-# Write reports to out_dir; use cache_dir or out_dir for address lookups.
+# Write reports to out_dir.
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
-    cache_dir: str | None = None,
 ):
     df = df.copy()
     trail = AuditTrail()
@@ -62,10 +61,7 @@ def clean_pipeline(
     filed_addresses = df.reindex(columns=["sub_id", *ADDRESS_FIELDS]).fillna("").astype(str)
     address_reports: dict = {}
 
-    df_clean, missing = clean_records(
-        df, trail, out_dir=out_dir, address_reports=address_reports,
-        cache_dir=cache_dir or out_dir,
-    )
+    df_clean, missing = clean_records(df, trail, address_reports=address_reports)
 
     # Inferred streets cannot serve as evidence for matching donors.
     df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(
@@ -100,9 +96,7 @@ def clean_pipeline(
 def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
-    out_dir: str | None = None,
     address_reports: dict | None = None,
-    cache_dir: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Clean fields, apply record rules, then apply curated overrides."""
     start = time.time()
@@ -111,7 +105,7 @@ def clean_records(
     df = _prepare_records(df, log)
     trail.start(df)
     df = _clean_people(df, trail, log)
-    df = clean_addresses(df, trail, out_dir, log, reports=address_reports, cache_dir=cache_dir)
+    df = clean_addresses(df, trail, log, reports=address_reports)
     df, missing = _finish_records(df, log)
     elapsed = time.time() - start
     log(f"Done: {len(df):,} rows in {elapsed:.1f}s")

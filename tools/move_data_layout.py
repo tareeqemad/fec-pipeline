@@ -15,13 +15,13 @@ from pathlib import Path
 DATA = Path(__file__).resolve().parents[1] / "data"
 
 RAW = ("contributions.csv", "fec_source_fields.csv")
-CACHE = ("geocode_cache.json", "fec_address_cache.json", "resolve_employer_addr.json", "resolve_prev_employer.json")
+CACHE = ("geocode_cache.json", "resolve_employer_addr.json", "resolve_prev_employer.json")
 OUTPUT = ("contributions_cleaned.csv", "employer_locations.csv")
 RULES = ("manual_employer_overrides.csv", "manual_employer_addresses.csv")
 REFERENCE = ("committees.csv", "leaders.csv", "key_accomplices.csv",
              "us_states.csv", "zcta_state_rel.csv", "zip_centroids.csv")
 REPORTS = (
-    "amount_flags.csv", "audit_changes.csv", "audit_summary.json", "auto_city_fixes.json",
+    "amount_flags.csv", "audit_changes.csv", "audit_summary.json",
     "missing_report.csv", "quality_gates.json", "quality_scan.json", "employer_address_review.csv",
     "address_manual_review.csv", "address_regeocode_suspects.csv", "address_review_cases.csv",
     "donor_dedup_review.csv",

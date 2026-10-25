@@ -14,7 +14,7 @@ from fec.cleaning.reports.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.contract import check_output
-from fec.env import CACHE_DIR, CLEANED_CSV, RAW_CSV, REPORTS_DIR
+from fec.env import CLEANED_CSV, RAW_CSV, REPORTS_DIR
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 
@@ -22,13 +22,13 @@ logger = get_logger(__name__)
 
 
 # Read, clean, check and save contributions.
-def main():
+def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     env.load_env()
 
     input_path = str(RAW_CSV)
     output_path = str(CLEANED_CSV)
     out_dir = str(REPORTS_DIR)
-    for folder in (out_dir, CACHE_DIR, CLEANED_CSV.parent):
+    for folder in (out_dir, CLEANED_CSV.parent):
         os.makedirs(folder, exist_ok=True)
 
     logger.info('=' * 55)
@@ -43,11 +43,7 @@ def main():
     original_rows = df[['sub_id']].copy()
     original_rows['row_index'] = original_rows.index.astype(int)
 
-    cleaned, missing, trail = clean_pipeline(
-        df,
-        out_dir=out_dir,
-        cache_dir=str(CACHE_DIR),
-    )
+    cleaned, missing, trail = clean_pipeline(df, out_dir=out_dir)
     output = cleaned.drop(columns=[
         column for column in cleaned.columns
         if column.startswith('_') or column in INTERNAL_OUTPUT_COLUMNS
@@ -55,10 +51,32 @@ def main():
 
     _assert_known_committees(output)
     _ensure_zip_format(output)
+    if expected is not None:
+        _check_reclean(expected, output)
 
     quality = _save_if_gates_pass(output, out_dir, output_path)
     _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path)
     _print_summary(output, quality, output_path)
+    return output
+
+
+# City corrections may rename keys, but must keep contributions and donor groups.
+def _check_reclean(expected: pd.DataFrame, output: pd.DataFrame) -> None:
+    columns = ['sub_id', 'contribution_receipt_amount', 'donor_key', 'contributor_city']
+    before = expected[columns].set_index('sub_id', verify_integrity=True).sort_index()
+    after = output[columns].set_index('sub_id', verify_integrity=True).sort_index()
+    if not before.index.equals(after.index):
+        raise ValueError('City correction changed contribution IDs; the previous CSV was kept')
+    amount = 'contribution_receipt_amount'
+    if not pd.to_numeric(before[amount]).eq(pd.to_numeric(after[amount])).all():
+        raise ValueError('City correction changed amounts; the previous CSV was kept')
+    groups = pd.DataFrame({'before': before['donor_key'], 'after': after['donor_key']})
+    split = groups.groupby('before', dropna=False)['after'].nunique(dropna=False).gt(1).any()
+    merged = groups.groupby('after', dropna=False)['before'].nunique(dropna=False).gt(1).any()
+    if split or merged:
+        raise ValueError('City correction changed donor groups; the previous CSV was kept')
+    if not before['contributor_city'].fillna('').eq(after['contributor_city'].fillna('')).all():
+        raise ValueError('City corrections were not applied as expected; the previous CSV was kept')
 
 
 # Write the quality scan for the saved CSV.

@@ -1,7 +1,7 @@
 """Reviewed spelling wins; word boundaries and legal forms remain significant."""
 import pandas as pd
 
-from fec.cleaning.work.employer_canonical import restore_display_suffixes
+from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.work.employer_groups import (
     _canonicalize_employers,
     _employer_group_key,
@@ -80,26 +80,16 @@ def test_global_rule_does_not_need_filer_names():
     assert set(df['contributor_employer']) == {'TWIN CITY FAN COMPANIES LTD'}
 
 
-def test_restore_display_suffixes_does_not_revert_the_attested_spacing(tmp_path):
-    raw = _frame([
-        ('TWINCITY FAN', 'BARRY, MICHAEL', 7),
-        ('TWIN CITY FAN', 'BARRY, MICHAEL', 4),
-        ('TWIN CITY FAN COMPANIES LTD', 'BARRY, MICHAEL', 13),
-        ('ACME INC', 'DOE, JANE', 3),
-    ])
-    raw_csv = tmp_path / 'contributions.csv'
-    raw.to_csv(raw_csv, index=False)
+def test_reviewed_names_keep_attested_spacing():
     df = pd.DataFrame({
         'entity_type': ['INDIVIDUAL'] * 3,
         'contributor_employer': ['TWIN CITY FAN', 'TWINCITY FAN', 'ACME'],
     })
-    restore_display_suffixes(df, raw_csv)
+    apply_reviewed_employer_names(df)
     assert df['contributor_employer'].tolist() == ['TWIN CITY FAN COMPANIES LTD', 'TWIN CITY FAN COMPANIES LTD', 'ACME']
 
 
-def test_raw_mode_cannot_overwrite_a_documented_name(tmp_path):
-    raw_csv = tmp_path / 'contributions.csv'
-    pd.DataFrame({'contributor_employer': ['TWINCITY FAN'] * 7 + ['TWIN CITY FAN'] * 4}).to_csv(raw_csv, index=False)
+def test_reviewed_name_does_not_need_raw_file():
     df = pd.DataFrame({'entity_type': ['INDIVIDUAL'], 'contributor_employer': ['TWIN CITY FAN']})
-    restore_display_suffixes(df, raw_csv)
+    apply_reviewed_employer_names(df)
     assert df['contributor_employer'].iloc[0] == 'TWIN CITY FAN COMPANIES LTD'

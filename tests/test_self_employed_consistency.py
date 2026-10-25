@@ -1,21 +1,31 @@
-"""Self-employed donors: the own firm is the workplace, and 'SELF-EMPLOYED' is not an occupation."""
+"""Keep filed self-employment separate from a named firm in another filing."""
 import pandas as pd
 
-from fec.cleaning.donors.employer import _own_firm_absorbs_self_employed
 from fec.cleaning.donors.occupation import _fill_self_employed_occupation_from_donor
+from fec.cleaning.donors.steps import apply_donor_consistency
+from fec.cleaning.reports.trail import AuditTrail
 
 _COLS = ['entity_type', 'donor_key', 'contributor_name', 'contributor_employer', 'contributor_occupation', 'occupation_category']
 
 
 def _df(rows):
-    return pd.DataFrame(rows, columns=_COLS)
+    df = pd.DataFrame(rows, columns=_COLS)
+    df['sub_id'] = [f'test-self-{index}' for index in df.index]
+    df['contributor_street_1'] = '10 MAIN ST'
+    df['contributor_street_2'] = ''
+    df['contributor_city'] = 'NEW YORK'
+    df['contributor_state'] = 'NY'
+    df['contributor_zip'] = '10001'
+    df['contribution_receipt_date'] = '2024-01-01'
+    df['occupation_status'] = 'DISCLOSED'
+    return df
 
 
-def test_own_surname_firm_absorbs_the_donors_self_employed_rows():
+def test_own_surname_firm_does_not_replace_filed_self_employment():
     df = _df([('INDIVIDUAL', 'k1', 'FANE, SCOTT', 'SELF-EMPLOYED', 'CPA', 'ACCOUNTING / TAX')] * 3
              + [('INDIVIDUAL', 'k1', 'FANE, SCOTT', 'SCOTT FANE CPA PA', 'CPA', 'ACCOUNTING / TAX')])
-    assert _own_firm_absorbs_self_employed(df) == 3
-    assert set(df.contributor_employer) == {'SCOTT FANE CPA PA'}
+    apply_donor_consistency(df, AuditTrail())
+    assert df.contributor_employer.tolist() == ['SELF-EMPLOYED'] * 3 + ['SCOTT FANE CPA PA']
 
 
 def test_a_joint_personal_name_or_another_persons_firm_does_not_absorb():
@@ -26,22 +36,25 @@ def test_a_joint_personal_name_or_another_persons_firm_does_not_absorb():
              + [('INDIVIDUAL', 'k3', 'LEE, AMY', 'SELF-EMPLOYED', 'DENTIST', 'MEDICAL / HEALTHCARE')]
              + [('INDIVIDUAL', 'k3', 'LEE, AMY', 'LEE DENTAL PC', 'DENTIST', 'MEDICAL / HEALTHCARE')]
              + [('INDIVIDUAL', 'k3', 'LEE, AMY', 'LEE ORTHODONTICS LLC', 'DENTIST', 'MEDICAL / HEALTHCARE')])  # two firms: ambiguous
-    assert _own_firm_absorbs_self_employed(df) == 0
+    self_employed = df.contributor_employer.eq('SELF-EMPLOYED')
+    apply_donor_consistency(df, AuditTrail())
+    assert df.loc[self_employed, 'contributor_employer'].eq('SELF-EMPLOYED').all()
 
 
 def test_a_self_employed_filing_in_another_job_keeps_its_employer():
     df = _df([('INDIVIDUAL', 'k1', 'FOLDES, NADINE', 'EVENSKY & KATZ / FOLDES WEALTH MANAGEMENT', 'WEALTH MANAGER', 'FINANCE / INVESTMENT'),
               ('INDIVIDUAL', 'k1', 'FOLDES, NADINE', 'SELF-EMPLOYED', 'SOCIAL WORKER', 'SOCIAL SERVICES')])
-    assert _own_firm_absorbs_self_employed(df) == 0
+    apply_donor_consistency(df, AuditTrail())
     assert df.contributor_employer.tolist()[1] == 'SELF-EMPLOYED'
 
 
-def test_a_title_at_the_firm_does_not_block_the_donors_own_field():
+def test_a_title_at_the_firm_does_not_assign_it_to_self_employed_filings():
     df = _df([('INDIVIDUAL', 'k1', 'BAYER, JEFFREY', 'BAYER VENTURES LLC', 'PRESIDENT & CEO', 'EXECUTIVE / C-SUITE'),
               ('INDIVIDUAL', 'k1', 'BAYER, JEFFREY', 'SELF-EMPLOYED', 'COMMERCIAL REAL ESTATE', 'REAL ESTATE'),
               ('INDIVIDUAL', 'k2', 'STUTMAN, ROBERT', 'STUTMAN LAW', 'ATTORNEY', 'LEGAL'),
               ('INDIVIDUAL', 'k2', 'STUTMAN, ROBERT', 'SELF-EMPLOYED', 'SELF', 'OTHER')])
-    assert _own_firm_absorbs_self_employed(df) == 2
+    apply_donor_consistency(df, AuditTrail())
+    assert df.loc[[1, 3], 'contributor_employer'].tolist() == ['SELF-EMPLOYED'] * 2
 
 
 def test_self_employed_occupation_takes_the_donors_real_one():

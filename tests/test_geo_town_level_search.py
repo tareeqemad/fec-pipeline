@@ -1,6 +1,6 @@
 """Address queries reject city and ZIP approximations, including old cached pins."""
 import pytest
-from geo_patch import patch_geo
+from geo_patch import patch_geo, point
 
 from fec.env import GEOCODE_CACHE_JSON
 from fec.geocoding import providers as engines
@@ -85,7 +85,7 @@ def _serve(monkeypatch, answer):
 ])
 def test_a_place_without_the_filed_house_number_is_rejected(monkeypatch, no_sleep, city, state, wrong):
     service = _serve(monkeypatch, [wrong])
-    assert engines.nominatim("10 MAIN ST", city, state, "") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", city, state, "") is None
     [sent] = service.sent
     assert sent["q"] == f"10 MAIN ST, {city}, {state}"
     assert sent["countrycodes"] == "us" and sent["limit"] == 1
@@ -94,13 +94,13 @@ def test_a_place_without_the_filed_house_number_is_rejected(monkeypatch, no_slee
 
 def test_neither_a_neighbouring_city_nor_the_town_is_an_address(monkeypatch, no_sleep):
     service = _serve(monkeypatch, [NORTH_LITTLE_ROCK, LITTLE_ROCK])
-    assert engines.nominatim("10 MAIN ST", "LITTLE ROCK", "AR", "72201") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "LITTLE ROCK", "AR", "72201") is None
     assert len(service.sent) == 1
 
 
 def test_same_name_towns_in_either_state_are_not_an_address(monkeypatch, no_sleep):
     _serve(monkeypatch, [HOUSTON_MO, HOUSTON_TX])
-    assert engines.nominatim("10 MAIN ST", "HOUSTON", "TX", "77004") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "HOUSTON", "TX", "77004") is None
 
 
 def test_state_is_sent_as_cleaned(monkeypatch, no_sleep):
@@ -123,7 +123,7 @@ def test_the_zip_is_sent_only_when_given(monkeypatch, no_sleep):
 
 def test_same_name_towns_do_not_supply_address_coordinates(monkeypatch, no_sleep):
     service = _serve(monkeypatch, [POTOMAC_ALLEGANY, POTOMAC_MONTGOMERY])
-    assert engines.nominatim("10 MAIN ST", "POTOMAC", "MD", "20854") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "POTOMAC", "MD", "20854") is None
     assert len(service.sent) == 1
 
 
@@ -131,29 +131,29 @@ def test_a_translated_town_name_is_not_an_address(monkeypatch, no_sleep):
     kaneohe = _place("Kaneohe", "city", 21.418555, -157.804184, "HI", "boundary", "census",
                      **{"name:en": "Kaneohe", "name:mg": "Honolulu"})
     _serve(monkeypatch, [kaneohe])
-    assert engines.nominatim("10 MAIN ST", "HONOLULU", "HI", "96813") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "HONOLULU", "HI", "96813") is None
 
 
 def test_civil_town_and_city_centres_are_both_rejected(monkeypatch, no_sleep):
     town = _place("Town of Ithaca", "city", 42.4374175, -76.5483724, "NY")
     city = _place("City of Ithaca", "city", 42.4396039, -76.4968019, "NY")
     _serve(monkeypatch, [town, city])
-    assert engines.nominatim("10 MAIN ST", "ITHACA", "NY", "14850") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "ITHACA", "NY", "14850") is None
 
 
 def test_a_township_centre_is_not_kept(monkeypatch, no_sleep):
     _serve(monkeypatch, [CHERRY_HILL])
-    assert engines.nominatim("10 MAIN ST", "CHERRY HILL", "NJ", "08003") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "CHERRY HILL", "NJ", "08003") is None
 
 
 def test_a_neighbourhood_is_not_an_address(monkeypatch, no_sleep):
     _serve(monkeypatch, [FOREST_HILLS_QUEENS])
-    assert engines.nominatim("10 MAIN ST", "FOREST HILLS", "NY", "11375") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "FOREST HILLS", "NY", "11375") is None
 
 
 def test_no_street_sends_no_query(monkeypatch, no_sleep):
     service = _serve(monkeypatch, [LITTLE_ROCK])
-    assert engines.nominatim("", "LITTLE ROCK", "AR", "72217") == (None, None, None)
+    assert engines.nominatim("", "LITTLE ROCK", "AR", "72217") is None
     assert service.sent == []
 
 
@@ -200,7 +200,7 @@ def test_different_towns_remain_different_queries(monkeypatch, filed, osm):
 
 def test_an_alternative_town_name_does_not_make_an_address(monkeypatch, no_sleep):
     _serve(monkeypatch, [CHERRY_HILL])
-    assert engines.nominatim("10 MAIN ST", "CHERRY HILL", "NJ", "08003") == (None, None, None)
+    assert engines.nominatim("10 MAIN ST", "CHERRY HILL", "NJ", "08003") is None
 
 
 # No city or ZIP fallback
@@ -215,25 +215,25 @@ LR_CENTROIDS = {
 
 @pytest.fixture
 def little_rock_reference(monkeypatch, no_sleep):
-    patch_geo(monkeypatch, "nominatim", lambda *_args: (None, None, None))
-    patch_geo(monkeypatch, "census", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "nominatim", lambda *_args: None)
+    patch_geo(monkeypatch, "census", lambda *_args: None)
 
 
 def test_a_zip_without_centroid_does_not_borrow_neighbours(little_rock_reference):
-    assert geo._geocode_one("10 MAIN ST", "LITTLE ROCK", "AR", "72217") == (None, None, None, "not_found")
+    assert geo._geocode_one("10 MAIN ST", "LITTLE ROCK", "AR", "72217") is None
 
 
 def test_po_box_without_zip_centroid_has_no_town_point(monkeypatch, little_rock_reference):
-    assert geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") == (None, None, None, "not_found")
+    assert geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") is None
 
 
 def test_po_box_whose_town_is_not_found_is_not_searched_abroad(monkeypatch, little_rock_reference):
-    assert geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") == (None, None, None, "not_found")
-    assert geo._geocode_one("PO BOX 7839", "KINGSTON", "AR", "") == (None, None, None, "not_found")
+    assert geo._geocode_one("PO BOX 7839", "LITTLE ROCK", "AR", "72217") is None
+    assert geo._geocode_one("PO BOX 7839", "KINGSTON", "AR", "") is None
 
 
 def test_zip_with_centroid_does_not_supply_a_po_box_point(monkeypatch, little_rock_reference):
-    assert geo._geocode_one("PO BOX 1", "LITTLE ROCK", "AR", "72201") == (None, None, None, "not_found")
+    assert geo._geocode_one("PO BOX 1", "LITTLE ROCK", "AR", "72201") is None
 
 
 # Old cached approximations
@@ -272,7 +272,7 @@ def _recheck_cache(tmp_path, monkeypatch):
 def test_recheck_saves_a_valid_street_point(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
     key = "1 MAIN ST|SAN FRANCISCO|CA|94103"
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (37.7792588, -122.4193286, "US", "nominatim"))
+    patch_geo(monkeypatch, "_geocode_one", lambda *_args: point(37.7792588, -122.4193286, "US", source="nominatim"))
     geo._geocode_todo([key], cache, 50)
     entry = cache.get(key)
     assert (entry["lat"], entry["lng"], entry["source"]) == (37.7792588, -122.4193286, "nominatim")
@@ -281,7 +281,7 @@ def test_recheck_saves_a_valid_street_point(tmp_path, monkeypatch):
 
 def test_recheck_that_finds_nothing_clears_the_old_approximation(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
+    patch_geo(monkeypatch, "_geocode_one", lambda *_args: None)
     geo._geocode_todo([SF_KEY], cache, 50)
     entry = cache.get(SF_KEY)
     assert entry["lat"] == 33.1282409 and entry["source"] == "nominatim_city"
@@ -310,7 +310,7 @@ def test_recheck_during_an_outage_stays_retryable(tmp_path, monkeypatch):
 def test_a_new_lookup_that_finds_nothing_is_still_final(tmp_path, monkeypatch):
     cache = _recheck_cache(tmp_path, monkeypatch)
     key = "PO BOX 5|SAN FRANCISCO|CA|94147"
-    patch_geo(monkeypatch, "_geocode_one", lambda *_args: (None, None, None, "not_found"))
+    patch_geo(monkeypatch, "_geocode_one", lambda *_args: None)
 
     geo._geocode_todo([key], cache, 50)
 
@@ -361,7 +361,7 @@ PHOENIX_TATUM_PIN = (33.6660986, -111.9738117)   # the cached in-city pin (19801
 class _Census:
     """Stands in for engines.census: records the streets it is asked for."""
 
-    def __init__(self, answer=(None, None, None)):
+    def __init__(self, answer=None):
         self.answer = answer
         self.streets = []
 
@@ -378,7 +378,7 @@ class _Census:
 ])
 def test_a_wrong_place_is_never_published_for_a_po_box(monkeypatch, no_sleep, key, wrong):
     service = _serve(monkeypatch, [wrong])
-    assert geo._geocode_one(*key.split("|"))[:2] == (None, None)
+    assert geo._geocode_one(*key.split("|")) is None
     assert service.sent == []
 
 
@@ -430,6 +430,6 @@ def test_a_blocked_client_is_an_outage_not_a_miss(tmp_path, monkeypatch, no_slee
         engines.nominatim("10 MAIN ST", "LITTLE ROCK", "AR", "72201")
     cache = _recheck_cache(tmp_path, monkeypatch)
     key = "10 MAIN ST|LITTLE ROCK|AR|72201"
-    patch_geo(monkeypatch, "census", lambda *_args: (None, None, None))
+    patch_geo(monkeypatch, "census", lambda *_args: None)
     geo._geocode_todo([key], cache, 50)
     assert cache.get(key)["source"] == "transient_fail" and geo._needs_lookup(key, cache)

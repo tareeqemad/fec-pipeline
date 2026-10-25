@@ -17,18 +17,6 @@ def canonicalize_donor_employers(df: pd.DataFrame) -> int:
     return apply_reviewed_employer_names(df, ("contributor_employer",))
 
 
-def _employer_typos(df: pd.DataFrame) -> int:
-    return apply_reviewed_employer_names(df)
-
-
-def _employer_substring_variants(df: pd.DataFrame) -> int:
-    return apply_reviewed_employer_names(df)
-
-
-def _employer_acronym_variants(df: pd.DataFrame) -> int:
-    return apply_reviewed_employer_names(df)
-
-
 def align_org_donor_company_names(df: pd.DataFrame) -> int:
     """An organization's display name needs the same explicit proof."""
     mask = df["entity_type"].eq("ORGANIZATION") & df["contributor_name"].notna()
@@ -37,7 +25,3 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
     changed = reviewed.ne(names)
     df.loc[names.index[changed], "contributor_name"] = reviewed[changed]
     return int(changed.sum())
-
-
-def unify_org_donor_suffix_variants(df: pd.DataFrame) -> int:
-    return align_org_donor_company_names(df)

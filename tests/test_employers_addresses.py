@@ -3,11 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fec.cleaning.addresses.fixes.recovery import (
-    _is_usable_street,
-    _recover_nonstreet_from_donor,
-    _recover_null_streets,
-)
+from fec.cleaning.addresses.fixes.recovery import _is_usable_street
 from fec.cleaning.addresses.street_text import (
     _normalize_unit,
     _split_fused_house_number,
@@ -70,7 +66,7 @@ def test_floor_only_street1_moves_to_an_empty_street2():
     assert df['contributor_street_1'].iloc[2] == '3RD ST'
 
 
-def test_floor_only_street1_with_a_unit_already_in_street2_is_left_for_recovery():
+def test_floor_only_street1_with_a_unit_already_in_street2_is_kept():
     df, _ = clean_streets(_streets([('3RD FLOOR', 'STE 5')]))
     assert df['contributor_street_1'].iloc[0] == '3RD FLOOR'
     assert df['contributor_street_2'].iloc[0] == 'STE 5'
@@ -85,6 +81,8 @@ def _donor_rows(first_street, first_unit):
     return pd.DataFrame({
         'entity_type': ['INDIVIDUAL'] * 2,
         'contributor_name': ['SELIGSON, MURIEL'] * 2,
+        'contributor_first_name': ['MURIEL'] * 2,
+        'contributor_last_name': ['SELIGSON'] * 2,
         'contributor_city': ['NEW YORK'] * 2,
         'contributor_state': ['NY'] * 2,
         'contributor_street_1': [first_street, '15 W 72ND ST'],
@@ -92,10 +90,10 @@ def _donor_rows(first_street, first_unit):
     })
 
 
-def test_moved_floor_row_needs_a_matching_source_unit():
+def test_moved_floor_row_does_not_borrow_a_street():
     df, _ = clean_streets(_streets([('3RD FLOOR', np.nan)]))
     rows = _donor_rows(df['contributor_street_1'].iloc[0], df['contributor_street_2'].iloc[0])
-    assert _recover_null_streets(rows) == 0
+    rows, _ = clean_streets(rows)
     assert pd.isna(rows['contributor_street_1'].iloc[0])
     assert rows['contributor_street_1'].iloc[1] == '15 W 72ND ST'
     assert rows['contributor_street_2'].iloc[0] == 'FL 3'
@@ -103,6 +101,6 @@ def test_moved_floor_row_needs_a_matching_source_unit():
 
 def test_floor_only_street_with_an_unverified_unit_stays_as_filed():
     rows = _donor_rows('3RD FLOOR', 'STE 5')
-    assert _recover_nonstreet_from_donor(rows) == 0
+    rows, _ = clean_streets(rows)
     assert rows['contributor_street_1'].iloc[0] == '3RD FLOOR'
     assert rows['contributor_street_2'].iloc[0] == 'STE 5'

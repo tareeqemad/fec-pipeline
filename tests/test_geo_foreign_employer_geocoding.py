@@ -9,7 +9,7 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-from geo_patch import patch_geo
+from geo_patch import patch_geo, point
 
 from fec.resolve import addresses, employer_locations
 from fec.geocoding import validation as accepted, pipeline as employers, providers as engines
@@ -51,7 +51,7 @@ def test_foreign_office_uses_only_the_international_engine(monkeypatch):
 
     def international(street, city, state, zipcode):
         calls.append((street, city, state, zipcode))
-        return 51.5234, -0.1530, "GB"
+        return point(51.5234, -0.1530, "GB")
 
     for name in ("census",):
         patch_geo(monkeypatch, name, _no_us_engine)
@@ -59,7 +59,7 @@ def test_foreign_office_uses_only_the_international_engine(monkeypatch):
 
     result = geo._geocode_one("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")
 
-    assert result == (51.5234, -0.1530, "GB", "nominatim")
+    assert result == point(51.5234, -0.1530, "GB", source="nominatim")
     assert calls == [("YORK GATE, 100 MARYLEBONE ROAD", "LONDON", "", "NW1 5DX")]
 
 
@@ -67,21 +67,21 @@ def test_foreign_office_rejects_a_us_answer_from_the_international_engine(monkey
     monkeypatch.setattr(engines.requests, "get", _no_us_engine)
     # street query and city query both come back in the US (Providence RI)
     patch_geo(monkeypatch, "nominatim",
-                        lambda *_args: (41.8174424, -71.4018816, "US"))
+                        lambda *_args: point(41.8174424, -71.4018816, "US"))
 
     result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
 
-    assert result == (None, None, None, "not_found")
+    assert result is None
 
 
 def test_foreign_office_does_not_fall_back_to_its_city_abroad(monkeypatch):
-    answers = iter([(None, None, None), (32.0853, 34.7818, "IL")])
+    answers = iter([None, point(32.0853, 34.7818, "IL")])
     patch_geo(monkeypatch, "nominatim", lambda *_args: next(answers))
 
     result = geo._geocode_one("65 YIGAL ALON STREET", "TEL AVIV", "", "6744316")
 
-    assert result == (None, None, None, "not_found")
-    assert next(answers) == (32.0853, 34.7818, "IL")
+    assert result is None
+    assert next(answers) == point(32.0853, 34.7818, "IL")
 
 
 def test_cached_us_match_for_a_foreign_office_is_looked_up_again(tmp_path):

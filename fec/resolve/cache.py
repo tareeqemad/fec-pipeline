@@ -225,9 +225,7 @@ def _write_aliases(data: dict, mapping: dict[str, str]) -> None:
         alias['alias_of'] = canonical
         data[variant] = alias
 
-def dedup_by_resolved_address(
-    addr_cache, freq: dict | None = None,
-) -> tuple[int, int]:
+def dedup_by_resolved_address(addr_cache) -> tuple[int, int]:
     """Alias same-company entries resolved to the same complete address."""
     mapping, groups = _alias_mapping(_entries_by_address(addr_cache.data))
 

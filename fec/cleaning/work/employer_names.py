@@ -5,10 +5,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm
 from fec.cleaning.reports.trail import EMPLOYMENT_FIELDS, AuditTrail
-from fec.cleaning.work.employer_canonical import (
-    recanonicalize_employers,
-    tidy_employer_commas,
-)
+from fec.cleaning.work.employer_canonical import tidy_employer_commas
 from fec.cleaning.work.employer_aliases import (
     apply_reviewed_employer_names, preserved_employer_name, reviewed_employer_name,
 )
@@ -36,14 +33,6 @@ def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 def expand_abbreviation_text(values: pd.Series) -> pd.Series:
     """Only reviewed full company names expand an abbreviation."""
     return values.map(reviewed_employer_name)
-
-
-def expand_employer_abbreviations(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    return apply_employer_synonyms(df)
-
-
-def expand_employer_associates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    return apply_employer_synonyms(df)
 
 
 _LOOSE_SLASH_RE = re.compile(r'\s/|/\s|//')
@@ -79,7 +68,7 @@ def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame,
         df, changed = trail.run(df, fix, step, reason, ('contributor_employer',))
         total += changed
     total += trail.run(
-        df, recanonicalize_employers, 'final_employer_recanonicalize',
+        df, apply_reviewed_employer_names, 'final_employer_recanonicalize',
         'documented_company_alias', EMPLOYMENT_FIELDS,
     )
     return df, total
@@ -111,11 +100,3 @@ def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         df.loc[hits, 'contributor_employer'] = 'SELF-EMPLOYED'
 
     return df, n_fixed
-
-
-def fix_normalized_mid_suffix(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """A legal form inside a name does not establish a company alias."""
-    names = df['employer_name_normalized'].fillna('').map(reviewed_employer_name)
-    changed = df['employer_name_normalized'].notna() & names.ne(df['employer_name_normalized'])
-    df.loc[changed, 'employer_name_normalized'] = names[changed]
-    return df, int(changed.sum())

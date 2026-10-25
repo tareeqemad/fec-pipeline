@@ -5,12 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from fec.cleaning.addresses.cities import clean_cities
-from fec.cleaning.addresses.fixes.recovery import (
-    _recover_nonstreet_from_donor,
-    _recover_null_streets,
-    _trim_street_to_donor_short_form,
-)
-from fec.cleaning.addresses.fixes.house_numbers import _recover_house_number_from_donor
+from fec.cleaning.addresses.fixes.recovery import _trim_street_to_donor_short_form
 from fec.cleaning.addresses.fixes.safe_text import apply_safe_fixes
 from fec.cleaning.addresses.fixes.same_street import _recover_address_from_same_street
 from fec.cleaning.addresses.fixes.state_zip import (
@@ -33,7 +28,6 @@ from fec.cleaning.reports.trail import (
     STREET_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.addresses.fec_recovery import recover_addresses_from_fec
 
 
 def _street_reason(df: pd.DataFrame) -> pd.Series:
@@ -74,46 +68,15 @@ def _clean_street_text(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame
 
 
 # Recovered streets are not evidence for matching donors.
-INFERRED_STREET_STEPS = frozenset({
-    "streets_recover_null", "streets_recover_nonstreet", "streets_recover_house_number",
-    "streets_trim_truncated", "streets_recover_fec_api",
-})
-
-# Street recoveries from the donor's own filings, in order
-_STREET_RECOVERIES = (
-    (_recover_null_streets, "streets_recover_null",
-     "street_filled_from_donor_same_city",
-     "Streets: recovered {n:,} from other records of same donor"),
-    (_recover_nonstreet_from_donor, "streets_recover_nonstreet",
-     "nonstreet_replaced_from_donor_history",
-     "Streets: recovered {n:,} non-street fragments from same donor"),
-    (_recover_house_number_from_donor, "streets_recover_house_number",
-     "house_number_backfilled_from_donor_history",
-     "Streets: backfilled {n:,} missing house numbers from same donor"),
-    (_trim_street_to_donor_short_form, "streets_trim_truncated",
-     "truncated_street_fragment_replaced_by_donor_short_form",
-     "Streets: trimmed {n:,} truncated streets back to the donor's short form"),
-)
+INFERRED_STREET_STEPS = frozenset({"streets_trim_truncated"})
 
 
-def _recover_streets(df: pd.DataFrame, trail: AuditTrail, cache_dir, log) -> None:
-    """Fill missing or broken streets from the donor, then FEC."""
-    for recovery, step, reason, message in _STREET_RECOVERIES:
-        trail.run_logged(df, recovery, step, reason, STREET_FIELDS, message, log)
-
-    trail.run_logged(
-        df, lambda frame: recover_addresses_from_fec(frame, cache_dir),
-        "streets_recover_fec_api", "address_recovered_from_fec_api_other_committees",
-        ADDRESS_FIELDS, "Streets: recovered {n:,} from FEC.gov (other committees, cached)", log,
-    )
-
-
-def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail, out_dir, log) -> pd.DataFrame:
+def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail, log) -> pd.DataFrame:
     """Normalize city names and ZIP codes."""
     df = trail.run_logged(
-        df, lambda frame: clean_cities(frame, fuzzy=True, report_dir=out_dir),
+        df, clean_cities,
         "cities_normalize", "city_alias_typo_or_punctuation_normalized", PLACE_FIELDS,
-        "Cities: {known_fixes:,} known fixes, {fuzzy_fixes:,} fuzzy fixes, "
+        "Cities: {known_fixes:,} known fixes, "
         "{punctuation_cleaned:,} punctuation cleaned",
         log, always=True,
     )
@@ -166,19 +129,28 @@ def _report_address_issues(
 
 
 def clean_addresses(
-    df: pd.DataFrame, trail: AuditTrail, out_dir, log, reports: dict | None = None,
-    cache_dir=None,
+    df: pd.DataFrame, trail: AuditTrail, log, reports: dict | None = None,
 ) -> pd.DataFrame:
     """Clean addresses and collect review details for the final rows."""
     df = _clean_street_text(df, trail, log)
-    _recover_streets(df, trail, cache_dir, log)
-    df = _clean_city_zip(df, trail, out_dir, log)
+    trail.run_logged(
+        df, _trim_street_to_donor_short_form, "streets_trim_truncated",
+        "filed_street_tail_trimmed", STREET_FIELDS,
+        "Streets: trimmed {n:,} trailing fragments, keeping filed units", log,
+    )
+    df = _clean_city_zip(df, trail, log)
     verified = trail.run(
-        df, apply_verified_address_fixes, "address_verified_rules",
+        df, lambda frame: apply_verified_address_fixes(frame, city_only=False), "address_verified_rules",
         "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
     )
     if verified:
         log(f"Streets: applied {verified:,} verified postal corrections")
     for transform, step, reason, fields, message in _ALIGN_STEPS:
         trail.run_logged(df, transform, step, reason, fields, message, log)
+    verified = trail.run(
+        df, lambda frame: apply_verified_address_fixes(frame, city_only=True), "address_verified_rules",
+        "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
+    )
+    if verified:
+        log(f"Cities: applied {verified:,} verified corrections")
     return _report_address_issues(df, trail, log, reports)
