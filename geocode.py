@@ -95,11 +95,7 @@ def _geocode_contributors(
 def _geocode_employers(
     df: pd.DataFrame,
     cache: GeoCache,
-) -> tuple[pd.DataFrame, bool]:
-    if "employer_address" not in df.columns:
-        logger.warning("No employer_address column. Run python resolve.py --apply first.")
-        return df, False
-
+) -> pd.DataFrame:
     logger.info("[1/3] Finding employer coordinates")
     addresses = _all_employer_addresses(df)
     geocode_employer_addresses(addresses, cache)
@@ -109,7 +105,7 @@ def _geocode_employers(
         "Rows with employer coordinates: %s / %s",
         f"{df['employer_latitude'].notna().sum():,}", f"{len(df):,}",
     )
-    return df, True
+    return df
 
 
 # Check the output columns and save the CSV.
@@ -142,12 +138,9 @@ def main():
 
     if not args.employer_only:
         df = _geocode_contributors(df, cache)
-        changed = True
     else:
-        df, changed = _geocode_employers(df, cache)
+        df = _geocode_employers(df, cache)
 
-    if not changed:
-        return
     logger.info("[2/%s] Checking data and saving", 3 if args.employer_only else 2)
     _write_output(df, csv_path, stage, input_columns)
     if args.employer_only:

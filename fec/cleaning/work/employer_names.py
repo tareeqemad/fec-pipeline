@@ -10,7 +10,6 @@ from fec.cleaning.work.employer_aliases import (
     apply_reviewed_employer_names, preserved_employer_name, reviewed_employer_name,
 )
 from fec.cleaning.work.normalize import _categorize
-from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.not_employers import (
     OCCUPATION_AS_EMPLOYER,
     ROLE_AS_EMPLOYER,
@@ -56,22 +55,20 @@ def tidy_slash_spacing(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, int(changed.sum())
 
 
-def finalize_employer_names(df: pd.DataFrame, trail=None) -> tuple[pd.DataFrame, int]:
+def finalize_employer_names(df: pd.DataFrame, trail=None) -> pd.DataFrame:
     """Reapply employer rules after donor-history repairs."""
 
     trail = trail or AuditTrail()
-    total = 0
     for fix, step, reason in (
         (tidy_slash_spacing, 'final_employer_slash_spacing', 'slash_spacing_unified'),
         (apply_employer_synonyms, 'final_employer_synonyms', 'verified_same_company'),
     ):
-        df, changed = trail.run(df, fix, step, reason, ('contributor_employer',))
-        total += changed
-    total += trail.run(
+        df, _ = trail.run(df, fix, step, reason, ('contributor_employer',))
+    trail.run(
         df, apply_reviewed_employer_names, 'final_employer_recanonicalize',
         'documented_company_alias', EMPLOYMENT_FIELDS,
     )
-    return df, total
+    return df
 
 
 def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:

@@ -55,7 +55,7 @@ def _clean_street_text(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     df = trail.run(
         df, clean_streets, "streets_normalize", _street_reason, STREET_FIELDS,
     )
-    df, _ = trail.run(
+    df = trail.run(
         df, apply_safe_fixes, "streets_safe_fixes",
         "care_of_house_number_or_trailing_unit_fixed", ADDRESS_FIELDS,
     )
@@ -68,7 +68,7 @@ INFERRED_STREET_STEPS = frozenset({"streets_trim_truncated"})
 
 def _clean_city_zip(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
     """Normalize city names and ZIP codes."""
-    df, _ = trail.run(
+    df = trail.run(
         df, clean_cities,
         "cities_normalize", "city_alias_typo_or_punctuation_normalized", PLACE_FIELDS,
     )

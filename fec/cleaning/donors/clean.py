@@ -91,7 +91,7 @@ def standardize(
         "curated_employer_names", "curated_row_override", OVERRIDE_FIELDS,
         source="data/rules/manual_employer_overrides.csv",
     )
-    df, _ = finalize_employer_names(df, trail)
+    df = finalize_employer_names(df, trail)
     trail.run(
         df, align_org_donor_company_names, "donor_align_org_names",
         "documented_company_name", NAME_FIELDS,

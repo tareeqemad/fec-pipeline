@@ -108,7 +108,7 @@ def normalize_us_cities(cities: pd.Series, states: pd.Series) -> pd.Series:
         "contributor_city": cities.fillna("").astype(str).str.strip(),
         "contributor_state": states.fillna("").astype(str).str.strip().str.upper(),
     })
-    cleaned, _counts = clean_cities(frame)
+    cleaned = clean_cities(frame)
     return cleaned["contributor_city"].fillna("").astype(str)
 
 
