@@ -22,7 +22,6 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# Read, clean, check and save contributions.
 def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     start = time.perf_counter()
     env.load_env()
@@ -135,7 +134,7 @@ def _ensure_zip_format(df):
     df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
 
 
-# Show the final counts, files and total duration.
+# Show counts, output paths and elapsed time.
 def _print_summary(df, output, out_dir, elapsed):
     donors = df.loc[df['entity_type'].eq('INDIVIDUAL'), 'donor_key'].nunique()
     minutes, seconds = divmod(round(elapsed), 60)

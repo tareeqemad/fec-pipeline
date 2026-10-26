@@ -23,9 +23,9 @@ from fec.cleaning.donors.occupation import (
 )
 from fec.cleaning.donors.retired import (
     _fill_prev_employer_from_donor,
-    _normalize_previous_employer,
     _settle_retired_employer,
 )
+from fec.cleaning.work.previous import normalize_previous_employer_column
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.rules.junk import _clean_junk_status_word_employer
 from fec.cleaning.rules.occupation_category import (
@@ -64,7 +64,7 @@ CONSISTENCY_FIXES = (
      "retired_recovered_company_demoted_to_previous", None),
     ("donor_clear_non_individual_employers", _clear_nonindividual_employer_field, WORK_FIELDS,
      "non_individual_employer_cleared", None),
-    ("donor_normalize_previous_employers", _normalize_previous_employer, PREVIOUS,
+    ("donor_normalize_previous_employers", normalize_previous_employer_column, PREVIOUS,
      "previous_employer_contract_normalized", None),
 )
 
