@@ -43,8 +43,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# Clean records, match donors and align their filings.
-# Write reports to out_dir.
+# Clean records, align donor filings and write reports to out_dir.
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
@@ -206,7 +205,7 @@ def _finish_records(df: pd.DataFrame):
     return df[columns], missing
 
 
-# Mark work from other filings or outside-source overrides as inferred; keep the rest filed.
+# Mark work from other filings or outside sources as inferred.
 def _employment_sources(df: pd.DataFrame, trail: AuditTrail, filed_work: pd.DataFrame) -> pd.Series:
     inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
     inferred |= outside_work_sub_ids(filed_work)

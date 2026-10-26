@@ -56,14 +56,13 @@ def apply_results(df: pd.DataFrame, prev_cache, addr_cache, filed_employers: dic
     _preserve_previous_employer_display(df, prior_previous)
     _expand_previous_employer_abbreviations(df)
     apply_reviewed_employer_names(df)
-    # A committee/org IS the entity - its address is already the donor address,
-    # so don't duplicate it into employer_*.
+    # Organizations already have their address in the donor fields.
     _clear_nonindividual_employer(df)
     return df
 
 
 def _expand_previous_employer_abbreviations(df: pd.DataFrame) -> None:
-    """Give it the abbreviation expansion clean.py gives filed employers (RTI INTL METALS)."""
+    """Apply reviewed names to previous employers."""
     previous = df["previous_employer"].fillna("").astype(str)
     named = previous.str.strip().ne("")
     if named.any():
@@ -78,8 +77,7 @@ def _preserve_previous_employer_display(
     if prior_previous is None or "previous_employer" not in df.columns:
         return
 
-    # Employer names are uppercase: a tail rerun must not bring back a
-    # mixed-case spelling (the old "WhatsApp LLC") that the contract fixed.
+    # Keep the existing uppercase spelling.
     prior = prior_previous.fillna("").astype(str).str.strip().str.upper()
     current = df["previous_employer"].fillna("").astype(str).str.strip()
     prior_key = prior.map(canonical_key)
@@ -139,7 +137,7 @@ def _street_number(value) -> str:
 
 
 def _clear_ai_hallucinated_addresses(df: pd.DataFrame) -> None:
-    """Clear AI-fabricated employer_address rows in-place (method 'ai_hallucination_cleared')."""
+    """Clear legacy AI addresses that match placeholder patterns."""
     if "resolve_method" not in df.columns or "employer_address" not in df.columns:
         return
 
@@ -204,7 +202,7 @@ _US_ZIP_RE = re.compile(r"^\d{5}(-\d{4})?$")
 
 
 def _clear_nonindividual_employer(df: pd.DataFrame) -> None:
-    """Null employer_* for non-individuals in-place - only individuals have an employer."""
+    """Clear employer fields for organizations and committees."""
     if "entity_type" not in df.columns:
         return
     non_individual = df["entity_type"] != "INDIVIDUAL"
@@ -227,7 +225,7 @@ def _clear_nonindividual_employer(df: pd.DataFrame) -> None:
 
 
 def _fix_employer_address_quality(df: pd.DataFrame) -> None:
-    """Fix known AI resolution quality issues in-place."""
+    """Check resolved locations and normalize previous employers."""
     emp_state = df["employer_state"].fillna("").astype(str).str.strip().str.upper()
     emp_zip = df["employer_zip"].fillna("").astype(str).str.strip()
     us_state_ok = emp_state.isin(US_STATES)
@@ -267,11 +265,6 @@ def _fix_employer_address_quality(df: pd.DataFrame) -> None:
         df.loc[ai_po_box, "resolve_method"] = "ai_po_box_cleared"
         df.loc[ai_po_box, "resolve_confidence"] = "NONE"
 
-    _normalize_previous_employer_column(df)
+    normalize_previous_employer_column(df)
 
     _clear_ai_hallucinated_addresses(df)
-
-
-def _normalize_previous_employer_column(df: pd.DataFrame) -> None:
-    """Normalize previous employers in place."""
-    normalize_previous_employer_column(df)

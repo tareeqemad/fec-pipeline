@@ -10,7 +10,7 @@ import pandas as pd
 NA_VALUES = ['', '#N/A', '#NA', 'N/A', '#N/A N/A', 'NaN', 'nan', 'None']
 
 
-# columns read as strings to preserve leading zeros and avoid scientific notation
+# Read strings to preserve leading zeros and avoid scientific notation.
 ID_DTYPES = {
     'sub_id': 'string',
     'transaction_id': 'string',
@@ -22,7 +22,7 @@ ID_DTYPES = {
 
 # Keep ID leading zeros and real surnames such as NULL and NA.
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
-    # peek header to scope dtypes to present columns only
+    # Apply dtypes only to columns present in the header.
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
     dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}

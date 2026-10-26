@@ -191,10 +191,8 @@ def _gate_retired_employer_marker(df):
     return [('retired_employer_marker', {'passed': count == 0, 'count': count}, issue)]
 
 
-# quality gate: previous_employer must not still contain a slash composite
+# Reject COMPANY/TITLE leftovers; allow known slash brands.
 def _gate_slash_previous_employer(df):
-    # 'COMPANY/TITLE' composites are resolved by resolve.py (_normalize_previous_employer_column);
-    # real slash brands (BRIDGESTONE/FIRESTONE) are whitelisted
     if 'previous_employer' not in df.columns:
         return []
     prev_emp = df['previous_employer'].fillna('').astype(str)

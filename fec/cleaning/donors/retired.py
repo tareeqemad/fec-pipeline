@@ -1,8 +1,7 @@
-"""Retired-status fixes and the previous_employer column they feed, all needing donor_key."""
+"""Use donor history for retired filings."""
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.work.previous import normalize_previous_employer_column
 from fec.cleaning.work.status import is_real_employer
 from fec.config.constants import (
     STATUS_CATEGORIES,
@@ -56,9 +55,8 @@ def dated_previous_employers(df: pd.DataFrame, rows: pd.Series) -> dict:
     return found
 
 
-# fill a retiree's prior employer from an earlier filing
+# Fill a retiree's prior employer from an earlier filing.
 def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
-    """Fill a retiree's prior employer from an earlier filing."""
     if 'previous_employer' not in df.columns:
         return 0
 
@@ -103,9 +101,3 @@ def _settle_retired_employer(df: pd.DataFrame) -> int:
     df.loc[retired, 'contributor_employer'] = 'RETIRED'
 
     return count
-
-
-# delegate to the shared previous_employer normalization contract
-def _normalize_previous_employer(df: pd.DataFrame) -> int:
-    """AX. Delegate to the shared contract in fec/cleaning/work/previous.py; idempotent."""
-    return normalize_previous_employer_column(df)

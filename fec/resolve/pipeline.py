@@ -47,7 +47,7 @@ def _load_data(csv_path: str):
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
     unreadable = amounts.isna()
     if unreadable.any():
-        # a missing amount is fixed in cleaning; writing it back as $0 would hide it
+        # Cleaning must fix missing amounts; writing $0 would hide them.
         examples = ", ".join(df.loc[unreadable, "sub_id"].astype(str).head(5))
         raise ValueError(
             f"{int(unreadable.sum()):,} row(s) with a missing or unreadable "
@@ -115,7 +115,7 @@ def _write_quality_gates(quality: dict, csv_written: bool) -> None:
 
 
 def _filed_employers() -> dict:
-    """sub_id -> the raw employer text; empty when the raw file is absent."""
+    """Map sub_id to raw employer text; empty if the raw file is absent."""
     if not RAW_CSV.exists():
         return {}
     raw = pd.read_csv(RAW_CSV, dtype=str, keep_default_na=False, usecols=["sub_id", "contributor_employer"])
@@ -142,7 +142,7 @@ def _write_results(
 
     check_output("resolve", input_columns, df.columns)
     write_csv_atomic(df, csv_path, index=False)
-    # the gates read no employer_city, so the report above describes this file
+    # Gates do not check employer_city, so the report still matches the file.
     _write_quality_gates(quality, csv_written=True)
     return df
 

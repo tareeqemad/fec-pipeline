@@ -21,9 +21,8 @@ from fec.config.streets import (
 CITY_TABLE_FIXED = '_city_table_fixed'
 
 
-# derive cleaned ZIP5 from the raw contributor_zip column, if present
+# Derive ZIP5 from raw data; ZIP cleaning runs after city corrections.
 def _zip5(df: pd.DataFrame) -> pd.Series | None:
-    """ZIP5 derived from the raw contributor_zip (clean_zips runs after the cities); None without that column."""
     if 'contributor_zip' not in df.columns:
         return None
     return _clean_zip_raw(df['contributor_zip'])
@@ -50,13 +49,13 @@ def clean_cities(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# strip ZIPs, states, units and punctuation from the city text
+# Strip ZIPs, states, units and punctuation.
 def _strip_city_text(raw: pd.Series) -> pd.Series:
     cities = raw.astype(str).str.strip().str.upper()
 
     cities = cities.str.lstrip('`~')
 
-    # embedded ZIPs and state/city combos ("BETHESDA, MARYLAND 20817", "CHARLOTTE, NC 28226")
+    # Strip trailing ZIPs and states, as in "BETHESDA, MARYLAND 20817".
     cities = cities.str.replace(r',?\s*\d{5}(-\d{4})?\s*$', '', regex=True)
     cities = cities.str.replace(r',?\s+[A-Z]{2}\s+\d{5}\s*$', '', regex=True)
     cities = cities.str.replace(r',?\s+(MARYLAND|CALIFORNIA|TEXAS)\s*\d*$', '', regex=True)
@@ -64,18 +63,18 @@ def _strip_city_text(raw: pd.Series) -> pd.Series:
     cities = cities.str.replace(r',?\s+PA\.?\s*\d*$', '', regex=True)
     cities = cities.str.replace(r'/[A-Z]+$', '', regex=True)
 
-    # a unit string is not a city
+    # Unit labels are not cities.
     cities = cities.where(~cities.str.match(r'^APT\s|^STE\s|^UNIT\s|^#\d', case=False, na=False), other=np.nan)
 
     cities = cities.str.rstrip('.,;:')
 
-    # state codes stuck at end of city
+    # Remove state codes stuck to the city name.
     cities = cities.str.replace(STATE_IN_CITY, '', regex=True).str.strip()
 
     return cities.str.replace(r'\s{2,}', ' ', regex=True)
 
 
-# fix city names using the hand-curated lookup tables
+# Apply curated city corrections.
 def _table_city_fixes(cities: pd.Series, states: pd.Series, zip5) -> pd.Series:
     cities = cities.replace(CITY_NORMALIZE)
     state_fixes = pd.Series(
@@ -83,7 +82,7 @@ def _table_city_fixes(cities: pd.Series, states: pd.Series, zip5) -> pd.Series:
     ).map(CITY_STATE_NORMALIZE)
     cities = state_fixes.fillna(cities)
     if zip5 is not None:
-        # short forms whose city depends on the ZIP ('NY' is NEW YORK only in Manhattan)
+        # Some abbreviations depend on ZIP: 'NY' means NEW YORK only in Manhattan.
         zip3 = zip5.fillna('').astype(str).str[:3]
         zip_fixes = pd.Series(
             [CITY_ZIP3_NORMALIZE.get(key) for key in zip(cities, states, zip3)],
