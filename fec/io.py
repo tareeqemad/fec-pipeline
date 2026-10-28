@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-# Keep NULL, NA, null and n/a as text: they can be real names.
+# Keep NULL, NA and n/a as text: real names.
 NA_VALUES = ['', '#N/A', '#NA', 'N/A', '#N/A N/A', 'NaN', 'nan', 'None']
 
 
@@ -20,7 +20,7 @@ ID_DTYPES = {
 }
 
 
-# Keep ID leading zeros and real surnames such as NULL and NA.
+# Keep ID leading zeros and surnames like NULL and NA.
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     # Apply dtypes only to columns present in the header.
     peek = pd.read_csv(path, nrows=0)
@@ -41,7 +41,7 @@ REPLACE_ATTEMPTS = 10
 REPLACE_WAIT_SECONDS = 0.5
 
 
-# Replace the target after short lock retries; keep the old file on failure.
+# Replace the target after lock retries; on failure keep it.
 def replace_file(temp_path: str, path: str) -> None:
     for attempt in range(REPLACE_ATTEMPTS):
         try:

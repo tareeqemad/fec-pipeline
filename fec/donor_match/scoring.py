@@ -2,7 +2,7 @@
 from fec.cleaning._helpers import levenshtein
 
 
-# Generic categories do not support a match; retirement is scored separately.
+# Generic categories support no match; retirement is scored separately.
 GENERIC_OCC_CATEGORIES = {
     "RETIRED", "NOT EMPLOYED", "SELF-EMPLOYED", "OTHER",
     "ORGANIZATION", "POLITICAL COMMITTEE", "HOMEMAKER", "STUDENT",
@@ -10,7 +10,7 @@ GENERIC_OCC_CATEGORIES = {
 }
 
 
-# Scores at or above MERGE_THRESHOLD can merge, unless a separation rule blocks them.
+# Scores at MERGE_THRESHOLD can merge unless separation rules block.
 
 # shared evidence
 SCORE_SAME_STREET    = 60

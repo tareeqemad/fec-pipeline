@@ -40,7 +40,7 @@ def _review_summary(work: pd.DataFrame) -> pd.DataFrame:
 
 
 def _review_identities(individuals: pd.DataFrame) -> dict[str, list[dict]]:
-    """Keep every filed identity so scoped separation rules see all donor profiles."""
+    """Keep every filed identity for scoped separation rules."""
     fields = {
         "contributor_city": "city", "contributor_state": "state",
         "contributor_zip": "zip5",
@@ -85,8 +85,7 @@ def _first_name_relation(first_a: str, first_b: str) -> str:
     return ""
 
 
-# Recognize a joint filing and its solo filer using another household member.
-# Keep these as separate donors, outside the duplicate review.
+# Joint filings and their solo filer stay separate donors.
 def _is_joint_pair(first_a: str, first_b: str, household_firsts) -> bool:
     tokens_a, tokens_b = given_tokens(first_a), given_tokens(first_b)
     for joint, solo in ((tokens_a, tokens_b), (tokens_b, tokens_a)):
@@ -186,7 +185,7 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
     ).fillna(0)
     work = df.assign(_amt=amount).loc[individuals.index]
     rows = _review_candidates(individuals, _review_summary(work))
-    # a held or unresolved filing is already decided: it stays out of every person
+    # Held or unresolved filings are already decided.
     decided = _decided_keys(individuals)
     rows = [row for row in rows if not {row["donor_key_a"], row["donor_key_b"]} & decided]
     path = Path(out_dir) / "donor_dedup_review.csv"

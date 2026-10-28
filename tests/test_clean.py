@@ -17,7 +17,7 @@ def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypat
     monkeypatch.setattr(cli, 'CLEANED_CSV', output)
     monkeypatch.setattr(cli, 'read_pipeline_csv', lambda path: cleaned.copy())
     monkeypatch.setattr(cli, 'REPORTS_DIR', tmp_path)
-    monkeypatch.setattr(cli, 'clean_pipeline', lambda df, **_dirs: (df, pd.DataFrame(), None))
+    monkeypatch.setattr(cli, 'clean_pipeline', lambda df, **_dirs: df)
     monkeypatch.setattr(cli, 'run_quality_gates', lambda df: {
         'passed': False, 'checks': {}, 'issues': ['1 rows with a missing amount']})
 
@@ -51,7 +51,7 @@ def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypat
     monkeypatch.setattr(cli, '_ensure_zip_format', lambda _df: None)
     for candidate in invalid:
         monkeypatch.setattr(cli, 'clean_pipeline',
-                            lambda _df, result=candidate, **_dirs: (result.copy(), pd.DataFrame(), None))
+                            lambda _df, result=candidate, **_dirs: result.copy())
         with pytest.raises(ValueError):
             cli.main(expected=baseline)
         assert output.read_text(encoding='utf-8') == 'previous good file\n'

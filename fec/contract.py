@@ -15,7 +15,7 @@ CLEAN_COLUMNS = (
 DONOR_COORDINATES = ('latitude', 'longitude')
 EMPLOYER_ADDRESS = ('employer_address', 'employer_city', 'employer_state', 'employer_zip')
 EMPLOYER_COORDINATES = ('employer_latitude', 'employer_longitude')
-# how resolve found each employer address; geocode --employer-only reads it, then drops it
+# How resolve found each employer address; read then dropped.
 RESOLVE_WORKING = ('resolve_method', 'resolve_confidence')
 
 # what the loader reads: the file after the last stage
@@ -23,7 +23,7 @@ LOADED_COLUMNS = CLEAN_COLUMNS + DONOR_COORDINATES + ('employer_status',)
 
 
 class ContractError(ValueError):
-    """A stage read or was about to write columns its contract does not allow."""
+    """A stage used columns its contract does not allow."""
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ def _added_by(column: str) -> str:
     return next((stage.command for stage in STAGES.values() if column in stage.adds), 'clean.py')
 
 
-# Check required columns and reject a stage run on its own output.
+# Check required columns; reject stages run on their own output.
 def check_input(stage_name: str, columns) -> None:
     stage = STAGES[stage_name]
     rerun = [column for column in stage.refuses if column in set(columns)]

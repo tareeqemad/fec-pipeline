@@ -12,7 +12,7 @@ from fec.env import RULES_DIR
 
 # clear employer field for committees/organizations after re-typing
 def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
-    """AW. Non-individuals carry no employer -> clear it; must run after AU/AV re-type rows."""
+    """Non-individuals carry no employer; run after re-typing rows."""
     mask = (df['entity_type'].isin(('COMMITTEE/PAC', 'ORGANIZATION'))
             & (df['contributor_employer'].fillna('').str.strip() != ''))
     n = int(mask.sum())
@@ -52,10 +52,9 @@ def read_entity_overrides() -> dict[str, str]:
     return overrides
 
 
-# re-apply FEC's own entity type where a later step changed it
+# Re-apply FEC's entity type where a later step changed it.
 def _apply_source_entity_types(df: pd.DataFrame) -> int:
-    """A safety net or name rule may retype a row after classification; the
-    type FEC gave wins again here, before the documented overrides."""
+    """FEC's own type wins again, before documented overrides."""
     source = deciding_source_type(df)
     n = 0
     for et in sorted(set(source) - {''}):
@@ -78,7 +77,7 @@ def _set_entity_type(df: pd.DataFrame, mask: pd.Series, et: str) -> None:
         df.loc[mask, 'contributor_occupation'] = np.nan
         df.loc[mask, 'contributor_employer'] = np.nan
     elif et == 'INDIVIDUAL':
-        # a real person mistyped as a committee - parse 'LAST, FIRST' back out
+        # A person mistyped as a committee: parse 'LAST, FIRST' back.
         df.loc[mask, 'is_individual'] = True
         parts = df.loc[mask, 'contributor_name'].fillna('').str.split(',', n=1)
         df.loc[mask, 'contributor_last_name'] = parts.str[0].str.strip()
@@ -90,7 +89,7 @@ def _set_entity_type(df: pd.DataFrame, mask: pd.Series, et: str) -> None:
 
 # re-enforce same-name donors share one entity_type
 def _reenforce_entity_consistency(df: pd.DataFrame) -> int:
-    """AU. Re-enforce same-name -> same entity_type; must run after canonicalize_donor_names has unified names."""
+    """Same name, same entity type; run after names are unified."""
     before = df['entity_type'].copy()
     n = _enforce_entity_name_consistency(df)
     if n:

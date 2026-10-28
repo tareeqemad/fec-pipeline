@@ -129,8 +129,7 @@ def main() -> None:
     _check_reader(cur)
     verify_extensions(cur)
 
-    # one transaction from the drop to the grants (_base.load_transaction):
-    # a failure anywhere leaves the previous load in place
+    # One transaction from drop to grants; failures keep the old.
     with load_transaction(conn):
         logger.info("[2/6] Resetting schema and loading lookups")
         with stage("schema"):

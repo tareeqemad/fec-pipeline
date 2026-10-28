@@ -1,4 +1,4 @@
-"""Company identity follows reviewed rules; loose keys are for text comparison."""
+"""Company identity follows reviewed rules; loose keys compare text."""
 import re
 
 from fec.cleaning.work.employer_aliases import (
@@ -24,11 +24,10 @@ _CORP_SUFFIXES = (
     "PA",
     "LP",
 )
-# short suffixes that, glued onto a lone word, usually belong to the brand
+# Short suffixes glued onto one word belong to the brand.
 _GLUED_BRAND_SUFFIXES = frozenset({"CO", "PC", "PA", "LP"})
 
-# Whole-token abbreviations folded for grouping only (never display).
-# ASSOC deliberately absent: ASSOCIATES vs ASSOCIATION is contextual.
+# Abbreviations folded for grouping only; ASSOC is deliberately absent.
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
 
 
@@ -44,15 +43,12 @@ def employer_text_key(name: str) -> str:
     if not key:
         return ""
     key = re.sub(r"\.(COM|ORG|NET|IO|AI|US|EDU|GOV)\b", "", key)
-    # `&`/`$` -> AND, then drop the word AND entirely for grouping.
-    # Word-boundary substitutions must run BEFORE collapsing whitespace,
-    # otherwise the AND inside KIRKLAND would be eaten.
+    # & becomes AND, then AND drops; boundaries before whitespace collapse.
     key = re.sub(r"[&$]", " AND ", key)
     key = re.sub(r"^\s*THE\b", "", key)
     key = re.sub(r"\bAND\b", " ", key)
     key = " ".join(_KEY_TOKEN_EXPANSIONS.get(token, token) for token in key.split())
-    # a one-word name keeps a glued CO/PC/PA/LP: it is part of the brand
-    # (GOLDCO is not GOLD AND COMPANY, TERRACO is not TERRA)
+    # One-word names keep a glued CO/PC/PA/LP: GOLDCO stays.
     words = re.findall(r"[A-Z0-9]+", key)
     while len(words) > 1 and words[-1] in _CORP_SUFFIXES:
         words.pop()

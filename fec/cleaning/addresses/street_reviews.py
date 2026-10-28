@@ -12,11 +12,9 @@ from fec.config.geography import US_STATES
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
 
-PO_BOX_REASON = "PO Box (no precise physical point)"
 CARE_OF_WITH_STREET_REASON = "care-of name in street_1, street in street_2 (keep both as filed)"
-PMB_REASON = "PMB private mailbox (no precise physical point)"
 
-# leading PO box marker: "PO BOX 123", "P.O. BOX 45", "Post Office Box 9"
+# Leading PO box marker: "PO BOX 123", "P.O. BOX 45".
 _PO_BOX_RE = re.compile(
     r"^P\.?\s*O\.?\s*BOX|^POST OFFICE BOX",
     re.IGNORECASE,
@@ -27,10 +25,7 @@ _PO_BOX_RE = re.compile(
 _PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.IGNORECASE)
 
 
-# Street-type tokens: a street_1 with none of these (and no leading house number
-# or PO BOX) is likely an entity name, not a street. Deliberately BROADER than
-# fixes.recovery._STREET_TYPE_RE: this runs on pre-normalized text, so it also
-# carries the full words (STREET, AVENUE) and unit keywords (APT, STE). Do not merge.
+# Street-type tokens; a street without any is likely an entity.
 _STREET_TYPES = (
     "ST AVE RD BLVD DR LN CT CIR PL PKWY HWY TER TPKE EXPY SQ WAY TRL XING JCT "
     "PLZ PLAZA LOOP PATH RUN BEND PASS WALK ROW ALY PIKE RTE BROADWAY PARK MALL "
@@ -40,35 +35,15 @@ _STREET_TYPES = (
 ).split()
 
 
-# any street-type/unit word as a token: "MAIN ST", "5TH AVE", "APT 4"
+# Any street-type or unit word as a token.
 _STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(_STREET_TYPES) + r")\b")
 
 
-# street_2 that is a unit keyword with no number: incomplete (drop + flag)
+# A street_2 unit keyword without a number: dropped and flagged.
 _UNIT_NO_NUM = re.compile(
     r"^(?:STE|SUITE|UNIT|APT|APARTMENT|FL|FLR|FLOOR|PH|RM|ROOM|BLDG|OFFICE|OFF|DEPT|#)\.?$",
     re.IGNORECASE,
 )
-
-
-# partial / truncated city tokens that are normally part of a longer name
-_PARTIAL_CITY = {
-    "SANTA",
-    "SAN",
-    "LAKE",
-    "FORT",
-    "MOUNT",
-    "MT",
-    "NEW",
-    "PORT",
-    "LOS",
-    "LAS",
-    "EL",
-    "WEST",
-    "EAST",
-    "NORTH",
-    "SOUTH",
-}
 
 
 _REPORT_COLUMNS = (
@@ -92,7 +67,7 @@ def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
     return out
 
 
-# Report one row per similar street spelling, grouped by donor key or, before matching, name.
+# One row per similar street spelling, by donor or name.
 def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
     person = "donor_key" if "donor_key" in df.columns else "contributor_name"
     needed = {person, S1, CITY, STATE, ZIP}
@@ -147,7 +122,7 @@ def _append_report(reports, df, mask, reason) -> None:
 
 # detect street_2 values that are a truncated city prefix
 def _is_city_prefix(s2_upper: pd.Series, city: pd.Series) -> pd.Series:
-    """'ATLA' under ATLANTA, 'ENGL' under ENGLEWOOD: the start of the city name, cut off by the FEC field limit."""
+    """'ATLA' for ATLANTA: a city cut off by FEC's limit."""
     core = s2_upper.str.lstrip("#").str.strip()
     city_upper = city.fillna("").astype(str).str.strip().str.upper()
     return (
@@ -187,52 +162,35 @@ def _review_street2(df: pd.DataFrame, s2: pd.Series) -> tuple[list, int]:
     return reports, int(bad2.sum())
 
 
-# split street_1 problems into review and regeocode queues
+# street_1 problems needing a person's review
 def _review_street1(
     df: pd.DataFrame,
     s1: pd.Series,
-    city: pd.Series,
     state: pd.Series,
-    zips: pd.Series,
-) -> tuple[list, list]:
-    review, regeocode = [], []
+) -> list:
+    review = []
     empty1 = s1.str.strip() == ""
     has1 = ~empty1
     starts_num = s1.str.match(r"^\d")
     is_pobox = s1.str.match(_PO_BOX_RE)
     is_pmb = s1.str.match(_PMB_RE)
     has_type = s1.str.contains(_STREET_TYPE_RE)
-    # a mailbox is only worth a note for a person: committee/organization
-    # mail addresses are their normal filing address (see module docstring)
-    if "entity_type" in df.columns:
-        individual = df["entity_type"].eq("INDIVIDUAL")
-    else:
-        individual = pd.Series(True, index=df.index)
-
     descriptive = (
         s1.str.contains(r"\(")
         | s1.str.contains(r"\bAND\b")
         | s1.str.contains("FORMERLY", regex=False)
     )
     care_of = s1.str.match(_CO_RE)
-    # C/O in street_1 with the street itself in street_2: a full mail address
+    # C/O in street_1 with the street in street_2.
     street_in_s2 = df[S2].fillna("").astype(str).str.match(r"^\s*\d") if S2 in df.columns else False
     entity = (
         has1 & ~starts_num & ~is_pobox & ~is_pmb & ~has_type & ~descriptive & ~care_of
     )
     bad_state = has1 & (~state.str.upper().isin(US_STATES))
-    empty_zip = (zips.str.strip() == "") & has1
-    partial = has1 & city.str.upper().str.strip().isin(_PARTIAL_CITY)
-
-    _append_report(regeocode, df, empty1, "missing street_1 (incomplete record)")
-    _append_report(regeocode, df, is_pobox & individual, PO_BOX_REASON)
-    _append_report(regeocode, df, is_pmb & individual, PMB_REASON)
-    _append_report(regeocode, df, empty_zip, "missing ZIP (re-extract later)")
-    _append_report(regeocode, df, partial, "partial / truncated city")
 
     _append_report(review, df, descriptive, "descriptive / intersection address")
     _append_report(review, df, care_of & ~street_in_s2, "care-of name (no street to recover)")
     _append_report(review, df, care_of & street_in_s2, CARE_OF_WITH_STREET_REASON)
     _append_report(review, df, entity, "entity / non-address in street_1")
     _append_report(review, df, bad_state, "missing / non-US state (out of schema)")
-    return review, regeocode
+    return review

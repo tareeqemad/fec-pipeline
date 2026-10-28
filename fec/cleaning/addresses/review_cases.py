@@ -1,8 +1,4 @@
-"""Group address questions by donor, reason and ZIP, with filed values and evidence.
-
-Include unsupported house-number changes even when final addresses agree.
-Other filings from the same donor are context, not independent proof.
-"""
+"""Group address questions by donor, reason and ZIP, with evidence."""
 from __future__ import annotations
 
 import re
@@ -21,14 +17,14 @@ REVIEW_CASES_CSV = "address_review_cases.csv"
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
 ADDRESS_COLUMNS = (S1, S2, CITY, STATE, ZIP)
-PENDING, SUPPORTED, KEEP_ORIGINAL = "pending", "supported_correction", "keep_original"
+PENDING, SUPPORTED = "pending", "supported_correction"
 SPELLING_ONLY, FORMATTING_ONLY = "spelling only", "formatting only"
 PO_BOX_NOTE = "PO box: the geocoder places it at the ZIP point; a geocoding limit, not an address error"
 INFERRED_NUMBER_REASON = "house number inferred from other filings without a checked source"
 AMBIGUOUS_NUMBER_REASON = "leading house-number punctuation removed despite a conflicting filed number"
 NUMBER_REVIEW_REASONS = frozenset({INFERRED_NUMBER_REASON, AMBIGUOUS_NUMBER_REASON})
 
-# steps that only rewrite the row's own text (no other filing involved)
+# Steps that only rewrite the row's own text.
 FORMAT_STEPS = frozenset({
     "streets_normalize", "zips_normalize", "cities_normalize", "streets_safe_fixes", "streets_unify_units",
     "streets_unify_spacing", "streets_unify_spelling", "address_review", "donor_canonical_units",
@@ -59,13 +55,13 @@ def _person(frame: pd.DataFrame) -> pd.Series:
     return key.where(key.ne(""), _text(frame["contributor_name"]))
 
 
-# one address as a line: "12 MAIN ST | APT 5 | ..."
+# Address line: "12 MAIN ST / APT 5".
 def _line(frame: pd.DataFrame) -> pd.Series:
     cells = [_text(frame[column]) if column in frame.columns else "" for column in ADDRESS_COLUMNS]
     return cells[0].str.cat(cells[1:], sep=" | ")
 
 
-# distinct values with counts, most common first: "A x3; B x1"
+# Distinct values with counts, most common first.
 def _counted(values) -> str:
     return "; ".join(f"{value} x{count}" for value, count in Counter(values).most_common())
 
@@ -129,7 +125,7 @@ def _priority(moves: list[str], differences: str) -> str:
     return "medium" if differences == SPELLING_ONLY else "low"
 
 
-# Surface numeric guesses even when all final street spellings now agree.
+# Surface numeric guesses even when final spellings agree.
 def _number_review_items(rows: pd.DataFrame, filed: pd.DataFrame, changes: pd.DataFrame) -> pd.DataFrame:
     street_changes_trail = changes[changes["field"].eq(S1)]
     sourced = set(street_changes_trail.loc[
@@ -159,7 +155,7 @@ def _number_review_items(rows: pd.DataFrame, filed: pd.DataFrame, changes: pd.Da
         ):
             reason = INFERRED_NUMBER_REASON
         elif sid in punctuation:
-            # A removed symbol may be a damaged digit; require a conflicting filed number.
+            # A removed symbol may be a digit, given conflicting numbers.
             stripped_street = re.sub(r"^[^A-Z0-9]+", "", str(original[S1]).upper())
             if street_and_unit(stripped_street, original[S2]) != after:
                 continue
@@ -202,7 +198,7 @@ def build_review_cases(
     filed: pd.DataFrame,
     trail_records: list[dict],
 ) -> pd.DataFrame:
-    """Build cases from final rows, filed addresses and net audit records; leave inputs unchanged."""
+    """Build cases from final rows and audit records; inputs unchanged."""
     if review_df is not None and "status" in review_df.columns:
         items = review_df[review_df["status"].eq("open")].copy()
     else:
@@ -215,7 +211,7 @@ def build_review_cases(
     changes = _address_changes(trail_records)
     extra = _number_review_items(rows, filed, changes)
     if not extra.empty:
-        # Existing cases already expand to every filing using their final forms.
+        # Existing cases already expand to every filing using them.
         covered_columns = ["_person", "_zip5", S1, S2]
         covered = set(items[covered_columns].fillna("").itertuples(index=False, name=None))
         extra_keys = extra[covered_columns].fillna("").itertuples(index=False, name=None)

@@ -39,7 +39,6 @@ Edit these values:
 ```dotenv
 FEC_API_KEY=your_fec_key
 FEC_RPM=15
-OPENAI_API_KEY=
 
 PG_HOST=localhost
 PG_PORT=5432
@@ -48,8 +47,7 @@ PG_USER=fec_owner
 PG_PASSWORD=your_database_password
 ```
 
-- `FEC_API_KEY`: needed to pull data; resolve also uses it to look up previous employers.
-- `OPENAI_API_KEY`: leave blank to use cached employer addresses without paid searches.
+- `FEC_API_KEY`: needed to pull data.
 - `PG_*`: needed only for loading. Complete the database setup below once; use `fec_owner` for `PG_USER`.
 
 ## 4. Set up PostgreSQL once
@@ -138,6 +136,8 @@ python loader.py --reset
 
 Keep `data/cache/`: accepted results are reused. New coordinates come from OpenStreetMap, then Census; unmatched addresses stay blank.
 
+Donor profiles place a blank address, such as a PO box, at its ZIP from `data/reference/zip_centroids.csv`: Census Gazetteer 2023, plus PO-box ZIPs from [GeoNames](https://www.geonames.org/) (CC BY 4.0).
+
 If resolve stops after writing partial results, fix the cause and restart from `python clean.py`; keep the caches. Do not run resolve twice on its own output.
 
 The finished files are in `data/output/`; cleaning reports are in `data/reports/`.
@@ -161,15 +161,9 @@ Keep your existing `.env`. For new FEC data, repeat steps 5–6.
 
 ## Optional checks
 
-Run the 20 core tests without network access or a live database:
+Run the 18 core tests without network access or a live database:
 
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m pytest
-```
-
-After employer geocoding, check the output against the raw data:
-
-```bash
-python tools/audits/final_verify.py
 ```

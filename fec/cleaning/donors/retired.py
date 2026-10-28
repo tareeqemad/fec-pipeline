@@ -9,8 +9,7 @@ from fec.config.constants import (
 )
 
 
-# Find each row's latest employer filed by that donor on or before its date.
-# Skip ties between employers and rows with no earlier working filing.
+# Each row's latest earlier employer from the same donor.
 def dated_previous_employers(df: pd.DataFrame, rows: pd.Series) -> dict:
     dates = pd.to_datetime(df['contribution_receipt_date'], errors='coerce')
     rows = rows & dates.notna()
@@ -71,7 +70,7 @@ def _fill_prev_employer_from_donor(df: pd.DataFrame) -> int:
     return len(found)
 
 
-# Move recovered companies to previous_employer when the filing still says RETIRED.
+# Recovered companies go to previous_employer when still RETIRED.
 def _settle_retired_employer(df: pd.DataFrame) -> int:
     required = {
         'entity_type', 'contributor_employer', 'contributor_occupation',

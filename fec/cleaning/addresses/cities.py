@@ -21,7 +21,7 @@ from fec.config.streets import (
 CITY_TABLE_FIXED = '_city_table_fixed'
 
 
-# Derive ZIP5 from raw data; ZIP cleaning runs after city corrections.
+# ZIP5 from raw data; ZIP cleaning runs after city fixes.
 def _zip5(df: pd.DataFrame) -> pd.Series | None:
     if 'contributor_zip' not in df.columns:
         return None
@@ -30,7 +30,7 @@ def _zip5(df: pd.DataFrame) -> pd.Series | None:
 
 # Apply city formatting and configured corrections.
 def clean_cities(df: pd.DataFrame) -> pd.DataFrame:
-    # Apply the place recovered from the street before the city rules.
+    # Apply places recovered from the street before city rules.
     _apply_house_number_zip(df)
 
     cities = _strip_city_text(df['contributor_city'])
@@ -82,7 +82,7 @@ def _table_city_fixes(cities: pd.Series, states: pd.Series, zip5) -> pd.Series:
     ).map(CITY_STATE_NORMALIZE)
     cities = state_fixes.fillna(cities)
     if zip5 is not None:
-        # Some abbreviations depend on ZIP: 'NY' means NEW YORK only in Manhattan.
+        # ZIP-dependent abbreviations: 'NY' is NEW YORK only in Manhattan.
         zip3 = zip5.fillna('').astype(str).str[:3]
         zip_fixes = pd.Series(
             [CITY_ZIP3_NORMALIZE.get(key) for key in zip(cities, states, zip3)],

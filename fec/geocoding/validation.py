@@ -117,7 +117,7 @@ _CITY_STREET_TYPES = {
 }
 
 
-# Keep road words in order; only format directions and a street suffix.
+# Keep road words in order; format directions and suffix only.
 def _city_road_tokens(street: str) -> tuple[str, ...]:
     tokens = street.upper().split()
     if not tokens:
@@ -135,7 +135,7 @@ def _city_road_tokens(street: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
-# A provider city is evidence only when every other address part agrees.
+# A provider city counts only when other address parts agree.
 def confirmed_city(key: str, entry: dict | None) -> str | None:
     if not isinstance(entry, dict) or entry.get("source") not in {"nominatim", "census"}:
         return None
@@ -195,11 +195,29 @@ REVIEWED_POINTS = {
         25.9938336, -80.1178208, "from '3101 S OCEAN DR|HOLLYWOOD|FL|33019.0' (google): lies between 2401 (25.9985) and 4010 (25.9875) S Ocean Dr in the same data; the nominatim point 26.0121 was north of both"),
     "4075 LINGLESTOWN RD|HARRISBURG|PA|17112": (
         40.3348186, -76.8369814, "from '4075 LINGLESTOWN RD|HARRISBURG|PA|' (google): UPS Store, Dauphin parcel 35-129-042 (Lower Paxton Twp); the nominatim point was by the 17110 centroid"),
+    "I3235 PALMERS CREEK TER|LAKEWOOD RANCH|FL|34202": (
+        27.4095772, -82.4091725, "typo for 13235 PALMERS CREEK TER: that address's own geocoded point"),
+    "9705 COLLINS AVE #1405 N|BAL HARBOR|FL|33514": (
+        25.8884938, -80.1237465, "wrong ZIP for 9705 COLLINS AVE|BAL HARBOUR|FL|33154: that address's own geocoded point"),
+    "41-750 RANCHO LAS PALMAS DR|RANCHO MIRAGE|CA|92270": (
+        33.74317, -116.41057, "(gemini) 41750 Rancho Las Palmas Dr; 0.46 km from the OSM street"),
+    "1 BRYANT PARK|NEW YORK|NY|10016": (
+        40.7553368, -73.9843597, "(gemini) Bank of America Tower, 1 Bryant Park; ZIP is 10036"),
+    "1 BRYANT PARK|NEW YORK|NY|10036": (
+        40.7553368, -73.9843597, "(gemini) Bank of America Tower, 1 Bryant Park"),
+    "150 N RIVERSIDE PLZ|CHICAGO|IL|60606": (
+        41.885327, -87.638531, "(gemini) 150 N Riverside Plaza; 0.3 km from OSM's Riverside Plaza"),
+    "2 N RIVERSIDE PLAZA|CHICAGO|IL|60606": (
+        41.882548, -87.63922, "(gemini) 2 N Riverside Plaza; 0.1 km from OSM's Riverside Plaza"),
+    "50 CROSS HILL RD|NEWTON CENTER|MA|02459": (
+        42.3048827, -71.1874831, "(osm) house 50 Cross Hill Rd; the cached point was Newton Centre's generic centroid"),
+    "28 WINSTON RD|NEWTON CENTER|MA|02459": (
+        42.3111949, -71.1887167, "(osm) house 28 Winston Rd; the cached point was Newton Centre's generic centroid"),
 }
 
 # Previously reviewed bad points must not reappear as address matches.
 REVIEWED_WRONG_POINTS = {
-    # Old cache entries already withheld for address/ZIP conflicts; still pending review.
+    # Old entries withheld for address/ZIP conflicts, still pending.
     "101 S TRYON ST|CHARLOTTE|NC|28280": (
         35.0600842, -80.910337, "Previous address check rejected this cached point."),
     "100 PARK AVE FL 16|NEW YORK|NY|10017": (

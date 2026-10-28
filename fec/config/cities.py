@@ -1,4 +1,4 @@
-"""City name normalization: standard abbreviations plus typos verified in real FEC data."""
+"""City normalization: standard abbreviations plus verified FEC typos."""
 import re
 
 CITY_NORMALIZE = {
@@ -52,7 +52,7 @@ CITY_NORMALIZE = {
     'SKOKIIE': 'SKOKIE',
     'PHONIX': 'PHOENIX',
     'PARADISE VSLLEY': 'PARADISE VALLEY',
-    # SCOTTDALE is a real town in PA and GA: fixed for AZ only (CITY_STATE_NORMALIZE)
+    # SCOTTDALE exists in PA and GA: fixed for AZ only.
     'BROOKKYN': 'BROOKLYN',
     'BRROOKLYN': 'BROOKLYN',
     'JAMIACA': 'JAMAICA',
@@ -90,7 +90,7 @@ CITY_NORMALIZE = {
     'LBTS': 'LAUDERDALE BY THE SEA',
     # Resolve 'NY' by ZIP below. Ambiguous initials need per-filing rules.
 
-    # variant spellings — target is the official form (verified by state/ZIP)
+    # Variant spellings; targets are official forms verified by state/ZIP.
     'MC LEAN': 'MCLEAN',
     'WATERMILL': 'WATER MILL',
 
@@ -140,7 +140,7 @@ CITY_STATE_NORMALIZE = {
 }
 
 
-# Match (city, state, ZIP3). Queens needs a neighbourhood or per-filing rule.
+# Match (city, state, ZIP3); Queens needs a neighbourhood rule.
 CITY_ZIP3_NORMALIZE = {
     ('NY', 'NY', '100'): 'NEW YORK',
     ('NY', 'NY', '101'): 'NEW YORK',
@@ -154,7 +154,7 @@ CITY_ZIP3_NORMALIZE = {
 # Expand these last, preserving the abbreviation's case.
 _ABBR_FULL = {'ST': ('SAINT', 'Saint'), 'STE': ('SAINTE', 'Sainte'),
               'MT': ('MOUNT', 'Mount'), 'FT': ('FORT', 'Fort')}
-# Match whole tokens followed by a space, not STERLING or STATEN.
+# Whole tokens followed by a space, not STERLING or STATEN.
 _ABBR_RE = re.compile(r'\b(STE|ST|MT|FT)\.?(?=\s)', re.IGNORECASE)
 
 

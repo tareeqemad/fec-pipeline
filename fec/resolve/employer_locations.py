@@ -135,7 +135,7 @@ def _cache_rows(
                 for index in held
             )
             if len(held) == len(candidates):
-                # nothing of it can be published: keep the full lookup's answer
+                # Nothing publishable: keep the full lookup's answer.
                 entry, held = resolve_cache_entry(lookup, employer), []
                 candidates = location_candidates(entry)
         if entry is None:
@@ -157,7 +157,7 @@ def _cache_rows(
                 "is_primary": bool(location.get("is_primary")),
                 "address_source": source,
                 "address_trust": trust,
-                # the geocode cache is keyed on the text as resolved, before normalising
+                # The geocode cache is keyed on the resolved text.
                 "_raw_key": _address_key(location),
             })
     return rows, managed, review
@@ -193,7 +193,7 @@ def _without_trust(rows: list[dict]) -> tuple[list[dict], list[dict]]:
 
 def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
     frame = pd.DataFrame(rows, columns=[*OUTPUT_COLUMNS, "_raw_key"]).astype(object)
-    # one spelling per building, so variants of one address collapse below
+    # One spelling per building, so address variants collapse.
     frame = normalize_location_addresses(frame)
     frame = _attach_coordinates(frame)
     frame["is_primary"] = frame["is_primary"].map(
@@ -224,7 +224,7 @@ def _deduplicate(rows: list[dict], employers: set[str]) -> pd.DataFrame:
 
 
 def build_locations(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(employer_locations rows, review rows) from the cleaned filings, the caches and the previous CSV."""
+    """Employer location and review rows from filings, caches, previous CSV."""
     employers = referenced_employers(df)
     donor_states = _donor_states(df)
     existing = _existing_rows(employers)

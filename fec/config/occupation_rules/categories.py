@@ -1,8 +1,7 @@
 """Occupation category regex rules — ORDER MATTERS, first match wins."""
 import re
 
-# EXECUTIVE as a rank; followed by the job itself it is that job: an
-# EXECUTIVE ASSISTANT assists, an EXECUTIVE CHEF cooks, EXECUTIVE SEARCH recruits
+# EXECUTIVE followed by a job is that job.
 _EXECUTIVE_TITLE = (
     r'EXECUTIVE(?! (?:ASSISTANT|SECRETARY|ADMINISTRATIVE|COACH|SEARCH|RECRUIT'
     r'|CHEF|PRODUCER|EDITOR))'
@@ -16,11 +15,7 @@ CATEGORY_RULES = [
     ('HOMEMAKER', r'^HOMEMAKER$|^HOUSEWIFE$|^STAY.AT.HOME|^MOM$|^SAHM$'),
     ('SELF-EMPLOYED', r'^SELF-EMPLOYED$'),
 
-    # Public-office titles. They come before the professional rules because
-    # words inside them would otherwise win: SECRETARY (MANAGEMENT) in DEPUTY
-    # SECRETARY OF DEFENSE, PRESIDENT/CHIEF (EXECUTIVE), ADVISOR (CONSULTING).
-    # Bare AMBASSADOR and REPRESENTATIVE are left out on purpose: in the FEC
-    # data they are also brand ambassadors and sales/field representatives.
+    # Public-office titles first, so inner words do not win.
     ('GOVERNMENT / MILITARY',
      r'\bU\.?S\.? (?:SENATOR|REPRESENTATIVE|AMBASSADOR'
      r'|CONGRESS(?:MAN|WOMAN|MEMBER))\b'
@@ -31,19 +26,12 @@ CATEGORY_RULES = [
      r'|LABOR|AGRICULTURE|TRANSPORTATION|VETERANS AFFAIRS'
      r'|THE (?:ARMY|NAVY|AIR FORCE|TREASURY|INTERIOR))\b'),
 
-    # News journalists: the category the JOURNALIST fix already uses. Before
-    # EXECUTIVE so "ANCHOR AND CHIEF ... CORRESPONDENT" is not a C-suite
-    # title (CHIEF). CORRESPONDENT BANKING is a finance term, not a reporter.
+    # News journalists, before EXECUTIVE so CHIEF CORRESPONDENT stays.
     ('ARTS / ENTERTAINMENT',
      r'\bJOURNALIST\b|\bCORRESPONDENT\b(?! BANK)|^COLUMNIST$'
      r'|^ANCHOR(?: AND\b|$)|\bNEWS ANCHOR\b|\bANCHOR(?:MAN|WOMAN)\b'),
 
-    # A COUNSELOR is not a lawyer. School, college, career and guidance
-    # counselors are education (BLS SOC 21-1012); clinical, mental-health,
-    # licensed professional, genetic and addiction counselors are health care.
-    # LICENSED ... COUNSEL also catches FEC's 38-character truncation of
-    # LICENSED PROFESSIONAL CLINICAL COUNSELOR. A bare COUNSELOR is ambiguous
-    # (counselor-at-law vs therapist vs camp counselor) and stays OTHER.
+    # Counselors are education or healthcare, never lawyers.
     ('EDUCATION',
      r'\b(?:SCHOOL|COLLEGE|CAREER|GUIDANCE|ADMISSIONS?|ACADEMIC) COUNSELOR\b'),
     ('MEDICAL / HEALTHCARE',
@@ -73,8 +61,7 @@ CATEGORY_RULES = [
      r'|PHYSICAL THERAP|OCCUPATIONAL THERAP'
      r'|PROVIDER|PRACTITIONER'),
 
-    # A narrower title decides before a broad word (BROKER, ANALYST, DIRECTOR,
-    # PRINCIPAL, EXECUTIVE) guesses a field or a rank.
+    # Narrower titles decide before broad words guess.
     ('TECHNOLOGY', r'\bPRINCIPAL (?:\w+ )?ENGINEER\b|\bMANUFACTURING ENGINEER\b'),
     ('ARTS / ENTERTAINMENT',
      r'\b(?:FILM|TV|TELEVISION|MUSIC|MUSICAL|CASTING|THEATER|THEATRE|STAGE|AUDIOBOOK'
@@ -82,7 +69,7 @@ CATEGORY_RULES = [
      r'|\bDIRECTOR/EDITOR\b|\bEDITOR\b|\bSCREENWRITER\b|\bSCRIPTWRITER\b'),
     ('SALES / MARKETING', r'\b(?:SALES|ACCOUNT) EXECUTIVE\b'),
     ('ACCOUNTING / TAX', r'\bTAX (?:PRINCIPAL|PARTNER)\b|^AUDIT$'),
-    # a professor of a field teaches it (medical faculty were matched above)
+    # A professor of a field teaches it.
     ('EDUCATION',
      r'\bPROFESSOR\W+CHAIR\b|\bDEPARTMENT CHAIR\b'
      r'|^(?:(?:ASSOCIATE|ASSISTANT|ADJUNCT|VISITING|CLINICAL) )?PROFESSOR (?:OF|IN)\b'
@@ -90,9 +77,7 @@ CATEGORY_RULES = [
     ('HOMEMAKER', r'^HOMEMAKER\b'),
     ('INSURANCE', r'\bINSURANCE\b.*\bBROKER|\bBROKER\b.*\bINSURANCE\b'),
     ('REAL ESTATE', r'\bREAL ESTATE\b.*\bBROKER|\bREALTY BROKER|^ASSOCIATE BROKER$'),
-    # investing, lending or financing in real estate is real estate work: the field
-    # names the domain, the word after it the activity (two roles joined by AND or /
-    # still go to the first one)
+    # Investing or lending in real estate is real estate work.
     ('REAL ESTATE',
      r'\bREAL ESTATE (?:INVEST\w*|FINANC\w*|PRIVATE EQUITY|LENDING|LENDER|CAPITAL|FUNDS?)\b'
      r'|\bPRIVATE EQUITY REAL ESTATE\b'),
@@ -106,9 +91,9 @@ CATEGORY_RULES = [
      r'|TRADING|WEALTH MANAG|TRUST ADMIN|TRUST ADMINISTRATION'
      r'|CREDIT ANALYS|COMMODITIES|LENDING|\bLENDER\b|FIXED INCOME'
      r'|FAMILY OFFICE|INV MGR|ACTUAR'
-     # an ANALYST is finance only with a finance word: a bare or business analyst is not
+     # ANALYST is finance only with a finance word.
      r'|\b(?:BUY SIDE|SELL SIDE|EQUITY|EQUITIES|STOCKS?|CREDIT|MACRO|QUANT\w*|FIXED INCOME|MARKETS?) (?:RESEARCH )?ANALYST'
-     # every WEALTH ADVISOR form (SENIOR, ASSOCIATE, ADVISORY), and a hedge fund
+     # Every WEALTH ADVISOR form, and a hedge fund.
      r'|WEALTH ADVIS|HEDGE FUND'),
 
     ('REAL ESTATE',
@@ -118,12 +103,11 @@ CATEGORY_RULES = [
      r'|\bBUILDER/DEVELOPER\b|\bBUILDER DEVELOPER\b'),
 
     ('EXECUTIVE / C-SUITE',
-     # whole-word C-titles: bare CEO/COO/CTO/CIO also sit inside INSTRUCTOR,
-     # COORDINATOR, CONTRACTOR, SOCIOLOGY, PRECIOUS, COOKING ...
+     # Whole-word C-titles; CEO also sits inside other words.
      r'\b(?:CEO|COO|CTO|CIO|CMO|CDO|CFO|CPO)\b|\bCHROO?\b|' + _EXECUTIVE_TITLE + r'|PRESIDENT|\bCHAIR(?:MAN|WOMAN|PERSON)?\b'
      # a FUNERAL DIRECTOR runs funerals, not a company
      r'|VICE PRESIDENT|(?<!FUNERAL )DIRECTOR|PARTNER|FOUNDER|CHIEF'
-     # a PRINCIPAL STAFF ANALYST is a civil-service analyst grade, not a principal
+     # PRINCIPAL STAFF ANALYST is a civil-service grade.
      r'|PRINCIPAL(?! (?:\w+ )?ANALYST)|\bSENIOR VP\b|\bCO-CHAIRMAN\b|CHAIRMAN EMERITUS'
      r'|MANAGING MEMBER|MANAGING DIRECTOR|MANAGING PARTNER'
      r'|HEAD OF|BOARD MEMBER|COMMISSIONER'),
@@ -135,8 +119,7 @@ CATEGORY_RULES = [
      r'|IMPORT.?EXPORT|JEWEL|RECYCLING|SCRAP METAL|E-COMMERCE'
      r'|HANDBAG|DISTRIBUTOR'),
 
-    # TECH only where it names the field: a TECHNICIAN, TECHNOLOGIST or
-    # TECHNICAL WRITER works in any field (MAYO CLINIC's TREATMENT TECHNICIAN)
+    # TECH only where it names the field.
     ('TECHNOLOGY',
      r'SOFTWARE|ENGINEER|PROGRAMMER|DEVELOPER|TECHNOLOG(?:Y|IES)'
      r'|^TECH\b|BIOTECH|FINTECH|\b(?:HEALTH|EDUCATION|ED) TECH\b'
@@ -171,8 +154,7 @@ CATEGORY_RULES = [
     ('GOVERNMENT / MILITARY',
      r'GOVERNMENT|MILITARY|ARMY|NAVY|AIR FORCE|FEDERAL'
      r'|STATE EMPLOY|CITY EMPLOY|POLITICAL|POLITICIAN|LOBBYIST|POLICY'
-     # INVESTIGATOR only with a public employer in the title: a bare one is
-     # as often a private, insurance or university investigator (OTHER)
+     # INVESTIGATOR only with a public employer in the title.
      r'|\b(?:POLICE|STATE|COUNTY|CITY|INSPECTOR GENERAL) INVESTIGATOR\b'
      r'|REGULATORY|COURT RECEIVER'),
 
@@ -225,9 +207,7 @@ VALID_CATEGORIES = frozenset(
         'POLITICAL COMMITTEE', 'CONGRESSIONAL CAMPAIGN',
         'SENATE CAMPAIGN', 'POLITICAL ACTION COMMITTEE',
         'PARTY ORGANIZATION',
-        # written by the entity classifier (not CATEGORY_RULES) for
-        # ORGANIZATION entities — the gate must list it or every run
-        # reports it as invalid
+        # Written by the entity classifier; the gate must list it.
         'ORGANIZATION',
     ]
 )
@@ -246,12 +226,10 @@ RECLASSIFY_CATEGORY_RULES = [
     (r'\bRABBI\b|\bPASTOR\b|\bMINISTER\b|\bCLERGY\b|\bPRIEST\b', 'RELIGIOUS'),
     (r'\bWRITER\b|\bAUTHOR\b|\bJOURNALIST\b|\bEDITOR\b|\bREPORTER\b|\bPUBLISH', 'ARTS / ENTERTAINMENT'),
     (r'\bARCHITECT\b', 'ARTS / ENTERTAINMENT'),
-    # COUNSELOR is decided by its qualifier in CATEGORY_RULES (school vs
-    # clinical); a bare or unknown-kind COUNSELOR stays OTHER
+    # COUNSELOR is decided by its qualifier; bare stays OTHER.
     (r'\bPSYCHOLOG\b|\bTHERAPIST\b|\bSOCIAL WORK\b', 'MEDICAL / HEALTHCARE'),
     (r'\bSALES\b|\bMARKETING\b|\bADVERTIS', 'SALES / MARKETING'),
-    # bare VP / SVP / EVP titles (VP OF STRATEGY, CLINICAL DEVELOPMENT SVP):
-    # the first pass only knows VICE PRESIDENT and SENIOR VP
+    # Bare VP, SVP and EVP titles the first pass misses.
     (r'\b' + _EXECUTIVE_TITLE + r'\b|\bCEO\b|\bCFO\b|\bCOO\b|\bPRESIDENT\b|(?<!FUNERAL )\bDIRECTOR\b'
      r'|\bS?VP\b|\bEVP\b', 'EXECUTIVE / C-SUITE'),
     (r'\bPILOT\b|\bAVIAT', 'TRANSPORTATION'),

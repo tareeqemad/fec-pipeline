@@ -129,8 +129,7 @@ OCCUPATION_FIXES = {
     'CONSLTANT': ('CONSULTANT', 'CONSULTING'),
     'WEALTH MANAGMENT': ('WEALTH MANAGEMENT', 'FINANCE / INVESTMENT'),
 
-    # bare 'EMPLOYED' deliberately absent — left as OTHER so the AI classifier
-    # sees it with employer context
+    # Bare EMPLOYED deliberately absent, left as OTHER.
 
     # from data analysis
     'DRIVING': ('DRIVING', 'TRANSPORTATION'),
@@ -210,7 +209,7 @@ OCCUPATION_FIXES = {
     'RE DEVELOPMNET': ('REAL ESTATE DEVELOPER', 'REAL ESTATE'),
     'DIGITAL': ('DIGITAL', 'TECHNOLOGY'),
 
-    # junk -> NOT DISCLOSED with NULL category (occupation_status set in occupations.py)
+    # Junk becomes NOT DISCLOSED with a NULL category.
     'OCC': ('NOT DISCLOSED', None),
     'XXX': ('NOT DISCLOSED', None),
     'UGH': ('NOT DISCLOSED', None),
@@ -326,20 +325,7 @@ OCCUPATION_FIXES = {
 }
 
 
-EMPLOYER_TYPO_FIXES = (
-    (r'ASSOCAITE', 'ASSOCIATE'),
-    (r'ASSOICATE', 'ASSOCIATE'),
-    (r'ASOCIATE', 'ASSOCIATE'),
-    (r'DERMATOLOGITS\b', 'DERMATOLOGISTS'),
-    (r'MANAGMENT', 'MANAGEMENT'),
-    (r'MANAGEMNT', 'MANAGEMENT'),
-    (r'INVESTEMENT', 'INVESTMENT'),
-)
-
-
-# Curated occupation typo / abbreviation fixes (reviewed 2026-09-22 from the
-# rare-value audit). Keys are spellings as they look AFTER the style step
-# (fec.cleaning.work.style), which runs right before this map.
+# Curated occupation typo fixes, keyed after the style step.
 OCCUPATION_TYPO_FIXES = {
     'SCHOOL PYSHOLOGIST': 'SCHOOL PSYCHOLOGIST',
     'COLLEGE COUNSELOT': 'COLLEGE COUNSELOR',
@@ -388,7 +374,7 @@ OCCUPATION_TYPO_FIXES = {
     'COUNCIL MEMBER': 'COUNCILMEMBER',
     'PRESIDENT M': 'PRESIDENT',
     'MD/RADIOLOGIST': 'RADIOLOGIST',
-    # FEC cuts occupations at 38 characters; completed forms verified on the web (2026-09-22)
+    # FEC cuts occupations at 38 characters; completions verified.
     'CHIEF STRATEGY DIRECTOR FOR NATIONAL A': 'CHIEF STRATEGY DIRECTOR FOR NATIONAL AFFAIRS',
     'VICE CHAIRMAN, GLOBAL STRATEGY AND GRO': 'VICE CHAIRMAN, GLOBAL STRATEGY AND GROWTH',
     'MD RADIOLOGIST': 'RADIOLOGIST',

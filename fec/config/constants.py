@@ -7,73 +7,59 @@ STATUS_WORDS = frozenset({
 })
 
 STATUS_CATEGORIES = STATUS_WORDS - {'HOUSEWIFE', 'UNEMPLOYED'}
-CANONICAL_EMPLOYER_SKIP_VALUES = (
-    STATUS_CATEGORIES - {'HOMEMAKER', 'STUDENT'}
-) | {'NOT DISCLOSED'}
 NOT_EMPLOYED_VARIANTS = frozenset({'NOT EMPLOYED', 'UNEMPLOYED'})
 
-# Values that are NOT real occupations. HOUSEWIFE is normalized to HOMEMAKER.
+# Values that are not occupations; HOUSEWIFE becomes HOMEMAKER.
 SKIP_OCCUPATIONS = (STATUS_WORDS - {'HOUSEWIFE'}) | {''}
 
-# Values that are NOT real employer names: occupation statuses plus employer-only
-# placeholders and typos. Keep the additions here instead of copying statuses.
+# Values that are not employer names: statuses, placeholders, typos.
 SKIP_EMPLOYERS = SKIP_OCCUPATIONS | frozenset({
     'NOT DISCLOSED', 'NONE', 'N/A', 'NA',
-    # status-word typos, so a misspelling never survives as a "real" employer
+    # Status-word typos, so misspellings never become employers.
     'NOT EMOLOYED', 'NOT EMPLOYEDD', 'NOT EMPLOYE', 'UNEMPLOYE',
     'RETIRED.', 'RETIRD', 'SELF EMPLOYED',
     'NOT APPLICABLE', 'NOT APPLICAABLE', 'SELP EMPLOYED', 'PHYSICAN',
 })
 
-# Life statuses/placeholders used by donor matching and consistency checks.
-# This is narrower than NOT_REAL_EMPLOYER: it excludes refusals, roles and sectors.
+# Life statuses for matching; narrower than NOT_REAL_EMPLOYER.
 EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | frozenset({
     'SELF EMPLOYED', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN',
 })
 
-# Real brand names that actually contain a slash; the slash-resolver keeps
-# them verbatim and the quality gate asserts they survived.
+# Real brands containing a slash, kept verbatim and gate-checked.
 SLASH_BRAND_EMPLOYERS = frozenset({
     'BRIDGESTONE/FIRESTONE',
 })
 
-# Refusals and non-answers. FINAL_NULL_EMPLOYERS extends this shared base;
-# SKIP_EMPLOYERS values are kept as a status instead.
+# Refusals and non-answers; the shared base for null employers.
 REFUSAL_EMPLOYERS = frozenset({
     'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
     'DECLINED TO ANSWER', 'REFUSED', 'NOT PROVIDED', 'NOT PROVIDED BY CONTRIBUTOR',
     'DECLINED TO STATE', 'NONE OF YOUR BUSINESS',
     'DECLINE TO STATE', 'PREFER NOT TO SAY',
     'NOT YOUR BUSINESS', 'NOTYOURBUSINESS',
-    # placeholders carrying NO employer info: HOME = works-from-home,
-    # TBD = to-be-determined, VOLUNTEER = unpaid
+    # Placeholders with no employer info: HOME, TBD, VOLUNTEER.
     'NON', 'CHILD', 'UGH', 'SSSZSS', 'HOME', 'TBD', 'VOLUNTEER',
     # misspelled FEC admin note that was surviving into employer locations
     'INFORMATION REQESTED',
-    # filer-typed refusals; CTR is one donor's truncated CONTRACTOR, never a company
+    # Filer refusals; CTR is one donor's truncated CONTRACTOR.
     'NOT IMPORTANT', 'NOT SURE WHY YOU NEED THIS',
     "EMPLOYER DOESN'T WANT ME TO DISCLOSE", 'NOT SPECIFIED',
     'FAMILY', 'YES', 'CTR', 'COMPANY NAME', 'COMPANY NAME (OPTIONAL)',
-    # PERSONAL = the filer answering the question, not the adjective of a real firm
+    # PERSONAL answers the question; it is no firm.
     'PERSONAL', 'DO NOT WISH TO DISCLOSE',
     'RATHER NOT SAY', 'PRIVATE COMPANY', 'COMPANY', 'INDIVIDUAL',
     'RESIDENCE', 'BLANK', 'VARIOUS STUDIOS', 'HOMEOWNER',
     'XYX', 'MALE', 'NO E', 'GROUP', 'UNKEMPT CONCERT DONATION',
 })
 
-# Short-name whitelists - THE one home for "short but real" values.
-# Confirmed-real entries only: real abbreviations are a finite, slow-growing
-# set, so these whitelists converge; a junk denylist never would.
-# Each consumer applies its own length gate (deep-clean nulls only <=2-char
-# values, quality_scan advises on 2-5-char ones), so a longer entry is simply
-# inert where it does not apply - one list serves both.
+# Whitelists for short but real values; confirmed entries only.
 
 # employer abbreviations that are real companies
 OK_SHORT_EMPLOYERS = frozenset({
     '3M', 'HP', 'BP', 'GE', 'GM', 'LG', 'EY', 'PW',
     'BJ', 'C3', 'AT', 'QC',
-    # F5 (the company), UW (University of Washington, filed by a professor),
-    # KP (Kaiser Permanente, filed by a physician): kept as filed
+    # F5, UW and KP are real names, kept as filed.
     'F5', 'UW', 'KP',
 })
 
@@ -102,14 +88,11 @@ SELF_EMPLOYED_TYPOS = frozenset({
     'SWLF', 'SWLF EMPLOYED', 'SWLF-EMPLOYED',
 })
 
-# RETIRED misspellings that break the RETIRE substring. Safety net T fixes
-# these AND syncs occupation/category/status; employer_deep_clean keeps its
-# own 4-member inline subset that fixes the employer field only - the overlap
-# is deliberate, unifying them was measured to lose the occupation sync.
+# RETIRED misspellings; safety net T also syncs occupation.
 RETIRED_TYPO_EMPLOYERS = frozenset({
     'TETIRED', 'RETURED', 'RETIERD', 'RETIED', 'REITRED', 'RETIREE',
     'RETIREED', 'RERTIRED', 'RETIRD', 'REIRED', 'REITERED', 'RETITED',
-    # seen as a previous employer copied from an older FEC filing
+    # Seen as a previous employer from an older filing.
     'RETIREF',
 })
 
@@ -123,7 +106,7 @@ JUNK_EMPLOYER_RE = (
     r')$'
 )
 
-# Full-value admin notes and refusals; company names containing these words stay.
+# Whole-value admin notes and refusals; company names stay.
 ADMIN_NOTE_EMPLOYER_RE = (
     r'^(?:'
     r'(?:PER\s+)?BEST\s+EFFORTS?'
@@ -147,18 +130,14 @@ FOREIGN_CITIES_NO_US_STATE = frozenset({
     'REHOVOT', 'NETANYA', 'HERZLIYA', 'HAIFA', 'TEL AVIV',
     'RAANANA', 'MODIIN', 'ASHKELON', 'BEER SHEVA', 'PETAH TIKVA',
     'RISHON LEZION', 'KFAR SABA', 'GIVATAYIM', 'RAMAT GAN', 'SAVYON',
-    # Canada-only names in this dataset. Canadian names that also name a US
-    # place belong in AMBIGUOUS_CITIES below and are checked against state.
+    # Canada-only names; shared US names go in AMBIGUOUS_CITIES.
     'MONTREAL', 'OTTAWA', 'CALGARY',
-    # no US city of the same name - safe to flag unconditionally.
-    # Cities that DO also exist in the US (Paris TX, Berlin CT...) belong in
-    # AMBIGUOUS_CITIES below, never here.
+    # No US namesake, so flagged unconditionally.
     'TOKYO', 'MUMBAI', 'DELHI', 'BANGALORE', 'SAO PAULO', 'MEXICO CITY',
     'KRAGUJEVAC', 'PAPARA',
 })
 
-# Cities that exist BOTH abroad AND in the US — flag only when the state
-# doesn't match a known US location.
+# Cities abroad and in the US: flagged on state mismatch.
 AMBIGUOUS_CITIES = {
     'LONDON': {'OH', 'KY', 'KS', 'AR', 'TX'},
     'PARIS': {'TX', 'TN', 'KY', 'IL', 'ME', 'AR'},

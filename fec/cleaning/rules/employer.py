@@ -5,7 +5,6 @@ import re
 
 import numpy as np
 import pandas as pd
-from fec.cleaning.work.employer_aliases import preserved_employer_name
 
 from fec.cleaning.work.normalize import (
     _categorize,
@@ -25,18 +24,17 @@ from fec.config.not_employers import (
     SECTOR_AS_EMPLOYER,
 )
 
-# Safe structural variants of the status word: RETIR / RETIRE / RETIRED /
-# RETIREE / RETIRD. Full-match only, so "RETIREMENT" is never touched.
+# Variants of RETIRED, full match only, so RETIREMENT stays.
 _RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
 
-# 'RETIRED <tail>': the tail is a previous employer or a profession word
+# 'RETIRED <tail>': a previous employer or profession word.
 _RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
-# the leading "RETIRED" marker to strip, keeping the tail: "RETIRED - ACME"
+# Leading RETIRED marker to strip: "RETIRED - ACME".
 _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
 
 # the whole value is digits only, e.g. "12345"
 _DIGITS_ONLY_RE = re.compile(r'^\d+$')
-# the same character repeated 4+ times filling the whole value: "XXXXX"
+# One character repeated 4+ times: "XXXXX".
 _REPEATED_CHAR_RE = re.compile(r'^(.)\1{3,}$')
 
 
@@ -69,7 +67,7 @@ def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 
 # clear employer when it is FEC admin-note phrasing, not real
 def _clear_admin_note_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """FEC admin-note phrasing in employer (PER BEST EFFORTS, REQUEST SENT...); full-anchored so a real name CONTAINING such a word is kept."""
+    """FEC admin notes in employer, matched whole so names stay."""
     emp = df['contributor_employer'].fillna('').str.upper().str.strip()
     mask = is_indiv & emp.str.match(ADMIN_NOTE_EMPLOYER_RE, na=False)
     return _null_employer_where(df, mask)
@@ -85,7 +83,7 @@ def _null_short_employer_junk(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 
 # clear a numeric-only employer (card number, ZIP, phone)
 def _fix_numeric_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """Q. Final pass: numeric-only employer (card number, ZIP, phone) -> NaN."""
+    """Numeric-only employers (card, ZIP, phone) become NaN."""
     emp = df['contributor_employer'].fillna('')
     mask = is_indiv & emp.str.match(_DIGITS_ONLY_RE, na=False)
     return _null_employer_where(df, mask)
@@ -109,7 +107,7 @@ def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 
 # normalize RETIRED typos, splitting any trailing text off
 def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """T. RETIRED typos normalized; 'RETIRED <X>' splits X to previous_employer (company) or occupation (profession word)."""
+    """RETIRED typos fixed; 'RETIRED <X>' moves X out."""
     emp = df['contributor_employer'].fillna('')
     retired_marker = (
         emp.isin(RETIRED_TYPO_EMPLOYERS)
@@ -140,19 +138,19 @@ def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
-# EXECUTIVE names no company, but remains a title when the paired field names one.
+# EXECUTIVE is a title when beside a company.
 _TITLE_SECTOR_WORDS = frozenset({'EXECUTIVE'}) & SECTOR_AS_EMPLOYER
 
-# Require company words here; sector words and '&' alone are not enough.
+# Require company words; sector words and '&' are not enough.
 _ENTITY_WORD_RE = re.compile(
     r'\b(?:L\.?L\.?C|L\.?L\.?P|L\.?P|INC|CORP|CORPORATION|COMPANY|LTD|PLC'
     r'|GROUP|HOLDINGS|PARTNERS|ENTERPRISES|INDUSTRIES)\b\.?'
 )
-# a name part that is itself an industry, a kind of workplace or a job
+# A name part that is an industry, workplace or job.
 _NOT_A_COMPANY_NAME = SECTOR_AS_EMPLOYER | NOT_REAL_EMPLOYER | JOB_TITLE_AS_EMPLOYER
 
 
-# Require a company word plus a name that is not itself a sector or job.
+# Require a company word plus a non-sector, non-job name.
 def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Series:
     upper = occ.fillna('').astype(str).str.strip().str.upper()
     entity = candidates & upper.str.contains(_ENTITY_WORD_RE, na=False)
@@ -173,7 +171,7 @@ def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Ser
     return result
 
 
-# Clear sector names, but recover a company or move an executive title first.
+# Clear sector names; first recover a company or move titles.
 def _null_sector_as_employer(df: pd.DataFrame) -> int:
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('').str.upper()
@@ -197,7 +195,7 @@ def _null_sector_as_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# A truncated name expands only when the rules document its full name.
+# Truncated names expand only to documented full names.
 def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
     from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
     return apply_reviewed_employer_names(df, ("contributor_employer",))

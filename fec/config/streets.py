@@ -10,12 +10,11 @@ POBOX_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Unit info at end of street_1 (APT 5, STE 200, UNIT B, ...)
+# Unit info at the end of street_1.
 UNIT_EXTRACT = re.compile(
     r'(?:\s+|,\s*)'
     r'((?:APT|APARTMENT|UNIT|STE|SUITE|BLDG|BUILDING|DEPT|DEPARTMENT'
-    # OFFICE followed by a place word is part of the street's name ("5 GREENWICH
-    # OFFICE PARK", "1 POST OFFICE SQ"), not a unit
+    # OFFICE before a place word belongs to the street name.
     r'|(?:OFF|OFFICE)(?!\.?\s+(?:PARK|PLAZA|PLZ|CENTER|CENTRE|CTR|PKWY|PARKWAY|SQ|SQUARE'
     r'|CAMPUS|COMPLEX|TOWER|TWR|DR|DRIVE|BLVD|WAY|CT|COURT|PL|PLACE|RD|ROAD|ST|STREET'
     r'|AVE|AVENUE|LN|LANE|CIR|TER|BLDG|BUILDING)\b)'
@@ -26,28 +25,23 @@ UNIT_EXTRACT = re.compile(
     re.IGNORECASE,
 )
 
-# A street_1 that is ONLY a floor ("3RD FLOOR", "FLOOR 3", "12 FL"): a unit, not
-# a street; the house-number cap (3 digits) keeps "FL 33480" (state + ZIP) out
+# A street_1 that is only a floor is a unit.
 FLOOR_ONLY_RE = re.compile(
     r'^(?:\d{1,3}(?:ST|ND|RD|TH)?\s+(?:FLOOR|FLR|FL)'
     r'|(?:FLOOR|FLR|FL)\s+\d{1,3}(?:ST|ND|RD|TH)?)\.?$',
     re.IGNORECASE,
 )
 
-# Hash units at end of street_1 (#5A, # 200, BLVD#300, ...)
-# a doubled hash (BLVD ##266) keeps one
+# Hash units at the end of street_1.
 HASH_EXTRACT = re.compile(r'(?:\s+|(?<=\w))#*(#\s*[\w\-\/\.]+\s*)$')
 
-# State code stuck at end of city name ("ENCINO, CA"); sorted so the compiled
-# pattern is identical across interpreter runs (frozenset order is not)
+# State code stuck to a city; sorted for stable patterns.
 STATE_IN_CITY = re.compile(r'\s*,?\s+(' + '|'.join(sorted(US_STATES)) + r')\s*$')
 
 
 # direction abbreviations
 
-# Keep directions that form the street name: WEST AVE stays WEST AVE (USPS Pub 28).
-# NORTH MAIN ST becomes N MAIN ST. A closing suffix or unit distinguishes the two.
-# PARK, CENTER and similar words can be names, so they are not closing suffixes.
+# Directions forming the name stay: WEST AVE (USPS Pub 28).
 _NAME_SUFFIXES = (
     'ALLEY|ALY|AVENUE|AVE|AV|BOULEVARD|BLVD|BYPASS|BYP|CAUSEWAY|CSWY'
     '|CIRCLE|CIR|COURT|CT|CRESCENT|CRES|DRIVE|DR|EXPRESSWAY|EXPY'
@@ -55,8 +49,7 @@ _NAME_SUFFIXES = (
     '|ROAD|RD|ROUTE|RTE|SQUARE|SQ|STREET|ST|TERRACE|TER|TRAIL|TRL'
     '|TURNPIKE|TPKE|WAY'
 )
-# suffixes whose trailing number is part of the name (Avenue 54, Loop 410,
-# County Road 20, Highway 9), so a bare number after them is not a unit
+# Suffixes whose trailing number is part of the name.
 _NUMBERED_NAME_SUFFIXES = (
     'AVENUE|AVE|AV|ROAD|RD|LOOP|HIGHWAY|HWY|ROUTE|RTE|PIKE|TURNPIKE|TPKE'
     '|EXPRESSWAY|EXPY|FREEWAY|FWY|PARKWAY|PKWY'
@@ -89,8 +82,7 @@ DIRECTION_ABBREVIATIONS = [
     ('NORTH', 'N'), ('SOUTH', 'S'), ('EAST', 'E'), ('WEST', 'W'),
 ]
 
-# Direction words after a house number ("123 NORTH MAIN ST"); a direction word
-# that is the street's name ("650 WEST AVE") is left spelled out
+# Direction words after a house number, unless naming the street.
 DIR_MID = [
     (re.compile(rf'(\d\s+){word}\b(?!{_DIRECTION_IS_NAME})', re.IGNORECASE), rf'\g<1>{abbr}')
     for word, abbr in DIRECTION_ABBREVIATIONS
@@ -139,8 +131,7 @@ ORDINAL_TENS = {
     'SIXTY': 60, 'SEVENTY': 70, 'EIGHTY': 80, 'NINETY': 90,
 }
 
-# USPS Pub 28, C2: 10TH FLOOR becomes FL 10; SUITE #200 becomes STE 200.
-# Keep suite identifiers as written: SUITE ONE becomes STE ONE.
+# USPS Pub 28: 10TH FLOOR becomes FL 10.
 _NUMBERED_FLOOR = r'(\d{1,3})(?:(?:ST|ND|RD|TH)\s+(?:FLOOR|FLR|FL)|\s+(?:FLOOR|FLR))\b\.?'
 _SPELLED_ORDINAL = rf"(?:({'|'.join(ORDINAL_TENS)})[\s-]+)?({'|'.join(ORDINAL_WORDS)})"
 _SPELLED_FLOOR = _SPELLED_ORDINAL + r'\s+(?:FLOOR|FLR|FL)\b\.?'
@@ -153,8 +144,7 @@ def _spelled_floor(match: re.Match) -> str:
     return f'FL {tens + ORDINAL_WORDS[match.group(2).upper()]}'
 
 
-# Match units after street text or another unit, never the house number.
-# Keep ambiguous names such as 100 FIRST FLOOR and 3 W 3RD FL unchanged.
+# Match units after street text, never the house number.
 _AFTER_TOKEN = r'(?<=\S\s)'
 _AFTER_WORD = r'(?<=[A-Z.,\-]\s)'
 _NOT_A_STREET_NAME = r'(?<!\s[NSEW]\s)(?<!\s[NS][EW]\s)'
@@ -169,18 +159,18 @@ USPS_UNIT_RULES = [
     (re.compile(_AFTER_WORD + _NOT_A_STREET_NAME + _SPELLED_ORDINAL + r'\s+FL\b\.?(?=\s|$)',
                 re.IGNORECASE), _spelled_floor),
     (re.compile(r'(?<=\s)(?:FLOOR|FLR)\s*#?\s*(\d{1,3}[A-Z]?)(?=\s|$)', re.IGNORECASE), r'FL \1'),
-    # SUITE followed by a street type is a street's name ('1 SUITE ST'), not a unit
+    # SUITE before a street type names: '1 SUITE ST'.
     (re.compile(r'(?<=\s)(?:SUITE|STE)\s*#\s*(?=\w)'
                 r'|(?<=\s)SUITE\s+(?!(?:' + _NAME_SUFFIXES + r')\b)(?=\w)', re.IGNORECASE), 'STE '),
 ]
 
-# In street_2, normalize the leading unit before applying the rules above.
+# In street_2, normalize the leading unit first.
 UNIT_RULES = [
     (re.compile(rf'^{pattern}', re.IGNORECASE), abbr)
     for pattern, abbr in [
         (r'SUITE\b', 'STE'), (r'STE\.\s*', 'STE '), (r'STE\s*#\s*(?=\w)', 'STE '),
         (r'APARTMENT\b', 'APT'), (r'APT\.\s*', 'APT '),
-        # a unit that starts with a floor: '5TH FLOOR', '2ND FL', '2 FLOOR', 'SECOND FLOOR REAR'
+        # A unit starting with a floor: '5TH FLOOR'.
         (_NUMBERED_FLOOR + r'(?=\s|$)', r'FL \1'), (_SPELLED_FLOOR + r'(?=\s|$)', _spelled_floor),
         (r'FLOOR\b', 'FL'), (r'FL\.\s*', 'FL '),
         (r'BUILDING\b', 'BLDG'), (r'BLDG\.?\s*', 'BLDG '),
@@ -191,19 +181,17 @@ UNIT_RULES = [
 ] + USPS_UNIT_RULES
 
 
-# Abbreviate floor and suite designators while keeping the rest of the street.
+# Abbreviate floor and suite designators, keeping the street.
 def usps_unit_designators(street: str) -> str:
     for pattern, replacement in USPS_UNIT_RULES:
         street = pattern.sub(replacement, street)
     return street
 
 
-# Human-verified FEC street typos. These are exact word replacements, not
-# fuzzy matching: a near-looking street can still be a real different place.
+# Human-verified FEC street typos, as exact word replacements.
 STREET_TYPO_RULES = [
     (re.compile(r'\bOLYMIC\b', re.IGNORECASE), 'OLYMPIC'),
     (re.compile(r'\bSUTE\b', re.IGNORECASE), 'SUITE'),
-    # "200 WEST SREET" (same donor files "200 WEST ST" 18 times); fixed before the
-    # direction rules so the street name WEST is kept like the donor's other rows
+    # "200 WEST SREET": the donor otherwise files "200 WEST ST".
     (re.compile(r'\bSREET\b', re.IGNORECASE), 'STREET'),
 ]

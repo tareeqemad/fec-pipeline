@@ -22,7 +22,7 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-# occupation categories too vague to prove two same-name donors are different people
+# Categories too vague to separate same-name donors.
 _VAGUE_OCC_CATEGORIES = ("", "OTHER", "NOT EMPLOYED", "RETIRED")
 # employer words that name no workplace
 _STATUS_EMPLOYERS = frozenset(EMPLOYER_STATUS_VALUES) | {"", "NONE", "N/A", "HOMEMAKER", "INFORMATION REQUESTED"}
@@ -30,9 +30,8 @@ _STATUS_EMPLOYERS = frozenset(EMPLOYER_STATUS_VALUES) | {"", "NONE", "N/A", "HOM
 
 # build the individual record id for matching and key assignment
 def individual_record_id(name, city, state, suffix="", zip5="") -> str:
-    """Build the individual record ID used by matching and key assignment (zip5 only for a ZIP-split name)."""
-    # Match profile construction: missing cells must not become literal "nan"
-    # or bypass the matched key when the original row is assigned its donor.
+    """Individual record ID for matching; ZIP5 only for split names."""
+    # Missing cells must not become literal "nan".
     name, city, state, suffix, zip5 = (
         "" if pd.isna(value) else value for value in (name, city, state, suffix, zip5)
     )
@@ -44,7 +43,7 @@ def individual_record_id(name, city, state, suffix="", zip5="") -> str:
 
 # hash the record id into the canonical donor_key
 def individual_donor_key(name, city, state, suffix="", zip5="") -> str:
-    """Canonical donor_key (sha256 of record-id, first 12 hex); must stay identical to leadership_matcher's."""
+    """Canonical donor_key; must match leadership_matcher's."""
     rid = individual_record_id(name, city, state, suffix, zip5)
     return hashlib.sha256(rid.encode()).hexdigest()[:12]
 
@@ -68,7 +67,7 @@ def _donor_keys(components: dict) -> dict:
 
 # assign each row its scored or fallback donor_key
 def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
-    """Apply scored donor_key: individuals take their cluster key from rid_to_key, silently falling back to a hash of their own rid when absent; non-individuals hash their normalized committee name instead."""
+    """Apply scored donor keys; committees hash their normalized name."""
 
     # look up or fall back to compute this row's donor_key
     def _get_key(row):
@@ -96,7 +95,7 @@ def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
 
 # merge donor_keys name-blocking split for the same person
 def merge_split_name_donors(df: pd.DataFrame) -> int:
-    """Merge donor_keys split by name blocking: same sorted name tokens + same ZIP + no occupation conflict repoint to the dominant key; returns rows repointed."""
+    """Merge keys split by name blocking: same tokens and ZIP."""
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
@@ -128,9 +127,7 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
     for _, grp in work.groupby(["fp", "z"]):
         if grp["key"].nunique() < 2:
             continue
-        # a name and a ZIP are not proof: keys join only through a shared filed
-        # street or employer, and each group joined that way merges on its own
-        # (A and B share one street, C and D another: two donors, not one)
+        # Name and ZIP prove nothing; keys join through shared streets.
         for keys in _evidence_groups(grp):
             remap.update(_merge_target(grp[grp["key"].isin(keys)], keys, names_by_key, suffixes_by_key))
 
@@ -141,7 +138,7 @@ def merge_split_name_donors(df: pd.DataFrame) -> int:
     return int(mask.sum())
 
 
-# each row's filed street, '' when it was taken from another filing
+# Each row's filed street, '' when copied from another filing.
 def _filed_streets(df: pd.DataFrame) -> pd.Series:
     street = df.get("contributor_street_1", pd.Series("", index=df.index)).fillna("").astype(str).str.upper().str.strip()
     if "_street_inferred" in df.columns:
@@ -149,15 +146,15 @@ def _filed_streets(df: pd.DataFrame) -> pd.Series:
     return street
 
 
-# each row's employer, '' for a status word (RETIRED, SELF-EMPLOYED, ...)
+# Each row's employer, '' for a status word.
 def _real_employers(df: pd.DataFrame) -> pd.Series:
     employer = df.get("contributor_employer", pd.Series("", index=df.index)).fillna("").astype(str).str.upper().str.strip()
     return employer.where(~employer.isin(_STATUS_EMPLOYERS), "")
 
 
-# keys linked by a shared filed street or employer, one set per connected group
+# Keys linked by a shared street or employer, per group.
 def _evidence_groups(grp: pd.DataFrame) -> list[set]:
-    """Connected groups of keys, two keys linked when they share a filed street or employer."""
+    """Key groups linked by a shared filed street or employer."""
     owners: dict[tuple, set] = {}
     for key, street, employer in grp[["key", "street", "employer"]].itertuples(index=False):
         for item in (("street", street), ("employer", employer)):
@@ -182,7 +179,7 @@ def _evidence_groups(grp: pd.DataFrame) -> list[set]:
     return [keys for keys in groups.values() if len(keys) > 1]
 
 
-# the key each of a linked group's keys repoints to, {} when they may be two people
+# Each linked key's target, or {} when maybe two people.
 def _merge_target(rows: pd.DataFrame, keys: set, names_by_key: dict, suffixes_by_key: dict) -> dict:
     if len({suffixes_by_key[key] for key in keys}) > 1:
         return {}
@@ -214,8 +211,7 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     return n
 
 
-# Give unresolved filing groups separate keys, away from any person's total.
-# Match holds by sub_id or name, street and ZIP for later filings.
+# Unresolved filing groups get separate keys, away from totals.
 def hold_unproven_filings(df: pd.DataFrame) -> int:
     groups = held_groups(df, HELD_FILINGS, HELD_ADDRESSES)
     held = groups != ""

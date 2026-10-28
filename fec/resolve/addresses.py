@@ -37,7 +37,7 @@ def _address_key(values) -> tuple[str, ...]:
 def _geocodes() -> dict[tuple[str, ...], tuple[float, float, str]]:
     """Read accepted cached points, preferring manual corrections."""
     cache = _read_json(CACHE_DIR / "geocode_cache.json")
-    # a hand-checked point counts even when its key has no cache entry
+    # A hand-checked point counts even without a cache entry.
     keys = {**{key: None for key in REVIEWED_POINTS}, **cache}
     coordinates = {}
     for key, result in keys.items():
@@ -59,14 +59,14 @@ def normalize_us_streets(streets: pd.Series) -> pd.Series:
     text = streets.fillna("").astype(str).str.replace(_EDITORIAL_NOTE_RE, " ", regex=True)
     text = text.str.split().str.join(" ")
     normalized = text.map(normalize_street)
-    # a text the street normaliser reads as junk (a bare number) is kept, uppercased
+    # Junk texts, like a bare number, are kept uppercased.
     keep = normalized.notna() & normalized.astype(str).ne("")
     streets = normalized.where(keep, text.str.upper()).astype(str).str.strip()
     return streets.map(_abbreviate_trailing_unit).map(usps_unit_designators)
 
 
 def _abbreviate_trailing_unit(street: str) -> str:
-    """Normalize a trailing unit code without changing the street or building name."""
+    """Normalize a trailing unit code, keeping street and building."""
     match = UNIT_EXTRACT.search(street)
     if not match:
         return street
@@ -139,7 +139,7 @@ def normalize_location_addresses(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _attach_coordinates(frame: pd.DataFrame) -> pd.DataFrame:
-    """Use accepted cached points, preferring manual corrections then the original text."""
+    """Accepted cached points: manual corrections, then the original text."""
     frame = frame.copy()
     if frame.empty:
         return frame

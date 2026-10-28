@@ -6,13 +6,13 @@ from collections import defaultdict
 
 import pandas as pd
 
-# '10 17 GREENTREE DR': a house number cut in two by a space
+# A house number split by a space: '10 17 GREENTREE'.
 _SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
 
 
 def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
                           eligible: pd.Series, prefer_longest: bool = False) -> int:
-    """Rewrite each group's minority spellings of col to the dominant one; returns rows rewritten."""
+    """Rewrite each group's minority spellings to the dominant one."""
     vals = df[col].fillna('')
     work = pd.DataFrame({'g': grp[eligible], 's': vals[eligible]})
     counts = work.groupby(['g', 's']).size().rename('n').reset_index()
@@ -26,8 +26,7 @@ def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
 
     # Prefer '1017 GREENTREE DR' over '10 17 GREENTREE DR'.
     counts['split_number'] = counts['s'].str.match(_SPLIT_HOUSE_NUMBER_RE)
-    # winner per group: most rows, then longest string (keeps the fuller form);
-    # prefer_longest flips that so the fuller spelling wins even as a minority
+    # Winner: most rows, then longest; prefer_longest favours the fuller spelling.
     order = ['g', 'split_number'] + (['len', 'n'] if prefer_longest else ['n', 'len'])
     counts = counts.sort_values(order, ascending=[True, True, False, False])
     winner = counts.drop_duplicates('g').set_index('g')['s']
@@ -41,7 +40,7 @@ def _collapse_to_dominant(df: pd.DataFrame, col: str, grp: pd.Series,
 
 
 def _unify_street_variants(df: pd.DataFrame, fingerprint, prefer_longest: bool = False) -> int:
-    """Collapse fingerprint-equal spellings of one donor's street to the dominant form; returns rows rewritten."""
+    """Collapse equal-fingerprint spellings of one donor's street."""
     # Scope spelling changes by name, city and state.
     street = df['contributor_street_1'].fillna('')
     name   = df['contributor_name'].fillna('')
@@ -75,17 +74,15 @@ _UNIT_DESIGNATOR_RE = re.compile(
     r'#|\b(?:APARTMENT|APT|UNIT|STE|SUITE|NUMBER|NO|RM|ROOM)\b\.?',
     re.IGNORECASE,
 )
-# a floor or a building is other information than a unit: "FL 3" is not "APT 3"
+# A floor or building is not a unit (FL 3).
 _FLOOR_RE = re.compile(r'\b(?:FL|FLR|FLOOR)\b\.?', re.IGNORECASE)
 # a building designator word: "BLDG 2", "BUILDING C"
 _BUILDING_RE = re.compile(r'\b(?:BLDG|BUILDING)\b\.?', re.IGNORECASE)
 
 
 def unit_core(s: str) -> str:
-    """Bare unit id of a street_2, unit words and punctuation removed; a floor or building keeps its kind."""
-    # every designator starts a new id; inside one id spaces and punctuation
-    # go ("705 N" = "705N", "15-03" = "1503"), while two ids stay apart
-    # ("BLDG 1 STE 23" is not "BLDG 12 STE 3")
+    """Bare unit id; a floor or building keeps its kind."""
+    # Each designator starts an id; inner punctuation is ignored.
     text = _UNIT_DESIGNATOR_RE.sub('|', str(s).upper())
     text = _FLOOR_RE.sub('|FLOOR|', _BUILDING_RE.sub('|BUILDING|', text))
     ids = (re.sub(r'[^A-Z0-9]', '', part) for part in text.split('|'))
@@ -93,8 +90,8 @@ def unit_core(s: str) -> str:
 
 
 def _unify_unit_designators(df: pd.DataFrame) -> int:
-    """Collapse one donor's same unit written with different designators; returns rows rewritten."""
-    # Unify the same unit only within one donor's street, city, state and ZIP.
+    """Collapse one donor's same unit written with different designators."""
+    # Unify units only within one donor's street, city, state, ZIP.
     st2   = df['contributor_street_2'].fillna('')
     name  = df['contributor_name'].fillna('')
     st1   = df['contributor_street_1'].fillna('')
@@ -123,8 +120,8 @@ _TYPE_TOKENS = {'ST', 'AVE', 'RD', 'DR', 'BLVD', 'LN', 'CT', 'PL', 'CIR', 'TER',
 
 
 def _unify_street_types(df: pd.DataFrame) -> int:
-    """Give one donor's "103 STANTON" the type of their "103 STANTON AVE"; returns rows rewritten."""
-    # Fill missing street types only when the donor's filed spellings agree.
+    """Give "103 STANTON" the type of "103 STANTON AVE"."""
+    # Fill missing street types only when the donor's spellings agree.
     street = df['contributor_street_1'].fillna('')
     name = df['contributor_name'].fillna('')
     words = street.str.upper().str.findall(r'[A-Z0-9]+')
@@ -154,7 +151,7 @@ def _addr_fingerprint(street: str) -> str:
 
 
 def _collapse_donor_variants(df: pd.DataFrame, column: str, bucket_of, rank) -> int:
-    """Within each donor, replace variants in a bucket with its highest-ranked form."""
+    """Within each donor, replace variants with the bucket's top form."""
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
@@ -172,7 +169,7 @@ def _collapse_donor_variants(df: pd.DataFrame, column: str, bucket_of, rank) -> 
             forms = [df.at[i, column].strip() for i in rows]
             if len(set(forms)) < 2:
                 continue
-            # sorted first, so a tie picks the same form on every run
+            # Sorted first, so ties pick the same form every run.
             canon = max(sorted(set(forms)), key=lambda form: rank(form, forms))
             for i, form in zip(rows, forms):
                 if form != canon:
@@ -200,14 +197,14 @@ def _unit_bucket(df: pd.DataFrame, i, unit: str):
 
 
 def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
-    """Unify street spellings with the same ZIP and anchored tokens; return rows changed."""
+    """Unify street spellings with the same ZIP and anchored tokens."""
     return _collapse_donor_variants(
         df, "contributor_street_1", _street_bucket, lambda form, forms: forms.count(form),
     )
 
 
 def canonicalize_donor_units(df: pd.DataFrame) -> int:
-    """Unify unit spellings at the same street and ZIP; return rows changed."""
+    """Unify unit spellings at the same street and ZIP."""
     return _collapse_donor_variants(
         df, "contributor_street_2", _unit_bucket,
         lambda form, forms: (forms.count(form), len(form)),

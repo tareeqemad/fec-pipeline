@@ -24,7 +24,7 @@ def find_or_create_donor(
     if not donor_key:
         raise ValueError(f"Missing donor_key for {name!r}")
 
-    # Follow merged keys so an old roster key does not create a duplicate donor.
+    # Follow merged keys so old roster keys create no duplicates.
     resolved_key = resolve_donor_key(donor_key)
     method = "donor_key_exact" if resolved_key == donor_key else "donor_key_merged"
 
@@ -112,7 +112,7 @@ def upsert_donor_address(
     )
 
 
-# Choose a same-city office, then a nearby state office or the default.
+# Same-city office, then a nearby state office, else default.
 def employment_address_id(
     cur: Any, employer: str, locations: dict | None,
     state: str | None = "", zip_5: str | None = "",

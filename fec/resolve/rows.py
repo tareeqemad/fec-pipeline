@@ -1,4 +1,4 @@
-"""Choose an employer and office for one filing, respecting its date and identity."""
+"""Choose each filing employer and office by date and identity."""
 
 from dataclasses import dataclass, field
 
@@ -17,11 +17,11 @@ from fec.resolve.previous import PROTECTED_METHODS
 class ResolveContext:
     previous_cache: object
     address_lookup: dict
-    # row index -> the donor's own latest employer on or before that retired filing
+    # Row index to the donor's latest employer before that filing.
     dated_previous: dict = field(default_factory=dict)
-    # sub_id -> the employer the filing itself wrote (the raw file)
+    # sub_id to the employer the filing itself wrote.
     filed_employers: dict = field(default_factory=dict)
-    # (donor_key, employer) -> the first date the donor filed that employer
+    # (donor_key, employer) to the first date filed.
     first_filed: dict = field(default_factory=dict)
     previous_display_names: dict = field(default_factory=dict)
     scoped_employer_rules: dict = field(default_factory=dict)
@@ -77,7 +77,7 @@ def _cached_address(
     donor_state: str = "",
     donor_city: str = "",
 ) -> dict | None:
-    """Return the first usable address under an exact or canonical cache key."""
+    """First usable address under an exact or canonical key."""
     for key in keys:
         exact_key = str(key).upper()
         exact = addr_cache.get(exact_key)
@@ -139,7 +139,7 @@ def _first_filed_employers(df: pd.DataFrame) -> dict:
 
 
 def _learned_later(entry: dict, row: pd.Series, first_filed: dict) -> bool:
-    """Check whether the cached employer was first learned after this filing."""
+    """Whether the cached employer was learned after this filing."""
     filed = pd.to_datetime(row.get("contribution_receipt_date"), errors="coerce", utc=True)
     if pd.isna(filed):
         return False
@@ -153,7 +153,7 @@ def _learned_later(entry: dict, row: pd.Series, first_filed: dict) -> bool:
 
 
 def _filed_previous(row: pd.Series, context: ResolveContext) -> dict | None:
-    """The clean stage's previous_employer when it is the filing's own employer."""
+    """The clean stage's previous employer when it is this filing's."""
     text = str(row.get("previous_employer") or "").strip()
     previous = normalize_previous_employer_value(text)
     filed = normalize_previous_employer_value(context.filed_employers.get(str(row.get("sub_id", "")), ""))
@@ -162,7 +162,7 @@ def _filed_previous(row: pd.Series, context: ResolveContext) -> dict | None:
         context.scoped_employer_rules if row.get("identity_status") == "confirmed" else None,
     )
     if previous and filed and canonical_key(previous) == canonical_key(filed):
-        # the text as set keeps an own-named firm's legal form: AMY N DEAN PA
+        # Keep an own-named firm's legal form: AMY N DEAN PA.
         return {"employer": previous, "employer_source": text, "method": "filed"}
     return None
 
@@ -174,7 +174,7 @@ def _resolve_retired(
     zip_code: str,
     index=None,
 ) -> dict:
-    """Prefer reviewed history, then this filing, then dated history; keep unconfirmed filings separate."""
+    """Reviewed history, then this filing, then dated history."""
     own_entry = _filed_previous(row, context)
     if row.get("identity_status", "confirmed") != "confirmed":
         prev_entry = own_entry

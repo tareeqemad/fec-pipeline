@@ -1,4 +1,4 @@
-"""Safety nets for a person's or company's name filed in the wrong work field."""
+"""Safety nets for names filed in the wrong work field."""
 from __future__ import annotations
 
 import pandas as pd
@@ -20,7 +20,7 @@ from fec.config.occupation_rules.rules import (
 
 # employer equal to donor's own name becomes self-employed
 def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
-    """AE2. Employer is the donor's own FULL name -> SELF-EMPLOYED; a shared surname alone is often a real firm, so both names required."""
+    """Employer is the donor's full name: SELF-EMPLOYED."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('')
     mask = is_indiv & emp.ne('') & ~emp.isin(SKIP_EMPLOYERS)
@@ -39,13 +39,7 @@ def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
 
 # occupation that is really a known employer name, swap fields
 def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
-    """AK. emp='SELF-EMPLOYED' but occ is a frequent employer name in the dataset -> occ is the real employer; the occupation is left empty.
-
-    The filing names no job, and what OTHER people at that company report is
-    another person's occupation, never evidence for this one. The donor-stage
-    fill (donor_consistency AJ) later recovers the role only from this same
-    donor's own filings at this same employer; with none it stays missing.
-    """
+    """SELF-EMPLOYED with a frequent employer as occupation: that employer."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     emp = df['contributor_employer'].fillna('')
     occ = df['contributor_occupation'].fillna('')
@@ -91,13 +85,12 @@ def _fix_swapped_emp_occ_company(df: pd.DataFrame) -> int:
 
 # swap curated company from occupation when employer is a job
 def _fix_occ_emp_both_swapped(df: pd.DataFrame) -> int:
-    """AO. Swap a curated company from occupation only when employer is a job."""
+    """Swap a curated occupation company beside a job employer."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')
 
-    # Two company names are not a safe swap. That case needs a per-row
-    # override because neither field tells us the person's actual role.
+    # Two company names are no safe swap without an override.
     emp_is_company = emp.str.contains(_COMPANY_NAME_RE, na=False)
     mask = is_indiv & occ.isin(KNOWN_COMPANY_OCCUPATIONS) & emp.ne('') & ~emp_is_company
     n_fixed = int(mask.sum())

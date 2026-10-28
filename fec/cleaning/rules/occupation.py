@@ -11,8 +11,7 @@ from fec.config.occupation_rules.rules import (
     WEB_ARTIFACT_OCCUPATIONS,
 )
 
-# a company name (legal suffix) alone in the occupation field; a leading
-# role word ("PRESIDENT, X INC") is a real title, so it's excluded
+# A company alone in occupation; a leading role word excluded.
 _OCC_IS_COMPANY_RE = re.compile(
     r'\b(?:LLC|L\.L\.C|INC|CORP|CORPORATION|LLP|LP|PC|P\.C|PLLC|LTD|COMPANY)\.?$',
     re.IGNORECASE,
@@ -124,7 +123,7 @@ def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 
 # clear web form artifact strings left in occupation field
 def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
-    """AP. Web form artifacts in occupation ('LOADING', 'ACMIO', 'REMD') -> NaN."""
+    """Web form artifacts in occupation become NaN."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     mask = is_indiv & occ.isin(WEB_ARTIFACT_OCCUPATIONS)
@@ -159,7 +158,7 @@ def _fix_employed_as_occupation(df: pd.DataFrame) -> int:
 
 # clear or relocate non-occupation junk (emails, bare company names)
 def _null_junk_occupation(df: pd.DataFrame) -> int:
-    """Clear non-occupation values, moving company names to an empty/self-employed employer first."""
+    """Clear non-occupations; move company names to the employer first."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     emp = df['contributor_employer'].fillna('')

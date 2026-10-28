@@ -5,11 +5,7 @@ from contextlib import contextmanager
 
 from fec.donor_match.normalize import _NAME_TOKEN_RE
 
-# A first-name spelling can carry filer decoration that is not part of the
-# name: a parenthetical (nickname, spouse, initials), a stray or unclosed
-# bracket, a trailing dash/comma, or a period after a whole word ("JOHN.").
-# A period after an initial or a two-letter abbreviation ("L.", "JR.") is
-# ordinary spelling and stays.
+# First names can carry filer decoration that is not name.
 _PAREN_GROUP_RE = re.compile(r"\([^()]*\)")
 
 
@@ -21,7 +17,7 @@ _PAREN_OPEN_TAIL_RE = re.compile(r"\([^()]*$")
 _TRAILING_NOISE_RE = re.compile(r"[\s,\-]+$")
 
 
-# a period after a whole word (3+ letters) to drop: "JOHN." -> "JOHN"
+# A period after a whole word: "JOHN." -> "JOHN".
 _WORD_PERIOD_RE = re.compile(r"(?<=[A-Z]{3})\.+$")
 
 
@@ -30,10 +26,7 @@ _COMMA_SUFFIXES = frozenset(
 )
 
 
-# "A LEVY", "W. HAHN", "B.POLLACK": a single-letter initial in front of the
-# surname. A surname filed only that way keeps a letter that can be a
-# particle with its apostrophe dropped: O (O BRIEN), D (D ANGELO, D SOUZA),
-# and L before a vowel or H (L ESPERANCE, L HEUREUX).
+# A single-letter initial before the surname: "A LEVY".
 _LEADING_INITIAL_RE = re.compile(r"^([A-Z])(\.\s*|\s+)([A-Z][A-Z'\-]+(?:\s.*)?)$")
 
 
@@ -43,13 +36,10 @@ def _is_particle(letter: str, rest: str) -> bool:
 
 
 def _first_core(value: str) -> str:
-    """Remove brackets, stray punctuation and surname spill-over from a first name."""
+    """Remove brackets, stray punctuation and surname spill-over from first names."""
     text = value
     if "," in text:
-        # "AM, DANIEL": a first name never carries a comma. As in the cleaner's
-        # own "LAST, X, FIRST" rule, the part after the last comma is the first
-        # name and the rest is spill-over ("HEY,AM"); a bare suffix after a
-        # comma ("JAMES, JR") is not a first name
+        # First names never carry commas; the last part is first.
         parts = [part.strip() for part in text.split(",") if part.strip()]
         named = [p for p in parts if p.upper().rstrip(".") not in _COMMA_SUFFIXES]
         text = (named or parts or [""])[-1]
@@ -77,7 +67,7 @@ def _name_tokens(text: str) -> tuple:
 
 
 def _parenthesized_tokens(values) -> set:
-    """Tokens the donor writes inside brackets somewhere: asides, not name parts."""
+    """Tokens the donor writes inside brackets: asides, not names."""
     tokens = set()
     for value in values:
         for inner in re.findall(r"\(([^()]*)(?:\)|$)", value):
@@ -86,7 +76,7 @@ def _parenthesized_tokens(values) -> set:
 
 
 def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) -> str:
-    """Drop a truncated surname tail unless it is also a known given name."""
+    """Drop a truncated surname tail unless it is a name."""
     words = first.split()
     tail = words[-1].upper() if len(words) > 1 else ""
     if (len(tail) >= 3 and tail not in given_names
@@ -95,7 +85,7 @@ def _drop_cut_surname(first: str, last_words: set[str], given_names: frozenset) 
     return first
 
 
-# true when two words differ by one letter added, dropped, swapped or changed
+# True when two words differ by one letter.
 def _one_edit_apart(a: str, b: str) -> bool:
     if a == b or abs(len(a) - len(b)) > 1:
         return False
@@ -109,14 +99,14 @@ def _one_edit_apart(a: str, b: str) -> bool:
     return any(long[:i] + long[i + 1:] == short for i in range(len(long)))
 
 
-# first names filed at most twice in the whole dataset, set per cleaning run
+# First names filed at most twice, set per run.
 _RARE_SPELLINGS: frozenset[str] = frozenset()
 
 
 # make the dataset's rare first-name spellings known while choosing names
 @contextmanager
 def rare_spellings(words):
-    """Temporarily set rare first names used to distinguish typos from common names."""
+    """Temporarily set rare first names to separate typos."""
     global _RARE_SPELLINGS
     previous, _RARE_SPELLINGS = _RARE_SPELLINGS, frozenset(words)
     try:
@@ -126,7 +116,7 @@ def rare_spellings(words):
 
 
 def _drop_misspellings(candidates: list[str]) -> list[str]:
-    """Drop a rare one-letter variant only when this donor files the other spelling more often."""
+    """Drop a rare one-letter variant when the donor prefers another."""
     first_words = []
     for value in candidates:
         words = _first_core(value).split()
@@ -146,7 +136,7 @@ def _drop_misspellings(candidates: list[str]) -> list[str]:
 
 
 def _choose_first(candidates: list[str]) -> str | None:
-    """Choose the fullest real name, then filing frequency and order; prefer clean spelling."""
+    """Choose the fullest real name, then frequency and order."""
     if not candidates:
         return None
     candidates = _drop_misspellings(candidates)
@@ -166,8 +156,7 @@ def _choose_first(candidates: list[str]) -> str | None:
         return " ".join(kept)
 
     cores = {value: _core(value) for value in order}
-    # fullness = the name's letters and word breaks, not its punctuation: the
-    # period of "ISAAC S." must not outweigh the "A" of "ISAAC A"
+    # Fullness counts letters and word breaks, not punctuation.
     fullness = {value: len(" ".join(_name_tokens(cores[value]))) for value in order}
     longest = max(fullness.values())
     filings: Counter = Counter()
@@ -191,7 +180,7 @@ def _choose_first(candidates: list[str]) -> str | None:
 
 
 def _surname_parents(variants: list[str], firsts_by_last: dict) -> dict:
-    """Map a prefixed surname to its base only when the prefix is an initial or a filed given name."""
+    """Map a prefixed surname to its base after an initial."""
     parents = {}
     for variant in variants:
         given_tokens, lead_tokens = set(), set()

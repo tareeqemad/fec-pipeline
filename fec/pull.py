@@ -137,7 +137,7 @@ def run(committee_id: str, period: int) -> None:
                         page.append(build_row(result))
                         page_ids.add(sub_id)
                         sources.append(_source_record(sub_id, result))
-                    # Save metadata first so saved filings always have their source fields.
+                    # Save metadata first, so filings always have source fields.
                     append_source_fields(source_path(csv_path), sources)
                     writer.writerows(page)
                     handle.flush()

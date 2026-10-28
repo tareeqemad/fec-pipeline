@@ -4,5 +4,4 @@ numpy==2.4.6
 psycopg2-binary==2.9.12
 sqlparse==0.5.5
 requests==2.34.2
-openai==2.41.1
 tqdm==4.68.2

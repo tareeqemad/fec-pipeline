@@ -63,13 +63,13 @@ OUTPUT_DIR = DATA_DIR / "output"
 REPORTS_DIR = DATA_DIR / "reports"
 # raw FEC data; pull.py appends, nothing rewrites it
 RAW_CSV = RAW_DIR / "contributions.csv"
-# FEC's own entity type and contributor id per sub_id; the raw file is never rewritten
+# FEC's own entity type and id per sub_id; raw unchanged.
 FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
 CLEANED_CSV = OUTPUT_DIR / "contributions_cleaned.csv"
 # Known employer offices, built by geocode.py --employer-only
 EMPLOYER_LOCATIONS_CSV = OUTPUT_DIR / "employer_locations.csv"
 SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
-# single source of truth for committee identities; add a row for every new committee
+# The single committee list; add a row per new committee.
 COMMITTEES_CSV = REFERENCE_DIR / "committees.csv"
 # Curated employer spelling rules
 EMPLOYER_NAME_RULES_CSV = RULES_DIR / "employer_name_rules.csv"

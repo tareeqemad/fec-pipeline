@@ -1,19 +1,4 @@
-"""Specialise a vague occupation word from the filing's own context.
-
-`DEVELOPER` on its own is either a real-estate developer or a software
-developer, so no blanket rule can be right. Each filing is decided on its own:
-
-1. the employer NAME, when it carries an unmistakable industry word
-   (REALTY / HOMES / ... -> real estate, SOFTWARE / TECHNOLOGIES / ... -> tech);
-2. otherwise the employer's OTHER donors: when at least 3 different people at
-   that employer file occupations and 60% of them fall in one of the two
-   industries, that industry decides;
-3. otherwise the word stays `DEVELOPER` exactly as filed.
-
-The occupation TEXT is what gets specialised (`REAL ESTATE DEVELOPER` /
-`SOFTWARE DEVELOPER`), so the category still follows from the text alone and
-the category-consistency quality gate stays deterministic.
-"""
+"""Specialise vague occupation words from the filing's own context."""
 from __future__ import annotations
 
 import re
@@ -26,14 +11,13 @@ from fec.config.constants import SKIP_EMPLOYERS
 VAGUE_WORD = 'DEVELOPER'
 SPECIFIC_TEXT = {'REAL ESTATE': 'REAL ESTATE DEVELOPER', 'TECHNOLOGY': 'SOFTWARE DEVELOPER'}
 
-# Only words that name the industry outright. Anything that also names another
-# industry (CAPITAL, EQUITIES, LABS, NETWORKS, ...) is deliberately left out.
+# Only words naming exactly one industry.
 _REAL_ESTATE_EMPLOYER_RE = re.compile(
     r'\b(REAL ESTATE|REALTY|REALTORS?|PROPERT(?:Y|IES)|HOMES?|HOUSING|HOMEBUILDERS?|'
     r'BUILDERS?|DEVELOPMENT|APARTMENTS?|RESIDENTIAL|COMMUNITIES|ESTATES|LAND|'
     r'CONSTRUCTION)\b'
 )
-# a tech-industry word or company in the employer name: "SOFTWARE", "GOOGLE"
+# A tech word or company in the employer name.
 _TECHNOLOGY_EMPLOYER_RE = re.compile(
     r'\b(SOFTWARE|TECH|TECHNOLOG(?:Y|IES)|DIGITAL|CLOUD|CYBER(?:SECURITY)?|ANALYTICS|AI|'
     r'ROBOTICS|COMPUTING|GOOGLE|MICROSOFT|AMAZON|APPLE|META|ORACLE|NVIDIA|SALESFORCE|'
@@ -46,7 +30,7 @@ _MIN_SHARE = 0.6     # ...and that industry must cover 60% of ALL colleagues' fi
 
 # industry named by the employer's own name, or None
 def _employer_signal(employer: str) -> str | None:
-    """Industry named by the employer itself, or None when the name is silent or says both."""
+    """The employer's own industry, or None when unclear."""
     e = (employer or '').upper()
     if not e or e in SKIP_EMPLOYERS:
         return None
@@ -59,7 +43,7 @@ def _employer_signal(employer: str) -> str | None:
 
 # map employer -> industry its other donors mostly report
 def _peer_signal(df: pd.DataFrame, vague: pd.Series) -> dict[str, str]:
-    """employer -> industry that a clear majority of its OTHER donors (distinct people) report."""
+    """Employer's industry as most of its other donors report it."""
     peers = df.loc[
         ~vague
         & (df['entity_type'] == 'INDIVIDUAL')
@@ -81,7 +65,7 @@ def _peer_signal(df: pd.DataFrame, vague: pd.Series) -> dict[str, str]:
 
 # specialize a vague DEVELOPER occupation using employer context
 def _disambiguate_vague_occupation(df: pd.DataFrame) -> int:
-    """AS-2. Bare DEVELOPER -> REAL ESTATE DEVELOPER or SOFTWARE DEVELOPER, decided per filing by its employer."""
+    """DEVELOPER becomes real estate or software, per employer."""
     occ = df['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
     vague = (df['entity_type'] == 'INDIVIDUAL') & (occ == VAGUE_WORD)
     if not vague.any():

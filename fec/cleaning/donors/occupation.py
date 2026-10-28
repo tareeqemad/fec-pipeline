@@ -21,7 +21,7 @@ def _rederive_occupation_category(df: pd.DataFrame) -> int:
 
 # find the donor's single confirmed role at this employer
 def _one_confirmed_role(df, donor_key, employer):
-    """Return the donor's only real role at this employer, or None."""
+    """The donor's only real role at this employer, or None."""
     same_job = (
         df['donor_key'].eq(donor_key)
         & df['entity_type'].eq('INDIVIDUAL')
@@ -50,7 +50,7 @@ def _set_derived_occupation(df, rows, occupation):
     df.loc[rows, 'occupation_status'] = 'DERIVED'
 
 
-# Recover missing occupations from the same donor and employer, after employer recovery.
+# Recover occupations from the same donor and employer.
 def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     employer = indiv['contributor_employer']
@@ -59,15 +59,11 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
 
     n_fixed = _fill_missing_occupations(df, indiv[occupation.isna() & real_employer])
 
-    # SELF-EMPLOYED is sometimes filed as the occupation beside a named company.
-    # Recover it only when this donor has one clear role at that same company.
+    # SELF-EMPLOYED beside a company: recover one clear role there.
     self_employed = indiv[occupation.eq('SELF-EMPLOYED') & real_employer]
     n_fixed += _fill_placeholder_occupations(df, self_employed)
 
-    # A company occasionally lands in both fields (for example KIRKLAND &
-    # ELLIS beside KIRKLAND & ELLIS LLP). Legal suffixes and punctuation are
-    # ignored only for detecting this placeholder; the role still needs unique
-    # same-donor, same-employer evidence.
+    # A company in both fields stands in for the role.
     occupation_key = occupation.fillna('').map(employer_text_key)
     employer_key = employer.fillna('').map(employer_text_key)
     company_as_occupation = indiv[
@@ -79,7 +75,7 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
 
 # fill each empty occupation with the donor's most common one
 def _fill_missing_occupations(df: pd.DataFrame, missing_occ: pd.DataFrame) -> int:
-    """Fill each empty occupation with the donor's most common one there."""
+    """Fill empty occupations with the donor's most common one there."""
     n_fixed = 0
     for (dk, emp), missing in missing_occ.groupby(['donor_key', 'contributor_employer']):
         same_job = (
@@ -122,8 +118,7 @@ def _fill_placeholder_occupations(df: pd.DataFrame, placeholders: pd.DataFrame) 
 
 # replace vague SELF-EMPLOYED occupation with a real one from donor
 def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
-    """AW. 'SELF-EMPLOYED' filed as the OCCUPATION says nothing about the job; when the same donor
-    filed a real occupation elsewhere (at the same employer first, otherwise anywhere), that one is used."""
+    """SELF-EMPLOYED as occupation is replaced by the donor's real one."""
     indiv = df[df['entity_type'] == 'INDIVIDUAL']
     occ = indiv['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
     vague = occ == 'SELF-EMPLOYED'

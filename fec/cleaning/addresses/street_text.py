@@ -21,35 +21,34 @@ _JUNK_STREETS = {'HOME', 'YES', 'NO', 'SAME', 'N/A', 'NA', 'NONE',
                  'UNKNOWN', 'X', 'XX', 'XXX', 'NOT PROVIDED',
                  'UNITED STATES OF AMERICA', 'USA', 'NO ADDRESS'}
 
-# the same placeholders in street_2, except a bare X: "UNIT X" is written "X" there
+# Same placeholders in street_2, except a bare X.
 _JUNK_UNITS = (_JUNK_STREETS - {'X'}) | {'NULL', 'N.A', 'N.A.', 'ADDR 2', 'ADDRESS 2', 'ADDRESS LINE 2'}
 
 
 # true when a street_2 value has no letters or digits
 def _has_no_unit_text(value: str) -> bool:
-    """True for a street_2 holding no letter or digit ('.', '-', '..'); a bare '#' is kept for address_review, which reports it as a unit keyword without a number."""
+    """True for a street_2 with no letter or digit."""
     return not any(char.isalnum() or char == '#' for char in value)
 
 
 # trailing unit word without a number
 _TRAILING_UNIT_RE = re.compile(r'\s+(?:APT|UNIT|STE|SUITE)\s*$')
 
-# an FEC committee id or a bare number, not a real street: "C0012345"
+# An FEC committee id or bare number, not a street.
 _INVALID_STREET_RE = re.compile(r'^(?:C\d{7,}|\d+)$')
 
-# a PO box abbreviated so far it's missing the word BOX: "P O B 123"
+# A PO box missing BOX: "P O B 123".
 _SHORT_POBOX_RE = re.compile(r'^(?:P\.?\s*O\.?\s*B?|BOX)\s+(\d)')
 
 
-# a house number token, with an optional letter suffix: "1425" or "14A"
+# A house number with an optional letter: "1425", "14A".
 _HOUSE_TOKEN_RE = re.compile(r'^\d+[A-Z]?$')
 
 
 _DIRECTION_TOKENS = frozenset({'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'})
 
 
-# Remove a repeated street only when its house number matches and the copy is a prefix.
-# Keep grid addresses such as 1300 E 1300 S.
+# Remove repeated streets; grid addresses stay.
 def _drop_repeated_street(s):
     if not isinstance(s, str):
         return s
@@ -59,12 +58,12 @@ def _drop_repeated_street(s):
     for index in range(2, len(tokens) - 1):
         if tokens[index] != tokens[0]:
             continue
-        # a separator between the two copies ('1020 HULL ST / 1020 HULL ST') goes too
+        # A separator between the two copies goes too.
         head = tokens[:index]
         while head and not any(char.isalnum() for char in head[-1]):
             head.pop()
         first, copy = ' '.join(head), ' '.join(tokens[index:])
-        # what is kept must still name a street ('159 W 159 WEST' is not '159 W')
+        # What is kept must still name a street.
         names_street = any(
             token not in _DIRECTION_TOKENS and re.search(r'[A-Z]', token) for token in head[1:]
         )
@@ -90,14 +89,13 @@ def _tidy_periods(s: str) -> str:
     s = re.sub(r'(\d)\.([A-Z])', r'\1 \2', s)
     s = re.sub(r'\bSO\.(?=\s|$)', 'S', s)
     s = re.sub(r'(\d+(?:ST|ND|RD|TH))\.', r'\1', s)
-    # compound direction dots must run before single-letter cleanup (S.W stays SW)
+    # Compound direction dots first, so S.W stays SW.
     s = re.sub(r'\b([NS])\.([EW])\b\.?', r'\1\2', s)
     s = re.sub(r'\b([NSEW])\.\s*([A-Z])', r'\1 \2', s)
     s = re.sub(r'\b([A-Z])\.\s', r'\1 ', s)
     s = re.sub(r'\b(UNIV|PT|NO|CTR|DEPT|BLDG|GEN|GOVT|NATL)\.\s*', r'\1 ', s)
     s = re.sub(r'([A-Z]{2,})\.\s', r'\1 ', s)
-    # stray state code + ZIP fragment at end; the trailing digit is required
-    # or this eats legitimate 2-letter street types ("FIGUEROA ST.")
+    # Stray state + ZIP fragment at the end; digit required.
     s = re.sub(r'\s+[A-Z]{2}\.\s*\d+$', '', s)
 
     return s.rstrip('.')
@@ -121,11 +119,10 @@ def normalize_street(s: str) -> str:
     if s in _JUNK_STREETS or _INVALID_STREET_RE.match(s):
         return np.nan
 
-    # OCR often substitutes zero for O in PO; retain the filed box number.
+    # OCR swaps zero for O in PO; keep the number.
     s = re.sub(r'^P\.?\s*[O0]\.?\s*BOX\s*(?=\d)', 'PO BOX ', s)
 
-    # PO box variants missing PO or BOX; digits required so street names
-    # like BOX CANYON RD are untouched
+    # PO box variants missing PO or BOX; digits required.
     s = _SHORT_POBOX_RE.sub(r'PO BOX \1', s)
 
     # unit/suite written before the address: move it to the end
@@ -141,12 +138,10 @@ def normalize_street(s: str) -> str:
     for pattern, replacement in STREET_TYPO_RULES:
         s = pattern.sub(replacement, s)
 
-    # A direction stuck to the house number is not a house suffix.
+    # A direction stuck to the house number is no suffix.
     s = re.sub(r'^(\d+)([NSEW])\s+', r'\1 \2 ', s)
 
-    # Missing space between house number and street name. A single other
-    # letter followed by whitespace is part of the house number (14A, 704C);
-    # a leading ordinal (3RD FLOOR, 21ST ST) is one word, never split.
+    # Missing space after the house number; ordinals stay one word.
     s = _split_fused_house_number(s)
 
     for rules in (DIR_PREFIX, DIR_MID, STREET_TYPES, DIR_SUFFIX):
@@ -162,7 +157,7 @@ def normalize_street(s: str) -> str:
     return s
 
 
-# a house number run into the street name: "123M" in "123MAIN ST"
+# A house number run into the street: "123MAIN ST".
 _FUSED_HOUSE_NUMBER_RE = re.compile(r'^(\d+)([A-Z])(?=[A-Z])')
 
 
@@ -172,7 +167,7 @@ _LEADING_ORDINAL_RE = re.compile(r'^(\d+)(ST|ND|RD|TH)\b')
 
 # compute a number's English ordinal suffix
 def _ordinal_suffix(number: str) -> str:
-    """English ordinal suffix of a number: 1 -> ST, 3 -> RD, 12 -> TH, 23 -> RD."""
+    """English ordinal suffix of a number: 1 -> ST."""
     value = int(number)
     if value % 100 in (11, 12, 13):
         return 'TH'
@@ -181,7 +176,7 @@ def _ordinal_suffix(number: str) -> str:
 
 # split a house number fused to the street name
 def _split_fused_house_number(s: str) -> str:
-    """'123MAIN ST' -> '123 MAIN ST', but a correct ordinal ('3RD FLOOR', '21ST ST') stays one word; '12ST JAMES PL' (12 takes TH) is still split."""
+    """Split '123MAIN ST'; correct ordinals stay one word."""
     match = _LEADING_ORDINAL_RE.match(s)
     if match and match.group(2) == _ordinal_suffix(match.group(1)):
         return s
@@ -190,12 +185,12 @@ def _split_fused_house_number(s: str) -> str:
 
 # clean and abbreviate a unit/apt/suite string, or nan for placeholders
 def _normalize_unit(s: str) -> str:
-    """Normalize a unit/apt/suite string; placeholders ('NONE', '.', 'N/A', 'HOME') are no unit."""
+    """Normalize a unit string; placeholders like 'NONE' mean no unit."""
     if pd.isna(s) or not str(s).strip():
         return np.nan
 
     s = str(s).strip().upper()
-    # a placeholder behind a hash is still one ('# NA', '#N/A')
+    # A placeholder behind a hash is still one: '# NA'.
     hashed = s.strip(' .,-#')
     if s.strip(' .,-') in _JUNK_UNITS or (hashed and hashed in _JUNK_UNITS) or _has_no_unit_text(s):
         return np.nan
@@ -216,14 +211,13 @@ UNIT_REPEATED_REASON = "street_1_unit_repeating_street_2_dropped"
 DOUBLED_HASH_REASON = "doubled_hash_unit_moved_to_street_2"
 FLOOR_ORDINAL_REASON = "floor_ordinal_left_in_street_1_dropped"
 
-# a street_2 that is only a floor: "FL 4", "FLOOR 4"
+# A street_2 that is only a floor: "FL 4".
 _FLOOR_UNIT_RE = re.compile(r'^(?:FL|FLR|FLOOR)\.?\s+(\d{1,3})$')
-# an ordinal right after the street type: "1555 BROADWAY ST 4TH"
+# An ordinal after the street type: "BROADWAY ST 4TH".
 _FLOOR_ECHO_RE = re.compile(r'(\s(?:ST|AVE|RD|DR|LN|CT|PL|WAY|BLVD|CIR|TER|HWY|PKWY))\s+(\d{1,3})(?:ST|ND|RD|TH)$')
 
 
 # Move embedded units to an empty second line.
-# Return both lines and per-row leftovers for the audit.
 def _extract_units(
     street1: pd.Series, street2: pd.Series,
 ) -> tuple[pd.Series, pd.Series, pd.Series]:
@@ -240,15 +234,14 @@ def _extract_units(
         s1 = s1.where(~move_named, _strip_named_unit(s1))
         s2_blank = s2.str.strip().eq('')
 
-    # A second pass is intentional: after SUITE is removed, a preceding
-    # "OFFICE PARK" can itself match the legacy unit rule.
+    # A second pass catches units revealed by the first.
     same_named = named_unit.notna() & ~s2_blank & (
         named_unit.str.strip().str.upper() == s2.str.strip().str.upper()
     )
     if same_named.any():
         s1 = s1.where(~same_named, _strip_named_unit(s1))
 
-    # a hash unit repeating street_2's: "2711 SAKLAN INDIAN #1" + "APT 1"
+    # A hash unit repeating street_2's: "#1" + "APT 1".
     hash_unit = s1.str.extract(HASH_EXTRACT)[0]
     repeated = hash_unit.notna() & ~s2_blank & hash_unit.fillna('').map(_unit_number).eq(s2.map(_unit_number))
     if repeated.any():
@@ -266,7 +259,7 @@ def _extract_units(
             s1.str.replace(HASH_EXTRACT, '', regex=True).str.strip()
         )
 
-    # the ordinal of a floor left behind: "1555 BROADWAY ST 4TH" + "FLOOR 4"
+    # A floor ordinal left behind: "ST 4TH" + "FLOOR 4".
     floor = s2.str.extract(_FLOOR_UNIT_RE)[0]
     echo = s1.str.extract(_FLOOR_ECHO_RE)[1]
     drop_echo = floor.notna() & floor.eq(echo)
@@ -277,7 +270,7 @@ def _extract_units(
     return s1.replace({'': np.nan}), s2.replace({'': np.nan}), leftovers
 
 
-# the number of a unit, without its word: "APT 1" -> "1", "#1" -> "1"
+# A unit number without its word: "APT 1" -> "1".
 def _unit_number(unit: str) -> str:
     unit = re.sub(r'^\s*(?:(?:APT|UNIT|STE|SUITE|RM|FL|FLOOR)\b|#)', '', str(unit).upper())
     return re.sub(r'[^A-Z0-9]', '', unit) or '-'
@@ -318,7 +311,7 @@ def _ordinal_number(match: re.Match) -> str:
 
 
 def numbered_street(street: str) -> str:
-    """Use numeric ordinals for street names, preserving units and building names."""
+    """Numeric ordinals for street names, keeping units and buildings."""
     if _ORDINAL_BUILDING_RE.search(street):
         return street
     return _ORDINAL_STREET_RE.sub(_ordinal_number, street)

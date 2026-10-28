@@ -21,7 +21,7 @@ from fec.cleaning.reports.trail import (
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_names import finalize_employer_names
 from fec.cleaning.work.employer_aliases import canonicalize_current_employers
-from fec.cleaning.entities import apply_name_corrections
+from fec.cleaning.name_fixes import apply_name_corrections
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.addresses.fixes.unify import (
     canonicalize_donor_addresses,
@@ -130,7 +130,7 @@ _NETWORK_NAME_RE = re.compile(
 
 
 def _classify_network_organizations(df: pd.DataFrame) -> int:
-    """Keep each network-name filing separate; a shared address does not identify its donor."""
+    """Keep network-name filings separate; shared addresses prove nothing."""
     names = df["contributor_name"].fillna("").astype(str)
     matches = names.str.extract(_NETWORK_NAME_RE)
     targets = df["entity_type"].eq("INDIVIDUAL") & matches.notna().any(axis=1)

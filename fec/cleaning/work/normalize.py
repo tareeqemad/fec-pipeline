@@ -1,4 +1,4 @@
-"""Text normalization and regex categorization for the employer and occupation columns."""
+"""Text normalization and regex categories for employer and occupation."""
 import numpy as np
 import pandas as pd
 
@@ -15,9 +15,7 @@ from fec.config.occupation_rules.normalize import OCCUPATION_CANONICAL
 # junk value -> NaN, one batch replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
 
-# Some raw fixes intentionally give the cleaned value a category that the
-# general regex cannot infer (for example COMPLIANCE -> LEGAL). Keep that
-# knowledge available when a later step re-categorizes the final occupation.
+# Raw fixes may set categories the general regex cannot infer.
 _FINAL_OCCUPATION_CATEGORIES = {
     final_occupation: category
     for final_occupation, category in OCCUPATION_FIXES.values()
@@ -33,20 +31,14 @@ _CYRILLIC_TO_ASCII = str.maketrans({
 
 
 _WORD_DIGITS_RE = r'(\b[A-Z]{3,})\d+\b'
-# Employer text whose trailing digits are keying noise (SELF EMPLOYED47); every other
-# employer keeps its digits because they belong to the name (GENESIS10, ROC360).
+# Employers whose trailing digits are keying noise: SELF EMPLOYED47.
 EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOYERS)
 
 
 # clean, dedupe-normalize a text column, optionally collapsing retired
 def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
                     digits_only_before: frozenset | set | None = None) -> pd.Series:
-    """Clean text and apply the supplied spelling map.
-
-    Digits stuck to a word are keying noise in an occupation (OWNER3 -> OWNER) but part
-    of a company's name in an employer (GENESIS10, ROC360, CENTURY21 KING REALTY). With
-    `digits_only_before`, they are stripped only when what remains is one of those values
-    (SELF EMPLOYED47 -> SELF EMPLOYED); without it, always (occupations)."""
+    """Clean text with a spelling map; occupation digits are noise."""
     cleaned = series.astype('string').str.strip().str.upper()
 
     cleaned = cleaned.str.translate(_CYRILLIC_TO_ASCII)
@@ -79,8 +71,7 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     cleaned = cleaned.replace(_JUNK_TO_NAN)
 
     if collapse_retire:
-        # The bare pattern drops IGNORECASE; cleaned is already uppercase.
-        # so this match is (and always was) effectively case-insensitive
+        # Effectively case-insensitive: cleaned text is already uppercase.
         cleaned.loc[cleaned.str.contains(RETIRE_RE.pattern, na=False, regex=True)] = 'RETIRED'
 
     cleaned = cleaned.replace(normalize_map)
@@ -89,7 +80,7 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
 
 # assign occupation category by override then first matching regex
 def _categorize(occupation_series: pd.Series) -> pd.Series:
-    """Assign an occupation category: explicit overrides first, then first matching regex wins."""
+    """Occupation category: overrides first, then the first matching regex."""
     result = pd.Series('OTHER', index=occupation_series.index)
     result[occupation_series.isna()] = pd.NA
 
@@ -130,8 +121,7 @@ def _classify_committee_names(names: pd.Series) -> pd.Series:
     filled = names.fillna('').astype(str)
 
     for label, pattern in COMM_PATTERNS:
-        # COMM_PATTERNS use IGNORECASE, but this call site has always
-        # matched case-sensitively: pass the pattern string, not the object
+        # This call site matches case-sensitively: pass the pattern string.
         matches = filled.str.contains(pattern.pattern, na=False, regex=True) & (result == 'POLITICAL COMMITTEE')
         result[matches] = label
 
@@ -155,8 +145,7 @@ def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
 
 # swap employer and occupation, then recategorize the occupation
 def swap_employer_and_occupation(df: pd.DataFrame, rows, *, canonical: bool = True, status=None) -> None:
-    """rows is a boolean mask or an index. canonical maps the new occupation
-    through OCCUPATION_CANONICAL; status, when given, sets occupation_status."""
+    """rows is a mask or index; canonical maps occupations."""
     old_employer = df.loc[rows, 'contributor_employer'].copy()
     old_occupation = df.loc[rows, 'contributor_occupation'].copy()
     new_occupation = old_employer.replace(OCCUPATION_CANONICAL) if canonical else old_employer

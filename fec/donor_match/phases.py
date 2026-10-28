@@ -149,7 +149,7 @@ def _cross_name_adjust(score: float, signals: list) -> float:
 
 
 def _score_cross_groups(context: MatchContext) -> None:
-    """Match first-name variants only when street, ZIP, or employer corroborates them."""
+    """First-name variants only with a shared street, ZIP or employer."""
     _score_bucket_pairs(
         context, _norms_by_last_name(context.name_groups),
         _are_cross_group_candidates, _any_records, _cross_name_adjust,
@@ -184,7 +184,7 @@ def _surname_variant_adjust(score: float, signals: list) -> float:
 
 
 def _score_surname_variants(context: MatchContext) -> None:
-    """Match surname typos only when the records share a street, or a ZIP and employer."""
+    """Surname typos need a shared street, or ZIP and employer."""
     _score_bucket_pairs(
         context, _norms_by_first_name(context.name_groups),
         _surnames_vary, _same_street_or_zip_and_employer, _surname_variant_adjust,
@@ -216,7 +216,7 @@ def _name_format_adjust(score: float, signals: list) -> float:
 
 
 def _score_name_variants(context: MatchContext) -> None:
-    """Match name formats sharing a street or ZIP; keep middle-name conflicts."""
+    """Name formats sharing a street or ZIP; middle-name conflicts stay."""
     _score_bucket_pairs(
         context, _norms_by_name_tokens(context.name_groups),
         _any_names, _same_street_or_zip, _name_format_adjust,
@@ -268,7 +268,7 @@ def _is_valid_superset(
 
 
 def _score_surname_superset_variants(context: MatchContext) -> None:
-    """Match short and compound surnames only on the same exact street."""
+    """Short and compound surnames only on the same exact street."""
     key_of, first_of, tok_index = _superset_name_index(context.name_groups)
     for nn1, k1 in key_of.items():
         for nn2 in _superset_candidates(k1, tok_index):

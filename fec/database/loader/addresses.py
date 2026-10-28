@@ -38,7 +38,7 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
     for row in frame.to_dict("records"):
         street = _blank_to_none(row.get("employer_address"))
         city = _blank_to_none(row.get("employer_city"))
-        # Allow town-only locations; skip rows with neither a street nor a town.
+        # Allow town-only locations; skip rows with neither street nor town.
         if street is None and city is None:
             continue
         if row.get("address_trust") not in PUBLISHABLE_ADDRESS_TRUST:
@@ -138,7 +138,7 @@ def _add_address(address_rows: dict, street_1, street_2, city, state, zip_code, 
     key = _akey(*parts)
     entry = address_rows.get(key)
     if entry is None:
-        # '' and NULL share one key (_akey), so store the NULL form.
+        # '' and NULL share one key, so store NULL.
         address_rows[key] = [_empty_to_none(value) for value in parts] + [latitude, longitude]
     elif entry[5] is None and latitude is not None:
         entry[5], entry[6] = latitude, longitude

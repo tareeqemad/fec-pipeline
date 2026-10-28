@@ -38,11 +38,11 @@ FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
 # Keep the raw CSV column order.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 
-# matched_by records the match method; fec_sub_id holds an amended filing's ID.
+# matched_by is the match method; fec_sub_id an amendment's ID.
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-# Reject missing or invalid amounts instead of recording them as zero.
+# Reject missing or invalid amounts instead of recording zero.
 def _number(value, sub_id: str) -> Decimal:
     try:
         amount = Decimal(str(value).strip())

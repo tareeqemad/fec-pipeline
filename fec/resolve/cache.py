@@ -62,7 +62,7 @@ def _prev_key(donor_key, cycle=None) -> str:
     return f"{key}:{_s(cycle).strip()}" if _s(cycle).strip() else key
 
 def _previous_for_row(prev_cache, row) -> dict | None:
-    """Use dated local history, otherwise FEC evidence from this cycle only."""
+    """Dated local history, else FEC evidence from this cycle."""
     donor, cycle = row.get("donor_key"), _s(row.get("two_year_transaction_period")).strip()
     filed = pd.to_datetime(row.get("contribution_receipt_date"), errors="coerce", utc=True)
     entry = prev_cache.get(_prev_key(donor))
@@ -147,7 +147,7 @@ def _score(entry: dict) -> tuple:
     has_address = 1 if entry.get('employer_address') else 0
     confidence_rank = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}.get(entry.get('confidence', ''), 0)
     method = entry.get('method', '')
-    # Search results rank above other AI answers; misses stay in the generic tier.
+    # Search results rank above other AI answers; misses stay generic.
     if method.startswith('ai_') and method.endswith('_search'):
         method_priority = 3
     elif method.startswith('ai_') and not method.endswith('_not_found'):
@@ -185,7 +185,7 @@ def _cluster_company_names(names: list[str]) -> list[list[str]]:
     return list(clusters.values())
 
 def _canonical_name(cluster: list[str]) -> str:
-    """Prefer the reviewed name already cached; otherwise use a stable spelling."""
+    """Prefer the cached reviewed name, else a stable spelling."""
     reviewed = {reviewed_employer_name(name) for name in cluster} & set(cluster)
     return min(reviewed or cluster)
 
@@ -259,7 +259,7 @@ def _cache_entry(
     source_sub_id="",
     source_cycle="", source_committee_id="",
 ) -> dict:
-    """Build one clean cache entry while retaining raw spelling as provenance."""
+    """One clean cache entry, keeping raw spelling as provenance."""
     raw_name = _s(raw_employer).strip()
     employer = normalize_previous_employer_value(raw_name)
     if employer == "SELF-EMPLOYED" and not _explicit_self_employment(raw_name):

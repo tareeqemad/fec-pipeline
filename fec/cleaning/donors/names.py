@@ -1,4 +1,4 @@
-"""Choose a consistent name for each donor while preserving co-filer names."""
+"""Choose one name per donor while keeping co-filer names."""
 from collections import Counter, defaultdict
 
 import pandas as pd
@@ -34,7 +34,7 @@ def canonicalize_committee_names(df: pd.DataFrame) -> int:
 
 def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
                            given_names: frozenset = frozenset(), by_row: bool = False):
-    """Choose a surname and first name; by_row preserves each filing's extra given names."""
+    """Choose a surname and first name; by_row keeps extra names."""
     firsts_by_last: dict[str, list[str]] = defaultdict(list)
     for last, first in zip(lasts, firsts):
         if last and first:
@@ -44,20 +44,19 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
     parents = _surname_parents(variants, firsts_by_last) if len(variants) > 1 else {}
     canon_last = _choose_last(named, parents)
 
-    # one candidate per row: the given name a surname-field prefix supplies, else the first name
+    # One candidate per row: prefix given name, else first name.
     candidates = [parents.get(last, (None, None))[1] or first or None for last, first in zip(lasts, firsts)]
 
     moved_initial = None
     match = _LEADING_INITIAL_RE.match(canon_last)
     if match and not _is_particle(match.group(1), match.group(3)):
-        # filed only as "W. HAHN": the initial is the middle initial
+        # Filed only as "W. HAHN": W is a middle initial.
         dot = "." if "." in match.group(2) else ""
         moved_initial = match.group(1) + dot
         canon_last = match.group(3).strip()
 
     last_words = set(canon_last.upper().split())
-    # a name field cut off by FEC's length limit can end in the start of the
-    # surname ("GLENN STUART CHRYSTA" for CHRYSTAL): that piece is not a name
+    # A name cut by FEC's limit ends in a fragment.
     candidates = [
         _drop_cut_surname(first, last_words, given_names) if first else None
         for first in candidates
@@ -75,15 +74,13 @@ def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
 
 def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | None) -> str | None:
     """The canonical first name among one group's candidates."""
-    # candidates must carry a non-surname token: a reversed filing's
-    # surname-as-first could otherwise win, then strip to nothing
+    # Candidates need a non-surname token, against reversed filings.
     fcands = [f for f in group if f and any(w.upper() not in last_words for w in f.split())]
     if is_joint is not None:
         solo = [f for f in fcands if not is_joint(f)]
         if solo:
             fcands = solo
-    # the surname repeated in the first-name field ("STEVE FADER") is not a
-    # fuller first name: drop it before measuring, so STEVEN still wins
+    # Drop the surname repeated in the first-name field first.
     fcands = [" ".join(w for w in f.split() if w.upper() not in last_words) for f in fcands]
     canon_first = _choose_first(fcands)
     if canon_first:
@@ -95,7 +92,7 @@ def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | Non
 
 
 def _firsts_by_row(candidates: list, own: set, pick) -> list:
-    """One first name per row, unified only among rows with the same whole given names."""
+    """One first name per row, unified among identical given names."""
     own = own | _parenthesized_tokens({first for first in candidates if first})
     groups = defaultdict(list)
     for position, first in enumerate(candidates):
@@ -157,7 +154,7 @@ def _household_spellings(df: pd.DataFrame, ind: pd.Series) -> tuple[dict, dict]:
 
 
 def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
-    """Words at least two donors file in their first-name field: real given names."""
+    """Words at least two donors file as first names."""
     words = _text_column(df, "contributor_first_name")[ind].str.split()
     donors = pd.DataFrame({"donor": df.loc[ind, "donor_key"], "word": words}).explode("word")
     per_word = donors.dropna().drop_duplicates().groupby("word")["donor"].size()
@@ -165,7 +162,7 @@ def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
 
 
 def canonicalize_donor_names(df: pd.DataFrame) -> int:
-    """Unify each donor's names without copying a co-filer onto solo filings; return rows changed."""
+    """Unify each donor's names without copying co-filers onto solo filings."""
     ind = df["entity_type"] == "INDIVIDUAL"
     if not ind.any():
         return 0
@@ -211,7 +208,7 @@ def _write_canonical_names(df, ind, own_spellings, household_spellings, given_na
         )
 
         for i, canon_first in zip(idx, firsts_by_row):
-            # composite rebuilt from the canonical pair, in FEC's "LAST, FIRST" form
+            # Composite rebuilt from the canonical pair as "LAST, FIRST".
             canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
             cur_f = df.at[i, fn_col]
             cur_l = df.at[i, ln_col]
@@ -227,7 +224,7 @@ def _write_canonical_names(df, ind, own_spellings, household_spellings, given_na
 
 
 def _join_initial_groups(groups: dict, candidates: list) -> dict:
-    """Join initials to fuller forms; never add an unsupported whole given name."""
+    """Join initials to fuller forms; add no unsupported given name."""
     initials = {
         key: {token for p in positions for token in _name_tokens(candidates[p] or "")[1:] if len(token) == 1}
         for key, positions in groups.items()
@@ -246,7 +243,7 @@ def _join_initial_groups(groups: dict, candidates: list) -> dict:
 
 
 def _extra_given_words(first: str, own: set) -> tuple:
-    """Group by first-name initial and extra whole names, excluding the donor's own words."""
+    """Group by first initial and extra names, excluding the donor's."""
     tokens = _name_tokens(first)
     if not tokens:
         return ("", frozenset())
