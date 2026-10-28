@@ -23,7 +23,7 @@ def _employer_keys(df: pd.DataFrame) -> pd.Series:
                "employer_zip"]].fillna("").astype(str).agg("|".join, axis=1)
 
 
-# Retry missing or temporary failures; keep completed misses in the cache.
+# Retry missing or temporary failures; keep completed misses.
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
     if reviewed_point(key) is not None:
         return False
@@ -127,7 +127,7 @@ def save_city_corrections(df: pd.DataFrame, cache: GeoCache) -> int:
     return save_verified_city_corrections(rows) if rows else 0
 
 
-# Keep coordinates under both city names before clean applies the saved rules.
+# Keep coordinates under both city names before clean applies rules.
 def prepare_city_corrections(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame | None:
     save_city_corrections(df, cache)
     corrected = df.copy()

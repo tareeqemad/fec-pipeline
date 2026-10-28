@@ -1,4 +1,4 @@
-"""Align one person's city, state and ZIP across filings from the same street."""
+"""Align one person's city, state and ZIP per street."""
 from __future__ import annotations
 
 import pandas as pd
@@ -21,7 +21,7 @@ def _support_outside(key: pd.Series, cities: pd.Series, zips: pd.Series, candida
 
 # find each group's dominant value, its count and the row's
 def _dominant(vals: pd.Series, key: pd.Series, eligible: pd.Series) -> tuple[pd.Series, pd.Series, pd.Series]:
-    """Per row: the group's dominant non-empty value, its count, and the count of the row's own value."""
+    """Per row: group's dominant value, its count, row value's count."""
     non_empty = eligible & (vals != "")
     counts = (
         pd.DataFrame({"k": key[non_empty], "v": vals[non_empty]})
@@ -44,11 +44,10 @@ def _dominant(vals: pd.Series, key: pd.Series, eligible: pd.Series) -> tuple[pd.
     return key.map(dominant["v"]), key.map(dominant["cnt"]), row_count
 
 
-# fill ZIP blanks and align supported city/state variants at the same street
+# Fill ZIP blanks; align supported city/state variants per street.
 def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     """Fill unambiguous ZIP blanks and align supported city/state variants."""
-    # Street text alone does not prove two filings name the same location.
-    # Conflicting ZIPs remain filed until a verified correction resolves them.
+    # Same street text is no proof; conflicting ZIPs stay filed.
     name = df["contributor_name"].fillna("")
     eligible_base = (df["entity_type"] == "INDIVIDUAL") & (name != "")
     out = {"zip": 0, "city": 0, "state": 0}
@@ -59,9 +58,7 @@ def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     if eligible_street.any():
         _align_same_street(df, name.str.cat(street, sep="\x00"), eligible_street, out)
 
-    # pass 2: city by (name, ZIP). an appended apartment number splits the
-    # street group, so a truncated city on the unit row ("NEW" for "NEW YORK")
-    # is recovered from the donor's dominant city at that same ZIP instead.
+    # Pass 2: truncated unit-row city from the donor's dominant city.
     zips = df["contributor_zip"].fillna("")
     eligible_zip = eligible_base & (zips != "")
     if CARE_OF_BLANKED in df.columns:
@@ -82,7 +79,7 @@ def _align_same_street(df, street_key, eligible, out) -> None:
     out["zip"] = _fill_missing_place_field(
         df, street_key, eligible, "contributor_zip", ("contributor_city", "contributor_state")
     )
-    # A filled ZIP does not authorize replacing the filing's chosen city.
+    # A filled ZIP does not authorize replacing the chosen city.
     keep_city = _foreign_city(df, street_key, eligible)
     out["city"] = _unify_to_dominant(df, "contributor_city", street_key, eligible, keep_city)
     out["state"] = _fill_missing_place_field(
@@ -92,7 +89,7 @@ def _align_same_street(df, street_key, eligible, out) -> None:
 
 
 def _fill_missing_place_field(df, street_key, eligible, column, context_columns) -> int:
-    """Fill only blanks, requiring one value at the same street and full place context."""
+    """Fill only blanks, needing one value and full place context."""
     values = _column_text(df, column)
     complete_place = eligible.copy()
     key = street_key
@@ -119,10 +116,10 @@ def _column_text(df: pd.DataFrame, col: str) -> pd.Series:
 
 # fill blanks/minority column values to the group's dominant value
 def _unify_to_dominant(df, col: str, key: pd.Series, eligible: pd.Series, keep: pd.Series | None = None) -> int:
-    """Within each key group, fill blanks / fix minority values in col to the dominant non-empty value; rows in keep are never overwritten."""
+    """Fill blanks and minorities with the dominant; keep rows untouched."""
     vals = _column_text(df, col)
     dominant_value, dominant_count, row_count = _dominant(vals, key, eligible)
-    # only when the dominant strictly outnumbers the row's value (ties left alone)
+    # Only when the dominant value strictly outnumbers; ties stay.
     fix = (
         eligible
         & dominant_value.notna()
@@ -139,7 +136,7 @@ def _unify_to_dominant(df, col: str, key: pd.Series, eligible: pd.Series, keep: 
 
 # flag rows whose city no outsider files at that ZIP
 def _foreign_city(df, key: pd.Series, eligible: pd.Series) -> pd.Series:
-    """Rows whose filed city must not become the group's dominant city: nobody outside the group files that city with the row's ZIP."""
+    """Rows whose city nobody else files with that ZIP."""
     cities, zips = _column_text(df, "contributor_city"), _column_text(df, "contributor_zip")
     dominant_city, _count, _row = _dominant(cities, key, eligible)
     dominant_city = dominant_city.fillna("").astype(str)
@@ -147,7 +144,7 @@ def _foreign_city(df, key: pd.Series, eligible: pd.Series) -> pd.Series:
     return differs & (_support_outside(key, cities, zips, dominant_city) == 0)
 
 
-# Replace truncated or guessed cities only with one supported city at the same street and ZIP.
+# Replace guessed cities only with one supported same-street city.
 def _adopt_attested_city(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) -> int:
     cities = df["contributor_city"].fillna("").astype(str)
     zips = df["contributor_zip"].fillna("").astype(str)

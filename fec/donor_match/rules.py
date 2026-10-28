@@ -59,7 +59,7 @@ def _read_rules() -> list[dict[str, str]]:
     return rows
 
 
-# Load name and place separation rules; split profiles by ZIP for names with ZIP-scoped rules.
+# Load separation rules; ZIP-scoped names split profiles by ZIP.
 def _load_separations(rows):
     separations = []
     for row in rows:
@@ -74,7 +74,7 @@ def _load_separations(rows):
         zips = (_normalize(row.get("zip_a"))[:5], _normalize(row.get("zip_b"))[:5])
         separations.append((name_a, name_b, place_a, place_b, zips))
 
-    # ZIPs matter only for a name the city cannot tell apart
+    # ZIPs matter only when the city cannot tell names apart.
     zip_names = {
         name
         for name_a, name_b, place_a, place_b, zips in separations
@@ -110,7 +110,7 @@ def _load_key_merges(rows) -> dict[str, str]:
 
 # map sub_id to its hold group
 def _load_holds(rows) -> dict[str, str]:
-    """sub_id -> hold group: filings no person is proven to own."""
+    """sub_id to hold group: filings proven to belong to nobody."""
     return {
         row["sub_id"].strip(): row["group"].strip()
         for row in rows
@@ -120,8 +120,7 @@ def _load_holds(rows) -> dict[str, str]:
 
 # map name+street+ZIP to its hold group
 def _load_held_addresses(rows) -> dict[tuple[str, str, str], str]:
-    """(name, street, zip5) -> hold group: every filing of that name from that
-    address, including ones filed after the rule was written, stays unproven."""
+    """(name, street, zip5) to hold group, including later filings."""
     return {
         (
             _normalize(row.get("name_a")),
@@ -134,8 +133,8 @@ def _load_held_addresses(rows) -> dict[tuple[str, str, str], str]:
 
 
 # the hold group of each filing ('' when none)
-def held_groups(df, filings=None, addresses=None) -> "pd.Series":
-    """A hold rule's group for each row: by sub_id, else by name+street+ZIP."""
+def held_groups(df, filings=None, addresses=None):
+    """A hold rule's group per row: by sub_id, else address."""
     import pandas as pd
 
     filings = HELD_FILINGS if filings is None else filings
@@ -176,7 +175,7 @@ def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
     return last.strip(), tuple(re.findall(r"[A-Z]+", first))
 
 
-# Find longer names verified as the same person by merge_keys rules.
+# Longer names verified as one person by merge_keys rules.
 def _load_joint_exemptions(rows) -> frozenset[str]:
     exempt = set()
     for row in rows:
@@ -211,7 +210,7 @@ _MERGED_NAME_PREFIXES = tuple(
 )
 
 
-# Check whether a verified merge identifies this multi-word first name as one person.
+# Whether a verified merge makes this multi-word name one person.
 def joint_name_exempt(name: str) -> bool:
     last, words = _name_words(name)
     if not last or not words:
@@ -228,7 +227,7 @@ def names_must_stay_separate(name_a: str, name_b: str) -> bool:
 
 # the ZIP5 to key a profile by, for split names
 def split_zip(name: str, zip_code: str) -> str:
-    """The ZIP5 a profile of this name is also keyed by: only for names a ZIP-level rule splits."""
+    """The ZIP5 also keying this name, for ZIP-split names only."""
     return _normalize(zip_code)[:5] if _normalize(name) in ZIP_SPLIT_NAMES else ""
 
 
@@ -249,7 +248,7 @@ def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
 
 # follow merge_keys rules to the surviving donor key
 def resolve_donor_key(key: str) -> str:
-    """Follow verified merge_keys rules, including chains, to the key that survives."""
+    """Follow verified merge chains to the surviving key."""
     seen = set()
     while key in KEY_MERGES and key not in seen:
         seen.add(key)

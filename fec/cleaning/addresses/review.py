@@ -7,11 +7,9 @@ import pandas as pd
 from fec.cleaning.addresses.review_cases import REVIEW_CASES_CSV, build_review_cases
 from fec.cleaning.addresses.street_reviews import (
     _REPORT_COLUMNS,
-    CITY,
     S1,
     S2,
     STATE,
-    ZIP,
     _near_street_variant_review,
     _review_street1,
     _review_street2,
@@ -21,8 +19,6 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-MANUAL_REVIEW_CSV = "address_manual_review.csv"
-REGEOCODE_CSV = "address_regeocode_suspects.csv"
 OPEN, AUTO_FIXED = "open", "auto_fixed"
 
 
@@ -40,7 +36,7 @@ def _with_status(report: pd.DataFrame, status: str) -> pd.DataFrame:
     return report
 
 
-# Clear invalid second lines; return the frame, original affected rows and count.
+# Clear invalid second lines; return frame, affected rows, count.
 def apply_street2_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, int]:
     s2 = df[S2].fillna("").astype(str)
     reports, emptied = _review_street2(df, s2)
@@ -48,7 +44,7 @@ def apply_street2_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, i
 
 
 def _final_auto_fixed(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
-    """Drop restored street_2 rows and attach final donor details to the remaining report."""
+    """Drop restored street_2 rows; attach final donor details."""
     if auto_fixed.empty or "sub_id" not in auto_fixed.columns or "sub_id" not in df.columns:
         return auto_fixed
     final = df.drop_duplicates("sub_id").set_index("sub_id")
@@ -66,55 +62,42 @@ def _final_auto_fixed(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFram
     return report[order + [c for c in report.columns if c not in order]]
 
 
-# Build review and geocoding queues, including prior automatic fixes, without editing rows.
-# Leave excluded filings out.
+# Build the review queue without editing rows.
 def build_review_queues(
     df: pd.DataFrame,
     auto_fixed: pd.DataFrame | None = None,
     exclude_sub_ids=None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> pd.DataFrame:
     if exclude_sub_ids is not None and len(exclude_sub_ids) and "sub_id" in df.columns:
         df = df[~df["sub_id"].isin(set(exclude_sub_ids))]
         if auto_fixed is not None and not auto_fixed.empty and "sub_id" in auto_fixed.columns:
             auto_fixed = auto_fixed[~auto_fixed["sub_id"].isin(set(exclude_sub_ids))]
 
     s1 = df[S1].fillna("").astype(str)
-    city = df[CITY].fillna("").astype(str)
     state = df[STATE].fillna("").astype(str)
-    zips = df[ZIP].fillna("").astype(str)
 
     review = []
     spelling_variants = _near_street_variant_review(df)
     if not spelling_variants.empty:
         review.append(spelling_variants)
-    street1_review, regeocode = _review_street1(df, s1, city, state, zips)
-    review.extend(street1_review)
+    review.extend(_review_street1(df, s1, state))
 
     queue = [_with_status(_combine_reports(review), OPEN)]
     if auto_fixed is not None and not auto_fixed.empty:
         fixed = _final_auto_fixed(auto_fixed, df)
         queue.append(_with_status(fixed, AUTO_FIXED))
-    review_df = _combine_reports([part for part in queue if not part.empty])
-    return review_df, _combine_reports(regeocode)
-
-
-# write the two review queues to CSV
-def write_review_queues(out_dir, review_df: pd.DataFrame, regeocode_df: pd.DataFrame) -> None:
-    out_path = Path(out_dir)
-    write_csv_atomic(review_df, out_path / MANUAL_REVIEW_CSV, index=False, na_rep="")
-    write_csv_atomic(regeocode_df, out_path / REGEOCODE_CSV, index=False, na_rep="")
+    return _combine_reports([part for part in queue if not part.empty])
 
 
 # Write reports after donor repairs and foreign-address restoration.
 def write_final_address_reports(
     df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail,
 ) -> None:
-    review_df, regeocode_df = build_review_queues(
+    review_df = build_review_queues(
         df_clean,
         address_reports.get("street2_auto_fixed"),
         exclude_sub_ids=foreign_sub_ids,
     )
-    write_review_queues(out_dir, review_df, regeocode_df)
     cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
     write_csv_atomic(cases, Path(out_dir) / REVIEW_CASES_CSV, index=False)
     if not cases.empty:

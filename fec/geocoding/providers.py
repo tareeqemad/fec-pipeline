@@ -1,4 +1,4 @@
-"""One address query per provider, with bounded retries and Nominatim pacing."""
+"""One address query per provider, with bounded retries and pacing."""
 
 import os
 import re
@@ -89,7 +89,7 @@ def _wait_for_nominatim(url: str) -> None:
     _last_nominatim_request = time.monotonic()
 
 
-# Look up the supplied address; omit the US filter for foreign addresses.
+# Look up the address; no US filter for foreign addresses.
 def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
     if not street:
         return None

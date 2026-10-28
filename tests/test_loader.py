@@ -66,7 +66,7 @@ def _schema_unique_columns() -> tuple[str, ...]:
 
 
 class FakeEmploymentDB:
-    """donor_employments with the UNIQUE NULLS NOT DISTINCT key read from schema.sql."""
+    """donor_employments with the UNIQUE NULLS NOT DISTINCT key."""
 
     def __init__(self):
         self.unique_columns = _schema_unique_columns()
@@ -131,7 +131,7 @@ HOME = {("1 HOME ST", "", "SOMEWHERE", "CA", "94104"): 17}
 
 
 def _load(db, filings, employers=None):
-    """Run load_employments + the contributions lookup; return each filing's linked row."""
+    """Run the employment load and return each filing's row."""
     frame = pd.DataFrame(filings)
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
     get_employer_id = _make_employer_resolver(employers or {})
@@ -162,7 +162,7 @@ def test_statuses_sharing_a_null_employer_keep_their_own_rows(db):
 
 
 def test_each_retired_filing_keeps_its_own_previous_employer(db):
-    """MARGOLIN, RUTH: retired in 2022 with none named; named her clinic in 2026."""
+    """MARGOLIN, RUTH: retired in 2022; named her clinic in 2026."""
     linked = _load(
         db,
         [

@@ -1,4 +1,4 @@
-"""Classify contributors and apply entity and name corrections."""
+"""Classify contributors and apply entity corrections."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,7 +8,6 @@ from fec.env import FEC_SOURCE_CSV
 import re
 import numpy as np
 from fec.cleaning._helpers import _norm, _indiv_idx
-from fec.cleaning.names import EXACT_NAME_CORRECTIONS, ROW_NAME_CORRECTIONS
 from fec.config.constants import STATUS_CATEGORIES
 from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
@@ -32,7 +31,7 @@ from fec.config.occupation_rules.rules import SWAP_JOB_TITLES
 
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
 
-# FEC entity_type codes: a candidate (CAN) giving personally is a person
+# FEC entity codes; a candidate (CAN) giving is a person.
 FEC_ENTITY_TYPES = {
     "IND": "INDIVIDUAL",
     "CAN": "INDIVIDUAL",
@@ -75,7 +74,7 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
     return source.where(~undecided, "")
 
 
-# political-committee wording in a name: "FRIENDS OF SMITH", "SMITH FOR SENATE"
+# Committee wording in a name: "FRIENDS OF SMITH".
 _COMMITTEE_IN_NAME_RE = re.compile(
     r'(?:FRIENDS|CITIZENS|COMMITTEE) TO ELECT'
     r'|(?:FRIENDS OF|FRIENDS FOR|CITIZENS FOR|PEOPLE FOR) '
@@ -108,33 +107,6 @@ _GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
     'FUNDRAISING CONSULTANT', 'INSURANCE AGENT', 'NON-PROFIT VOLUNTEER',
     'BUSINESS',
 })
-
-# Known credentials only, so real two-letter last names are not mistaken for one.
-_CREDENTIAL_RE = re.compile(
-    r'^\s*(?:'
-    r'M\s*D'
-    r'|D\s*O'
-    r'|D\s*V\s*M'
-    r'|D\s*D\s*S'
-    r'|D\s*M\s*D'
-    r'|D\s*P\s*M'
-    r'|D\s*C'
-    r'|O\s*D'
-    r'|PH\s*D'
-    r'|J\s*D'
-    r'|M\s*B\s*A'
-    r'|R\s*N'
-    r'|R\s*PH'
-    r'|PHARM\s*D'
-    r'|C\s*P\s*A'
-    r'|ESQ'
-    r'|P\s*E'
-    r')\s*$',
-    re.IGNORECASE,
-)
-
-# 'LAST, CREDENTIAL, FIRST'
-_THREE_PART_NAME_RE = re.compile(r'^([^,]+),\s*([^,]+),\s*(.+)$')
 
 
 def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
@@ -207,7 +179,7 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     cleaned.loc[organizations] = names[organizations].map(reviewed_employer_name)
     committees = types.eq('COMMITTEE/PAC') & ~organizations & ~names.str.contains(_FOR_STATE_RE)
     cleaned.loc[committees] = names[committees].str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
-    # A documented company alias can also correct a guessed committee name.
+    # A documented company alias can also fix committee names.
     cleaned = names.map(documented_employer_name).fillna(cleaned)
     changed = (cleaned != names) & (cleaned != '')
     n_fixed = changed.sum()
@@ -217,7 +189,7 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 
 def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Keep a duplicated job in occupation; keep a duplicated company in employer."""
+    """Duplicated job stays in occupation; duplicated company in employer."""
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
@@ -252,121 +224,6 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
     return df, n_fixed
 
 
-def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Apply manual name corrections."""
-    corrected = df['contributor_name'].map(EXACT_NAME_CORRECTIONS)
-    if 'sub_id' in df.columns:
-        by_row = df['sub_id'].astype(str).map(ROW_NAME_CORRECTIONS)
-        corrected = by_row.combine_first(corrected)
-
-    changed = corrected.notna() & corrected.ne(df['contributor_name'])
-    for index, new_name in corrected[changed].items():
-        df.at[index, 'contributor_name'] = new_name
-        if df.at[index, 'entity_type'] == 'INDIVIDUAL' and ',' in new_name:
-            last, first = (part.strip() for part in new_name.split(',', 1))
-            df.at[index, 'contributor_first_name'] = first
-            df.at[index, 'contributor_last_name'] = last
-
-    return df, int(changed.sum())
-
-
-def fix_double_apostrophes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Collapse doubled apostrophes in name fields (CHALME'' becomes CHALME')."""
-    n_fixed = 0
-    for col in ['contributor_name', 'contributor_first_name', 'contributor_last_name']:
-        if col in df.columns:
-            vals = df[col].fillna('')
-            has_double = vals.str.contains("''", na=False, regex=False)
-            if has_double.any():
-                df.loc[has_double, col] = vals[has_double].str.replace("''", "'", regex=False)
-                if col == 'contributor_name':
-                    n_fixed += int(has_double.sum())
-
-    return df, n_fixed
-
-
-def normalize_name_periods(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Remove periods from initials and titles in contributor_name, all records."""
-    names = df['contributor_name'].fillna('')
-
-    cleaned = names.str.replace(r'\b([A-Z])\.', r'\1 ', regex=True)
-    cleaned = cleaned.str.replace(r'\b(MR|MRS|MS|DR|JR|SR|II|III|IV)\.', r'\1', regex=True)
-    cleaned = cleaned.str.replace(r'\s+', ' ', regex=True).str.strip()
-
-    changed = (cleaned != names) & (cleaned != '')
-    n_fixed = int(changed.sum())
-    if n_fixed:
-        df.loc[changed[changed].index, 'contributor_name'] = cleaned[changed]
-    return df, n_fixed
-
-
-def fix_credential_in_name(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Remove embedded credentials after normalize_name_periods."""
-    indiv_idx = _indiv_idx(df)
-    if not len(indiv_idx):
-        return df, 0
-
-    names = df.loc[indiv_idx, 'contributor_name'].fillna('').astype(str)
-    # Only LAST, CREDENTIAL, FIRST.
-    candidates = indiv_idx[names.str.count(',') == 2]
-    if not len(candidates):
-        return df, 0
-
-    n_fixed = 0
-
-    for idx in candidates:
-        name = df.at[idx, 'contributor_name']
-        if not isinstance(name, str):
-            continue
-        match = _THREE_PART_NAME_RE.match(name)
-        if not match:
-            continue
-
-        credential_part = match.group(2).strip().rstrip('.').strip()
-
-        if not _CREDENTIAL_RE.match(credential_part):
-            continue
-
-        first_clean = match.group(3).strip().rstrip('.').strip()
-        last_clean = match.group(1).strip().rstrip('.').strip()
-        if not first_clean or not last_clean:
-            continue
-
-        df.at[idx, 'contributor_name'] = f'{last_clean}, {first_clean}'
-        df.at[idx, 'contributor_first_name'] = first_clean
-        df.at[idx, 'contributor_last_name'] = last_clean
-        n_fixed += 1
-
-    return df, n_fixed
-
-
-def fix_fullname_in_both_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Split a full name duplicated into both first_name and last_name."""
-    indiv_idx = _indiv_idx(df)
-    first_names = df.loc[indiv_idx, 'contributor_first_name'].fillna('').str.strip()
-    last_names = df.loc[indiv_idx, 'contributor_last_name'].fillna('').str.strip()
-
-    mask = (
-        (first_names.str.upper() == last_names.str.upper())
-        & (first_names != '')
-        & first_names.str.contains(' ', regex=False)
-    )
-    hits = indiv_idx[mask]
-    n_fixed = len(hits)
-
-    for idx in hits:
-        full = df.at[idx, 'contributor_first_name'].strip()
-        parts = full.split()
-        if len(parts) >= 2:
-            new_first = parts[0]
-            new_last = ' '.join(parts[1:])
-            df.at[idx, 'contributor_first_name'] = new_first
-            df.at[idx, 'contributor_last_name'] = new_last
-            df.at[idx, 'contributor_name'] = f"{new_last}, {new_first}"
-
-    return df, n_fixed
-
-
 # Business names; committee signals take priority.
 _ORG_BUSINESS_RE = re.compile(
     r"\b(?:LLC|INC|CORP|CORPORATION|LLP|LP|HOLDINGS?|ENTERPRISES?"
@@ -397,7 +254,7 @@ _POLITICAL_COMMITTEE_TYPES = frozenset(
     }
 )
 
-# These business names can override a committee label without a committee signal.
+# Business names that override a committee label without signals.
 _STRONG_BUSINESS_RE = re.compile(
     r"\b(?:BANK|TRUST|INVESTMENTS?|CAPITAL|INSURANCE|REALTY|REAL ESTATE"
     r"|HOLDINGS?|EQUITIES|CORPORATION|ENTERPRISES?"
@@ -483,7 +340,7 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
 
 
 def _apply_source_entity_type(df: pd.DataFrame) -> int:
-    """Prefer FEC's type and mark newly identified people for work-field restoration."""
+    """Prefer FEC's type; mark new people for work restoration."""
     source = deciding_source_type(df)
     differs = source.ne("") & source.ne(df["entity_type"])
     if not differs.any():
@@ -518,7 +375,7 @@ def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> i
 
 
 def _reclass_individual_ghost(df: pd.DataFrame) -> int:
-    """Individuals with no name, no employer and no occupation are committees."""
+    """Individuals without name, employer and occupation are committees."""
     mask = (
         df["is_individual"]
         & _blank(df["contributor_first_name"])

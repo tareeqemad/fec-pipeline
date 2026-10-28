@@ -1,4 +1,4 @@
-"""Employer deep cleaning: junk values, semicolon lists, title prefixes, status-word variants, typos, truncated values."""
+"""Employer deep cleaning: junk, lists, title prefixes, typos, truncation."""
 import re
 
 import numpy as np
@@ -15,7 +15,7 @@ from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
 
-# a leading job title before the employer name: "CEO, ACME CORP"
+# A job title before the employer: "CEO, ACME CORP".
 _TITLE_PREFIX_RE = re.compile(
     r'^(?:CEO|CFO|COO|CTO|CIO|CMO|PRESIDENT|VICE PRESIDENT|VP|EVP|SVP|'
     r'CHAIRMAN|CHAIRPERSON|CHAIR|FOUNDER|CO-FOUNDER|PARTNER|PRINCIPAL|OWNER|'
@@ -32,7 +32,7 @@ def _deep_clean_employer(df: pd.DataFrame, trail) -> None:
         )
 
 
-# Clear numbers and emails; keep exact company corrections from the rules.
+# Clear numbers and emails; keep exact company corrections.
 def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> None:
     emp = df['contributor_employer']
 
@@ -96,7 +96,7 @@ def _deep_clean_emp_retired_variants(df: pd.DataFrame) -> None:
         r'EXECUTIVE|DOCTOR|PROFESSOR|NURSE)',
         na=False,
     )
-    # Fix employer typos here; the later retirement rule also syncs occupation.
+    # Fix employer typos; the retirement rule syncs occupation later.
     ret_typo = emp.isin(['RETIEED', 'RETIREE', 'RETIERD', 'RETIREED'])
     semi_ret = emp.str.match(r'^SEMI\s*RETIRED', na=False)
     self_ret = emp.eq('SELF RETIRED')
@@ -135,7 +135,7 @@ def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> None:
     apply_reviewed_employer_names(df, ("contributor_employer",))
 
 
-# Clear short work values unless an allowed name or occupation fix preserves them.
+# Clear short work values unless allowed names preserve them.
 def _deep_clean_emp_truncated(df: pd.DataFrame) -> None:
     for column, allowed in (
         ('contributor_employer', OK_SHORT_EMPLOYERS),

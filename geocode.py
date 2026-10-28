@@ -112,7 +112,7 @@ def _geocode_employers(
 def _write_output(df: pd.DataFrame, csv_path: str, stage: str, input_columns) -> None:
     from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 
-    # resolve's working columns stay until the employer stage has read them
+    # resolve's working columns stay until the employer stage reads them.
     kept = set(RESOLVE_WORKING) - set(STAGES[stage].drops)
     df = df.drop(columns=[c for c in INTERNAL_OUTPUT_COLUMNS if c not in kept], errors="ignore")
     check_output(stage, input_columns, df.columns)

@@ -3,7 +3,7 @@ from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 
 
-# Explicit refusals keep NOT DISCLOSED; other fixes to that value are junk.
+# Refusals keep NOT DISCLOSED; other fixes to it are junk.
 OCCUPATION_REFUSAL_INPUTS = frozenset({
     'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
     'DECLINED TO ANSWER', 'MYOB', 'TMI',
@@ -68,8 +68,7 @@ FINAL_NULL_EMPLOYERS = _REFUSAL_EMPLOYERS | frozenset({
 })
 WEB_ARTIFACT_OCCUPATIONS = frozenset({
     'LOADING', 'ACMIO', 'REMD', 'SWAP MEET', 'UOOO[',
-    # a joke with no job in it (SPIES, DAVID @ SANDHURST); once nulled, the
-    # donor-stage same-employer fill restores the role he files there
+    # A joke with no job; the employer fill restores it.
     'BIG BOY',
 })
 

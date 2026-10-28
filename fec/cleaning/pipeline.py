@@ -33,10 +33,9 @@ from fec.cleaning.work.clean import clean_employer_occupation
 from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
 from fec.cleaning.names import _clean_names, _preclean_name_punctuation
-from fec.cleaning.reports.audit import _build_missing_report, _sanity_check
 from fec.cleaning.rules.records import apply_record_rules
 from fec.committees import committee_id_to_name
-from fec.config.data import MISSING_VALUES, OUTPUT_COLUMNS
+from fec.config.data import OUTPUT_COLUMNS
 from fec.donor_match.normalize import extract_generational_suffix
 from fec.log import get_logger
 
@@ -57,7 +56,7 @@ def clean_pipeline(
     filed_addresses = df.reindex(columns=["sub_id", *ADDRESS_FIELDS]).fillna("").astype(str)
     address_reports: dict = {}
 
-    df_clean, missing = clean_records(df, trail, address_reports=address_reports)
+    df_clean = clean_records(df, trail, address_reports=address_reports)
 
     # Inferred streets cannot serve as evidence for matching donors.
     df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(
@@ -83,14 +82,14 @@ def clean_pipeline(
         logger.warning(
             "WARNING: %s field values changed outside tracked steps", f"{unexplained:,}"
         )
-    return df_clean, missing, trail
+    return df_clean
 
 
 def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
     address_reports: dict | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> pd.DataFrame:
     """Clean fields, apply record rules, then apply curated overrides."""
     logger.info("[1/5] Cleaning names and work")
     df = _prepare_records(df)
@@ -98,7 +97,7 @@ def clean_records(
     df = _clean_people(df, trail)
     logger.info("[2/5] Cleaning addresses")
     df = clean_addresses(df, trail, reports=address_reports)
-    df, missing = _finish_records(df)
+    df = _finish_records(df)
 
     logger.info("[3/5] Applying corrections")
     df = apply_record_rules(df, trail)
@@ -109,7 +108,7 @@ def clean_records(
         "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
         source="data/rules/manual_employer_overrides.csv",
     )
-    return df, missing
+    return df
 
 
 def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
@@ -122,17 +121,9 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
         logger.warning("WARNING: Dropping %s duplicate sub_ids", f"{dup_count:,}")
         df = df.drop_duplicates(subset="sub_id", keep="first").copy()
 
-    # Keep foreign and unknown states; they do not invalidate a contribution.
+    # Foreign and unknown states do not invalidate contributions.
     state = df["contributor_state"].astype("string").str.strip().str.upper()
     df["contributor_state"] = state.where(state.fillna("") != "", pd.NA).astype(object)
-
-    # Record missing work fields before filling them.
-    for field, flag in (
-        ("contributor_occupation", "_occ_missing"),
-        ("contributor_employer", "_emp_missing"),
-    ):
-        raw = df[field].astype("string").fillna("").str.strip().str.upper()
-        df[flag] = df[field].isna() | (raw == "") | raw.isin(MISSING_VALUES)
 
     df["contribution_receipt_date"] = pd.to_datetime(
         df["contribution_receipt_date"], errors="coerce"
@@ -145,6 +136,21 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
     attach_source_fields(df)
     return df
+
+
+# Warn about future or unparseable dates.
+def _sanity_check(df: pd.DataFrame) -> list[str]:
+    warnings = []
+    today = pd.Timestamp.now()
+    n_future = int((df['contribution_receipt_date'] > today + pd.Timedelta(days=30)).sum())
+    if n_future:
+        warnings.append(f"future dates (>30 days ahead): {n_future:,}")
+
+    n_null_date = int(df['contribution_receipt_date'].isna().sum())
+    if n_null_date:
+        warnings.append(f"unparseable dates: {n_null_date:,}")
+
+    return warnings
 
 
 def _reclassify_reason(df: pd.DataFrame) -> pd.Series:
@@ -188,7 +194,7 @@ def _clean_people(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
 
 
 def _finish_records(df: pd.DataFrame):
-    """Attach committee names and collect missing fields."""
+    """Attach committee names."""
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])
     unknown_mask = df["committee_id"].notna() & ~df["committee_id"].isin(names)
@@ -196,13 +202,11 @@ def _finish_records(df: pd.DataFrame):
     if unknown:
         logger.warning("WARNING: committee_id(s) not in committees.csv (kept raw): %s", unknown)
 
-    missing = _build_missing_report(df)
-
     columns = [column for column in OUTPUT_COLUMNS if column in df.columns]
     # Donor repairs still need this flag; output cleanup removes it.
     if "_care_of_blanked" in df.columns:
         columns.append("_care_of_blanked")
-    return df[columns], missing
+    return df[columns]
 
 
 # Mark work from other filings or outside sources as inferred.

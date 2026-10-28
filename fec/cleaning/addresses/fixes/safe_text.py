@@ -30,25 +30,24 @@ _SPLIT_TYPES = (
     "LOOP",
     "BROADWAY",
 )
-# street with trailing floor unit: "123 MAIN ST 28TH FLOOR" -> street + "28TH FLOOR"
+# Trailing floor unit: "123 MAIN ST 28TH FLOOR".
 _ORD_FLOOR_RE = re.compile(r"^(.+?)\s+(\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL))$")
-# street type followed by a trailing unit number: "123 MAIN DR 601" -> street + "601"
+# Trailing unit number after the type: "123 MAIN DR 601".
 _TYPE_NUM_RE = re.compile(
     r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+(\d{1,5}[A-Z]?)$"
 )
-# street type followed by a unit number and direction: "123 MAIN DR 601 N"
+# Unit number plus direction: "123 MAIN DR 601 N".
 _TYPE_NUM_DIR_RE = re.compile(
     r"^(.+\b(?:" + "|".join(_SPLIT_TYPES) + r"))\s+"
     r"(\d{1,5}\s+(?:NE|NW|SE|SW|N|S|E|W))$"
 )
-# Keep route numbers in street_1: "COUNTY RD 102", "N AVE 54", "NW LOOP 410".
-# A number after an ordinary name such as COUNTY LINE RD can still be a unit.
+# Route numbers stay in street_1: "COUNTY RD 102".
 _NUMBERED_NAME_BASE_RE = re.compile(
     r"(?:\b(?:COUNTY|CO|STATE|PRIVATE|TOWNSHIP|TWP|PARISH|RANCH|FARM|FM|FARM TO MARKET"
     r"|RANCH TO MARKET)\s+(?:RD|AVE|LOOP)"
     r"|^\S*\d\S*\s+(?:(?:NE|NW|SE|SW|N|S|E|W)\s+)?(?:RD|AVE|LOOP))$"
 )
-# house number repeated at start and end: "123 MAIN ST 123" -> "123 MAIN ST"
+# House number repeated at the end: "123 MAIN ST 123".
 _REPEATED_ADDRESS_START_RE = re.compile(
     r"^(?P<start>\d+[A-Z]?(?:\s+(?:NE|NW|SE|SW|N|S|E|W))?)\s+"
     r"(?P<body>.+\b(?:" + "|".join(_SPLIT_TYPES) + r")\b)\s+(?P=start)$"
@@ -102,7 +101,7 @@ def _strip_care_of(s):
     if not match:
         return text
     street = match.group(1).strip()
-    # A truncated fragment such as "100 M" is not a usable street.
+    # A truncated fragment like "100 M" is not a street.
     return street if _looks_like_street(street) else np.nan
 
 
@@ -111,7 +110,7 @@ _DIRECTION_WORDS = {"N", "S", "E", "W", "NE", "NW", "SE", "SW"}
 
 
 def _looks_like_street(street: str) -> bool:
-    """House number followed by at least one real street-name word (not only a type or direction)."""
+    """House number followed by at least one real name word."""
     tokens = str(street).upper().split()
     if len(tokens) < 2 or not re.match(r"^\d", tokens[0]):
         return False
@@ -120,7 +119,7 @@ def _looks_like_street(street: str) -> bool:
 
 
 def _move_street_from_second_line(df: pd.DataFrame) -> None:
-    """Put a filed street first and keep its C/O name, mailbox and unit."""
+    """Put the filed street first; keep C/O, mailbox and unit."""
     first = df[S1].fillna("").astype(str).str.strip()
     second = df[S2].fillna("").astype(str).str.strip()
     care_of = first.str.match(_CO_RE) & ~first.str.contains(r"\d")
@@ -154,7 +153,7 @@ def _move_street_from_second_line(df: pd.DataFrame) -> None:
 
 
 def _strip_city_state_tail(street, city, state, zip_code):
-    """Remove the row's city/state/ZIP tail only when a usable street remains."""
+    """Remove the city/state/ZIP tail when a usable street remains."""
     if pd.isna(street):
         return street
     tokens = [token.strip(",") for token in str(street).strip().split()]
@@ -179,7 +178,7 @@ def _strip_city_state_tail(street, city, state, zip_code):
         before = tokens[:-1]
         before_ends_with_city = city_long_enough and len(before) > len(city_tokens) \
             and [t.upper() for t in before[-len(city_tokens):]] == city_tokens
-        # A state code alone may be a street type, as in "7 DANIEL CT".
+        # A state code may be a type: "7 DANIEL CT".
         if stripped_zip or before_ends_with_city or before[-1].upper() in _STREET_TYPE_WORDS:
             tokens = before
             ends_with_city = before_ends_with_city
@@ -203,7 +202,7 @@ def apply_safe_fixes(df: pd.DataFrame) -> pd.DataFrame:
     df[S1] = df[S1].map(_fix_house_number)
     df[S1] = df[S1].map(_collapse_dup_words)
     df[S1] = df[S1].map(_drop_repeated_address_start)
-    # A blanked C/O address must not inherit the donor's home city.
+    # A blanked C/O address must not inherit the home city.
     df[CARE_OF_BLANKED] = was_care_of & df[S1].isna()
 
     empty = pd.Series(index=df.index, dtype=object)
@@ -238,14 +237,14 @@ def apply_safe_fixes(df: pd.DataFrame) -> pd.DataFrame:
     number = street.str.extract(_TYPE_NUM_RE)
     number_direction = street.str.extract(_TYPE_NUM_DIR_RE)
     has_floor = floor[0].notna()
-    # Route numbers such as "COUNTY RD 102" stay in the street.
+    # Route numbers like "COUNTY RD 102" stay in the street.
     has_number = number[0].notna() & ~number[0].fillna("").str.contains(_NUMBERED_NAME_BASE_RE)
     has_number_direction = (
         number_direction[0].notna()
         & ~number_direction[0].fillna("").str.contains(_NUMBERED_NAME_BASE_RE)
     )
 
-    # Prefer a floor, then a bare number, then a number with a direction.
+    # Prefer a floor, then a bare number, then number+direction.
     base = number_direction[0].where(has_number_direction)
     base = number[0].where(has_number, base)
     base = floor[0].where(has_floor, base)

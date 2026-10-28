@@ -45,7 +45,7 @@ def _unit_key(text) -> str:
     return re.sub(r"[^A-Z0-9]", "", re.sub(r"\b(?:APT|STE|SUITE|UNIT|RM)\b|#", "", str(text).upper()))
 
 
-# Keep an existing full street prefix; never copy a missing unit.
+# Keep an existing full street prefix; never copy missing units.
 def _trim_street_to_donor_short_form(df: pd.DataFrame) -> int:
     name = df["contributor_name"].fillna("").astype(str)
     street = df["contributor_street_1"].fillna("").astype(str).str.strip()

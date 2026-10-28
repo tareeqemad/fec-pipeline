@@ -8,7 +8,7 @@ from fec.config.occupation_rules.rules import (
 
 
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
-    """Fill work statuses from the same filing, without inferring a company."""
+    """Fill work statuses from the same filing, inferring no company."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     empty_emp = df['contributor_employer'].isna() | (df['contributor_employer'] == '')
     occ = df['contributor_occupation'].fillna('')

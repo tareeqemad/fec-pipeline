@@ -36,7 +36,7 @@ def _fill_null_city_from_zip(df: pd.DataFrame) -> int:
 
 # null a foreign city paired with a fake US state
 def _fix_foreign_addresses(df: pd.DataFrame) -> int:
-    """AF. Foreign city with a fake US state (REHOVOT/CA) -> NaN city; ambiguous cities (LONDON, PARIS) only when the state doesn't match a US location of that name."""
+    """Foreign city with a fake US state: city becomes NaN."""
     city = df['contributor_city'].fillna('').str.strip().str.upper()
     state = df['contributor_state'].fillna('').str.strip().str.upper()
 
@@ -57,9 +57,9 @@ def _fix_foreign_addresses(df: pd.DataFrame) -> int:
 
 # null garbage city names such as commas or ethnicity text
 def _fix_garbage_city_names(df: pd.DataFrame) -> int:
-    """AG. Garbage city names ('WHITE, NOT OF HISPANIC ORIGIN', 'JERUSALEM, ISRAEL') -> NaN."""
+    """Garbage city names become NaN."""
     city = df['contributor_city'].fillna('')
-    # a city is a single name and should never contain a comma
+    # A city never contains a comma.
     has_comma = city.str.contains(',', na=False, regex=False)
     has_ethnicity = city.str.contains(_ETHNICITY_RE, na=False)
     mask = has_comma | has_ethnicity
@@ -71,7 +71,7 @@ def _fix_garbage_city_names(df: pd.DataFrame) -> int:
 
 # fix state to PR or VI to match the ZIP
 def _fix_pr_zip_wrong_state(df: pd.DataFrame) -> int:
-    """AH. Puerto Rico/VI ZIP with wrong state -> fix state (006xx-009xx = PR, 00801-00851 = VI)."""
+    """Puerto Rico/VI ZIP with a wrong state: fix the state."""
     zip5 = df['contributor_zip'].fillna('')
     state = df['contributor_state'].fillna('')
 

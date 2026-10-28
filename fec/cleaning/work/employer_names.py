@@ -72,21 +72,21 @@ def finalize_employer_names(df: pd.DataFrame, trail=None) -> pd.DataFrame:
 
 
 def fix_occupation_as_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Use SELF-EMPLOYED when the employer is an occupation and the occupation differs."""
+    """SELF-EMPLOYED when the employer is a different occupation."""
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
 
     is_occ_emp = emp.isin(_OCC_AS_EMPLOYER)
     has_diff_occ = (occ != '') & (occ != emp)
-    # don't touch RETIRED people - "ATTORNEY" might be their previous employer
+    # Skip RETIRED people: ATTORNEY may be their previous employer.
     not_retired = ~occ.isin({'RETIRED', 'RETIRE', 'RETIREE'})
 
     hits = indiv_idx[is_occ_emp & has_diff_occ & not_retired]
     n_fixed = len(hits)
 
     if n_fixed:
-        # move the employer word to occupation if current occ is SELF-EMPLOYED
+        # Move the employer word to occupation if occupation is SELF-EMPLOYED.
         self_emp_idx = hits[occ[hits] == 'SELF-EMPLOYED']
         if len(self_emp_idx):
             df.loc[self_emp_idx, 'contributor_occupation'] = df.loc[self_emp_idx, 'contributor_employer']

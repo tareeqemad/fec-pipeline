@@ -1,6 +1,4 @@
 """Find retired donors' previous employers in the cleaned records."""
-import hashlib
-import json
 import re
 
 import pandas as pd
@@ -18,7 +16,7 @@ from fec.env import RAW_CSV
 from fec.committees import committee_id_to_name
 from fec.donor_match.normalize import NICKNAME_MAP
 from fec.donor_match.rules import KEY_MERGES, resolve_donor_key
-from fec.resolve.cache import RETIRED, _cache_entry, _prev_key, _previous_employer_identity, _previous_for_row, _s
+from fec.resolve.cache import RETIRED, _cache_entry, _prev_key, _previous_employer_identity, _s
 
 logger = get_logger(__name__)
 
@@ -31,7 +29,7 @@ PROTECTED_METHODS = {
 }
 
 def _retired_donors(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Return all individuals and the latest row for every retired donor."""
+    """All individuals and the latest row per retired donor."""
     individuals = df[df["entity_type"] == "INDIVIDUAL"]
     retired_keys = set(individuals.loc[individuals["contributor_employer"].eq(RETIRED), "donor_key"])
     latest = (
@@ -126,15 +124,14 @@ def _clear_invalid_cross_records(
         cached = prev_cache.get(cache_key)
         if not cached:
             continue
-        # an entry read from the local file whose evidence is gone (a manual
-        # override cleared the filing it came from) is not kept to come back
+        # Entries whose evidence was cleared by an override are dropped.
         if cached.get("method") in LOCAL_METHODS:
             prev_cache.discard(cache_key)
             cleared += 1
     return cleared
 
 def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
-    """Cache each retired donor's latest real employer from the loaded CSV."""
+    """Cache each retired donor's latest real employer."""
     individuals, latest_retired = _retired_donors(df)
     donor_to_cache_key, eligible, protected = _eligible_retired_donors(latest_retired, prev_cache)
     rows_by_donor = _cross_record_candidates(individuals, eligible)
@@ -154,7 +151,7 @@ def step_cross_record(df: pd.DataFrame, prev_cache) -> int:
 _JOINT_GIVEN_RE = re.compile(r"\bAND\b|&|/|\+")
 
 def _joint_name(value) -> bool:
-    """Its work details may be either person's, so they prove nothing about one."""
+    """Its work details may be either person's; they prove nothing."""
     text = _s(value).upper()
     given = text.split(",", 1)[1] if "," in text else text
     return bool(_JOINT_GIVEN_RE.search(given))
@@ -168,7 +165,7 @@ def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
         return {}
     people = df[(df["entity_type"] == "INDIVIDUAL") & ~df["contributor_name"].map(_joint_name)]
     given = people["contributor_first_name"].fillna("").astype(str).str.upper().str.split()
-    # a second whole given name ("STUART SARA") is a couple filing together, not a namesake
+    # A second whole given name means a couple filing together.
     people = people[given.map(lambda words: all(len(w.strip(".")) <= 1 for w in words[1:]))]
     first = given[people.index].str[0].fillna("").map(lambda name: NICKNAME_MAP.get(name, name))
     frame = pd.DataFrame({
@@ -180,73 +177,6 @@ def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
     keys_per_place = frame.groupby(["name", "zip"])["key"].transform("nunique")
     shared = frame[keys_per_place > 1]
     return shared.groupby("key")["zip"].agg(set).to_dict()
-
-def _pending_fec_searches(
-    df: pd.DataFrame,
-    prev_cache,
-    donor_totals: pd.DataFrame,
-) -> list[dict]:
-    """Search each unresolved donor and election cycle once."""
-    retired = df[df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].eq(RETIRED)]
-    latest = retired.sort_values("contribution_receipt_date", ascending=False).drop_duplicates(
-        ["donor_key", "two_year_transaction_period"])
-    totals = donor_totals.set_index("donor_key")["donor_total"].to_dict()
-    evidence = _donor_evidence(df)
-    searches = []
-    for row in latest.to_dict("records"):
-        key, cycle = row["donor_key"], _s(row.get("two_year_transaction_period")).strip()
-        if key not in totals or not cycle.isdigit() or int(cycle) % 2:
-            continue
-        cycle = int(cycle)
-        cached = _previous_for_row(prev_cache, row)
-        if cached and (cached.get("method") in PROTECTED_METHODS or _previous_employer_identity(cached)[0]):
-            continue
-        info = evidence.get((key, cycle), {})
-        if not info.get("filings") or not info.get("latest_date") or not info.get("committee_ids"):
-            continue
-        names = {row["contributor_name"], *(filing["contributor_name"] for filing in info["filings"]
-                 if filing["contributor_name"] and not _joint_name(filing["contributor_name"]))}
-        for name in tuple(names):
-            last, comma, given = name.partition(",")
-            first, _, rest = given.strip().partition(" ")
-            if comma:
-                names.add(f"{last}, {NICKNAME_MAP.get(first, first)} {rest}".strip())
-            names.update(f"{last}, {alias} {rest}".strip() for alias, canonical in NICKNAME_MAP.items()
-                         if comma and canonical == NICKNAME_MAP.get(first, first))
-        terms = {
-            "names": sorted(names),
-            "states": sorted({filing["contributor_state"] for filing in info["filings"] if filing["contributor_state"]}),
-            "evidence": hashlib.sha256(json.dumps([
-                sorted({tuple(sorted(filing.items())) for filing in info["filings"]}),
-                sorted(info.get("shared_zips", ())), sorted(info["committee_ids"]),
-            ]).encode()).hexdigest(),
-            "matcher": 2,
-        }
-        cache_key = _prev_key(key, cycle)
-        scoped = prev_cache.get(cache_key)
-        if not _fec_search_due(scoped, row["contribution_receipt_date"], terms) and (scoped or {}).get("method") != "fec_api":
-            continue
-        searches.append({
-            "prev_key": cache_key, "cycle": cycle,
-            "name": row["contributor_name"],
-            "state": row.get("contributor_state", ""),
-            "city": row.get("contributor_city", ""),
-            "zip": row.get("contributor_zip", ""),
-            **info, "search_terms": terms, "total": totals[key],
-            "latest_date": _s(row["contribution_receipt_date"])[:10],
-        })
-    searches.sort(key=lambda entry: -entry["total"])
-    return searches
-
-def _fec_search_due(cached: dict | None, latest_date=None, search_terms=None) -> bool:
-    """Retry a miss when its date, matching rules or filed evidence changes."""
-    if cached is None:
-        return True
-    return (cached.get("method") == "fec_api_unverified"
-            or cached.get("method") == "fec_api_not_found" and (
-                search_terms is not None and cached.get("search_terms") != search_terms
-                or not cached.get("all_pages") or latest_date is not None
-                and _s(cached.get("searched_through"))[:10] < _s(latest_date)[:10]))
 
 def _donor_evidence(df: pd.DataFrame) -> dict:
     """Use raw addresses; reviewed identities also keep their earlier addresses."""

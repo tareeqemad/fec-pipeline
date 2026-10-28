@@ -89,8 +89,7 @@ def _merge_manual_locations(existing: dict, manual: dict) -> dict:
         if not str(location.get("method", "")).startswith("manual_")
     ]
     replacement = dict(existing)
-    # a checked manual row (a correction or an INVALID) beats an AI web-search
-    # answer; an uncertain one (manual_review) does not
+    # Checked manual rows beat AI answers; uncertain ones do not.
     if primary is not None and (
         primary.get("method") in {"manual_override", "manual_invalid"}
         or not str(existing.get("method", "")).endswith("_search")
@@ -236,8 +235,7 @@ def load_manual_previous_employers(
 
 
 def cleared_employers(df: pd.DataFrame) -> dict[str, set[str]]:
-    """A committee that typed a spouse's firm under the donor (SANDBERG, ADELE) sent FEC the
-    same filing, so FEC's copy must not bring that firm back as the donor's work history."""
+    """FEC's copy must not restore a spouse's firm."""
     if not (MANUAL_EMPLOYER_OVERRIDES_CSV.exists() and RAW_CSV.exists()) or "sub_id" not in df.columns:
         return {}
     with MANUAL_EMPLOYER_OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:

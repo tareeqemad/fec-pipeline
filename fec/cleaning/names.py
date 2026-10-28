@@ -154,7 +154,7 @@ def _remove_name_titles(df: pd.DataFrame, is_individual: pd.Series) -> None:
 
 
 def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Handle multi-comma names with embedded titles: WIENIR, MD, MICHAEL -> last=WIENIR, first=MICHAEL."""
+    """Multi-comma names with titles: "WIENIR, MD, MICHAEL"."""
     multi_comma_mask = is_individual & (df['contributor_name'].str.count(',') > 1)
     for idx in df.loc[multi_comma_mask].index:
         match = _EMBEDDED_TITLE_RE.match(df.at[idx, 'contributor_name'])
@@ -167,7 +167,7 @@ def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> Non
 
 
 def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Split LAST, FIRST for reclassified records missing first/last; also repair missing last_name."""
+    """Split LAST, FIRST for reclassified records missing name parts."""
     needs_split = is_individual & df['contributor_first_name'].isna()
     if needs_split.any():
         names = df.loc[needs_split, 'contributor_name'].astype(str)
@@ -204,7 +204,7 @@ def _clean_committee_names(df: pd.DataFrame, is_committee: pd.Series) -> None:
 
 
 def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Strip titles from first_name, suffixes from last_name, handle email in last_name."""
+    """Strip first-name titles, last-name suffixes and emails."""
     df.loc[is_individual, 'contributor_first_name'] = (
         df.loc[is_individual, 'contributor_first_name'].astype(str)
         .str.replace('`', '', regex=False)
@@ -259,7 +259,7 @@ def _text(value) -> str:
 
 
 def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Apply verified first-name fixes only for the matching surname and ZIP5."""
+    """Verified first-name fixes for the matching surname and ZIP5."""
     if not FIRST_NAME_FIXES or 'contributor_zip' not in df.columns:
         return
     garbled_words = {word for _, word, _ in FIRST_NAME_FIXES}
@@ -289,7 +289,7 @@ _GIVEN_WORD_RE = re.compile(r"[A-Z][A-Z'-]+")
 
 
 def _keep_filed_given_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Keep extra filed given names, such as WOLF in 'HARRIS, S. WOLF'."""
+    """Keep extra filed given names: WOLF in 'HARRIS, S. WOLF'."""
     first = df['contributor_first_name'].fillna('').astype(str).str.strip()
     last = df['contributor_last_name'].fillna('').astype(str).str.strip()
     filed = df['contributor_name'].fillna('').astype(str).str.partition(',')
@@ -301,7 +301,7 @@ def _keep_filed_given_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
 
 
 def _adds_given_names(first: str, filed_first: str) -> bool:
-    """The filed first part is the field plus whole name words."""
+    """The filed first part: the field plus whole name words."""
     field_words, filed_words = first.split(), filed_first.split()
     added = filed_words[len(field_words):]
     return (
@@ -317,7 +317,7 @@ def _adds_given_names(first: str, filed_first: str) -> bool:
 
 
 def _fix_title_as_first_name(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Clear first_name when it is actually a title (MRS, DR., MD, etc.)."""
+    """Clear first names that are titles (MRS, DR, MD)."""
     title_as_first = (
         is_individual &
         df['contributor_first_name'].fillna('').str.upper().isin(_PURE_TITLE)
@@ -388,5 +388,6 @@ def _clean_names(df: pd.DataFrame, trail=None) -> None:
         'committee': df['entity_type'] == 'COMMITTEE/PAC',
     }
     for fn, scope, step, reason in NAME_STEPS:
-        transform = lambda d, fn=fn, mask=masks[scope]: fn(d, mask)
+        def transform(d, fn=fn, mask=masks[scope]):
+            return fn(d, mask)
         trail.run(df, transform, step, reason, NAME_FIELDS)

@@ -8,10 +8,8 @@ import pandas as pd
 
 from fec import env
 from fec.cleaning.addresses.foreign import foreign_address_mask
-from fec.cleaning.reports.audit import write_audit
 from fec.cleaning.pipeline import clean_pipeline
 from fec.cleaning.reports.gates import run_quality_gates
-from fec.cleaning.reports.scan import scan
 from fec.committees import load_committees
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.contract import check_output
@@ -35,10 +33,7 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     df = read_pipeline_csv(input_path)
     logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
 
-    original_rows = df[['sub_id']].copy()
-    original_rows['row_index'] = original_rows.index.astype(int)
-
-    cleaned, missing, trail = clean_pipeline(df, out_dir=out_dir)
+    cleaned = clean_pipeline(df, out_dir=out_dir)
     output = cleaned.drop(columns=[
         column for column in cleaned.columns
         if column.startswith('_') or column in INTERNAL_OUTPUT_COLUMNS
@@ -50,14 +45,13 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
         _check_reclean(expected, output)
 
     _save_if_gates_pass(output, out_dir, output_path)
-    _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path)
     _print_summary(output, output_path, out_dir, time.perf_counter() - start)
     if expected is None:
         logger.info("Next: python geocode.py")
     return output
 
 
-# City corrections may rename keys, but must keep contributions and donor groups.
+# City corrections may rename keys but keep contributions and donors.
 def _check_reclean(expected: pd.DataFrame, output: pd.DataFrame) -> None:
     columns = ['sub_id', 'contribution_receipt_amount', 'donor_key', 'contributor_city']
     before = expected[columns].set_index('sub_id', verify_integrity=True).sort_index()
@@ -74,20 +68,6 @@ def _check_reclean(expected: pd.DataFrame, output: pd.DataFrame) -> None:
         raise ValueError('City correction changed donor groups; the previous CSV was kept')
     if not before['contributor_city'].fillna('').eq(after['contributor_city'].fillna('')).all():
         raise ValueError('City corrections were not applied as expected; the previous CSV was kept')
-
-
-# Write the quality scan for the saved CSV.
-def _write_quality_scan(output_path, out_dir):
-    df = pd.read_csv(
-        output_path,
-        dtype=str,
-        keep_default_na=False,
-        na_filter=False,
-    )
-    report = scan(df)
-    path = os.path.join(out_dir, 'quality_scan.json')
-    write_json_atomic(path, report, indent=2, ensure_ascii=False)
-    return report
 
 
 # Stop if a recipient is missing from committees.csv.
@@ -109,7 +89,7 @@ def _assert_known_committees(df):
     raise SystemExit(1)
 
 
-# Keep US ZIPs as five digits and foreign postcodes as filed.
+# US ZIPs as five digits; foreign postcodes as filed.
 def _ensure_zip_format(df):
     us = ~foreign_address_mask(df)
     zips = df['contributor_zip']
@@ -157,20 +137,6 @@ def _save_if_gates_pass(output, out_dir, output_path) -> None:
         raise SystemExit(1)
     check_output('clean', (), output.columns)
     write_csv_atomic(output, output_path, index=False)
-
-
-# Write the change audit, missing fields and quality scan.
-def _write_reports(cleaned, original_rows, missing, trail, out_dir, output_path) -> None:
-    write_audit(cleaned, original_rows, out_dir, trail)
-
-    people = cleaned.loc[
-        cleaned['entity_type'].eq('INDIVIDUAL'), ['sub_id', 'contributor_name']
-    ].set_index('sub_id')
-    missing = missing[missing['sub_id'].isin(people.index)].copy()
-    missing['contributor_name'] = missing['sub_id'].map(people['contributor_name'])
-    write_csv_atomic(missing, os.path.join(out_dir, 'missing_report.csv'), index=False)
-
-    _write_quality_scan(output_path, out_dir)
 
 
 if __name__ == '__main__':

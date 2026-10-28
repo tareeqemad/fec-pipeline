@@ -1205,7 +1205,7 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4011420231698184934,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
 4042820231745858314,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
 4123020221645490111,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
-4032520241885654914,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
+4032520241885654914,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,"Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.; 2026-10-28 A0037 (address_review_cases): street held the company name, cleared",,[CLEAR],,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
 4122920221645231747,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
 4081420251217995516,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
 4081420251217995515,GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES,,,Verified employer name for this donor: GOOD HEALTH INC -> GOOD HEALTH INC. DBA PREMIER PHARMACY SERVICES.,,,,,https://www.pharmacy.ca.gov/enforcement/fy1920/ac196863,,,true
@@ -1480,3 +1480,37 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,previou
 4092220251291772495,ADC THERAPEUTICS,,,"Name reviewed 2026-10-24. Correct the three ADV board-chair filings for Ron Squarer only. The same donor has ADC, ADCT and ADC THERAPEUTICS filings in the same period, and ADC's official release names him chairman. ADV remains blocked as a global alias.",,,,,https://ir.adctherapeutics.com/2023-06-15-ADC-Therapeutics-Announces-Evolution-of-Board-of-Directors | https://www.sec.gov/Archives/edgar/data/1771910/000162828026040492/xslF345X06/wk-form4_1780520606.xml,,,true
 4092420251292198116,ADC THERAPEUTICS,,,"Name reviewed 2026-10-24. Correct the three ADV board-chair filings for Ron Squarer only. The same donor has ADC, ADCT and ADC THERAPEUTICS filings in the same period, and ADC's official release names him chairman. ADV remains blocked as a global alias.",,,,,https://ir.adctherapeutics.com/2023-06-15-ADC-Therapeutics-Announces-Evolution-of-Board-of-Directors | https://www.sec.gov/Archives/edgar/data/1771910/000162828026040492/xslF345X06/wk-form4_1780520606.xml,,,true
 4092420251292198115,ADC THERAPEUTICS,,,"Name reviewed 2026-10-24. Correct the three ADV board-chair filings for Ron Squarer only. The same donor has ADC, ADCT and ADC THERAPEUTICS filings in the same period, and ADC's official release names him chairman. ADV remains blocked as a global alias.",,,,,https://ir.adctherapeutics.com/2023-06-15-ADC-Therapeutics-Announces-Evolution-of-Board-of-Directors | https://www.sec.gov/Archives/edgar/data/1771910/000162828026040492/xslF345X06/wk-form4_1780520606.xml,,,true
+4092420251292198510,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4122920221645227801,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4032520241885655311,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4110120231808001100,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4112220231811444400,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4122120231813093998,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4032520241885655619,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4032020251180457600,,,,"2026-10-28 A0007 (address_review_cases): street held GOLDEN BEACH / LA FORTUNA, place names, not an address",,[CLEAR],,,,,,
+4061720261521511179,,,,2026-10-28 A0024 (address_review_cases): street held the donor's own name,,[CLEAR],,,,,,
+4060420241953437203,,,,"2026-10-28 A0025 (address_review_cases): street held GROVE, no house number",,[CLEAR],,,,,,
+4030320251179410440,,,,"2026-10-28 A0025 (address_review_cases): street held GROVE, no house number",,[CLEAR],,,,,,
+4060420241953437210,,,,"2026-10-28 A0025 (address_review_cases): street held GROVE, no house number",,[CLEAR],,,,,,
+4110720231809900352,,,,2026-10-28 A0026 (address_review_cases): street held the state name MARYLAND,,[CLEAR],,,,,,
+4080120261540163894,,,,"2026-10-28 A0028 (address_review_cases): street held SUITE 720, a unit without a street",,[CLEAR],,,,,,
+4082720261585275220,,,,"2026-10-28 A0031 (address_review_cases): street held KORFF FAMILY FOUNDATION, an organization",,[CLEAR],,,,,,
+4011420251130091021,,,,2026-10-28 A0032 (address_review_cases): street held the city name SKOKIE,,[CLEAR],,,,,,
+4011420251130090326,,,,2026-10-28 A0032 (address_review_cases): street held the city name SKOKIE,,[CLEAR],,,,,,
+4122920221645236536,,,,"2026-10-28 A0033 (address_review_cases): street held SHOREBIRD, no house number",,[CLEAR],,,,,,
+4122920221645226755,,,,"2026-10-28 A0033 (address_review_cases): street held SHOREBIRD, no house number",,[CLEAR],,,,,,
+4011620261302591198,,,,2026-10-28 A0034 (address_review_cases): street held the city name STAMFORD,,[CLEAR],,,,,,
+4110720231809900921,,,MANHATTAN BEACH,"2026-10-28 A0035 (address_review_cases): street held S POINSETTIA, no house number; ZIP 90266 is Manhattan Beach, not Los Angeles",,[CLEAR],,,,,,
+4092520231802907335,,,MANHATTAN BEACH,"2026-10-28 A0035 (address_review_cases): street held S POINSETTIA, no house number; ZIP 90266 is Manhattan Beach, not Los Angeles",,[CLEAR],,,,,,
+4110120231808000311,,,MANHATTAN BEACH,"2026-10-28 A0035 (address_review_cases): street held S POINSETTIA, no house number; ZIP 90266 is Manhattan Beach, not Los Angeles",,[CLEAR],,,,,,
+4030120241877880538,,,MANHATTAN BEACH,"2026-10-28 A0035 (address_review_cases): street held S POINSETTIA, no house number; ZIP 90266 is Manhattan Beach, not Los Angeles",,[CLEAR],,,,,,
+4122120231813094672,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094671,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094676,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094668,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094662,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094664,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094670,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094659,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094669,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,
+4122120231813094658,,,,"2026-10-28 A0036 (address_review_cases): street held HUNTINGTON, no house number",,[CLEAR],,,,,,

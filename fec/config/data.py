@@ -50,21 +50,19 @@ TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Suffixes stripped from last names (SMITH JR. -> SMITH). V/IV need the comma
-# prefix so names like RAVIV or ones ending in IV survive.
+# Last-name suffixes stripped; V/IV need a comma before.
 SUFFIX_RE = re.compile(
     r',?\s+(JR\.?|SR\.?|III|II|ESQ\.?)\s*$|,\s*(IV|V)\s*$',
     re.IGNORECASE,
 )
 
-# Professional suffixes in last name (MILLER MD -> MILLER); handled separately.
+# Professional suffixes in last names (MILLER MD), handled separately.
 PRO_SUFFIX_RE = re.compile(
     r'\s+(MD|M\.D\.?|DDS|D\.D\.S\.?|PHD|PH\.D\.?|DO|D\.O\.?|FACS|FAAOS)\s*$',
     re.IGNORECASE,
 )
 
-# Keywords that indicate an organization, not an individual; every token has a
-# proven hit on the real raw names (per-token census, 2026-07)
+# Organization keywords, each proven on real raw names.
 ORG_KEYWORDS = re.compile(
     r'FOR CONGRESS|FOR SENATE|FOR AMERICA'
     r'|,\s+[\w\s]+\s+(?:REP|SEN)\.'                     # ", MIKE REP." / ", SHELLEY MOORE SEN."
@@ -79,20 +77,16 @@ ORG_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
-# Individual names: "LASTNAME, F..." (FEC standard). Spaces/parens allowed in
-# the last name; `*` after the first letter so single-letter surnames match
-# ("Y, IVAN"); backticks and semicolons are tolerated as stray punctuation.
+# Individual names in FEC "LASTNAME, F..." form.
 INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 
-# Trailing junk on committee names (", SOMETOWN", appended candidate name) but
-# not a legal suffix (", INC"). 30-char cap covers "FIRST MIDDLE LAST TITLE".
+# Trailing junk on committee names, but not legal suffixes.
 COMM_TAIL_RE = re.compile(r',\s+(?!INC|LLC|LLP|CORP|JR|SR|PA\s*$)[A-Z][A-Z.\s]{0,30}$')
 
 # the substring "RETIRE" anywhere, case-insensitive: "RETIRED", "RETIREE"
 RETIRE_RE = re.compile(r'RETIRE', re.IGNORECASE)
 
-# Output column order. recipient_committee is the PAC that RECEIVED the money,
-# resolved from the FEC committee_id via data/reference/committees.csv.
+# Output column order; recipient_committee is the receiving PAC.
 OUTPUT_COLUMNS = [
     # ids
     'sub_id', 'transaction_id', 'two_year_transaction_period', 'recipient_committee',
@@ -103,26 +97,19 @@ OUTPUT_COLUMNS = [
     # address
     'contributor_street_1', 'contributor_street_2',
     'contributor_city', 'contributor_state', 'contributor_zip',
-    # work; contributor_employer is the per-donor unified name — the raw
-    # per-filing value (contributor_employer_original) is internal-only
+    # Work; contributor_employer is the per-donor unified name.
     'contributor_employer',
     'contributor_occupation', 'occupation_category',
-    # internal working fields read by later safety nets; dropped at save
+    # Internal working fields for later safety nets; dropped at save.
     'occupation_status', 'committee_type', '_generational_suffix',
-    # contribution; contributor_year deliberately absent (DB derives it), as
-    # are is_refund / is_zero_amount (amount alone suffices; refunds < 0).
-    # Refund rows are almost all COMMITTEE/PAC, but the rare INDIVIDUAL refund
-    # exists and is load-bearing: dropping it would overstate that donor's net
+    # Contribution; amounts alone mark refunds (below zero).
     'contribution_receipt_date',
     'contribution_receipt_amount',
-    # what FEC itself says about the contributor (data/raw/fec_source_fields.csv),
-    # beside the final entity_type (fec/cleaning/entities.py)
+    # What FEC itself says about the contributor.
     'fec_entity_type', 'fec_contributor_id', 'fec_image_number',
 ]
 
-# Working/provenance columns that must never reach the cleaned CSV — every
-# writer (clean / geocode / resolve) drops these before to_csv. Coordinates
-# are kept; only the *_level "how it was geocoded" markers are dropped.
+# Working columns no writer may save; coordinates are kept.
 INTERNAL_OUTPUT_COLUMNS = [
     'is_individual',  # redundant with entity_type
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
@@ -134,8 +121,7 @@ INTERNAL_OUTPUT_COLUMNS = [
     'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived
     'employer_geocode_level',  # how the employer coordinate was derived
-    # FEC's own type and contributor id: read from data/raw/fec_source_fields.csv
-    # while cleaning, never written out
+    # FEC's own type and id, read while cleaning, never written.
     'fec_entity_type',
     'fec_contributor_id',
     'fec_image_number',

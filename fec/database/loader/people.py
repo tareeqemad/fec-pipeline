@@ -27,7 +27,7 @@ def _reset_id_sequence(cur: Any, table: str) -> None:
         logger.warning("  %s: sequence not reset: %s", table, error)
 
 
-# Set the sequence to the highest ID, or one for an empty table.
+# Set the sequence to the highest ID, or one.
 def _set_sequence_to_max(cur: Any, table: str) -> None:
     cur.execute(
         """
@@ -56,7 +56,7 @@ def _person_value(row, field: str) -> str:
     return value.strip()
 
 
-# Read the roster name and place, filling split names when needed.
+# Read the roster name and place, filling split names.
 def _person_identity(row) -> tuple[str, str, str, str, str]:
     name = _person_value(row, "name")
     first = _person_value(row, "first_name")
@@ -142,7 +142,7 @@ def _upsert_address(
     )
 
 
-# Validate and load the roster, linking each row to its donor.
+# Validate and load the roster, linking rows to donors.
 def _load_donor_linked_csv(
     cur: Any, csv_filename: str, table: str, insert_row,
     validate_rows=None,

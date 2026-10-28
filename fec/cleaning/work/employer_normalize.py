@@ -10,9 +10,7 @@ from fec.config.constants import SKIP_EMPLOYERS
 
 from fec.cleaning.work.employer_aliases import reviewed_employer_name
 
-# Status words/artifacts that must never end up in previous_employer;
-# callers treat a match as "no previous employer known". The canonical status
-# set plus display-stage extras (punctuated variants, honorifics, stumps).
+# Status words that never become previous_employer.
 _PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
     'NOT-EMPLOYED', 'PRIVATE', 'N.A', 'N.A.',
     'RET', 'RET.', 'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.',
@@ -22,16 +20,12 @@ _PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
     'COMPANY NAME', 'COMPANY NAME (OPTIONAL)', 'NOT SPECIFIED',
 }
 
-# Suffix STYLE normalization only (", INC" -> " INC", "P.C" -> "PC") - never
-# strips, so it can never merge two companies. Tolerates raw FEC punctuation
-# ("CO,, INC." / "CO ,INC"): the comma may repeat and a trailing period is
-# stripped later in the pipeline, so both forms must still match here.
+# Suffix style only (", INC" -> " INC"); never strips.
 _SUFFIX_COMMA_RE = re.compile(
     r'\s*,[,\s]*(?=(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA'
     r'|L\.L\.C|L\.L\.P|L\.P|P\.C|P\.A'
     r'|INCORPORATED|CORPORATION|COMPANY|LIMITED)\.?$)')
-# "CO." keeps its period only when it is a mid-name abbreviation nobody styles
-# ("CO. INC" / "CO. LLP" / trailing "CO."): dotted initials such as R.A. or U.S. stay.
+# "CO." keeps its period only as a mid-name abbreviation.
 _SUFFIX_DEDOT = [(re.compile(r'\bL\.L\.C\.?$'), 'LLC'), (re.compile(r'\bL\.L\.P\.?$'), 'LLP'),
                  (re.compile(r'\bP\.C\.?$'), 'PC'), (re.compile(r'\bP\.A\.?$'), 'PA'),
                  (re.compile(r'\bL\.P\.?$'), 'LP'),
@@ -70,7 +64,7 @@ def normalize_employer_display_name(name) -> str | None:
 
 # clean up legal-suffix punctuation style without stripping it
 def restyle_legal_suffix(name: str) -> str:
-    """Style-only suffix cleanup (', INC' -> ' INC', 'P.C' -> 'PC'); never strips, so it can never merge two companies."""
+    """Style-only suffix cleanup; never strips, so never merges companies."""
     if name.rstrip('.').endswith('A.L.P'):   # a.l.p. Lighting, not a partnership
         return name
     text = _SUFFIX_COMMA_RE.sub(' ', name)

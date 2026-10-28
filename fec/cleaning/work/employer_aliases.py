@@ -76,7 +76,7 @@ def preserved_employer_name(name) -> str | None:
 
 
 def reviewed_employer_pair(left: str, right: str) -> bool:
-    """A documented no-merge decision need not be queued on every run."""
+    """Documented no-merge decisions need no queue every run."""
     pair = frozenset((employer_rule_key(left), employer_rule_key(right)))
     return pair in _SEPARATE_PAIRS
 
@@ -85,7 +85,7 @@ def documented_employer_name(name) -> str | None:
     return _ALIASES.get(employer_rule_key(name))
 
 
-# Resolve the evidence filing to its current donor; never match people by company.
+# Resolve evidence to its current donor; never match by company.
 def scoped_employer_rules(df: pd.DataFrame) -> dict:
     needed = {"sub_id", "donor_key", "entity_type", "identity_status"}
     if not _SCOPED_RULES or not needed.issubset(df.columns):
@@ -119,13 +119,13 @@ def reviewed_employer_name(name, donor_key="", cycle="", scoped=None) -> str:
                     return target
     if key in _ALIASES:
         return _ALIASES[key]
-    # Keep domain dots, name words and legal forms; tidy punctuation only.
+    # Keep dots, name words and legal forms; tidy punctuation only.
     text = name.upper().replace("&", " AND ").replace(",", " ")
     text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
     return " ".join(text.split())
 
 
-# Existing values only: an alias never fills missing work or creates work history.
+# Aliases change existing values only, never fill missing work.
 def apply_reviewed_employer_names(
     df: pd.DataFrame, columns=("contributor_employer", "previous_employer"),
 ) -> int:

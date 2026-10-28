@@ -56,7 +56,7 @@ def _gate_occupation_category_consistency(df):
 
 # quality gate: a status's field markers and employer_status must agree
 def _status_agreement_gate(df, gate: str, status_value: str, label: str):
-    """Rows whose fields mark status_value must carry that employer_status, and back."""
+    """Status-marked rows must carry that employer_status, and back."""
     required = {
         'entity_type', 'contributor_employer', 'contributor_occupation',
         'occupation_category', 'employer_status',
@@ -176,7 +176,7 @@ def _gate_retired_active_sync(df):
 
 # quality gate: retired rows must carry the RETIRED employer marker
 def _gate_retired_employer_marker(df):
-    """A retired occupation must finish with the canonical RETIRED employer marker."""
+    """Retired occupations must end with the RETIRED employer marker."""
     required = {'entity_type', 'occupation_category', 'contributor_employer'}
     if not required.issubset(df.columns):
         return []

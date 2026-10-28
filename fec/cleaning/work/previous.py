@@ -1,4 +1,4 @@
-"""Normalize previous employers to a company name, SELF-EMPLOYED, or empty text."""
+"""Previous employers become a company, SELF-EMPLOYED, or empty."""
 from __future__ import annotations
 
 import re
@@ -45,13 +45,13 @@ _SLASH_SELF_WORDS = frozenset({
     'SELF', 'SELFEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED',
 })
 
-# sector / job-title strings that, alone on a side, mean no real previous employer
+# Sector or title strings meaning no real previous employer.
 _SLASH_SECTOR_ONLY = frozenset({
     'INVESTMENTS', 'INSURANCE', 'BUILDER', 'DEVELOPER', 'INVESTOR',
     'REAL ESTATE AGENT', 'DEVELOPER R E', 'RETIRED LAWYER',
 })
 
-# a leading admin-request marker on a slash value: "LETTER SENT/ACME CORP"
+# Leading admin marker on a slash value: "LETTER SENT/ACME".
 _SLASH_ADMIN_PREFIX_RE = re.compile(
     r'^(LETTER SENT|REQUESTED)\b',
     re.IGNORECASE,
@@ -60,7 +60,7 @@ _SLASH_ADMIN_PREFIX_RE = re.compile(
 _JUNK_EMPLOYER_RE = re.compile(JUNK_EMPLOYER_RE)
 _WS_RE = re.compile(r'\s+')
 
-# Match whole-word RETIRED around a company; preserve RETIREE and RETIREMENT names.
+# Whole-word RETIRED around a company; RETIREE and RETIREMENT stay.
 _RETIRED_WORD = r'(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY)[\s-]?)?RETIRED'
 _RETIRED_PREFIX_RE = re.compile(
     rf'^\(?{_RETIRED_WORD}\b\)?(?:\s+FROM\b)?[\s,;:/-]*'
@@ -83,7 +83,7 @@ def _strip_retired_marker(upper: str) -> tuple[str, bool]:
     return upper, False
 
 
-# part time / full time written after the company: "UMIAMI P/T"
+# Part or full time after the company: "UMIAMI P/T".
 _SCHEDULE_SUFFIX_RE = re.compile(r'\s+[PF]/T\s*$', re.IGNORECASE)
 
 
@@ -91,7 +91,7 @@ _SCHEDULE_SUFFIX_RE = re.compile(r'\s+[PF]/T\s*$', re.IGNORECASE)
 def _resolve_slash(s: str) -> str:
     if not s:
         return ''
-    # a trailing work schedule is no second company: "UMIAMI P/T" is UMIAMI
+    # A trailing work schedule is no second company.
     s = _SCHEDULE_SUFFIX_RE.sub('', s)
     value_upper = s.strip().upper()
     if value_upper in SLASH_BRAND_EMPLOYERS:
@@ -119,7 +119,7 @@ def _resolve_slash(s: str) -> str:
 _NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOYED'}) | {
     # keyboard junk / bare-status stumps seen only in previous_employer
     'COMMUNITY VOLUNTEER', 'VOLUNTEER', 'XXN', 'NOT',
-    # Prior work only: adding BUSINESS to the shared sector set would trigger current-work inference.
+    # Prior work only; BUSINESS would trigger current-work inference.
     'BUSINESS',
     # Degrees and pronouns name no company.
     'MD', 'M.D', 'M.D.', 'ME', 'PHD', 'DDS', 'DO',
@@ -148,7 +148,7 @@ def _is_null_previous(upper: str) -> bool:
 
 # SELF-EMPLOYED written after a name or trade.
 SELF_EMPLOYED_TAIL_RE = re.compile(r'[-,/(:]\s*SELF[\s-]*EMPLOY\w*\W*$')
-# a word that makes the text before the marker a firm, not the filer's name
+# A word making the text before the marker a firm.
 _FIRM_WORD_RE = re.compile(
     r'\b(?:GROUP|INC|LLC|LLP|LTD|CORP|CORPORATION|CO|COMPANY|ASSOCIATES|PARTNERS'
     r'|FIRM|PC|PA|PLLC|ENTERPRISES|CONSULTING|SERVICES|STUDIO|AGENCY)\b'
@@ -190,7 +190,7 @@ def normalize_previous_employer_value(v) -> str:
         # A former profession does not establish self-employment.
         return '' if cleaned == 'SELF-EMPLOYED' else cleaned
 
-    # Keep a named firm before recognizing SELF-EMPLOYED as a standalone status.
+    # Keep a named firm before recognizing SELF-EMPLOYED alone.
     firm = _firm_before_self_marker(upper)
     if firm:
         return normalize_previous_employer_value(firm) or 'SELF-EMPLOYED'
@@ -256,7 +256,7 @@ def _name_words(value) -> frozenset[str]:
     )
 
 
-# Keep an own-named company with a legal suffix; reject a bare donor name.
+# Keep own-named companies with a legal suffix; reject bare names.
 def preserve_own_named_legal_employer(
     cleaned: str, original, contributor_name,
 ) -> str:
@@ -283,7 +283,7 @@ def normalize_previous_employer_column(df: pd.DataFrame) -> int:
     df.loc[has_previous, 'previous_employer'] = normalized
 
     if 'contributor_name' in df.columns:
-        # A legal suffix distinguishes an own-named firm from a bare person name.
+        # A legal suffix separates an own-named firm from a name.
         current = df.loc[has_previous, 'previous_employer']
         donor_names = df.loc[has_previous, 'contributor_name']
         values = zip(current, before, donor_names)

@@ -42,10 +42,3 @@ backup_db/
 # Local agent notes
 AGENTS.md
 CLAUDE.md
-
-# Address review reports (regenerated each clean run)
-data/reports/address_manual_review.csv
-data/reports/address_regeocode_suspects.csv
-
-# Cleaning audit (regenerated each run)
-data/reports/audit_changes.csv

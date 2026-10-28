@@ -39,7 +39,7 @@ _CORP_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-# a company name written in occupation text: "INC", "GROUP", "SMITH & JONES"
+# A company name in occupation text: "INC", "GROUP".
 _COMPANY_IN_OCCUPATION_RE = re.compile(
     r'\bINC\b\.?'
     r'|\b(?:LLC|LLP|CORP|LTD|COMPANY|CORPORATION|HOLDINGS|GROUP'
@@ -95,7 +95,7 @@ def normalize_occupation_canonical(
 
 
 def _cross_fill(df: pd.DataFrame) -> None:
-    """Fill an obvious missing occupation or employer from its other field."""
+    """Fill an obviously missing occupation or employer from the other."""
     for employer, (occupation, category) in OCCUPATION_FROM_EMPLOYER.items():
         mask = (
             df['is_individual']
@@ -114,7 +114,7 @@ def _cross_fill(df: pd.DataFrame) -> None:
 
 
 def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
-    """Swap a company in occupation with a job title in employer."""
+    """Swap a company in occupation with a title in employer."""
     has_both = df['contributor_occupation'].notna() & df['contributor_employer'].notna()
     employer_is_job = df['contributor_employer'].isin(SWAP_JOB_TITLES)
     real_employers = set(df.loc[~employer_is_job, 'contributor_employer'].dropna())

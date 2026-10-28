@@ -15,14 +15,16 @@ from fec.cleaning.work.employer_names import (
 from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 from fec.cleaning.entities import (
-    apply_name_corrections,
-    fix_credential_in_name,
-    fix_double_apostrophes,
     fix_employer_equals_occupation,
-    fix_fullname_in_both_fields,
     fix_misclassified_business_entities,
     fix_remaining_misclassified,
     normalize_business_names,
+)
+from fec.cleaning.name_fixes import (
+    apply_name_corrections,
+    fix_credential_in_name,
+    fix_double_apostrophes,
+    fix_fullname_in_both_fields,
     normalize_name_periods,
 )
 from fec.cleaning.work.clean import (
@@ -130,9 +132,8 @@ def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail) -> None:
     for rule, scope, fields, reason in SAFETY_RULES:
         if scope == ALL_ROWS:
             transform = rule
-        elif scope == INDIVIDUALS:
-            transform = lambda frame, rule=rule: rule(frame, individuals)
         else:
-            transform = lambda frame, rule=rule: rule(frame, non_individuals)
+            def transform(frame, rule=rule, mask=individuals if scope == INDIVIDUALS else non_individuals):
+                return rule(frame, mask)
         step = 'safety_' + rule.__name__.lstrip('_')
         trail.run(df, transform, step, reason, fields)

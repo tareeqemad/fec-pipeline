@@ -1,172 +1,20 @@
-"""Find a retiree's employer from another committee in the same election cycle."""
-import os
+"""A retiree's employer from another committee in the same cycle."""
 import re
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
-import requests
 
 from fec.cleaning.work.previous import normalize_previous_employer_value
-from fec.cleaning.work.status import classify_employer_status
 from fec.cleaning.addresses.compare import _ABBREVIATIONS
 from fec.donor_match.normalize import NAME_SUFFIXES, NICKNAME_MAP, extract_generational_suffix
 from fec.log import get_logger
-from fec.resolve.cache import _cache_entry, _s
-from fec.resolve.manual import cleared_employers
+from fec.resolve.cache import _s
 from fec.resolve.previous import (
     _donor_evidence,
     _joint_name,
-    _pending_fec_searches,
     _zip5,
 )
 
 logger = get_logger(__name__)
-FEC_BASE = "https://api.open.fec.gov/v1"
-FEC_PAGE_SIZE = 100
-FEC_MAX_PAGES = 20
-RATE_LIMIT_WAIT_SECONDS = 5
-RATE_LIMITED = object()
-
-def _fec_filings(person: dict, fec_key: str, request_get,
-                 quota_spent: threading.Event | None = None):
-    """Read this cycle; failed or quota-limited searches are not cached as misses."""
-    if quota_spent is None:
-        quota_spent = threading.Event()
-    params = {
-        "api_key": fec_key,
-        "contributor_name": person.get("search_terms", {}).get("names", person["name"]),
-        "contributor_state": person.get("search_terms", {}).get("states", person["state"]),
-        "two_year_transaction_period": person["cycle"],
-        "min_date": f"{person['cycle'] - 1}-01-01",
-        "max_date": min(person["latest_date"][:10], f"{person['cycle']}-12-31"),
-        "per_page": FEC_PAGE_SIZE,
-        "sort": "-contribution_receipt_date",
-        "is_individual": "true",
-    }
-    for _page in range(FEC_MAX_PAGES):
-        if quota_spent.is_set():
-            yield RATE_LIMITED
-            return
-        response = request_get(f"{FEC_BASE}/schedules/schedule_a/", params=params, timeout=15)
-        if response.status_code == 429:
-            if quota_spent.wait(RATE_LIMIT_WAIT_SECONDS):
-                yield RATE_LIMITED
-                return
-            response = request_get(f"{FEC_BASE}/schedules/schedule_a/", params=params, timeout=15)
-            if response.status_code == 429:
-                # Signal from this worker before it can take another queued donor.
-                quota_spent.set()
-                yield RATE_LIMITED
-                return
-        if response.status_code != 200:
-            yield None
-            return
-        body = response.json()
-        results = body["results"]
-        yield from results
-        last = (body.get("pagination") or {}).get("last_indexes")
-        if len(results) < FEC_PAGE_SIZE or not last:
-            return
-        params = {**params, **last}
-    yield None
-
-def _fetch_fec_previous_employer(person: dict, fec_key: str, request_get,
-                                quota_spent: threading.Event | None = None):
-    """Fetch one donor's latest matching FEC filing and return its cache entry."""
-    try:
-        for record in _fec_filings(person, fec_key, request_get, quota_spent):
-            if record is RATE_LIMITED:
-                return None, RATE_LIMITED
-            if record is None:
-                return None, None
-            if not _same_fec_donor(person, record) or not _dated_source(person, record):
-                continue
-            if classify_employer_status(record.get("contributor_employer", ""),
-                                        record.get("contributor_occupation", "")) != "active":
-                continue
-            entry = _cache_entry(
-                record.get("contributor_employer", ""),
-                state=record.get("contributor_state", person["state"]),
-                method="fec_api",
-                source_date=record.get("contribution_receipt_date", ""),
-                source_name=record.get("contributor_name", ""),
-                source_city=record.get("contributor_city", ""),
-                source_zip=record.get("contributor_zip", ""),
-                source_street_1=record.get("contributor_street_1", ""),
-                source_street_2=record.get("contributor_street_2", ""),
-                source_sub_id=record.get("sub_id", ""),
-                source_cycle=record.get("two_year_transaction_period", ""),
-                source_committee_id=record.get("committee_id", ""),
-            )
-            if entry.get("employer") and entry["employer"].upper() not in person.get("cleared_employers", ()):
-                return person["prev_key"], entry
-
-        return person["prev_key"], {
-            "employer": "",
-            "method": "fec_api_not_found",
-            "all_pages": True, "searched_through": person["latest_date"][:10],
-            **({"search_terms": person["search_terms"]} if person.get("search_terms") else {}),
-        }
-    except Exception:
-        return None, None
-
-def step_fec_api(
-    df: pd.DataFrame,
-    prev_cache,
-    donor_totals: pd.DataFrame,
-) -> int:
-    """Find remaining retired donors' latest real employer through the FEC API."""
-    cleared = cleared_employers(df)
-    unproven = drop_unproven_source_entries(prev_cache, df, cleared)
-    if unproven:
-        prev_cache.save()
-        logger.warning("WARNING: %s FEC cache answers need verification or were rejected", f"{unproven:,}")
-
-    fec_key = os.environ.get("FEC_API_KEY", "").strip()
-    if not fec_key:
-        logger.warning("SKIPPED: FEC_API_KEY is not set; free key: https://api.open.fec.gov/developers/")
-        return 0
-
-    searches = _pending_fec_searches(df, prev_cache, donor_totals)
-    for person in searches:
-        person["cleared_employers"] = cleared.get(person["prev_key"].split(":")[1], set())
-    if not searches:
-        logger.info("FEC: no pending lookups")
-        return 0
-
-    logger.info("FEC: %s pending lookups", f"{len(searches):,}")
-    found = 0
-    quota_spent = threading.Event()
-    quota_logged = False
-
-    # skip the search once the quota is spent: the donor stays for the next run
-    def search(person):
-        if quota_spent.is_set():
-            return None, None
-        return _fetch_fec_previous_employer(person, fec_key, requests.get, quota_spent)
-
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = [pool.submit(search, person) for person in searches]
-        for done, future in enumerate(as_completed(futures), 1):
-            cache_key, result = future.result()
-            if result is RATE_LIMITED:
-                if not quota_logged:
-                    logger.warning("PARTIAL: FEC hourly limit reached; remaining lookups will be retried next run")
-                    quota_logged = True
-                continue
-            if cache_key and result:
-                prev_cache.put(cache_key, result)
-                if result.get("employer"):
-                    found += 1
-            if done % 50 == 0 and not quota_spent.is_set():
-                prev_cache.save()
-                logger.info("FEC: %s/%s searched | %s found", f"{done:,}", f"{len(searches):,}", f"{found:,}")
-
-    prev_cache.save()
-    logger.info("FEC: %s previous employers found", f"{found:,}")
-    return found
-
 def _words(value) -> list[str]:
     """Return uppercase name/locality words without punctuation."""
     return re.findall(r"[A-Z0-9]+", _s(value).upper())

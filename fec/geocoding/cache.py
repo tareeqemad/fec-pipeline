@@ -18,7 +18,7 @@ class GeoCache:
     def get(self, key: str) -> dict | None:
         if key in self.data:
             return self.data[key]
-        # Older runs uppercased fields and numbered ordinal streets in cache keys.
+        # Older runs uppercased fields and numbered ordinals in keys.
         parts = [part.strip().upper() for part in key.split("|")]
         normalized = "|".join(parts)
         if normalized in self.data:

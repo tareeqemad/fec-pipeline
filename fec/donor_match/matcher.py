@@ -153,19 +153,19 @@ class UnionFind:
 
 
 def _has_signal(row: dict, prefix: str) -> bool:
-    """Return whether an audit row contains a scoring signal with this prefix."""
+    """Audit row has a scoring signal with prefix."""
     return any(
         signal.strip().startswith(prefix) for signal in row["signals"].split(";")
     )
 
 
-# Check groups of four or more; separate members scoring below 30.
+# Check groups of four or more; separate members below 30.
 CHAIN_MIN = 30
 CHAIN_CLUSTER_MIN = 4
 
 
 def _validate_merge_audit(rid_to_key: dict, audit_log: list) -> dict:
-    """Fail if a final automatic merge bypassed an identity safety rule."""
+    """Fail if an automatic merge bypassed an identity safety rule."""
     final_merges = [
         row
         for row in audit_log
@@ -224,7 +224,7 @@ def _build_and_validate_chains(
     profiles: dict,
     name_groups: dict,
 ) -> dict:
-    """Build components from union-find, then eject weakly-chained members of large clusters."""
+    """Union-find components, ejecting weakly chained members of large clusters."""
     components = defaultdict(set)
     for rid in uf.parent:
         root = uf.find(rid)
@@ -234,7 +234,7 @@ def _build_and_validate_chains(
         if len(members) < CHAIN_CLUSTER_MIN:
             continue
 
-        # Break equal counts by record ID so donor keys stay stable.
+        # Break ties by record ID so keys stay stable.
         canonical_rid = max(
             members,
             key=lambda rid: (profiles[rid]["record_count"], rid),
@@ -253,8 +253,7 @@ def _build_and_validate_chains(
 
         if ejected:
             components[root] -= ejected
-            # Preserve this order: ejecting the root replaces its group,
-            # leaving the other members to receive fallback keys.
+            # Keep this order: ejecting the root replaces its group.
             for rid in ejected:
                 components[rid] = {rid}
 
@@ -262,7 +261,7 @@ def _build_and_validate_chains(
 
 
 def _merge_roots_of(components: dict, rids: list) -> int:
-    """Merge the groups containing these profile IDs; return the number removed."""
+    """Merge the groups holding these profiles; return how many removed."""
     roots = set()
     for rid in rids:
         for root, members in components.items():

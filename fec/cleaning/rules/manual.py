@@ -51,7 +51,7 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
         fields["previous_employer"] = (
             "" if previous.upper() == CLEAR_PREVIOUS_EMPLOYER else previous
         )
-    # Row corrections use the same company spelling as the shared rules.
+    # Row corrections use the shared company spelling.
     for column in ("contributor_employer", "previous_employer"):
         if isinstance(fields.get(column), str):
             fields[column] = reviewed_employer_name(fields[column])
@@ -146,27 +146,27 @@ def categorize_records(df: pd.DataFrame) -> pd.Series:
     return expected.where(scoped.isna(), scoped)
 
 
-# words of two letters or more, plus a run of single letters joined ("F A" -> "FA")
+# Words of 2+ letters, plus runs of single letters joined.
 def _words(text: str) -> list[str]:
     tokens = re.findall(r"[A-Z0-9]+", str(text).upper())
     joined = "".join(token for token in tokens if len(token) == 1)
     return [token for token in tokens if len(token) > 1] + ([joined] if len(joined) > 1 else [])
 
 
-# same word, or a close spelling: one edit from four letters, two from six
+# Same word, or one edit (4+ letters), two (6+).
 def _same_word(a: str, b: str) -> bool:
     shorter = min(len(a), len(b))
     return a == b or (shorter >= 4 and levenshtein(a, b) <= (2 if shorter >= 6 else 1))
 
 
-# the value spells out the filing's abbreviation: SFSS -> SAN FRANCISCO SPINE SURGEONS
+# The value spells out the abbreviation: SFSS -> SAN FRANCISCO...
 def _is_initialism(value_words: list[str], filed_words: list[str]) -> bool:
     initials = "".join(word[0] for word in value_words)
     return len(initials) > 1 and initials in filed_words
 
 
 def _employer_evidence(filed: pd.DataFrame) -> str:
-    """Use occupation as company evidence only when it is not a known job."""
+    """Occupation is company evidence only when not a known job."""
     employer, occupation = (
         " ".join(filed.reindex(columns=[column]).fillna("").astype(str).to_numpy().ravel())
         for column in _WORK_FIELDS
@@ -179,7 +179,7 @@ def _employer_evidence(filed: pd.DataFrame) -> str:
 
 
 def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
-    """Find work details absent from the filing; exclude the donor's own name."""
+    """Work details absent from the filing, excluding the donor's name."""
     def text(columns):
         values = filed.reindex(columns=list(columns)).fillna("").astype(str)
         return " ".join(values.to_numpy().ravel())
@@ -202,7 +202,7 @@ def _brings_outside_work(filed: pd.DataFrame, fields: dict) -> bool:
 
 
 def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
-    """Return IDs whose override adds work absent from the raw filing."""
+    """IDs whose override adds work absent from the raw filing."""
     if not OVERRIDES_CSV.exists():
         return set()
     overrides = _read_overrides(company_names_only=False, before_matching=True)
@@ -241,7 +241,7 @@ def _apply_overrides(
     return changed, missing
 
 
-# every field an override row can set, for the audit trail
+# Every field an override can set, for the audit.
 OVERRIDE_FIELDS = (
     "contributor_employer", "contributor_occupation", "occupation_category",
     "contributor_city", "contributor_street_1", "contributor_street_2",

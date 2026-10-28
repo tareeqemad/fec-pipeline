@@ -1,4 +1,4 @@
-"""HTTP access to the FEC API: session, retries, rate limit, one page."""
+"""FEC API access: session, retries, rate limit, one page."""
 from __future__ import annotations
 
 import logging
@@ -75,7 +75,7 @@ def _retry_or_raise(attempt: int, failure: str, gave_up: str, response=None, err
     sleep(delay)
 
 
-# Wait for the quota to reset, up to the total wait limit.
+# Wait for the quota to reset, within the wait limit.
 def _wait_for_rate_limit(response, attempt: int, waited: float) -> float:
     delay = max(1.0, _retry_delay(attempt, response, cap=120.0))
     if waited + delay > RATE_LIMIT_MAX_WAIT:
@@ -90,7 +90,7 @@ def _wait_for_rate_limit(response, attempt: int, waited: float) -> float:
     return waited
 
 
-# Read JSON or raise a useful error without exposing the API key.
+# Read JSON or raise a useful error, hiding the key.
 def _response_data(response, params: dict) -> dict:
     if response.status_code == 403:
         raise PullError("FEC API key is invalid or expired")

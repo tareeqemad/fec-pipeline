@@ -73,7 +73,7 @@ def _preserve_previous_employer_display(
     df: pd.DataFrame,
     prior_previous: pd.Series | None,
 ) -> None:
-    """Keep the existing display spelling when resolve found the same company."""
+    """Keep the display spelling when resolve found the same company."""
     if prior_previous is None or "previous_employer" not in df.columns:
         return
 

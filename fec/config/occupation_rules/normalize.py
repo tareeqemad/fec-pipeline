@@ -14,8 +14,7 @@ OCCUPATION_NORMALIZE = {
     'AT HOME': 'HOMEMAKER',
     'SAHM': 'STAY AT HOME MOM',
     'MOM': 'HOMEMAKER',
-    # HOUSEWIFE stays HOUSEWIFE — different word
-    # STAY AT HOME MOM/DAD stay as-is — different from HOMEMAKER
+    # HOUSEWIFE and STAY AT HOME forms stay as filed.
 
     # short abbreviations verified from FEC data
     'ART': 'ARTIST',
@@ -36,11 +35,9 @@ OCCUPATION_NORMALIZE = {
     'ATTORNEY AT LAW': 'ATTORNEY',
     'ATTORNEY-AT-LAW': 'ATTORNEY',
     'ATTORNEY/LAWYER': 'ATTORNEY',
-    # LAWYER stays LAWYER — legally different from ATTORNEY
-    # TRIAL LAWYER / TRIAL ATTORNEY stay — specific types
+    # LAWYER and trial titles stay; legally different from ATTORNEY.
 
-    # medical: DR/MD live in OCCUPATION_FIXES
-    # DOCTOR stays DOCTOR — different word from PHYSICIAN
+    # Medical: DOCTOR stays, different from PHYSICIAN.
 
     # executive titles
     'CE0': 'CEO',  # zero for O
@@ -48,15 +45,13 @@ OCCUPATION_NORMALIZE = {
     'C.E.O': 'CEO',
     'CHIEF EXECUTIVE OFFICER': 'CEO',
     'CHIEF EXECUTIVE': 'CEO',
-    # CIO, CMO and CDO stay as filed: each has more than one reading
-    # (investment or information, marketing or medical, data or development)
+    # CIO, CMO and CDO stay: each has several readings.
     'CFP': 'CERTIFIED FINANCIAL PLANNER',
     'DDS': 'DENTIST',
 
-    # real estate — forms kept distinct (REALTOR is trademarked; broker is a
-    # different license)
+    # Real estate forms stay distinct (REALTOR, broker).
 
-    # BUSINESSMAN / BUSINESSWOMAN / SMALL BUSINESS OWNER stay — different words
+    # BUSINESSMAN and SMALL BUSINESS OWNER stay.
 
     # executive; SENIOR/CORPORATE EXECUTIVE stay — more specific
     'EXEC': 'EXECUTIVE',
@@ -92,7 +87,7 @@ OCCUPATION_NORMALIZE = {
     'AL ESTATE': 'REAL ESTATE',
     'REALESTATE': 'REAL ESTATE',
 
-    # consulting typos; CONSULTANCY stays — a business form, not a typo
+    # Consulting typos; CONSULTANCY stays.
     'CONSJLTANT': 'CONSULTANT',
     'COMSUJTANT': 'CONSULTANT',
     'CONSUTLANT': 'CONSULTANT',
@@ -324,8 +319,7 @@ OCCUPATION_NORMALIZE = {
     'JEWLERY': 'JEWELRY',
     'PHYT': 'PHYSICAL THERAPIST',
 
-    # Verified in the final occupation audit. These are exact corrections,
-    # never fuzzy guesses: each typo is supported by the donor's other filings.
+    # Exact audited corrections, each supported by the donor's filings.
     'ADVISE': 'ADVISOR',
     'AGC': 'ASSOCIATE GENERAL COUNSEL',
     'ASSET MGR': 'ASSET MANAGER',
@@ -382,11 +376,7 @@ OCCUPATION_NORMALIZE = {
     'WNTRERENEUR': 'ENTREPRENEUR',
     'CANDIDATE FOR DC DELEGATE': 'CANDIDATE FOR DC DELEGATE TO CONGRESS',
 
-    # Leftovers of the 2026-09-23 occupation audit. Same contract as the block
-    # above: exact raw spellings (after upper-casing and trailing-punctuation
-    # stripping), each one checked against the donor's other filings or the
-    # employer on the row. Ambiguous short forms (F A, SLES) are NOT here.
-    # status words first: status and employer derivation read the text early
+    # 2026-09-23 audit leftovers, same contract as above.
     'REIRED': 'RETIRED',
     'RERIRED': 'RETIRED',
     'RETREF': 'RETIRED',

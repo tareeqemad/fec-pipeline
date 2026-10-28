@@ -245,7 +245,7 @@ def select_location(
     donor_state: str = "",
     donor_city: str = "",
 ) -> dict | None:
-    """Prefer the same city and state, then the nearest state office or primary."""
+    """Same city and state, then the nearest state office."""
     candidates = location_candidates(entry)
     if not candidates:
         return None

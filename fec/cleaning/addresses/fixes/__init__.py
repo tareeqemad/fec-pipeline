@@ -1,1 +1,1 @@
-"""Per-donor address correction and recovery, run after field-level cleaning; scoped to one person so genuine distinct addresses are never merged."""
+"""Per-donor address fixes; distinct real addresses are never merged."""

@@ -10,14 +10,14 @@ from fec.config.not_employers import LEGAL_SUFFIX_RE
 
 # build word-set from a personal name, order and case ignored
 def _name_word_set(*parts: str) -> frozenset[str]:
-    """Word-set of a personal name: punctuation dropped, single letters ignored, order ignored (FEC stores LAST, FIRST)."""
+    """Word set of a personal name, ignoring order and initials."""
     words = re.sub(r'[^A-Z]', ' ', ' '.join(parts).upper()).split()
     return frozenset(word for word in words if len(word) > 1)
 
 
 # check whether an employer value is really the donor's name
 def _is_own_name(df: pd.DataFrame, idx, employer: str) -> bool:
-    """True only when the whole employer value is the donor's name."""
+    """True only when the whole employer is the donor's name."""
     first = _name_word_set(df.at[idx, 'contributor_first_name'])
     last = _name_word_set(df.at[idx, 'contributor_last_name'])
     if not first or not last:
@@ -33,7 +33,7 @@ def _is_own_name(df: pd.DataFrame, idx, employer: str) -> bool:
 
 # check whether the raw employer value carried a legal suffix
 def _had_legal_suffix(df: pd.DataFrame, idx) -> bool:
-    """The raw suffix proves an own-named value is a company, not a bare name."""
+    """A raw suffix proves an own-named value is a company."""
     if 'contributor_employer_original' not in df.columns:
         return False
     original = str(df.at[idx, 'contributor_employer_original']).strip().upper()

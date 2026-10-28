@@ -45,7 +45,7 @@ def connect(dbname: str | None = None) -> Any:
     )
 
 
-# Convert pandas values to Python values, with None for missing data.
+# Pandas values to Python values, None when missing.
 def to_native(val: Any) -> Any:
     if pd.isna(val):
         return None
@@ -120,7 +120,7 @@ def savepoint(cur: Any, name: str) -> Iterator[None]:
     cur.execute(f"RELEASE SAVEPOINT {name}")
 
 
-# Read the row count, or log a warning and return zero.
+# Read the row count, or warn and return zero.
 def _count(cur: Any, table: str) -> int:
     try:
         with savepoint(cur, "count_rows"):

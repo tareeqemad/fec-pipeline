@@ -189,17 +189,6 @@ class AuditTrail:
         return [record for record in self.records if id(record) in keep]
 
 
-def summarize(records: list[dict]) -> dict:
-    """Count changes by step and reason."""
-    steps: dict[str, dict] = {}
-    for record in records:
-        entry = steps.setdefault(record["step"], {"changes": 0, "reasons": {}})
-        entry["changes"] += 1
-        reason = record["reason"] or ""
-        entry["reasons"][reason] = entry["reasons"].get(reason, 0) + 1
-    return steps
-
-
 # build one audit record dict
 def _row(key, field, before, after, step, reason, source=None) -> dict:
     return {

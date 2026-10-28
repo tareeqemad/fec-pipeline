@@ -17,9 +17,7 @@ def _clean_zip_raw(raw: pd.Series) -> pd.Series:
         raw.str.len() <= 5, raw.str.zfill(9).str[:5]
     )
 
-    # lowest USPS-assigned ZIP is 00501; below is unassigned (catches digit-drop
-    # typos like "00034"). nulling is safe: the per-donor same-street fill
-    # downstream restores the ZIP from the donor's own other filings.
+    # ZIPs below 00501 are unassigned typos; nulling them is safe.
     invalid = ~result.str.match(r'^\d{5}$', na=False) | (result < '00501')
     result[invalid] = np.nan
 

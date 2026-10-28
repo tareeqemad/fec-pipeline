@@ -1,10 +1,4 @@
-"""Compare a filed street with its cleaned form, part by part.
-
-Formatting is not a change: STREET and ST, NORTH and N, a unit written in
-street_1 or in street_2, a house number typed with a space (10 17 -> 1017).
-What can move the place is reported per part: house number, direction,
-street type, and the unit number changing, appearing or disappearing.
-"""
+"""Compare a filed street with its cleaned form, partwise."""
 from __future__ import annotations
 
 import re
@@ -25,16 +19,16 @@ STREET_TYPES = frozenset({
 })
 DIRECTIONS = frozenset({"N", "S", "E", "W", "NE", "NW", "SE", "SW"})
 _UNIT_WORDS = r"APT|STE|UNIT|FL|RM|PH|BLDG|LOT|SPC|PMB"
-# the first unit word or # in a street: "12 MAIN ST APT 5", "12 MAIN ST # 5"
+# First unit word or # in a street.
 _UNIT_START_RE = re.compile(rf"(?:\b(?:{_UNIT_WORDS})\b|#)")
 # an ordinal's suffix: "5TH" -> "5"
 _ORDINAL_RE = re.compile(r"\b(\d+)(?:ST|ND|RD|TH)\b")
-# a PO box and its number, however written: "PO BOX 123", "POB 123", "PO 123", "BOX 123"
+# A PO box and its number, however written.
 _PO_BOX_RE = re.compile(r"^(?:P ?O ?(?:BOX|B)?|BOX) ?(\d\S*)")
-# a unit number after the street type with no unit word: "155 STEELE ST 616", "5500 ISLAND DR 601 N"
+# Unit number after the street type: "155 STEELE ST 616".
 _BARE_UNIT_RE = re.compile(r"\b(?:ST|AVE|RD|DR|BLVD|LN|CT|PL|CIR|TER|PKWY|WAY|TRL|SQ) (\d+(?: [A-Z])?)$")
 
-# uppercase abbreviated tokens: "123 North Main Street." -> "123 N MAIN ST"
+# Uppercase abbreviated tokens: "North Main Street." -> "N MAIN ST".
 def normalize(text) -> str:
     text = str(text or "").upper().replace("&", " AND ")
     text = re.sub(r"[\[\]]", "", text)  # AP[T 503W -> APT 503W
@@ -50,7 +44,7 @@ def normalize(text) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-# each unit number in a text: "STE 105 # 105" -> ["105"]
+# Each unit number in a text: "STE 105 # 105".
 def _unit_numbers(text: str) -> list[str]:
     numbers = []
     for segment in _UNIT_START_RE.split(f" {text} ")[1:] or ([text] if text else []):
@@ -66,7 +60,7 @@ def _unit_numbers(text: str) -> list[str]:
         half = number[:len(number) // 2]
         if number and half * 2 == number:  # written twice: 25J 25J
             number = half
-        # a unit has a digit or is one letter; "CA9260" or "GA3034" is a state and ZIP
+        # Units have a digit or one letter; "CA9260" is state+ZIP.
         if (any(ch.isdigit() for ch in number) or len(number) == 1) \
                 and not re.fullmatch(r"[A-Z]{2,}\d{3,}", number):
             numbers.append(number)
@@ -113,7 +107,7 @@ def parse_street(street: str) -> StreetParts:
     house = ""
     while tokens and tokens[0].isdigit():
         house += tokens.pop(0)
-        # 10 17 GREENTREE -> 1017, but 6620 24 ST keeps 24 as the street name
+        # "10 17 GREENTREE" becomes 1017; "6620 24 ST" keeps 24.
         if not (len(tokens) > 1 and tokens[0].isdigit() and tokens[1] not in STREET_TYPES | DIRECTIONS):
             break
     house = house.lstrip("0") or house
@@ -134,12 +128,12 @@ def parse_street(street: str) -> StreetParts:
     return StreetParts(house, frozenset(pre + post), tuple(tokens), street_type, "")
 
 
-# the cleaned street appears word for word inside the filed one
+# The cleaned street appears verbatim inside the filed one.
 def _found_in(cleaned: str, filed: str) -> bool:
     return cleaned != filed and f" {cleaned} " in f" {filed} "
 
 
-# the street from its first number: "W RES 210 LAVACA" -> "210 LAVACA"
+# The street from its first number onward.
 def _from_first_number(street: str) -> str:
     if _PO_BOX_RE.match(street):
         return street
@@ -177,7 +171,7 @@ def street_changes(filed_1, filed_2, cleaned_1, cleaned_2) -> list[str]:
                 changes.append("street_direction_changed")
             glued = "".join(before.name) + before.street_type == "".join(after.name) + after.street_type
             if before.street_type != after.street_type and not glued:  # 2425 LST NW = 2425 L ST NW
-                # a type the filing never wrote is a guess between streets: ISENGARD ST or DR
+                # A street type the filing never wrote is a guess.
                 changes.append("street_type_changed" if before.street_type else "street_type_added")
     if filed_unit and not cleaned_unit:
         changes.append("unit_removed")

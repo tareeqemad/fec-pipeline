@@ -1,4 +1,4 @@
-"""Split a house number filed in the ZIP field back out, when filings prove it."""
+"""Split a house number filed in the ZIP field out."""
 import re
 
 import numpy as np
@@ -11,11 +11,7 @@ from fec.cleaning.addresses.street_text import (
 )
 from fec.cleaning.addresses.zips import _clean_zip_raw
 
-# Some filings put the house number (bare or followed by '0001') in the ZIP
-# field, with the real city/ZIP in street_1 or street_2, sometimes truncated.
-# The false ZIP can also give them the wrong city and state.
-# clean_streets saves the recovered place here; clean_cities applies it so
-# each change is audited by the step that owns the field.
+# Some filings put the house number in the ZIP field.
 HOUSE_ZIP_CITY = '_house_zip_city'
 
 
@@ -32,7 +28,7 @@ _HOUSE_ZIP_COLUMNS = (HOUSE_ZIP_CITY, HOUSE_ZIP_STATE, HOUSE_ZIP_ZIP)
 _LEADING_HOUSE_NUMBER_RE = re.compile(r'^(\d{3,5})\s')
 
 
-# Split '<house> <street> <city> <ZIP5>[-ZIP4]' using cities filed at that ZIP.
+# Split '<house> <street> <city> <ZIP>' using cities filed there.
 _STREET1_PLACE_RE = re.compile(r'^(\d{3,5} .*[A-Z].*?),? (\d{5})(?:-?\d{4})?$')
 
 
@@ -43,7 +39,7 @@ _STREET2_PLACE_RE = re.compile(r'^([A-Z]{3,}(?: [A-Z]+)*),? (\d{4,5})$')
 _MAX_CITY_WORDS = 3
 
 
-# Complete truncated places only when this many people file the city/state/ZIP.
+# Complete truncated places only when this many people file them.
 _MIN_PLACE_FILERS = 3
 
 
@@ -61,7 +57,7 @@ def _person_key(df: pd.DataFrame) -> pd.Series:
 
 
 class _FiledPlaces:
-    """Filed cities, states and ZIP codes used to read a typed place."""
+    """Filed cities, states and ZIPs used to read a place."""
 
     # Exclude rows being fixed from the supporting filings.
     def __init__(self, df: pd.DataFrame, exclude: pd.Series):
@@ -86,13 +82,12 @@ class _FiledPlaces:
             return frame.iloc[0:0]
         return frame[(frame['person'] == person) & (frame['city'] == city) & (frame['zip5'] == zip5)]
 
-    # Return this person's unique state for the city/ZIP, or blank if missing or ambiguous.
+    # This person's unique state for the city/ZIP, or blank.
     def own_state(self, person: str, city: str, zip5: str) -> str:
         states = set(self._own_rows(person, city, zip5)['state']) - {''}
         return states.pop() if len(states) == 1 else ''
 
-    # Complete city/ZIP prefixes from one widely filed city/state.
-    # Among multiple ZIPs, keep a unique ZCTA; otherwise leave ZIP blank.
+    # Complete city/ZIP prefixes from one widely filed place.
     def complete(self, city_start: str, zip_start: str) -> tuple[str, str, str] | None:
         frame = self.frame[
             self.frame['city'].str.startswith(city_start)
@@ -111,7 +106,7 @@ class _FiledPlaces:
         return city, (zips[0] if len(zips) == 1 else ''), state
 
 
-# Extract the longest city filed at the trailing ZIP, leaving a house and street.
+# Extract the longest city filed at the trailing ZIP.
 def _street1_place(street: str, house: str, places: _FiledPlaces) -> tuple[str, str, str] | None:
     match = _STREET1_PLACE_RE.match(street)
     if not match or match.group(2) == house.zfill(5):
@@ -135,8 +130,7 @@ def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str,
     return places.complete(city, zip_text)
 
 
-# Recover a house number filed as ZIP when the street contains the real city and ZIP.
-# Use the donor's matching filings for state, then the ZIP; leave unreadable places alone.
+# Recover a house number filed as ZIP; unreadable places stay.
 def _split_house_number_zip(df: pd.DataFrame) -> None:
     if 'contributor_street_1' not in df.columns or 'contributor_zip' not in df.columns:
         return
@@ -183,7 +177,7 @@ def _split_house_number_zip(df: pd.DataFrame) -> None:
         df.at[index, HOUSE_ZIP_ZIP] = zip5
 
 
-# Apply the recovered city/state/ZIP, blank missing ZIPs and remove working columns.
+# Apply recovered places, blank missing ZIPs, drop working columns.
 def _apply_house_number_zip(df: pd.DataFrame) -> None:
     if HOUSE_ZIP_CITY not in df.columns:
         return

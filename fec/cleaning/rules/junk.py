@@ -20,15 +20,14 @@ _SCHOOL_EMP_RE = re.compile(
     r'SCHOOL|ACADEMY|COLLEGE|UNIVERSITY|EDUCATION|MDCPS|ISD\b|UNIFIED|DISTRICT',
 )
 
-# anchored: SELF / SELF EMPLOYED / SELFEMPLOYED / SELF-EMP etc. match; SELFRIDGES and trailing text do not
+# Anchored SELF-EMPLOYED variants; SELFRIDGES and tails do not match.
 _SELF_EMP_RE = re.compile(r'^SELF(?:[\s\-/]*EMP(?:LOY\w*)?)?$')
 
-# SELF with a tail ("SELF - ACME"). A named company is preserved; generic
-# descriptions such as "SELF EMPLOYED LAW OFFICE" remain SELF-EMPLOYED.
+# SELF with a tail: named companies are kept.
 _SELF_PREFIX_RE = re.compile(r'^SELF[\s,/\-]+', re.IGNORECASE)
-# leading "SELF" (and optional "EMPLOYED") prefix to strip: "SELF - ACME LLC"
+# Leading SELF prefix to strip: "SELF - ACME LLC".
 _SELF_PREFIX_STRIP_RE = re.compile(r'^SELF[\s,/\-]+(?:EMPLOYED[\s,/\-]*)?')
-# a company-type word marking the tail as a real firm name, not a description
+# A company-type word marking the tail as a firm.
 _SELF_COMPANY_TAIL_RE = re.compile(
     r'\b(?:LLC|LLP|PLLC|INC|CORP|LTD|PC|PA|CAPITAL|REALTY|REAL ESTATE|'
     r'STRATEGIES|LAW|LAW OFFICES?|TRADING CO)\b',
@@ -42,7 +41,7 @@ _GENERIC_SELF_TAILS = {'LAW OFFICE', 'COMPANY OWNER', 'PRIVATE CONTRACTOR', 'CON
 
 # an occupation ending in a bare number: "TEACHER 12345"
 _OCC_NUM_TAIL_RE = re.compile(r'^[A-Z ]+\s+\d+$')
-# the trailing number itself, to strip it: " 12345" at end of string
+# The trailing number to strip.
 _TRAILING_NUM_RE = re.compile(r'\s+\d+$')
 
 # run all final junk-cleaning passes on employer/occupation
@@ -73,7 +72,7 @@ def _clean_junk_employers(df: pd.DataFrame, ii: pd.Index) -> int:
 
 
 def _clean_junk_occupations(df: pd.DataFrame, ii: pd.Index) -> int:
-    """Blank short or structurally junk occupations; mark MISSING for later refill."""
+    """Blank short or junk occupations; mark MISSING for refill."""
     occ = _norm(df.loc[ii, 'contributor_occupation'])
     short = (occ.str.len() <= 2) & (occ != '') & ~occ.isin(FINAL_SHORT_OCCUPATIONS)
     pattern = (occ != '') & occ.str.match(JUNK_EMPLOYER_RE, na=False)
@@ -207,7 +206,7 @@ def _clean_self_employed_variants(df: pd.DataFrame) -> int:
 
 # null placeholder employer words normalization created late
 def _clean_junk_status_word_employer(df: pd.DataFrame) -> int:
-    """Final sweep: null refusal/placeholder employers that normalization created late ("N A" -> "N/A")."""
+    """Final sweep: null placeholder employers created late ("N A")."""
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     collapsed = emp.str.replace(r'\s+', ' ', regex=True)

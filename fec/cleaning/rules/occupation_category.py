@@ -6,7 +6,7 @@ import pandas as pd
 from fec.cleaning.work.normalize import _categorize, categorize_final
 from fec.config.constants import NOT_EMPLOYED_VARIANTS, SKIP_EMPLOYERS
 
-# (status employer, occupations that already mean it), applied in this order
+# (status employer, occupations already meaning it), in order.
 _STATUS_OCCUPATIONS = (
     ('RETIRED', {'RETIRED', ''}),
     ('NOT EMPLOYED', {'NOT EMPLOYED', 'UNEMPLOYED', ''}),
@@ -34,7 +34,7 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
         df.loc[retired_not_employed, 'contributor_employer'] = 'RETIRED'
         df.loc[retired_not_employed, 'occupation_status'] = 'NOT_APPLICABLE'
 
-    # Match the category when the occupation is empty or agrees with the status.
+    # Match the category when occupation is empty or agrees.
     for status, allowed_occupations in _STATUS_OCCUPATIONS:
         wrong_category = (
             individuals & (employers == status)
@@ -49,7 +49,7 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
         df.loc[wrong_category, 'occupation_status'] = 'NOT_APPLICABLE'
         n_fixed += count
 
-    # For a real employer, derive the category from the current occupation.
+    # For a real employer, the category follows the occupation.
     self_employed_category = (
         individuals & (categories == 'SELF-EMPLOYED')
         & ~employers.isin(SKIP_EMPLOYERS) & (employers != '')
@@ -69,7 +69,7 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
 
 
 def _fix_slash_occupation(df: pd.DataFrame) -> int:
-    """Use the first slash-separated occupation when the category is missing or OTHER."""
+    """Use the first slash-separated occupation when the category is missing."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'
     occ = df['contributor_occupation'].fillna('')
     categories = df['occupation_category'].fillna('')

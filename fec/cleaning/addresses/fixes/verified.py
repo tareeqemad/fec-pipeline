@@ -8,7 +8,7 @@ from fec.io import write_csv_atomic
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
-# a rule's unit that removes the filed unit instead of writing one
+# A rule unit that removes the filed unit.
 CLEAR_UNIT = "[CLEAR]"
 
 
@@ -30,7 +30,7 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = N
             & df[ZIP].fillna("").eq(zipcode)
         )
         if match_unit is not None:
-            # Match the normalized unit before applying any part of the rule.
+            # Match the normalized unit before applying any part.
             mask &= df[S2].fillna("").eq(match_unit)
         if match_sub_id is not None:
             if "sub_id" not in df.columns:
@@ -91,7 +91,7 @@ def _read_address_rules() -> dict[tuple[str, str, str, str | None, str | None], 
     return rules
 
 
-# Save city-only corrections for the filings whose full addresses were verified.
+# Save city-only corrections for filings with verified addresses.
 def save_verified_city_corrections(rows: list[dict]) -> int:
     if not rows:
         return 0

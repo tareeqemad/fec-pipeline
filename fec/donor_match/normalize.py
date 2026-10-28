@@ -102,12 +102,12 @@ NICKNAME_MAP = {
     'JOSH': 'JOSHUA',
 }
 
-# Keep replacement order and substring matching: donor keys depend on these comparisons.
+# Keep replacement order: donor keys depend on these comparisons.
 _EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
                    " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
 
 
-# a trailing title (REP/SEN/DR/JR/...) at the end of a name: "JOHN SMITH, JR."
+# A trailing title at the end of a name.
 _COMM_SUFFIXES_RE = re.compile(
     r'\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)'
     r'\.?\s*$',
@@ -193,7 +193,7 @@ def normalize_committee_name(name: str) -> str:
 
 
 def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
-    """True when two LAST|FIRST norms share the surname and the first names are a nickname pair, edit distance <= 1, or a distance-2 prefix truncation; blocked look-alike pairs never match."""
+    """Same surname with nickname, near-spelling or truncated first names."""
     if "|" not in norm1 or "|" not in norm2:
         return False
     last1, first1 = norm1.split("|", 1)
@@ -231,7 +231,7 @@ def _squash(s: str) -> str:
 
 
 def _is_surname_variant(last1: str, last2: str) -> bool:
-    """True for surname spelling variants (typo, squashed space/hyphen/dot, glued initial, truncation); the calling phase still demands strong geography before merging."""
+    """Surname spelling variants; the phase still demands strong geography."""
     if not last1 or not last2 or last1 == last2:
         return False
     if _squash(last1) == _squash(last2):        # DE TOLEDO == DETOLEDO

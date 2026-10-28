@@ -18,7 +18,7 @@ from fec.config.streets import (
 
 # fix street_1 values that mistakenly hold an email address
 def _replace_email_street(df: pd.DataFrame) -> None:
-    """Flag and fix street_1 values holding an email (flags feed the address audit)."""
+    """Flag and fix street_1 values holding an email."""
     s1 = df['contributor_street_1'].astype('string')
     email_mask = s1.str.contains('@', na=False, regex=False)
     df['_street_email_in_s1'] = email_mask
@@ -52,7 +52,7 @@ def _clear_own_name_street(df: pd.DataFrame) -> None:
         df.loc[is_name, 'contributor_street_1'] = np.nan
 
 
-# Normalize street lines and move embedded units to the second line.
+# Normalize street lines; move embedded units to line two.
 def clean_streets(df: pd.DataFrame) -> pd.DataFrame:
     _replace_email_street(df)
 
@@ -75,8 +75,7 @@ def clean_streets(df: pd.DataFrame) -> pd.DataFrame:
         _TRAILING_UNIT_RE, '', regex=True
     )
 
-    # a street_1 that is only a floor ("3RD FLOOR") names no street: keep it as
-    # the unit and leave street_1 empty for the donor-history recoveries
+    # A floor-only street_1 becomes the unit; street_1 stays empty.
     _move_floor_only_street(df)
     _clear_own_name_street(df)
     return df
@@ -84,7 +83,7 @@ def clean_streets(df: pd.DataFrame) -> pd.DataFrame:
 
 # move a floor-only street_1 into street_2, leaving street_1 blank
 def _move_floor_only_street(df: pd.DataFrame) -> None:
-    """street_1 that is only a floor designation -> street_2 when that is empty; street_1 becomes NULL so the recovery steps can refill it from the donor's other filings."""
+    """Floor-only street_1 moves to an empty street_2."""
     street1 = df['contributor_street_1']
     floor_only = street1.fillna('').astype(str).str.match(FLOOR_ONLY_RE)
     if not floor_only.any():
@@ -96,5 +95,4 @@ def _move_floor_only_street(df: pd.DataFrame) -> None:
         df['contributor_street_2'] = df['contributor_street_2'].astype(object)
         df.loc[move, 'contributor_street_2'] = street1[move].map(_normalize_unit)
         df.loc[move, 'contributor_street_1'] = np.nan
-    # with a unit already in street_2 the floor stays put: recovery treats a
-    # floor-only street_1 as non-usable and replaces it from the donor history
+    # With a unit already in street_2, the floor stays.

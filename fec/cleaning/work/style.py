@@ -1,9 +1,4 @@
-"""Mechanical style normalization for occupation text: separator spacing, title joiners, CO- prefix, compound tokens, plural role nouns.
-
-Only forms of the SAME words are unified here (PRESIDENT / CEO -> PRESIDENT/CEO,
-HEALTH CARE -> HEALTHCARE, ADVISORS -> ADVISOR). Synonyms (LAWYER vs ATTORNEY)
-are deliberately never touched.
-"""
+"""Occupation style: separators, joiners, CO- prefix, compounds, plurals."""
 import re
 
 import pandas as pd
@@ -11,8 +6,7 @@ import pandas as pd
 from fec.cleaning._helpers import _indiv_idx, _map_occupations
 from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
 
-# Job titles that combine with "/" (PRESIDENT/CEO). Longest first so the
-# alternation prefers VICE PRESIDENT over PRESIDENT.
+# Titles combined with "/"; longest first so VICE PRESIDENT wins.
 _TITLES = (
     'VICE PRESIDENT', 'MANAGING PARTNER', 'MANAGING DIRECTOR', 'MANAGING MEMBER',
     'GENERAL COUNSEL', 'GENERAL MANAGER', 'EXECUTIVE DIRECTOR', 'CHIEF EXECUTIVE',
@@ -33,15 +27,14 @@ _TITLE_PAIR_RE = re.compile(
     rf'^({_TITLE_ALT})\s*(?:&|\bAND\b|-)\s*({_TITLE_ALT})$'
 )
 
-# CO OWNER / CO- CEO / CO -FOUNDER -> CO-OWNER ... : the word CO directly
-# before a role word is always the "co-" prefix.
+# CO before a role word is the co- prefix.
 _CO_PREFIX_RE = re.compile(
     r'\bCO\s*-?\s*(?=(?:FOUNDER|OWNER|CEO|COO|CFO|PRESIDENT|CHAIR|CHAIRMAN|'
     r'CHAIRWOMAN|DIRECTOR|MANAGER|MANAGING|PARTNER|HEAD|CHIEF|EXECUTIVE|'
     r'PRODUCER|TRUSTEE|PASTOR|PRINCIPAL|COUNSEL|LEADER|EDITOR|AUTHOR|CREATOR)\b)'
 )
 
-# Compound spellings of the same word(s), applied at word level anywhere.
+# Compound spellings of the same words, anywhere.
 _COMPOUND_TOKENS = (
     (re.compile(r'\bHEALTH[\s-]+CARE\b'), 'HEALTHCARE'),
     (re.compile(r'\bHOME[\s-]*BUILDER'), 'HOME BUILDER'),
@@ -53,10 +46,7 @@ _COMPOUND_TOKENS = (
     (re.compile(r'\bHOME[\s-]*MAKER\b'), 'HOMEMAKER'),
 )
 
-# Person-role nouns whose plural is just the singular + S. Only the LAST word
-# of the occupation is de-pluralized, and never after "OF" (BOARD OF DIRECTORS).
-# Industry plurals (INVESTMENTS, SALES, RESTAURANTS, COMMUNICATIONS) are
-# intentionally absent: the plural IS the occupation there.
+# Role nouns de-pluralized as the last word, never after OF.
 _ROLE_NOUNS = frozenset({
     'ACCOUNTANT', 'ACTOR', 'ACTIVIST', 'ADMINISTRATOR', 'ADVISER', 'ADVISOR',
     'AGENT', 'ANALYST', 'ANESTHESIOLOGIST', 'ARCHITECT', 'ARTIST', 'ASSISTANT',
@@ -82,7 +72,7 @@ _ROLE_NOUNS = frozenset({
     'TRAINER', 'UNDERWRITER', 'UROLOGIST', 'VETERINARIAN', 'VOLUNTEER',
     'WHOLESALER', 'WORKER', 'WRITER',
 })
-# last word ending in S, captured without the S: "TRADERS" -> "TRADER"
+# Last word ending in S, without the S.
 _LAST_WORD_RE = re.compile(r'([A-Z]+)S$')
 
 
@@ -96,7 +86,7 @@ def _depluralize_last_word(value: str) -> str:
     singular = match.group(1)
     if singular not in _ROLE_NOUNS:
         return value
-    # the plural must be the whole last word, not a suffix (TRADERS ok, RETRADERS no)
+    # The plural must be the whole last word.
     start = match.start(1)
     if start and value[start - 1].isalpha():
         return value
@@ -107,8 +97,7 @@ def _depluralize_last_word(value: str) -> str:
 def normalize_occupation_style(value: str) -> str:
     """Apply every style rule to one occupation string."""
     s = value
-    # separator spacing: "A / B" -> "A/B", "A&B" -> "A & B"; abbreviations
-    # with short sides (R&D, M&A, FP&A, P&L) stay tight
+    # Separator spacing; short abbreviations like R&D stay tight.
     s = re.sub(r'\s*/+\s*', '/', s)
     s = re.sub(r'\s*&\s*', ' & ', s)
     s = re.sub(r'\b([A-Z]{1,2}) & ([A-Z]{1,2})\b', r'\1&\2', s)
@@ -121,19 +110,13 @@ def normalize_occupation_style(value: str) -> str:
     return s
 
 
-# non-capturing: str.contains only needs a yes/no, and a capture group makes
-# pandas warn "this pattern has match groups" on every run
+# Non-capturing, so pandas does not warn on every run.
 _LEGAL_SUFFIX_IN_OCC_RE = re.compile(r'\b(?:LLC|LLP|INC|CORP|CORPORATION|LTD|PLLC|PC|LP)\b')
 
 
 # pipeline step applying occupation style normalization to individuals
 def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Pipeline step: unify separator, joiner, compound and plural style of individuals' occupations.
-
-    Must run after the swap safety nets. A company name still sitting in the
-    occupation column (swapped filing) is never restyled: it has to stay
-    byte-identical to the employer set so the nets can recognise it.
-    """
+    """Unify individuals' occupation style; runs after the swap safety nets."""
     individuals = _indiv_idx(df)
     occupation = df.loc[individuals, 'contributor_occupation'].dropna().astype(str)
     if occupation.empty:
@@ -152,5 +135,5 @@ def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int
 
 # pipeline step applying curated occupation typo fixes
 def apply_occupation_typo_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Pipeline step: curated typo/abbreviation -> canonical spelling (runs right after the style step)."""
+    """Curated typo and abbreviation fixes, right after style."""
     return _map_occupations(df, OCCUPATION_TYPO_FIXES)

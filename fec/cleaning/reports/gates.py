@@ -40,7 +40,7 @@ def _gate_nan_strings(df):
 
 # flag rows with a missing or unreadable contribution amount
 def _gate_amounts_readable(df):
-    # every filing keeps a real dollar amount; blank or text is never $0
+    # Every filing keeps a real amount; blank is never $0.
     if 'contribution_receipt_amount' not in df.columns:
         return []
     amounts = pd.to_numeric(df['contribution_receipt_amount'], errors='coerce')
@@ -132,8 +132,7 @@ def _gate_special_chars_names(df):
 
 # flag literal 'NULL' surnames lost to NaN coercion
 def _gate_null_surname(df):
-    # "NULL" is a real surname; pandas' default read coerces it to NaN, so if
-    # contributor_name starts with "NULL," the surname must be the literal string
+    # "NULL" is a real surname pandas, not NaN.
     if not {'contributor_name', 'contributor_last_name'}.issubset(df.columns):
         return []
     name_null_prefix = df['contributor_name'].astype('string').str.startswith('NULL,', na=False)
@@ -148,7 +147,7 @@ def _gate_null_surname(df):
     return [('null_surname_preserved', {'passed': n_lost == 0, 'count': n_lost}, issue)]
 
 
-# order matters: this is the checks-dict order and the order issues are reported
+# Order matters: checks and reported issues follow it.
 _QUALITY_GATES = [
     _gate_nan_strings,
     _gate_amounts_readable,

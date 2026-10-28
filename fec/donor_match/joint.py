@@ -10,18 +10,18 @@ from fec.donor_match.normalize import NAME_SUFFIXES, NICKNAME_MAP
 
 # a parenthesized aside to drop: "(NICKNAME)", "(unclosed"
 _PAREN_RE = re.compile(r"\([^()]*\)?")
-# a run of letters, to split a name field into words
+# A run of letters, to split names into words.
 _TOKEN_RE = re.compile(r"[A-Z]+")
 
 
 def given_tokens(first: str) -> tuple:
-    """The words of a first-name field, brackets and suffixes left out."""
+    """First-name words, without brackets and suffixes."""
     text = _PAREN_RE.sub(" ", str(first or "").upper())
     return tuple(t for t in _TOKEN_RE.findall(text) if t not in NAME_SUFFIXES)
 
 
 def first_of_name(name: str) -> str:
-    """The first-name part of a 'LAST, FIRST' composite ('' when there is no comma)."""
+    """First-name part of 'LAST, FIRST', or '' without a comma."""
     text = str(name or "")
     return text.split(",", 1)[1] if "," in text else ""
 
@@ -36,7 +36,7 @@ def _partner_words(spelling: tuple, own_firsts: set) -> list:
     first = spelling[0]
     words = [w for w in spelling[1:] if len(w) >= 2]
     if len(spelling) == 1:
-        # glued: the filer's own first name plus a second name, maybe "AND"
+        # Glued: the filer's first name plus a second name.
         for base in own_firsts:
             if base != first and len(base) >= 2 and first.startswith(base):
                 rest = first[len(base):]
@@ -48,19 +48,19 @@ def _partner_words(spelling: tuple, own_firsts: set) -> list:
 
 
 def _initial_form(initial: str, word: str, spellings) -> bool:
-    """Some spelling is this initial followed by this word ("L ROGER")."""
+    """Some spelling is this initial plus this word ("L ROGER")."""
     return any(
         len(other) >= 2 and other[0] == initial and _root(other[1]) == _root(word)
         for other in spellings
     )
 
 
-# Use the household's initial and full-name spellings to recognize a filer's own middle name.
+# Household spellings reveal a filer's own middle name.
 def _is_own_word(first: str, word: str, spellings) -> bool:
     return _initial_form(first[0], word, spellings) or _initial_form(word[0], first, spellings)
 
 
-# Find co-filer names using this filer's spellings and other household members' spellings.
+# Find co-filer names from household spellings.
 def joint_partners(spelling: tuple, own_spellings, household_spellings) -> frozenset:
     if not spelling or len(spelling[0]) == 1:
         return frozenset()
@@ -73,8 +73,7 @@ def joint_partners(spelling: tuple, own_spellings, household_spellings) -> froze
         root = _root(word)
         if root == _root(first):
             continue
-        # the partner must file on their own: a household spelling that starts
-        # with the word and does not also carry the filer's first name
+        # The partner must also file on their own.
         files_alone = any(
             _root(other[0]) == root
             and all(_root(t) != _root(first) for t in other[1:])
@@ -96,8 +95,7 @@ def _profile_last(profile: dict) -> str:
     return profile["norm_name"].partition("|")[0] if "|" in profile["norm_name"] else ""
 
 
-# Find profiles naming another person in the same surname and address/ZIP household.
-# Apply verified merges and own-name exemptions first.
+# Profiles naming another person in the same household.
 def find_joint_filings(profiles: dict, components: dict) -> dict:
     rid_to_key = _donor_keys(components)
     person_of = {rid: resolve_donor_key(key) for rid, key in rid_to_key.items()}
@@ -122,8 +120,7 @@ def find_joint_filings(profiles: dict, components: dict) -> dict:
     signatures = {}
     for rid, person in person_of.items():
         spelling = spellings[rid]
-        # a one-word name can only be a glued pair ("ELLENSTU") of a filer
-        # who also files under another spelling
+        # A one-word name is a glued pair only with alternatives.
         if not spelling or (len(spelling) < 2 and len(members[person]) < 2):
             continue
         profile = profiles[rid]
@@ -149,8 +146,7 @@ def find_joint_filings(profiles: dict, components: dict) -> dict:
     return signatures
 
 
-# Separate joint filings by co-filer pair, preserving the solo matches.
-# Keep the original root for its part; key other parts by their most-filed profile.
+# Separate joint filings by co-filer pair, keeping solo matches.
 def split_joint_filings(components: dict, signatures: dict, profiles: dict) -> int:
     moved = 0
     for root, members in list(components.items()):

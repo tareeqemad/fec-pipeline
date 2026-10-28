@@ -129,6 +129,16 @@ CREATE INDEX idx_emp_name           ON employers (name);
 CREATE INDEX idx_emp_name_trgm      ON employers USING gin (name gin_trgm_ops);
 CREATE INDEX idx_emp_address        ON employers (address_id);
 
+-- ZIP centres; the donor profile view falls back to them
+CREATE TABLE zip_centroids (
+    zip         TEXT                NOT NULL PRIMARY KEY,
+    lat         DOUBLE PRECISION    NOT NULL CHECK (lat BETWEEN  -90 AND  90),
+    lng         DOUBLE PRECISION    NOT NULL CHECK (lng BETWEEN -180 AND 180),
+    source      TEXT                NOT NULL DEFAULT 'census_gazetteer_2023',
+    fetched_at  TIMESTAMPTZ         DEFAULT NOW()
+);
+CREATE INDEX idx_zip_centroids_geo ON zip_centroids (lat, lng);
+
 -- Latest donor address
 CREATE OR REPLACE VIEW v_donor_current_address AS
 SELECT DISTINCT ON (c.donor_id)
@@ -201,8 +211,9 @@ SELECT
     a.city          AS current_city,
     a.state_code    AS current_state,
     a.zip_code      AS current_zip,
-    a.latitude      AS current_lat,
-    a.longitude     AS current_lng,
+    -- Ungeocoded addresses (PO boxes) fall back to their ZIP.
+    COALESCE(a.latitude, zc.lat)  AS current_lat,
+    COALESCE(a.longitude, zc.lng) AS current_lng,
     emp.name        AS current_employer,
     e.occupation    AS current_occupation,
     oc.name         AS current_occ_category,
@@ -214,6 +225,7 @@ SELECT
 FROM donors d
 LEFT JOIN v_donor_stats              s    ON s.donor_id   = d.donor_id
 LEFT JOIN v_donor_current_address    a    ON a.donor_id   = d.donor_id
+LEFT JOIN zip_centroids              zc   ON zc.zip       = left(a.zip_code, 5)
 LEFT JOIN v_donor_current_employment e    ON e.donor_id   = d.donor_id
 LEFT JOIN employers                  emp  ON emp.employer_id           = e.employer_id
 LEFT JOIN occupation_categories      oc   ON oc.occupation_category_id = e.occupation_category_id
@@ -249,15 +261,6 @@ CREATE TABLE zcta_state_rel (
     zcta5       TEXT    NOT NULL PRIMARY KEY,
     state_fips  TEXT    NOT NULL REFERENCES us_states(state_fips)
 );
-
-CREATE TABLE zip_centroids (
-    zip         TEXT                NOT NULL PRIMARY KEY,
-    lat         DOUBLE PRECISION    NOT NULL CHECK (lat BETWEEN  -90 AND  90),
-    lng         DOUBLE PRECISION    NOT NULL CHECK (lng BETWEEN -180 AND 180),
-    source      TEXT                NOT NULL DEFAULT 'census_gazetteer_2023',
-    fetched_at  TIMESTAMPTZ         DEFAULT NOW()
-);
-CREATE INDEX idx_zip_centroids_geo ON zip_centroids (lat, lng);
 
 -- Curated donor cards
 CREATE TABLE key_accomplices (

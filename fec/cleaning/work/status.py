@@ -1,4 +1,4 @@
-"""Classify each filing's employer as active, retired, self-employed or not working."""
+"""Classify employers as active, retired, self-employed or not working."""
 from __future__ import annotations
 
 import re
@@ -33,33 +33,30 @@ def _status_text(value) -> str:
 _DOUBLED_LETTER_RE = re.compile(r"([A-Z])\1+")
 
 
-# the text with every doubled letter typed once ('NNONE' -> 'NONE')
+# Doubled letters typed once: 'NNONE' -> 'NONE'.
 def single_letters(text: str) -> str:
     return _DOUBLED_LETTER_RE.sub(r"\1", text)
 
 
-# a status word typed with a doubled letter is still the status, never a company;
-# short ones stay exact (NAAN is a bakery, not NAN)
+# A doubled-letter status is still the status; short words exact.
 _STATUS_SPELLINGS = frozenset(
     single_letters(value) for value in EMPLOYER_STATUS_VALUES if len(value) >= 4
 )
-# a one-word status with its letters out of order ('RETRIED', 'RETIERD') is
-# still the status; only words of six letters or more, so no short word matches
+# Scrambled status words of six+ letters: 'RETRIED'.
 _STATUS_LETTERS = frozenset(
     "".join(sorted(value)) for value in EMPLOYER_STATUS_VALUES
     if len(value) >= 6 and value.isalpha()
 )
 
 
-# a long status word with one letter typed wrong ('UNEMPLOYES\\'); nine letters
-# or more, so no short company name (REWIRED) is one letter off a status
+# A nine+ letter status with one wrong letter.
 _LONG_STATUSES = tuple(
     re.sub(r"[^A-Z]", "", value) for value in EMPLOYER_STATUS_VALUES
     if len(re.sub(r"[^A-Z]", "", value)) >= 9
 )
 
 
-# true when the letters are one edit from a long status word
+# True when one edit from a long status word.
 def _long_status_typo(upper: str) -> bool:
     letters = re.sub(r"[^A-Z]", "", upper)
     return len(letters) >= 9 and any(
@@ -83,7 +80,7 @@ def _title_word(word: str, last: bool) -> bool:
 
 
 def is_job_title(upper: str) -> bool:
-    """Every word is a title word and the last one names a job."""
+    """All title words, the last one naming a job."""
     words = re.findall(r"[A-Z0-9&]+", upper)
     return bool(words) and all(
         _title_word(word, index == len(words) - 1) for index, word in enumerate(words)
@@ -95,7 +92,7 @@ _STRUCTURAL_JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 _EMAIL_RE = re.compile(r'[^\s@]+@[^\s@]+\.[^\s@]+')
 
 
-# Reject known non-company values; an accepted name is not externally verified.
+# Reject known non-company values; accepted names are not verified.
 def employer_rejection_reason(emp) -> str:
     if pd.isna(emp):
         return 'missing_value'
@@ -110,11 +107,10 @@ def _employer_rejection_reason(upper: str) -> str:
         return 'missing_value'
     # Ignore terminal punctuation on statuses/admin notes, not punctuation inside names.
     canonical = re.sub(r'\s*;\s*', '; ', upper).rstrip(' .;,:!?')
-    # RET is ambiguous; suppress it as a company without inventing retirement.
+    # RET is ambiguous: no company, and no invented retirement.
     if canonical == 'RET':
         return 'ambiguous_placeholder'
-    # one character ("A", the "R" of RRETIRED) or a form placeholder
-    # (~~BLANK~~) names no company
+    # One character or a form placeholder names no company.
     letters = re.sub(r"[^A-Z0-9]", "", upper)
     if len(letters) < 2 or letters == "BLANK":
         return 'structural_junk'
@@ -134,7 +130,7 @@ def _employer_rejection_reason(upper: str) -> str:
 
 
 def is_real_employer(emp) -> bool:
-    """Whether a value is an employer-name candidate, not known non-company text."""
+    """Whether a value can be an employer name."""
     return not employer_rejection_reason(emp)
 
 
@@ -176,7 +172,7 @@ def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
 
 # the real current company name, only when status allows
 def current_employer_name(status, employer) -> str:
-    """Return a real current company only when the status permits one."""
+    """A real current company, only when the status permits one."""
     if status not in {"active", "self_employed"} or not is_real_employer(employer):
         return ""
     return str(employer).strip()
