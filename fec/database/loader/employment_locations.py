@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fec.database.loader._base import to_native
 from fec.database.loader.addresses import _akey, _employer_locations
-from fec.resolve.locations import select_location
+from fec.database.loader.locations import select_location
 
 
 # Group offices by company, keeping the primary office first.

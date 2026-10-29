@@ -8,7 +8,7 @@ from psycopg2.extras import execute_values
 
 from fec.database.loader._base import to_float_or_none, to_native
 from fec.env import EMPLOYER_LOCATIONS_CSV
-from fec.resolve.locations import PUBLISHABLE_ADDRESS_TRUST
+from fec.database.loader.locations import PUBLISHABLE_ADDRESS_TRUST
 
 DONOR_ADDRESS_COLUMNS = [
     "contributor_street_1", "contributor_street_2", "contributor_city",

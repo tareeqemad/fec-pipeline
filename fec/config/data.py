@@ -117,10 +117,7 @@ INTERNAL_OUTPUT_COLUMNS = [
     'occupation_status',  # ~99% derivable; not in DB
     'employment_source',  # kept in the cleaning audit only
     '_generational_suffix',  # identity evidence from the raw contributor name
-    'resolve_method',  # how the employer address was resolved
-    'resolve_confidence',  # confidence of the above
     'geocode_level',  # how the donor coordinate was derived
-    'employer_geocode_level',  # how the employer coordinate was derived
     # FEC's own type and id, read while cleaning, never written.
     'fec_entity_type',
     'fec_contributor_id',

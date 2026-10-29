@@ -1,6 +1,6 @@
 # FEC Pipeline
 
-Pull contributions, clean them, find coordinates and employer addresses, then load PostgreSQL.
+Pull contributions, clean them, find coordinates, then load PostgreSQL.
 Use Git, Python 3.12 and PostgreSQL 18 (for the database step).
 
 ## 1. Download
@@ -128,13 +128,14 @@ After finishing all pulls, run these commands **one at a time, in order**. Stop 
 python clean.py
 python geocode.py
 python resolve.py --apply
-python geocode.py --employer-only
 python loader.py --reset
 ```
 
 `--reset` replaces all public tables and views in the configured database; use a database dedicated to this project.
 
 Keep `data/cache/`: accepted results are reused. New coordinates come from OpenStreetMap, then Census; unmatched addresses stay blank.
+
+Company offices come from `data/reference/employer_locations.csv`, gathered once. To give a new company an address, add a row there with its source.
 
 Donor profiles place a blank address, such as a PO box, at its ZIP from `data/reference/zip_centroids.csv`: Census Gazetteer 2023, plus PO-box ZIPs from [GeoNames](https://www.geonames.org/) (CC BY 4.0).
 
@@ -161,7 +162,7 @@ Keep your existing `.env`. For new FEC data, repeat steps 5–6.
 
 ## Optional checks
 
-Run the 18 core tests without network access or a live database:
+Run the 17 core tests without network access or a live database:
 
 ```bash
 python -m pip install -r requirements-dev.txt

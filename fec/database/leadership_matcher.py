@@ -8,7 +8,7 @@ import pandas as pd
 from fec.cleaning.work.status import classify_employer_status, is_real_employer
 from fec.cleaning.work.normalize import categorize_final
 from fec.donor_match.rules import resolve_donor_key
-from fec.resolve.locations import select_location
+from fec.database.loader.locations import select_location
 
 
 # Match a roster donor by its saved or merged key.

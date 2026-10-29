@@ -181,13 +181,6 @@ UNIT_RULES = [
 ] + USPS_UNIT_RULES
 
 
-# Abbreviate floor and suite designators, keeping the street.
-def usps_unit_designators(street: str) -> str:
-    for pattern, replacement in USPS_UNIT_RULES:
-        street = pattern.sub(replacement, street)
-    return street
-
-
 # Human-verified FEC street typos, as exact word replacements.
 STREET_TYPO_RULES = [
     (re.compile(r'\bOLYMIC\b', re.IGNORECASE), 'OLYMPIC'),

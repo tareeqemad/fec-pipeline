@@ -13,10 +13,6 @@ CLEAN_COLUMNS = (
     'previous_employer', 'identity_status', 'donor_key',
 )
 DONOR_COORDINATES = ('latitude', 'longitude')
-EMPLOYER_ADDRESS = ('employer_address', 'employer_city', 'employer_state', 'employer_zip')
-EMPLOYER_COORDINATES = ('employer_latitude', 'employer_longitude')
-# How resolve found each employer address; read then dropped.
-RESOLVE_WORKING = ('resolve_method', 'resolve_confidence')
 
 # what the loader reads: the file after the last stage
 LOADED_COLUMNS = CLEAN_COLUMNS + DONOR_COORDINATES + ('employer_status',)
@@ -41,19 +37,9 @@ STAGES = {
     'geocode': Stage('geocode.py', needs=CLEAN_COLUMNS, adds=DONOR_COORDINATES),
     'resolve': Stage(
         'resolve.py --apply', needs=CLEAN_COLUMNS,
-        adds=EMPLOYER_ADDRESS + ('employer_status',) + RESOLVE_WORKING,
+        adds=('employer_status',),
         # Resolve must read filed employers, not its own earlier answers.
         refuses=('employer_status',),
-    ),
-    'employer_geocode': Stage(
-        'geocode.py --employer-only',
-        needs=CLEAN_COLUMNS + EMPLOYER_ADDRESS + ('employer_status',) + RESOLVE_WORKING,
-        adds=EMPLOYER_COORDINATES, drops=RESOLVE_WORKING,
-    ),
-    'employers': Stage(
-        'geocode.py --employer-only (employer locations)',
-        needs=CLEAN_COLUMNS + EMPLOYER_ADDRESS + EMPLOYER_COORDINATES + ('employer_status',),
-        drops=EMPLOYER_ADDRESS + EMPLOYER_COORDINATES,
     ),
 }
 
