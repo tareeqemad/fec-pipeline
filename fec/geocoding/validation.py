@@ -197,8 +197,6 @@ REVIEWED_POINTS = {
         40.3348186, -76.8369814, "from '4075 LINGLESTOWN RD|HARRISBURG|PA|' (google): UPS Store, Dauphin parcel 35-129-042 (Lower Paxton Twp); the nominatim point was by the 17110 centroid"),
     "I3235 PALMERS CREEK TER|LAKEWOOD RANCH|FL|34202": (
         27.4095772, -82.4091725, "typo for 13235 PALMERS CREEK TER: that address's own geocoded point"),
-    "9705 COLLINS AVE #1405 N|BAL HARBOR|FL|33514": (
-        25.8884938, -80.1237465, "wrong ZIP for 9705 COLLINS AVE|BAL HARBOUR|FL|33154: that address's own geocoded point"),
     "41-750 RANCHO LAS PALMAS DR|RANCHO MIRAGE|CA|92270": (
         33.74317, -116.41057, "(gemini) 41750 Rancho Las Palmas Dr; 0.46 km from the OSM street"),
     "1 BRYANT PARK|NEW YORK|NY|10016": (

@@ -43,25 +43,3 @@ EMPLOYER_NORMALIZE = {
 
     # Homemaker deliberately absent — _deep_clean_employer syncs employer + occupation together.
 }
-
-
-# Suggestions for the quality report; not automatic name replacements.
-EMPLOYER_ABBREVIATIONS = {
-    'MGMT': 'MANAGEMENT',
-    'MGMNT': 'MANAGEMENT',
-    'MGT': 'MANAGEMENT',
-    'INV': 'INVESTMENT',
-    'INTL': 'INTERNATIONAL',
-    'MFG': 'MANUFACTURING',
-    'GRP': 'GROUP',
-    'SVCS': 'SERVICES',
-    'SVC': 'SERVICES',
-    'INFO': 'INFORMATION',
-    'ASSOC': None,
-    'ASSOCS': None,
-    'INTNL': None,
-    'MKTG': None,
-    'CONSTR': None,
-    'DEVELOP': None,
-    'TECHS': None,
-}

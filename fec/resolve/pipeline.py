@@ -1,4 +1,4 @@
-"""Resolve employer history and addresses, then write the cleaned CSV."""
+"""Resolve employer status and history, then write the cleaned CSV."""
 
 import argparse
 import os
@@ -9,18 +9,16 @@ from pathlib import Path
 import pandas as pd
 
 from fec.cleaning.reports.gates import run_quality_gates
-from fec.config.cities import expand_city_abbreviations
 from fec.contract import check_input, check_output
 from fec.env import (
-    CACHE_DIR, CLEANED_CSV, MANUAL_EMPLOYER_ADDRESSES_CSV,
-    MANUAL_EMPLOYER_OVERRIDES_CSV, PROJECT_ROOT, RAW_CSV, REPORTS_DIR, load_env,
+    CACHE_DIR, CLEANED_CSV, MANUAL_EMPLOYER_OVERRIDES_CSV, PROJECT_ROOT, RAW_CSV, REPORTS_DIR, load_env,
 )
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 from fec.resolve.apply import apply_results
-from fec.resolve.cache import Cache, EMPLOYER_ADDR_CACHE, PREV_EMPLOYER_CACHE, dedup_by_resolved_address
+from fec.resolve.cache import Cache, PREV_EMPLOYER_CACHE
 from fec.resolve.fec import drop_unproven_source_entries
-from fec.resolve.manual import cleared_employers, load_manual_locations, load_manual_previous_employers
+from fec.resolve.manual import cleared_employers, load_manual_previous_employers
 from fec.resolve.previous import step_cross_record
 
 logger = get_logger(__name__)
@@ -28,7 +26,7 @@ logger = get_logger(__name__)
 
 def _parse_args():
     parser = argparse.ArgumentParser(
-        description="Resolve employer addresses"
+        description="Resolve employer status and previous employers"
     )
     parser.add_argument("--apply", action="store_true", help="Write resolve columns to CSV")
     args = parser.parse_args()
@@ -39,7 +37,6 @@ def _parse_args():
 
 def _load_data(csv_path: str):
     previous = Cache(os.path.join(CACHE_DIR, PREV_EMPLOYER_CACHE))
-    employers = Cache(os.path.join(CACHE_DIR, EMPLOYER_ADDR_CACHE))
 
     df = read_pipeline_csv(csv_path)
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
@@ -52,19 +49,12 @@ def _load_data(csv_path: str):
             f"contribution_receipt_amount (sub_id {examples})"
         )
     df["contribution_receipt_amount"] = amounts
-    return df, previous, employers
+    return df, previous
 
 
-def _deduplicate_address_cache(addr_cache) -> None:
-    aliases, groups = dedup_by_resolved_address(addr_cache)
-    if aliases:
-        logger.info("Cache: %s aliases added across %s groups", f"{aliases:,}", f"{groups:,}")
-
-
-def _run_steps(df, prev_cache, addr_cache) -> None:
+def _run_steps(df, prev_cache) -> None:
     """Apply reviewed corrections and cached work history."""
     logger.info("[1/2] Applying reviewed corrections")
-    load_manual_locations(MANUAL_EMPLOYER_ADDRESSES_CSV, addr_cache)
     load_manual_previous_employers(MANUAL_EMPLOYER_OVERRIDES_CSV, df, prev_cache)
     unverified = drop_unproven_source_entries(prev_cache, df, cleared_employers(df))
     if unverified:
@@ -73,8 +63,6 @@ def _run_steps(df, prev_cache, addr_cache) -> None:
 
     logger.info("[2/2] Checking donor work history")
     step_cross_record(df, prev_cache)
-
-    _deduplicate_address_cache(addr_cache)
 
 
 QUALITY_GATES_JSON = "quality_gates.json"
@@ -98,23 +86,19 @@ def _write_results(
     df: pd.DataFrame,
     csv_path: str,
     prev_cache,
-    addr_cache,
     input_columns,
 ) -> pd.DataFrame:
     logger.info("[5/5] Checking data and saving")
-    df = apply_results(df, prev_cache, addr_cache, _filed_employers())
+    df = apply_results(df, prev_cache, _filed_employers())
     quality = run_quality_gates(df)
     if not quality["passed"]:
         _write_quality_gates(quality, csv_written=False)
         details = "; ".join(quality["issues"]) or "quality gate failed"
         raise ValueError(f"Resolved CSV was not written: {details}")
 
-    # Expand Saint/Mount/Fort in resolved employer cities, matching clean.py.
-    df["employer_city"] = df["employer_city"].map(expand_city_abbreviations)
 
     check_output("resolve", input_columns, df.columns)
     write_csv_atomic(df, csv_path, index=False)
-    # Gates skip employer_city, so the report still matches.
     _write_quality_gates(quality, csv_written=True)
     return df
 
@@ -129,19 +113,19 @@ def main() -> None:
         logger.error("Error: no cleaned CSV found; run python clean.py first")
         sys.exit(1)
 
-    df, prev_cache, addr_cache = _load_data(csv_path)
+    df, prev_cache = _load_data(csv_path)
     check_input("resolve", df.columns)
     input_columns = list(df.columns)
 
     logger.info("Reading: %s (%s rows)", os.path.relpath(csv_path, PROJECT_ROOT), f"{len(df):,}")
 
-    _run_steps(df, prev_cache, addr_cache)
+    _run_steps(df, prev_cache)
 
-    df = _write_results(df, csv_path, prev_cache, addr_cache, input_columns)
+    df = _write_results(df, csv_path, prev_cache, input_columns)
 
     minutes, seconds = divmod(round(time.perf_counter() - total_start), 60)
     logger.info("Rows: %s", f"{len(df):,}")
     logger.info("Saved: %s", os.path.relpath(csv_path, PROJECT_ROOT))
 
     logger.info("Resolve checks passed. Completed in %dm %02ds.", minutes, seconds)
-    logger.info("Next: python geocode.py --employer-only")
+    logger.info("Next: python loader.py --reset")

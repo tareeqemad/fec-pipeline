@@ -13,7 +13,7 @@ from fec.env import (
     EMPLOYER_LOCATIONS_CSV,
 )
 from fec.io import read_pipeline_csv
-from fec.resolve.locations import ADDRESS_TRUST_VALUES
+from fec.database.loader.locations import ADDRESS_TRUST_VALUES
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -46,17 +46,7 @@ def _validate_employer_locations(
     locations: pd.DataFrame,
 ) -> None:
     if not _LOCATION_COLUMNS.issubset(locations.columns):
-        raise ValueError(
-            "employer_locations.csv is invalid; run geocode.py --employer-only"
-        )
-
-    expected = referenced_employers(df)
-    actual = set(locations["employer_name"].dropna().astype(str).str.strip())
-    if locations["employer_name"].isna().any() or expected != actual:
-        raise ValueError(
-            "employer_locations.csv does not match cleaned employers; "
-            "run geocode.py --employer-only"
-        )
+        raise ValueError("employer_locations.csv is missing columns")
 
     primary_values = locations["is_primary"].astype(str).str.lower()
     primary = primary_values.eq("true")
@@ -118,10 +108,7 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
     if not EMPLOYER_LOCATIONS_CSV.exists():
-        raise FileNotFoundError(
-            f"{EMPLOYER_LOCATIONS_CSV} not found; "
-            "run geocode.py --employer-only"
-        )
+        raise FileNotFoundError(f"{EMPLOYER_LOCATIONS_CSV} not found")
 
     df = read_pipeline_csv(CLEANED_CSV)
     locations = pd.read_csv(
@@ -129,6 +116,8 @@ def _read_input() -> tuple[pd.DataFrame, list[dict]]:
         dtype=str,
         keep_default_na=False,
     )
+    # Offices only for companies in this data; others have none.
+    locations = locations[locations["employer_name"].isin(referenced_employers(df))]
     _validate_input(df, locations)
 
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")

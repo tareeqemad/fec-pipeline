@@ -18,11 +18,6 @@ def _contributor_keys(df: pd.DataFrame) -> pd.Series:
                "contributor_zip"]].fillna("").astype(str).agg("|".join, axis=1)
 
 
-def _employer_keys(df: pd.DataFrame) -> pd.Series:
-    return df[["employer_address", "employer_city", "employer_state",
-               "employer_zip"]].fillna("").astype(str).agg("|".join, axis=1)
-
-
 # Retry missing or temporary failures; keep completed misses.
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
     if reviewed_point(key) is not None:
@@ -61,12 +56,10 @@ def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | Non
 
 
 # Look up each uncached address once.
-def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int,
-                  *, employer: bool = False) -> None:
+def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int) -> None:
     keys = list(dict.fromkeys(key for key in keys if key != "|||"))
     todo = [key for key in keys if _needs_lookup(key, cache)]
-    logger.info("%s: %s | cached: %s | remaining: %s",
-                "Employer addresses" if employer else "Addresses",
+    logger.info("Addresses: %s | cached: %s | remaining: %s",
                 f"{len(keys):,}", f"{len(keys) - len(todo):,}", f"{len(todo):,}")
     if todo:
         _geocode_todo(todo, cache, batch_size)
@@ -148,12 +141,6 @@ def prepare_city_corrections(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame 
     return corrected
 
 
-# Look up nonblank employer addresses.
-def geocode_employer_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
-    keys = _employer_keys(df.loc[df["employer_address"].fillna("") != ""])
-    _geocode_keys(keys, cache, batch_size, employer=True)
-
-
 # Read accepted coordinates once per distinct address.
 def _cached_results(keys: pd.Series, cache: GeoCache) -> pd.Series:
     results = {}
@@ -172,17 +159,4 @@ def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     held = kept_as_filed_mask(df)
     df.loc[held, ["latitude", "longitude"]] = np.nan
     df.loc[held, "geocode_level"] = "foreign_not_geocoded"
-    return df
-
-
-# Apply employer coordinates only to resolved addresses.
-def apply_employer_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
-    df["employer_latitude"] = np.nan
-    df["employer_longitude"] = np.nan
-    df["employer_geocode_level"] = "no_address"
-    method = df.get("resolve_method", pd.Series("", index=df.index)).fillna("")
-    mask = (method != "fec_not_found") & (df["employer_address"].fillna("") != "")
-    results = _cached_results(_employer_keys(df.loc[mask]), cache)
-    for index, column in enumerate(("employer_latitude", "employer_longitude", "employer_geocode_level")):
-        df.loc[mask, column] = results.map(lambda point: point[index]).values
     return df

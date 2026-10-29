@@ -17,7 +17,7 @@ def employer_rule_key(name) -> str:
 
 
 def _load_rules():
-    aliases, separate, scoped, decisions = {}, set(), [], set()
+    aliases, separate, scoped = {}, set(), []
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
             variant = (row.get("variant") or "").strip().upper()
@@ -37,17 +37,16 @@ def _load_rules():
                 separate.update((variant, canonical))
             elif action == "separate":
                 separate.update((variant, canonical))
-                decisions.add(frozenset((employer_rule_key(variant), employer_rule_key(canonical))))
                 separate.update(part.strip() for name in (variant, canonical)
                                 for part in name.split("/") if part.strip())
             else:
                 if variant in aliases and aliases[variant] != canonical:
                     raise ValueError(f"Conflicting employer rule on row {number}")
                 aliases[variant] = canonical
-    return aliases, separate, scoped, decisions
+    return aliases, separate, scoped
 
 
-EMPLOYER_SYNONYMS, _SEPARATE_NAMES, _SCOPED_RULES, _SEPARATE_PAIRS = _load_rules()
+EMPLOYER_SYNONYMS, _SEPARATE_NAMES, _SCOPED_RULES = _load_rules()
 
 # Resolve explicit chains; a spelling cannot acquire two meanings globally.
 for _variant in EMPLOYER_SYNONYMS:
@@ -73,12 +72,6 @@ _SEPARATE_KEYS = {employer_rule_key(name) for name in _SEPARATE_NAMES if name no
 def preserved_employer_name(name) -> str | None:
     if isinstance(name, str) and employer_rule_key(name) in _SEPARATE_KEYS:
         return " ".join(name.upper().split()).rstrip(".,")
-
-
-def reviewed_employer_pair(left: str, right: str) -> bool:
-    """Documented no-merge decisions need no queue every run."""
-    pair = frozenset((employer_rule_key(left), employer_rule_key(right)))
-    return pair in _SEPARATE_PAIRS
 
 
 def documented_employer_name(name) -> str | None:

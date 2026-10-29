@@ -66,8 +66,8 @@ RAW_CSV = RAW_DIR / "contributions.csv"
 # FEC's own entity type and id per sub_id; raw unchanged.
 FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
 CLEANED_CSV = OUTPUT_DIR / "contributions_cleaned.csv"
-# Known employer offices, built by geocode.py --employer-only
-EMPLOYER_LOCATIONS_CSV = OUTPUT_DIR / "employer_locations.csv"
+# Company offices, gathered once; new companies are added by hand.
+EMPLOYER_LOCATIONS_CSV = REFERENCE_DIR / "employer_locations.csv"
 SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 # The single committee list; add a row per new committee.
 COMMITTEES_CSV = REFERENCE_DIR / "committees.csv"
@@ -79,6 +79,4 @@ CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
 ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
 # Hand-set employer, occupation and previous employer per filing
 MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
-# Hand-checked employer office addresses
-MANUAL_EMPLOYER_ADDRESSES_CSV = RULES_DIR / "manual_employer_addresses.csv"
 GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"

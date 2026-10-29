@@ -1,7 +1,7 @@
 from fec.contract import LOADED_COLUMNS, STAGES, check_input, check_loadable
 
 
-ORDER = ("clean", "geocode", "resolve", "employer_geocode", "employers")
+ORDER = ("clean", "geocode", "resolve")
 
 
 def test_the_stages_in_order_end_with_the_loaded_columns():
