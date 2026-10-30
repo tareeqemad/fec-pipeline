@@ -3,6 +3,7 @@ import re
 
 from fec.cleaning._helpers import levenshtein
 from fec.cleaning.work.employer_aliases import employer_rule_key
+from fec.config.tables import CONFIG_DIR, read_map
 
 
 _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
@@ -45,62 +46,7 @@ _BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
 ]}
 
 
-NICKNAME_MAP = {
-    'BILL': 'WILLIAM', 'BILLY': 'WILLIAM', 'WILL': 'WILLIAM',
-    'BOB': 'ROBERT', 'BOBBY': 'ROBERT', 'ROB': 'ROBERT',
-    'DICK': 'RICHARD', 'RICK': 'RICHARD', 'RICH': 'RICHARD',
-    'JIM': 'JAMES', 'JIMMY': 'JAMES',
-    'MIKE': 'MICHAEL',
-    'DAVE': 'DAVID',
-    'DAN': 'DANIEL', 'DANNY': 'DANIEL',
-    'TOM': 'THOMAS', 'TOMMY': 'THOMAS',
-    'STEVE': 'STEVEN', 'STEPHEN': 'STEVEN',
-    'JOE': 'JOSEPH', 'JOEY': 'JOSEPH',
-    'JACK': 'JOHN', 'JON': 'JOHN',
-    'CHRIS': 'CHRISTOPHER',
-    'TONY': 'ANTHONY',
-    'ED': 'EDWARD', 'EDDIE': 'EDWARD', 'TED': 'EDWARD',
-    'KEN': 'KENNETH', 'KENNY': 'KENNETH',
-    'LARRY': 'LAWRENCE',
-    'AL': 'ALAN',
-    'MANNY': 'MANUEL',
-    'MARV': 'MARVIN',
-    'PHIL': 'PHILIP', 'PHILLIP': 'PHILIP',
-    'JEFF': 'JEFFREY',
-    'GREG': 'GREGORY',
-    'BEN': 'BENJAMIN',
-    'SAM': 'SAMUEL',
-    'FRED': 'FREDERICK', 'FREDRIC': 'FREDERICK',
-    'BETH': 'ELIZABETH', 'LIZ': 'ELIZABETH', 'BETSY': 'ELIZABETH',
-    'SUE': 'SUSAN', 'SUSIE': 'SUSAN',
-    'PAT': 'PATRICIA', 'PATTY': 'PATRICIA',
-    'SANDY': 'SANDRA',
-    'KATE': 'KATHERINE', 'KATHY': 'KATHERINE',
-    'DEB': 'DEBORAH', 'DEBBIE': 'DEBORAH',
-    'BARB': 'BARBARA',
-    'JEN': 'JENNIFER', 'JENNY': 'JENNIFER',
-    'BECKY': 'REBECCA',
-    'MAGGIE': 'MARGARET', 'PEGGY': 'MARGARET',
-    'NICK': 'NICHOLAS',
-    'MATT': 'MATTHEW',
-    'ANDY': 'ANDREW', 'DREW': 'ANDREW',
-    'ALEX': 'ALEXANDER',
-    'CHARLIE': 'CHARLES', 'CHUCK': 'CHARLES',
-    'JERRY': 'GERALD',
-    'RON': 'RONALD', 'RONNIE': 'RONALD',
-    'DOUG': 'DOUGLAS',
-    'RAY': 'RAYMOND',
-    'HANK': 'HENRY',
-    'ABE': 'ABRAHAM',
-    'LEN': 'LEONARD', 'LENNY': 'LEONARD',
-    'BERNIE': 'BERNARD',
-    'ART': 'ARTHUR',
-    'NORM': 'NORMAN',
-    'HERB': 'HERBERT',
-    'STU': 'STUART',
-    'MORT': 'MORTON',
-    'JOSH': 'JOSHUA',
-}
+NICKNAME_MAP = read_map(CONFIG_DIR / "nicknames.csv")
 
 # Keep replacement order: donor keys depend on these comparisons.
 _EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",

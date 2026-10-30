@@ -11,6 +11,7 @@ from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.pipeline import clean_pipeline
 from fec.cleaning.reports.gates import run_quality_gates
 from fec.committees import load_committees
+from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.contract import check_output
 from fec.env import CLEANED_CSV, RAW_CSV, REPORTS_DIR
@@ -45,6 +46,7 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
         _check_reclean(expected, output)
 
     _save_if_gates_pass(output, out_dir, output_path)
+    _write_new_occupations(output, out_dir)
     _print_summary(output, output_path, out_dir, time.perf_counter() - start)
     if expected is None:
         logger.info("Next: python geocode.py")
@@ -112,6 +114,16 @@ def _ensure_zip_format(df):
     )
     cleaned[invalid] = pd.NA
     df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
+
+
+# Occupations missing from the category table, for optional review.
+def _write_new_occupations(df, out_dir) -> None:
+    occupation = df['contributor_occupation'].fillna('')
+    new = df[df['entity_type'].eq('INDIVIDUAL') & occupation.ne('') & ~occupation.isin(CATEGORY_OVERRIDES)]
+    report = new.groupby(['contributor_occupation', 'occupation_category']).size().reset_index(name='rows')
+    write_csv_atomic(report, os.path.join(out_dir, 'new_occupations.csv'), index=False)
+    if len(report):
+        logger.info("New occupations: %s (data/reports/new_occupations.csv)", f"{len(report):,}")
 
 
 # Show counts, output paths and elapsed time.

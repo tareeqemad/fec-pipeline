@@ -1,7 +1,5 @@
-"""Store reviewed and cached work history for resolve."""
+"""Read and build cached work-history entries for resolve."""
 
-import json
-import os
 import re
 
 import pandas as pd
@@ -13,33 +11,9 @@ from fec.cleaning.work.previous import (
     preserve_own_named_legal_employer,
 )
 from fec.cleaning.work.status import is_real_employer, single_letters
-from fec.io import write_json_atomic
 RETIRED = "RETIRED"
 SELF_EMPLOYED = "SELF-EMPLOYED"
 PREV_EMPLOYER_CACHE = "resolve_prev_employer.json"
-
-class Cache:
-    def __init__(self, path):
-        self.path = path
-        self.data = {}
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as handle:
-                self.data = json.load(handle)
-
-    def get(self, key):
-        return self.data.get(key)
-
-    def put(self, key, value):
-        self.data[key] = value
-
-    def discard(self, key):
-        self.data.pop(key, None)
-
-    def save(self):
-        write_json_atomic(self.path, self.data, ensure_ascii=False)
-
-    def __len__(self):
-        return len(self.data)
 
 def _s(val, default: str = "") -> str:
     if val is None or pd.isna(val):

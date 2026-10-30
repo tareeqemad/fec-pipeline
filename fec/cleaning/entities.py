@@ -24,9 +24,7 @@ from fec.cleaning.work.employer_aliases import (
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES
-from fec.config.employers import EMPLOYER_NORMALIZE
-from fec.config.occupation_rules.normalize import OCCUPATION_NORMALIZE
-from fec.config.occupation_rules.rules import SWAP_JOB_TITLES
+from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE, SWAP_JOB_TITLES
 
 
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")

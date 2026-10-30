@@ -43,9 +43,9 @@ def _text(series: pd.Series) -> pd.Series:
     return values.where(~values.isin(_BLANK_TEXT), "")
 
 
-# row keys: sub_id if present, else the index
+# row keys: sub_id
 def _keys(df: pd.DataFrame):
-    return df["sub_id"].to_numpy() if "sub_id" in df.columns else df.index.to_numpy()
+    return df["sub_id"].to_numpy()
 
 
 # build a series of one field indexed by key
@@ -71,7 +71,7 @@ class AuditTrail:
 
     # snapshot each audited field's original value per key
     def start(self, df: pd.DataFrame) -> None:
-        unique = df.drop_duplicates("sub_id", keep="first") if "sub_id" in df.columns else df
+        unique = df.drop_duplicates("sub_id", keep="first")
         for field in AUDITED_FIELDS:
             if field in unique.columns:
                 self._raw[field] = _by_key(unique, field)

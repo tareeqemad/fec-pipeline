@@ -7,7 +7,6 @@ import pandas as pd
 from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm, _set_missing
 from fec.cleaning.reports.trail import WORK_FIELDS
 from fec.cleaning.work.employer_deep_clean import _deep_clean_employer
-from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.work.normalize import (
     EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT,
     _categorize,
@@ -16,12 +15,10 @@ from fec.cleaning.work.normalize import (
     map_occupation_fixes,
     swap_employer_and_occupation,
 )
-from fec.config.employers import EMPLOYER_NORMALIZE
-from fec.config.occupation_rules.normalize import (
+from fec.config.occupation_rules.rules import (
+    EMPLOYER_NORMALIZE,
     OCCUPATION_CANONICAL,
     OCCUPATION_NORMALIZE,
-)
-from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_OCCUPATION,
     OCCUPATION_FROM_EMPLOYER,
     OCCUPATION_KEYWORDS,
@@ -193,10 +190,6 @@ def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
     # swap before short titles are dropped
     trail.run(df, _fix_swapped_occ_emp, 'occ_swap_fields', 'occupation_and_employer_swapped', WORK_FIELDS)
     _deep_clean_employer(df, trail)
-    trail.run(
-        df, canonicalize_current_employers, 'occ_canonicalize_employers',
-        'employer_variant_unified_by_group_key', WORK_FIELDS,
-    )
     trail.run(df, _derive_status_and_category, 'occ_derive_status_category', 'derived_from_occupation', WORK_FIELDS)
     trail.run(
         df, _apply_occupation_fixes, 'occ_known_fixes',

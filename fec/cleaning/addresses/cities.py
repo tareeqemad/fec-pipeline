@@ -21,13 +21,6 @@ from fec.config.streets import (
 CITY_TABLE_FIXED = '_city_table_fixed'
 
 
-# ZIP5 from raw data; ZIP cleaning runs after city fixes.
-def _zip5(df: pd.DataFrame) -> pd.Series | None:
-    if 'contributor_zip' not in df.columns:
-        return None
-    return _clean_zip_raw(df['contributor_zip'])
-
-
 # Apply city formatting and configured corrections.
 def clean_cities(df: pd.DataFrame) -> pd.DataFrame:
     # Apply places recovered from the street before city rules.
@@ -35,7 +28,8 @@ def clean_cities(df: pd.DataFrame) -> pd.DataFrame:
 
     cities = _strip_city_text(df['contributor_city'])
     states = df['contributor_state'].fillna('').astype(str).str.strip().str.upper()
-    zip5 = _zip5(df)
+    # ZIP5 from raw data; ZIP cleaning runs after city fixes.
+    zip5 = _clean_zip_raw(df['contributor_zip'])
     before = cities.copy()
     cities = _table_city_fixes(cities, states, zip5)
     table_fixed = before.fillna('') != cities.fillna('')

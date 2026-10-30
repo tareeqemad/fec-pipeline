@@ -51,7 +51,7 @@ def _zip5(series: pd.Series) -> pd.Series:
 
 # the person a row belongs to: donor_key, else the name
 def _person(frame: pd.DataFrame) -> pd.Series:
-    key = _text(frame["donor_key"]) if "donor_key" in frame.columns else pd.Series("", index=frame.index)
+    key = _text(frame["donor_key"])
     return key.where(key.ne(""), _text(frame["contributor_name"]))
 
 
@@ -256,7 +256,7 @@ def build_review_cases(
             note = " || ".join(dict.fromkeys(notes[notes.ne("")]))
         cases.append({
             "priority": priority,
-            "donor_key": _text(group["donor_key"]).iloc[0] if "donor_key" in group.columns else "",
+            "donor_key": _text(group["donor_key"]).iloc[0],
             "contributor_name": _text(group["contributor_name"]).iloc[0],
             "review_reason": reason,
             "zip5": zip5,

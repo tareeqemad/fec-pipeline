@@ -9,7 +9,6 @@ from fec.cleaning.reports.trail import (
     AuditTrail,
 )
 from fec.cleaning.work.employer_names import (
-    apply_employer_synonyms,
     fix_occupation_as_employer,
 )
 from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
@@ -37,7 +36,6 @@ from fec.cleaning.work.style import (
 )
 from fec.cleaning.rules.junk import (
     _clean_junk_status_word_employer,
-    _clean_self_employed_variants,
     clean_remaining_junk,
 )
 from fec.cleaning.rules.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
@@ -80,8 +78,6 @@ _AUDITED_RULES = (
     (fix_employer_equals_occupation,
      WORK_FIELDS,
      'enh_fix_emp_eq_occ', 'employer_equals_occupation'),
-    (apply_employer_synonyms, _EMPLOYER_ONLY,
-     'enh_employer_synonyms', 'verified_same_company'),
     (fix_occupation_as_employer, WORK_FIELDS,
      'enh_fix_occ_as_employer', 'occupation_word_in_employer'),
 )
@@ -96,8 +92,6 @@ _LATE_STEPS = (
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY),
     (apply_reviewed_employer_names, 'employer_recanonicalize',
      'documented_company_alias', EMPLOYMENT_FIELDS),
-    (_clean_self_employed_variants, 'self_employed_variants',
-     'self_employed_variant_unified', WORK_FIELDS),
     # Normalization can expose more placeholders.
     (_clean_junk_status_word_employer, 'late_placeholder_employers',
      'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY),

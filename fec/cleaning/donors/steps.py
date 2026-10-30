@@ -8,7 +8,7 @@ from fec.cleaning.reports.trail import (
     WORK_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.donors.employer import _fill_employer_from_occupation
+from fec.config.occupation_rules.rules import EMPLOYER_FROM_CATEGORY, FINAL_EMPLOYER_FROM_OCCUPATION
 from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.donors.entity import (
     _apply_entity_overrides,
@@ -27,16 +27,42 @@ from fec.cleaning.donors.retired import (
 )
 from fec.cleaning.work.previous import normalize_previous_employer_column
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
-from fec.cleaning.rules.junk import _clean_junk_status_word_employer
 from fec.cleaning.rules.occupation_category import (
     _fix_emp_occ_category_consistency,
 )
+
+
+def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
+    """Fill work statuses from the same filing, inferring no company."""
+    is_indiv = df['entity_type'] == 'INDIVIDUAL'
+    empty_emp = df['contributor_employer'].isna() | (df['contributor_employer'] == '')
+    occ = df['contributor_occupation'].fillna('')
+
+    n = 0
+    for occ_val, emp_val in FINAL_EMPLOYER_FROM_OCCUPATION.items():
+        mask = is_indiv & empty_emp & (occ == occ_val)
+        cnt = int(mask.sum())
+        if cnt:
+            df.loc[mask, 'contributor_employer'] = emp_val
+            n += cnt
+
+    # Still empty? Set from occupation_category
+    still_empty = is_indiv & (df['contributor_employer'].isna() | (df['contributor_employer'] == ''))
+    for cat, emp_val in EMPLOYER_FROM_CATEGORY.items():
+        mask = still_empty & (df['occupation_category'] == cat)
+        cnt = int(mask.sum())
+        if cnt:
+            df.loc[mask, 'contributor_employer'] = emp_val
+            n += cnt
+
+    return n
 
 PREVIOUS = ("previous_employer",)
 ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
 
 # (audit step, fix, fields, reason, source)
 CONSISTENCY_FIXES = (
+    # Also settles blank employers before occupations are filled.
     ("donor_reviewed_employers", apply_reviewed_employer_names, EMPLOYMENT_FIELDS,
      "documented_company_alias", "data/rules/employer_name_rules.csv"),
     ("donor_fill_occupation_from_donor", _fill_occupation_from_donor, WORK_FIELDS,
@@ -48,8 +74,6 @@ CONSISTENCY_FIXES = (
      "employer_derived_from_occupation_or_category", None),
     ("donor_recover_previous_employer", _fill_prev_employer_from_donor, PREVIOUS,
      "previous_employer_from_latest_earlier_filing", None),
-    ("donor_clear_refusal_employers", _clean_junk_status_word_employer, WORK_FIELDS,
-     "refusal_placeholder_employer_nulled", None),
     ("donor_enforce_entity_consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
      "entity_type_unified_by_name", None),
     ("donor_apply_fec_source_entity_type", _apply_source_entity_types, ENTITY_AND_WORK,

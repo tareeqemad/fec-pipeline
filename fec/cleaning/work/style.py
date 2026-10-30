@@ -4,7 +4,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _map_occupations
-from fec.config.occupation_rules.fixes import OCCUPATION_TYPO_FIXES
+from fec.config.occupation_rules.rules import OCCUPATION_TYPO_FIXES
 
 # Titles combined with "/"; longest first so VICE PRESIDENT wins.
 _TITLES = (

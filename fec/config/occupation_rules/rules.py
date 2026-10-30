@@ -1,6 +1,27 @@
-"""Occupation cross-field rules: occupation-employer mappings and job-title sets."""
+"""Occupation and employer spellings, categories and cross-field rules."""
 from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
+from fec.config.tables import CONFIG_DIR, read_map, read_rows
+
+# No HOMEMAKER: _deep_clean_employer fixes it with occupation.
+EMPLOYER_NORMALIZE = read_map(CONFIG_DIR / "employer_spellings.csv")
+
+# Employer spellings first; occupation rows override them.
+OCCUPATION_NORMALIZE = {**EMPLOYER_NORMALIZE, **read_map(CONFIG_DIR / "occupation_spellings.csv")}
+
+# Safe spellings applied by the record rules.
+OCCUPATION_CANONICAL = read_map(CONFIG_DIR / "occupation_canonical.csv")
+
+# Raw occupation fixes that also assign a category.
+# A blank category means the fix sets no category.
+OCCUPATION_FIXES = {row["filed"]: (row["occupation"], row["category"] or None)
+                    for row in read_rows(CONFIG_DIR / "occupation_fixes.csv")}
+
+# Curated occupation typo fixes, keyed after the style step.
+OCCUPATION_TYPO_FIXES = read_map(CONFIG_DIR / "occupation_typos.csv")
+
+# Each occupation's category; patterns categorize unlisted ones.
+CATEGORY_OVERRIDES = read_map(CONFIG_DIR / "occupation_categories.csv")
 
 
 # Refusals keep NOT DISCLOSED; other fixes to it are junk.

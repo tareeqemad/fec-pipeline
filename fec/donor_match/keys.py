@@ -201,7 +201,7 @@ def _merge_target(rows: pd.DataFrame, keys: set, names_by_key: dict, suffixes_by
 # repoint verified duplicate keys to their preferred key
 def apply_curated_key_merges(df: pd.DataFrame) -> int:
     """Repoint verified duplicate keys to their preferred key."""
-    if "donor_key" not in df.columns or not KEY_MERGES:
+    if not KEY_MERGES:
         return 0
 
     mask = df["donor_key"].isin(KEY_MERGES)
@@ -215,7 +215,7 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
 def hold_unproven_filings(df: pd.DataFrame) -> int:
     groups = held_groups(df, HELD_FILINGS, HELD_ADDRESSES)
     held = groups != ""
-    found = set(df.loc[held, "sub_id"].astype(str)) if "sub_id" in df.columns else set()
+    found = set(df.loc[held, "sub_id"].astype(str))
     missing = len(set(HELD_FILINGS) - found)
     if missing:
         logger.warning("  %s held filings not in the data", missing)
@@ -233,7 +233,6 @@ def validate_separations(df: pd.DataFrame) -> None:
         "donor_key", "contributor_name", "contributor_city",
         "contributor_state", "contributor_zip", "entity_type",
     ]
-    columns = [column for column in columns if column in df.columns]
     profiles = df.loc[df["entity_type"].eq("INDIVIDUAL"), columns].drop_duplicates()
 
     for donor_key, group in profiles.groupby("donor_key"):

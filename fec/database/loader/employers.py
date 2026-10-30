@@ -59,14 +59,9 @@ def filing_employment_key(donor_id, employer_id, occupation, employer_status,
 # Keep the newest filing for each distinct employment.
 def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
     keys = [
-        "donor_key",
-        "contributor_employer",
-        "contributor_occupation",
+        "donor_key", "contributor_employer", "contributor_occupation",
+        "employer_status", "previous_employer", "occupation_category",
     ]
-    # Older CSVs may omit these fields.
-    for column in ("employer_status", "previous_employer", "occupation_category"):
-        if column in individuals.columns:
-            keys.append(column)
     return (
         individuals.sort_values(
             "contribution_receipt_date",

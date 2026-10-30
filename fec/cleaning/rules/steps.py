@@ -1,7 +1,6 @@
 """Focused record-level safety rules, in one declared order."""
 from fec.cleaning.reports.trail import (
     EMPLOYMENT_FIELDS,
-    NAME_FIELDS,
     PEOPLE_FIELDS,
     PLACE_FIELDS,
     WORK_FIELDS,
@@ -15,19 +14,14 @@ from fec.cleaning.rules.addresses import (
 from fec.cleaning.rules.committee import (
     _fix_committee_employer,
     _fix_misclassified_foundation,
-    _fix_title_as_first_name,
 )
 from fec.cleaning.rules.employer import (
-    _clear_admin_note_employers,
     _clear_refusal_employers,
     _fix_choose_prefix,
     _fix_email_employer_final,
-    _fix_junk_employer_patterns,
-    _fix_numeric_employer_final,
     _fix_retired_typos,
     _fix_truncated_employer_38,
     _null_sector_as_employer,
-    _null_short_employer_junk,
 )
 from fec.cleaning.rules.employer_swaps import (
     _fix_employer_equals_occupation,
@@ -84,16 +78,8 @@ SAFETY_RULES = (
      'not_disclosed_self_employed_contradiction_fixed'),
     (_clear_refusal_employers, INDIVIDUALS, WORK_FIELDS,
      'refusal_placeholder_employer_nulled'),
-    (_clear_admin_note_employers, INDIVIDUALS, WORK_FIELDS,
-     'admin_note_employer_nulled'),
-    (_null_short_employer_junk, INDIVIDUALS, WORK_FIELDS,
-     'short_employer_junk_nulled'),
-    (_fix_numeric_employer_final, INDIVIDUALS, WORK_FIELDS,
-     'numeric_employer_nulled'),
     (_fix_email_employer_final, INDIVIDUALS, WORK_FIELDS,
      'email_in_employer_nulled'),
-    (_fix_junk_employer_patterns, INDIVIDUALS, WORK_FIELDS,
-     'repeated_char_employer_nulled'),
     (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
      'retired_variant_normalized_or_tail_split_to_previous_employer'),
     (_fix_employer_equals_occupation, INDIVIDUALS, WORK_FIELDS,
@@ -102,8 +88,6 @@ SAFETY_RULES = (
      'occupation_word_in_employer_resolved'),
     (_fix_misclassified_foundation, ALL_ROWS, PEOPLE_FIELDS,
      'org_parsed_as_person_reclassified'),
-    (_fix_title_as_first_name, ALL_ROWS, NAME_FIELDS,
-     'title_as_first_name_cleared'),
     (_fix_choose_prefix, ALL_ROWS, WORK_FIELDS,
      'choose_prefix_stripped'),
     # Preserve the real company before a bare role becomes SELF-EMPLOYED.

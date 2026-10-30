@@ -12,8 +12,6 @@ from fec.cleaning.work.normalize import (
     swap_employer_and_occupation,
 )
 from fec.config.constants import (
-    ADMIN_NOTE_EMPLOYER_RE,
-    OK_SHORT_EMPLOYERS,
     REFUSAL_EMPLOYERS,
     RETIRED_TYPO_EMPLOYERS,
 )
@@ -32,10 +30,6 @@ _RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
 # Leading RETIRED marker to strip: "RETIRED - ACME".
 _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
 
-# the whole value is digits only, e.g. "12345"
-_DIGITS_ONLY_RE = re.compile(r'^\d+$')
-# One character repeated 4+ times: "XXXXX".
-_REPEATED_CHAR_RE = re.compile(r'^(.)\1{3,}$')
 
 
 # null contributor_employer under mask, optionally set occupation_status
@@ -65,44 +59,12 @@ def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     return n_fixed
 
 
-# clear employer when it is FEC admin-note phrasing, not real
-def _clear_admin_note_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """FEC admin notes in employer, matched whole so names stay."""
-    emp = df['contributor_employer'].fillna('').str.upper().str.strip()
-    mask = is_indiv & emp.str.match(ADMIN_NOTE_EMPLOYER_RE, na=False)
-    return _null_employer_where(df, mask)
-
-
-# null out truncated 2-char employer junk
-def _null_short_employer_junk(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """O. Null out truncated 2-char employer junk."""
-    emp = df['contributor_employer']
-    mask = is_indiv & emp.notna() & emp.str.len().le(2) & ~emp.isin(OK_SHORT_EMPLOYERS)
-    return _null_employer_where(df, mask, set_status=None)
-
-
-# clear a numeric-only employer (card number, ZIP, phone)
-def _fix_numeric_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """Numeric-only employers (card, ZIP, phone) become NaN."""
-    emp = df['contributor_employer'].fillna('')
-    mask = is_indiv & emp.str.match(_DIGITS_ONLY_RE, na=False)
-    return _null_employer_where(df, mask)
-
-
 # clear employer when it holds an email address
 def _fix_email_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """R. Final pass: email in employer -> NaN."""
     emp = df['contributor_employer'].fillna('')
     mask = is_indiv & emp.str.contains('@', na=False, regex=False)
     return _null_employer_where(df, mask)
-
-
-# clear all-same-character junk employer values
-def _fix_junk_employer_patterns(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """Clear employer values made of one repeated character."""
-    emp = df['contributor_employer'].fillna('')
-    all_same = is_indiv & emp.str.match(_REPEATED_CHAR_RE, na=False)
-    return _null_employer_where(df, all_same, set_status='NOT_DISCLOSED')
 
 
 # normalize RETIRED typos, splitting any trailing text off

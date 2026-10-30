@@ -260,7 +260,7 @@ def _text(value) -> str:
 
 def _fix_garbled_first_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
     """Verified first-name fixes for the matching surname and ZIP5."""
-    if not FIRST_NAME_FIXES or 'contributor_zip' not in df.columns:
+    if not FIRST_NAME_FIXES:
         return
     garbled_words = {word for _, word, _ in FIRST_NAME_FIXES}
     first_word = df['contributor_first_name'].fillna('').astype(str).str.split().str[0]

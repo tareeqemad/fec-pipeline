@@ -67,16 +67,10 @@ def _df_subset(df: pd.DataFrame, mask, reason: str) -> pd.DataFrame:
     return out
 
 
-# One row per similar street spelling, by donor or name.
+# One row per similar street spelling, by donor.
 def _near_street_variant_review(df: pd.DataFrame) -> pd.DataFrame:
-    person = "donor_key" if "donor_key" in df.columns else "contributor_name"
-    needed = {person, S1, CITY, STATE, ZIP}
-    if not needed.issubset(df.columns):
-        return pd.DataFrame()
-
-    work = df.copy()
-    if "entity_type" in work.columns:
-        work = work[work["entity_type"] == "INDIVIDUAL"]
+    person = "donor_key"
+    work = df[df["entity_type"] == "INDIVIDUAL"]
 
     work = work[
         work[person].fillna("").astype(str).ne("")
@@ -182,7 +176,7 @@ def _review_street1(
     )
     care_of = s1.str.match(_CO_RE)
     # C/O in street_1 with the street in street_2.
-    street_in_s2 = df[S2].fillna("").astype(str).str.match(r"^\s*\d") if S2 in df.columns else False
+    street_in_s2 = df[S2].fillna("").astype(str).str.match(r"^\s*\d")
     entity = (
         has1 & ~starts_num & ~is_pobox & ~is_pmb & ~has_type & ~descriptive & ~care_of
     )

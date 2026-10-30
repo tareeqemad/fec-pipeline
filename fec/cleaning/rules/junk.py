@@ -20,8 +20,6 @@ _SCHOOL_EMP_RE = re.compile(
     r'SCHOOL|ACADEMY|COLLEGE|UNIVERSITY|EDUCATION|MDCPS|ISD\b|UNIFIED|DISTRICT',
 )
 
-# Anchored SELF-EMPLOYED variants; SELFRIDGES and tails do not match.
-_SELF_EMP_RE = re.compile(r'^SELF(?:[\s\-/]*EMP(?:LOY\w*)?)?$')
 
 # SELF with a tail: named companies are kept.
 _SELF_PREFIX_RE = re.compile(r'^SELF[\s,/\-]+', re.IGNORECASE)
@@ -185,22 +183,6 @@ def _clean_junk_nist(df: pd.DataFrame, ii: pd.Index) -> int:
         if len(not_school):
             _set_missing(df, not_school)
             n_fixed += len(not_school)
-    return n_fixed
-
-
-# unify self-employed spelling variants to one form
-def _clean_self_employed_variants(df: pd.DataFrame) -> int:
-    """Unify self-employed spellings after employer names are cleaned."""
-    indiv_idx = _indiv_idx(df)
-    n_fixed = 0
-    for col in ('contributor_employer', 'contributor_occupation'):
-        values = _norm(df.loc[indiv_idx, col])
-        hit = indiv_idx[(values != 'SELF-EMPLOYED') & values.str.match(_SELF_EMP_RE, na=False)]
-        if len(hit):
-            df.loc[hit, col] = 'SELF-EMPLOYED'
-            if col == 'contributor_occupation':
-                df.loc[hit, 'occupation_category'] = 'SELF-EMPLOYED'
-            n_fixed += len(hit)
     return n_fixed
 
 

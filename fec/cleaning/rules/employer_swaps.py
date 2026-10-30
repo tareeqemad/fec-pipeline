@@ -73,13 +73,7 @@ _NO_INFO_OCCUPATIONS = frozenset({'EMPLOYED', 'NOT DISCLOSED', 'OTHER'})
 # build each row's filer name as written on the filing
 def _filer_names(df: pd.DataFrame) -> pd.Series:
     """The filer's name as written on each row."""
-    if 'contributor_name' in df.columns:
-        names = df['contributor_name']
-    elif {'contributor_last_name', 'contributor_first_name'} <= set(df.columns):
-        names = (df['contributor_last_name'].fillna('').astype(str) + ', '
-                 + df['contributor_first_name'].fillna('').astype(str))
-    else:
-        names = pd.Series('', index=df.index)
+    names = df['contributor_name']
     return names.fillna('').astype(str).str.strip().str.upper()
 
 

@@ -109,9 +109,7 @@ def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
 # Collect distinct donor and company addresses.
 def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
     address_rows = {}
-    columns = DONOR_ADDRESS_COLUMNS + [
-        column for column in ('latitude', 'longitude') if column in df.columns
-    ]
+    columns = DONOR_ADDRESS_COLUMNS + ['latitude', 'longitude']
     for (street_1, street_2, city, state, zip_code), group in df[columns].groupby(
         DONOR_ADDRESS_COLUMNS, dropna=False
     ):
