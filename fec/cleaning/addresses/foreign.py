@@ -57,10 +57,7 @@ REVIEWED_AS_FILED_SUB_IDS: dict[str, str] = {
 # True for rows kept as filed.
 def kept_as_filed_mask(df: pd.DataFrame) -> pd.Series:
     """foreign_address_mask plus REVIEWED_AS_FILED_SUB_IDS."""
-    mask = foreign_address_mask(df)
-    if 'sub_id' in df.columns:
-        mask |= _norm(df['sub_id']).isin(REVIEWED_AS_FILED_SUB_IDS)
-    return mask
+    return foreign_address_mask(df) | _norm(df['sub_id']).isin(REVIEWED_AS_FILED_SUB_IDS)
 
 
 # the audit reason for putting a filed address back
@@ -81,8 +78,7 @@ def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
     ambiguous = {**AMBIGUOUS_CITIES, **_MORE_AMBIGUOUS_CITIES}
     for name, valid_states in ambiguous.items():
         mask |= city.eq(name) & ~state.isin(valid_states)
-    if 'sub_id' in df.columns:
-        mask |= _norm(df['sub_id']).isin(REVIEWED_FOREIGN_SUB_IDS)
+    mask |= _norm(df['sub_id']).isin(REVIEWED_FOREIGN_SUB_IDS)
     mask |= city.str.contains(_COUNTRY_TAIL_RE, na=False)
     mask |= street_1.str.contains(_COUNTRY_TAIL_RE, na=False)
     mask |= street_2.str.contains(_COUNTRY_TAIL_RE, na=False)
@@ -105,7 +101,7 @@ def snapshot_foreign_addresses(df: pd.DataFrame) -> pd.DataFrame:
 # put the filed address back on every snapshotted row
 def restore_foreign_addresses(df: pd.DataFrame, snapshot: pd.DataFrame) -> int:
     """Restore filed addresses on snapshotted rows; returns cells restored."""
-    if snapshot.empty or 'sub_id' not in df.columns:
+    if snapshot.empty:
         return 0
     hit = df['sub_id'].isin(snapshot.index)
     if not hit.any():

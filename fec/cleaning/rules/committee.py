@@ -50,20 +50,3 @@ def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     df.loc[has_employer, 'contributor_name'] = employer[has_employer].str.upper()
     return changed
 
-
-# clear a title mistakenly parsed as a first name
-def _fix_title_as_first_name(df: pd.DataFrame) -> int:
-    """Clear titles parsed as first names."""
-    is_individual = df['entity_type'] == 'INDIVIDUAL'
-    first_names = df['contributor_first_name'].fillna('')
-    empty_first = is_individual & first_names.eq('')
-    names = df.loc[empty_first, 'contributor_name'].fillna('')
-    after_comma = names.str.split(',', n=1).str[1].str.strip()
-    title_after_comma = empty_first & after_comma.reindex(
-        df.index, fill_value=''
-    ).isin(_TITLES)
-    mask = title_after_comma | (is_individual & first_names.isin(_TITLES))
-    changed = int(mask.sum())
-    if changed:
-        df.loc[mask, 'contributor_first_name'] = np.nan
-    return changed

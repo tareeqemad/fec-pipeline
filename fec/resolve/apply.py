@@ -12,18 +12,14 @@ from fec.cleaning.work.previous import normalize_previous_employer_column
 
 def apply_results(df: pd.DataFrame, prev_cache, filed_employers: dict | None = None) -> pd.DataFrame:
     """filed_employers preserves each filing's own employer."""
-    prior_previous = df.get("previous_employer")
-    if prior_previous is not None:
-        prior_previous = prior_previous.copy()
+    prior_previous = df["previous_employer"].copy()
 
     columns = ("employer_status", "previous_employer")
     cols = {column: [] for column in columns}
 
-    dated, first_filed = {}, {}
-    if {"entity_type", "donor_key", "contribution_receipt_date"}.issubset(df.columns):
-        retired_rows = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].eq("RETIRED")
-        dated = dated_previous_employers(df, retired_rows)
-        first_filed = _first_filed_employers(df)
+    retired_rows = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].eq("RETIRED")
+    dated = dated_previous_employers(df, retired_rows)
+    first_filed = _first_filed_employers(df)
     context = ResolveContext(
         previous_cache=prev_cache,
         dated_previous=dated,
@@ -57,12 +53,9 @@ def _expand_previous_employer_abbreviations(df: pd.DataFrame) -> None:
 
 def _preserve_previous_employer_display(
     df: pd.DataFrame,
-    prior_previous: pd.Series | None,
+    prior_previous: pd.Series,
 ) -> None:
     """Keep the display spelling when resolve found the same company."""
-    if prior_previous is None or "previous_employer" not in df.columns:
-        return
-
     # Keep the existing uppercase spelling.
     prior = prior_previous.fillna("").astype(str).str.strip().str.upper()
     current = df["previous_employer"].fillna("").astype(str).str.strip()

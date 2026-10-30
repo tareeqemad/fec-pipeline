@@ -1,20 +1,10 @@
 """Persistent coordinates, including entries from older geocoding runs."""
 
-import json
-from pathlib import Path
-
 from fec.cleaning.addresses.street_text import numbered_street
-from fec.io import write_json_atomic
+from fec.io import JsonCache
 
 
-class GeoCache:
-    def __init__(self, path: str):
-        self.path = path
-        self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
-
-    def save(self):
-        write_json_atomic(self.path, self.data, ensure_ascii=False)
-
+class GeoCache(JsonCache):
     def get(self, key: str) -> dict | None:
         if key in self.data:
             return self.data[key]
@@ -48,6 +38,3 @@ class GeoCache:
 
     def put_transient(self, key: str):
         self._record_miss(key, "transient_fail")
-
-    def __len__(self):
-        return len(self.data)

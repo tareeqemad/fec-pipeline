@@ -15,9 +15,6 @@ from fec.cleaning.donors.name_choice import (
 
 # Apply reviewed committee names and keys after the cleaning steps.
 def canonicalize_committee_names(df: pd.DataFrame) -> int:
-    required = {"sub_id", "donor_key", "entity_type", "identity_status", "contributor_name"}
-    if not required <= set(df.columns):
-        return 0
     committees = df["entity_type"].eq("COMMITTEE/PAC") & df["identity_status"].eq("confirmed")
     filings = df["sub_id"].astype(str)
     total = 0

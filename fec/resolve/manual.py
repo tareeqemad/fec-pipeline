@@ -78,7 +78,7 @@ def load_manual_previous_employers(
     prev_cache,
 ) -> tuple[int, int]:
     """Protect curated work history from later cache discovery."""
-    if not csv_path.exists() or "previous_employer" not in df.columns:
+    if not csv_path.exists():
         return 0, 0
 
     entries = _read_previous_employers(csv_path, df)
@@ -91,7 +91,7 @@ def load_manual_previous_employers(
 
 def cleared_employers(df: pd.DataFrame) -> dict[str, set[str]]:
     """FEC's copy must not restore a spouse's firm."""
-    if not (MANUAL_EMPLOYER_OVERRIDES_CSV.exists() and RAW_CSV.exists()) or "sub_id" not in df.columns:
+    if not (MANUAL_EMPLOYER_OVERRIDES_CSV.exists() and RAW_CSV.exists()):
         return {}
     with MANUAL_EMPLOYER_OVERRIDES_CSV.open(encoding="utf-8", newline="") as handle:
         cleared = {

@@ -181,9 +181,7 @@ def current_employer_name(status, employer) -> str:
 # every company name the final database must contain
 def referenced_employers(df: pd.DataFrame) -> set[str]:
     """Companies the final database must contain."""
-    rows = df
-    if "entity_type" in rows.columns:
-        rows = rows[rows["entity_type"].eq("INDIVIDUAL")]
+    rows = df[df["entity_type"].eq("INDIVIDUAL")]
 
     names: set[str] = set()
     for status, employer in rows[["employer_status", "contributor_employer"]].itertuples(index=False):

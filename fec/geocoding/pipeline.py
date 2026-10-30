@@ -101,8 +101,6 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
 
 # Save city evidence for clean to apply before donor matching.
 def save_city_corrections(df: pd.DataFrame, cache: GeoCache) -> int:
-    if "sub_id" not in df.columns:
-        return 0
     keys = _contributor_keys(df.loc[~kept_as_filed_mask(df)])
     cities = {key: confirmed_city(key, cache.get(key)) for key in keys.unique()}
     rows = []

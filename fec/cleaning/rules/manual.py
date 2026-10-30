@@ -135,7 +135,7 @@ def _read_overrides(
 def categorize_records(df: pd.DataFrame) -> pd.Series:
     """Derive categories, honoring reviewed exceptions for exact filing IDs."""
     expected = categorize_final(df["contributor_occupation"])
-    if "sub_id" not in df.columns or not OVERRIDES_CSV.exists():
+    if not OVERRIDES_CSV.exists():
         return expected
     categories = {
         sid: fields["occupation_category"]
@@ -265,9 +265,6 @@ def apply_manual_employer_overrides(
     if not overrides:
         return 0
 
-    if "sub_id" not in df.columns:
-        logger.warning("WARNING: manual_overrides has no sub_id column - skipping")
-        return 0
 
     changed, missing = _apply_overrides(df, overrides, display_previous_ids, column_values=columns)
     if missing:

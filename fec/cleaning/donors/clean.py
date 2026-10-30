@@ -20,17 +20,26 @@ from fec.cleaning.reports.trail import (
 )
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_names import finalize_employer_names
-from fec.cleaning.work.employer_aliases import canonicalize_current_employers
+from fec.cleaning.work.employer_aliases import canonicalize_current_employers, reviewed_employer_name
 from fec.cleaning.name_fixes import apply_name_corrections
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.addresses.fixes.unify import (
     canonicalize_donor_addresses,
     canonicalize_donor_units,
 )
-from fec.cleaning.donors.employer_variants import align_org_donor_company_names
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
 from fec.cleaning.reports.donors import build_donor_dedup_review
 from fec.donor_match.keys import non_individual_donor_key
+
+
+def align_org_donor_company_names(df: pd.DataFrame) -> int:
+    """An organization's display name needs the same explicit proof."""
+    mask = df["entity_type"].eq("ORGANIZATION") & df["contributor_name"].notna()
+    names = df.loc[mask, "contributor_name"]
+    reviewed = names.map(reviewed_employer_name)
+    changed = reviewed.ne(names)
+    df.loc[names.index[changed], "contributor_name"] = reviewed[changed]
+    return int(changed.sum())
 
 
 def identify_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
@@ -141,8 +150,7 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     organization_names = regions[targets] + " POLITICAL NETWORK"
 
     df.loc[targets, "entity_type"] = "ORGANIZATION"
-    if "is_individual" in df.columns:
-        df.loc[targets, "is_individual"] = False
+    df.loc[targets, "is_individual"] = False
     df.loc[targets, "contributor_name"] = organization_names
     df.loc[targets, ["contributor_first_name", "contributor_last_name"]] = pd.NA
     df.loc[targets, ["contributor_employer", "contributor_occupation"]] = pd.NA
@@ -172,13 +180,7 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> None:
 
 
 def _clear_non_individual_names(df: pd.DataFrame) -> int:
-    name_cols = [
-        column
-        for column in ("contributor_first_name", "contributor_last_name")
-        if column in df.columns
-    ]
-    if "entity_type" not in df.columns or not name_cols:
-        return 0
+    name_cols = ["contributor_first_name", "contributor_last_name"]
     mask = (df["entity_type"] != "INDIVIDUAL") & df[name_cols].notna().any(axis=1)
     if mask.any():
         df.loc[mask, name_cols] = np.nan

@@ -21,8 +21,6 @@ def _resolve_only_gate(key, df, required):
 
 # quality gate: every occupation_category value must be a known one
 def _gate_valid_categories(df):
-    if 'occupation_category' not in df.columns:
-        return []
     values = df['occupation_category'].astype('string').fillna('').str.strip()
     invalid = [str(value) for value in values.unique() if value and value not in VALID_CATEGORIES]
     blank = int(values.eq('').sum())
@@ -38,10 +36,6 @@ def _gate_valid_categories(df):
 
 # quality gate: occupation_category must match the occupation text
 def _gate_occupation_category_consistency(df):
-    required = {'entity_type', 'contributor_occupation', 'occupation_category'}
-    if not required.issubset(df.columns):
-        return []
-
     is_indiv = df['entity_type'].eq('INDIVIDUAL')
     expected = categorize_records(df.loc[is_indiv])
     actual = df.loc[is_indiv, 'occupation_category'].fillna('')
@@ -142,7 +136,7 @@ def _gate_employer_names(df):
         count += int(bad.sum())
         for index in df.index[bad][:max(0, 5 - len(samples))]:
             samples.append({
-                'sub_id': str(df.at[index, 'sub_id']) if 'sub_id' in df.columns else '',
+                'sub_id': str(df.at[index, 'sub_id']),
                 'field': column,
                 'value': values.at[index],
             })
@@ -177,9 +171,6 @@ def _gate_retired_active_sync(df):
 # quality gate: retired rows must carry the RETIRED employer marker
 def _gate_retired_employer_marker(df):
     """Retired occupations must end with the RETIRED employer marker."""
-    required = {'entity_type', 'occupation_category', 'contributor_employer'}
-    if not required.issubset(df.columns):
-        return []
     employer = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
     bad = (
         df['entity_type'].eq('INDIVIDUAL')
@@ -193,8 +184,6 @@ def _gate_retired_employer_marker(df):
 
 # Reject COMPANY/TITLE leftovers; allow known slash brands.
 def _gate_slash_previous_employer(df):
-    if 'previous_employer' not in df.columns:
-        return []
     prev_emp = df['previous_employer'].fillna('').astype(str)
     slashy = (
         prev_emp.str.contains('/', regex=False)

@@ -13,10 +13,10 @@ from fec.contract import check_input, check_output
 from fec.env import (
     CACHE_DIR, CLEANED_CSV, MANUAL_EMPLOYER_OVERRIDES_CSV, PROJECT_ROOT, RAW_CSV, REPORTS_DIR, load_env,
 )
-from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
+from fec.io import JsonCache, read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 from fec.resolve.apply import apply_results
-from fec.resolve.cache import Cache, PREV_EMPLOYER_CACHE
+from fec.resolve.cache import PREV_EMPLOYER_CACHE
 from fec.resolve.fec import drop_unproven_source_entries
 from fec.resolve.manual import cleared_employers, load_manual_previous_employers
 from fec.resolve.previous import step_cross_record
@@ -36,7 +36,7 @@ def _parse_args():
 
 
 def _load_data(csv_path: str):
-    previous = Cache(os.path.join(CACHE_DIR, PREV_EMPLOYER_CACHE))
+    previous = JsonCache(os.path.join(CACHE_DIR, PREV_EMPLOYER_CACHE))
 
     df = read_pipeline_csv(csv_path)
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")

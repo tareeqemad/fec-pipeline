@@ -132,8 +132,6 @@ def _street2_place(street2: str, house: str, places: _FiledPlaces) -> tuple[str,
 
 # Recover a house number filed as ZIP; unreadable places stay.
 def _split_house_number_zip(df: pd.DataFrame) -> None:
-    if 'contributor_street_1' not in df.columns or 'contributor_zip' not in df.columns:
-        return
     street1 = _upper_text(df, 'contributor_street_1')
     digits = _upper_text(df, 'contributor_zip').str.replace(r'\D', '', regex=True)
     house = street1.str.extract(_LEADING_HOUSE_NUMBER_RE)[0].fillna('')

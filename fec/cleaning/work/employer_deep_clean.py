@@ -12,8 +12,7 @@ from fec.config.constants import (
     SELF_EMPLOYED_TYPOS,
 )
 from fec.config.data import MISSING_VALUES
-from fec.config.occupation_rules.fixes import OCCUPATION_FIXES
-from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES
+from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES, OCCUPATION_FIXES
 
 # A job title before the employer: "CEO, ACME CORP".
 _TITLE_PREFIX_RE = re.compile(

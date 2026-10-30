@@ -156,13 +156,8 @@ def _joint_name(value) -> bool:
     given = text.split(",", 1)[1] if "," in text else text
     return bool(_JOINT_GIVEN_RE.search(given))
 
-def _zip5(value) -> str:
-    digits = "".join(re.findall(r"\d", _s(value)))
-    return digits[:5]
 
 def _shared_zips(df: pd.DataFrame) -> dict[str, set[str]]:
-    if not {"contributor_name", "contributor_first_name", "contributor_last_name"} <= set(df.columns):
-        return {}
     people = df[(df["entity_type"] == "INDIVIDUAL") & ~df["contributor_name"].map(_joint_name)]
     given = people["contributor_first_name"].fillna("").astype(str).str.upper().str.split()
     # A second whole given name means a couple filing together.

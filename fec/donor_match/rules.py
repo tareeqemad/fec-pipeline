@@ -141,10 +141,9 @@ def held_groups(df, filings=None, addresses=None):
     addresses = HELD_ADDRESSES if addresses is None else addresses
 
     groups = pd.Series("", index=df.index, dtype=object)
-    if "sub_id" in df.columns and filings:
+    if filings:
         groups = df["sub_id"].astype(str).str.strip().map(filings).fillna("")
-    columns = ("contributor_name", "contributor_street_1", "contributor_zip")
-    if addresses and all(column in df.columns for column in columns):
+    if addresses:
         place = list(zip(
             df["contributor_name"].map(_normalize),
             df["contributor_street_1"].map(_normalize),

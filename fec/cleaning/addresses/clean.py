@@ -122,13 +122,13 @@ def clean_addresses(
     )
     df = _clean_city_zip(df, trail)
     trail.run(
-        df, lambda frame: apply_verified_address_fixes(frame, city_only=False), "address_verified_rules",
+        df, lambda frame: apply_verified_address_fixes(frame, city_only=False, warn_unused=True), "address_verified_rules",
         "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
     )
     for transform, step, reason, fields in _ALIGN_STEPS:
         trail.run(df, transform, step, reason, fields)
     trail.run(
-        df, lambda frame: apply_verified_address_fixes(frame, city_only=True), "address_verified_rules",
+        df, lambda frame: apply_verified_address_fixes(frame, city_only=True, warn_unused=True), "address_verified_rules",
         "verified_postal_correction", ADDRESS_FIELDS, source=_address_rule_source,
     )
     return _report_address_issues(df, trail, reports)

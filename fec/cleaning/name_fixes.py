@@ -40,9 +40,8 @@ _THREE_PART_NAME_RE = re.compile(r'^([^,]+),\s*([^,]+),\s*(.+)$')
 def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Apply manual name corrections."""
     corrected = df['contributor_name'].map(EXACT_NAME_CORRECTIONS)
-    if 'sub_id' in df.columns:
-        by_row = df['sub_id'].astype(str).map(ROW_NAME_CORRECTIONS)
-        corrected = by_row.combine_first(corrected)
+    by_row = df['sub_id'].astype(str).map(ROW_NAME_CORRECTIONS)
+    corrected = by_row.combine_first(corrected)
 
     changed = corrected.notna() & corrected.ne(df['contributor_name'])
     for index, new_name in corrected[changed].items():

@@ -77,3 +77,22 @@ def write_csv_atomic(df, path: str | Path, **to_csv_options) -> None:
     temp_path = path + ".tmp"
     df.to_csv(temp_path, **to_csv_options)
     replace_file(temp_path, path)
+
+
+# Keyed entries in a JSON file, saved atomically.
+class JsonCache:
+    def __init__(self, path):
+        self.path = path
+        self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
+
+    def get(self, key):
+        return self.data.get(key)
+
+    def put(self, key, value):
+        self.data[key] = value
+
+    def discard(self, key):
+        self.data.pop(key, None)
+
+    def save(self):
+        write_json_atomic(self.path, self.data, ensure_ascii=False)

@@ -45,7 +45,7 @@ def apply_street2_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, i
 
 def _final_auto_fixed(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
     """Drop restored street_2 rows; attach final donor details."""
-    if auto_fixed.empty or "sub_id" not in auto_fixed.columns or "sub_id" not in df.columns:
+    if auto_fixed.empty:
         return auto_fixed
     final = df.drop_duplicates("sub_id").set_index("sub_id")
     final_s2 = final[S2].fillna("").astype(str).str.strip()
@@ -56,7 +56,7 @@ def _final_auto_fixed(auto_fixed: pd.DataFrame, df: pd.DataFrame) -> pd.DataFram
         return report
     report = report.copy()
     for column in ("donor_key", "entity_type"):
-        if column in final.columns and column not in report.columns:
+        if column not in report.columns:
             report[column] = report["sub_id"].map(final[column])
     order = ["review_reason"] + [c for c in _REPORT_COLUMNS if c in report.columns]
     return report[order + [c for c in report.columns if c not in order]]
@@ -68,9 +68,9 @@ def build_review_queues(
     auto_fixed: pd.DataFrame | None = None,
     exclude_sub_ids=None,
 ) -> pd.DataFrame:
-    if exclude_sub_ids is not None and len(exclude_sub_ids) and "sub_id" in df.columns:
+    if exclude_sub_ids is not None and len(exclude_sub_ids):
         df = df[~df["sub_id"].isin(set(exclude_sub_ids))]
-        if auto_fixed is not None and not auto_fixed.empty and "sub_id" in auto_fixed.columns:
+        if auto_fixed is not None and not auto_fixed.empty:
             auto_fixed = auto_fixed[~auto_fixed["sub_id"].isin(set(exclude_sub_ids))]
 
     s1 = df[S1].fillna("").astype(str)

@@ -5,6 +5,9 @@ import pandas as pd
 
 from fec.env import ADDRESS_RULES_CSV
 from fec.io import write_csv_atomic
+from fec.log import get_logger
+
+logger = get_logger(__name__)
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
@@ -13,10 +16,12 @@ CLEAR_UNIT = "[CLEAR]"
 
 
 # apply exact, externally verified address corrections to the frame
-def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = None) -> int:
+def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = None,
+                                  warn_unused: bool = False) -> int:
     """Apply exact, externally verified address corrections."""
     rules = _read_address_rules()
     changed = 0
+    unused = []
     df[S2] = df[S2].astype(object)
     for (street, state, zipcode, match_unit, match_sub_id), fixed in rules.items():
         fixed_street, fixed_unit, fixed_city, fixed_state, fixed_zip, source = fixed
@@ -33,10 +38,9 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = N
             # Match the normalized unit before applying any part.
             mask &= df[S2].fillna("").eq(match_unit)
         if match_sub_id is not None:
-            if "sub_id" not in df.columns:
-                continue
             mask &= df["sub_id"].fillna("").astype(str).str.strip().eq(match_sub_id)
         if not mask.any():
+            unused.append(f"{street} | {state} | {zipcode}")
             continue
         df.loc[mask, "_address_rule"] = f"{source}: {street} | {state} | {zipcode}"
         row_changed = mask & df[S1].fillna("").ne(fixed_street)
@@ -57,6 +61,10 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = N
             row_changed |= mask & df[ZIP].fillna("").ne(fixed_zip)
             df.loc[mask, ZIP] = fixed_zip
         changed += int(row_changed.sum())
+    # A rule that matches nothing is mistyped or no longer needed.
+    if warn_unused and unused:
+        logger.warning("WARNING: %s address rules matched no filing: %s",
+                       len(unused), "; ".join(unused[:5]))
     return changed
 
 

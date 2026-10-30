@@ -143,6 +143,10 @@ If resolve stops after writing partial results, fix the cause and restart from `
 
 The finished files are in `data/output/`; cleaning reports are in `data/reports/`.
 
+Spelling lists and word lists used while cleaning are CSV files in `data/config/`; reviewed decisions with their sources are in `data/rules/`.
+
+Each occupation's category is in `data/config/occupation_categories.csv`; edit a row to change it. Occupations not yet listed get a category from the pattern rules and appear in `data/reports/new_occupations.csv`; add them to the table when reviewed.
+
 To load the completed CSVs already included in the repository, skip pulling and processing and run:
 
 ```bash

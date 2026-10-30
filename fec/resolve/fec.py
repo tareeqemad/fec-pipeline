@@ -8,13 +8,14 @@ from fec.cleaning.addresses.compare import _ABBREVIATIONS
 from fec.donor_match.normalize import NAME_SUFFIXES, NICKNAME_MAP, extract_generational_suffix
 from fec.log import get_logger
 from fec.resolve.cache import _s
-from fec.resolve.previous import (
-    _donor_evidence,
-    _joint_name,
-    _zip5,
-)
+from fec.resolve.previous import _donor_evidence, _joint_name
 
 logger = get_logger(__name__)
+
+
+def _zip5(value) -> str:
+    return "".join(re.findall(r"\d", _s(value)))[:5]
+
 def _words(value) -> list[str]:
     """Return uppercase name/locality words without punctuation."""
     return re.findall(r"[A-Z0-9]+", _s(value).upper())
