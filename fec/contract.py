@@ -4,13 +4,14 @@ from dataclasses import dataclass
 # clean.py writes exactly these, in this order
 CLEAN_COLUMNS = (
     'sub_id', 'transaction_id', 'two_year_transaction_period', 'recipient_committee',
-    'entity_type',
+    # who the donor is, from donor matching
+    'donor_key', 'identity_status', 'entity_type',
     'contributor_name', 'contributor_first_name', 'contributor_last_name',
     'contributor_street_1', 'contributor_street_2',
     'contributor_city', 'contributor_state', 'contributor_zip',
     'contributor_employer', 'contributor_occupation', 'occupation_category',
     'contribution_receipt_date', 'contribution_receipt_amount',
-    'previous_employer', 'identity_status', 'donor_key',
+    'previous_employer',
 )
 DONOR_COORDINATES = ('latitude', 'longitude')
 

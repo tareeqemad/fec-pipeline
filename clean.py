@@ -13,7 +13,7 @@ from fec.cleaning.reports.gates import run_quality_gates
 from fec.committees import load_committees
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
-from fec.contract import check_output
+from fec.contract import CLEAN_COLUMNS, check_output
 from fec.env import CLEANED_CSV, RAW_CSV, REPORTS_DIR
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
@@ -148,7 +148,7 @@ def _save_if_gates_pass(output, out_dir, output_path) -> None:
             logger.error("    %s", issue)
         raise SystemExit(1)
     check_output('clean', (), output.columns)
-    write_csv_atomic(output, output_path, index=False)
+    write_csv_atomic(output[list(CLEAN_COLUMNS)], output_path, index=False)
 
 
 if __name__ == '__main__':
