@@ -22,7 +22,6 @@ from fec.cleaning.donors.occupation import (
     _rederive_occupation_category,
 )
 from fec.cleaning.donors.retired import (
-    _fill_prev_employer_from_donor,
     _settle_retired_employer,
 )
 from fec.cleaning.work.previous import normalize_previous_employer_column
@@ -72,8 +71,6 @@ CONSISTENCY_FIXES = (
      "self_employed_occupation_replaced_by_donors_real_one", None),
     ("donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,
      "employer_derived_from_occupation_or_category", None),
-    ("donor_recover_previous_employer", _fill_prev_employer_from_donor, PREVIOUS,
-     "previous_employer_from_latest_earlier_filing", None),
     ("donor_enforce_entity_consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
      "entity_type_unified_by_name", None),
     ("donor_apply_fec_source_entity_type", _apply_source_entity_types, ENTITY_AND_WORK,

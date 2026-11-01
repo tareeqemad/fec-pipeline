@@ -105,7 +105,7 @@ def clean_records(
 
     trail.run(
         df, apply_manual_employer_overrides, "manual_overrides",
-        "curated_row_override", WORK_FIELDS + ("previous_employer",
+        "curated_row_override", WORK_FIELDS + (
         "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
         source="data/rules/manual_employer_overrides.csv",
     )

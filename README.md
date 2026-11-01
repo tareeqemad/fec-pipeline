@@ -89,6 +89,7 @@ Warnings worth reading after `clean.py`:
 
 - `address rules matched no filing`: a rule in `data/rules/address_rules.csv` is mistyped or no longer needed.
 - `donor merge rules found no donor`: a rule in `data/rules/donor_identity_rules.csv` needs an updated key.
+- `previous employer rules found no filing` (from `resolve.py`): a `sub_id` in `data/rules/previous_employers.csv` is mistyped.
 - `earlier donor keys no longer used`: a donor split or merged since the last run; check it.
 
 ## Where things are
@@ -98,7 +99,7 @@ Warnings worth reading after `clean.py`:
 | `data/raw/` | FEC data as pulled; never edited |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Address cases, possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, each with its source |
+| `data/rules/` | Reviewed decisions, each with its source; a retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
 | `data/config/` | Spelling and word lists; `written_as` is the text as filed |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
 | `data/cache/` | Map points and donor keys from earlier runs; keep it |

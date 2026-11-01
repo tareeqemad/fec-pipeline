@@ -21,7 +21,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 OVERRIDES_CSV = MANUAL_EMPLOYER_OVERRIDES_CSV
-CLEAR_PREVIOUS_EMPLOYER = "[CLEAR]"
+CLEAR = "[CLEAR]"
 EMPTY_OCCUPATION_CATEGORY = "OTHER"
 FILED_WORK_FIELDS = (
     "sub_id", "contributor_employer", "contributor_occupation",
@@ -45,16 +45,10 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     for column in _ROW_FIELDS:
         value = (row.get(column) or "").strip()
         if value:
-            fields[column] = pd.NA if value.upper() == CLEAR_PREVIOUS_EMPLOYER else value
-    previous = (row.get("previous_employer") or "").strip()
-    if previous:
-        fields["previous_employer"] = (
-            "" if previous.upper() == CLEAR_PREVIOUS_EMPLOYER else previous
-        )
+            fields[column] = pd.NA if value.upper() == CLEAR else value
     # Row corrections use the shared company spelling.
-    for column in ("contributor_employer", "previous_employer"):
-        if isinstance(fields.get(column), str):
-            fields[column] = reviewed_employer_name(fields[column])
+    if isinstance(fields.get("contributor_employer"), str):
+        fields["contributor_employer"] = reviewed_employer_name(fields["contributor_employer"])
     category = (row.get("occupation_category") or "").strip()
     if category:
         if category not in VALID_CATEGORIES:
@@ -70,8 +64,6 @@ def _override_fields(row: dict, company_names_only: bool) -> dict[str, str]:
     employer = fields.get("contributor_employer")
     if employer is not pd.NA and employer and employer.upper() not in NOT_REAL_EMPLOYER:
         company_fields["contributor_employer"] = employer
-    if "previous_employer" in fields:
-        company_fields["previous_employer"] = fields["previous_employer"]
     if category:
         company_fields["occupation_category"] = category
     # Restore only the fields explicitly marked for preservation.
@@ -96,7 +88,6 @@ def _override_rows(path: Path, mtime_ns: int, size: int) -> tuple[dict, ...]:
 @lru_cache(maxsize=32)
 def _parsed_overrides(path, mtime_ns, size, company_names_only, before_matching):
     overrides = {}
-    display_previous_ids = set()
     for row in _override_rows(path, mtime_ns, size):
         after_matching = (row.get("after_matching") or "").strip().lower() == "true"
         if before_matching and after_matching:
@@ -105,14 +96,11 @@ def _parsed_overrides(path, mtime_ns, size, company_names_only, before_matching)
         fields = _override_fields(row, company_names_only)
         if sid and fields:
             overrides[sid] = fields
-            display_previous_ids.discard(sid)
-            if after_matching and "previous_employer" in fields:
-                display_previous_ids.add(sid)
     columns = {}
     for sid, fields in overrides.items():
         for column, value in fields.items():
             columns.setdefault(column, {})[sid] = value
-    return overrides, columns, frozenset(display_previous_ids)
+    return overrides, columns
 
 
 def _prepared_overrides(company_names_only, before_matching=False):
@@ -121,14 +109,8 @@ def _prepared_overrides(company_names_only, before_matching=False):
     return _parsed_overrides(path, stat.st_mtime_ns, stat.st_size, company_names_only, before_matching)
 
 
-def _read_overrides(
-    company_names_only: bool, *, before_matching: bool = False,
-    display_previous_ids: set[str] | None = None,
-) -> dict[str, dict[str, str]]:
-    overrides, _, display_ids = _prepared_overrides(company_names_only, before_matching)
-    if display_previous_ids is not None:
-        display_previous_ids.difference_update(overrides)
-        display_previous_ids.update(display_ids)
+def _read_overrides(company_names_only: bool, *, before_matching: bool = False) -> dict[str, dict[str, str]]:
+    overrides, _ = _prepared_overrides(company_names_only, before_matching)
     return {sid: fields.copy() for sid, fields in overrides.items()}
 
 
@@ -218,8 +200,7 @@ def outside_work_sub_ids(filed: pd.DataFrame) -> set[str]:
 
 # Apply corrections by column to matching filing IDs.
 def _apply_overrides(
-    df, overrides: dict[str, dict[str, str]], display_previous_ids=(),
-    *, column_values=None,
+    df, overrides: dict[str, dict[str, str]], *, column_values=None,
 ) -> tuple[int, int]:
     sub_ids = df["sub_id"].astype(str).str.strip()
     changed = int(sub_ids.isin(overrides).sum())
@@ -232,10 +213,6 @@ def _apply_overrides(
         }
         if values:
             mask = sub_ids.isin(values)
-            if column == "previous_employer":
-                # A display correction can rename known history, never create it.
-                has_previous = df[column].fillna("").astype(str).str.strip().ne("")
-                mask &= ~sub_ids.isin(display_previous_ids) | has_previous
             if mask.any():
                 df.loc[mask, column] = [values[sid] for sid in sub_ids[mask]]
     return changed, missing
@@ -245,7 +222,7 @@ def _apply_overrides(
 OVERRIDE_FIELDS = (
     "contributor_employer", "contributor_occupation", "occupation_category",
     "contributor_city", "contributor_street_1", "contributor_street_2",
-    "contributor_zip", "previous_employer",
+    "contributor_zip",
 )
 
 
@@ -258,7 +235,7 @@ def apply_manual_employer_overrides(
     if not OVERRIDES_CSV.exists():
         return 0
 
-    overrides, columns, display_previous_ids = _prepared_overrides(
+    overrides, columns = _prepared_overrides(
         company_names_only, before_matching=not company_names_only,
     )
 
@@ -266,7 +243,7 @@ def apply_manual_employer_overrides(
         return 0
 
 
-    changed, missing = _apply_overrides(df, overrides, display_previous_ids, column_values=columns)
+    changed, missing = _apply_overrides(df, overrides, column_values=columns)
     if missing:
         logger.debug(
             f"  manual_overrides: {missing} sub_id(s) in the override file "

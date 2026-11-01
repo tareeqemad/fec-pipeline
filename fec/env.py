@@ -77,8 +77,10 @@ EMPLOYER_NAME_RULES_CSV = RULES_DIR / "employer_name_rules.csv"
 CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
 # Curated contributor address corrections
 ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
-# Hand-set employer, occupation and previous employer per filing
+# Hand-set employer, occupation and address per filing
 MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
+# Reviewed previous employers, each with its source
+PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "previous_employers.csv"
 GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
 # Each filing's donor key from the last run, so keys stay stable.
 DONOR_KEYS_CSV = CACHE_DIR / "donor_keys.csv"
