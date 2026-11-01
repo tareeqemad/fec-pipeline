@@ -192,6 +192,6 @@ def _gate_slash_previous_employer(df):
     n_slash = int(slashy.sum())
     issue = (
         f"previous_employer slash leaks: {n_slash} rows "
-        "-- run resolve.py (fec/resolve/apply.py normalizes the column)"
+        "-- check fec/cleaning/work/previous.py"
     ) if n_slash else None
     return [('no_slash_in_previous_employer', {'passed': n_slash == 0, 'count': n_slash}, issue)]

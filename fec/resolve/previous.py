@@ -2,6 +2,8 @@
 import pandas as pd
 
 from fec.cleaning.rules.manual import CLEAR
+from fec.cleaning.work.employer_aliases import reviewed_employer_name
+from fec.cleaning.work.employer_names import expand_abbreviation_text
 from fec.cleaning.work.previous import normalize_previous_employer_value
 from fec.cleaning.work.status import is_real_employer
 from fec.config.tables import read_rows
@@ -14,6 +16,12 @@ logger = get_logger(__name__)
 def _usable(value) -> str:
     cleaned = normalize_previous_employer_value(value)
     return cleaned if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned) else ""
+
+
+# The chosen name in previous-employer form.
+def _clean(value: str) -> str:
+    expanded = expand_abbreviation_text(pd.Series([_usable(value)])).iloc[0]
+    return reviewed_employer_name(expanded) if expanded else ""
 
 
 # Reviewed answers by donor; an empty answer clears.
@@ -31,6 +39,11 @@ def _reviewed(donors: dict) -> dict:
     return found
 
 
+def _address(rows: pd.DataFrame) -> pd.Series:
+    zips = rows["contributor_zip"].fillna("").astype(str).str[:5]
+    return rows["contributor_street_1"].fillna("").astype(str) + "|" + zips
+
+
 # Each donor's latest usable filed name.
 def _latest(rows: pd.DataFrame, column: str) -> dict:
     named = rows[rows[column].map(_usable).ne("")].sort_values("contribution_receipt_date")
@@ -42,12 +55,16 @@ def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
     retired = status.eq("retired")
     donors = dict(zip(df["sub_id"].astype(str), df["donor_key"]))
     working = df[df["entity_type"].eq("INDIVIDUAL") & status.isin({"active", "self_employed"})]
+    # Only work filed at an address the donor also used when retired.
+    homes = set(zip(df.loc[retired, "donor_key"], _address(df[retired])))
+    working = working[[key in homes for key in zip(working["donor_key"], _address(working))]]
     found = {
         **_latest(working, "contributor_employer"),
         **_latest(df[retired], "previous_employer"),
         **_reviewed(donors),
     }
     result = pd.Series("", index=df.index, dtype=object)
+    found = {donor: _clean(name) for donor, name in found.items()}
     result[retired] = df.loc[retired, "donor_key"].map(found).fillna("")
     # Unconfirmed donors keep only their own filing's answer.
     held = retired & df["identity_status"].ne("confirmed")
