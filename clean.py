@@ -14,7 +14,7 @@ from fec.committees import load_committees
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.contract import CLEAN_COLUMNS, check_output
-from fec.env import CLEANED_CSV, RAW_CSV, REPORTS_DIR
+from fec.env import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DIR
 from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.log import get_logger
 
@@ -34,7 +34,7 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     df = read_pipeline_csv(input_path)
     logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
 
-    cleaned = clean_pipeline(df, out_dir=out_dir)
+    cleaned = clean_pipeline(df, out_dir=out_dir, earlier_keys=_earlier_donor_keys())
     output = cleaned.drop(columns=[
         column for column in cleaned.columns
         if column.startswith('_') or column in INTERNAL_OUTPUT_COLUMNS
@@ -46,6 +46,7 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
         _check_reclean(expected, output)
 
     _save_if_gates_pass(output, out_dir, output_path)
+    _save_donor_keys(cleaned)
     _write_new_occupations(output, out_dir)
     _print_summary(output, output_path, out_dir, time.perf_counter() - start)
     if expected is None:
@@ -114,6 +115,20 @@ def _ensure_zip_format(df):
     )
     cleaned[invalid] = pd.NA
     df['contributor_zip'] = cleaned.where(us, zips.astype('string'))
+
+
+# Each filing's donor key from the last run, or {} the first time.
+def _earlier_donor_keys() -> dict:
+    if not DONOR_KEYS_CSV.exists():
+        return {}
+    keys = pd.read_csv(DONOR_KEYS_CSV, dtype=str, keep_default_na=False)
+    return dict(zip(keys['sub_id'], keys['donor_key']))
+
+
+# Remember each filing's donor key for the next run.
+def _save_donor_keys(cleaned) -> None:
+    keys = cleaned[['sub_id', '_matched_key']].rename(columns={'_matched_key': 'donor_key'})
+    write_csv_atomic(keys, str(DONOR_KEYS_CSV), index=False)
 
 
 # Occupations missing from the category table, for optional review.

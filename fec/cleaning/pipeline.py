@@ -46,6 +46,7 @@ logger = get_logger(__name__)
 def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
+    earlier_keys: dict | None = None,
 ):
     df = df.copy()
     trail = AuditTrail()
@@ -63,7 +64,7 @@ def clean_pipeline(
         trail.keys_set_by(INFERRED_STREET_STEPS, STREET_FIELDS)
     )
     logger.info("[4/5] Matching and standardizing donors")
-    df_clean = identify_donors(df_clean)
+    df_clean = identify_donors(df_clean, earlier_keys)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
 
     logger.info("[5/5] Checking data and saving")

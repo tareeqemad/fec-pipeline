@@ -198,11 +198,39 @@ def _merge_target(rows: pd.DataFrame, keys: set, names_by_key: dict, suffixes_by
     return {key: winner for key in keys if key != winner}
 
 
+# Reuse each donor's earlier key: the one most of its filings had.
+def keep_earlier_keys(df: pd.DataFrame, earlier: dict) -> list[str]:
+    """Give new keys their earlier names; return earlier keys left unused."""
+    people = df["entity_type"].eq("INDIVIDUAL")
+    pairs = pd.DataFrame({
+        "new": df.loc[people, "donor_key"],
+        "old": df.loc[people, "sub_id"].astype(str).map(earlier),
+    }).dropna()
+    counts = pairs.groupby(["old", "new"]).size().reset_index(name="rows")
+    counts = counts.sort_values(["rows", "old", "new"], ascending=[False, True, True])
+    rename, taken = {}, set()
+    for old, new in zip(counts["old"], counts["new"]):
+        if new not in rename and old not in taken:
+            rename[new] = old
+            taken.add(old)
+    # A new key must not land on an earlier key now held by someone else.
+    for new in set(df.loc[people, "donor_key"]) - set(rename):
+        if new in taken:
+            rename[new] = hashlib.sha256(f"split|{new}".encode()).hexdigest()[:12]
+    df.loc[people, "donor_key"] = df.loc[people, "donor_key"].map(lambda key: rename.get(key, key))
+    return sorted(set(pairs["old"]) - taken)
+
+
 # repoint verified duplicate keys to their preferred key
 def apply_curated_key_merges(df: pd.DataFrame) -> int:
     """Repoint verified duplicate keys to their preferred key."""
     if not KEY_MERGES:
         return 0
+    # A rule whose key is gone no longer merges anyone.
+    missing = sorted(set(KEY_MERGES) - set(df["donor_key"]))
+    if missing:
+        logger.warning("WARNING: %s donor merge rules found no donor: %s",
+                       len(missing), ", ".join(missing[:5]))
 
     mask = df["donor_key"].isin(KEY_MERGES)
     n = int(mask.sum())

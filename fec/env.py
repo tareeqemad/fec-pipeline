@@ -80,3 +80,5 @@ ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
 # Hand-set employer, occupation and previous employer per filing
 MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
 GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
+# Each filing's donor key from the last run, so keys stay stable.
+DONOR_KEYS_CSV = CACHE_DIR / "donor_keys.csv"

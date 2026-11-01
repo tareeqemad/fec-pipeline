@@ -161,3 +161,16 @@ def test_clean_streets_nulls_the_audit_placeholders():
     ]))
     assert df['contributor_street_2'].isna().tolist() == [True, True, True, False]
     assert df['contributor_street_2'].iloc[3] == 'APT 4'
+
+
+def test_keys_stay_with_their_filings_across_runs():
+    from fec.donor_match.keys import keep_earlier_keys
+    df = pd.DataFrame({
+        'sub_id': ['1', '2', '3', '4', '5', '6'],
+        'entity_type': ['INDIVIDUAL'] * 6,
+        'donor_key': ['new-a', 'new-a', 'new-a', 'new-b', 'new-b', 'new-c'],
+    })
+    # 1-3 were one donor, 4-5 another; 6 is new; the old donor split from 3.
+    lost = keep_earlier_keys(df, {'1': 'old-a', '2': 'old-a', '3': 'old-x', '4': 'old-b', '5': 'old-a'})
+    assert df['donor_key'].tolist() == ['old-a', 'old-a', 'old-a', 'old-b', 'old-b', 'new-c']
+    assert lost == ['old-x']

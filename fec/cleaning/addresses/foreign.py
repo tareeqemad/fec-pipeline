@@ -49,8 +49,6 @@ REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
 
 # Self-contradicting US filings, kept as filed and not geocoded.
 REVIEWED_AS_FILED_SUB_IDS: dict[str, str] = {
-    # A Scottsdale street filed with Highland Park, IL and ZIP.
-    '4060420241953437845': 'street_and_city_zip_name_two_states_kept_as_filed',
 }
 
 

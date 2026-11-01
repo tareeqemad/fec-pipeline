@@ -20,11 +20,11 @@ OCCUPATION_AS_EMPLOYER = frozenset({
 
 
 # Role words as employer; the company is often in occupation.
-ROLE_AS_EMPLOYER = read_set(CONFIG_DIR / "role_as_employer.csv")
+ROLE_AS_EMPLOYER = read_set(CONFIG_DIR / "roles.csv")
 
 
 # Industry words instead of a company: employer nulled.
-SECTOR_AS_EMPLOYER = read_set(CONFIG_DIR / "sector_as_employer.csv")
+SECTOR_AS_EMPLOYER = read_set(CONFIG_DIR / "sectors.csv")
 
 
 # Job titles that appear as employer (swap candidates).
@@ -57,7 +57,7 @@ LEGAL_SUFFIX_RE = re.compile(
 
 
 # Professions in employer boxes, each checked: none names a company.
-OCCUPATION_TITLE_EMPLOYERS = read_set(CONFIG_DIR / "occupation_title_employers.csv")
+OCCUPATION_TITLE_EMPLOYERS = read_set(CONFIG_DIR / "job_titles.csv")
 
 
 # The shared answer to "is this string a company?".
@@ -87,5 +87,5 @@ NOT_REAL_EMPLOYER = frozenset({
 
 
 # A job title replacing a company: only title words.
-JOB_TITLE_HEADS = read_set(CONFIG_DIR / "job_title_heads.csv")
-JOB_TITLE_MODIFIERS = read_set(CONFIG_DIR / "job_title_modifiers.csv")
+JOB_TITLE_HEADS = read_set(CONFIG_DIR / "job_title_main_words.csv")
+JOB_TITLE_MODIFIERS = read_set(CONFIG_DIR / "job_title_extra_words.csv")

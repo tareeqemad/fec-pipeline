@@ -6,6 +6,7 @@ from fec.donor_match.keys import (
     apply_curated_key_merges,
     apply_donor_key,
     hold_unproven_filings,
+    keep_earlier_keys,
     merge_split_name_donors,
     validate_separations,
 )
@@ -30,6 +31,9 @@ from fec.cleaning.addresses.fixes.unify import (
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
 from fec.cleaning.reports.donors import build_donor_dedup_review
 from fec.donor_match.keys import non_individual_donor_key
+from fec.log import get_logger
+
+logger = get_logger(__name__)
 
 
 def align_org_donor_company_names(df: pd.DataFrame) -> int:
@@ -42,8 +46,8 @@ def align_org_donor_company_names(df: pd.DataFrame) -> int:
     return int(changed.sum())
 
 
-def identify_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
-    """Assign one donor_key to each identity."""
+def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) -> pd.DataFrame:
+    """Assign one donor_key to each identity; earlier_keys keeps keys stable."""
     df_clean = df_clean.reset_index(drop=True)
     if "_generational_suffix" not in df_clean.columns:
         df_clean["_generational_suffix"] = ""
@@ -53,6 +57,13 @@ def identify_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
     merge_split_name_donors(df_clean)
+    if earlier_keys:
+        lost = keep_earlier_keys(df_clean, earlier_keys)
+        if lost:
+            logger.warning("WARNING: %s earlier donor keys no longer used (split or merged): %s",
+                           len(lost), ", ".join(lost[:5]))
+    # Saved by clean.py so the next run reuses these keys.
+    df_clean["_matched_key"] = df_clean["donor_key"]
     apply_curated_key_merges(df_clean)
     hold_unproven_filings(df_clean)
     _validate_generational_suffixes(df_clean)

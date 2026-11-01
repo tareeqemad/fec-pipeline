@@ -1,18 +1,14 @@
-"""Accept address coordinates and keep the existing reviewed corrections."""
+"""Accept address coordinates from the geocode cache."""
 
 import math
 import re
 from urllib.parse import urlsplit
 
-from fec.cleaning.addresses.street_text import numbered_street
 from fec.config.geography import US_STATES, US_STATE_BBOX
-from fec.config.tables import read_rows
-from fec.env import RULES_DIR
 
 EARTH_RADIUS_MILES = 3958.8
 STREET_LEVEL_SOURCES = {"nominatim", "census", "google", "manual_census", "manual_verified", "nominatim_intl"}
 US_TERRITORIES = {"AS", "GU", "MP", "PR", "VI"}
-REVIEWED_WRONG_KM = 0.5
 
 
 def is_po_box(street: str) -> bool:
@@ -41,10 +37,6 @@ def great_circle(first: tuple, second: tuple, radius: float) -> float:
     return radius * 2 * math.asin(min(1.0, math.sqrt(value)))
 
 
-def distance_km(first: tuple, second: tuple) -> float:
-    return great_circle(first, second, 6371)
-
-
 def valid_for_state(lat: float, lng: float, state: str) -> bool:
     state = state.strip().upper()
     bounds = [US_STATE_BBOX[state]] if state in US_STATE_BBOX else US_STATE_BBOX.values()
@@ -52,26 +44,7 @@ def valid_for_state(lat: float, lng: float, state: str) -> bool:
                for south, north, west, east in bounds)
 
 
-def _review_key(key: str) -> str:
-    parts = [part.strip().upper() for part in key.split("|")]
-    parts[0] = numbered_street(parts[0])
-    return "|".join(parts)
-
-
-def reviewed_point(key: str) -> tuple | None:
-    point = REVIEWED_POINTS.get(_review_key(key))
-    return tuple(point[:2]) if point else None
-
-
-def is_reviewed_wrong(key: str, lat: float, lng: float) -> bool:
-    wrong = REVIEWED_WRONG_POINTS.get(_review_key(key))
-    return wrong is not None and distance_km((lat, lng), wrong[:2]) <= REVIEWED_WRONG_KM
-
-
 def accepted_coordinates(key: str, entry: dict | None) -> tuple:
-    reviewed = reviewed_point(key)
-    if reviewed is not None:
-        return *reviewed, "google"
     if not entry or entry.get("lat") is None or entry.get("lng") is None:
         return None, None, "not_found"
     source = entry.get("source", "")
@@ -99,8 +72,6 @@ def accepted_coordinates(key: str, entry: dict | None) -> tuple:
         territory_country = state in US_TERRITORIES and country == state
         if (country != "US" and not territory_country) or not valid_for_state(lat, lng, state):
             return None, None, "rejected_out_of_us"
-    if is_reviewed_wrong(key, lat, lng):
-        return None, None, "rejected_reviewed_wrong"
     return lat, lng, source
 
 
@@ -180,12 +151,4 @@ def confirmed_city(key: str, entry: dict | None) -> str | None:
     actual = evidence["city"]
     return actual if actual != city and any(char.isalpha() for char in actual) else None
 
-
-# Same-address corrections retained from the earlier cache review.
-REVIEWED_POINTS = {row["address"]: (float(row["lat"]), float(row["lng"]), row["reason"])
-                   for row in read_rows(RULES_DIR / "reviewed_points.csv")}
-
-# Previously reviewed bad points must not reappear as address matches.
-REVIEWED_WRONG_POINTS = {row["address"]: (float(row["lat"]), float(row["lng"]), row["reason"])
-                         for row in read_rows(RULES_DIR / "reviewed_wrong_points.csv")}
 

@@ -10,12 +10,12 @@ EMPLOYER_NORMALIZE = read_map(CONFIG_DIR / "employer_spellings.csv")
 OCCUPATION_NORMALIZE = {**EMPLOYER_NORMALIZE, **read_map(CONFIG_DIR / "occupation_spellings.csv")}
 
 # Safe spellings applied by the record rules.
-OCCUPATION_CANONICAL = read_map(CONFIG_DIR / "occupation_canonical.csv")
+OCCUPATION_CANONICAL = read_map(CONFIG_DIR / "occupation_standard_titles.csv")
 
 # Raw occupation fixes that also assign a category.
 # A blank category means the fix sets no category.
-OCCUPATION_FIXES = {row["filed"]: (row["occupation"], row["category"] or None)
-                    for row in read_rows(CONFIG_DIR / "occupation_fixes.csv")}
+OCCUPATION_FIXES = {row["written_as"]: (row["occupation"], row["category"] or None)
+                    for row in read_rows(CONFIG_DIR / "occupation_fixes_with_category.csv")}
 
 # Curated occupation typo fixes, keyed after the style step.
 OCCUPATION_TYPO_FIXES = read_map(CONFIG_DIR / "occupation_typos.csv")

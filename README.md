@@ -133,7 +133,7 @@ python loader.py --reset
 
 `--reset` replaces all public tables and views in the configured database; use a database dedicated to this project.
 
-Keep `data/cache/`: accepted results are reused. New coordinates come from OpenStreetMap, then Census; unmatched addresses stay blank.
+Keep `data/cache/`: accepted results are reused, and `donor_keys.csv` keeps each donor's key the same from run to run. New coordinates come from OpenStreetMap, then Census; unmatched addresses stay blank.
 
 Company offices come from `data/reference/employer_locations.csv`, gathered once. To give a new company an address, add a row there with its source.
 
@@ -143,7 +143,7 @@ If resolve stops after writing partial results, fix the cause and restart from `
 
 The finished files are in `data/output/`; cleaning reports are in `data/reports/`.
 
-Spelling lists and word lists used while cleaning are CSV files in `data/config/`; reviewed decisions with their sources are in `data/rules/`.
+Spelling lists and word lists used while cleaning are CSV files in `data/config/`; reviewed decisions with their sources are in `data/rules/`. In each spelling list, `written_as` is the text as filed. `sectors.csv`, `roles.csv` and `job_titles.csv` hold words that, written where the employer belongs, are not a company name.
 
 Each occupation's category is in `data/config/occupation_categories.csv`; edit a row to change it. Occupations not yet listed get a category from the pattern rules and appear in `data/reports/new_occupations.csv`; add them to the table when reviewed.
 

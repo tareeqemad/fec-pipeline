@@ -7,7 +7,7 @@ from fec.cleaning.addresses.foreign import kept_as_filed_mask
 from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes, save_verified_city_corrections
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, census, nominatim
-from fec.geocoding.validation import accepted_coordinates, confirmed_city, is_po_box, reviewed_point, unclear_house_number
+from fec.geocoding.validation import accepted_coordinates, confirmed_city, is_po_box, unclear_house_number
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -20,8 +20,6 @@ def _contributor_keys(df: pd.DataFrame) -> pd.Series:
 
 # Retry missing or temporary failures; keep completed misses.
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
-    if reviewed_point(key) is not None:
-        return False
     entry = cache.get(key)
     if cache.needs_retry(key):
         return True
@@ -35,9 +33,6 @@ def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | Non
     if not street.strip() or is_po_box(street) or unclear_house_number(street):
         return None
     key = "|".join((street, city, state, zipcode))
-    reviewed = reviewed_point(key)
-    if reviewed is not None:
-        return {"lat": reviewed[0], "lng": reviewed[1], "country": "US", "source": "google"}
     unavailable = None
     for source, provider in (("nominatim", nominatim), ("census", census)):
         try:

@@ -22,5 +22,5 @@ def read_map(path) -> dict:
 
 
 def read_set(path) -> frozenset:
-    return frozenset(row["value"] for row in read_rows(path))
+    return frozenset(row["word"] for row in read_rows(path))
 
