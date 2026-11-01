@@ -1,98 +1,66 @@
 # FEC Pipeline
 
-Pull contributions, clean them, find coordinates, then load PostgreSQL.
-Use Git, Python 3.12 and PostgreSQL 18 (for the database step).
+Pulls FEC contributions, cleans them, finds map points and loads PostgreSQL.
+You need Git, Python 3.12 and PostgreSQL 18.
 
-## 1. Download
-
-```bash
-git clone https://github.com/tareeqemad/fec-pipeline.git
-cd fec-pipeline
-```
-
-## 2. Create and activate the environment
+## 1. Download and create the environment
 
 Linux / macOS:
 
 ```bash
-python3.12 -m venv .venv
+git clone https://github.com/tareeqemad/fec-pipeline.git
+cd fec-pipeline
+python3.12 -m venv .venv --prompt fec-pipeline
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 cp .env.example .env
 ```
 
 Windows PowerShell:
 
 ```powershell
-py -3.12 -m venv .venv
+git clone https://github.com/tareeqemad/fec-pipeline.git
+cd fec-pipeline
+py -3.12 -m venv .venv --prompt fec-pipeline
 .venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Create `.venv` and copy `.env` only the first time. In a new terminal, enter the project folder and activate the environment again.
+Next time, only enter the folder and activate: `cd fec-pipeline` then `source .venv/bin/activate`.
 
-## 3. Set `.env`
+## 2. Fill in `.env`
 
-Edit these values:
+- `FEC_API_KEY`: your FEC key (only for pulling data).
+- `PG_PASSWORD`: the `fec_owner` password from step 3.
 
-```dotenv
-FEC_API_KEY=your_fec_key
-FEC_RPM=15
+## 3. Create the database (once)
 
-PG_HOST=localhost
-PG_PORT=5432
-PG_DBNAME=fec_db
-PG_USER=fec_owner
-PG_PASSWORD=your_database_password
-```
-
-- `FEC_API_KEY`: needed to pull data.
-- `PG_*`: needed only for loading. Complete the database setup below once; use `fec_owner` for `PG_USER`.
-
-## 4. Set up PostgreSQL once
-
-Open `psql` as the PostgreSQL administrator:
-
-```bash
-sudo -u postgres psql  # Linux
-```
-
-On Windows, open SQL Shell (psql) and log in as `postgres`. Run:
+Open `psql` as the administrator (`sudo -u postgres psql` on Linux) and run:
 
 ```sql
 CREATE ROLE fec_owner LOGIN;
 \password fec_owner
 CREATE ROLE fec_app LOGIN;
 \password fec_app
-
 CREATE DATABASE fec_db OWNER fec_owner;
 \connect fec_db
-
 CREATE EXTENSION pg_trgm;
 CREATE EXTENSION cube;
 CREATE EXTENSION earthdistance;
-
 REVOKE ALL PRIVILEGES ON DATABASE fec_db FROM PUBLIC;
 GRANT CONNECT ON DATABASE fec_db TO fec_owner, fec_app;
 REVOKE ALL PRIVILEGES ON SCHEMA public FROM PUBLIC;
 GRANT ALL PRIVILEGES ON SCHEMA public TO fec_owner;
 GRANT USAGE ON SCHEMA public TO fec_app;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public
-    REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public
-    GRANT SELECT ON TABLES TO fec_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public GRANT SELECT ON TABLES TO fec_app;
 \quit
 ```
 
-Put the `fec_owner` password in `.env`. The application reads with `fec_app`; the loader grants its read access.
+The website reads with `fec_app`; the loader writes with `fec_owner`.
 
-## 5. Pull data
-
-### Existing committee
-
-Run the command for the committee you want:
+## 4. Pull new data (monthly)
 
 ```bash
 python pull.py C00797670 --period 2026  # AIPAC
@@ -100,29 +68,12 @@ python pull.py C00710848 --period 2026  # DMFI
 python pull.py C00799031 --period 2026  # UDP
 ```
 
-Use the **same command next month**. It checks the whole period and skips saved `sub_id` values.
-Period `2026` covers 2025–2026; use `2024` for 2023–2024. Omit `--period` to use the current election period.
+The same command next month adds only new contributions.
+For a new committee, first add a row to `data/reference/committees.csv`.
 
-Pull appends new filings. It does not replace or remove older versions of amended transactions.
+## 5. Clean and load
 
-### New committee
-
-Add a row to [data/reference/committees.csv](data/reference/committees.csv).
-Fill `committee_number`, `committee_name`, and a unique `committee_short`. Keep the other four columns; they can be blank:
-
-```csv
-C12345678,Official Committee Name,NEW,,,,
-```
-
-Replace this example with the real FEC committee ID, official name and short name, then run:
-
-```bash
-python pull.py C12345678 --period 2026
-```
-
-## 6. Clean and load
-
-After finishing all pulls, run these commands **one at a time, in order**. Stop if any command fails.
+Run in order; stop if one fails, fix it, and start again from `clean.py`:
 
 ```bash
 python clean.py
@@ -131,44 +82,37 @@ python resolve.py --apply
 python loader.py --reset
 ```
 
-`--reset` replaces all public tables and views in the configured database; use a database dedicated to this project.
+`loader.py --reset` replaces every table in `fec_db`.
+To load the files already in the repository, run only `python loader.py --reset`.
 
-Keep `data/cache/`: accepted results are reused, and `donor_keys.csv` keeps each donor's key the same from run to run. New coordinates come from OpenStreetMap, then Census; unmatched addresses stay blank.
+Warnings worth reading after `clean.py`:
 
-Company offices come from `data/reference/employer_locations.csv`, gathered once. To give a new company an address, add a row there with its source.
+- `address rules matched no filing`: a rule in `data/rules/address_rules.csv` is mistyped or no longer needed.
+- `donor merge rules found no donor`: a rule in `data/rules/donor_identity_rules.csv` needs an updated key.
+- `earlier donor keys no longer used`: a donor split or merged since the last run; check it.
 
-Donor profiles place a blank address, such as a PO box, at its ZIP from `data/reference/zip_centroids.csv`: Census Gazetteer 2023, plus PO-box ZIPs from [GeoNames](https://www.geonames.org/) (CC BY 4.0).
+## Where things are
 
-If resolve stops after writing partial results, fix the cause and restart from `python clean.py`; keep the caches. Do not run resolve twice on its own output.
+| Folder | What is in it |
+| --- | --- |
+| `data/raw/` | FEC data as pulled; never edited |
+| `data/output/` | The cleaned file the database loads |
+| `data/reports/` | Address cases, possible duplicate donors and new occupations to review |
+| `data/rules/` | Reviewed decisions, each with its source |
+| `data/config/` | Spelling and word lists; `written_as` is the text as filed |
+| `data/reference/` | Committees, company offices, leaders and ZIP centres |
+| `data/cache/` | Map points and donor keys from earlier runs; keep it |
 
-The finished files are in `data/output/`; cleaning reports are in `data/reports/`.
-
-Spelling lists and word lists used while cleaning are CSV files in `data/config/`; reviewed decisions with their sources are in `data/rules/`. In each spelling list, `written_as` is the text as filed. `sectors.csv`, `roles.csv` and `job_titles.csv` hold words that, written where the employer belongs, are not a company name.
-
-Each occupation's category is in `data/config/occupation_categories.csv`; edit a row to change it. Occupations not yet listed get a category from the pattern rules and appear in `data/reports/new_occupations.csv`; add them to the table when reviewed.
-
-To load the completed CSVs already included in the repository, skip pulling and processing and run:
-
-```bash
-python loader.py --reset
-```
-
-## 7. Get later updates
-
-From the project folder, with the environment active:
+## Update the code
 
 ```bash
 git pull --ff-only origin main
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-Keep your existing `.env`. For new FEC data, repeat steps 5–6.
-
-## Optional checks
-
-Run the 17 core tests without network access or a live database:
+## Tests
 
 ```bash
-python -m pip install -r requirements-dev.txt
+pip install -r requirements-dev.txt
 python -m pytest
 ```
