@@ -1,4 +1,4 @@
-"""Occupation, occupation_status and occupation_category fixes that need donor_key."""
+"""Occupation fixes that need donor_key."""
 import pandas as pd
 
 from fec.cleaning.work.employer_canonical import employer_text_key
@@ -19,127 +19,27 @@ def _rederive_occupation_category(df: pd.DataFrame) -> int:
     return int(changed.sum())
 
 
-# find the donor's single confirmed role at this employer
-def _one_confirmed_role(df, donor_key, employer):
-    """The donor's only real role at this employer, or None."""
-    same_job = (
-        df['donor_key'].eq(donor_key)
-        & df['entity_type'].eq('INDIVIDUAL')
-        & df['contributor_employer'].eq(employer)
-    )
-    if 'occupation_status' in df:
-        same_job &= df['occupation_status'].ne('DERIVED')
-    occupations = df.loc[same_job, 'contributor_occupation'].dropna()
-    occupations = occupations[
-        occupations.ne('') & ~occupations.isin(SKIP_OCCUPATIONS)
-    ]
-
-    employer_key = employer_text_key(employer)
-    occupations = occupations[
-        occupations.map(employer_text_key).ne(employer_key)
-    ].unique()
-    return occupations[0] if len(occupations) == 1 else None
-
-
-# write a derived occupation, category, and status
-def _set_derived_occupation(df, rows, occupation):
-    df.loc[rows, 'contributor_occupation'] = occupation
-    df.loc[rows, 'occupation_category'] = categorize_final(
-        pd.Series(occupation, index=rows)
-    )
-    df.loc[rows, 'occupation_status'] = 'DERIVED'
-
-
-# Recover occupations from the same donor and employer.
+# Empty or SELF-EMPLOYED takes the donor's one role at this employer.
 def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
-    indiv = df[df['entity_type'] == 'INDIVIDUAL']
-    employer = indiv['contributor_employer']
-    occupation = indiv['contributor_occupation']
-    real_employer = employer.notna() & ~employer.isin(SKIP_EMPLOYERS)
+    employer = df['contributor_employer']
+    people = df[df['entity_type'].eq('INDIVIDUAL') & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
+    occupation = people['contributor_occupation'].fillna('').astype(str).str.strip()
+    vague = occupation.isin(('', 'SELF-EMPLOYED'))
 
-    n_fixed = _fill_missing_occupations(df, indiv[occupation.isna() & real_employer])
-
-    # SELF-EMPLOYED beside a company: recover one clear role there.
-    self_employed = indiv[occupation.eq('SELF-EMPLOYED') & real_employer]
-    n_fixed += _fill_placeholder_occupations(df, self_employed)
-
-    # A company in both fields stands in for the role.
-    occupation_key = occupation.fillna('').map(employer_text_key)
-    employer_key = employer.fillna('').map(employer_text_key)
-    company_as_occupation = indiv[
-        occupation_key.ne('') & occupation_key.eq(employer_key) & real_employer
+    known = people[
+        ~vague & ~occupation.isin(SKIP_OCCUPATIONS) & people['occupation_status'].ne('DERIVED')
+        & occupation.map(employer_text_key).ne(people['contributor_employer'].map(employer_text_key))
     ]
-    n_fixed += _fill_placeholder_occupations(df, company_as_occupation)
-    return n_fixed
+    jobs = ['donor_key', 'contributor_employer']
+    roles = known.groupby(jobs)['contributor_occupation'].unique()
+    roles = roles[roles.map(len).eq(1)].str[0].to_dict()
 
-
-# fill each empty occupation with the donor's most common one
-def _fill_missing_occupations(df: pd.DataFrame, missing_occ: pd.DataFrame) -> int:
-    """Fill empty occupations with the donor's most common one there."""
-    n_fixed = 0
-    for (dk, emp), missing in missing_occ.groupby(['donor_key', 'contributor_employer']):
-        same_job = (
-            (df['donor_key'] == dk)
-            & (df['entity_type'] == 'INDIVIDUAL')
-            & (df['contributor_employer'] == emp)
-        )
-        real_recs = df[
-            same_job
-            & df['contributor_occupation'].notna()
-            & ~df['contributor_occupation'].isin(SKIP_OCCUPATIONS)
-            & df['contributor_occupation'].ne('')
-        ]
-        if 'occupation_status' in real_recs:
-            real_recs = real_recs[real_recs['occupation_status'].ne('DERIVED')]
-        if real_recs.empty:
-            continue
-
-        counts = real_recs['contributor_occupation'].value_counts()
-        if len(counts) > 1 and counts.iloc[0] == counts.iloc[1]:
-            continue
-
-        _set_derived_occupation(df, missing.index, counts.index[0])
-        n_fixed += len(missing)
-    return n_fixed
-
-
-# replace placeholder occupations with the donor's one confirmed role
-def _fill_placeholder_occupations(df: pd.DataFrame, placeholders: pd.DataFrame) -> int:
-    """Replace placeholder occupations with the donor's one confirmed role."""
-    n_fixed = 0
-    for (dk, emp), rows in placeholders.groupby(['donor_key', 'contributor_employer']):
-        occupation = _one_confirmed_role(df, dk, emp)
-        if occupation is None:
-            continue
-        _set_derived_occupation(df, rows.index, occupation)
-        n_fixed += len(rows)
-    return n_fixed
-
-
-# replace vague SELF-EMPLOYED occupation with a real one from donor
-def _fill_self_employed_occupation_from_donor(df: pd.DataFrame) -> int:
-    """SELF-EMPLOYED as occupation is replaced by the donor's real one."""
-    indiv = df[df['entity_type'] == 'INDIVIDUAL']
-    occ = indiv['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
-    vague = occ == 'SELF-EMPLOYED'
-    if not vague.any():
-        return 0
-    real = indiv[(occ != '') & ~occ.isin(SKIP_OCCUPATIONS)]
-    if 'occupation_status' in real:
-        real = real[real['occupation_status'].ne('DERIVED')]
-    by_job = real.groupby(['donor_key', 'contributor_employer'])['contributor_occupation'].agg(lambda s: s.value_counts().index[0])
-    by_donor = real.groupby('donor_key')['contributor_occupation'].agg(lambda s: s.value_counts().index[0])
-    n_fixed = 0
-    for idx in indiv.index[vague]:
-        dk = df.at[idx, 'donor_key']
-        emp = df.at[idx, 'contributor_employer']
-        new = by_job.get((dk, emp)) if pd.notna(emp) else None
-        if new is None:
-            new = by_donor.get(dk)
-        if new is None or new == 'SELF-EMPLOYED':
-            continue
-        df.at[idx, 'contributor_occupation'] = new
-        df.at[idx, 'occupation_category'] = categorize_final(pd.Series([new])).iloc[0]
-        df.at[idx, 'occupation_status'] = 'DERIVED'
-        n_fixed += 1
-    return n_fixed
+    targets = people[vague]
+    found = pd.Series(
+        [roles.get(job) for job in zip(targets['donor_key'], targets['contributor_employer'])],
+        index=targets.index, dtype=object,
+    ).dropna()
+    df.loc[found.index, 'contributor_occupation'] = found
+    df.loc[found.index, 'occupation_category'] = categorize_final(found)
+    df.loc[found.index, 'occupation_status'] = 'DERIVED'
+    return len(found)

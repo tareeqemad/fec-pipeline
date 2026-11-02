@@ -10,8 +10,6 @@ from fec.config.constants import (
     FOREIGN_CITIES_NO_US_STATE, AMBIGUOUS_CITIES,
 )
 
-_ZIP_CITY = {'10022': 'NEW YORK'}
-
 # census race/ethnicity artifact
 _ETHNICITY_RE = re.compile(r'NOT OF HISPANIC|HISPANIC ORIGIN', re.IGNORECASE)
 
@@ -19,19 +17,6 @@ _ETHNICITY_RE = re.compile(r'NOT OF HISPANIC|HISPANIC ORIGIN', re.IGNORECASE)
 _VI_ZIP_RE = re.compile(r'^008[0-4]\d$|^00850$|^00851$')
 # a Puerto Rico ZIP5: 006xx, 007xx, 009xx
 _PR_ZIP_RE = re.compile(r'^00[679]\d{2}$')
-
-
-# fill a null contributor_city from a known ZIP lookup
-def _fill_null_city_from_zip(df: pd.DataFrame) -> int:
-    """J. contributor_city NULL: fill from ZIP lookup."""
-    null_city = df['contributor_city'].isna()
-    n_fixed = 0
-    for idx in df.index[null_city]:
-        zip_code = str(df.at[idx, 'contributor_zip'] or '')
-        if zip_code in _ZIP_CITY:
-            df.at[idx, 'contributor_city'] = _ZIP_CITY[zip_code]
-            n_fixed += 1
-    return n_fixed
 
 
 # null a foreign city paired with a fake US state

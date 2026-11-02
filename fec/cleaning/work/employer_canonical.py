@@ -1,11 +1,7 @@
-"""Company identity follows reviewed rules; loose keys compare text."""
+"""Loose keys for comparing employer text."""
 import re
 
-from fec.cleaning.work.employer_aliases import (
-    employer_rule_key,
-    preserved_employer_name,
-    reviewed_employer_name,
-)
+from fec.cleaning.work.employer_aliases import preserved_employer_name
 
 _CORP_SUFFIXES = (
     "INCORPORATED",
@@ -30,11 +26,6 @@ _GLUED_BRAND_SUFFIXES = frozenset({"CO", "PC", "PA", "LP"})
 # Abbreviations folded for grouping only; ASSOC is deliberately absent.
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
 
-
-
-def canonical_key(name: str) -> str:
-    """Only explicit aliases can join differently named companies."""
-    return employer_rule_key(reviewed_employer_name(name))
 
 
 def employer_text_key(name: str) -> str:

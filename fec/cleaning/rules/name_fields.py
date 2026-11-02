@@ -7,12 +7,10 @@ from fec.cleaning._helpers import _set_missing
 from fec.cleaning.work.normalize import swap_employer_and_occupation
 from fec.cleaning.rules.employer_swaps import (
     _COMPANY_NAME_RE,
-    _COMPANY_SUFFIX_RE,
     _KNOWN_OCCUPATIONS,
 )
 from fec.cleaning.rules.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
-from fec.config.not_employers import JOB_TITLE_AS_EMPLOYER
 from fec.config.occupation_rules.rules import (
     KNOWN_COMPANY_OCCUPATIONS,
 )
@@ -62,24 +60,6 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
 
     df.loc[occ_is_company, 'contributor_employer'] = df.loc[occ_is_company, 'contributor_occupation']
     _set_missing(df, occ_is_company)
-    return n_fixed
-
-
-# swap employer/occupation when employer is a job title
-def _fix_swapped_emp_occ_company(df: pd.DataFrame) -> int:
-    """AL. emp=job title, occ=company name -> swap them."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    emp = df['contributor_employer'].fillna('').str.upper()
-    occ = df['contributor_occupation'].fillna('')
-
-    emp_is_title = is_indiv & emp.isin(JOB_TITLE_AS_EMPLOYER)
-    occ_has_company = occ.str.contains(_COMPANY_SUFFIX_RE, na=False)
-    mask = emp_is_title & occ_has_company
-    n_fixed = int(mask.sum())
-    if not n_fixed:
-        return 0
-
-    swap_employer_and_occupation(df, mask)
     return n_fixed
 
 

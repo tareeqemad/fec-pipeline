@@ -6,7 +6,6 @@ from fec.cleaning.reports.trail import (
     WORK_FIELDS,
 )
 from fec.cleaning.rules.addresses import (
-    _fill_null_city_from_zip,
     _fix_foreign_addresses,
     _fix_garbage_city_names,
     _fix_pr_zip_wrong_state,
@@ -20,7 +19,6 @@ from fec.cleaning.rules.employer import (
     _fix_choose_prefix,
     _fix_email_employer_final,
     _fix_retired_typos,
-    _fix_truncated_employer_38,
     _null_sector_as_employer,
 )
 from fec.cleaning.rules.employer_swaps import (
@@ -34,14 +32,11 @@ from fec.cleaning.rules.name_fields import (
     _fix_company_name_as_occupation,
     _fix_occ_emp_both_swapped,
     _fix_own_name_as_employer,
-    _fix_swapped_emp_occ_company,
 )
 from fec.cleaning.rules.occupation import (
     _fill_null_occupation_category,
     _fix_bitton_edge_case,
     _fix_disclosed_no_employer,
-    _fix_employed_as_occupation,
-    _fix_employed_no_category,
     _fix_not_disclosed_with_real_occ,
     _fix_status_word_in_occupation,
     _fix_web_artifact_occupation,
@@ -49,7 +44,6 @@ from fec.cleaning.rules.occupation import (
 )
 from fec.cleaning.rules.occupation_category import (
     _fix_emp_occ_category_consistency,
-    _fix_slash_occupation,
     _reclassify_other_category,
 )
 from fec.cleaning.rules.occupation_context import _disambiguate_vague_occupation
@@ -64,16 +58,12 @@ SAFETY_RULES = (
      'committee_employer_cleared'),
     (_fix_disclosed_no_employer, ALL_ROWS, WORK_FIELDS,
      'disclosed_without_employer_status_fixed'),
-    (_fix_employed_no_category, ALL_ROWS, WORK_FIELDS,
-     'employed_occupation_category_other'),
     (_fix_status_word_in_occupation, INDIVIDUALS, WORK_FIELDS,
      'status_word_occupation_not_applicable'),
     (_fix_not_disclosed_with_real_occ, INDIVIDUALS, WORK_FIELDS,
      'not_disclosed_with_real_occupation_status_fixed'),
     (_fill_null_occupation_category, INDIVIDUALS, WORK_FIELDS,
      'null_occupation_category_filled'),
-    (_fill_null_city_from_zip, ALL_ROWS, PLACE_FIELDS,
-     'city_filled_from_zip'),
     (_fix_bitton_edge_case, INDIVIDUALS, WORK_FIELDS,
      'not_disclosed_self_employed_contradiction_fixed'),
     (_clear_refusal_employers, INDIVIDUALS, WORK_FIELDS,
@@ -107,26 +97,18 @@ SAFETY_RULES = (
      'garbage_city_name_nulled'),
     (_fix_pr_zip_wrong_state, ALL_ROWS, PLACE_FIELDS,
      'state_corrected_from_pr_vi_zip'),
-    (_fix_truncated_employer_38, ALL_ROWS, WORK_FIELDS,
-     'truncated_employer_expanded'),
     (_fix_company_name_as_occupation, ALL_ROWS, WORK_FIELDS,
      'company_in_occupation_moved_to_employer'),
-    (_fix_swapped_emp_occ_company, ALL_ROWS, WORK_FIELDS,
-     'job_title_employer_company_occupation_swapped'),
     (_fix_occ_emp_both_swapped, ALL_ROWS, WORK_FIELDS,
      'curated_company_in_occupation_swapped'),
     (_fix_web_artifact_occupation, ALL_ROWS, WORK_FIELDS,
      'web_artifact_occupation_nulled'),
     (_null_junk_occupation, ALL_ROWS, WORK_FIELDS,
      'email_or_company_in_occupation_moved_or_nulled'),
-    (_fix_employed_as_occupation, ALL_ROWS, WORK_FIELDS,
-     'employed_occupation_resolved'),
     (_fix_emp_occ_category_consistency, ALL_ROWS, WORK_FIELDS,
      'employer_occupation_category_consistency_fixed'),
     (_disambiguate_vague_occupation, ALL_ROWS, WORK_FIELDS,
      'vague_occupation_specialised_from_employer_context'),
-    (_fix_slash_occupation, ALL_ROWS, WORK_FIELDS,
-     'slash_occupation_recategorized'),
     (_reclassify_other_category, ALL_ROWS, WORK_FIELDS,
      'other_category_reclassified'),
 )

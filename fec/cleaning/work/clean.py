@@ -174,13 +174,6 @@ def _clear_committee_work_fields(df: pd.DataFrame) -> None:
     df.loc[is_committee, 'contributor_occupation'] = np.nan
 
 
-def _mark_still_missing(df: pd.DataFrame) -> None:
-    """Individuals still missing stay NaN."""
-    still_missing_occ = df['is_individual'] & df['contributor_occupation'].isna()
-    df.loc[still_missing_occ, 'occupation_category'] = pd.NA
-    df.loc[still_missing_occ, 'occupation_status'] = 'MISSING'
-
-
 def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
     """Run the employer/occupation pipeline in place."""
     trail.run(
@@ -199,4 +192,3 @@ def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
         df, _clear_committee_work_fields, 'occ_committee_rows', 'committee_has_no_occupation', WORK_FIELDS,
     )
     trail.run(df, _cross_fill, 'occ_cross_fill', 'filled_from_paired_field', WORK_FIELDS)
-    trail.run(df, _mark_still_missing, 'occ_mark_missing', 'occupation_missing', WORK_FIELDS)

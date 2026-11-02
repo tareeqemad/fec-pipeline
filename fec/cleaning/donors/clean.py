@@ -21,11 +21,9 @@ from fec.cleaning.reports.trail import (
 )
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_names import finalize_employer_names
-from fec.cleaning.work.employer_aliases import canonicalize_current_employers, reviewed_employer_name
+from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.name_fixes import apply_name_corrections
-from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
 from fec.cleaning.addresses.fixes.unify import (
-    canonicalize_donor_addresses,
     canonicalize_donor_units,
 )
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
@@ -34,16 +32,6 @@ from fec.donor_match.keys import non_individual_donor_key
 from fec.log import get_logger
 
 logger = get_logger(__name__)
-
-
-def align_org_donor_company_names(df: pd.DataFrame) -> int:
-    """An organization's display name needs the same explicit proof."""
-    mask = df["entity_type"].eq("ORGANIZATION") & df["contributor_name"].notna()
-    names = df.loc[mask, "contributor_name"]
-    reviewed = names.map(reviewed_employer_name)
-    changed = reviewed.ne(names)
-    df.loc[names.index[changed], "contributor_name"] = reviewed[changed]
-    return int(changed.sum())
 
 
 def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) -> pd.DataFrame:
@@ -104,18 +92,7 @@ def standardize(
         source="data/rules/contributor_name_rules.csv",
     )
     apply_donor_consistency(df, trail)
-
-    # Restore curated fields after donor-history inference.
-    trail.run(
-        df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
-        "curated_employer_names", "curated_row_override", OVERRIDE_FIELDS,
-        source="data/rules/manual_employer_overrides.csv",
-    )
     df = finalize_employer_names(df, trail)
-    trail.run(
-        df, align_org_donor_company_names, "donor_align_org_names",
-        "documented_company_name", NAME_FIELDS,
-    )
     trail.run(
         df, canonicalize_committee_names, "reviewed_committee_names",
         "verified_same_fec_committee", NAME_FIELDS + ("donor_key",),
@@ -181,8 +158,6 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> None:
          "donor_name_unified_to_modal_last_and_longest_first", NAME_FIELDS),
         (canonicalize_current_employers, "donor_canonical_employers",
          "documented_company_alias", ("contributor_employer",)),
-        (canonicalize_donor_addresses, "donor_canonical_addresses",
-         "donor_street_spelling_unified", STREET_FIELDS),
         (canonicalize_donor_units, "donor_canonical_units",
          "donor_unit_designator_unified", STREET_FIELDS),
     )

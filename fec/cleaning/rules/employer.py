@@ -157,12 +157,6 @@ def _null_sector_as_employer(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-# Truncated names expand only to documented full names.
-def _fix_truncated_employer_38(df: pd.DataFrame) -> int:
-    from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
-    return apply_reviewed_employer_names(df, ("contributor_employer",))
-
-
 # remove the web-form --CHOOSE-- prefix from employer names
 def _fix_choose_prefix(df: pd.DataFrame) -> int:
     """Remove the web-form --CHOOSE-- prefix from employer names."""

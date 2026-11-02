@@ -3,7 +3,6 @@ import pandas as pd
 
 from fec.cleaning.reports.trail import (
     EMPLOYMENT_FIELDS,
-    ENTITY_FIELDS,
     NAME_FIELDS,
     WORK_FIELDS,
     AuditTrail,
@@ -15,8 +14,6 @@ from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 from fec.cleaning.entities import (
     fix_employer_equals_occupation,
-    fix_misclassified_business_entities,
-    fix_remaining_misclassified,
     normalize_business_names,
 )
 from fec.cleaning.name_fixes import (
@@ -41,20 +38,12 @@ from fec.cleaning.rules.junk import (
 from fec.cleaning.rules.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
 
 
-_CLASSIFICATION_FIELDS = ENTITY_FIELDS + (
-    'contributor_first_name', 'contributor_last_name',
-    'occupation_category', 'contributor_occupation',
-)
 _NAME_ONLY = ('contributor_name',)
 _OCCUPATION_ONLY = ('contributor_occupation',)
 _EMPLOYER_ONLY = ('contributor_employer',)
 
 # In order: transform, fields, audit name, reason.
 _AUDITED_RULES = (
-    (fix_remaining_misclassified, _CLASSIFICATION_FIELDS,
-     'enh_reclassify_committee', 'committee_name_pattern'),
-    (fix_misclassified_business_entities, _CLASSIFICATION_FIELDS,
-     'enh_reclassify_business', 'business_suffix_or_org_pattern'),
     (normalize_business_names, _NAME_ONLY,
      'enh_normalize_business_names', 'documented_company_name'),
     (normalize_name_periods, _NAME_ONLY,

@@ -68,30 +68,6 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     return n_fixed
 
 
-def _fix_slash_occupation(df: pd.DataFrame) -> int:
-    """Use the first slash-separated occupation when the category is missing."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    occ = df['contributor_occupation'].fillna('')
-    categories = df['occupation_category'].fillna('')
-
-    has_slash = (
-        is_indiv
-        & occ.str.contains('/', na=False, regex=False)
-        & categories.isin({'OTHER', ''})
-    )
-    n_candidates = int(has_slash.sum())
-    if not n_candidates:
-        return 0
-
-    first_part = occ[has_slash].str.split('/').str[0].str.strip()
-    new_cats = _categorize(first_part)
-    improved = has_slash & new_cats.notna() & (new_cats != 'OTHER')
-    n_fixed = int(improved.sum())
-    if n_fixed:
-        df.loc[improved, 'occupation_category'] = new_cats[improved]
-    return n_fixed
-
-
 def _reclassify_other_category(df: pd.DataFrame) -> int:
     """Replace OTHER categories using the final occupation text."""
     is_indiv = df['entity_type'] == 'INDIVIDUAL'

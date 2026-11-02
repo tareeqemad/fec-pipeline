@@ -138,18 +138,6 @@ def _unify_street_types(df: pd.DataFrame) -> int:
     return _collapse_to_dominant(df, 'contributor_street_1', group_key, eligible, prefer_longest=True)
 
 
-# a run of letters/digits, to tokenize a street address
-_ADDR_TOKEN_RE = re.compile(r"[A-Z0-9]+")
-
-
-def _addr_fingerprint(street: str) -> str:
-    """Anchor the house number and sort the remaining address tokens."""
-    toks = _ADDR_TOKEN_RE.findall(street.upper())
-    if not toks:
-        return ""
-    return toks[0] + "|" + " ".join(sorted(toks[1:]))
-
-
 def _collapse_donor_variants(df: pd.DataFrame, column: str, bucket_of, rank) -> int:
     """Within each donor, replace variants with the bucket's top form."""
     ind = df["entity_type"] == "INDIVIDUAL"
@@ -183,24 +171,12 @@ def _zip_text(df: pd.DataFrame, i) -> str:
     return z if isinstance(z, str) else ""
 
 
-def _street_bucket(df: pd.DataFrame, i, street: str):
-    fingerprint = _addr_fingerprint(street)
-    return (_zip_text(df, i), fingerprint) if fingerprint else None
-
-
 def _unit_bucket(df: pd.DataFrame, i, unit: str):
     core = unit_core(unit)
     if not core:
         return None
     street = df.at[i, "contributor_street_1"]
     return (street.strip() if isinstance(street, str) else "", _zip_text(df, i), core)
-
-
-def canonicalize_donor_addresses(df: pd.DataFrame) -> int:
-    """Unify street spellings with the same ZIP and anchored tokens."""
-    return _collapse_donor_variants(
-        df, "contributor_street_1", _street_bucket, lambda form, forms: forms.count(form),
-    )
 
 
 def canonicalize_donor_units(df: pd.DataFrame) -> int:

@@ -72,30 +72,6 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
     return source.where(~undecided, "")
 
 
-# Committee wording in a name: "FRIENDS OF SMITH".
-_COMMITTEE_IN_NAME_RE = re.compile(
-    r'(?:FRIENDS|CITIZENS|COMMITTEE) TO ELECT'
-    r'|(?:FRIENDS OF|FRIENDS FOR|CITIZENS FOR|PEOPLE FOR) '
-    r'|FOR (?:CONGRESS|SENATE|U\.?S\.?\s*SENATE|AMERICA|GOVERNOR|MAYOR)'
-    r'|FOR (?:NC|NEVADA|TEXAS|VIRGINIA|COLORADO|NEW YORK|MICHIGAN|OHIO|CALIFORNIA'
-    r'|GEORGIA|FLORIDA|ARIZONA|PENNSYLVANIA|WISCONSIN|MISSOURI|INDIANA|MARYLAND'
-    r'|MINNESOTA|WASHINGTON|ILLINOIS|OKLAHOMA)\b'
-    r'|(?:VICTORY|ACTION|LEADERSHIP) FUND|LEADERSHIP PAC'
-    r'|BELLFORMISSOURI'
-    r'|4\s*CONGRESS|4\s*UTAH|4\s*SENATE'
-    r'|CAMPAIGN$'
-    r'|\.COM$'
-    r'|ELECT\w+\.COM',
-    re.IGNORECASE,
-)
-
-# a business legal suffix: "LLC", "INC", "P.C.", "P.A."
-_BUSINESS_SUFFIX_RE = re.compile(
-    r'\b(?:LLC|LLP|L\.L\.C|L\.L\.P|INC|CORP|LTD|P\.?L\.?L\.?C)\b'
-    r'|\bP\.?C\.?\b|\bP\.?A\.?\b',
-    re.IGNORECASE
-)
-
 _GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
     'NOT DISCLOSED', 'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
     'INSURANCE', 'MARKETING', 'BANKING', 'GOVERNMENT', 'EDUCATION',
@@ -105,58 +81,6 @@ _GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
     'FUNDRAISING CONSULTANT', 'INSURANCE AGENT', 'NON-PROFIT VOLUNTEER',
     'BUSINESS',
 })
-
-
-def _mark_as_committee(df: pd.DataFrame, hits, category: str) -> None:
-    """Set the committee type and clear individual fields."""
-    df.loc[hits, 'entity_type'] = 'COMMITTEE/PAC'
-    df.loc[hits, 'is_individual'] = False
-    df.loc[hits, 'contributor_first_name'] = np.nan
-    df.loc[hits, 'contributor_last_name'] = np.nan
-    df.loc[hits, 'occupation_category'] = category
-    df.loc[hits, 'occupation_status'] = 'NOT_APPLICABLE'
-    df.loc[hits, 'contributor_occupation'] = np.nan
-    df.loc[hits, 'contributor_employer'] = np.nan
-
-
-def fix_remaining_misclassified(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Reclassify individuals whose name matches committee patterns as COMMITTEE/PAC."""
-    indiv_idx = _indiv_idx(df)
-    last_names = _norm(df.loc[indiv_idx, 'contributor_last_name'])
-    names = _norm(df.loc[indiv_idx, 'contributor_name'])
-
-    hits = indiv_idx[
-        last_names.str.contains(_COMMITTEE_IN_NAME_RE.pattern, na=False, regex=True)
-        | names.str.contains(_COMMITTEE_IN_NAME_RE.pattern, na=False, regex=True)
-    ]
-    n_fixed = len(hits)
-
-    if n_fixed:
-        _mark_as_committee(df, hits, 'POLITICAL COMMITTEE')
-
-    return df, n_fixed
-
-
-def fix_misclassified_business_entities(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Reclassify individuals that are actually business entities."""
-    indiv_idx = _indiv_idx(df)
-    names = _norm(df.loc[indiv_idx, 'contributor_name'])
-    first_names = df.loc[indiv_idx, 'contributor_first_name'].fillna('').astype(str).str.strip()
-    emp = df.loc[indiv_idx, 'contributor_employer'].fillna('').astype(str).str.strip().str.upper()
-
-    has_suffix = names.str.contains(_BUSINESS_SUFFIX_RE.pattern, na=False, regex=True)
-
-    no_comma = ~names.str.contains(',', na=False, regex=False)
-    no_first = (first_names == '') | (first_names.str.upper() == 'NAN')
-    empty_emp = emp.isin({'', 'NAN', 'NONE'})
-    looks_like_org = no_comma & no_first & empty_emp
-
-    hits = indiv_idx[has_suffix | looks_like_org]
-    n_fixed = len(hits)
-
-    if n_fixed:
-        _mark_as_committee(df, hits, 'ORGANIZATION')
-    return df, n_fixed
 
 
 # Keep campaign phrases such as ROB FOR PA intact.

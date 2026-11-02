@@ -166,29 +166,6 @@ def _handle_multi_comma_names(df: pd.DataFrame, is_individual: pd.Series) -> Non
             df.at[idx, 'contributor_name'] = f"{clean_last}, {clean_first}"
 
 
-def _split_missing_names(df: pd.DataFrame, is_individual: pd.Series) -> None:
-    """Split LAST, FIRST for reclassified records missing name parts."""
-    needs_split = is_individual & df['contributor_first_name'].isna()
-    if needs_split.any():
-        names = df.loc[needs_split, 'contributor_name'].astype(str)
-        has_comma = names.str.contains(',', na=False, regex=False)
-        comma_rows = needs_split & has_comma.reindex(needs_split.index, fill_value=False)
-
-        if comma_rows.any():
-            split = df.loc[comma_rows, 'contributor_name'].str.split(',', n=1, expand=True)
-            df.loc[comma_rows, 'contributor_last_name'] = split[0].str.strip()
-            df.loc[comma_rows, 'contributor_first_name'] = split[1].str.strip()
-
-    missing_last = (
-        is_individual
-        & df['contributor_last_name'].isna()
-        & df['contributor_name'].str.contains(',', na=False, regex=False)
-    )
-    if missing_last.any():
-        split2 = df.loc[missing_last, 'contributor_name'].str.split(',', n=1, expand=True)
-        df.loc[missing_last, 'contributor_last_name'] = split2[0].str.strip()
-
-
 def _clean_committee_names(df: pd.DataFrame, is_committee: pd.Series) -> None:
     """Clear first/last for committees, strip trailing junk from committee names."""
     df.loc[is_committee, 'contributor_first_name'] = np.nan
@@ -364,7 +341,6 @@ NAME_STEPS = (
     (_remove_name_titles, 'individual', 'names_remove_titles', 'title_removed_from_name'),
     (_handle_multi_comma_names, 'individual', 'names_multi_comma',
      'embedded_credential_removed_and_name_split'),
-    (_split_missing_names, 'individual', 'names_split_missing', 'first_last_split_from_composite_name'),
     (_clean_committee_names, 'committee', 'names_committee', 'committee_name_tail_stripped_or_curated_fix'),
     (_strip_individual_titles_suffixes, 'individual', 'names_titles_suffixes',
      'title_or_suffix_stripped_or_surname_from_email'),

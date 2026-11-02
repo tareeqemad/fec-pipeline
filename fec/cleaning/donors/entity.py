@@ -4,21 +4,9 @@ import csv
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.entities import deciding_source_type
 from fec.cleaning.entities import _enforce_entity_name_consistency
 from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.env import RULES_DIR
-
-
-# clear employer field for committees/organizations after re-typing
-def _clear_nonindividual_employer_field(df: pd.DataFrame) -> int:
-    """Non-individuals carry no employer; run after re-typing rows."""
-    mask = (df['entity_type'].isin(('COMMITTEE/PAC', 'ORGANIZATION'))
-            & (df['contributor_employer'].fillna('').str.strip() != ''))
-    n = int(mask.sum())
-    if n:
-        df.loc[mask, 'contributor_employer'] = np.nan
-    return n
 
 
 # Apply documented entity corrections by name after restoring FEC types.
@@ -50,19 +38,6 @@ def read_entity_overrides() -> dict[str, str]:
             if nm and et:
                 overrides[nm] = et
     return overrides
-
-
-# Re-apply FEC's entity type where a later step changed it.
-def _apply_source_entity_types(df: pd.DataFrame) -> int:
-    """FEC's own type wins again, before documented overrides."""
-    source = deciding_source_type(df)
-    n = 0
-    for et in sorted(set(source) - {''}):
-        mask = source.eq(et) & df['entity_type'].ne(et)
-        if mask.any():
-            _set_entity_type(df, mask, et)
-            n += int(mask.sum())
-    return n
 
 
 # set rows' entity_type and the fields that type carries
