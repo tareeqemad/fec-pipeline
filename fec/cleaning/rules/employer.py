@@ -32,14 +32,11 @@ _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
 
 
 
-# null contributor_employer under mask, optionally set occupation_status
-def _null_employer_where(df: pd.DataFrame, mask: pd.Series, *, set_status='EMPLOYER_MISSING') -> int:
-    """Null contributor_employer under mask, optionally set occupation_status; returns rows changed."""
+# null contributor_employer under mask
+def _null_employer_where(df: pd.DataFrame, mask: pd.Series) -> int:
     n_changed = int(mask.sum())
     if n_changed:
         df.loc[mask, 'contributor_employer'] = np.nan
-        if set_status is not None:
-            df.loc[mask, 'occupation_status'] = set_status
     return n_changed
 
 
@@ -51,11 +48,7 @@ def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     if not n_fixed:
         return 0
 
-    has_real = mask & (df['occupation_status'] == 'DISCLOSED')
-    has_not_disclosed = mask & (df['occupation_status'] == 'NOT_DISCLOSED')
-    df.loc[has_real, 'contributor_employer'] = pd.NA
-    df.loc[has_real, 'occupation_status'] = 'EMPLOYER_MISSING'
-    df.loc[has_not_disclosed, 'contributor_employer'] = pd.NA
+    df.loc[mask, 'contributor_employer'] = pd.NA
     return n_fixed
 
 
@@ -81,7 +74,6 @@ def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
         df.loc[mask, 'contributor_employer'] = 'RETIRED'
         df.loc[mask, 'contributor_occupation'] = 'RETIRED'
         df.loc[mask, 'occupation_category'] = 'RETIRED'
-        df.loc[mask, 'occupation_status'] = 'NOT_APPLICABLE'
 
     embedded = is_indiv & emp.str.match(_RETIRED_WITH_TAIL_RE, na=False)
     for idx in df.index[embedded]:
@@ -146,12 +138,11 @@ def _null_sector_as_employer(df: pd.DataFrame) -> int:
     title = mask & emp.isin(_TITLE_SECTOR_WORDS)
     swap = _occupation_names_a_company(occ, title & occ.ne(''))
     if swap.any():
-        swap_employer_and_occupation(df, swap, status='DISCLOSED')
+        swap_employer_and_occupation(df, swap)
     to_occupation = title & occ.eq('')
     if to_occupation.any():
         df.loc[to_occupation, 'contributor_occupation'] = emp[to_occupation]
         df.loc[to_occupation, 'occupation_category'] = _categorize(emp[to_occupation])
-        df.loc[to_occupation, 'occupation_status'] = 'EMPLOYER_MISSING'
 
     df.loc[mask & ~swap, 'contributor_employer'] = np.nan
     return n_fixed

@@ -14,6 +14,8 @@ from fec.cleaning.addresses.street_reviews import (
     _review_street1,
     _review_street2,
 )
+from fec.config.tables import read_rows
+from fec.env import ADDRESS_CASES_REVIEWED_CSV
 from fec.io import write_csv_atomic
 from fec.log import get_logger
 
@@ -89,6 +91,19 @@ def build_review_queues(
     return _combine_reports([part for part in queue if not part.empty])
 
 
+# A new address form for the donor opens the case again.
+def _case_key(donor_key, address_forms) -> tuple:
+    return donor_key, frozenset(address_forms.split(" || "))
+
+
+def _open_cases(cases: pd.DataFrame) -> pd.DataFrame:
+    if cases.empty:
+        return cases
+    decided = {_case_key(r["donor_key"], r["address_forms"]) for r in read_rows(ADDRESS_CASES_REVIEWED_CSV)}
+    keys = [_case_key(*case) for case in zip(cases["donor_key"], cases["address_forms"])]
+    return cases[[key not in decided for key in keys]]
+
+
 # Write reports after donor repairs and foreign-address restoration.
 def write_final_address_reports(
     df_clean, out_dir, address_reports: dict, foreign_sub_ids, filed_addresses, trail,
@@ -98,7 +113,7 @@ def write_final_address_reports(
         address_reports.get("street2_auto_fixed"),
         exclude_sub_ids=foreign_sub_ids,
     )
-    cases = build_review_cases(review_df, df_clean, filed_addresses, trail.net_records())
+    cases = _open_cases(build_review_cases(review_df, df_clean, filed_addresses, trail.net_records()))
     write_csv_atomic(cases, Path(out_dir) / REVIEW_CASES_CSV, index=False)
     if not cases.empty:
         high_priority = int(cases['priority'].eq('high').sum())

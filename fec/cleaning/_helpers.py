@@ -27,7 +27,6 @@ def _set_missing(df: pd.DataFrame, idx) -> None:
     """Clear occupation and category; mark occupation as missing."""
     df.loc[idx, 'contributor_occupation'] = np.nan
     df.loc[idx, 'occupation_category'] = pd.NA
-    df.loc[idx, 'occupation_status'] = 'MISSING'
 
 
 def levenshtein(a: str, b: str) -> int:

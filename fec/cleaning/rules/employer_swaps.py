@@ -144,7 +144,6 @@ def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> i
         old_emp = df.loc[is_retired, 'contributor_employer'].copy()
         df.loc[is_retired, 'contributor_occupation'] = old_emp
         df.loc[is_retired, 'contributor_employer'] = 'RETIRED'
-        df.loc[is_retired, 'occupation_status'] = 'NOT_APPLICABLE'
 
     # Case B: occupation empty or SELF-EMPLOYED, so move the word.
     occ_empty_or_se = mask & occ.isin({'', 'SELF-EMPLOYED'})
@@ -153,7 +152,6 @@ def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> i
         df.loc[occ_empty_or_se, 'contributor_occupation'] = old_emp
         df.loc[occ_empty_or_se, 'occupation_category'] = _categorize(old_emp)
         df.loc[occ_empty_or_se, 'contributor_employer'] = 'SELF-EMPLOYED'
-        df.loc[occ_empty_or_se, 'occupation_status'] = 'DISCLOSED'
 
     # Case C: a company in occupation means swapped fields.
     other = mask & ~is_retired & ~occ_empty_or_se
@@ -161,7 +159,7 @@ def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> i
         occ_looks_like_company = occ.str.contains(_COMPANY_NAME_RE, na=False)
         company_in_occ = other & occ_looks_like_company
         if company_in_occ.any():
-            swap_employer_and_occupation(df, company_in_occ, status='DISCLOSED')
+            swap_employer_and_occupation(df, company_in_occ)
         not_company = other & ~occ_looks_like_company
         if not_company.any():
             df.loc[not_company, 'contributor_employer'] = 'SELF-EMPLOYED'
@@ -190,7 +188,7 @@ def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
     mask = candidates & (occ.isin(real) | known_company.isin(real))
     n_fixed = int(mask.sum())
     if n_fixed:
-        swap_employer_and_occupation(df, mask, status='DISCLOSED')
+        swap_employer_and_occupation(df, mask)
     return n_fixed
 
 
@@ -208,7 +206,7 @@ def _fix_role_as_employer(df: pd.DataFrame) -> int:
 
     swap = occupation_holds_company(df, occ, emp, mask)
     if swap.any():
-        swap_employer_and_occupation(df, swap, status='DISCLOSED')
+        swap_employer_and_occupation(df, swap)
 
     self_emp = mask & ~swap
     if self_emp.any():
@@ -244,7 +242,6 @@ def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
             df.loc[emp_is_occ, 'contributor_occupation'] = old_emp
             df.loc[emp_is_occ, 'occupation_category'] = _categorize(old_emp)
             df.loc[emp_is_occ, 'contributor_employer'] = 'SELF-EMPLOYED'
-            df.loc[emp_is_occ, 'occupation_status'] = 'DISCLOSED'
             n_fixed += int(emp_is_occ.sum())
 
     return n_fixed

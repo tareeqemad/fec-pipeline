@@ -14,7 +14,7 @@ OCCUPATION_CANONICAL = read_map(CONFIG_DIR / "occupation_standard_titles.csv")
 
 # Raw occupation fixes that also assign a category.
 # A blank category means the fix sets no category.
-OCCUPATION_FIXES = {row["written_as"]: (row["occupation"], row["category"] or None)
+OCCUPATION_FIXES = {row["written_as"]: (row["occupation"] or None, row["category"] or None)
                     for row in read_rows(CONFIG_DIR / "occupation_fixes_with_category.csv")}
 
 # Curated occupation typo fixes, keyed after the style step.
@@ -23,12 +23,6 @@ OCCUPATION_TYPO_FIXES = read_map(CONFIG_DIR / "occupation_typos.csv")
 # Each occupation's category; patterns categorize unlisted ones.
 CATEGORY_OVERRIDES = read_map(CONFIG_DIR / "occupation_categories.csv")
 
-
-# Refusals keep NOT DISCLOSED; other fixes to it are junk.
-OCCUPATION_REFUSAL_INPUTS = frozenset({
-    'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
-    'DECLINED TO ANSWER', 'MYOB', 'TMI',
-})
 
 # Employer status -> occupation/category when occupation is missing.
 OCCUPATION_FROM_EMPLOYER = {

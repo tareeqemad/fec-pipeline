@@ -101,7 +101,7 @@ OUTPUT_COLUMNS = [
     'contributor_employer',
     'contributor_occupation', 'occupation_category',
     # Internal working fields for later safety nets; dropped at save.
-    'occupation_status', 'committee_type', '_generational_suffix',
+    'committee_type', '_generational_suffix',
     # Contribution; amounts alone mark refunds (below zero).
     'contribution_receipt_date',
     'contribution_receipt_amount',
@@ -114,7 +114,6 @@ INTERNAL_OUTPUT_COLUMNS = [
     'is_individual',  # redundant with entity_type
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
     'committee_type',  # overloaded with non-committee sentinels
-    'occupation_status',  # ~99% derivable; not in DB
     'employment_source',  # kept in the cleaning audit only
     '_generational_suffix',  # identity evidence from the raw contributor name
     'geocode_level',  # how the donor coordinate was derived

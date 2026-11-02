@@ -4,7 +4,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm, _set_missing
+from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm
 from fec.cleaning.reports.trail import WORK_FIELDS
 from fec.cleaning.work.employer_deep_clean import _deep_clean_employer
 from fec.cleaning.work.normalize import (
@@ -22,7 +22,6 @@ from fec.config.occupation_rules.rules import (
     EMPLOYER_FROM_OCCUPATION,
     OCCUPATION_FROM_EMPLOYER,
     OCCUPATION_KEYWORDS,
-    OCCUPATION_REFUSAL_INPUTS,
     SWAP_JOB_TITLES,
 )
 
@@ -101,7 +100,6 @@ def _cross_fill(df: pd.DataFrame) -> None:
         )
         df.loc[mask, 'contributor_occupation'] = occupation
         df.loc[mask, 'occupation_category'] = category
-        df.loc[mask, 'occupation_status'] = 'DISCLOSED'
 
     mask = df['contributor_occupation'].notna() & df['contributor_employer'].isna()
     if mask.any():
@@ -136,27 +134,13 @@ def _normalize_work_text(df: pd.DataFrame) -> None:
 
 
 def _derive_status_and_category(df: pd.DataFrame) -> None:
-    """Initial occupation_status and category."""
-    has_occ = df['contributor_occupation'].notna()
-    has_emp = df['contributor_employer'].notna()
-    df['occupation_status'] = 'MISSING'
-    df.loc[has_occ & has_emp, 'occupation_status'] = 'DISCLOSED'
-    df.loc[has_occ & ~has_emp, 'occupation_status'] = 'EMPLOYER_MISSING'
+    """Initial occupation category."""
     df['occupation_category'] = _categorize(df['contributor_occupation'])
 
 
-# Apply occupation fixes, then distinguish refusals from junk.
+# Apply known occupation fixes.
 def _apply_occupation_fixes(df: pd.DataFrame) -> None:
-    original = map_occupation_fixes(df, df.index)
-    if original.empty:
-        return
-    # refusals keep NOT DISCLOSED; junk becomes NaN
-    now_not_disclosed = df.loc[original.index, 'contributor_occupation'] == 'NOT DISCLOSED'
-    refusal = original.isin(OCCUPATION_REFUSAL_INPUTS)
-    is_refusal = original.index[now_not_disclosed & refusal]
-    is_junk = original.index[now_not_disclosed & ~refusal]
-    df.loc[is_refusal, 'occupation_status'] = 'NOT_DISCLOSED'
-    _set_missing(df, is_junk)
+    map_occupation_fixes(df, df.index)
 
 
 def _clear_committee_work_fields(df: pd.DataFrame) -> None:
@@ -170,7 +154,6 @@ def _clear_committee_work_fields(df: pd.DataFrame) -> None:
     )
     df.loc[is_committee, 'occupation_category'] = 'POLITICAL COMMITTEE'
     # N/A would read back as NaN
-    df.loc[is_committee, 'occupation_status'] = 'NOT_APPLICABLE'
     df.loc[is_committee, 'contributor_occupation'] = np.nan
 
 

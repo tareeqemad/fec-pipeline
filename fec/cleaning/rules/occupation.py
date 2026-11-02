@@ -1,4 +1,4 @@
-"""Occupation, occupation_category and occupation_status safety-net fixes."""
+"""Occupation and occupation_category safety-net fixes."""
 from __future__ import annotations
 
 import re
@@ -6,7 +6,6 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.config.constants import STATUS_WORDS
 from fec.config.occupation_rules.rules import (
     WEB_ARTIFACT_OCCUPATIONS,
 )
@@ -22,55 +21,6 @@ _OCC_ROLE_PREFIX_RE = re.compile(
     r'MANAGER|FOUNDER|PRINCIPAL|CHAIRMAN|EXECUTIVE|MD|DR)\b',
     re.IGNORECASE,
 )
-
-
-# fix status when marked DISCLOSED but employer is missing
-def _fix_disclosed_no_employer(df: pd.DataFrame) -> int:
-    """D. DISCLOSED but no employer -> fix status."""
-    bad = (
-        (df['occupation_status'] == 'DISCLOSED')
-        & df['contributor_employer'].isna()
-        & (df['entity_type'] == 'INDIVIDUAL')
-    )
-    n_fixed = int(bad.sum())
-    if not n_fixed:
-        return 0
-
-    occ = df['contributor_occupation'].fillna('').str.upper()
-    is_status = occ.isin(STATUS_WORDS)
-    df.loc[bad & is_status, 'occupation_status'] = 'NOT_APPLICABLE'
-    df.loc[bad & ~is_status, 'occupation_status'] = 'EMPLOYER_MISSING'
-    return n_fixed
-
-
-# mark status word in occupation as NOT_APPLICABLE
-def _fix_status_word_in_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """G. EMPLOYER_MISSING/NOT_DISCLOSED + status word in occupation -> NOT_APPLICABLE."""
-    mask = (
-        is_indiv
-        & df['occupation_status'].isin(['NOT_DISCLOSED', 'EMPLOYER_MISSING'])
-        & df['contributor_occupation'].isin(STATUS_WORDS)
-    )
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'occupation_status'] = 'NOT_APPLICABLE'
-    return n_fixed
-
-
-# reclassify NOT_DISCLOSED rows that actually have a real occupation
-def _fix_not_disclosed_with_real_occ(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """H. NOT_DISCLOSED with real occupation -> EMPLOYER_MISSING."""
-    mask = (
-        is_indiv
-        & (df['occupation_status'] == 'NOT_DISCLOSED')
-        & df['contributor_occupation'].notna()
-        & ~df['contributor_occupation'].isin(STATUS_WORDS)
-        & df['contributor_employer'].isna()
-    )
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'occupation_status'] = 'EMPLOYER_MISSING'
-    return n_fixed
 
 
 # Fill missing categories for individuals, then committees.
@@ -97,7 +47,6 @@ def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     )
     n_fixed = int(mask.sum())
     if n_fixed:
-        df.loc[mask, 'occupation_status'] = 'NOT_APPLICABLE'
         df.loc[mask, 'occupation_category'] = 'SELF-EMPLOYED'
     return n_fixed
 

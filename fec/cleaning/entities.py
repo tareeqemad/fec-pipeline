@@ -124,7 +124,6 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
 
     jobs = same[occ.loc[same].map(is_job_title)]
     df.loc[jobs, 'contributor_employer'] = np.nan
-    df.loc[jobs, 'occupation_status'] = 'EMPLOYER_MISSING'
 
     for idx in same.difference(jobs):
         val = df.at[idx, 'contributor_occupation']
@@ -136,12 +135,10 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
             # Their own name in both fields: self-employed.
             df.at[idx, 'contributor_occupation'] = 'SELF-EMPLOYED'
             df.at[idx, 'occupation_category'] = 'SELF-EMPLOYED'
-            df.at[idx, 'occupation_status'] = 'DISCLOSED'
         else:
             # A company in both fields: occupation unknown.
             df.at[idx, 'contributor_occupation'] = np.nan
             df.at[idx, 'occupation_category'] = pd.NA
-            df.at[idx, 'occupation_status'] = 'MISSING'
 
     return df, n_fixed
 
@@ -375,7 +372,6 @@ def _restore_individual_occupations(
 
     df.loc[restored.index, "contributor_occupation"] = restored
     df.loc[restored.index, "occupation_category"] = _categorize(restored)
-    df.loc[restored.index, "occupation_status"] = "DISCLOSED"
     map_occupation_fixes(df, restored.index)
 
 
@@ -408,14 +404,9 @@ def _clear_individual_residue(df: pd.DataFrame) -> None:
     """Fix missing-work status and clear short invalid values."""
     is_individual = df["is_individual"]
 
-    missing_status = is_individual & df["occupation_status"].eq("NOT_APPLICABLE")
-    if missing_status.any():
-        df.loc[missing_status, "occupation_status"] = "MISSING"
-
     missing_occupation = is_individual & df["contributor_occupation"].isna()
     if missing_occupation.any():
         df.loc[missing_occupation, "occupation_category"] = pd.NA
-        df.loc[missing_occupation, "occupation_status"] = "MISSING"
 
     short_fields = (
         ("contributor_employer", OK_SHORT_EMPLOYERS),

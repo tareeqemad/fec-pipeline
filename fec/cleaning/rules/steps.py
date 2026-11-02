@@ -36,9 +36,6 @@ from fec.cleaning.rules.name_fields import (
 from fec.cleaning.rules.occupation import (
     _fill_null_occupation_category,
     _fix_bitton_edge_case,
-    _fix_disclosed_no_employer,
-    _fix_not_disclosed_with_real_occ,
-    _fix_status_word_in_occupation,
     _fix_web_artifact_occupation,
     _null_junk_occupation,
 )
@@ -56,12 +53,6 @@ NON_INDIVIDUALS = "non_individuals"
 SAFETY_RULES = (
     (_fix_committee_employer, NON_INDIVIDUALS, WORK_FIELDS,
      'committee_employer_cleared'),
-    (_fix_disclosed_no_employer, ALL_ROWS, WORK_FIELDS,
-     'disclosed_without_employer_status_fixed'),
-    (_fix_status_word_in_occupation, INDIVIDUALS, WORK_FIELDS,
-     'status_word_occupation_not_applicable'),
-    (_fix_not_disclosed_with_real_occ, INDIVIDUALS, WORK_FIELDS,
-     'not_disclosed_with_real_occupation_status_fixed'),
     (_fill_null_occupation_category, INDIVIDUALS, WORK_FIELDS,
      'null_occupation_category_filled'),
     (_fix_bitton_edge_case, INDIVIDUALS, WORK_FIELDS,

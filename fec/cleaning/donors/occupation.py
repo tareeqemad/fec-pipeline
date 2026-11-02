@@ -27,7 +27,7 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     vague = occupation.isin(('', 'SELF-EMPLOYED'))
 
     known = people[
-        ~vague & ~occupation.isin(SKIP_OCCUPATIONS) & people['occupation_status'].ne('DERIVED')
+        ~vague & ~occupation.isin(SKIP_OCCUPATIONS)
         & occupation.map(employer_text_key).ne(people['contributor_employer'].map(employer_text_key))
     ]
     jobs = ['donor_key', 'contributor_employer']
@@ -41,5 +41,4 @@ def _fill_occupation_from_donor(df: pd.DataFrame) -> int:
     ).dropna()
     df.loc[found.index, 'contributor_occupation'] = found
     df.loc[found.index, 'occupation_category'] = categorize_final(found)
-    df.loc[found.index, 'occupation_status'] = 'DERIVED'
     return len(found)

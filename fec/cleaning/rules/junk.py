@@ -51,7 +51,6 @@ def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     n_fixed += _clean_junk_occupations(df, indiv_idx)
     n_fixed += _clean_junk_number_tail(df, indiv_idx)
     n_fixed += _clean_junk_llp_standalone(df, indiv_idx)
-    n_fixed += _clean_junk_not_disclosed(df, indiv_idx)
     n_fixed += _clean_junk_employer_fixes(df, indiv_idx)
     n_fixed += _clean_junk_nist(df, indiv_idx)
     return df, n_fixed
@@ -98,20 +97,7 @@ def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
     if len(llp):
         df.loc[llp, 'contributor_occupation'] = 'ATTORNEY'
         df.loc[llp, 'occupation_category'] = 'LEGAL'
-        df.loc[llp, 'occupation_status'] = 'DISCLOSED'
         return len(llp)
-    return 0
-
-
-# mark occupation missing when text says not disclosed
-def _clean_junk_not_disclosed(df: pd.DataFrame, ii: pd.Index) -> int:
-    nd_text = ii[
-        (_norm(df.loc[ii, 'contributor_occupation']) == 'NOT DISCLOSED')
-        & (df.loc[ii, 'occupation_status'] != 'NOT_DISCLOSED')
-    ]
-    if len(nd_text):
-        _set_missing(df, nd_text)
-        return len(nd_text)
     return 0
 
 
@@ -134,7 +120,6 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
         df.loc[swap_se, 'contributor_employer'] = 'SELF-EMPLOYED'
         df.loc[swap_se, 'contributor_occupation'] = real_occ
         df.loc[swap_se, 'occupation_category'] = _categorize(df.loc[swap_se, 'contributor_occupation'])
-        df.loc[swap_se, 'occupation_status'] = 'DISCLOSED'
         n_fixed += len(swap_se)
 
     # employer junk words
@@ -178,7 +163,6 @@ def _clean_junk_nist(df: pd.DataFrame, ii: pd.Index) -> int:
         if len(is_school):
             df.loc[is_school, 'contributor_occupation'] = 'TEACHER'
             df.loc[is_school, 'occupation_category'] = 'EDUCATION'
-            df.loc[is_school, 'occupation_status'] = 'DISCLOSED'
             n_fixed += len(is_school)
         if len(not_school):
             _set_missing(df, not_school)

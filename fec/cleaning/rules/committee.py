@@ -42,7 +42,6 @@ def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     df.loc[mask, 'is_individual'] = False
     df.loc[mask, 'contributor_first_name'] = np.nan
     df.loc[mask, 'contributor_last_name'] = np.nan
-    df.loc[mask, 'occupation_status'] = 'NOT_APPLICABLE'
 
     employer = df.loc[mask, 'contributor_employer']
     has_employer = mask & employer.notna() & (employer.str.len() > 3)

@@ -32,7 +32,6 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     n_fixed = int(retired_not_employed.sum())
     if n_fixed:
         df.loc[retired_not_employed, 'contributor_employer'] = 'RETIRED'
-        df.loc[retired_not_employed, 'occupation_status'] = 'NOT_APPLICABLE'
 
     # Match the category when occupation is empty or agrees.
     for status, allowed_occupations in _STATUS_OCCUPATIONS:
@@ -46,7 +45,6 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
             continue
         df.loc[wrong_category, 'contributor_occupation'] = status
         df.loc[wrong_category, 'occupation_category'] = status
-        df.loc[wrong_category, 'occupation_status'] = 'NOT_APPLICABLE'
         n_fixed += count
 
     # For a real employer, the category follows the occupation.
@@ -63,7 +61,6 @@ def _fix_emp_occ_category_consistency(df: pd.DataFrame) -> int:
     count = int(needs_fix.sum())
     if count:
         df.loc[needs_fix, 'occupation_category'] = new_categories[needs_fix]
-        df.loc[needs_fix, 'occupation_status'] = 'DISCLOSED'
         n_fixed += count
     return n_fixed
 
