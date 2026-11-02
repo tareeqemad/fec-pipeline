@@ -19,6 +19,7 @@ from fec.cleaning.reports.trail import (
 )
 from fec.cleaning.donors.steps import INFERRED_WORK_STEPS
 from fec.cleaning.entities import (
+    SOURCE_COLUMNS,
     _clear_individual_residue,
     _reclassify_entities,
     _restore_reclassified_committees,
@@ -38,6 +39,8 @@ from fec.committees import committee_id_to_name
 from fec.config.data import OUTPUT_COLUMNS
 from fec.donor_match.normalize import extract_generational_suffix
 from fec.log import get_logger
+from fec.contract import CLEAN_COLUMNS
+from fec.receipt_types import classify_receipts
 
 logger = get_logger(__name__)
 
@@ -48,6 +51,8 @@ def clean_pipeline(
     out_dir: str | None = None,
     earlier_keys: dict | None = None,
 ):
+    if df.empty:
+        return pd.DataFrame(columns=[*CLEAN_COLUMNS, "_matched_key"])
     df = df.copy()
     trail = AuditTrail()
 
@@ -114,6 +119,7 @@ def clean_records(
 
 def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     """Prepare IDs, states, dates and missing-work flags."""
+    df["receipt_kind"] = classify_receipts(df)
     df["_generational_suffix"] = df["contributor_name"].map(
         extract_generational_suffix
     )
@@ -135,7 +141,8 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
         logger.warning("WARNING: %s", '; '.join(warnings))
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
-    attach_source_fields(df)
+    if not set(SOURCE_COLUMNS).issubset(df.columns):
+        attach_source_fields(df)
     return df
 
 

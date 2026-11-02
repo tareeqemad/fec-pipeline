@@ -4,7 +4,9 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 from fec.donor_match.rules import held_groups
-from fec.env import FEC_SOURCE_CSV
+from fec.env import FEC_SOURCE_CSV, RULES_DIR
+from fec.pull_rows import ENTITY_FIELDS
+from fec.config.tables import read_rows
 import re
 import numpy as np
 from fec.cleaning._helpers import _norm, _indiv_idx
@@ -27,7 +29,7 @@ from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE, SWAP_JOB_TITLES
 
 
-SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
+SOURCE_COLUMNS = tuple(ENTITY_FIELDS)
 
 # FEC entity codes; a candidate (CAN) giving is a person.
 FEC_ENTITY_TYPES = {
@@ -54,11 +56,20 @@ def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
 
 
 def source_entity_type(df: pd.DataFrame) -> pd.Series:
-    """Map FEC codes to entity types, leaving unknown codes blank."""
+    """Map FEC codes except where a review rejected the code for this filing."""
     if "fec_entity_type" not in df.columns:
         return pd.Series("", index=df.index, dtype=object)
     codes = df["fec_entity_type"].astype("string").fillna("").str.strip().str.upper()
-    return codes.map(FEC_ENTITY_TYPES).fillna("").astype(object)
+    types = codes.map(FEC_ENTITY_TYPES).fillna("").astype(object)
+    path = RULES_DIR / "entity_overrides.csv"
+    if "sub_id" in df and path.exists():
+        reviewed = {
+            sub_id: row["entity_type"] for row in read_rows(path)
+            for sub_id in (row.get("source_exception_sub_ids") or "").split()
+        }
+        exceptions = df["sub_id"].astype(str).str.strip().map(reviewed)
+        types = types.mask(exceptions.notna() & types.ne(exceptions), "")
+    return types
 
 
 def deciding_source_type(df: pd.DataFrame) -> pd.Series:

@@ -5,6 +5,7 @@ import re
 from urllib.parse import urlsplit
 
 from fec.config.geography import US_STATES, US_STATE_BBOX
+from fec.config.streets import CARE_OF_RE
 
 EARTH_RADIUS_MILES = 3958.8
 STREET_LEVEL_SOURCES = {"nominatim", "census", "google", "manual_census", "manual_verified", "nominatim_intl"}
@@ -17,6 +18,13 @@ def is_po_box(street: str) -> bool:
 
 def unclear_house_number(street: str) -> bool:
     return bool(re.match(r"^[^A-Z0-9\s]+\d", street.strip(), re.IGNORECASE))
+
+
+def can_geocode_street(street: str) -> bool:
+    street = street.strip()
+    if CARE_OF_RE.match(street) and not any(ch.isdigit() for ch in street):
+        return False
+    return bool(street) and not is_po_box(street) and not unclear_house_number(street)
 
 
 def is_foreign_address(state: str, zipcode: str) -> bool:
@@ -61,7 +69,7 @@ def accepted_coordinates(key: str, entry: dict | None) -> tuple:
         return None, None, "rejected_address"
     street, _, state, zipcode = parts
     state = state.strip().upper()
-    if not street.strip() or is_po_box(street) or unclear_house_number(street):
+    if not can_geocode_street(street):
         return None, None, "not_found"
     foreign = is_foreign_address(state, zipcode)
     country = (entry.get("country") or ("US" if not foreign else "")).upper()

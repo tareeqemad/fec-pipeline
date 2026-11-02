@@ -1,4 +1,4 @@
-"""One previous employer per retired donor."""
+"""Resolve previous employers for retired receipts."""
 import pandas as pd
 
 from fec.cleaning.rules.manual import CLEAR
@@ -7,7 +7,7 @@ from fec.cleaning.work.employer_names import expand_abbreviation_text
 from fec.cleaning.work.previous import normalize_previous_employer_value
 from fec.cleaning.work.status import is_real_employer
 from fec.config.tables import read_rows
-from fec.env import PREVIOUS_EMPLOYERS_CSV
+from fec.env import FILING_PREVIOUS_EMPLOYERS_CSV, PREVIOUS_EMPLOYERS_CSV
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -20,6 +20,8 @@ def _usable(value) -> str:
 
 # The chosen name in previous-employer form.
 def _clean(value: str) -> str:
+    if str(value).strip().upper() == CLEAR:
+        return ""
     expanded = expand_abbreviation_text(pd.Series([_usable(value)])).iloc[0]
     return reviewed_employer_name(expanded) if expanded else ""
 
@@ -33,7 +35,7 @@ def _reviewed(donors: dict) -> dict:
         if not donor:
             missing.append(row["sub_id"])
         elif value:
-            found[donor] = "" if value.upper() == CLEAR else value
+            found[donor] = value
     if missing:
         logger.warning("WARNING: %s previous employer rules found no filing: %s", len(missing), ", ".join(missing[:5]))
     return found
@@ -53,14 +55,20 @@ def _latest(rows: pd.DataFrame, column: str) -> dict:
 def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
     """Reviewed rule, retired filing, then latest filed employer."""
     retired = status.eq("retired")
-    donors = dict(zip(df["sub_id"].astype(str), df["donor_key"]))
+    sub_ids = df["sub_id"].astype(str)
+    donors = dict(zip(sub_ids, df["donor_key"]))
+    filing_rules = {row["sub_id"]: _clean(row["previous_employer"])
+                    for row in read_rows(FILING_PREVIOUS_EMPLOYERS_CSV)}
+    filing_answers = sub_ids.map(filing_rules)
     working = df[df["entity_type"].eq("INDIVIDUAL") & status.isin({"active", "self_employed"})]
     # Only work filed at an address the donor also used when retired.
     homes = set(zip(df.loc[retired, "donor_key"], _address(df[retired])))
-    working = working[[key in homes for key in zip(working["donor_key"], _address(working))]]
+    same_home = [key in homes for key in zip(working["donor_key"], _address(working))]
+    working = working.loc[same_home]
     found = {
         **_latest(working, "contributor_employer"),
-        **_latest(df[retired], "previous_employer"),
+        # A filing-specific answer must stay local even when resolve runs twice.
+        **_latest(df[retired & filing_answers.isna()], "previous_employer"),
         **_reviewed(donors),
     }
     result = pd.Series("", index=df.index, dtype=object)
@@ -69,4 +77,4 @@ def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
     # Unconfirmed donors keep only their own filing's answer.
     held = retired & df["identity_status"].ne("confirmed")
     result[held] = df.loc[held, "previous_employer"].fillna("")
-    return result
+    return result.mask(retired & ~held & filing_answers.notna(), filing_answers)

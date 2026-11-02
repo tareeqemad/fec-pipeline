@@ -3,6 +3,7 @@
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from itertools import combinations, product
 
 from fec.donor_match.rules import identities_must_stay_separate
 from fec.donor_match.normalize import (
@@ -87,15 +88,9 @@ def _merge_and_audit(
 def _score_within_groups(context: MatchContext) -> None:
     """Score all candidate pairs within each name group."""
     for norm_name, rids in context.name_groups.items():
-        if len(rids) < 2:
-            continue
-        name_freq = len(rids)
-        for i in range(len(rids)):
-            for j in range(i + 1, len(rids)):
-                p1 = context.profiles[rids[i]]
-                p2 = context.profiles[rids[j]]
-                score, signals = compute_score(p1, p2, name_freq)
-                _merge_and_audit(context, rids[i], rids[j], norm_name, score, signals)
+        for rid_a, rid_b in combinations(rids, 2):
+            score, signals = compute_score(context.profiles[rid_a], context.profiles[rid_b], len(rids))
+            _merge_and_audit(context, rid_a, rid_b, norm_name, score, signals)
 
 
 def _norms_by_last_name(name_groups: dict) -> dict:
@@ -109,26 +104,19 @@ def _norms_by_last_name(name_groups: dict) -> dict:
 def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, records_match, adjust) -> None:
     """Score eligible profile pairs in sorted name order."""
     for norms in buckets.values():
-        if len(norms) < 2:
-            continue
-        norm_list = sorted(norms)
-        for i, name_a in enumerate(norm_list):
-            for name_b in norm_list[i + 1:]:
-                if not names_match(name_a, name_b):
+        for name_a, name_b in combinations(sorted(norms), 2):
+            if not names_match(name_a, name_b):
+                continue
+            rids_a = context.name_groups[name_a]
+            rids_b = context.name_groups[name_b]
+            combined_freq = len(rids_a) + len(rids_b)
+            for rid_a, rid_b in product(rids_a, rids_b):
+                p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
+                if not records_match(p1, p2):
                     continue
-                rids_a = context.name_groups[name_a]
-                rids_b = context.name_groups[name_b]
-                combined_freq = len(rids_a) + len(rids_b)
-                for rid_a in rids_a:
-                    for rid_b in rids_b:
-                        p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
-                        if not records_match(p1, p2):
-                            continue
-                        score, signals = compute_score(p1, p2, combined_freq)
-                        score = adjust(score, signals)
-                        _merge_and_audit(
-                            context, rid_a, rid_b, f"{name_a} ↔ {name_b}", score, signals,
-                        )
+                score, signals = compute_score(p1, p2, combined_freq)
+                score = adjust(score, signals)
+                _merge_and_audit(context, rid_a, rid_b, f"{name_a} ↔ {name_b}", score, signals)
 
 
 def _any_records(_p1: dict, _p2: dict) -> bool:
@@ -270,20 +258,19 @@ def _is_valid_superset(
 def _score_surname_superset_variants(context: MatchContext) -> None:
     """Short and compound surnames only on the same exact street."""
     key_of, first_of, tok_index = _superset_name_index(context.name_groups)
-    for nn1, k1 in key_of.items():
-        for nn2 in _superset_candidates(k1, tok_index):
-            if not _is_valid_superset(nn1, nn2, k1, key_of, first_of):
+    for name, tokens in key_of.items():
+        for candidate in sorted(_superset_candidates(tokens, tok_index)):
+            if not _is_valid_superset(name, candidate, tokens, key_of, first_of):
                 continue
-            combined_freq = len(context.name_groups[nn1]) + len(context.name_groups[nn2])
-            for ra in context.name_groups[nn1]:
-                for rb in context.name_groups[nn2]:
-                    p1, p2 = context.profiles[ra], context.profiles[rb]
-                    if not (p1["streets"] & p2["streets"]):  # SAME exact street only
-                        continue
-                    score, signals = compute_score(p1, p2, combined_freq)
-                    if not any(
-                        ("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals
-                    ):
-                        score += SCORE_CROSS_NAME_BONUS
-                    signals.append("surname_superset")
-                    _merge_and_audit(context, ra, rb, f"{nn1} ⊂ {nn2}", score, signals)
+            shorter = context.name_groups[name]
+            longer = context.name_groups[candidate]
+            combined_freq = len(shorter) + len(longer)
+            for rid_a, rid_b in product(shorter, longer):
+                p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
+                if not (p1["streets"] & p2["streets"]):
+                    continue
+                score, signals = compute_score(p1, p2, combined_freq)
+                if not any("MIDDLE_CONFLICT" in s or "HARD_BLOCK" in s for s in signals):
+                    score += SCORE_CROSS_NAME_BONUS
+                signals.append("surname_superset")
+                _merge_and_audit(context, rid_a, rid_b, f"{name} ⊂ {candidate}", score, signals)

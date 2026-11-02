@@ -178,7 +178,7 @@ def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
 def _load_joint_exemptions(rows) -> frozenset[str]:
     exempt = set()
     for row in rows:
-        if _normalize(row.get("action")) != "MERGE_KEYS":
+        if _normalize(row.get("action")) != "MERGE_KEYS" or row.get("sub_ids"):
             continue
         (last_a, words_a), (last_b, words_b) = (
             _name_words(row.get("name_a")), _name_words(row.get("name_b"))
@@ -194,6 +194,11 @@ def _load_joint_exemptions(rows) -> frozenset[str]:
 _RULES = _read_rules()
 SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES)
 KEY_MERGES = _load_key_merges(_RULES)
+FILING_KEY_MERGES = tuple(
+    (row["donor_key_b"], row["donor_key_a"], row["sub_ids"].split())
+    for row in _RULES
+    if _normalize(row.get("action")) == "MERGE_KEYS" and row.get("sub_ids") and not row.get("canonical_name")
+)
 COMMITTEE_NAMES = tuple(
     (row["donor_key_a"], row["donor_key_b"], row["canonical_name"],
      frozenset((row.get("sub_ids") or "").split()))

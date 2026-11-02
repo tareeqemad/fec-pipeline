@@ -17,6 +17,12 @@ ID_DTYPES = {
     'committee_id': 'string',
     'contributor_zip': 'string',
     'employer_zip': 'string',
+    'fec_entity_type': 'string',
+    'fec_contributor_id': 'string',
+    'fec_image_number': 'string',
+    'fec_filing_form': 'string',
+    'fec_line_number': 'string',
+    'fec_memo_code': 'string',
 }
 
 
@@ -27,13 +33,17 @@ def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     present = set(peek.columns)
     dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
 
-    return pd.read_csv(
+    frame = pd.read_csv(
         path,
         dtype=dtypes if dtypes else None,
         low_memory=False,
         keep_default_na=False,
         na_values=NA_VALUES,
     )
+    # Cleaned files created before receipt lines were retained have no verified type.
+    if {'donor_key', 'recipient_committee', 'contribution_receipt_amount'} <= present and 'receipt_kind' not in present:
+        frame['receipt_kind'] = 'unclassified'
+    return frame
 
 
 # Allow short Windows file locks to clear.

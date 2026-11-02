@@ -102,7 +102,8 @@ OUTPUT_COLUMNS = [
     'contributor_occupation', 'occupation_category',
     # Internal working fields for later safety nets; dropped at save.
     'committee_type', '_generational_suffix',
-    # Contribution; amounts alone mark refunds (below zero).
+    # Receipt amount and the type established by the filing.
+    'receipt_kind',
     'contribution_receipt_date',
     'contribution_receipt_amount',
     # What FEC itself says about the contributor.

@@ -72,6 +72,8 @@ CREATE TABLE donor_employments (
     previous_self_employed  BOOLEAN             NOT NULL DEFAULT FALSE,
     -- Reported self-employed address or inferred company office.
     address_id              INT                 REFERENCES addresses(address_id),
+    filing_work_address_id INT GENERATED ALWAYS AS
+        (CASE WHEN employer_status IN ('active', 'self_employed') THEN address_id END) STORED,
     CONSTRAINT donor_employments_previous_only_retired CHECK (
         employer_status = 'retired'
         OR (previous_employer_id IS NULL AND NOT previous_self_employed)
@@ -79,22 +81,27 @@ CREATE TABLE donor_employments (
     CONSTRAINT donor_employments_previous_one_kind CHECK (
         NOT (previous_self_employed AND previous_employer_id IS NOT NULL)
     ),
-    -- Keep each filing's employment details separate.
+    -- Keep a separate job for each reported self-employed address or estimated office.
     UNIQUE NULLS NOT DISTINCT (donor_id, employer_id, occupation, employer_status,
-                               previous_employer_id, previous_self_employed, occupation_category_id)
+                               previous_employer_id, previous_self_employed, occupation_category_id,
+                               filing_work_address_id)
 );
 
--- Contributions
-CREATE TABLE contributions (
+-- Itemized receipts from Schedule A
+CREATE TABLE receipts (
     sub_id              BIGINT          PRIMARY KEY,
-    transaction_id      TEXT            NOT NULL,
+    transaction_id      TEXT,
     donor_id            INT             NOT NULL REFERENCES donors(donor_id),
     committee_id        INT             NOT NULL REFERENCES committees(committee_id),
     donor_address_id    INT             REFERENCES donor_addresses(donor_address_id),
     donor_employment_id INT             REFERENCES donor_employments(donor_employment_id),
     amount              NUMERIC(15, 2)  NOT NULL,
     receipt_date        DATE            NOT NULL,
-    election_cycle      INTEGER         NOT NULL
+    election_cycle      INTEGER         NOT NULL,
+    allow_zip_fallback  BOOLEAN         NOT NULL DEFAULT TRUE,
+    receipt_kind        TEXT            NOT NULL DEFAULT 'unclassified'
+                        CHECK (receipt_kind IN ('contribution', 'operating_offset', 'contribution_refund',
+                                                'other_receipt', 'memo', 'unclassified'))
 );
 
 -- Indexes
@@ -117,13 +124,13 @@ CREATE INDEX idx_de_employer        ON donor_employments (employer_id);
 CREATE INDEX idx_de_occ_cat         ON donor_employments (occupation_category_id);
 CREATE INDEX idx_de_prev_employer   ON donor_employments (previous_employer_id);
 
-CREATE INDEX idx_c_donor            ON contributions (donor_id);
-CREATE INDEX idx_c_committee        ON contributions (committee_id);
-CREATE INDEX idx_c_date             ON contributions (receipt_date);
-CREATE INDEX idx_c_cycle            ON contributions (election_cycle);
-CREATE INDEX idx_c_donor_address    ON contributions (donor_address_id);
-CREATE INDEX idx_c_donor_employment ON contributions (donor_employment_id);
-CREATE INDEX idx_c_donor_date       ON contributions (donor_id, receipt_date DESC);
+CREATE INDEX idx_c_donor            ON receipts (donor_id);
+CREATE INDEX idx_c_committee        ON receipts (committee_id);
+CREATE INDEX idx_c_date             ON receipts (receipt_date);
+CREATE INDEX idx_c_cycle            ON receipts (election_cycle);
+CREATE INDEX idx_c_donor_address    ON receipts (donor_address_id);
+CREATE INDEX idx_c_donor_employment ON receipts (donor_employment_id);
+CREATE INDEX idx_c_donor_date       ON receipts (donor_id, receipt_date DESC);
 
 CREATE INDEX idx_emp_name           ON employers (name);
 CREATE INDEX idx_emp_name_trgm      ON employers USING gin (name gin_trgm_ops);
@@ -139,10 +146,10 @@ CREATE TABLE zip_centroids (
 );
 CREATE INDEX idx_zip_centroids_geo ON zip_centroids (lat, lng);
 
--- Latest donor address
+-- Prefer the latest filing; people with no filings use their stored roster address.
 CREATE OR REPLACE VIEW v_donor_current_address AS
-SELECT DISTINCT ON (c.donor_id)
-    c.donor_id,
+SELECT DISTINCT ON (da.donor_id)
+    da.donor_id,
     addr.address_id,
     addr.street_1,
     addr.street_2,
@@ -150,19 +157,22 @@ SELECT DISTINCT ON (c.donor_id)
     addr.state_code,
     addr.zip_code,
     addr.latitude,
-    addr.longitude
-FROM contributions c
-JOIN donor_addresses da   ON da.donor_address_id = c.donor_address_id
-JOIN addresses       addr ON addr.address_id     = da.address_id
+    addr.longitude,
+    COALESCE(c.allow_zip_fallback, TRUE) AS allow_zip_fallback
+FROM donor_addresses da
+JOIN addresses addr ON addr.address_id = da.address_id
+LEFT JOIN receipts c ON c.donor_address_id = da.donor_address_id
+WHERE c.sub_id IS NOT NULL OR NOT EXISTS (
+    SELECT 1 FROM receipts filed WHERE filed.donor_id = da.donor_id
+)
 ORDER BY
-    c.donor_id,
-    c.receipt_date DESC,
-    c.sub_id       DESC;
+    da.donor_id, c.receipt_date DESC NULLS LAST, c.sub_id DESC NULLS LAST,
+    da.donor_address_id DESC;
 
--- Latest donor employment
+-- Prefer the latest filing; people with no filings use their stored roster employment.
 CREATE OR REPLACE VIEW v_donor_current_employment AS
-SELECT DISTINCT ON (c.donor_id)
-    c.donor_id,
+SELECT DISTINCT ON (e.donor_id)
+    e.donor_id,
     e.donor_employment_id,
     e.employer_id,
     e.occupation,
@@ -171,25 +181,39 @@ SELECT DISTINCT ON (c.donor_id)
     e.previous_employer_id,
     e.previous_self_employed,
     e.address_id
-FROM contributions c
-JOIN donor_employments e ON e.donor_employment_id = c.donor_employment_id
+FROM donor_employments e
+LEFT JOIN receipts c ON c.donor_employment_id = e.donor_employment_id
+WHERE c.sub_id IS NOT NULL OR NOT EXISTS (
+    SELECT 1 FROM receipts filed WHERE filed.donor_id = e.donor_id
+)
 ORDER BY
-    c.donor_id,
-    c.receipt_date DESC,
-    c.sub_id       DESC;
+    e.donor_id, c.receipt_date DESC NULLS LAST, c.sub_id DESC NULLS LAST,
+    e.donor_employment_id DESC;
 
--- Donor totals
+CREATE OR REPLACE VIEW contributions AS
+SELECT * FROM receipts WHERE receipt_kind = 'contribution';
+
+-- Count positive contributions. Signed totals also include negative adjustments.
 CREATE OR REPLACE VIEW v_donor_stats AS
+WITH totals AS (
+    SELECT donor_id,
+           COALESCE(SUM(amount) FILTER (WHERE receipt_kind = 'contribution'), 0) AS total_amount,
+           COUNT(*) FILTER (WHERE receipt_kind = 'unclassified') AS unclassified_count
+    FROM receipts
+    GROUP BY donor_id
+)
 SELECT
-    c.donor_id,
+    totals.donor_id,
     COUNT(c.sub_id)                  AS donation_count,
-    SUM(c.amount)                    AS total_amount,
+    totals.total_amount,
     AVG(c.amount)                    AS avg_amount,
     MIN(c.receipt_date)              AS first_donation,
     MAX(c.receipt_date)              AS last_donation,
-    COUNT(DISTINCT c.election_cycle) AS election_cycles
-FROM contributions c
-GROUP BY c.donor_id;
+    COUNT(DISTINCT c.election_cycle) AS election_cycles,
+    totals.unclassified_count
+FROM totals
+LEFT JOIN contributions c ON c.donor_id = totals.donor_id AND c.amount > 0
+GROUP BY totals.donor_id, totals.total_amount, totals.unclassified_count;
 
 -- Donor profiles
 CREATE OR REPLACE VIEW v_donor_profile AS
@@ -211,7 +235,7 @@ SELECT
     a.city          AS current_city,
     a.state_code    AS current_state,
     a.zip_code      AS current_zip,
-    -- Ungeocoded addresses (PO boxes) fall back to their ZIP.
+    -- Domestic addresses without coordinates (e.g. PO boxes) may use their ZIP.
     COALESCE(a.latitude, zc.lat)  AS current_lat,
     COALESCE(a.longitude, zc.lng) AS current_lng,
     emp.name        AS current_employer,
@@ -221,11 +245,12 @@ SELECT
     COALESCE(
         prev.name,
         CASE WHEN e.previous_self_employed THEN 'SELF-EMPLOYED' END
-    )               AS previous_employer
+    )               AS previous_employer,
+    s.unclassified_count
 FROM donors d
 LEFT JOIN v_donor_stats              s    ON s.donor_id   = d.donor_id
 LEFT JOIN v_donor_current_address    a    ON a.donor_id   = d.donor_id
-LEFT JOIN zip_centroids              zc   ON zc.zip       = left(a.zip_code, 5)
+LEFT JOIN zip_centroids              zc   ON a.allow_zip_fallback AND zc.zip = left(a.zip_code, 5)
 LEFT JOIN v_donor_current_employment e    ON e.donor_id   = d.donor_id
 LEFT JOIN employers                  emp  ON emp.employer_id           = e.employer_id
 LEFT JOIN occupation_categories      oc   ON oc.occupation_category_id = e.occupation_category_id
@@ -306,7 +331,8 @@ COMMENT ON TABLE addresses             IS 'Shared donor and company addresses.';
 COMMENT ON TABLE employers             IS 'Companies and their default addresses.';
 COMMENT ON TABLE donor_addresses       IS 'Links between donors and addresses.';
 COMMENT ON TABLE donor_employments     IS 'Donor employment details and linked addresses.';
-COMMENT ON TABLE contributions         IS 'Contribution records linked to donors, committees, addresses and employment.';
+COMMENT ON TABLE receipts              IS 'All itemized Schedule A receipts linked to donors, committees, addresses and employment.';
+COMMENT ON VIEW contributions          IS 'Itemized receipts classified as contributions from the reported filing form, line and memo status.';
 COMMENT ON TABLE key_accomplices       IS 'Curated donor card content.';
 COMMENT ON TABLE leaders               IS 'Curated organization leaders.';
 COMMENT ON TABLE leader_committees     IS 'Leader committee memberships.';
@@ -314,7 +340,7 @@ COMMENT ON TABLE us_states             IS 'State FIPS codes, postal codes and na
 COMMENT ON TABLE zcta_state_rel        IS 'ZIP Code Tabulation Areas and state FIPS codes.';
 COMMENT ON TABLE zip_centroids         IS 'ZIP coordinates for geocoding fallback.';
 
-COMMENT ON COLUMN contributions.sub_id IS 'FEC record identifier.';
+COMMENT ON COLUMN receipts.sub_id IS 'FEC record identifier.';
 COMMENT ON COLUMN committees.committee_id IS 'Internal committee identifier.';
 COMMENT ON COLUMN donor_employments.previous_employer_id IS 'Previous company for a retired donor.';
 COMMENT ON COLUMN donor_employments.employer_status IS 'Employment status for this record.';

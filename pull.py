@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pull raw FEC contributions into data/raw/contributions.csv."""
+"""Refresh the processed FEC receipts for one committee and period."""
 from __future__ import annotations
 
 import argparse
@@ -21,9 +21,9 @@ def _current_period(year: int) -> int:
 CURRENT_PERIOD = _current_period(date.today().year)
 
 
-# Validate the committee and period, then pull new records.
+# Validate the committee and period before fetching the full scope.
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
+    ap = argparse.ArgumentParser(description="Save a complete FEC receipt snapshot for a committee and period.")
     ap.add_argument("committee_id", help="Committee ID from committees.csv.")
     ap.add_argument("--period", type=int, default=CURRENT_PERIOD,
                     help="Two-year transaction period (even year, default %(default)s).")
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     period = _current_period(args.period)
     logger.info("=" * 60)
     logger.info(
-        "  FEC pull - %s, period %s, full period, new records only",
+        "  FEC pull - %s, period %s, all current receipts",
         committee_id,
         period,
     )

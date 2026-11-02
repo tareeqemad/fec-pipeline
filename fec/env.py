@@ -61,7 +61,7 @@ REFERENCE_DIR = DATA_DIR / "reference"
 CACHE_DIR = DATA_DIR / "cache"
 OUTPUT_DIR = DATA_DIR / "output"
 REPORTS_DIR = DATA_DIR / "reports"
-# raw FEC data; pull.py appends, nothing rewrites it
+# Original receipts for committee-periods that have not been refreshed.
 RAW_CSV = RAW_DIR / "contributions.csv"
 # FEC's own entity type and id per sub_id; raw unchanged.
 FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
@@ -83,6 +83,7 @@ ADDRESS_CASES_REVIEWED_CSV = RULES_DIR / "address_cases_reviewed.csv"
 MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
 # Reviewed previous employers, each with its source
 PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "previous_employers.csv"
+FILING_PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "filing_previous_employers.csv"
 GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
 # Each filing's donor key from the last run, so keys stay stable.
 DONOR_KEYS_CSV = CACHE_DIR / "donor_keys.csv"

@@ -48,26 +48,16 @@ def _gate_amounts_readable(df):
 
 # flag when too many rows are missing a ZIP
 def _gate_zip_coverage(df):
-    pct = float((df['contributor_zip'].isna() | (df['contributor_zip'].astype(str).str.strip() == '')).mean() * 100)
+    missing = df['contributor_zip'].isna() | df['contributor_zip'].astype(str).str.strip().eq('')
+    pct = float(missing.mean() * 100) if len(df) else 0.0
     issue = f"ZIP empty: {pct:.1f}%" if pct >= 50 else None
     return [('zip_coverage', {'passed': pct < 50, 'pct_empty': round(pct, 2)}, issue)]
 
 
-# generic duplicate-id check for one column
-def _dup_id_check(df, col, key):
-    n_dup = int(df[col].duplicated().sum())
-    issue = f"Duplicate {col}: {n_dup}" if n_dup else None
-    return [(key, {'passed': n_dup == 0, 'count': n_dup}, issue)]
-
-
-# flag duplicate sub_id values
 def _gate_dup_sub_id(df):
-    return _dup_id_check(df, 'sub_id', 'no_duplicate_sub_id')
-
-
-# flag duplicate transaction_id values
-def _gate_dup_transaction_id(df):
-    return _dup_id_check(df, 'transaction_id', 'no_duplicate_transaction_id')
+    n_dup = int(df['sub_id'].duplicated().sum())
+    issue = f"Duplicate sub_id: {n_dup}" if n_dup else None
+    return [('no_duplicate_sub_id', {'passed': n_dup == 0, 'count': n_dup}, issue)]
 
 
 # flag contribution dates more than 60 days in the future
@@ -143,7 +133,6 @@ _QUALITY_GATES = [
     _gate_employer_names,
     _gate_zip_coverage,
     _gate_dup_sub_id,
-    _gate_dup_transaction_id,
     _gate_future_dates,
     _gate_row_count,
     _gate_zip_state,

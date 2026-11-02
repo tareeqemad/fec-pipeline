@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read, clean, check and save FEC contributions."""
+"""Read, clean, check and save itemized FEC receipts."""
 
 import os
 import time
@@ -10,13 +10,16 @@ from fec import env
 from fec.cleaning.addresses.foreign import foreign_address_mask
 from fec.cleaning.pipeline import clean_pipeline
 from fec.cleaning.reports.gates import run_quality_gates
+from fec.cleaning.rules.manual import reviewed_occupation_categories
 from fec.committees import load_committees
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 from fec.contract import CLEAN_COLUMNS, check_output
 from fec.env import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DIR
-from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
+from fec.io import write_csv_atomic, write_json_atomic
 from fec.log import get_logger
+from fec.receipts import read_current_receipts
+from fec.receipt_types import write_receipt_reports
 
 logger = get_logger(__name__)
 
@@ -25,14 +28,13 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     start = time.perf_counter()
     env.load_env()
 
-    input_path = str(RAW_CSV)
     output_path = str(CLEANED_CSV)
     out_dir = str(REPORTS_DIR)
     for folder in (out_dir, CLEANED_CSV.parent):
         os.makedirs(folder, exist_ok=True)
 
-    df = read_pipeline_csv(input_path)
-    logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
+    df = read_current_receipts(RAW_CSV)
+    logger.info("Reading current receipts: %s rows", f"{len(df):,}")
 
     cleaned = clean_pipeline(df, out_dir=out_dir, earlier_keys=_earlier_donor_keys())
     output = cleaned.drop(columns=[
@@ -48,6 +50,7 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     _save_if_gates_pass(output, out_dir, output_path)
     _save_donor_keys(cleaned)
     _write_new_occupations(output, out_dir)
+    write_receipt_reports(output, df, out_dir)
     _print_summary(output, output_path, out_dir, time.perf_counter() - start)
     if expected is None:
         logger.info("Next: python geocode.py")
@@ -131,10 +134,12 @@ def _save_donor_keys(cleaned) -> None:
     write_csv_atomic(keys, str(DONOR_KEYS_CSV), index=False)
 
 
-# Occupations missing from the category table, for optional review.
+# Occupations with neither a general category nor a filing-specific decision.
 def _write_new_occupations(df, out_dir) -> None:
     occupation = df['contributor_occupation'].fillna('')
-    new = df[df['entity_type'].eq('INDIVIDUAL') & occupation.ne('') & ~occupation.isin(CATEGORY_OVERRIDES)]
+    sub_ids = df['sub_id'].astype(str).str.strip()
+    reviewed = occupation.isin(CATEGORY_OVERRIDES) | sub_ids.isin(reviewed_occupation_categories())
+    new = df[df['entity_type'].eq('INDIVIDUAL') & occupation.ne('') & ~reviewed]
     report = new.groupby(['contributor_occupation', 'occupation_category']).size().reset_index(name='rows')
     write_csv_atomic(report, os.path.join(out_dir, 'new_occupations.csv'), index=False)
     if len(report):
@@ -143,10 +148,12 @@ def _write_new_occupations(df, out_dir) -> None:
 
 # Show counts, output paths and elapsed time.
 def _print_summary(df, output, out_dir, elapsed):
-    donors = df.loc[df['entity_type'].eq('INDIVIDUAL'), 'donor_key'].nunique()
+    donations = df[df['receipt_kind'].eq('contribution')]
+    donors = donations.loc[donations['entity_type'].eq('INDIVIDUAL'), 'donor_key'].nunique()
     minutes, seconds = divmod(round(elapsed), 60)
     logger.info("Clean checks passed.")
-    logger.info("Rows: %s | Individual donors: %s", f"{len(df):,}", f"{donors:,}")
+    logger.info("Receipts: %s | Itemized contributions: %s | Individual donors: %s",
+                f"{len(df):,}", f"{len(donations):,}", f"{donors:,}")
     logger.info("Saved: %s", os.path.relpath(output, env.PROJECT_ROOT))
     logger.info("Reports: %s", os.path.relpath(out_dir, env.PROJECT_ROOT))
     logger.info("Completed in %dm %02ds.", minutes, seconds)

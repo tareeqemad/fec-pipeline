@@ -1,6 +1,6 @@
 # FEC Pipeline
 
-Pulls FEC contributions, cleans them, finds map points and loads PostgreSQL.
+Pulls itemized FEC receipts, identifies contributions, finds map points and loads PostgreSQL.
 You need Git, Python 3.12 and PostgreSQL 18.
 
 ## 1. Download and create the environment
@@ -68,8 +68,23 @@ python pull.py C00710848 --period 2026  # DMFI
 python pull.py C00799031 --period 2026  # UDP
 ```
 
-The same command next month adds only new contributions.
+Each command fetches the full processed Schedule A list for that committee and period.
+After the last page arrives, it saves a dated CSV in `data/raw/snapshots/<committee>-<period>/`.
+Cleaning uses only the newest complete CSV in each folder. It uses `data/raw/contributions.csv` for periods without a snapshot.
+An interrupted pull leaves the previous snapshot available.
 For a new committee, first add a row to `data/reference/committees.csv`.
+
+An amendment can replace or remove a receipt. The next complete pull picks up the current amount, name and filing ID.
+If FEC amends an earlier period, rerun the command with that period's even year.
+Older snapshots remain available for comparison. Separate FEC receipts can share a `transaction_id`.
+Corrections scoped to an old `sub_id` need review before applying them to its replacement.
+
+Query `contributions` directly for itemized donations, including earmarked gifts.
+The total includes signed adjustments. Donor counts and averages use positive entries.
+
+```sql
+SELECT SUM(amount) FROM contributions;
+```
 
 ## 5. Clean and load
 
@@ -96,13 +111,21 @@ Warnings worth reading after `clean.py`:
 
 | Folder | What is in it |
 | --- | --- |
-| `data/raw/` | FEC data as pulled; never edited |
+| `data/raw/` | Original receipts and source fields, plus dated snapshots with source fields for refreshed periods |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Address cases, possible duplicate donors and new occupations to review |
 | `data/rules/` | Reviewed decisions, each with its source; a retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
 | `data/config/` | Spelling and word lists; `written_as` is the text as filed |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
 | `data/cache/` | Map points and donor keys from earlier runs; keep it |
+
+An entry in `entity_overrides.csv` can list reviewed filings under `source_exception_sub_ids`. Their original FEC codes stay in the raw data.
+
+Use `filing_previous_employers.csv` when the evidence establishes a former employer for one retired receipt. A rule in `previous_employers.csv` applies to the donor's retired receipts.
+
+An address decision marked `pending` in `address_cases_reviewed.csv` stays in the review report with its source and the detail that still needs verification.
+
+`new_occupations.csv` lists filings whose occupation has neither a general category rule nor a reviewed category for that filing.
 
 ## Update the code
 

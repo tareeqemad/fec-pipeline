@@ -24,7 +24,7 @@ TABLES = [
     "employers",
     "donor_addresses",
     "donor_employments",
-    "contributions",
+    "receipts",
     "us_states",
     "zcta_state_rel",
     "zip_centroids",
@@ -36,6 +36,7 @@ TABLES = [
 
 
 VIEWS = [
+    "contributions",
     "v_donor_current_address",
     "v_donor_current_employment",
     "v_donor_stats",

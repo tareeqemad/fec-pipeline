@@ -114,17 +114,20 @@ def _read_overrides(company_names_only: bool, *, before_matching: bool = False) 
     return {sid: fields.copy() for sid, fields in overrides.items()}
 
 
-def categorize_records(df: pd.DataFrame) -> pd.Series:
-    """Derive categories, honoring reviewed exceptions for exact filing IDs."""
-    expected = categorize_final(df["contributor_occupation"])
+def reviewed_occupation_categories() -> dict[str, str]:
     if not OVERRIDES_CSV.exists():
-        return expected
-    categories = {
+        return {}
+    return {
         sid: fields["occupation_category"]
         for sid, fields in _read_overrides(company_names_only=False).items()
         if "occupation_category" in fields
     }
-    scoped = df["sub_id"].astype(str).str.strip().map(categories)
+
+
+def categorize_records(df: pd.DataFrame) -> pd.Series:
+    """Derive categories, honoring reviewed exceptions for exact filing IDs."""
+    expected = categorize_final(df["contributor_occupation"])
+    scoped = df["sub_id"].astype(str).str.strip().map(reviewed_occupation_categories())
     return expected.where(scoped.isna(), scoped)
 
 

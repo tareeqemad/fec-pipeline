@@ -10,7 +10,7 @@ CLEAN_COLUMNS = (
     'contributor_street_1', 'contributor_street_2',
     'contributor_city', 'contributor_state', 'contributor_zip',
     'contributor_employer', 'contributor_occupation', 'occupation_category',
-    'contribution_receipt_date', 'contribution_receipt_amount',
+    'contribution_receipt_date', 'contribution_receipt_amount', 'receipt_kind',
     'previous_employer',
 )
 DONOR_COORDINATES = ('latitude', 'longitude')

@@ -14,6 +14,7 @@ from fec.env import (
 )
 from fec.io import read_pipeline_csv
 from fec.database.loader.locations import ADDRESS_TRUST_VALUES
+from fec.receipt_types import RECEIPT_KINDS
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -31,6 +32,12 @@ _LOCATION_COLUMNS = {
 
 # Check cleaned columns and quality rules.
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
+    # Old cleaned exports did not retain the filing line needed to classify a receipt.
+    if "receipt_kind" not in df:
+        df["receipt_kind"] = "unclassified"
+    df["receipt_kind"] = df["receipt_kind"].fillna("unclassified").replace("", "unclassified")
+    if not df["receipt_kind"].isin(RECEIPT_KINDS).all():
+        raise ValueError("receipt_kind contains invalid values")
     check_loadable(df.columns)
 
     quality = run_quality_gates(df)

@@ -7,6 +7,7 @@ import pandas as pd
 from fec.cleaning.addresses.foreign import kept_as_filed_mask
 from fec.cleaning.addresses.street_text import _extract_units, normalize_street
 from fec.config.geography import US_STATES
+from fec.config.streets import CARE_OF_RE as _CO_RE
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
@@ -52,10 +53,6 @@ _REPEATED_ADDRESS_START_RE = re.compile(
     r"^(?P<start>\d+[A-Z]?(?:\s+(?:NE|NW|SE|SW|N|S|E|W))?)\s+"
     r"(?P<body>.+\b(?:" + "|".join(_SPLIT_TYPES) + r")\b)\s+(?P=start)$"
 )
-
-# "C/O <name>" forwarding prefix; the real street follows it
-_CO_RE = re.compile(r"^C\s*/\s*O\b\.?\s*", re.IGNORECASE)
-
 
 def _fix_house_number(s):
     """Remove leading zeros; preserve unclear house numbers."""

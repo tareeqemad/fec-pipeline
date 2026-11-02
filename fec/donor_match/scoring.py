@@ -56,7 +56,7 @@ def _shared_evidence(p1: dict, p2: dict) -> tuple:
     common_employers = p1["norm_employers"] & p2["norm_employers"]
     if common_employers:
         score += SCORE_SAME_EMPLOYER
-        employer = list(common_employers)[0][:25]
+        employer = min(common_employers)[:25]
         signals.append(f"employer={employer}(+{SCORE_SAME_EMPLOYER})")
 
     if p1["state"] and p2["state"] and p1["state"] == p2["state"]:

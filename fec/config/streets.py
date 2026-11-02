@@ -4,6 +4,8 @@ import re
 from fec.config.geography import US_STATES
 
 
+CARE_OF_RE = re.compile(r"^C\s*/\s*O\b\.?\s*", re.IGNORECASE)
+
 # PO Box in any format
 POBOX_RE = re.compile(
     r'\bP\.?\s*O\.?\s*BOX\b|\bPOST\s+OFFICE\s+BOX\b',

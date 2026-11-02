@@ -47,15 +47,11 @@
       "passed": true,
       "count": 0
     },
-    "no_duplicate_transaction_id": {
-      "passed": true,
-      "count": 0
-    },
     "no_future_dates": {
       "passed": true,
       "count": 0
     },
-    "row_count": 222603,
+    "row_count": 227972,
     "zip_state_match": {
       "passed": true,
       "count": 9

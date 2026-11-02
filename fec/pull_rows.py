@@ -1,6 +1,7 @@
-"""Turn one FEC API result into one row of contributions.csv."""
+"""Convert FEC Schedule A fields to the project's receipt CSV format."""
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -25,21 +26,28 @@ RAW_FIELDS = [
 ]
 
 
-# FEC fields saved separately in fec_source_fields.csv.
-SOURCE_FIELDS = {
+# Contributor metadata retained in snapshots.
+ENTITY_FIELDS = {
     "fec_entity_type": "entity_type",
     "fec_contributor_id": "contributor_id",
     # the filing page: https://docquery.fec.gov/cgi-bin/fecimg/?<image_number>
     "fec_image_number": "image_number",
 }
 
-FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
+LINE_FIELDS = {
+    "fec_filing_form": "filing_form",
+    "fec_line_number": "line_number",
+    "fec_memo_code": "memo_code",
+}
+SOURCE_FIELDS = {**ENTITY_FIELDS, **LINE_FIELDS}
+FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values()) + ["memoed_subtotal"]
 
 # Keep the raw CSV column order.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
+SNAPSHOT_COLUMNS = [*COLUMNS, *ENTITY_FIELDS, "receipt_kind"]
 
 # matched_by is the match method; fec_sub_id an amendment's ID.
-SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
+SOURCE_COLUMNS = ["sub_id", *ENTITY_FIELDS, "matched_by", "fec_sub_id"]
 
 
 # Reject missing or invalid amounts instead of recording zero.
@@ -53,31 +61,36 @@ def _number(value, sub_id: str) -> Decimal:
     return amount
 
 
-# Build a raw CSV row, skipping filings without an ID.
-def build_row(result: dict[str, Any]) -> list | None:
+# Validate required fields before publishing the receipt.
+def build_row(result: dict[str, Any]) -> list:
     sub_id = str(result.get("sub_id") or "").strip()
-    if not sub_id:
-        return None
+    if not sub_id.isascii() or not sub_id.isdigit():
+        raise ValueError(f"Invalid Schedule A sub_id: {sub_id!r}")
 
     date_value = result.get("contribution_receipt_date")
-    receipt_date = str(date_value)[:10] if date_value and str(date_value).strip() else None
     try:
-        year = int(receipt_date[:4]) if receipt_date else None
+        receipt_date = date.fromisoformat(str(date_value)[:10])
     except ValueError:
-        year = None
+        raise ValueError(f"Invalid contribution_receipt_date for sub_id {sub_id}: {date_value!r}") from None
     values = {field: result.get(field) for field in RAW_FIELDS}
     values["sub_id"] = sub_id
-    values["contribution_receipt_date"] = receipt_date
-    values["contributor_year"] = year
+    values["contribution_receipt_date"] = receipt_date.isoformat()
+    values["contributor_year"] = receipt_date.year
     values["contribution_receipt_amount"] = _number(
         result.get("contribution_receipt_amount"), sub_id
     )
     return [values.get(column) for column in COLUMNS]
 
 
-# Read the FEC source fields saved beside the raw CSV.
+# Read the source fields from the same version of the receipt.
 def source_values(result: dict[str, Any]) -> dict[str, str]:
-    return {
+    values = {
         column: str(result.get(field) or "").strip().upper()
         for column, field in SOURCE_FIELDS.items()
     }
+    subtotal = str(result.get("memoed_subtotal", "")).lower()
+    if subtotal in ("true", "t", "1"):
+        values["fec_memo_code"] = "X"
+    elif "memo_code" not in result and subtotal not in ("false", "f", "0"):
+        values["fec_memo_code"] = "?"
+    return values

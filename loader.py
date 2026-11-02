@@ -91,19 +91,19 @@ def load_all(
         link_previous_employers(cur, df, employer_ids)
     get_employer_id = _make_employer_resolver(employer_ids)
 
-    logger.info("[4/6] Loading addresses, employments and contributions")
+    logger.info("[4/6] Loading addresses, employments and receipts")
     with stage("addresses"):
         address_ids = load_address_dimension(cur, df, employer_locations)
         donor_address_ids = load_donor_addresses(cur, df, donor_ids, address_ids)
     with stage("employments"):
-        employment_ids = load_employments(
+        employment_by_filing = load_employments(
             cur, df, donor_ids, occupation_category_ids, get_employer_id,
             address_ids, employer_locations,
         )
-    with stage("contributions"):
+    with stage("receipts"):
         load_contributions(
             cur, df, donor_ids, committee_ids, donor_address_ids,
-            employment_ids, get_employer_id, occupation_category_ids,
+            employment_by_filing,
         )
     with stage("employer locations"):
         link_employer_locations(cur, address_ids, get_employer_id, employer_locations)

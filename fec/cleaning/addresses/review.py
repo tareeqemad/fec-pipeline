@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning.addresses.review_cases import REVIEW_CASES_CSV, build_review_cases
+from fec.cleaning.addresses.review_cases import PENDING, REVIEW_CASES_CSV, build_review_cases
 from fec.cleaning.addresses.street_reviews import (
     _REPORT_COLUMNS,
     S1,
@@ -99,9 +99,18 @@ def _case_key(donor_key, address_forms) -> tuple:
 def _open_cases(cases: pd.DataFrame) -> pd.DataFrame:
     if cases.empty:
         return cases
-    decided = {_case_key(r["donor_key"], r["address_forms"]) for r in read_rows(ADDRESS_CASES_REVIEWED_CSV)}
-    keys = [_case_key(*case) for case in zip(cases["donor_key"], cases["address_forms"])]
-    return cases[[key not in decided for key in keys]]
+    reviewed = {_case_key(r["donor_key"], r["address_forms"]): r for r in read_rows(ADDRESS_CASES_REVIEWED_CSV)}
+    result = cases.copy()
+    closed = []
+    for idx, donor, forms in cases[["donor_key", "address_forms"]].itertuples():
+        rule = reviewed.get(_case_key(donor, forms))
+        if rule is None:
+            continue
+        if rule["decision"] == PENDING:
+            result.loc[idx, ["decision", "decision_basis", "evidence"]] = [PENDING, rule["note"], rule["source"]]
+        else:
+            closed.append(idx)
+    return result.drop(index=closed)
 
 
 # Write reports after donor repairs and foreign-address restoration.

@@ -7,6 +7,7 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.rules import (
+    FILING_KEY_MERGES,
     HELD_ADDRESSES,
     HELD_FILINGS,
     KEY_MERGES,
@@ -41,25 +42,25 @@ def individual_record_id(name, city, state, suffix="", zip5="") -> str:
     return f"{base}|{suffix}" if suffix else base
 
 
-# hash the record id into the canonical donor_key
+def _hash_key(identity: str) -> str:
+    return hashlib.sha256(identity.encode()).hexdigest()[:12]
+
+
 def individual_donor_key(name, city, state, suffix="", zip5="") -> str:
     """Canonical donor_key; must match leadership_matcher's."""
-    rid = individual_record_id(name, city, state, suffix, zip5)
-    return hashlib.sha256(rid.encode()).hexdigest()[:12]
+    return _hash_key(individual_record_id(name, city, state, suffix, zip5))
 
 
-# build the shared donor key used by organizations and committees
 def non_individual_donor_key(name) -> str:
     """Build the shared key used by organizations and committees."""
-    normalized = normalize_committee_name(name)
-    return hashlib.sha256(normalized.encode()).hexdigest()[:12]
+    return _hash_key(normalize_committee_name(name))
 
 
 # Assign a group root's key to every member.
 def _donor_keys(components: dict) -> dict:
     rid_to_key = {}
     for root, members in components.items():
-        key = hashlib.sha256(root.encode()).hexdigest()[:12]
+        key = _hash_key(root)
         for rid in members:
             rid_to_key[rid] = key
     return rid_to_key
@@ -69,7 +70,6 @@ def _donor_keys(components: dict) -> dict:
 def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     """Apply scored donor keys; committees hash their normalized name."""
 
-    # look up or fall back to compute this row's donor_key
     def _get_key(row):
         if row["entity_type"] != "INDIVIDUAL":
             return non_individual_donor_key(row.get("contributor_name"))
@@ -81,13 +81,9 @@ def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
             row.get("_generational_suffix", ""),
             zip5,
         )
-        return rid_to_key.get(rid, individual_donor_key(
-            row["contributor_name"],
-            row["contributor_city"],
-            row["contributor_state"],
-            row.get("_generational_suffix", ""),
-            zip5,
-        ))
+        if rid in rid_to_key:
+            return rid_to_key[rid]
+        return _hash_key(rid)
 
     df["donor_key"] = df.apply(_get_key, axis=1)
     return df
@@ -193,8 +189,8 @@ def _merge_target(rows: pd.DataFrame, keys: set, names_by_key: dict, suffixes_by
     # >1 distinct real occupation category: could be two people, skip
     if len({o for o in rows["occ"].unique() if o not in _VAGUE_OCC_CATEGORIES}) > 1:
         return {}
-    # winner = key with the most contribution rows
-    winner = rows["key"].value_counts().idxmax()
+    # mode() returns tied keys in sorted order.
+    winner = rows["key"].mode().iat[0]
     return {key: winner for key in keys if key != winner}
 
 
@@ -216,7 +212,7 @@ def keep_earlier_keys(df: pd.DataFrame, earlier: dict) -> list[str]:
     # A new key must not land on an earlier key now held by someone else.
     for new in set(df.loc[people, "donor_key"]) - set(rename):
         if new in taken:
-            rename[new] = hashlib.sha256(f"split|{new}".encode()).hexdigest()[:12]
+            rename[new] = _hash_key(f"split|{new}")
     df.loc[people, "donor_key"] = df.loc[people, "donor_key"].map(lambda key: rename.get(key, key))
     return sorted(set(pairs["old"]) - taken)
 
@@ -224,7 +220,7 @@ def keep_earlier_keys(df: pd.DataFrame, earlier: dict) -> list[str]:
 # repoint verified duplicate keys to their preferred key
 def apply_curated_key_merges(df: pd.DataFrame) -> int:
     """Repoint verified duplicate keys to their preferred key."""
-    if not KEY_MERGES:
+    if not (KEY_MERGES or FILING_KEY_MERGES):
         return 0
     # A rule whose key is gone no longer merges anyone.
     missing = sorted(set(KEY_MERGES) - set(df["donor_key"]))
@@ -236,6 +232,11 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     n = int(mask.sum())
     if n:
         df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(resolve_donor_key)
+    filing_ids = df["sub_id"].astype(str)
+    for drop, keep, sub_ids in FILING_KEY_MERGES:
+        selected = df["donor_key"].eq(drop) & filing_ids.isin(sub_ids)
+        df.loc[selected, "donor_key"] = resolve_donor_key(keep)
+        n += int(selected.sum())
     return n
 
 
@@ -247,9 +248,7 @@ def hold_unproven_filings(df: pd.DataFrame) -> int:
     missing = len(set(HELD_FILINGS) - found)
     if missing:
         logger.warning("  %s held filings not in the data", missing)
-    df.loc[held, "donor_key"] = groups[held].map(
-        lambda group: hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
-    )
+    df.loc[held, "donor_key"] = groups[held].map(lambda group: _hash_key(f"HOLD|{group}"))
     df.loc[held, "identity_status"] = "held"
     return int(held.sum())
 

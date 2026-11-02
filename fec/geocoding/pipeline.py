@@ -7,13 +7,15 @@ from fec.cleaning.addresses.foreign import kept_as_filed_mask
 from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes, save_verified_city_corrections
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, census, nominatim
-from fec.geocoding.validation import accepted_coordinates, confirmed_city, is_po_box, unclear_house_number
+from fec.geocoding.validation import accepted_coordinates, can_geocode_street, confirmed_city
 from fec.log import get_logger
 
 logger = get_logger(__name__)
 
 
 def _contributor_keys(df: pd.DataFrame) -> pd.Series:
+    if df.empty:
+        return pd.Series(index=df.index, dtype="string")
     return df[["contributor_street_1", "contributor_city", "contributor_state",
                "contributor_zip"]].fillna("").astype(str).agg("|".join, axis=1)
 
@@ -30,7 +32,7 @@ def _needs_lookup(key: str, cache: GeoCache) -> bool:
 
 # Try OpenStreetMap, then Census; keep an unmatched address blank.
 def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | None:
-    if not street.strip() or is_po_box(street) or unclear_house_number(street):
+    if not can_geocode_street(street):
         return None
     key = "|".join((street, city, state, zipcode))
     unavailable = None

@@ -10,6 +10,17 @@ def point(lat, lng, country="US", source=None, matched_address=None):
     return result
 
 
+def test_care_of_name_alone_has_no_street_coordinates(monkeypatch):
+    def unexpected_lookup(*args):
+        raise AssertionError("A care-of name alone cannot locate the receipt")
+
+    address = ("C/O EXAMPLE LLC", "NEW YORK", "NY", "10022")
+    monkeypatch.setattr(geo, "nominatim", unexpected_lookup)
+    monkeypatch.setattr(geo, "census", unexpected_lookup)
+    assert geo._geocode_one(*address) is None
+    assert geo.accepted_coordinates("|".join(address), point(40.76, -73.97, source="nominatim"))[:2] == (None, None)
+
+
 def _cache(entry):
     cache = GeoCache.__new__(GeoCache)
     cache.path, cache.data = None, {"10 MAIN ST|AUSTIN|TX|78701": entry}
