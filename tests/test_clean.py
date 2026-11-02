@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 import clean as cli
 from fec.cleaning.donors.clean import identify_donors
-from fec.cleaning.work.employer_names import apply_employer_synonyms
+from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.addresses.streets import clean_streets
 
 
@@ -135,7 +135,7 @@ def test_apply_synonyms_rewrites_the_audit_examples():
         'entity_type': ['INDIVIDUAL'] * 6,
         'contributor_employer': ['SPGI', 'NMRK', 'JPMC', 'C21 STORES', 'ABINITIO SOFTWARE', 'SOFTERWARE'],
     })
-    df, _ = apply_employer_synonyms(df)
+    apply_reviewed_employer_names(df, ("contributor_employer",))
     assert df['contributor_employer'].tolist() == [
         'S&P GLOBAL', 'NMRK', 'JPMC', 'CENTURY 21 STORES',
         'AB INITIO SOFTWARE', 'SOFTERWARE',

@@ -38,8 +38,8 @@ def _fill_null_occupation_category(df: pd.DataFrame, is_indiv: pd.Series) -> int
 
 
 # fix contradictory NOT DISCLOSED occupation with SELF-EMPLOYED employer
-def _fix_bitton_edge_case(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """L. occ='NOT DISCLOSED' + emp='SELF-EMPLOYED' -> contradictory; fix status."""
+def _fix_not_disclosed_self_employed(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    """L. occ='NOT DISCLOSED' + emp='SELF-EMPLOYED' -> contradictory; fix category."""
     mask = (
         is_indiv
         & (df['contributor_occupation'].fillna('').str.upper() == 'NOT DISCLOSED')

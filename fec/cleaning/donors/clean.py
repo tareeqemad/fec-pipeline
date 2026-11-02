@@ -101,8 +101,8 @@ def standardize(
     build_donor_dedup_review(df, out_dir)
 
     trail.run(
-        df, _clear_non_individual_names, "non_individual_names",
-        "non_individual_person_names_cleared", NAME_FIELDS,
+        df, _clear_non_individual_fields, "non_individual_fields",
+        "non_individual_person_fields_cleared", NAME_FIELDS + ("contributor_employer",),
     )
     df.loc[original_keys.index, "donor_key"] = original_keys
     return df
@@ -165,9 +165,9 @@ def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> None:
         trail.run(df, fix, step, reason, fields)
 
 
-def _clear_non_individual_names(df: pd.DataFrame) -> int:
-    name_cols = ["contributor_first_name", "contributor_last_name"]
-    mask = (df["entity_type"] != "INDIVIDUAL") & df[name_cols].notna().any(axis=1)
-    if mask.any():
-        df.loc[mask, name_cols] = np.nan
+# Committees and organizations have no person name or employer.
+def _clear_non_individual_fields(df: pd.DataFrame) -> int:
+    fields = ["contributor_first_name", "contributor_last_name", "contributor_employer"]
+    mask = (df["entity_type"] != "INDIVIDUAL") & df[fields].notna().any(axis=1)
+    df.loc[mask, fields] = np.nan
     return int(mask.sum())

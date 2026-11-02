@@ -35,7 +35,7 @@ from fec.cleaning.rules.junk import (
     _clean_junk_status_word_employer,
     clean_remaining_junk,
 )
-from fec.cleaning.rules.steps import ALL_ROWS, INDIVIDUALS, SAFETY_RULES
+from fec.cleaning.rules.steps import ALL_ROWS, SAFETY_RULES
 
 
 _NAME_ONLY = ('contributor_name',)
@@ -110,13 +110,12 @@ def apply_record_rules(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
 def _apply_safety_rules(df: pd.DataFrame, trail: AuditTrail) -> None:
     """Run each safety rule on its declared rows."""
     individuals = df['is_individual'].astype(bool)
-    non_individuals = ~individuals
 
     for rule, scope, fields, reason in SAFETY_RULES:
         if scope == ALL_ROWS:
             transform = rule
         else:
-            def transform(frame, rule=rule, mask=individuals if scope == INDIVIDUALS else non_individuals):
-                return rule(frame, mask)
+            def transform(frame, rule=rule):
+                return rule(frame, individuals)
         step = 'safety_' + rule.__name__.lstrip('_')
         trail.run(df, transform, step, reason, fields)

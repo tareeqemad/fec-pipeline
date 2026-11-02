@@ -32,32 +32,12 @@ _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
 
 
 
-# null contributor_employer under mask
-def _null_employer_where(df: pd.DataFrame, mask: pd.Series) -> int:
-    n_changed = int(mask.sum())
-    if n_changed:
-        df.loc[mask, 'contributor_employer'] = np.nan
-    return n_changed
-
-
-# clear employer when it is a refusal word (PRIVATE, CONFIDENTIAL)
-def _clear_refusal_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """M. Employer is a refusal word (PRIVATE, CONFIDENTIAL): clear it."""
-    mask = is_indiv & df['contributor_employer'].fillna('').str.upper().str.strip().isin(REFUSAL_EMPLOYERS)
-    n_fixed = int(mask.sum())
-    if not n_fixed:
-        return 0
-
+# A refusal word or an email address is no employer.
+def _clear_fake_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
+    employer = df['contributor_employer'].fillna('').str.upper().str.strip()
+    mask = is_indiv & (employer.isin(REFUSAL_EMPLOYERS) | employer.str.contains('@', regex=False))
     df.loc[mask, 'contributor_employer'] = pd.NA
-    return n_fixed
-
-
-# clear employer when it holds an email address
-def _fix_email_employer_final(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """R. Final pass: email in employer -> NaN."""
-    emp = df['contributor_employer'].fillna('')
-    mask = is_indiv & emp.str.contains('@', na=False, regex=False)
-    return _null_employer_where(df, mask)
+    return int(mask.sum())
 
 
 # normalize RETIRED typos, splitting any trailing text off

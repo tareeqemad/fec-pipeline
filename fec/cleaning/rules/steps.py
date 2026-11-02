@@ -11,13 +11,11 @@ from fec.cleaning.rules.addresses import (
     _fix_pr_zip_wrong_state,
 )
 from fec.cleaning.rules.committee import (
-    _fix_committee_employer,
     _fix_misclassified_foundation,
 )
 from fec.cleaning.rules.employer import (
-    _clear_refusal_employers,
+    _clear_fake_employers,
     _fix_choose_prefix,
-    _fix_email_employer_final,
     _fix_retired_typos,
     _null_sector_as_employer,
 )
@@ -35,7 +33,7 @@ from fec.cleaning.rules.name_fields import (
 )
 from fec.cleaning.rules.occupation import (
     _fill_null_occupation_category,
-    _fix_bitton_edge_case,
+    _fix_not_disclosed_self_employed,
     _fix_web_artifact_occupation,
     _null_junk_occupation,
 )
@@ -47,20 +45,15 @@ from fec.cleaning.rules.occupation_context import _disambiguate_vague_occupation
 
 ALL_ROWS = "all"
 INDIVIDUALS = "individuals"
-NON_INDIVIDUALS = "non_individuals"
 
 # (rule, scope, fields it writes, audit reason)
 SAFETY_RULES = (
-    (_fix_committee_employer, NON_INDIVIDUALS, WORK_FIELDS,
-     'committee_employer_cleared'),
     (_fill_null_occupation_category, INDIVIDUALS, WORK_FIELDS,
      'null_occupation_category_filled'),
-    (_fix_bitton_edge_case, INDIVIDUALS, WORK_FIELDS,
+    (_fix_not_disclosed_self_employed, INDIVIDUALS, WORK_FIELDS,
      'not_disclosed_self_employed_contradiction_fixed'),
-    (_clear_refusal_employers, INDIVIDUALS, WORK_FIELDS,
-     'refusal_placeholder_employer_nulled'),
-    (_fix_email_employer_final, INDIVIDUALS, WORK_FIELDS,
-     'email_in_employer_nulled'),
+    (_clear_fake_employers, INDIVIDUALS, WORK_FIELDS,
+     'refusal_or_email_employer_nulled'),
     (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
      'retired_variant_normalized_or_tail_split_to_previous_employer'),
     (_fix_employer_equals_occupation, INDIVIDUALS, WORK_FIELDS,

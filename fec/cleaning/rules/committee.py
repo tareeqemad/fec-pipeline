@@ -15,16 +15,6 @@ _TITLES = frozenset({
 })
 
 
-# clear employer field for committee/PAC rows
-def _fix_committee_employer(df: pd.DataFrame, is_comm: pd.Series) -> int:
-    """A. Committees carry no employer -> clear it."""
-    mask = is_comm & (df['contributor_employer'].fillna('').str.strip() != '')
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'contributor_employer'] = np.nan
-    return n_fixed
-
-
 # reclassify an organization name parsed as a person
 def _fix_misclassified_foundation(df: pd.DataFrame) -> int:
     """Reclassify an organization parsed as a person."""

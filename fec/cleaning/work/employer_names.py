@@ -24,11 +24,6 @@ _OCC_AS_EMPLOYER = frozenset({
 assert _OCC_AS_EMPLOYER <= (OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER), 'keep _OCC_AS_EMPLOYER inside the config lists'
 
 
-def apply_employer_synonyms(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Apply explicit company rules to existing names."""
-    return df, apply_reviewed_employer_names(df, ("contributor_employer",))
-
-
 def expand_abbreviation_text(values: pd.Series) -> pd.Series:
     """Only reviewed full company names expand an abbreviation."""
     return values.map(reviewed_employer_name)
@@ -61,7 +56,6 @@ def finalize_employer_names(df: pd.DataFrame, trail=None) -> pd.DataFrame:
     trail = trail or AuditTrail()
     for fix, step, reason in (
         (tidy_slash_spacing, 'final_employer_slash_spacing', 'slash_spacing_unified'),
-        (apply_employer_synonyms, 'final_employer_synonyms', 'verified_same_company'),
     ):
         df, _ = trail.run(df, fix, step, reason, ('contributor_employer',))
     trail.run(
