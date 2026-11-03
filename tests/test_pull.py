@@ -35,83 +35,67 @@ def test_fetch_page_stops_after_rate_limit_timeout(monkeypatch):
         fec_api.fetch_page(Session(), {"api_key": "secret"}, Limiter())
 
 
-def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
+def _filing(sub_id, name="DONOR, ONE", **fields):
+    return {"sub_id": sub_id, "committee_id": "C00000001", "two_year_transaction_period": 2026,
+            "contributor_name": name, "contribution_receipt_date": "2026-02-03T12:00:00",
+            "contribution_receipt_amount": "25.50", "entity_type": "ind", **fields}
+
+
+def _saved(tmp_path, monkeypatch):
     csv_path = tmp_path / "contributions.csv"
-    existing = pull.build_row({
-        "sub_id": "1",
-        "committee_id": "C00000001",
-        "two_year_transaction_period": 2026,
-        "contribution_receipt_date": "2026-08-31T00:00:00",
-        "contribution_receipt_amount": 10,
-    })
+    rows = [pull.build_row(_filing("1")),
+            pull.build_row({**_filing("9"), "committee_id": "C00000002"})]
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(pull.COLUMNS)
-        writer.writerow(existing)
-
-    params_seen = {}
-
-    def fake_pages(_session, params, _limiter):
-        params_seen.update(params)
-        late_filing = {
-            "sub_id": "2",
-            "committee_id": "C00000001",
-            "two_year_transaction_period": 2026,
-            "contributor_name": "JOSÉ TEST",
-            "contribution_receipt_date": "2026-02-03T12:00:00",
-            "contribution_receipt_amount": "25.50",
-        }
-        yield {"results": [
-            {"sub_id": "1", "committee_id": "C00000001"},
-            late_filing, late_filing,
-            {"committee_id": "C00000001"},
-        ], "pagination": {}}
-        yield {"results": [late_filing], "pagination": {}}
-
-    class FakeSession:
-        def get(self, *args, **kwargs):
-            raise AssertionError("iter_pages should be mocked")
-
+        writer.writerows(rows)
     monkeypatch.setattr(pull, "RAW_CSV", csv_path)
-    monkeypatch.setattr(pull, "build_session", FakeSession)
-    monkeypatch.setattr(pull, "iter_pages", fake_pages)
+    monkeypatch.setattr(pull, "build_session", lambda: None)
     monkeypatch.setenv("FEC_API_KEY", "test")
+    return csv_path
 
-    pull.run("C00000001", 2026)
+
+def _pages(monkeypatch, *pages):
+    monkeypatch.setattr(pull, "iter_pages", lambda *_args: iter(pages))
+
+
+def test_run_replaces_one_scope_and_skips_actblue_memos(tmp_path, monkeypatch):
+    csv_path = _saved(tmp_path, monkeypatch)
+    results = [_filing("2", name="JOSÉ TEST"), _filing("3", name="ACTBLUE", memo_code="X"),
+               _filing("4", name="DONOR, TWO", memo_code="X")]
+    _pages(monkeypatch, {"results": results, "pagination": {"count": 3, "is_count_exact": True}},
+           {"results": [], "pagination": {}})
+
     pull.run("C00000001", 2026)
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    assert [row["sub_id"] for row in rows] == ["1", "2"]
-    assert rows[1]["contributor_name"] == "JOSÉ TEST"
-    assert rows[1]["contributor_year"] == "2026"
-    assert rows[0]["contribution_receipt_amount"] == "10"
-    assert rows[1]["contribution_receipt_amount"] == "25.50"
-    assert "min_date" not in params_seen
+    assert [row["sub_id"] for row in rows] == ["9", "2", "4"]
+    assert rows[1]["contributor_name"] == "JOSÉ TEST" and "memo_code" not in rows[1]
     with pull.source_path(csv_path).open(encoding="utf-8", newline="") as handle:
-        assert [row["sub_id"] for row in csv.DictReader(handle)] == ["2"]
+        sources = list(csv.DictReader(handle))
+    assert [row["sub_id"] for row in sources] == ["2", "4"]
+    assert sources[0]["fec_entity_type"] == "IND"
 
 
-def _raw(sub_id, name="AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE", tx="SA11AI.1", date="2024-10-18", amount="11000000.00"):
-    return {"sub_id": sub_id, "transaction_id": tx, "two_year_transaction_period": "2024", "committee_id": "C00797670",
-            "contributor_name": name, "contribution_receipt_date": date, "contribution_receipt_amount": amount,
-            "is_individual": "True"}
+@pytest.mark.parametrize("pages", [
+    ({"results": [], "pagination": {}},),
+    ({"results": [_filing("2")], "pagination": {"count": 2, "is_count_exact": True}},
+     {"results": [], "pagination": {}}),
+])
+def test_run_saves_nothing_from_an_empty_or_short_pull(tmp_path, monkeypatch, pages):
+    csv_path = _saved(tmp_path, monkeypatch)
+    before = csv_path.read_bytes()
+    _pages(monkeypatch, *pages)
+    with pytest.raises(fec_api.PullError):
+        pull.run("C00000001", 2026)
+    assert csv_path.read_bytes() == before
 
 
-def _result(sub_id, entity="ORG", contributor_id="", **raw):
-    return {**_raw(sub_id, **raw), "entity_type": entity, "contributor_id": contributor_id}
+def test_iter_pages_stops_when_fec_ends_early(monkeypatch):
+    class Limiter:
+        pass
 
-
-def test_source_file_keeps_other_rows_when_appending(tmp_path):
-    path = tmp_path / "fec_source_fields.csv"
-    first = pull._source_record("1", {**_result("1", entity="IND"), "image_number": "202410189698745485"})
-    second = pull._source_record("5", _result("5", contributor_id="C00000935"))
-    pull.append_source_fields(path, [first])
-    pull.append_source_fields(path, [second])
-    with path.open(encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        assert reader.fieldnames == pull.SOURCE_COLUMNS
-        assert list(reader) == [first, second]
-    assert first["fec_entity_type"] == "IND" and first["fec_image_number"] == "202410189698745485"
-    assert second["fec_entity_type"] == "ORG" and second["fec_contributor_id"] == "C00000935"
-    assert pull.source_path(tmp_path / "contributions.csv") == path
+    monkeypatch.setattr(pull, "fetch_page", lambda *_args: {"results": [_filing("2")], "pagination": {}})
+    with pytest.raises(fec_api.PullError):
+        list(pull.iter_pages(None, {}, Limiter()))

@@ -33,7 +33,8 @@ SOURCE_FIELDS = {
     "fec_image_number": "image_number",
 }
 
-FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
+# memo_code is read while pulling and never saved.
+FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values()) + ["memo_code"]
 
 # Keep the raw CSV column order.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]

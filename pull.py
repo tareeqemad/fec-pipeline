@@ -21,9 +21,9 @@ def _current_period(year: int) -> int:
 CURRENT_PERIOD = _current_period(date.today().year)
 
 
-# Validate the committee and period, then pull new records.
+# Validate the committee and period, then replace its records.
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
+    ap = argparse.ArgumentParser(description="Replace a committee's period with FEC's current records.")
     ap.add_argument("committee_id", help="Committee ID from committees.csv.")
     ap.add_argument("--period", type=int, default=CURRENT_PERIOD,
                     help="Two-year transaction period (even year, default %(default)s).")
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     period = _current_period(args.period)
     logger.info("=" * 60)
     logger.info(
-        "  FEC pull - %s, period %s, full period, new records only",
+        "  FEC pull - %s, period %s, replacing with current records",
         committee_id,
         period,
     )
