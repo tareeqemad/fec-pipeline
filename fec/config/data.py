@@ -105,8 +105,6 @@ OUTPUT_COLUMNS = [
     # Contribution; amounts alone mark refunds (below zero).
     'contribution_receipt_date',
     'contribution_receipt_amount',
-    # What FEC itself says about the contributor.
-    'fec_entity_type', 'fec_contributor_id', 'fec_image_number',
 ]
 
 # Working columns no writer may save; coordinates are kept.
@@ -117,8 +115,4 @@ INTERNAL_OUTPUT_COLUMNS = [
     'employment_source',  # kept in the cleaning audit only
     '_generational_suffix',  # identity evidence from the raw contributor name
     'geocode_level',  # how the donor coordinate was derived
-    # FEC's own type and id, read while cleaning, never written.
-    'fec_entity_type',
-    'fec_contributor_id',
-    'fec_image_number',
 ]

@@ -61,10 +61,8 @@ REFERENCE_DIR = DATA_DIR / "reference"
 CACHE_DIR = DATA_DIR / "cache"
 OUTPUT_DIR = DATA_DIR / "output"
 REPORTS_DIR = DATA_DIR / "reports"
-# raw FEC data; pull.py replaces one committee and period
+# raw FEC data; pull.py appends, nothing rewrites it
 RAW_CSV = RAW_DIR / "contributions.csv"
-# FEC's own entity type and id per sub_id; raw unchanged.
-FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
 CLEANED_CSV = OUTPUT_DIR / "contributions_cleaned.csv"
 # Company offices, gathered once; new companies are added by hand.
 EMPLOYER_LOCATIONS_CSV = REFERENCE_DIR / "employer_locations.csv"

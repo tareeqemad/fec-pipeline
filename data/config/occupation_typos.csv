@@ -79,3 +79,23 @@ REAL ESTATE AGENT - COMMERICAL,REAL ESTATE AGENT - COMMERCIAL,
 REAL ESTATE INVESTMENT & MANAGMENT,REAL ESTATE INVESTMENT & MANAGEMENT,
 SENIOR ADVISOR ASSET MANAGMENT,SENIOR ADVISOR ASSET MANAGEMENT,
 "SENIOR ASSOCIATE, PUBIC ACCOUNTING","SENIOR ASSOCIATE, PUBLIC ACCOUNTING",
+MARKETINH,MARKETING,The original contains MARKETINH. A separate receipt for the same contributor also reports SELF as employer and spells the occupation MARKETING. https://docquery.fec.gov/cgi-bin/fecimg/?202205209512507407
+REAL ESTATE DEVELOPRT,REAL ESTATE DEVELOPER,Normalize the filed typo or abbreviation REAL ESTATE DEVELOPRT to REAL ESTATE DEVELOPER. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202603309856884318
+GENERAL MGR,GENERAL MANAGER,Normalize the filed typo or abbreviation GENERAL MGR to GENERAL MANAGER. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202603309856884844
+PHYSIVIAN,PHYSICIAN,Correct the single-letter occupation typo PHYSIVIAN to PHYSICIAN. Keep the filed retirement marker for employer and do not assign a former company. https://docquery.fec.gov/dcdev/posted/1962214.fec
+NURSING JOME OWNER,NURSING HOME OWNER,Normalize the filed typo or abbreviation NURSING JOME OWNER to NURSING HOME OWNER. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202605139866954458
+INS AGENT,INSURANCE AGENT,Normalize the filed typo or abbreviation INS AGENT to INSURANCE AGENT. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317320
+RWTIRED,RETIRED,The receipt pairs IBM with the single-letter typo RWTIRED. A prior receipt at the same street already reports retired. Restore retirement and preserve the explicitly named IBM as former employer for this filing. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317354
+CORP DEV,CORPORATE DEVELOPMENT,Normalize the filed typo or abbreviation CORP DEV to CORPORATE DEVELOPMENT. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317499
+QUANT DEV,QUANT DEVELOPER,Normalize the filed typo or abbreviation QUANT DEV to QUANT DEVELOPER. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317512
+CORP. OFFICER,CORPORATE OFFICER,Normalize the filed typo or abbreviation CORP. OFFICER to CORPORATE OFFICER. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317671
+REAL EASTE,REAL ESTATE,Normalize the filed typo or abbreviation REAL EASTE to REAL ESTATE. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317682
+PROP MGT,PROPERTY MANAGER,Normalize the filed typo or abbreviation PROP MGT to PROPERTY MANAGER. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317687
+EXEC SEARCH,EXECUTIVE SEARCH,Normalize the filed typo or abbreviation EXEC SEARCH to EXECUTIVE SEARCH. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317741
+SR ENGINEERING MANAGER,SENIOR ENGINEERING MANAGER,Normalize the filed typo or abbreviation SR ENGINEERING MANAGER to SENIOR ENGINEERING MANAGER. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317746
+REAL ESTSATE EXECUTIVE,REAL ESTATE EXECUTIVE,Normalize the filed typo or abbreviation REAL ESTSATE EXECUTIVE to REAL ESTATE EXECUTIVE. Other FEC receipts for this donor corroborate the wording. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317805
+HOMEBUILER,HOME BUILDER,The receipt names JS Homes and misspells home builder. Jeffrey Schwartz describes himself as a homebuilder on his employer’s own team page. https://www.jshomesde.com/about/our-team
+SOFTWARE ENG,SOFTWARE ENGINEER,Normalize the filed typo or abbreviation SOFTWARE ENG to SOFTWARE ENGINEER. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317881
+STRATEGIC ACCT MANAGER,STRATEGIC ACCOUNT MANAGER,Normalize the filed typo or abbreviation STRATEGIC ACCT MANAGER to STRATEGIC ACCOUNT MANAGER. https://docquery.fec.gov/cgi-bin/fecimg/?202610209916317890
+HEALTHYCARE,HEALTHCARE,A separate self-employed receipt for the same contributor spells the field HEALTHCARE. Preserve the broad field as stated. https://docquery.fec.gov/cgi-bin/fecimg/?202605139866954565
+LAWYEE,LAWYER,The source spells the job LAWYEE. A separate FEC receipt from the same donor and law firm spells it LAWYER. https://docquery.fec.gov/cgi-bin/fecimg/?202608209903329140

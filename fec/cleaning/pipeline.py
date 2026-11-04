@@ -22,7 +22,6 @@ from fec.cleaning.entities import (
     _clear_individual_residue,
     _reclassify_entities,
     _restore_reclassified_committees,
-    attach_source_fields,
 )
 from fec.cleaning.rules.manual import (
     FILED_WORK_FIELDS,
@@ -135,7 +134,6 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
         logger.warning("WARNING: %s", '; '.join(warnings))
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
-    attach_source_fields(df)
     return df
 
 

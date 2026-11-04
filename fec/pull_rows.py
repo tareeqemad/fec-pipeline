@@ -25,22 +25,10 @@ RAW_FIELDS = [
 ]
 
 
-# FEC fields saved separately in fec_source_fields.csv.
-SOURCE_FIELDS = {
-    "fec_entity_type": "entity_type",
-    "fec_contributor_id": "contributor_id",
-    # the filing page: https://docquery.fec.gov/cgi-bin/fecimg/?<image_number>
-    "fec_image_number": "image_number",
-}
-
-# memo_code is read while pulling and never saved.
-FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values()) + ["memo_code"]
+FIELDS = RAW_FIELDS
 
 # Keep the raw CSV column order.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
-
-# matched_by is the match method; fec_sub_id an amendment's ID.
-SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
 # Reject missing or invalid amounts instead of recording zero.
@@ -74,11 +62,3 @@ def build_row(result: dict[str, Any]) -> list | None:
         result.get("contribution_receipt_amount"), sub_id
     )
     return [values.get(column) for column in COLUMNS]
-
-
-# Read the FEC source fields saved beside the raw CSV.
-def source_values(result: dict[str, Any]) -> dict[str, str]:
-    return {
-        column: str(result.get(field) or "").strip().upper()
-        for column, field in SOURCE_FIELDS.items()
-    }

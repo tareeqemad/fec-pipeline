@@ -68,8 +68,7 @@ python pull.py C00710848 --period 2026  # DMFI
 python pull.py C00799031 --period 2026  # UDP
 ```
 
-Each command replaces that committee and period with FEC's current records, so FEC amendments are picked up.
-An interrupted or incomplete pull saves nothing.
+The same command next month adds only new transactions. An amended amount only logs a warning; review it by hand.
 For a new committee, first add a row to `data/reference/committees.csv`.
 
 ## 5. Clean and load

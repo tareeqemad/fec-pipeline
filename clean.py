@@ -51,7 +51,7 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
     _print_summary(output, output_path, out_dir, time.perf_counter() - start)
     if expected is None:
         logger.info("Next: python geocode.py")
-    return output
+    return output[list(CLEAN_COLUMNS)]
 
 
 # City corrections may rename keys but keep contributions and donors.

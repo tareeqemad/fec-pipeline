@@ -1,10 +1,7 @@
 """Classify contributors and apply entity corrections."""
 from __future__ import annotations
 
-from pathlib import Path
 import pandas as pd
-from fec.donor_match.rules import held_groups
-from fec.env import FEC_SOURCE_CSV
 import re
 import numpy as np
 from fec.cleaning._helpers import _norm, _indiv_idx
@@ -25,51 +22,6 @@ from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
 from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE, SWAP_JOB_TITLES
-
-
-SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
-
-# FEC entity codes; a candidate (CAN) giving is a person.
-FEC_ENTITY_TYPES = {
-    "IND": "INDIVIDUAL",
-    "CAN": "INDIVIDUAL",
-    "ORG": "ORGANIZATION",
-    "COM": "COMMITTEE/PAC",
-    "PAC": "COMMITTEE/PAC",
-    "PTY": "COMMITTEE/PAC",
-    "CCM": "COMMITTEE/PAC",
-}
-
-
-def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
-    """Attach FEC source fields by sub_id; leave missing values blank."""
-    source = (
-        pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates("sub_id", keep="last").set_index("sub_id")
-        if Path(path).exists() else pd.DataFrame(columns=list(SOURCE_COLUMNS))
-    )
-    sub_ids = df["sub_id"].astype(str).str.strip()
-    for column in SOURCE_COLUMNS:
-        values = source[column] if column in source.columns else pd.Series(dtype=object)
-        df[column] = sub_ids.map(values).fillna("").astype(str).str.strip().str.upper().to_numpy()
-
-
-def source_entity_type(df: pd.DataFrame) -> pd.Series:
-    """Map FEC codes to entity types, leaving unknown codes blank."""
-    if "fec_entity_type" not in df.columns:
-        return pd.Series("", index=df.index, dtype=object)
-    codes = df["fec_entity_type"].astype("string").fillna("").str.strip().str.upper()
-    return codes.map(FEC_ENTITY_TYPES).fillna("").astype(object)
-
-
-def deciding_source_type(df: pd.DataFrame) -> pd.Series:
-    """Use FEC's type only for confirmed filings."""
-    source = source_entity_type(df)
-    if not source.ne("").any():
-        return source
-    undecided = held_groups(df) != ""
-    if "identity_status" in df.columns:
-        undecided |= df["identity_status"].fillna("confirmed").ne("confirmed")
-    return source.where(~undecided, "")
 
 
 _GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
@@ -250,26 +202,11 @@ def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
         [individuals, organizations], ["INDIVIDUAL", "ORGANIZATION"], default="COMMITTEE/PAC"
     )
 
-    _apply_source_entity_type(df)
     _enforce_entity_name_consistency(df)
 
     df.loc[df["entity_type"] == "ORGANIZATION", "occupation_category"] = "ORGANIZATION"
     df.loc[df["entity_type"] == "COMMITTEE/PAC", "occupation_category"] = "POLITICAL COMMITTEE"
     return n_to_indiv, n_to_comm
-
-
-def _apply_source_entity_type(df: pd.DataFrame) -> int:
-    """Prefer FEC's type; mark new people for work restoration."""
-    source = deciding_source_type(df)
-    differs = source.ne("") & source.ne(df["entity_type"])
-    if not differs.any():
-        return 0
-    to_person = differs & source.eq("INDIVIDUAL")
-    df.loc[to_person, "_reclass_reason"] = "committee_to_individual_fec_source"
-    df.loc[differs & ~to_person, "_reclass_reason"] = "fec_source_entity_type"
-    df.loc[differs, "entity_type"] = source[differs]
-    df.loc[differs, "is_individual"] = to_person[differs]
-    return int(differs.sum())
 
 
 def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool) -> int:
@@ -319,7 +256,7 @@ def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
 
 
 def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
-    """Use ORGANIZATION for matching names unless FEC supplied a type."""
+    """Use ORGANIZATION for matching names."""
     org_names = set(
         df.loc[df["entity_type"] == "ORGANIZATION", "contributor_name"].dropna()
     )
@@ -328,7 +265,6 @@ def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
     fix = (
         (df["entity_type"] == "COMMITTEE/PAC")
         & df["contributor_name"].isin(org_names)
-        & source_entity_type(df).eq("")
     )
     n_changed = int(fix.sum())
     if n_changed:
