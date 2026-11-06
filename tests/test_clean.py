@@ -173,3 +173,16 @@ def test_keys_stay_with_their_filings_across_runs():
     lost = keep_earlier_keys(df, {'1': 'old-a', '2': 'old-a', '3': 'old-x', '4': 'old-b', '5': 'old-a'})
     assert df['donor_key'].tolist() == ['old-a', 'old-a', 'old-a', 'old-b', 'old-b', 'new-c']
     assert lost == ['old-x']
+
+
+def test_own_name_employer_handles_missing_name_parts():
+    from fec.cleaning.rules.name_fields import _fix_own_name_as_employer
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_first_name': [None, 'JANE'],
+        'contributor_last_name': ['DOE', 'DOE'],
+        'contributor_employer': ['ACME CORP', 'JANE DOE'],
+    })
+
+    assert _fix_own_name_as_employer(df) == 1
+    assert df['contributor_employer'].tolist() == ['ACME CORP', 'SELF-EMPLOYED']
