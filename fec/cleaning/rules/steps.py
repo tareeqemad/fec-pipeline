@@ -19,7 +19,6 @@ from fec.cleaning.rules.employer import (
     _null_sector_as_employer,
 )
 from fec.cleaning.rules.employer_swaps import (
-    _fix_employer_equals_occupation,
     _fix_employer_is_occupation_word,
     _fix_role_as_employer,
     _fix_self_employed_consistency,
@@ -52,8 +51,6 @@ SAFETY_RULES = (
      'refusal_or_email_employer_nulled'),
     (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
      'retired_variant_normalized_or_tail_split_to_previous_employer'),
-    (_fix_employer_equals_occupation, INDIVIDUALS, WORK_FIELDS,
-     'employer_equals_occupation_self_employed'),
     (_fix_employer_is_occupation_word, INDIVIDUALS, WORK_FIELDS,
      'occupation_word_in_employer_resolved'),
     (_fix_misclassified_foundation, ALL_ROWS, PEOPLE_FIELDS,

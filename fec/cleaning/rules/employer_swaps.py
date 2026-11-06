@@ -108,25 +108,6 @@ def occupation_holds_company(df: pd.DataFrame, occ: pd.Series, emp: pd.Series, c
     return marker | _occupation_names_no_job(df, occ, org_title)
 
 
-# set employer to SELF-EMPLOYED when it duplicates the occupation
-def _fix_employer_equals_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """Employer equals occupation: SELF-EMPLOYED, except real companies."""
-    emp = df['contributor_employer'].fillna('')
-    occ = df['contributor_occupation'].fillna('')
-    looks_like_company = emp.str.contains(_COMPANY_NAME_RE, na=False)
-    mask = (
-        is_indiv
-        & (emp == occ)
-        & emp.ne('')
-        & ~emp.isin(SKIP_EMPLOYERS)
-        & ~looks_like_company
-    )
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'contributor_employer'] = 'SELF-EMPLOYED'
-    return n_fixed
-
-
 # fix employer field that actually holds an occupation word
 def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> int:
     """Employer is an occupation word: swap or set SELF-EMPLOYED."""

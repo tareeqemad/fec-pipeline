@@ -22,7 +22,7 @@ from fec.cleaning.work.employer_aliases import (
     documented_employer_name, employer_rule_key, reviewed_employer_name,
 )
 from fec.cleaning.work.status import is_job_title, is_real_employer
-from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
+from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SKIP_EMPLOYERS
 from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE, SWAP_JOB_TITLES
 
@@ -72,12 +72,15 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
     return source.where(~undecided, "")
 
 
-_GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
-    'NOT DISCLOSED', 'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
+# Placeholders and life statuses are left to their own rules.
+_NOT_WORK = STATUS_CATEGORIES | SKIP_EMPLOYERS | frozenset({'EMPLOYED'})
+# Job and field words that is_job_title does not recognise.
+_JOB_WORDS = frozenset({
+    'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
     'INSURANCE', 'MARKETING', 'BANKING', 'GOVERNMENT', 'EDUCATION',
     'CONSTRUCTION', 'ACCOUNTING', 'TECHNOLOGY', 'ENGINEERING', 'VOLUNTEER',
     'CASHIER', 'NURSE', 'HEALTHCARE', 'ENTREPRENEUR', 'INDEPENDENT CONTRACTOR',
-    'FREELANCE', 'COMMUNITY VOLUNTEER', 'EMPLOYED', 'INVESTOR',
+    'FREELANCE', 'COMMUNITY VOLUNTEER', 'INVESTOR',
     'FUNDRAISING CONSULTANT', 'INSURANCE AGENT', 'NON-PROFIT VOLUNTEER',
     'BUSINESS',
 })
@@ -111,18 +114,23 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 
 def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Duplicated job stays in occupation; duplicated company in employer."""
+    """One value in both fields: keep it where it belongs, never guess the other.
+
+    A job leaves the employer unknown; the donor's own name means
+    self-employed; a company leaves the occupation unknown.
+    """
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
 
     same = indiv_idx[
         emp.map(employer_rule_key).eq(occ.map(employer_rule_key))
-        & emp.ne('') & ~emp.isin(_GENERIC_EMP_OCC)
+        & emp.ne('') & ~emp.isin(_NOT_WORK)
     ]
     n_fixed = len(same)
 
-    jobs = same[occ.loc[same].map(is_job_title)]
+    is_job = occ.loc[same].isin(_JOB_WORDS) | occ.loc[same].map(is_job_title)
+    jobs = same[is_job]
     df.loc[jobs, 'contributor_employer'] = np.nan
 
     for idx in same.difference(jobs):
