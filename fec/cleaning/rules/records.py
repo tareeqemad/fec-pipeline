@@ -2,7 +2,6 @@
 import pandas as pd
 
 from fec.cleaning.reports.trail import (
-    EMPLOYMENT_FIELDS,
     NAME_FIELDS,
     WORK_FIELDS,
     AuditTrail,
@@ -10,8 +9,6 @@ from fec.cleaning.reports.trail import (
 from fec.cleaning.work.employer_names import (
     fix_occupation_as_employer,
 )
-from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
-from fec.cleaning.work.employer_normalize import normalize_employer_canonical
 from fec.cleaning.entities import (
     fix_employer_equals_occupation,
     normalize_business_names,
@@ -60,8 +57,6 @@ _AUDITED_RULES = (
      'enh_normalize_occupation', 'canonical_variant'),
     (clean_remaining_junk, WORK_FIELDS,
      'enh_clean_junk', 'junk_cleanup'),
-    (normalize_employer_canonical, _EMPLOYER_ONLY,
-     'enh_normalize_employer', 'company_name_formatting'),
     (fix_fullname_in_both_fields, NAME_FIELDS,
      'enh_fix_fullname_both', 'fullname_copied_to_both_fields'),
     (fix_employer_equals_occupation,
@@ -79,8 +74,6 @@ _LATE_STEPS = (
      'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY),
     (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY),
-    (apply_reviewed_employer_names, 'employer_recanonicalize',
-     'documented_company_alias', EMPLOYMENT_FIELDS),
     # Normalization can expose more placeholders.
     (_clean_junk_status_word_employer, 'late_placeholder_employers',
      'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY),

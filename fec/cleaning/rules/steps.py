@@ -6,7 +6,6 @@ from fec.cleaning.reports.trail import (
     WORK_FIELDS,
 )
 from fec.cleaning.rules.addresses import (
-    _fix_foreign_addresses,
     _fix_garbage_city_names,
     _fix_pr_zip_wrong_state,
 )
@@ -33,7 +32,6 @@ from fec.cleaning.rules.name_fields import (
 )
 from fec.cleaning.rules.occupation import (
     _fill_null_occupation_category,
-    _fix_not_disclosed_self_employed,
     _fix_web_artifact_occupation,
     _null_junk_occupation,
 )
@@ -50,8 +48,6 @@ INDIVIDUALS = "individuals"
 SAFETY_RULES = (
     (_fill_null_occupation_category, INDIVIDUALS, WORK_FIELDS,
      'null_occupation_category_filled'),
-    (_fix_not_disclosed_self_employed, INDIVIDUALS, WORK_FIELDS,
-     'not_disclosed_self_employed_contradiction_fixed'),
     (_clear_fake_employers, INDIVIDUALS, WORK_FIELDS,
      'refusal_or_email_employer_nulled'),
     (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
@@ -75,8 +71,6 @@ SAFETY_RULES = (
      'self_employed_row_employer_normalized'),
     (_fix_own_name_as_employer, ALL_ROWS, WORK_FIELDS,
      'own_name_employer_self_employed'),
-    (_fix_foreign_addresses, ALL_ROWS, PLACE_FIELDS,
-     'foreign_city_us_state_mismatch_nulled'),
     (_fix_garbage_city_names, ALL_ROWS, PLACE_FIELDS,
      'garbage_city_name_nulled'),
     (_fix_pr_zip_wrong_state, ALL_ROWS, PLACE_FIELDS,

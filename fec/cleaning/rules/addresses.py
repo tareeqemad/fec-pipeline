@@ -6,10 +6,6 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.config.constants import (
-    FOREIGN_CITIES_NO_US_STATE, AMBIGUOUS_CITIES,
-)
-
 # census race/ethnicity artifact
 _ETHNICITY_RE = re.compile(r'NOT OF HISPANIC|HISPANIC ORIGIN', re.IGNORECASE)
 
@@ -17,27 +13,6 @@ _ETHNICITY_RE = re.compile(r'NOT OF HISPANIC|HISPANIC ORIGIN', re.IGNORECASE)
 _VI_ZIP_RE = re.compile(r'^008[0-4]\d$|^00850$|^00851$')
 # a Puerto Rico ZIP5: 006xx, 007xx, 009xx
 _PR_ZIP_RE = re.compile(r'^00[679]\d{2}$')
-
-
-# null a foreign city paired with a fake US state
-def _fix_foreign_addresses(df: pd.DataFrame) -> int:
-    """Foreign city with a fake US state: city becomes NaN."""
-    city = df['contributor_city'].fillna('').str.strip().str.upper()
-    state = df['contributor_state'].fillna('').str.strip().str.upper()
-
-    # unambiguous foreign cities: always flag
-    unambiguous = FOREIGN_CITIES_NO_US_STATE - set(AMBIGUOUS_CITIES.keys())
-    mask_foreign = city.isin(unambiguous)
-
-    for city_name, valid_states in AMBIGUOUS_CITIES.items():
-        is_this_city = city == city_name
-        wrong_state = ~state.isin(valid_states)
-        mask_foreign = mask_foreign | (is_this_city & wrong_state)
-
-    n_fixed = int(mask_foreign.sum())
-    if n_fixed:
-        df.loc[mask_foreign, 'contributor_city'] = np.nan
-    return n_fixed
 
 
 # null garbage city names such as commas or ethnicity text
