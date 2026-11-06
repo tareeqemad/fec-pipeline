@@ -4,16 +4,9 @@ from __future__ import annotations
 import pandas as pd
 
 from fec.cleaning._helpers import _set_missing
-from fec.cleaning.work.normalize import swap_employer_and_occupation
-from fec.cleaning.rules.employer_swaps import (
-    _COMPANY_NAME_RE,
-    _KNOWN_OCCUPATIONS,
-)
+from fec.cleaning.rules.employer_swaps import _KNOWN_OCCUPATIONS
 from fec.cleaning.rules.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
-from fec.config.occupation_rules.rules import (
-    KNOWN_COMPANY_OCCUPATIONS,
-)
 
 
 # employer equal to donor's own name becomes self-employed
@@ -60,20 +53,4 @@ def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
 
     df.loc[occ_is_company, 'contributor_employer'] = df.loc[occ_is_company, 'contributor_occupation']
     _set_missing(df, occ_is_company)
-    return n_fixed
-
-
-# swap curated company from occupation when employer is a job
-def _fix_occ_emp_both_swapped(df: pd.DataFrame) -> int:
-    """Swap a curated occupation company beside a job employer."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    occ = df['contributor_occupation'].fillna('')
-    emp = df['contributor_employer'].fillna('')
-
-    # Two company names are no safe swap without an override.
-    emp_is_company = emp.str.contains(_COMPANY_NAME_RE, na=False)
-    mask = is_indiv & occ.isin(KNOWN_COMPANY_OCCUPATIONS) & emp.ne('') & ~emp_is_company
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        swap_employer_and_occupation(df, mask)
     return n_fixed

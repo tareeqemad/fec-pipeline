@@ -186,3 +186,24 @@ def test_own_name_employer_handles_missing_name_parts():
 
     assert _fix_own_name_as_employer(df) == 1
     assert df['contributor_employer'].tolist() == ['ACME CORP', 'SELF-EMPLOYED']
+
+
+def test_swap_job_and_company_moves_only_companies():
+    from fec.cleaning.work.clean import swap_job_and_company
+    df = pd.DataFrame({
+        'is_individual': [True, True, True, True, True],
+        'contributor_employer': ['ATTORNEY', 'DESIGNER', 'CONSULTANT', 'ATTORNEY', 'WOLF RIFKIN'],
+        'contributor_occupation': [
+            'WOLF, RIFKIN', 'SELF-EMPLOYED', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY', 'ATTORNEY',
+        ],
+    })
+
+    _, swapped = swap_job_and_company(df)
+
+    assert swapped == 2
+    assert df['contributor_employer'].tolist()[:4] == [
+        'WOLF, RIFKIN', 'SELF-EMPLOYED', 'CONSULTANT', 'ATTORNEY',
+    ]
+    assert df['contributor_occupation'].tolist()[:4] == [
+        'ATTORNEY', 'DESIGNER', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY',
+    ]

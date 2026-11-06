@@ -21,7 +21,7 @@ from fec.cleaning.name_fixes import (
     normalize_name_periods,
 )
 from fec.cleaning.work.clean import (
-    fix_remaining_swapped_occ_emp,
+    swap_job_and_company,
     normalize_occupation_canonical,
 )
 from fec.cleaning.work.style import (
@@ -51,7 +51,7 @@ _AUDITED_RULES = (
      'enh_name_corrections', 'manual_correction'),
     (fix_double_apostrophes, NAME_FIELDS,
      'enh_fix_apostrophes', 'double_apostrophe_cleanup'),
-    (fix_remaining_swapped_occ_emp, WORK_FIELDS,
+    (swap_job_and_company, WORK_FIELDS,
      'enh_swap_occ_emp', 'occ_emp_swap_or_same_value'),
     (normalize_occupation_canonical, _OCCUPATION_ONLY,
      'enh_normalize_occupation', 'canonical_variant'),

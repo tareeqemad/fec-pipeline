@@ -6,13 +6,11 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.cleaning.work.employer_aliases import employer_rule_key
-from fec.cleaning.work.normalize import _categorize
 from fec.config.constants import JUNK_EMPLOYER_RE
 from fec.config.occupation_rules.rules import (
     FINAL_JUNK_EMPLOYERS,
     FINAL_NULL_EMPLOYERS,
     FINAL_SHORT_OCCUPATIONS,
-    OCCUPATION_KEYWORDS,
 )
 
 # matched against _norm() output (already uppercase), so case-sensitive on purpose
@@ -112,15 +110,6 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     if len(doc_emp):
         df.loc[doc_emp, 'contributor_employer'] = 'SELF-EMPLOYED'
         n_fixed += len(doc_emp)
-
-    # employer = occupation word + occ = SELF-EMPLOYED: swap
-    swap_se = ii[emp.isin(OCCUPATION_KEYWORDS) & (occ == 'SELF-EMPLOYED')]
-    if len(swap_se):
-        real_occ = df.loc[swap_se, 'contributor_employer'].copy()
-        df.loc[swap_se, 'contributor_employer'] = 'SELF-EMPLOYED'
-        df.loc[swap_se, 'contributor_occupation'] = real_occ
-        df.loc[swap_se, 'occupation_category'] = _categorize(df.loc[swap_se, 'contributor_occupation'])
-        n_fixed += len(swap_se)
 
     # employer junk words
     emp_junk = ii[emp.isin(FINAL_JUNK_EMPLOYERS)]

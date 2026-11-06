@@ -26,7 +26,6 @@ from fec.cleaning.rules.employer_swaps import (
 )
 from fec.cleaning.rules.name_fields import (
     _fix_company_name_as_occupation,
-    _fix_occ_emp_both_swapped,
     _fix_own_name_as_employer,
 )
 from fec.cleaning.rules.occupation import (
@@ -74,8 +73,6 @@ SAFETY_RULES = (
      'state_corrected_from_pr_vi_zip'),
     (_fix_company_name_as_occupation, ALL_ROWS, WORK_FIELDS,
      'company_in_occupation_moved_to_employer'),
-    (_fix_occ_emp_both_swapped, ALL_ROWS, WORK_FIELDS,
-     'curated_company_in_occupation_swapped'),
     (_fix_web_artifact_occupation, ALL_ROWS, WORK_FIELDS,
      'web_artifact_occupation_nulled'),
     (_null_junk_occupation, ALL_ROWS, WORK_FIELDS,
