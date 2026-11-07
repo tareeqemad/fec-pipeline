@@ -17,9 +17,6 @@ from fec.cleaning.rules.employer import (
     _fix_retired_typos,
     _null_sector_as_employer,
 )
-from fec.cleaning.rules.employer_swaps import (
-    _fix_self_employed_consistency,
-)
 from fec.cleaning.rules.name_fields import (
     _fix_company_name_as_occupation,
     _fix_own_name_as_employer,
@@ -50,8 +47,6 @@ SAFETY_RULES = (
      'choose_prefix_stripped'),
     (_null_sector_as_employer, ALL_ROWS, WORK_FIELDS,
      'sector_word_employer_nulled'),
-    (_fix_self_employed_consistency, ALL_ROWS, WORK_FIELDS,
-     'self_employed_row_employer_normalized'),
     (_fix_own_name_as_employer, ALL_ROWS, WORK_FIELDS,
      'own_name_employer_self_employed'),
     (_fix_garbage_city_names, ALL_ROWS, PLACE_FIELDS,
