@@ -3,23 +3,26 @@ from __future__ import annotations
 
 import re
 
+import numpy as np
 import pandas as pd
 
-from fec.cleaning.work.employer_aliases import EMPLOYER_SYNONYMS
 from fec.cleaning.work.normalize import (
     _categorize,
     categorize_final,
     swap_employer_and_occupation,
 )
 from fec.cleaning.rules.own_name import _had_legal_suffix, _is_own_name
-from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
+from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
 from fec.config.not_employers import (
     JOB_TITLE_AS_EMPLOYER,
     NOT_REAL_EMPLOYER,
     OCCUPATION_AS_EMPLOYER,
     ROLE_AS_EMPLOYER,
     SELF_EMPLOYED_OCC_AS_EMP,
+    SELF_EMPLOYMENT_WORDS,
 )
+from fec.cleaning.work.clean import occupation_is_company
+from fec.cleaning.work.status import is_job_title
 
 # HEALTH names a company unless a person noun follows.
 _HEALTH_JOB_TAIL = (
@@ -100,118 +103,62 @@ def _occupation_names_no_job(df: pd.DataFrame, occ: pd.Series, candidates: pd.Se
     )
 
 
-# check whether the occupation box actually holds the company
-def occupation_holds_company(df: pd.DataFrame, occ: pd.Series, emp: pd.Series, candidates: pd.Series) -> pd.Series:
-    """A role in the employer box: is occupation the company?"""
-    marker = candidates & occ.str.contains(_COMPANY_NAME_RE, na=False)
-    org_title = candidates & emp.str.upper().isin(ORG_TITLE_ROLES)
-    return marker | _occupation_names_no_job(df, occ, org_title)
+_JOBS_IN_EMPLOYER = (
+    OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER | SELF_EMPLOYED_OCC_AS_EMP
+)
+_STATUS_OCCUPATIONS = frozenset({'RETIRED', 'NOT EMPLOYED'})
 
 
-# set employer to SELF-EMPLOYED when it duplicates the occupation
-def _fix_employer_equals_occupation(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """Employer equals occupation: SELF-EMPLOYED, except real companies."""
-    emp = df['contributor_employer'].fillna('')
-    occ = df['contributor_occupation'].fillna('')
-    looks_like_company = emp.str.contains(_COMPANY_NAME_RE, na=False)
-    mask = (
-        is_indiv
-        & (emp == occ)
-        & emp.ne('')
-        & ~emp.isin(SKIP_EMPLOYERS)
-        & ~looks_like_company
+def settle_job_in_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """A job word in the employer box, decided in one place.
+
+    - The occupation names a company: swap the two.
+    - The occupation is empty or SELF-EMPLOYED: the word becomes the occupation.
+    - The occupation is RETIRED or NOT EMPLOYED: the word becomes the
+      occupation and the employer takes the status.
+    - Otherwise the filed occupation stays.
+    The employer becomes SELF-EMPLOYED only when the filing says so: a
+    SELF-EMPLOYED occupation or a self-employment word such as OWNER.
+    Without that the employer is left unknown.
+    """
+    rows = df.index[df['entity_type'].eq('INDIVIDUAL')]
+    emp = df.loc[rows, 'contributor_employer'].fillna('').astype(str).str.strip().str.upper()
+    occ = df.loc[rows, 'contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
+    job = emp.isin(_JOBS_IN_EMPLOYER)
+    if not job.any():
+        return df, 0
+
+    full_occ = df['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
+    org_title = df.index.isin(rows[job & emp.isin(ORG_TITLE_ROLES)])
+    named_org = _occupation_names_no_job(df, full_occ, pd.Series(org_title, index=df.index))
+    occ_is_job = occ.isin(_JOBS_IN_EMPLOYER) | occ.map(is_job_title)
+    company = job & (
+        occupation_is_company(emp, occ, _JOBS_IN_EMPLOYER)
+        | (occ.str.contains(_COMPANY_NAME_RE, na=False) & ~occ_is_job)
+        | named_org.loc[rows]
     )
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'contributor_employer'] = 'SELF-EMPLOYED'
-    return n_fixed
+    says_self = (
+        occ.eq('SELF-EMPLOYED') | occ.isin(SELF_EMPLOYMENT_WORDS)
+        | emp.isin(SELF_EMPLOYMENT_WORDS) | _categorize(emp).eq('SELF-EMPLOYED')
+    )
+    empty = occ.isin({'', 'SELF-EMPLOYED'}) | (occ.isin(SKIP_EMPLOYERS) & ~occ.isin(STATUS_WORDS))
+    status = occ.isin(_STATUS_OCCUPATIONS)
+    move = job & ~company & (empty | status)
+    other = job & ~company & ~move
 
-
-# fix employer field that actually holds an occupation word
-def _fix_employer_is_occupation_word(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """Employer is an occupation word: swap or set SELF-EMPLOYED."""
-    emp = df['contributor_employer'].fillna('')
-    occ = df['contributor_occupation'].fillna('')
-
-    mask = is_indiv & emp.isin(OCCUPATION_AS_EMPLOYER)
-    n_fixed = int(mask.sum())
-    if not n_fixed:
-        return 0
-
-    # Case A: occupation RETIRED, so swap.
-    is_retired = mask & occ.isin({'RETIRED', 'NOT EMPLOYED'})
-    if is_retired.any():
-        old_emp = df.loc[is_retired, 'contributor_employer'].copy()
-        df.loc[is_retired, 'contributor_occupation'] = old_emp
-        df.loc[is_retired, 'contributor_employer'] = 'RETIRED'
-
-    # Case B: occupation empty or SELF-EMPLOYED, so move the word.
-    occ_empty_or_se = mask & occ.isin({'', 'SELF-EMPLOYED'})
-    if occ_empty_or_se.any():
-        old_emp = df.loc[occ_empty_or_se, 'contributor_employer'].copy()
-        df.loc[occ_empty_or_se, 'contributor_occupation'] = old_emp
-        df.loc[occ_empty_or_se, 'occupation_category'] = _categorize(old_emp)
-        df.loc[occ_empty_or_se, 'contributor_employer'] = 'SELF-EMPLOYED'
-
-    # Case C: a company in occupation means swapped fields.
-    other = mask & ~is_retired & ~occ_empty_or_se
+    if company.any():
+        swap_employer_and_occupation(df, rows[company])
+    if move.any():
+        moved = rows[move]
+        words = df.loc[moved, 'contributor_employer'].copy()
+        df.loc[moved, 'contributor_occupation'] = words
+        df.loc[moved, 'occupation_category'] = _categorize(words)
+        df.loc[moved, 'contributor_employer'] = occ[move].where(status[move], np.nan)
+        df.loc[rows[move & ~status & says_self], 'contributor_employer'] = 'SELF-EMPLOYED'
     if other.any():
-        occ_looks_like_company = occ.str.contains(_COMPANY_NAME_RE, na=False)
-        company_in_occ = other & occ_looks_like_company
-        if company_in_occ.any():
-            swap_employer_and_occupation(df, company_in_occ)
-        not_company = other & ~occ_looks_like_company
-        if not_company.any():
-            df.loc[not_company, 'contributor_employer'] = 'SELF-EMPLOYED'
-
-    return n_fixed
-
-
-# swap role in employer back when occupation holds a company
-def _swap_role_employer_with_known_company(df: pd.DataFrame) -> int:
-    """Title in employer, company in occupation; runs before AD."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    emp = df['contributor_employer'].fillna('').astype(str).str.strip().str.upper()
-    occ = df['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
-
-    titles = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER
-    candidates = is_indiv & emp.isin(titles) & occ.ne('')
-    if not candidates.any():
-        return 0
-
-    # Occupation is a company only when other donors' employer matches.
-    real = set(emp[is_indiv & ~emp.isin(titles) & ~emp.isin(SKIP_EMPLOYERS) & emp.ne('')])
-    if not real:
-        return 0
-
-    known_company = occ.replace(EMPLOYER_SYNONYMS)
-    mask = candidates & (occ.isin(real) | known_company.isin(real))
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        swap_employer_and_occupation(df, mask)
-    return n_fixed
-
-
-# swap back or self-employ rows with a role/title as employer
-def _fix_role_as_employer(df: pd.DataFrame) -> int:
-    """Title in employer: swap back if occupation holds the company."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    emp = df['contributor_employer'].fillna('')
-    occ = df['contributor_occupation'].fillna('')
-
-    mask = is_indiv & emp.isin(ROLE_AS_EMPLOYER) & ~occ.isin(_SKIP_OCC) & occ.ne('')
-    n_fixed = int(mask.sum())
-    if not n_fixed:
-        return 0
-
-    swap = occupation_holds_company(df, occ, emp, mask)
-    if swap.any():
-        swap_employer_and_occupation(df, swap)
-
-    self_emp = mask & ~swap
-    if self_emp.any():
-        df.loc[self_emp, 'contributor_employer'] = 'SELF-EMPLOYED'
-    return n_fixed
+        df.loc[rows[other], 'contributor_employer'] = np.nan
+        df.loc[rows[other & says_self], 'contributor_employer'] = 'SELF-EMPLOYED'
+    return df, int(job.sum())
 
 
 # clean self-employed rows whose employer is really an occupation word
@@ -230,19 +177,6 @@ def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
             if _is_own_name(df, idx, emp.at[idx]) and not _had_legal_suffix(df, idx):
                 df.at[idx, 'contributor_employer'] = 'SELF-EMPLOYED'
                 n_fixed += 1
-
-        # refresh emp after pattern 1 changes
-        emp = df['contributor_employer'].fillna('')
-        se_with_company = is_indiv & (occ == 'SELF-EMPLOYED') & ~emp.isin(SKIP_EMPLOYERS)
-
-        # Pattern 2: employer is an occupation word
-        emp_is_occ = se_with_company & emp.isin(SELF_EMPLOYED_OCC_AS_EMP)
-        if emp_is_occ.any():
-            old_emp = df.loc[emp_is_occ, 'contributor_employer'].copy()
-            df.loc[emp_is_occ, 'contributor_occupation'] = old_emp
-            df.loc[emp_is_occ, 'occupation_category'] = _categorize(old_emp)
-            df.loc[emp_is_occ, 'contributor_employer'] = 'SELF-EMPLOYED'
-            n_fixed += int(emp_is_occ.sum())
 
     return n_fixed
 

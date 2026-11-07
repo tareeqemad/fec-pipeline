@@ -173,3 +173,78 @@ def test_keys_stay_with_their_filings_across_runs():
     lost = keep_earlier_keys(df, {'1': 'old-a', '2': 'old-a', '3': 'old-x', '4': 'old-b', '5': 'old-a'})
     assert df['donor_key'].tolist() == ['old-a', 'old-a', 'old-a', 'old-b', 'old-b', 'new-c']
     assert lost == ['old-x']
+
+
+def test_own_name_employer_handles_missing_name_parts():
+    from fec.cleaning.rules.name_fields import _fix_own_name_as_employer
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
+        'contributor_first_name': [None, 'JANE'],
+        'contributor_last_name': ['DOE', 'DOE'],
+        'contributor_employer': ['ACME CORP', 'JANE DOE'],
+    })
+
+    assert _fix_own_name_as_employer(df) == 1
+    assert df['contributor_employer'].tolist() == ['ACME CORP', 'SELF-EMPLOYED']
+
+
+def test_swap_job_and_company_moves_only_companies():
+    from fec.cleaning.work.clean import swap_job_and_company
+    df = pd.DataFrame({
+        'is_individual': [True, True, True, True, True],
+        'contributor_employer': ['ATTORNEY', 'DESIGNER', 'CONSULTANT', 'ATTORNEY', 'WOLF RIFKIN'],
+        'contributor_occupation': [
+            'WOLF, RIFKIN', 'SELF-EMPLOYED', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY', 'ATTORNEY',
+        ],
+    })
+
+    _, swapped = swap_job_and_company(df)
+
+    assert swapped == 2
+    assert df['contributor_employer'].tolist()[:4] == [
+        'WOLF, RIFKIN', 'SELF-EMPLOYED', 'CONSULTANT', 'ATTORNEY',
+    ]
+    assert df['contributor_occupation'].tolist()[:4] == [
+        'ATTORNEY', 'DESIGNER', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY',
+    ]
+
+
+def test_job_in_employer_never_guesses_self_employed():
+    from fec.cleaning.rules.employer_swaps import settle_job_in_employer
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 6,
+        'contributor_name': ['A, B', 'C, D', 'E, F', 'G, H', 'I, J', 'K, L'],
+        'contributor_employer': ['ATTORNEY', 'OWNER', 'ATTORNEY', 'CONSULTANT', 'CARDIOLOGIST', 'LAWYER'],
+        'contributor_occupation': ['', '', 'RETIRED', 'INVESTOR', 'CARDIOLOGY PC', 'OWNER'],
+        'occupation_category': [None] * 6,
+    })
+
+    settle_job_in_employer(df)
+
+    assert df['contributor_employer'].fillna('').tolist() == [
+        '', 'SELF-EMPLOYED', 'RETIRED', '', 'CARDIOLOGY PC', 'SELF-EMPLOYED',
+    ]
+    assert df['contributor_occupation'].tolist() == [
+        'ATTORNEY', 'OWNER', 'ATTORNEY', 'INVESTOR', 'CARDIOLOGIST', 'OWNER',
+    ]
+
+
+def test_placeholder_employers_are_one_list():
+    from fec.cleaning.rules.junk import clear_placeholder_employer_words, placeholder_employer
+    values = pd.Series(['43209876', 'A@B.COM', 'XXX', 'NM', 'GE', 'N A', 'PRIVATE', 'ACME LLC'])
+    assert placeholder_employer(values, words=False).tolist() == [
+        True, True, True, True, False, False, False, False,
+    ]
+    assert placeholder_employer(values).tolist() == [
+        True, True, True, True, False, True, True, False,
+    ]
+
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 3,
+        'contributor_employer': ['NOTYOURBUSINESS', 'VOLUNTEER', 'ACME LLC'],
+        'contributor_occupation': ['NOTYOURBUSINESS', 'VOLUNTEER', 'ENGINEER'],
+        'occupation_category': ['OTHER', 'NONPROFIT / PHILANTHROPY', 'ENGINEERING'],
+    })
+    assert clear_placeholder_employer_words(df) == 2
+    assert df['contributor_employer'].isna().tolist() == [True, True, False]
+    assert df['contributor_occupation'].fillna('').tolist() == ['', 'VOLUNTEER', 'ENGINEER']

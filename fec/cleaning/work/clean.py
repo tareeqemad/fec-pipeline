@@ -4,7 +4,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx, _map_occupations, _norm
+from fec.cleaning._helpers import _map_occupations, _norm
 from fec.cleaning.reports.trail import WORK_FIELDS
 from fec.cleaning.work.employer_deep_clean import _deep_clean_employer
 from fec.cleaning.work.normalize import (
@@ -23,64 +23,60 @@ from fec.config.occupation_rules.rules import (
     OCCUPATION_FROM_EMPLOYER,
     OCCUPATION_KEYWORDS,
     SWAP_JOB_TITLES,
+    KNOWN_COMPANY_OCCUPATIONS,
 )
+from fec.config.constants import STATUS_CATEGORIES
+from fec.cleaning.work.status import is_job_title
+from fec.cleaning.work.employer_aliases import employer_rule_key
 
-# a company/org name in occupation text: "INC", "LLC", "UNIVERSITY", "P.A."
-_CORP_NAME_RE = re.compile(
-    r'\bINC\b\.?|\bP\.?A\.?\s*$'
-    r'|\b(?:LLC|LLP|CORP'
-    r'|PARTNERS|GROUP|ASSOCIATES|VENTURES|CAPITAL|HOLDINGS|SERVICES|ENTERPRISES'
-    r'|UNIVERSITY|COLLEGE|SCHOOL|ACADEMY|HOSPITAL|INSTITUTE'
-    r'|FOUNDATION|AGENCY|DEPARTMENT|BUREAU)\b',
-    re.IGNORECASE,
-)
-
-# A company name in occupation text: "INC", "GROUP".
+# A company or institution name in occupation text: "INC", "GROUP", "HOSPITAL".
 _COMPANY_IN_OCCUPATION_RE = re.compile(
-    r'\bINC\b\.?'
+    r'\bINC\b\.?|\bP\.?A\.?\s*$'
     r'|\b(?:LLC|LLP|CORP|LTD|COMPANY|CORPORATION|HOLDINGS|GROUP'
     r'|PARTNERS|VENTURES|CAPITAL|FUND|ASSOCIATES|ENTERPRISES|PROPERTIES|REALTY'
     r'|ADVISORS|INSURANCE|INDUSTRIES|BROTHERS|BANK|FINANCIAL|MEDIA|SYSTEMS'
-    r'|TECHNOLOGIES|SOLUTIONS|SERVICES|MANAGEMENT|TRUST|INTERNATIONAL|GLOBAL)\b'
+    r'|TECHNOLOGIES|SOLUTIONS|SERVICES|MANAGEMENT|TRUST|INTERNATIONAL|GLOBAL'
+    r'|HOSPITAL|UNIVERSITY|INSTITUTE|COLLEGE|SCHOOL|ACADEMY'
+    r'|FOUNDATION|AGENCY|BUREAU|DEPARTMENT|MINISTRY|AIPAC|DMFI)\b'
     r'|\b\w+\s*&\s*\w+\b'
     r'|& (?:PARTNERS|ASSOCIATES|CRUTCHER|DE LLANO|BUTLER)',
+    re.IGNORECASE,
 )
-# a nonprofit/institution name in occupation text: "HOSPITAL", "UNIVERSITY"
-_ORGANIZATION_IN_OCCUPATION_RE = re.compile(
-    r'\b(?:HOSPITAL|UNIVERSITY|INSTITUTE|COLLEGE|SCHOOL|ACADEMY'
-    r'|FOUNDATION|AGENCY|BUREAU|DEPARTMENT|MINISTRY|AIPAC|DMFI)\b',
-)
+_SWAP_JOBS = SWAP_JOB_TITLES | OCCUPATION_KEYWORDS
 
 
-def fix_remaining_swapped_occ_emp(
-    df: pd.DataFrame,
-) -> tuple[pd.DataFrame, int, int]:
-    """Fix swaps exposed by earlier cleaning."""
-    individuals = _indiv_idx(df)
-    occupation = _norm(df.loc[individuals, 'contributor_occupation'])
-    employer = _norm(df.loc[individuals, 'contributor_employer'])
-
-    employer_is_job = employer.isin(OCCUPATION_KEYWORDS)
-    company = occupation.str.contains(_COMPANY_IN_OCCUPATION_RE, na=False)
-    company &= ~occupation.str.startswith('CORP ', na=False)
-    company_swaps = individuals[company & employer_is_job]
-    if len(company_swaps):
-        swap_employer_and_occupation(df, company_swaps, canonical=False)
-
-    same = individuals[(occupation == employer) & employer_is_job]
-    if len(same):
-        df.loc[same, 'contributor_employer'] = 'SELF-EMPLOYED'
-
-    organization = occupation.str.contains(
-        _ORGANIZATION_IN_OCCUPATION_RE,
-        na=False,
+def occupation_is_company(employer: pd.Series, occupation: pd.Series, jobs) -> pd.Series:
+    """True where the occupation names a company and is no job itself."""
+    employer_is_job = employer.isin(jobs)
+    seen_as_employer = set(
+        employer[~employer_is_job & ~employer.isin(STATUS_CATEGORIES)].map(employer_rule_key)
     )
-    organization_swaps = individuals[organization & employer_is_job]
-    if len(organization_swaps):
-        swap_employer_and_occupation(df, organization_swaps, canonical=False)
+    company = (
+        occupation.str.contains(_COMPANY_IN_OCCUPATION_RE, na=False)
+        | occupation.isin(KNOWN_COMPANY_OCCUPATIONS)
+        | occupation.map(employer_rule_key).isin(seen_as_employer)
+    ) & ~occupation.str.startswith('CORP ', na=False)
+    occupation_is_job = occupation.isin(jobs) | occupation.map(is_job_title)
+    return company & ~occupation_is_job & occupation.ne('')
 
-    swaps = len(company_swaps) + len(organization_swaps)
-    return df, swaps, len(same)
+
+def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Employer holds a job and occupation a company: swap the two.
+
+    SELF-EMPLOYED in the occupation is swapped back to the employer too.
+    """
+    # Filings first typed as committees get their filed work back later.
+    rows = df.index[df['is_individual'].astype(bool)]
+    employer = _norm(df.loc[rows, 'contributor_employer'])
+    occupation = _norm(df.loc[rows, 'contributor_occupation'])
+
+    swap = rows[
+        employer.isin(_SWAP_JOBS)
+        & (occupation_is_company(employer, occupation, _SWAP_JOBS) | occupation.eq('SELF-EMPLOYED'))
+    ]
+    if len(swap):
+        swap_employer_and_occupation(df, swap, canonical=False)
+    return df, len(swap)
 
 
 def normalize_occupation_canonical(
@@ -106,22 +102,6 @@ def _cross_fill(df: pd.DataFrame) -> None:
         df.loc[mask, 'contributor_employer'] = (
             df.loc[mask, 'contributor_occupation'].map(EMPLOYER_FROM_OCCUPATION)
         )
-
-
-def _fix_swapped_occ_emp(df: pd.DataFrame) -> None:
-    """Swap a company in occupation with a title in employer."""
-    has_both = df['contributor_occupation'].notna() & df['contributor_employer'].notna()
-    employer_is_job = df['contributor_employer'].isin(SWAP_JOB_TITLES)
-    real_employers = set(df.loc[~employer_is_job, 'contributor_employer'].dropna())
-    occupation_is_company = (
-        df['contributor_occupation'].str.contains(_CORP_NAME_RE, na=False)
-        | df['contributor_occupation'].isin(real_employers)
-    )
-    mask = has_both & occupation_is_company & employer_is_job
-    if not mask.any():
-        return
-
-    swap_employer_and_occupation(df, df.index[mask], canonical=False)
 
 
 def _normalize_work_text(df: pd.DataFrame) -> None:
@@ -164,7 +144,7 @@ def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
         'text_normalized_or_missing_placeholder_nulled', WORK_FIELDS,
     )
     # swap before short titles are dropped
-    trail.run(df, _fix_swapped_occ_emp, 'occ_swap_fields', 'occupation_and_employer_swapped', WORK_FIELDS)
+    trail.run(df, swap_job_and_company, 'occ_swap_fields', 'occupation_and_employer_swapped', WORK_FIELDS)
     _deep_clean_employer(df, trail)
     trail.run(df, _derive_status_and_category, 'occ_derive_status_category', 'derived_from_occupation', WORK_FIELDS)
     trail.run(

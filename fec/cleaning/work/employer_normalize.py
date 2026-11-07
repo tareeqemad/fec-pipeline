@@ -1,12 +1,8 @@
 """Employer name normalization for grouping/matching and for display."""
 import re
 
-import pandas as pd
-
-from fec.cleaning._helpers import _indiv_idx
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER
-from fec.config.constants import SKIP_EMPLOYERS
 
 from fec.cleaning.work.employer_aliases import reviewed_employer_name
 
@@ -31,19 +27,6 @@ _SUFFIX_DEDOT = [(re.compile(r'\bL\.L\.C\.?$'), 'LLC'), (re.compile(r'\bL\.L\.P\
                  (re.compile(r'\bL\.P\.?$'), 'LP'),
                  (re.compile(r'\bCO\.(?=\s+(?:PLLC|LLC|LLP|INC|CORP|LTD|PLC|LP|PC|PA|LPA)\b)'), 'CO'),
                  (re.compile(r'\bCO\.$'), 'CO')]
-
-# Apply reviewed names and keep the original employer.
-def normalize_employer_canonical(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    indiv_idx = _indiv_idx(df)
-    emp = df.loc[indiv_idx, 'contributor_employer']
-    values = emp[emp.notna() & ~emp.isin(SKIP_EMPLOYERS)]
-    if 'contributor_employer_original' not in df:
-        df['contributor_employer_original'] = df['contributor_employer'].copy()
-    names = values.map(reviewed_employer_name)
-    changed = names.ne(values)
-    df.loc[values.index[changed], 'contributor_employer'] = names[changed]
-    return df, int(changed.sum())
-
 
 def normalize_employer_display_name(name) -> str | None:
     """Remove work-status text; keep the company's filed legal form."""

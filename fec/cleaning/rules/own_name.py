@@ -9,9 +9,10 @@ from fec.config.not_employers import LEGAL_SUFFIX_RE
 
 
 # build word-set from a personal name, order and case ignored
-def _name_word_set(*parts: str) -> frozenset[str]:
+def _name_word_set(*parts) -> frozenset[str]:
     """Word set of a personal name, ignoring order and initials."""
-    words = re.sub(r'[^A-Z]', ' ', ' '.join(parts).upper()).split()
+    text = ' '.join(part for part in parts if isinstance(part, str))
+    words = re.sub(r'[^A-Z]', ' ', text.upper()).split()
     return frozenset(word for word in words if len(word) > 1)
 
 

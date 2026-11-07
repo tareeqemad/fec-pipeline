@@ -11,10 +11,7 @@ from fec.cleaning.work.normalize import (
     categorize_final,
     swap_employer_and_occupation,
 )
-from fec.config.constants import (
-    REFUSAL_EMPLOYERS,
-    RETIRED_TYPO_EMPLOYERS,
-)
+from fec.config.constants import RETIRED_TYPO_EMPLOYERS
 from fec.config.not_employers import (
     JOB_TITLE_AS_EMPLOYER,
     NOT_REAL_EMPLOYER,
@@ -30,14 +27,6 @@ _RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
 # Leading RETIRED marker to strip: "RETIRED - ACME".
 _RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
 
-
-
-# A refusal word or an email address is no employer.
-def _clear_fake_employers(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    employer = df['contributor_employer'].fillna('').str.upper().str.strip()
-    mask = is_indiv & (employer.isin(REFUSAL_EMPLOYERS) | employer.str.contains('@', regex=False))
-    df.loc[mask, 'contributor_employer'] = pd.NA
-    return int(mask.sum())
 
 
 # normalize RETIRED typos, splitting any trailing text off

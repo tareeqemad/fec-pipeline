@@ -21,10 +21,10 @@ from fec.cleaning.work.normalize import (
 from fec.cleaning.work.employer_aliases import (
     documented_employer_name, employer_rule_key, reviewed_employer_name,
 )
-from fec.cleaning.work.status import is_job_title, is_real_employer
-from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS
+from fec.cleaning.work.status import is_job_title
+from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SKIP_EMPLOYERS
 from fec.config.data import MISSING_VALUES
-from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE, SWAP_JOB_TITLES
+from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
 
 
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
@@ -72,12 +72,15 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
     return source.where(~undecided, "")
 
 
-_GENERIC_EMP_OCC = STATUS_CATEGORIES | frozenset({
-    'NOT DISCLOSED', 'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
+# Placeholders and life statuses are left to their own rules.
+_NOT_WORK = STATUS_CATEGORIES | SKIP_EMPLOYERS | frozenset({'EMPLOYED'})
+# Job and field words that is_job_title does not recognise.
+_JOB_WORDS = frozenset({
+    'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
     'INSURANCE', 'MARKETING', 'BANKING', 'GOVERNMENT', 'EDUCATION',
     'CONSTRUCTION', 'ACCOUNTING', 'TECHNOLOGY', 'ENGINEERING', 'VOLUNTEER',
     'CASHIER', 'NURSE', 'HEALTHCARE', 'ENTREPRENEUR', 'INDEPENDENT CONTRACTOR',
-    'FREELANCE', 'COMMUNITY VOLUNTEER', 'EMPLOYED', 'INVESTOR',
+    'FREELANCE', 'COMMUNITY VOLUNTEER', 'INVESTOR',
     'FUNDRAISING CONSULTANT', 'INSURANCE AGENT', 'NON-PROFIT VOLUNTEER',
     'BUSINESS',
 })
@@ -111,18 +114,23 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
 
 def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Duplicated job stays in occupation; duplicated company in employer."""
+    """One value in both fields: keep it where it belongs, never guess the other.
+
+    A job leaves the employer unknown; the donor's own name means
+    self-employed; a company leaves the occupation unknown.
+    """
     indiv_idx = _indiv_idx(df)
     emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
     occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
 
     same = indiv_idx[
         emp.map(employer_rule_key).eq(occ.map(employer_rule_key))
-        & emp.ne('') & ~emp.isin(_GENERIC_EMP_OCC)
+        & emp.ne('') & ~emp.isin(_NOT_WORK)
     ]
     n_fixed = len(same)
 
-    jobs = same[occ.loc[same].map(is_job_title)]
+    is_job = occ.loc[same].isin(_JOB_WORDS) | occ.loc[same].map(is_job_title)
+    jobs = same[is_job]
     df.loc[jobs, 'contributor_employer'] = np.nan
 
     for idx in same.difference(jobs):
@@ -336,11 +344,7 @@ def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
     return n_changed
 
 
-def _restore_individual_occupations(
-    df: pd.DataFrame,
-    raw_occupations: pd.Series,
-    raw_employers: pd.Series,
-) -> None:
+def _restore_individual_occupations(df: pd.DataFrame, raw_occupations: pd.Series) -> None:
     """Restore filed occupations after reclassification as people."""
     has_occupation = raw_occupations.notna() & raw_occupations.astype(str).str.strip().ne("")
     if not has_occupation.any():
@@ -351,21 +355,7 @@ def _restore_individual_occupations(
         OCCUPATION_NORMALIZE,
         collapse_retire=True,
     )
-    raw_employer = _normalize_text(
-        raw_employers[has_occupation],
-        EMPLOYER_NORMALIZE,
-        digits_only_before=EMPLOYER_STATUS_TEXT,
-    )
-    # Keep a field swap already established before reclassification.
-    kept_swap = (
-        df.loc[restored.index, "contributor_employer"].map(employer_rule_key)
-        .eq(restored.map(employer_rule_key))
-        & df.loc[restored.index, "contributor_employer"].map(is_real_employer)
-    )
-    swapped = raw_employer.isin(SWAP_JOB_TITLES) & (
-        restored.str.contains(_ORG_BUSINESS_RE, na=False) | restored.eq("SELF-EMPLOYED") | kept_swap
-    )
-    restored.loc[swapped] = raw_employer.loc[swapped]
+    # Swapped fields are fixed later by swap_job_and_company.
     restored = restored[~restored.isin(MISSING_VALUES) & restored.notna()]
     if restored.empty:
         return
@@ -436,5 +426,5 @@ def _restore_reclassified_committees(
     if reclassified.any():
         raw_occupations = raw_occ_backup.loc[reclassified]
         raw_employers = raw_emp_backup.loc[reclassified]
-        _restore_individual_occupations(df, raw_occupations, raw_employers)
+        _restore_individual_occupations(df, raw_occupations)
         _restore_individual_employers(df, reclassified, raw_employers)

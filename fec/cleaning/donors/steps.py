@@ -9,7 +9,6 @@ from fec.cleaning.reports.trail import (
     AuditTrail,
 )
 from fec.config.occupation_rules.rules import EMPLOYER_FROM_CATEGORY, FINAL_EMPLOYER_FROM_OCCUPATION
-from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
 from fec.cleaning.donors.entity import (
     _apply_entity_overrides,
     _reenforce_entity_consistency,
@@ -58,9 +57,6 @@ ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
 
 # (audit step, fix, fields, reason, source)
 CONSISTENCY_FIXES = (
-    # Also settles blank employers before occupations are filled.
-    ("donor_reviewed_employers", apply_reviewed_employer_names, EMPLOYMENT_FIELDS,
-     "documented_company_alias", "data/rules/employer_name_rules.csv"),
     ("donor_fill_occupation_from_donor", _fill_occupation_from_donor, WORK_FIELDS,
      "occupation_derived_from_donor_same_employer", None),
     ("donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,

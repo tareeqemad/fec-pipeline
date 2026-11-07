@@ -2,16 +2,11 @@
 import pandas as pd
 
 from fec.cleaning.reports.trail import (
-    EMPLOYMENT_FIELDS,
     NAME_FIELDS,
     WORK_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.work.employer_names import (
-    fix_occupation_as_employer,
-)
-from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
-from fec.cleaning.work.employer_normalize import normalize_employer_canonical
+from fec.cleaning.rules.employer_swaps import settle_job_in_employer
 from fec.cleaning.entities import (
     fix_employer_equals_occupation,
     normalize_business_names,
@@ -24,7 +19,7 @@ from fec.cleaning.name_fixes import (
     normalize_name_periods,
 )
 from fec.cleaning.work.clean import (
-    fix_remaining_swapped_occ_emp,
+    swap_job_and_company,
     normalize_occupation_canonical,
 )
 from fec.cleaning.work.style import (
@@ -32,7 +27,7 @@ from fec.cleaning.work.style import (
     normalize_occupation_style_step,
 )
 from fec.cleaning.rules.junk import (
-    _clean_junk_status_word_employer,
+    clear_placeholder_employer_words,
     clean_remaining_junk,
 )
 from fec.cleaning.rules.steps import ALL_ROWS, SAFETY_RULES
@@ -54,20 +49,18 @@ _AUDITED_RULES = (
      'enh_name_corrections', 'manual_correction'),
     (fix_double_apostrophes, NAME_FIELDS,
      'enh_fix_apostrophes', 'double_apostrophe_cleanup'),
-    (fix_remaining_swapped_occ_emp, WORK_FIELDS,
+    (swap_job_and_company, WORK_FIELDS,
      'enh_swap_occ_emp', 'occ_emp_swap_or_same_value'),
     (normalize_occupation_canonical, _OCCUPATION_ONLY,
      'enh_normalize_occupation', 'canonical_variant'),
     (clean_remaining_junk, WORK_FIELDS,
      'enh_clean_junk', 'junk_cleanup'),
-    (normalize_employer_canonical, _EMPLOYER_ONLY,
-     'enh_normalize_employer', 'company_name_formatting'),
     (fix_fullname_in_both_fields, NAME_FIELDS,
      'enh_fix_fullname_both', 'fullname_copied_to_both_fields'),
     (fix_employer_equals_occupation,
      WORK_FIELDS,
      'enh_fix_emp_eq_occ', 'employer_equals_occupation'),
-    (fix_occupation_as_employer, WORK_FIELDS,
+    (settle_job_in_employer, WORK_FIELDS,
      'enh_fix_occ_as_employer', 'occupation_word_in_employer'),
 )
 
@@ -79,10 +72,8 @@ _LATE_STEPS = (
      'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY),
     (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY),
-    (apply_reviewed_employer_names, 'employer_recanonicalize',
-     'documented_company_alias', EMPLOYMENT_FIELDS),
     # Normalization can expose more placeholders.
-    (_clean_junk_status_word_employer, 'late_placeholder_employers',
+    (clear_placeholder_employer_words, 'late_placeholder_employers',
      'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY),
 )
 

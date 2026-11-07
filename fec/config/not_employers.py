@@ -38,9 +38,17 @@ JOB_TITLE_AS_EMPLOYER = frozenset({
 # Self-employed occupation words found in the employer field.
 SELF_EMPLOYED_OCC_AS_EMP = frozenset({
     'DESIGNER', 'CATER', 'CATERER', 'WRITER', 'ARTIST', 'SALES',
-    'REAL ESTATE', 'PERSONAL', 'BUSINESS', 'FARMING', 'TRADER',
+    'REAL ESTATE', 'BUSINESS', 'FARMING', 'TRADER',
     # Generic phrase; verified company filings use their legal name.
     'TRUST DEED INVESTMENTS',
+})
+
+
+# Employer words that themselves say the filer works for themselves.
+SELF_EMPLOYMENT_WORDS = frozenset({
+    'OWNER', 'BUSINESS OWNER', 'BUSINESS OWNER/OPERATOR', 'OWN BUSINESS',
+    'PRIVATE PRACTICE', 'FREELANCE', 'FREELANCER', 'INDEPENDENT',
+    'INDEPENDENT CONTRACTOR', 'SELF (LANDSCAPE DESIGNER)', 'PERSONAL',
 })
 
 
