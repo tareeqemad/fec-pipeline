@@ -207,3 +207,23 @@ def test_swap_job_and_company_moves_only_companies():
     assert df['contributor_occupation'].tolist()[:4] == [
         'ATTORNEY', 'DESIGNER', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY',
     ]
+
+
+def test_job_in_employer_never_guesses_self_employed():
+    from fec.cleaning.rules.employer_swaps import settle_job_in_employer
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 6,
+        'contributor_name': ['A, B', 'C, D', 'E, F', 'G, H', 'I, J', 'K, L'],
+        'contributor_employer': ['ATTORNEY', 'OWNER', 'ATTORNEY', 'CONSULTANT', 'CARDIOLOGIST', 'LAWYER'],
+        'contributor_occupation': ['', '', 'RETIRED', 'INVESTOR', 'CARDIOLOGY PC', 'OWNER'],
+        'occupation_category': [None] * 6,
+    })
+
+    settle_job_in_employer(df)
+
+    assert df['contributor_employer'].fillna('').tolist() == [
+        '', 'SELF-EMPLOYED', 'RETIRED', '', 'CARDIOLOGY PC', 'SELF-EMPLOYED',
+    ]
+    assert df['contributor_occupation'].tolist() == [
+        'ATTORNEY', 'OWNER', 'ATTORNEY', 'INVESTOR', 'CARDIOLOGIST', 'OWNER',
+    ]

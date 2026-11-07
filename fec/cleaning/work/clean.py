@@ -45,18 +45,9 @@ _COMPANY_IN_OCCUPATION_RE = re.compile(
 _SWAP_JOBS = SWAP_JOB_TITLES | OCCUPATION_KEYWORDS
 
 
-def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Employer holds a job and occupation a company: swap the two.
-
-    A job title in the occupation is never treated as a company, and
-    SELF-EMPLOYED in the occupation is swapped back to the employer.
-    """
-    # Filings first typed as committees get their filed work back later.
-    rows = df.index[df['is_individual'].astype(bool)]
-    employer = _norm(df.loc[rows, 'contributor_employer'])
-    occupation = _norm(df.loc[rows, 'contributor_occupation'])
-
-    employer_is_job = employer.isin(_SWAP_JOBS)
+def occupation_is_company(employer: pd.Series, occupation: pd.Series, jobs) -> pd.Series:
+    """True where the occupation names a company and is no job itself."""
+    employer_is_job = employer.isin(jobs)
     seen_as_employer = set(
         employer[~employer_is_job & ~employer.isin(STATUS_CATEGORIES)].map(employer_rule_key)
     )
@@ -65,10 +56,23 @@ def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         | occupation.isin(KNOWN_COMPANY_OCCUPATIONS)
         | occupation.map(employer_rule_key).isin(seen_as_employer)
     ) & ~occupation.str.startswith('CORP ', na=False)
-    occupation_is_job = occupation.isin(_SWAP_JOBS) | occupation.map(is_job_title)
+    occupation_is_job = occupation.isin(jobs) | occupation.map(is_job_title)
+    return company & ~occupation_is_job & occupation.ne('')
+
+
+def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Employer holds a job and occupation a company: swap the two.
+
+    SELF-EMPLOYED in the occupation is swapped back to the employer too.
+    """
+    # Filings first typed as committees get their filed work back later.
+    rows = df.index[df['is_individual'].astype(bool)]
+    employer = _norm(df.loc[rows, 'contributor_employer'])
+    occupation = _norm(df.loc[rows, 'contributor_occupation'])
+
     swap = rows[
-        employer_is_job & occupation.ne('')
-        & ((company & ~occupation_is_job) | occupation.eq('SELF-EMPLOYED'))
+        employer.isin(_SWAP_JOBS)
+        & (occupation_is_company(employer, occupation, _SWAP_JOBS) | occupation.eq('SELF-EMPLOYED'))
     ]
     if len(swap):
         swap_employer_and_occupation(df, swap, canonical=False)

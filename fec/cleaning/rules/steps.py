@@ -19,10 +19,7 @@ from fec.cleaning.rules.employer import (
     _null_sector_as_employer,
 )
 from fec.cleaning.rules.employer_swaps import (
-    _fix_employer_is_occupation_word,
-    _fix_role_as_employer,
     _fix_self_employed_consistency,
-    _swap_role_employer_with_known_company,
 )
 from fec.cleaning.rules.name_fields import (
     _fix_company_name_as_occupation,
@@ -50,17 +47,10 @@ SAFETY_RULES = (
      'refusal_or_email_employer_nulled'),
     (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
      'retired_variant_normalized_or_tail_split_to_previous_employer'),
-    (_fix_employer_is_occupation_word, INDIVIDUALS, WORK_FIELDS,
-     'occupation_word_in_employer_resolved'),
     (_fix_misclassified_foundation, ALL_ROWS, PEOPLE_FIELDS,
      'org_parsed_as_person_reclassified'),
     (_fix_choose_prefix, ALL_ROWS, WORK_FIELDS,
      'choose_prefix_stripped'),
-    # Preserve the real company before a bare role becomes SELF-EMPLOYED.
-    (_swap_role_employer_with_known_company, ALL_ROWS, WORK_FIELDS,
-     'role_employer_swapped_with_known_company'),
-    (_fix_role_as_employer, ALL_ROWS, WORK_FIELDS,
-     'role_as_employer_swapped_or_self_employed'),
     (_null_sector_as_employer, ALL_ROWS, WORK_FIELDS,
      'sector_word_employer_nulled'),
     (_fix_self_employed_consistency, ALL_ROWS, WORK_FIELDS,

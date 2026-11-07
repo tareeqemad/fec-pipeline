@@ -6,9 +6,7 @@ from fec.cleaning.reports.trail import (
     WORK_FIELDS,
     AuditTrail,
 )
-from fec.cleaning.work.employer_names import (
-    fix_occupation_as_employer,
-)
+from fec.cleaning.rules.employer_swaps import settle_job_in_employer
 from fec.cleaning.entities import (
     fix_employer_equals_occupation,
     normalize_business_names,
@@ -62,7 +60,7 @@ _AUDITED_RULES = (
     (fix_employer_equals_occupation,
      WORK_FIELDS,
      'enh_fix_emp_eq_occ', 'employer_equals_occupation'),
-    (fix_occupation_as_employer, WORK_FIELDS,
+    (settle_job_in_employer, WORK_FIELDS,
      'enh_fix_occ_as_employer', 'occupation_word_in_employer'),
 )
 

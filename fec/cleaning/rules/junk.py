@@ -103,13 +103,6 @@ def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
 def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     n_fixed = 0
     emp = _norm(df.loc[ii, 'contributor_employer'])
-    occ = _norm(df.loc[ii, 'contributor_occupation'])
-
-    # employer = DOCTOR/PHYSICIAN when occ is medical: SELF-EMPLOYED
-    doc_emp = ii[emp.isin({'DOCTOR', 'PHYSICIAN'}) & occ.isin({'PHYSICIAN', 'DOCTOR', 'MEDICAL DOCTOR'})]
-    if len(doc_emp):
-        df.loc[doc_emp, 'contributor_employer'] = 'SELF-EMPLOYED'
-        n_fixed += len(doc_emp)
 
     # employer junk words
     emp_junk = ii[emp.isin(FINAL_JUNK_EMPLOYERS)]
