@@ -248,3 +248,26 @@ def test_placeholder_employers_are_one_list():
     assert clear_placeholder_employer_words(df) == 2
     assert df['contributor_employer'].isna().tolist() == [True, True, False]
     assert df['contributor_occupation'].fillna('').tolist() == ['', 'VOLUNTEER', 'ENGINEER']
+
+
+def test_company_in_occupation_keeps_the_role():
+    from fec.cleaning.rules.occupation import _null_junk_occupation
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 5,
+        'contributor_employer': ['', 'BOXER PROPERTY CORP', '', 'ACME LLC', 'SELF-EMPLOYED'],
+        'contributor_occupation': [
+            'PRESIDENT, RELAY HUMAN CLOUD, INC', 'CEO AT ACME LLC',
+            'MD ANDERSON CANCER CENTER INC', 'PRESIDENT OF HEALTH TECH COMPANY', 'COMPANY',
+        ],
+        'occupation_category': [None] * 5,
+    })
+
+    _null_junk_occupation(df)
+
+    assert df['contributor_employer'].tolist() == [
+        'RELAY HUMAN CLOUD, INC', 'BOXER PROPERTY CORP', 'MD ANDERSON CANCER CENTER INC',
+        'ACME LLC', 'SELF-EMPLOYED',
+    ]
+    assert df['contributor_occupation'].fillna('').tolist() == [
+        'PRESIDENT', 'CEO', '', 'PRESIDENT OF HEALTH TECH COMPANY', '',
+    ]
