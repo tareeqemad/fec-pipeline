@@ -293,3 +293,31 @@ def test_company_evidence_levels():
     filers = pd.Series(['A', 'B', 'C', 'D', 'E', 'F'])
     levels = company_evidence(pd.Series(['MATTEL', 'REAL ESTATE MANAGEMENT', 'ME']), employers=employers, filers=filers, min_filers=2)
     assert levels.tolist() == ['frequent', 'job', 'unknown']
+
+
+def test_entity_type_from_committee_signal_and_company_evidence():
+    from fec.cleaning.entities import _reclassify_entities
+    names = [
+        'BANK, ELLYN', 'KAHAN TRUST, DAVID', 'BRITT FOR ALABAMA INC, KATIE MS.',
+        'SUNPAC, SUNPAC', 'AMALGAMATED BANK', 'KRAFT GROUP LLC',
+        'CLEVELAND BUILDING AND CONSTRUCTION TRADES COUNCIL', 'SMITH, JOHN',
+    ]
+    df = pd.DataFrame({
+        'sub_id': [str(i) for i in range(len(names))],
+        'contributor_name': names,
+        'contributor_first_name': ['ELLYN', 'DAVID', 'KATIE', '', '', '', '', 'JOHN'],
+        'contributor_last_name': ['BANK', 'KAHAN TRUST', 'BRITT FOR ALABAMA INC', '', '', '', '', 'SMITH'],
+        'contributor_employer': ['ACME LLC', '', '', '', '', '', '', 'ACME LLC'],
+        'contributor_occupation': ['ANALYST', '', '', '', '', '', '', 'ANALYST'],
+        'occupation_category': [None] * len(names),
+        'is_individual': [False, False, False, True, False, True, False, False],
+        'committee_type': [None] * len(names),
+    })
+
+    _reclassify_entities(df)
+
+    assert df['entity_type'].tolist() == [
+        'INDIVIDUAL', 'ORGANIZATION', 'COMMITTEE/PAC',
+        'COMMITTEE/PAC', 'ORGANIZATION', 'ORGANIZATION',
+        'ORGANIZATION', 'INDIVIDUAL',
+    ]
