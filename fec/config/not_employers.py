@@ -58,7 +58,7 @@ LEGAL_SUFFIX_RE = re.compile(
     r'(LLC|LLP|L\.L\.C\.?|L\.L\.P\.?'
     r'|INC\.?|CORP\.?|LTD\.?'
     r'|LP|PLC'
-    r'|P\.?C\.?|P\.?A\.?|P\.?L\.?L\.?C\.?)'
+    r'|P\.?C\.?|P\.?A\.?|P\.?L\.?L\.?C\.?|APLC|APC)'
     r'\s*\.?\s*$',
     re.IGNORECASE,
 )

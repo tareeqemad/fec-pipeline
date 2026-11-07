@@ -355,3 +355,16 @@ def test_settle_retired_fields_keeps_job_and_company():
     assert df['contributor_employer'].tolist() == ['RETIRED'] * 5 + ['ACME LLC']
     assert df['contributor_occupation'].tolist() == ['RETIRED', 'SOCIAL WORKER', 'TEACHER', 'RETIRED', 'ATTORNEY', 'ENGINEER']
     assert df['previous_employer'].fillna('').tolist() == ['DAIICHI SANKYO', '', '', '', '', '']
+
+
+def test_split_self_marker_and_previous_employer():
+    from fec.cleaning.work.previous import normalize_previous_employer_value, split_self_marker
+    assert split_self_marker('SELF - ACME LLC') == (True, 'ACME LLC')
+    assert split_self_marker('SELF; JACK A FRYDRYCH APLC') == (True, 'JACK A FRYDRYCH APLC')
+    assert split_self_marker('SELF EMPLOYED AND TOTAL REALTY') == (True, 'TOTAL REALTY')
+    assert split_self_marker('CONSULTANT (SELF-EMPLOYED)') == (True, 'CONSULTANT')
+    assert split_self_marker('SELF') == (True, '')
+    assert split_self_marker('ACME LLC') == (False, '')
+    assert normalize_previous_employer_value('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
+    assert normalize_previous_employer_value('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
+    assert normalize_previous_employer_value('SELF EMPLOYED; DENTIST') == 'SELF-EMPLOYED'
