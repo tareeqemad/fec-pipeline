@@ -11,7 +11,6 @@ from fec.cleaning.work.normalize import (
     categorize_final,
     swap_employer_and_occupation,
 )
-from fec.cleaning.rules.own_name import _had_legal_suffix, _is_own_name
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
 from fec.config.not_employers import (
     JOB_TITLE_AS_EMPLOYER,
@@ -159,25 +158,3 @@ def settle_job_in_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         df.loc[rows[other], 'contributor_employer'] = np.nan
         df.loc[rows[other & says_self], 'contributor_employer'] = 'SELF-EMPLOYED'
     return df, int(job.sum())
-
-
-# clean self-employed rows whose employer is really an occupation word
-def _fix_self_employed_consistency(df: pd.DataFrame) -> int:
-    """SELF-EMPLOYED occupation: own-name employer or occupation word moved."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    occ = df['contributor_occupation'].fillna('')
-    emp = df['contributor_employer'].fillna('')
-    n_fixed = 0
-
-    se_with_company = is_indiv & (occ == 'SELF-EMPLOYED') & ~emp.isin(SKIP_EMPLOYERS)
-
-    if se_with_company.any():
-        # Pattern 1: employer is the person's own name
-        for idx in df.loc[se_with_company].index:
-            if _is_own_name(df, idx, emp.at[idx]) and not _had_legal_suffix(df, idx):
-                df.at[idx, 'contributor_employer'] = 'SELF-EMPLOYED'
-                n_fixed += 1
-
-    return n_fixed
-
-
