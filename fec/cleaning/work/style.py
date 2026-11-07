@@ -4,6 +4,7 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _map_occupations
+from fec.cleaning.work.company import company_evidence
 from fec.config.occupation_rules.rules import OCCUPATION_TYPO_FIXES
 
 # Titles combined with "/"; longest first so VICE PRESIDENT wins.
@@ -111,7 +112,6 @@ def normalize_occupation_style(value: str) -> str:
 
 
 # Non-capturing, so pandas does not warn on every run.
-_LEGAL_SUFFIX_IN_OCC_RE = re.compile(r'\b(?:LLC|LLP|INC|CORP|CORPORATION|LTD|PLLC|PC|LP)\b')
 
 
 # pipeline step applying occupation style normalization to individuals
@@ -122,8 +122,8 @@ def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int
     if occupation.empty:
         return df, 0
     employer_names = set(df.loc[individuals, 'contributor_employer'].dropna().astype(str))
-    is_company = occupation.isin(employer_names) | occupation.str.contains(_LEGAL_SUFFIX_IN_OCC_RE, na=False)
-    occupation = occupation[~is_company]
+    company = occupation.isin(employer_names) | company_evidence(occupation).isin(('legal_form', 'reviewed'))
+    occupation = occupation[~company]
     if occupation.empty:
         return df, 0
     restyled = occupation.map(normalize_occupation_style)

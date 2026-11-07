@@ -271,3 +271,25 @@ def test_company_in_occupation_keeps_the_role():
     assert df['contributor_occupation'].fillna('').tolist() == [
         'PRESIDENT', 'CEO', '', 'PRESIDENT OF HEALTH TECH COMPANY', '',
     ]
+
+
+def test_company_evidence_levels():
+    from fec.cleaning.work.company import company_evidence
+    values = pd.Series([
+        'ACME, L.L.C.', 'KIRKLAND & ELLIS LLP', 'BROWN & BROWN', 'REAL ESTATE',
+        'INVESTMENT PORTFOLIO MANAGER', 'VENTURE CAPITALIST', 'CHAIRMAN AND CEO',
+        'DIRECTOR OF POLICY', 'CRESCENT REALTY ADVISORS', 'ZORVAL CAPITAL',
+        'ZORVAL & TARQUIN', 'WEALTH MANAGEMENT', 'MEDSTAR HEALTH', 'MATTEL', '',
+    ])
+    assert company_evidence(values).tolist() == [
+        'legal_form', 'legal_form', 'reviewed', 'job',
+        'job', 'job', 'job',
+        'job', 'named_org', 'named_org',
+        'named_org', 'job', 'named_org', 'unknown', '',
+    ]
+
+    # Other donors filing the value as their employer lifts an unknown name.
+    employers = pd.Series(['MATTEL', 'MATTEL', 'MATTEL', 'REAL ESTATE MANAGEMENT', 'REAL ESTATE MANAGEMENT', 'ME'])
+    filers = pd.Series(['A', 'B', 'C', 'D', 'E', 'F'])
+    levels = company_evidence(pd.Series(['MATTEL', 'REAL ESTATE MANAGEMENT', 'ME']), employers=employers, filers=filers, min_filers=2)
+    assert levels.tolist() == ['frequent', 'unknown', 'unknown']

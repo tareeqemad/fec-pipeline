@@ -6,6 +6,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.cleaning.work.employer_aliases import employer_rule_key
+from fec.cleaning.work.company import is_company
 from fec.cleaning.work.employer_aliases import documented_employer_name
 from fec.config.constants import JUNK_EMPLOYER_RE, OK_SHORT_EMPLOYERS, REFUSAL_EMPLOYERS
 from fec.config.data import MISSING_VALUES
@@ -20,11 +21,6 @@ from fec.config.occupation_rules.rules import (
 _SELF_PREFIX_RE = re.compile(r'^SELF[\s,/\-]+', re.IGNORECASE)
 # Leading SELF prefix to strip: "SELF - ACME LLC".
 _SELF_PREFIX_STRIP_RE = re.compile(r'^SELF[\s,/\-]+(?:EMPLOYED[\s,/\-]*)?')
-# A company-type word marking the tail as a firm.
-_SELF_COMPANY_TAIL_RE = re.compile(
-    r'\b(?:LLC|LLP|PLLC|INC|CORP|LTD|PC|PA|CAPITAL|REALTY|REAL ESTATE|'
-    r'STRATEGIES|LAW|LAW OFFICES?|TRADING CO)\b',
-)
 _SELF_COMPANY_OVERRIDES = {
     'SELF EMPLOYED- STANDARDIZED SUCCESS L': 'STANDARDIZED SUCCESS LLC',
     'SELF EMPLOYED AND TOTAL REALTY': 'TOTAL REALTY',
@@ -152,7 +148,7 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
             company = _SELF_COMPANY_OVERRIDES.get(employer_rule_key(original))
             clean_tail = tail.strip('() ').strip()
             if (not company and clean_tail not in _GENERIC_SELF_TAILS
-                    and _SELF_COMPANY_TAIL_RE.search(clean_tail)):
+                    and is_company(pd.Series([clean_tail])).iloc[0]):
                 company = clean_tail
             df.at[idx, 'contributor_employer'] = company or 'SELF-EMPLOYED'
             n_fixed += 1
