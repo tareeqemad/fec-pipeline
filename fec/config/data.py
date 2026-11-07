@@ -62,21 +62,6 @@ PRO_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Organization keywords, each proven on real raw names.
-ORG_KEYWORDS = re.compile(
-    r'FOR CONGRESS|FOR SENATE|FOR AMERICA'
-    r'|,\s+[\w\s]+\s+(?:REP|SEN)\.'                     # ", MIKE REP." / ", SHELLEY MOORE SEN."
-    r'| FOR [A-Z]{2,},\s'                              # "FOR LOUISIANA, " "FOR NH, "
-    r'|COMMITTEE|PAC |PAC$'
-    r'|\b(?:NRSC|NRCC|DCCC|DSCC|RNC)\b'
-    r'| (?:INC\.?|LLC|LLP|LP\b|CORP|ASSOC|FUND|TRUST|FOUNDATION'
-    r'|HOLDINGS|INVESTMENT|PARTNERS|PARTNERSHIP|COMPANY|COUNCIL'
-    r'|SERVICES|MEDIA|PROPERTY|PROPERTIES|TRADES|GROUP|VENTURES)'
-    r'|(?:DEMOCRATIC|REPUBLICAN) '
-    r'| (?:BROTHERS|EQUITIES|STEEL|LENDING|CONGREGATION)',
-    re.IGNORECASE,
-)
-
 # Individual names in FEC "LASTNAME, F..." form.
 INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 

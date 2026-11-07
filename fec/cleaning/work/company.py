@@ -66,7 +66,8 @@ ORGANISATION_WORDS = frozenset({
     "ASSOCIATION", "HEALTH", "HEALTHCARE", "ENERGY", "FINANCE", "WEALTH",
     "ENTERTAINMENT", "COMMUNICATIONS", "LOGISTICS", "MARKETING", "TRADING",
     "ESTATE", "MEDICAL", "DENTAL", "RADIOLOGY", "CLINIC", "PHARMACY", "STUDIOS",
-    "CARE", "ADVISORY", "AFFAIRS", "INDUSTRY", "SECTOR",
+    "CARE", "ADVISORY", "AFFAIRS", "INDUSTRY", "SECTOR", "TELECOMMUNICATIONS",
+    "ACQUISITION", "CONSULTANTS", "TRADES", "ASSOC",
 })
 # Common words that name no company on their own.
 _FILLER_WORDS = frozenset({
@@ -208,6 +209,14 @@ def filers_of(df: pd.DataFrame, rows=None) -> pd.Series | None:
 def is_company(values: pd.Series, **context) -> pd.Series:
     """True where the evidence is strong enough to treat the value as a company."""
     return company_evidence(values, **context).isin(COMPANY_LEVELS)
+
+
+_LEGAL_TOKENS = frozenset({"LLC", "PLLC", "LLP", "LP", "INC", "INCORPORATED", "CORP", "CORPORATION", "LTD", "PLC"})
+
+
+def has_legal_form_token(values: pd.Series) -> pd.Series:
+    """A legal form anywhere in the text, as a name filed LAST, FIRST may carry one."""
+    return values.map(company_key).map(lambda key: any(w in _LEGAL_TOKENS for w in key.split()))
 
 
 def ends_with_legal_form(values: pd.Series) -> pd.Series:

@@ -11,12 +11,15 @@ from fec.cleaning._helpers import _norm, _indiv_idx
 from fec.config.constants import STATUS_CATEGORIES
 from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
-from fec.config.data import INDIV_NAME_RE, ORG_KEYWORDS
+from fec.config.data import INDIV_NAME_RE
 from fec.cleaning.work.normalize import (
     EMPLOYER_STATUS_TEXT,
     _categorize,
     _normalize_text,
     map_occupation_fixes,
+)
+from fec.cleaning.work.company import (
+    COMPANY_LEVELS, ORGANISATION_WORDS, company_evidence, has_legal_form_token,
 )
 from fec.cleaning.work.employer_aliases import (
     documented_employer_name, employer_rule_key, reviewed_employer_name,
@@ -151,41 +154,16 @@ def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]
     return df, n_fixed
 
 
-# Business names; committee signals take priority.
-_ORG_BUSINESS_RE = re.compile(
-    r"\b(?:LLC|INC|CORP|CORPORATION|LLP|LP|HOLDINGS?|ENTERPRISES?"
-    r"|VENTURES?|PROPERTIES|PROPERTY|REALTY|REAL ESTATE|MANAGEMENT|PARTNERS"
-    r"|PARTNERSHIP|CAPITAL|GROUP|ASSOCIATES|COMPANY|INDUSTRIES|INVESTMENTS?"
-    r"|BANK|INSURANCE|FOUNDATION|TRUST|MEDIA|DEVELOPMENT|LENDING|ACQUISITIONS?"
-    r"|EQUITIES|TELECOM\w*|CONGREGATION|UNION|COUNCIL|BROTHERS|STEEL"
-    r"|CONSTRUCTION|CONSULTANTS?)\b",
-    re.IGNORECASE,
-)
-
-# Committee names and campaign phrases.
-_COMMITTEE_SIGNAL_RE = re.compile(
-    r"\b(?:PAC|COMMITTEE|VICTORY|FRIENDS|CITIZENS|FUND|DEMOCRAT"
-    r"|REPUBLICAN|SENATE|CONGRESS|ACTION|CAMPAIGN"
-    r"|NRSC|NRCC|DCCC|DSCC)\b|FOR (?:CONGRESS|SENATE|AMERICA|GOVERNOR|MAYOR)",
-    re.IGNORECASE,
-)
-
-# Earlier labels protect committee names that also contain business words.
-_POLITICAL_COMMITTEE_TYPES = frozenset(
-    {
-        "CONGRESSIONAL CAMPAIGN",
-        "SENATE CAMPAIGN",
-        "POLITICAL COMMITTEE",
-        "POLITICAL ACTION COMMITTEE",
-        "PARTY ORGANIZATION",
-    }
-)
-
-# Business names that override a committee label without signals.
-_STRONG_BUSINESS_RE = re.compile(
-    r"\b(?:BANK|TRUST|INVESTMENTS?|CAPITAL|INSURANCE|REALTY|REAL ESTATE"
-    r"|HOLDINGS?|EQUITIES|CORPORATION|ENTERPRISES?"
-    r"|FAMILY OFFICE|FAMILY TRUST|FAMILY (?:LIMITED )?PARTNERSHIP)\b",
+# Committee names and campaign phrases: "X FOR CONGRESS", "FRIENDS OF X",
+# "BELL FOR MISSOURI, WESLEY REP.", "NRSC, DAN SEN.".
+_COMMITTEE_RE = re.compile(
+    r"\b(?:COMMITTEE|VICTORY|FRIENDS|CITIZENS|FUND|DEMOCRAT(?:IC|S)?"
+    r"|REPUBLICANS?|SENATE|CONGRESS|ACTION|CAMPAIGN"
+    r"|NRSC|NRCC|DCCC|DSCC|RNC|DNC)\b"
+    r"|PAC\b"
+    r"|\bFOR (?:CONGRESS|SENATE|AMERICA|GOVERNOR|MAYOR)\b"
+    r"|,\s+[\w\s.]+\s+(?:REP|SEN)\.?(?:\s|$)"
+    r"| FOR [A-Z]{2,}(?: [A-Z]{2,}){0,2}(?:,? INC\.?)?,\s",
     re.IGNORECASE,
 )
 
@@ -203,14 +181,14 @@ _DEFINITE_COMM_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Organization names on individuals with no first or last name.
-_NAMELESS_ORG_RE = re.compile(
-    r" (?:FOR |PAC|LLC|LP\b|INC|COMMITTEE|COUNCIL|PARTNERS"
-    r"|HOLDINGS|INVESTMENT|COMPANY|SERVICES|MEDIA|PROPERTY"
-    r"|TRADES|VENTURES|CORPORATION|GROUP|ASSOCIATION)"
-    r"|^(?:DEMOCRATIC|REPUBLICAN) ",
-    re.IGNORECASE,
-)
+# Company evidence for contributor names (fec.cleaning.work.company); a
+# name other donors file as their employer counts as well.
+def _company_levels(df: pd.DataFrame, names: pd.Series) -> pd.Series:
+    people = df["is_individual"].astype(bool)
+    return company_evidence(
+        names, employers=df.loc[people, "contributor_employer"],
+        filers=df.loc[people, "contributor_name"], min_filers=1,
+    )
 
 
 def _blank(s: pd.Series) -> pd.Series:
@@ -219,41 +197,49 @@ def _blank(s: pd.Series) -> pd.Series:
 
 
 def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
-    """Correct entity types; return person and committee reclassification counts."""
+    """Correct entity types; return person and committee reclassification counts.
+
+    A committee phrase or company evidence in the name marks an organisation
+    or committee; a LAST, FIRST shape without either marks a person.
+    """
     initial_names = df["contributor_name"].astype(str)
-    has_org_keywords = initial_names.str.contains(ORG_KEYWORDS, na=False)
+    committee = initial_names.str.contains(_COMMITTEE_RE, na=False)
+    levels = _company_levels(df, initial_names)
+    # A surname can be an organisation word (BANK, ELLYN), so a LAST, FIRST
+    # name stays a person unless the evidence is certain.
+    certain = has_legal_form_token(initial_names) | levels.isin(("legal_form", "reviewed", "frequent"))
+    # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
+    named_head = initial_names.str.split(",").str[0].str.upper().str.split().map(
+        lambda words: len(words) >= 2 and words[-1] in ORGANISATION_WORDS
+    )
+    certain |= levels.eq("named_org") & named_head
+    company = certain | levels.eq("named_org")
     looks_like_person = initial_names.str.match(INDIV_NAME_RE, na=False)
 
     df["_reclass_reason"] = pd.Series(pd.NA, index=df.index, dtype="object")
 
-    to_individual = ~df["is_individual"] & ~has_org_keywords & looks_like_person
+    to_individual = ~df["is_individual"] & ~committee & ~certain & looks_like_person
     n_to_indiv = _reclassify(
         df, to_individual, "committee_to_individual_last_first",
         individual=True,
     )
-    to_committee = df["is_individual"] & has_org_keywords & ~looks_like_person
+    to_committee = df["is_individual"] & (committee | company) & ~looks_like_person
     n_to_comm = _reclassify(
         df, to_committee, "individual_to_committee_org_keywords",
         individual=False,
     )
-    n_to_comm += _reclass_individual_nameless_org(df, initial_names)
+    n_to_comm += _reclass_individual_nameless_org(df, committee | company)
     n_to_comm += _reclass_individual_ghost(df)
     n_to_comm += _reclass_definite_committees(df, initial_names)
 
     individuals = df["is_individual"]
     names = df["contributor_name"].fillna("").astype(str)
-    # Existing committee labels need stronger business evidence to change.
-    entered_as_committee = df["committee_type"].isin(_POLITICAL_COMMITTEE_TYPES)
-    has_committee_signal = names.str.contains(_COMMITTEE_SIGNAL_RE, na=False)
-    strong_business = (
-        names.str.contains(_STRONG_BUSINESS_RE, na=False) & ~has_committee_signal
-    )
-    organizations = (
-        ~individuals
-        & ~has_committee_signal
-        & names.str.contains(_ORG_BUSINESS_RE, na=False)
-        & (~entered_as_committee | strong_business)
-    )
+    changed = names.ne(initial_names)
+    if changed.any():
+        committee = committee.where(~changed, names.str.contains(_COMMITTEE_RE, na=False))
+        levels = levels.where(~changed, _company_levels(df, names))
+        company = company.where(~changed, has_legal_form_token(names) | levels.isin(COMPANY_LEVELS))
+    organizations = ~individuals & ~committee & company
     df["entity_type"] = np.select(
         [individuals, organizations], ["INDIVIDUAL", "ORGANIZATION"], default="COMMITTEE/PAC"
     )
@@ -288,16 +274,12 @@ def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool
     return count
 
 
-def _reclass_individual_nameless_org(df: pd.DataFrame, name_str: pd.Series) -> int:
-    """Individuals with no first/last name and an org-like name pattern."""
+def _reclass_individual_nameless_org(df: pd.DataFrame, organisation: pd.Series) -> int:
+    """Individuals with no first/last name and an organisation name."""
     no_names = _blank(df["contributor_first_name"]) & _blank(
         df["contributor_last_name"]
     )
-    mask = (
-        df["is_individual"]
-        & no_names
-        & name_str.str.contains(_NAMELESS_ORG_RE, na=False)
-    )
+    mask = df["is_individual"] & no_names & organisation
     return _reclassify(df, mask, "individual_to_committee_no_name_org_pattern", individual=False)
 
 
