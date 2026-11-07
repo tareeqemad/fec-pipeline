@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning._helpers import _set_missing
-from fec.cleaning.rules.employer_swaps import _KNOWN_OCCUPATIONS
 from fec.cleaning.rules.own_name import _had_legal_suffix, _is_own_name
-from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
+from fec.config.constants import SKIP_EMPLOYERS
 
 
 # employer equal to donor's own name becomes self-employed
@@ -26,31 +24,3 @@ def _fix_own_name_as_employer(df: pd.DataFrame) -> int:
     if hits:
         df.loc[hits, 'contributor_employer'] = 'SELF-EMPLOYED'
     return len(hits)
-
-
-# occupation that is really a known employer name, swap fields
-def _fix_company_name_as_occupation(df: pd.DataFrame) -> int:
-    """SELF-EMPLOYED with a frequent employer as occupation: that employer."""
-    is_indiv = df['entity_type'] == 'INDIVIDUAL'
-    emp = df['contributor_employer'].fillna('')
-    occ = df['contributor_occupation'].fillna('')
-
-    se_mask = (
-        is_indiv
-        & (emp == 'SELF-EMPLOYED')
-        & (occ != '')
-        & ~occ.isin(SKIP_OCCUPATIONS)
-        & ~occ.isin(_KNOWN_OCCUPATIONS)
-    )
-
-    emp_counts = df.loc[is_indiv, 'contributor_employer'].value_counts()
-    known_employers = set(emp_counts[emp_counts >= 10].index)
-
-    occ_is_company = se_mask & occ.isin(known_employers)
-    n_fixed = int(occ_is_company.sum())
-    if not n_fixed:
-        return 0
-
-    df.loc[occ_is_company, 'contributor_employer'] = df.loc[occ_is_company, 'contributor_occupation']
-    _set_missing(df, occ_is_company)
-    return n_fixed

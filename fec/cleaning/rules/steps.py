@@ -18,7 +18,6 @@ from fec.cleaning.rules.employer import (
     _null_sector_as_employer,
 )
 from fec.cleaning.rules.name_fields import (
-    _fix_company_name_as_occupation,
     _fix_own_name_as_employer,
 )
 from fec.cleaning.rules.occupation import (
@@ -53,8 +52,6 @@ SAFETY_RULES = (
      'garbage_city_name_nulled'),
     (_fix_pr_zip_wrong_state, ALL_ROWS, PLACE_FIELDS,
      'state_corrected_from_pr_vi_zip'),
-    (_fix_company_name_as_occupation, ALL_ROWS, WORK_FIELDS,
-     'company_in_occupation_moved_to_employer'),
     (_fix_web_artifact_occupation, ALL_ROWS, WORK_FIELDS,
      'web_artifact_occupation_nulled'),
     (_null_junk_occupation, ALL_ROWS, WORK_FIELDS,
