@@ -5,6 +5,7 @@ from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER
 
 from fec.cleaning.work.employer_aliases import reviewed_employer_name
+from fec.cleaning.work.retired import split_retired
 
 # Status words that never become previous_employer.
 _PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
@@ -35,9 +36,9 @@ def normalize_employer_display_name(name) -> str | None:
     text = str(name).strip().upper()
     if not text or text in _PREV_EMP_NOT_REAL:
         return None
-    match = re.match(r'^RETIRED\b[\s,-]+(.+)$', text)
-    if match:
-        text = match.group(1).strip()
+    retired, rest = split_retired(text)
+    if retired:
+        text = rest
         if not text or text in OCCUPATION_AS_EMPLOYER or text == 'MILITARY':
             return None
     text = re.sub(r'^C/O\s+', '', text)

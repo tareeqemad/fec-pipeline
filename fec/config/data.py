@@ -68,9 +68,6 @@ INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 # Trailing junk on committee names, but not legal suffixes.
 COMM_TAIL_RE = re.compile(r',\s+(?!INC|LLC|LLP|CORP|JR|SR|PA\s*$)[A-Z][A-Z.\s]{0,30}$')
 
-# the substring "RETIRE" anywhere, case-insensitive: "RETIRED", "RETIREE"
-RETIRE_RE = re.compile(r'RETIRE', re.IGNORECASE)
-
 # Output column order; recipient_committee is the receiving PAC.
 OUTPUT_COLUMNS = [
     # ids

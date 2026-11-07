@@ -7,6 +7,8 @@ import pandas as pd
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.cleaning.work.company import is_company
+from fec.cleaning.work.previous import SELF_EMPLOYED_TAIL_RE
+from fec.cleaning.work.status import is_job_title
 from fec.cleaning.work.employer_aliases import documented_employer_name
 from fec.config.constants import JUNK_EMPLOYER_RE, OK_SHORT_EMPLOYERS, REFUSAL_EMPLOYERS
 from fec.config.data import MISSING_VALUES
@@ -133,7 +135,16 @@ def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
 def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     n_fixed = 0
 
-    # SELF variants with a tail
+    # "CONSULTANT (SELF-EMPLOYED)": the marker ends the text; a firm before it stays.
+    emp_raw = df.loc[ii, 'contributor_employer'].fillna('')
+    tailed = ii[emp_raw.str.upper().str.contains(SELF_EMPLOYED_TAIL_RE, na=False)]
+    for idx in tailed:
+        upper = emp_raw.at[idx].strip().upper()
+        head = SELF_EMPLOYED_TAIL_RE.sub('', upper).strip(' -,/(:')
+        df.at[idx, 'contributor_employer'] = head if is_company(pd.Series([head])).iloc[0] else 'SELF-EMPLOYED'
+        if head and is_job_title(head) and not str(df.at[idx, 'contributor_occupation'] or '').strip():
+            df.at[idx, 'contributor_occupation'] = head
+        n_fixed += 1
     emp_raw = df.loc[ii, 'contributor_employer'].fillna('')
     self_pattern = ii[
         emp_raw.str.match(_SELF_PREFIX_RE, na=False)

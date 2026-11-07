@@ -1,6 +1,5 @@
 """Focused record-level safety rules, in one declared order."""
 from fec.cleaning.reports.trail import (
-    EMPLOYMENT_FIELDS,
     PEOPLE_FIELDS,
     PLACE_FIELDS,
     WORK_FIELDS,
@@ -14,7 +13,6 @@ from fec.cleaning.rules.committee import (
 )
 from fec.cleaning.rules.employer import (
     _fix_choose_prefix,
-    _fix_retired_typos,
     _null_sector_as_employer,
 )
 from fec.cleaning.rules.name_fields import (
@@ -38,8 +36,6 @@ INDIVIDUALS = "individuals"
 SAFETY_RULES = (
     (_fill_null_occupation_category, INDIVIDUALS, WORK_FIELDS,
      'null_occupation_category_filled'),
-    (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
-     'retired_variant_normalized_or_tail_split_to_previous_employer'),
     (_fix_misclassified_foundation, ALL_ROWS, PEOPLE_FIELDS,
      'org_parsed_as_person_reclassified'),
     (_fix_choose_prefix, ALL_ROWS, WORK_FIELDS,

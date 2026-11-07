@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
-from fec.config.data import COMM_PATTERNS, MISSING_VALUES, RETIRE_RE
+from fec.config.data import COMM_PATTERNS, MISSING_VALUES
 from fec.config.occupation_rules.categories import (
     CATEGORY_PATTERNS,
     RECLASSIFY_CATEGORY_RULES,
@@ -34,7 +34,7 @@ EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOY
 
 
 # clean, dedupe-normalize a text column, optionally collapsing retired
-def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: bool = False,
+def _normalize_text(series: pd.Series, normalize_map: dict,
                     digits_only_before: frozenset | set | None = None) -> pd.Series:
     """Clean text with a spelling map; occupation digits are noise."""
     cleaned = series.astype('string').str.strip().str.upper()
@@ -67,10 +67,6 @@ def _normalize_text(series: pd.Series, normalize_map: dict, collapse_retire: boo
     cleaned = cleaned.str.replace(r'\s{2,}', ' ', regex=True).str.strip()
 
     cleaned = cleaned.replace(_JUNK_TO_NAN)
-
-    if collapse_retire:
-        # Effectively case-insensitive: cleaned text is already uppercase.
-        cleaned.loc[cleaned.str.contains(RETIRE_RE.pattern, na=False, regex=True)] = 'RETIRED'
 
     cleaned = cleaned.replace(normalize_map)
     return cleaned.astype(object)

@@ -40,9 +40,6 @@ def _deep_clean_emp_short_junk(df: pd.DataFrame) -> None:
         df.loc[nd_mask, 'contributor_employer'] = np.nan
         df.loc[nd_mask, 'contributor_occupation'] = np.nan
 
-    rd_retired = emp.isin(['RD', 'RE']) & df['contributor_occupation'].eq('RETIRED')
-    if rd_retired.any():
-        df.loc[rd_retired, 'contributor_employer'] = 'RETIRED'
 
 
 # normalize separators without discarding any filed employer
@@ -61,28 +58,6 @@ def _deep_clean_emp_title_prefix(df: pd.DataFrame) -> None:
     mask = (stripped != emp) & (stripped != '')
     if mask.any():
         df.loc[mask, 'contributor_employer'] = stripped[mask]
-
-
-# normalize retired/self-employed phrasing variants to standard values
-def _deep_clean_emp_retired_variants(df: pd.DataFrame) -> None:
-    emp = df['contributor_employer']
-
-    ret_prefix = emp.str.match(
-        r'^RETIRED\s+(FROM|TEACHER|LAWYER|PHYSICIAN|MILITARY|'
-        r'EXECUTIVE|DOCTOR|PROFESSOR|NURSE)',
-        na=False,
-    )
-    # Fix employer typos; the retirement rule syncs occupation later.
-    ret_typo = emp.isin(['RETIEED', 'RETIREE', 'RETIERD', 'RETIREED'])
-    semi_ret = emp.str.match(r'^SEMI\s*RETIRED', na=False)
-    self_ret = emp.eq('SELF RETIRED')
-    retired = ret_prefix | ret_typo | semi_ret | self_ret
-    if retired.any():
-        df.loc[retired, 'contributor_employer'] = 'RETIRED'
-
-    consult_self = emp.eq('CONSULTANT (SELF-EMPLOYED)')
-    if consult_self.any():
-        df.loc[consult_self, 'contributor_employer'] = 'SELF-EMPLOYED'
 
 
 # Normalize self-employment typos before work inference.
@@ -130,7 +105,6 @@ DEEP_CLEAN_PASSES = (
     (_deep_clean_emp_short_junk, 'short_code_employer_resolved'),
     (_deep_clean_emp_semicolons, 'semicolon_list_spacing_normalized'),
     (_deep_clean_emp_title_prefix, 'leading_job_title_stripped'),
-    (_deep_clean_emp_retired_variants, 'retired_or_self_employed_variant_normalized'),
     (_deep_clean_emp_self_employed_typos, 'self_employed_typo_fixed'),
     (_deep_clean_emp_homemaker_sync, 'homemaker_employer_is_not_employed'),
     (_deep_clean_emp_typo_patterns, 'employer_typo_pattern_fixed'),
