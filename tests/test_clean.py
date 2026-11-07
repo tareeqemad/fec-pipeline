@@ -227,3 +227,24 @@ def test_job_in_employer_never_guesses_self_employed():
     assert df['contributor_occupation'].tolist() == [
         'ATTORNEY', 'OWNER', 'ATTORNEY', 'INVESTOR', 'CARDIOLOGIST', 'OWNER',
     ]
+
+
+def test_placeholder_employers_are_one_list():
+    from fec.cleaning.rules.junk import clear_placeholder_employer_words, placeholder_employer
+    values = pd.Series(['43209876', 'A@B.COM', 'XXX', 'NM', 'GE', 'N A', 'PRIVATE', 'ACME LLC'])
+    assert placeholder_employer(values, words=False).tolist() == [
+        True, True, True, True, False, False, False, False,
+    ]
+    assert placeholder_employer(values).tolist() == [
+        True, True, True, True, False, True, True, False,
+    ]
+
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 3,
+        'contributor_employer': ['NOTYOURBUSINESS', 'VOLUNTEER', 'ACME LLC'],
+        'contributor_occupation': ['NOTYOURBUSINESS', 'VOLUNTEER', 'ENGINEER'],
+        'occupation_category': ['OTHER', 'NONPROFIT / PHILANTHROPY', 'ENGINEERING'],
+    })
+    assert clear_placeholder_employer_words(df) == 2
+    assert df['contributor_employer'].isna().tolist() == [True, True, False]
+    assert df['contributor_occupation'].fillna('').tolist() == ['', 'VOLUNTEER', 'ENGINEER']

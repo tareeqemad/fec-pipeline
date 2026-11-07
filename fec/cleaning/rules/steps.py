@@ -13,7 +13,6 @@ from fec.cleaning.rules.committee import (
     _fix_misclassified_foundation,
 )
 from fec.cleaning.rules.employer import (
-    _clear_fake_employers,
     _fix_choose_prefix,
     _fix_retired_typos,
     _null_sector_as_employer,
@@ -43,8 +42,6 @@ INDIVIDUALS = "individuals"
 SAFETY_RULES = (
     (_fill_null_occupation_category, INDIVIDUALS, WORK_FIELDS,
      'null_occupation_category_filled'),
-    (_clear_fake_employers, INDIVIDUALS, WORK_FIELDS,
-     'refusal_or_email_employer_nulled'),
     (_fix_retired_typos, INDIVIDUALS, EMPLOYMENT_FIELDS,
      'retired_variant_normalized_or_tail_split_to_previous_employer'),
     (_fix_misclassified_foundation, ALL_ROWS, PEOPLE_FIELDS,

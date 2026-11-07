@@ -27,7 +27,7 @@ from fec.cleaning.work.style import (
     normalize_occupation_style_step,
 )
 from fec.cleaning.rules.junk import (
-    _clean_junk_status_word_employer,
+    clear_placeholder_employer_words,
     clean_remaining_junk,
 )
 from fec.cleaning.rules.steps import ALL_ROWS, SAFETY_RULES
@@ -73,7 +73,7 @@ _LATE_STEPS = (
     (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
      'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY),
     # Normalization can expose more placeholders.
-    (_clean_junk_status_word_employer, 'late_placeholder_employers',
+    (clear_placeholder_employer_words, 'late_placeholder_employers',
      'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY),
 )
 

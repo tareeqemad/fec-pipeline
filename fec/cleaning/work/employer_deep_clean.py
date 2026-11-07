@@ -5,12 +5,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.reports.trail import WORK_FIELDS
-from fec.cleaning.work.employer_aliases import documented_employer_name
-from fec.config.constants import (
-    OK_SHORT_EMPLOYERS,
-    OK_SHORT_OCCUPATIONS,
-    SELF_EMPLOYED_TYPOS,
-)
+from fec.config.constants import OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS
 from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES, OCCUPATION_FIXES
 
@@ -31,27 +26,9 @@ def _deep_clean_employer(df: pd.DataFrame, trail) -> None:
         )
 
 
-# Clear numbers and emails; keep exact company corrections.
-def _deep_clean_emp_numeric_email(df: pd.DataFrame) -> None:
-    emp = df['contributor_employer']
-
-    numeric = emp.str.match(r'^\d+$', na=False)
-    if numeric.any():
-        df.loc[numeric, 'contributor_employer'] = np.nan
-
-    email = emp.str.contains('@', na=False, regex=False)
-    if email.any():
-        reviewed = emp[email].map(documented_employer_name)
-        df.loc[email, 'contributor_employer'] = reviewed.where(reviewed.notna(), np.nan)
-
-
-# Clear short placeholders; keep the known self-employed and retired meanings.
+# Short codes with a known meaning, before short values are cleared.
 def _deep_clean_emp_short_junk(df: pd.DataFrame) -> None:
     emp = df['contributor_employer']
-
-    junk = (emp.str.len().eq(1) & emp.notna()) | emp.eq('XX')
-    if junk.any():
-        df.loc[junk, 'contributor_employer'] = np.nan
 
     me_mask = emp.eq('ME') & df['contributor_occupation'].eq('ME')
     if me_mask.any():
@@ -134,32 +111,28 @@ def _deep_clean_emp_typo_patterns(df: pd.DataFrame) -> None:
     apply_reviewed_employer_names(df, ("contributor_employer",))
 
 
-# Clear short work values unless allowed names preserve them.
+# Clear placeholder employers and short occupations.
 def _deep_clean_emp_truncated(df: pd.DataFrame) -> None:
-    for column, allowed in (
-        ('contributor_employer', OK_SHORT_EMPLOYERS),
-        ('contributor_occupation', OK_SHORT_OCCUPATIONS),
-    ):
-        values = df[column]
-        short = (
-            values.str.len().le(2) & values.notna()
-            & ~values.isin(allowed) & ~values.isin(MISSING_VALUES)
-        )
-        if column == 'contributor_occupation':
-            short &= ~values.isin(OCCUPATION_FIXES)
-        if short.any():
-            df.loc[short, column] = np.nan
+    from fec.cleaning.rules.junk import clear_placeholder_employers
+    clear_placeholder_employers(df, words=False)
+    occupation = df['contributor_occupation']
+    short = (
+        occupation.str.len().le(2) & occupation.notna()
+        & ~occupation.isin(OK_SHORT_OCCUPATIONS) & ~occupation.isin(MISSING_VALUES)
+        & ~occupation.isin(OCCUPATION_FIXES)
+    )
+    if short.any():
+        df.loc[short, 'contributor_occupation'] = np.nan
 
 
 # (pass, audit reason)
 DEEP_CLEAN_PASSES = (
-    (_deep_clean_emp_numeric_email, 'numeric_or_email_employer_nulled'),
-    (_deep_clean_emp_short_junk, 'short_placeholder_employer_nulled'),
+    (_deep_clean_emp_short_junk, 'short_code_employer_resolved'),
     (_deep_clean_emp_semicolons, 'semicolon_list_spacing_normalized'),
     (_deep_clean_emp_title_prefix, 'leading_job_title_stripped'),
     (_deep_clean_emp_retired_variants, 'retired_or_self_employed_variant_normalized'),
     (_deep_clean_emp_self_employed_typos, 'self_employed_typo_fixed'),
     (_deep_clean_emp_homemaker_sync, 'homemaker_employer_is_not_employed'),
     (_deep_clean_emp_typo_patterns, 'employer_typo_pattern_fixed'),
-    (_deep_clean_emp_truncated, 'truncated_two_char_value_nulled'),
+    (_deep_clean_emp_truncated, 'placeholder_or_truncated_value_nulled'),
 )

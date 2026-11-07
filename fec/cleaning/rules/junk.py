@@ -6,18 +6,15 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.cleaning.work.employer_aliases import employer_rule_key
-from fec.config.constants import JUNK_EMPLOYER_RE
+from fec.cleaning.work.employer_aliases import documented_employer_name
+from fec.config.constants import JUNK_EMPLOYER_RE, OK_SHORT_EMPLOYERS, REFUSAL_EMPLOYERS
+from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import (
+    CATEGORY_OVERRIDES,
     FINAL_JUNK_EMPLOYERS,
     FINAL_NULL_EMPLOYERS,
     FINAL_SHORT_OCCUPATIONS,
 )
-
-# matched against _norm() output (already uppercase), so case-sensitive on purpose
-_SCHOOL_EMP_RE = re.compile(
-    r'SCHOOL|ACADEMY|COLLEGE|UNIVERSITY|EDUCATION|MDCPS|ISD\b|UNIFIED|DISTRICT',
-)
-
 
 # SELF with a tail: named companies are kept.
 _SELF_PREFIX_RE = re.compile(r'^SELF[\s,/\-]+', re.IGNORECASE)
@@ -40,30 +37,69 @@ _OCC_NUM_TAIL_RE = re.compile(r'^[A-Z ]+\s+\d+$')
 # The trailing number to strip.
 _TRAILING_NUM_RE = re.compile(r'\s+\d+$')
 
+_EMPLOYER_PLACEHOLDER_WORDS = FINAL_JUNK_EMPLOYERS | FINAL_NULL_EMPLOYERS | REFUSAL_EMPLOYERS
+
+
+def placeholder_employer(values: pd.Series, *, words: bool = True) -> pd.Series:
+    """True for employer text that names no employer.
+
+    Always: numbers, emails, X runs, symbols or dates, and short values
+    that are not a known short name. With words, also placeholder and
+    refusal words (VARIOUS, N/A, PRIVATE, INFORMATION REQUESTED, ...).
+    """
+    text = _norm(values)
+    junk = (
+        text.str.contains('@', regex=False)
+        | text.str.fullmatch(r'X+', na=False)
+        | text.str.match(JUNK_EMPLOYER_RE, na=False)
+        | (text.str.len().le(2) & ~text.isin(OK_SHORT_EMPLOYERS) & ~text.isin(MISSING_VALUES))
+    )
+    if words:
+        junk |= text.str.replace(r'\s+', ' ', regex=True).isin(_EMPLOYER_PLACEHOLDER_WORDS)
+    return text.ne('') & junk
+
+
+def clear_placeholder_employers(df: pd.DataFrame, *, words: bool = True) -> int:
+    """Blank employers that name no employer; a documented email keeps its company."""
+    employer = df['contributor_employer']
+    junk = placeholder_employer(employer, words=words)
+    if not junk.any():
+        return 0
+    # The same placeholder in the occupation, unless the category table lists it.
+    occupation = df['contributor_occupation'] if 'contributor_occupation' in df else None
+    if occupation is not None:
+        same = junk & occupation.map(employer_rule_key).eq(employer.map(employer_rule_key))
+        same &= ~_norm(occupation).isin(CATEGORY_OVERRIDES)
+        if same.any():
+            _set_missing(df, df.index[same])
+    documented = employer[junk].map(documented_employer_name)
+    df.loc[junk, 'contributor_employer'] = documented.where(documented.notna(), np.nan)
+    return int(junk.sum())
+
+
+def clear_placeholder_employer_words(df: pd.DataFrame) -> int:
+    """Blank structural junk and placeholder words for people."""
+    people = df['entity_type'].eq('INDIVIDUAL')
+    if not people.any():
+        return 0
+    work = ['contributor_employer', 'contributor_occupation', 'occupation_category']
+    view = df.loc[people, work].copy()
+    n = clear_placeholder_employers(view)
+    df.loc[people, work] = view
+    return n
+
+
 # run all final junk-cleaning passes on employer/occupation
 def clean_remaining_junk(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Final pass for junk that slipped through; returns (df, n_fixed)."""
     indiv_idx = _indiv_idx(df)
     n_fixed = 0
-    n_fixed += _clean_junk_employers(df, indiv_idx)
+    n_fixed += clear_placeholder_employer_words(df)
     n_fixed += _clean_junk_occupations(df, indiv_idx)
     n_fixed += _clean_junk_number_tail(df, indiv_idx)
     n_fixed += _clean_junk_llp_standalone(df, indiv_idx)
     n_fixed += _clean_junk_employer_fixes(df, indiv_idx)
-    n_fixed += _clean_junk_nist(df, indiv_idx)
     return df, n_fixed
-
-
-def _clean_junk_employers(df: pd.DataFrame, ii: pd.Index) -> int:
-    """Blank x placeholders and structurally junk employer values."""
-    emp = _norm(df.loc[ii, 'contributor_employer'])
-    xxx = emp.isin({'XXX', 'XX', 'XXXX', 'X'})
-    pattern = (emp != '') & emp.str.match(JUNK_EMPLOYER_RE, na=False)
-    junk = ii[xxx | pattern]
-    if len(junk):
-        df.loc[junk, 'contributor_employer'] = np.nan
-        return len(junk)
-    return 0
 
 
 def _clean_junk_occupations(df: pd.DataFrame, ii: pd.Index) -> int:
@@ -88,27 +124,18 @@ def _clean_junk_number_tail(df: pd.DataFrame, ii: pd.Index) -> int:
     return 0
 
 
-# bare LLP occupation becomes attorney, legal category
+# a bare LLP or NIST names no occupation
 def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
     occ = _norm(df.loc[ii, 'contributor_occupation'])
-    llp = ii[occ == 'LLP']
-    if len(llp):
-        df.loc[llp, 'contributor_occupation'] = 'ATTORNEY'
-        df.loc[llp, 'occupation_category'] = 'LEGAL'
-        return len(llp)
-    return 0
+    junk = ii[occ.isin({'LLP', 'NIST'})]
+    if len(junk):
+        _set_missing(df, junk)
+    return len(junk)
 
 
 # fix several known employer/occupation swap and junk patterns
 def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     n_fixed = 0
-    emp = _norm(df.loc[ii, 'contributor_employer'])
-
-    # employer junk words
-    emp_junk = ii[emp.isin(FINAL_JUNK_EMPLOYERS)]
-    if len(emp_junk):
-        df.loc[emp_junk, 'contributor_employer'] = np.nan
-        n_fixed += len(emp_junk)
 
     # SELF variants with a tail
     emp_raw = df.loc[ii, 'contributor_employer'].fillna('')
@@ -131,35 +158,3 @@ def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
             n_fixed += 1
 
     return n_fixed
-
-
-# resolve NIST occupation: teacher if school employer, else missing
-def _clean_junk_nist(df: pd.DataFrame, ii: pd.Index) -> int:
-    occ = _norm(df.loc[ii, 'contributor_occupation'])
-    nist = ii[occ == 'NIST']
-    n_fixed = 0
-    if len(nist):
-        emp_nist = _norm(df.loc[nist, 'contributor_employer'])
-        is_school = nist[emp_nist.str.contains(_SCHOOL_EMP_RE, na=False)]
-        not_school = nist.difference(is_school)
-        if len(is_school):
-            df.loc[is_school, 'contributor_occupation'] = 'TEACHER'
-            df.loc[is_school, 'occupation_category'] = 'EDUCATION'
-            n_fixed += len(is_school)
-        if len(not_school):
-            _set_missing(df, not_school)
-            n_fixed += len(not_school)
-    return n_fixed
-
-
-# null placeholder employer words normalization created late
-def _clean_junk_status_word_employer(df: pd.DataFrame) -> int:
-    """Final sweep: null placeholder employers created late ("N A")."""
-    indiv_idx = _indiv_idx(df)
-    emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
-    collapsed = emp.str.replace(r'\s+', ' ', regex=True)
-    hit = indiv_idx[(emp != '') & collapsed.isin(FINAL_NULL_EMPLOYERS)]
-    if len(hit):
-        df.loc[hit, 'contributor_employer'] = np.nan
-        return len(hit)
-    return 0
