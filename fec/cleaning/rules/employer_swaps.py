@@ -1,8 +1,6 @@
 """Employer/occupation misplacement fixes: swapped fields and self-employment consistency."""
 from __future__ import annotations
 
-import re
-
 import numpy as np
 import pandas as pd
 
@@ -21,31 +19,7 @@ from fec.config.not_employers import (
     SELF_EMPLOYMENT_WORDS,
 )
 from fec.cleaning.work.clean import occupation_is_company
-from fec.cleaning.work.status import is_job_title
-
-# HEALTH names a company unless a person noun follows.
-_HEALTH_JOB_TAIL = (
-    r'\s+(?:CARE\s+)?(?:INDUSTRY\s+)?'
-    r'(?:COUNSELOR|THERAPIST|CLINICIAN|PROFESSIONAL|COACH|AIDE|NURSE|WORKER'
-    r'|PRACTITIONER|PROVIDER|CONSULTANT|ADVISOR|EDUCATOR'
-    r'|ADMINISTRATOR|ADM|EXECUTIVE|EXEC|OWNER|INVESTOR|SPECIALIST|TECHNICIAN'
-    r'|ASSISTANT|MANAGER|DIRECTOR|OFFICER|ANALYST|STRATEGIST)\b'
-)
-
-# Markers of a real legal entity name, not an industry.
-_COMPANY_NAME_RE = re.compile(
-    r'\b(?:LLC|LLP|L\.L\.C\.?|L\.L\.P\.?|INC\.?|CORP\.?|CO\.?|'
-    r'LTD\.?|LP|PLC|P\.?C\.?|P\.?A\.?|COMPANY|CORPORATION|'
-    r'HOLDINGS|GROUP|PARTNERS|VENTURES|FUND|CAPITAL|'
-    r'ASSOCIATES|ENTERPRISES|PROPERTIES|REALTY|ADVISORS|'
-    r'INSURANCE|INDUSTRIES|BROTHERS|BANK|FINANCIAL|MEDIA|'
-    rf'HEALTH(?:CARE)?(?!{_HEALTH_JOB_TAIL})|SOLUTIONS|SERVICES|SYSTEMS|TECHNOLOGIES|'
-    r'MANAGEMENT|FOUNDATION|UNIVERSITY|COLLEGE|HOSPITAL|CENTER|'
-    r'INTERNATIONAL|GLOBAL|TRUST)\b'
-    # OR any ampersand between two words (BROWN & BROWN):
-    r'|\b\w+\s*&\s*\w+\b',
-    re.IGNORECASE,
-)
+from fec.cleaning.work.company import filers_of
 
 _SKIP_OCC = SKIP_OCCUPATIONS | {'OWNER', 'CEO', 'PRESIDENT'}
 _KNOWN_OCCUPATIONS = (
@@ -130,10 +104,8 @@ def settle_job_in_employer(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     full_occ = df['contributor_occupation'].fillna('').astype(str).str.strip().str.upper()
     org_title = df.index.isin(rows[job & emp.isin(ORG_TITLE_ROLES)])
     named_org = _occupation_names_no_job(df, full_occ, pd.Series(org_title, index=df.index))
-    occ_is_job = occ.isin(_JOBS_IN_EMPLOYER) | occ.map(is_job_title)
     company = job & (
-        occupation_is_company(emp, occ, _JOBS_IN_EMPLOYER)
-        | (occ.str.contains(_COMPANY_NAME_RE, na=False) & ~occ_is_job)
+        occupation_is_company(emp, occ, _JOBS_IN_EMPLOYER, filers_of(df, rows))
         | named_org.loc[rows]
     )
     says_self = (

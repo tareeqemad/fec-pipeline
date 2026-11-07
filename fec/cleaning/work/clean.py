@@ -1,6 +1,4 @@
 """Full employer/occupation cleaning pipeline."""
-import re
-
 import numpy as np
 import pandas as pd
 
@@ -23,41 +21,18 @@ from fec.config.occupation_rules.rules import (
     OCCUPATION_FROM_EMPLOYER,
     OCCUPATION_KEYWORDS,
     SWAP_JOB_TITLES,
-    KNOWN_COMPANY_OCCUPATIONS,
 )
-from fec.config.constants import STATUS_CATEGORIES
-from fec.cleaning.work.status import is_job_title
-from fec.cleaning.work.employer_aliases import employer_rule_key
+from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence, filers_of
 
-# A company or institution name in occupation text: "INC", "GROUP", "HOSPITAL".
-_COMPANY_IN_OCCUPATION_RE = re.compile(
-    r'\bINC\b\.?|\bP\.?A\.?\s*$'
-    r'|\b(?:LLC|LLP|CORP|LTD|COMPANY|CORPORATION|HOLDINGS|GROUP'
-    r'|PARTNERS|VENTURES|CAPITAL|FUND|ASSOCIATES|ENTERPRISES|PROPERTIES|REALTY'
-    r'|ADVISORS|INSURANCE|INDUSTRIES|BROTHERS|BANK|FINANCIAL|MEDIA|SYSTEMS'
-    r'|TECHNOLOGIES|SOLUTIONS|SERVICES|MANAGEMENT|TRUST|INTERNATIONAL|GLOBAL'
-    r'|HOSPITAL|UNIVERSITY|INSTITUTE|COLLEGE|SCHOOL|ACADEMY'
-    r'|FOUNDATION|AGENCY|BUREAU|DEPARTMENT|MINISTRY|AIPAC|DMFI)\b'
-    r'|\b\w+\s*&\s*\w+\b'
-    r'|& (?:PARTNERS|ASSOCIATES|CRUTCHER|DE LLANO|BUTLER)',
-    re.IGNORECASE,
-)
 _SWAP_JOBS = SWAP_JOB_TITLES | OCCUPATION_KEYWORDS
 
 
-def occupation_is_company(employer: pd.Series, occupation: pd.Series, jobs) -> pd.Series:
-    """True where the occupation names a company and is no job itself."""
-    employer_is_job = employer.isin(jobs)
-    seen_as_employer = set(
-        employer[~employer_is_job & ~employer.isin(STATUS_CATEGORIES)].map(employer_rule_key)
-    )
-    company = (
-        occupation.str.contains(_COMPANY_IN_OCCUPATION_RE, na=False)
-        | occupation.isin(KNOWN_COMPANY_OCCUPATIONS)
-        | occupation.map(employer_rule_key).isin(seen_as_employer)
-    ) & ~occupation.str.startswith('CORP ', na=False)
-    occupation_is_job = occupation.isin(jobs) | occupation.map(is_job_title)
-    return company & ~occupation_is_job & occupation.ne('')
+def occupation_is_company(employer, occupation, jobs, filers=None) -> pd.Series:
+    """True where the occupation names a company (see fec.cleaning.work.company)."""
+    # Beside a job in the employer box, one other filing naming the value
+    # as an employer is evidence enough.
+    levels = company_evidence(occupation, employers=employer, filers=filers, min_filers=1)
+    return levels.isin(COMPANY_LEVELS) & ~occupation.isin(jobs)
 
 
 def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -70,9 +45,10 @@ def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     employer = _norm(df.loc[rows, 'contributor_employer'])
     occupation = _norm(df.loc[rows, 'contributor_occupation'])
 
+    filers = filers_of(df, rows)
     swap = rows[
         employer.isin(_SWAP_JOBS)
-        & (occupation_is_company(employer, occupation, _SWAP_JOBS) | occupation.eq('SELF-EMPLOYED'))
+        & (occupation_is_company(employer, occupation, _SWAP_JOBS, filers) | occupation.eq('SELF-EMPLOYED'))
     ]
     if len(swap):
         swap_employer_and_occupation(df, swap, canonical=False)

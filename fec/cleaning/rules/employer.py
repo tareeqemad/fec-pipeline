@@ -8,16 +8,11 @@ import pandas as pd
 
 from fec.cleaning.work.normalize import (
     _categorize,
-    categorize_final,
     swap_employer_and_occupation,
 )
 from fec.config.constants import RETIRED_TYPO_EMPLOYERS
-from fec.config.not_employers import (
-    JOB_TITLE_AS_EMPLOYER,
-    NOT_REAL_EMPLOYER,
-    OCCUPATION_AS_EMPLOYER,
-    SECTOR_AS_EMPLOYER,
-)
+from fec.cleaning.work.company import is_company
+from fec.config.not_employers import OCCUPATION_AS_EMPLOYER, SECTOR_AS_EMPLOYER
 
 # Variants of RETIRED, full match only, so RETIREMENT stays.
 _RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
@@ -64,33 +59,11 @@ def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
 # EXECUTIVE is a title when beside a company.
 _TITLE_SECTOR_WORDS = frozenset({'EXECUTIVE'}) & SECTOR_AS_EMPLOYER
 
-# Require company words; sector words and '&' are not enough.
-_ENTITY_WORD_RE = re.compile(
-    r'\b(?:L\.?L\.?C|L\.?L\.?P|L\.?P|INC|CORP|CORPORATION|COMPANY|LTD|PLC'
-    r'|GROUP|HOLDINGS|PARTNERS|ENTERPRISES|INDUSTRIES)\b\.?'
-)
-# A name part that is an industry, workplace or job.
-_NOT_A_COMPANY_NAME = SECTOR_AS_EMPLOYER | NOT_REAL_EMPLOYER | JOB_TITLE_AS_EMPLOYER
-
-
-# Require a company word plus a non-sector, non-job name.
+# The occupation names a company (see fec.cleaning.work.company).
 def _occupation_names_a_company(occ: pd.Series, candidates: pd.Series) -> pd.Series:
-    upper = occ.fillna('').astype(str).str.strip().str.upper()
-    entity = candidates & upper.str.contains(_ENTITY_WORD_RE, na=False)
     result = pd.Series(False, index=occ.index)
-    if not entity.any():
-        return result
-    name = (upper[entity]
-            .str.replace(_ENTITY_WORD_RE, ' ', regex=True)
-            .str.replace(r'[^\w&]+', ' ', regex=True)
-            .str.split().str.join(' '))
-    named = (
-        name.ne('')
-        & ~name.isin(_NOT_A_COMPANY_NAME)
-        & ~upper[entity].isin(_NOT_A_COMPANY_NAME)
-        & categorize_final(name).eq('OTHER')
-    )
-    result.loc[named.index] = named.to_numpy()
+    if candidates.any():
+        result.loc[candidates] = is_company(occ[candidates]).to_numpy()
     return result
 
 

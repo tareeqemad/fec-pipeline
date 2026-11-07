@@ -7,22 +7,17 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.rules.employer_swaps import _KNOWN_OCCUPATIONS
+from fec.cleaning.work.company import company_evidence, filers_of
 from fec.cleaning.work.normalize import _categorize
 from fec.cleaning.work.status import is_job_title
-from fec.config.constants import SKIP_OCCUPATIONS
 from fec.config.occupation_rules.rules import (
-    KNOWN_COMPANY_OCCUPATIONS,
     WEB_ARTIFACT_OCCUPATIONS,
 )
 
-# A legal form ending a company name: ACME LLC, ACME INC.
-_LEGAL_FORM_END_RE = re.compile(
-    r'\b(?:LLC|L\.L\.C|INC|CORP|CORPORATION|LLP|LP|PC|P\.C|PLLC|LTD)\.?$'
-)
 # A legal form alone is the tail of a company name, never an occupation.
 _BARE_LEGAL_FORM_RE = re.compile(r'(?:COMPANY|CORPORATION|CORP|INC|LLC|LLP|LTD|PLLC)\.?')
 # A role, then the company: "PRESIDENT, ACME INC", "CEO AT ACME LLC".
-_ROLE_THEN_COMPANY_RE = re.compile(r'^(?P<role>[A-Z][A-Z .&/-]*?)\s*(?:,|\bAT\b|\bOF\b| - )\s*(?P<company>.+)$')
+_ROLE_THEN_COMPANY_RE = re.compile(r'^(?P<role>[A-Z][A-Z .&-]*?)\s*(?:,|/|\bAT\b|\bOF\b| - )\s*(?P<company>.+)$')
 
 
 # Fill missing categories for individuals, then committees.
@@ -56,8 +51,9 @@ def _fix_web_artifact_occupation(df: pd.DataFrame) -> int:
 def _null_junk_occupation(df: pd.DataFrame) -> int:
     """An email or a company in the occupation is no occupation.
 
-    A company is a name ending in a legal form (ACME LLC), a reviewed
-    company name, or one filed as the employer at least 10 times. "PRESIDENT, ACME INC" keeps the role as
+    A company is decided by fec.cleaning.work.company: a legal form, a
+    reviewed name, a name several donors file as their employer, or an
+    organisation word beside a proper name. "PRESIDENT, ACME INC" keeps the role as
     the occupation. The company moves to the employer when that is empty or
     SELF-EMPLOYED; otherwise the filed employer stays.
     """
@@ -65,14 +61,17 @@ def _null_junk_occupation(df: pd.DataFrame) -> int:
     occ = df['contributor_occupation'].fillna('').astype(str).str.strip()
     emp = df['contributor_employer'].fillna('')
 
-    counts = emp[is_indiv].value_counts()
-    frequent_employers = set(counts[counts >= 10].index)
     is_email = occ.str.contains('@', na=False, regex=False)
-    is_company = occ.str.contains(_LEGAL_FORM_END_RE, na=False) | occ.isin(KNOWN_COMPANY_OCCUPATIONS) | (
-        occ.isin(frequent_employers) & occ.ne('')
-        & ~occ.isin(SKIP_OCCUPATIONS) & ~occ.isin(_KNOWN_OCCUPATIONS)
-    )
-    company_mask = is_indiv & is_company & ~is_email
+    level = pd.Series('', index=df.index)
+    level.loc[is_indiv] = company_evidence(
+        occ[is_indiv], employers=emp[is_indiv], filers=filers_of(df, is_indiv), min_filers=2,
+    ).to_numpy()
+    # A name with only an organisation word beside it is a company when
+    # nothing was filed as the employer; beside SELF-EMPLOYED it may be a
+    # misspelt or abbreviated field (INVESTMENT MGR), so it stays as filed.
+    certain = level.isin(('legal_form', 'reviewed', 'frequent'))
+    is_company = certain | (level.eq('named_org') & emp.eq(''))
+    company_mask = is_company & ~is_email
 
     parts = occ[company_mask].str.extract(_ROLE_THEN_COMPANY_RE)
     roles = parts['role'].fillna('').str.strip()
