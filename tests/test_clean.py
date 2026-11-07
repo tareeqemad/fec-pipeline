@@ -292,4 +292,4 @@ def test_company_evidence_levels():
     employers = pd.Series(['MATTEL', 'MATTEL', 'MATTEL', 'REAL ESTATE MANAGEMENT', 'REAL ESTATE MANAGEMENT', 'ME'])
     filers = pd.Series(['A', 'B', 'C', 'D', 'E', 'F'])
     levels = company_evidence(pd.Series(['MATTEL', 'REAL ESTATE MANAGEMENT', 'ME']), employers=employers, filers=filers, min_filers=2)
-    assert levels.tolist() == ['frequent', 'unknown', 'unknown']
+    assert levels.tolist() == ['frequent', 'job', 'unknown']

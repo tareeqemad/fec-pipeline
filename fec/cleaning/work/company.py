@@ -127,8 +127,11 @@ def company_key(value) -> str:
 
 
 @lru_cache(maxsize=65536)
-def _text_evidence(key: str) -> str:
-    """Evidence from the text alone: legal_form, reviewed, job, named_org or unknown."""
+def _text_evidence(key: str, ampersand: bool = False) -> str:
+    """Evidence from the text alone: legal_form, reviewed, job, named_org or unknown.
+
+    ampersand says the filing wrote "&" (SMITH & JONES), which the key spells AND.
+    """
     if not key:
         return ""
     if " " in key and _LEGAL_FORM_END_RE.search(key):
@@ -148,7 +151,7 @@ def _text_evidence(key: str) -> str:
         return "job"
     if key in _reviewed_names():
         return "reviewed"
-    if not any(word in ORGANISATION_WORDS for word in words) and "&" not in key:
+    if not any(word in ORGANISATION_WORDS for word in words) and not ampersand:
         return "unknown"
     # The proper name left after organisation and filler words.
     rest = [w for w in words if w not in ORGANISATION_WORDS and w not in _FILLER_WORDS and w != "AND"]
@@ -179,7 +182,8 @@ def company_evidence(
     text alone says 'unknown' or 'named_org'.
     """
     keys = values.map(company_key)
-    levels = keys.map(_text_evidence)
+    ampersands = values.map(lambda v: isinstance(v, str) and "&" in v)
+    levels = pd.Series([_text_evidence(k, a) for k, a in zip(keys, ampersands)], index=values.index, dtype=object)
     if employers is not None and filers is not None:
         emp_keys = employers.map(company_key)
         counts = filers.groupby(emp_keys.to_numpy()).nunique()
