@@ -5,7 +5,7 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _map_occupations
 from fec.cleaning.work.company import company_evidence
-from fec.config.occupation_rules.rules import OCCUPATION_TYPO_FIXES
+from fec.config.occupation_rules.rules import TEXT_CORRECTIONS
 
 # Titles combined with "/"; longest first so VICE PRESIDENT wins.
 _TITLES = (
@@ -136,4 +136,4 @@ def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int
 # pipeline step applying curated occupation typo fixes
 def apply_occupation_typo_fixes(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Curated typo and abbreviation fixes, right after style."""
-    return _map_occupations(df, OCCUPATION_TYPO_FIXES)
+    return _map_occupations(df, TEXT_CORRECTIONS)

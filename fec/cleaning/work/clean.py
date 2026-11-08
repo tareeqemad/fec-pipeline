@@ -16,7 +16,7 @@ from fec.cleaning.work.normalize import (
 )
 from fec.config.occupation_rules.rules import (
     EMPLOYER_NORMALIZE,
-    OCCUPATION_CANONICAL,
+    TEXT_CORRECTIONS,
     OCCUPATION_NORMALIZE,
     EMPLOYER_FROM_OCCUPATION,
     OCCUPATION_FROM_EMPLOYER,
@@ -60,7 +60,7 @@ def normalize_occupation_canonical(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, int]:
     """Map safe occupation variants."""
-    return _map_occupations(df, OCCUPATION_CANONICAL)
+    return _map_occupations(df, TEXT_CORRECTIONS)
 
 
 def _cross_fill(df: pd.DataFrame) -> None:

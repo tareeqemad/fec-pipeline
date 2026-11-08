@@ -418,3 +418,18 @@ def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
     df.loc[1, 'contributor_city'] = 'SURFSIDE'
     assert verified.apply_verified_address_fixes(df, city_only=True) == 1
     assert df['contributor_city'].tolist() == ['GARDENA', 'BAY HARBOR ISLANDS']
+
+
+def test_occupation_corrections_are_one_table():
+    from fec.cleaning.work.normalize import map_occupation_fixes
+    from fec.config.occupation_rules.rules import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
+    # No correction leads to another listed form: a filed value is corrected in one step.
+    assert not [k for k, v in OCCUPATION_CORRECTIONS.items() if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v]
+    assert OCCUPATION_CORRECTIONS['ATTY'] == 'ATTORNEY' and 'ATTY' in TEXT_CORRECTIONS
+    assert OCCUPATION_CORRECTIONS['XXX'] is None and 'XXX' not in TEXT_CORRECTIONS
+
+    df = pd.DataFrame({'contributor_occupation': ['ATTY', 'XXX', 'ENGINEER'], 'occupation_category': [None] * 3})
+    changed = map_occupation_fixes(df, df.index)
+    assert changed.tolist() == ['ATTY', 'XXX']
+    assert df['contributor_occupation'].fillna('').tolist() == ['ATTORNEY', '', 'ENGINEER']
+    assert df['occupation_category'].tolist()[0] == 'LEGAL' and pd.isna(df['occupation_category'].tolist()[1])
