@@ -390,3 +390,31 @@ def test_address_case_closes_once_rules_cover_every_form(monkeypatch):
     monkeypatch.setattr(review, '_covered_forms', lambda: {('151 BEARS CLUB DR', '33477'), ('151 W BEARS CLUB DR', '33477'), ('35 E 67TH ST', '10065')})
 
     assert review._open_cases(cases)['donor_key'].tolist() == ['b']
+
+
+def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
+    from fec.cleaning.addresses.fixes import verified
+    rules = tmp_path / 'rules.csv'
+    rules.write_text(
+        'match_street,match_state,match_zip,street,unit,city,state,zip,source,match_unit,match_sub_id\n'
+        'CALIFORNIA SUPPLY,CA,90247,[CLEAR],,,,,the street field held a company name,,\n'
+        '1150 KANE CONCOURSE,FL,33154,1150 KANE CONCOURSE,,BAY HARBOR ISLANDS,,,county records,,\n',
+        encoding='utf-8',
+    )
+    monkeypatch.setattr(verified, 'ADDRESS_RULES_CSV', rules)
+    df = pd.DataFrame({
+        'sub_id': ['1', '2'],
+        'contributor_street_1': ['CALIFORNIA SUPPLY', '1150 KANE CONCOURSE'],
+        'contributor_street_2': [None, 'FL 2'],
+        'contributor_city': ['GARDENA', 'SURFSIDE'],
+        'contributor_state': ['CA', 'FL'],
+        'contributor_zip': ['90247', '33154'],
+    })
+
+    assert verified.apply_verified_address_fixes(df, city_only=False) == 2
+    assert df['contributor_street_1'].isna().tolist() == [True, False]
+    assert df['contributor_city'].tolist() == ['GARDENA', 'BAY HARBOR ISLANDS']
+    # The city-only rule also runs in the second pass; the clearing rule does not.
+    df.loc[1, 'contributor_city'] = 'SURFSIDE'
+    assert verified.apply_verified_address_fixes(df, city_only=True) == 1
+    assert df['contributor_city'].tolist() == ['GARDENA', 'BAY HARBOR ISLANDS']
