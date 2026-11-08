@@ -24,7 +24,6 @@ from functools import lru_cache
 import pandas as pd
 
 from fec.cleaning.work.employer_aliases import _load_rules, employer_rule_key
-from fec.cleaning.work.normalize import _FINAL_OCCUPATION_CATEGORIES
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.config.constants import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
 from fec.config.not_employers import (
@@ -114,8 +113,7 @@ def _reviewed_names() -> frozenset[str]:
 def _job_words() -> frozenset[str]:
     """Exact values that are a job, field or status, never a company."""
     return frozenset(
-        {k for k, v in _FINAL_OCCUPATION_CATEGORIES.items() if v != "OTHER"}
-        | {k for k, v in CATEGORY_OVERRIDES.items() if v != "OTHER"}
+        {k for k, v in CATEGORY_OVERRIDES.items() if v != "OTHER"}
         | ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER
         | SECTOR_AS_EMPLOYER | STATUS_WORDS | SKIP_EMPLOYERS | SKIP_OCCUPATIONS
         | NOT_REAL_EMPLOYER

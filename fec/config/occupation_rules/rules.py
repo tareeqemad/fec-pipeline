@@ -1,24 +1,29 @@
 """Occupation and employer spellings, categories and cross-field rules."""
 from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
-from fec.config.tables import CONFIG_DIR, read_map, read_rows
+from fec.config.tables import CONFIG_DIR, read_map
+
+_nan = float("nan")
 
 # No HOMEMAKER: _deep_clean_employer fixes it with occupation.
 EMPLOYER_NORMALIZE = read_map(CONFIG_DIR / "employer_spellings.csv")
 
+# Occupation corrections: a filed spelling, abbreviation or typo and the
+# occupation it means; [CLEAR] marks a placeholder that means no occupation.
+# One table, applied when the text is first read and again after each
+# step that can expose a listed form.
+CLEAR = "[CLEAR]"
+OCCUPATION_CORRECTIONS = {
+    written: (None if occupation == CLEAR else occupation)
+    for written, occupation in read_map(CONFIG_DIR / "occupation_corrections.csv").items()
+}
+# The same corrections without the placeholders, for text replacement.
+TEXT_CORRECTIONS = {written: occupation for written, occupation in OCCUPATION_CORRECTIONS.items() if occupation}
 # Employer spellings first; occupation rows override them.
-OCCUPATION_NORMALIZE = {**EMPLOYER_NORMALIZE, **read_map(CONFIG_DIR / "occupation_spellings.csv")}
-
-# Safe spellings applied by the record rules.
-OCCUPATION_CANONICAL = read_map(CONFIG_DIR / "occupation_standard_titles.csv")
-
-# Raw occupation fixes that also assign a category.
-# A blank category means the fix sets no category.
-OCCUPATION_FIXES = {row["written_as"]: (row["occupation"] or None, row["category"] or None)
-                    for row in read_rows(CONFIG_DIR / "occupation_fixes_with_category.csv")}
-
-# Curated occupation typo fixes, keyed after the style step.
-OCCUPATION_TYPO_FIXES = read_map(CONFIG_DIR / "occupation_typos.csv")
+OCCUPATION_NORMALIZE = {
+    **EMPLOYER_NORMALIZE,
+    **{written: (_nan if occupation is None else occupation) for written, occupation in OCCUPATION_CORRECTIONS.items()},
+}
 
 # Each occupation's category; patterns categorize unlisted ones.
 CATEGORY_OVERRIDES = read_map(CONFIG_DIR / "occupation_categories.csv")

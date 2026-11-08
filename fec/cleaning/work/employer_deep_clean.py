@@ -7,7 +7,7 @@ import pandas as pd
 from fec.cleaning.reports.trail import WORK_FIELDS
 from fec.config.constants import OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS
 from fec.config.data import MISSING_VALUES
-from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES, OCCUPATION_FIXES
+from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES, OCCUPATION_CORRECTIONS
 
 # A job title before the employer: "CEO, ACME CORP".
 _TITLE_PREFIX_RE = re.compile(
@@ -94,7 +94,7 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> None:
     short = (
         occupation.str.len().le(2) & occupation.notna()
         & ~occupation.isin(OK_SHORT_OCCUPATIONS) & ~occupation.isin(MISSING_VALUES)
-        & ~occupation.isin(OCCUPATION_FIXES)
+        & ~occupation.isin(OCCUPATION_CORRECTIONS)
     )
     if short.any():
         df.loc[short, 'contributor_occupation'] = np.nan
