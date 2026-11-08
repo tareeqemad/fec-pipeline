@@ -1,5 +1,6 @@
 """Score the evidence shared by two donor profiles."""
 from fec.cleaning._helpers import levenshtein
+from fec.donor_match.normalize import name_words
 
 
 # Generic categories support no match; retirement is scored separately.
@@ -170,20 +171,23 @@ def _apply_no_geo_safety(
 
 
 def compute_score(p1: dict, p2: dict, name_freq: int) -> tuple:
-    """Return the donor-match score and the evidence behind it."""
+    """Return the donor-match score and the evidence behind it.
+
+    Two spellings of the same words (LAST, FIRST MIDDLE / LAST, MIDDLE
+    FIRST) name one person, so their middle names are not compared.
+    """
     score, signals, has_geo, common_employers = _shared_evidence(p1, p2)
 
     points, evidence = _occupation_evidence(p1, p2)
     score += points
     signals.extend(evidence)
 
-    points, evidence, hard_block = _middle_name_evidence(
-        p1["middle"], p2["middle"]
-    )
-    signals.extend(evidence)
-    if hard_block:
-        return -999, signals
-    score += points
+    if name_words(p1["name"]) != name_words(p2["name"]):
+        points, evidence, hard_block = _middle_name_evidence(p1["middle"], p2["middle"])
+        signals.extend(evidence)
+        if hard_block:
+            return -999, signals
+        score += points
 
     if name_freq <= 3:
         score += SCORE_RARE_NAME

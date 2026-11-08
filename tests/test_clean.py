@@ -433,3 +433,51 @@ def test_occupation_corrections_are_one_table():
     assert changed.tolist() == ['ATTY', 'XXX']
     assert df['contributor_occupation'].fillna('').tolist() == ['ATTORNEY', '', 'ENGINEER']
     assert df['occupation_category'].tolist()[0] == 'LEGAL' and pd.isna(df['occupation_category'].tolist()[1])
+
+
+def test_truncated_first_name_matches_with_an_anchor():
+    # TIM / TIMOTHY at one street are one donor; without an anchor they stay apart.
+    rows = [
+        _row('601', 'WULIGER, TIMOTHY', 'TIMOTHY', 'WULIGER', 'SOLON', 'OH', '44139', '7 OAK LN'),
+        _row('602', 'WULIGER, TIM', 'TIM', 'WULIGER', 'SOLON', 'OH', '44139', '7 OAK LN'),
+        _row('603', 'WULIGER, TIM', 'TIM', 'WULIGER', 'AUSTIN', 'TX', '78701', '90 ELM ST', employer='DELL'),
+    ]
+    keys = _keys(_identify(rows))
+    assert keys['601'] == keys['602'] != keys['603']
+
+
+def test_short_form_of_two_names_matches_neither():
+    # MARI beside MARIANNE and MARISOL names nobody in particular.
+    rows = [
+        _row('611', 'HALE, MARIANNE', 'MARIANNE', 'HALE', 'SOLON', 'OH', '44139', '7 OAK LN'),
+        _row('612', 'HALE, MARISOL', 'MARISOL', 'HALE', 'SOLON', 'OH', '44139', '7 OAK LN'),
+        _row('613', 'HALE, MARI', 'MARI', 'HALE', 'SOLON', 'OH', '44139', '7 OAK LN'),
+    ]
+    keys = _keys(_identify(rows))
+    assert len({keys['611'], keys['612'], keys['613']}) == 3
+
+
+def test_same_words_in_another_order_are_one_name():
+    rows = [
+        _row('621', 'GAHFI, ALBERT', 'ALBERT', 'GAHFI', 'BAL HARBOUR', 'FL', '33154', '10201 COLLINS AVE'),
+        _row('622', 'GAHFI, MENACHEM ALBERT', 'MENACHEM ALBERT', 'GAHFI', 'BAL HARBOUR', 'FL', '33154', '10201 COLLINS AVE'),
+        _row('623', 'GAHFI, ALBERT MENACHEM', 'ALBERT MENACHEM', 'GAHFI', 'BAL HARBOUR', 'FL', '33154', '10201 COLLINS AVE'),
+        _row('624', 'FARAHI, DAVID-JACQUES', 'DAVID-JACQUES', 'FARAHI', 'DENVER', 'CO', '80206', '373 GARFIELD ST'),
+        _row('625', 'FARAHI, DAVID JACQUES', 'DAVID JACQUES', 'FARAHI', 'DENVER', 'CO', '80206', '373 GARFIELD ST'),
+    ]
+    keys = _keys(_identify(rows))
+    assert keys['621'] == keys['622'] == keys['623']
+    assert keys['624'] == keys['625']
+
+
+def test_joint_filings_do_not_join_the_two_people():
+    # STUART and SARA each file alone; their joint filings get one key of their own.
+    rows = [
+        _row('631', 'MEYERS, STUART', 'STUART', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
+        _row('632', 'MEYERS, SARA', 'SARA', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
+        _row('633', 'MEYERS, STUART SARA', 'STUART SARA', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
+        _row('634', 'MEYERS, SARA STUART', 'SARA STUART', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
+    ]
+    keys = _keys(_identify(rows))
+    assert keys['631'] != keys['632']
+    assert keys['633'] == keys['634'] not in (keys['631'], keys['632'])

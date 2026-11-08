@@ -78,6 +78,12 @@ def extract_generational_suffix(name: str) -> str:
     return next(iter(found)) if len(found) == 1 else ""
 
 
+def name_words(name: str) -> frozenset:
+    """Every word of the filed name, initials included, whatever the order."""
+    words = _NAME_TOKEN_RE.findall(str(name or "").upper())
+    return frozenset(w for w in words if w not in NAME_SUFFIXES)
+
+
 def normalize_name(name: str) -> str:
     """Normalize to LAST|FIRST (drop middle, suffixes, punctuation)."""
     name = str(name or "").strip().upper()
@@ -138,8 +144,13 @@ def normalize_committee_name(name: str) -> str:
     return f"{org}|{first}"
 
 
-def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
-    """Same surname with nickname, near-spelling or truncated first names."""
+def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts=None) -> bool:
+    """Same surname with nickname, near-spelling or truncated first names.
+
+    surname_firsts holds every first name filed with this surname: a short
+    form that begins two different names there (CHRIS beside CHRISTINE and
+    CHRISTOPHER) names nobody in particular and is not a candidate.
+    """
     if "|" not in norm1 or "|" not in norm2:
         return False
     last1, first1 = norm1.split("|", 1)
@@ -163,12 +174,18 @@ def _are_cross_group_candidates(norm1: str, norm2: str) -> bool:
     if dist <= 1 and len(first1) >= 3 and len(first2) >= 3:
         return True
 
+    short, long = (first1, first2) if len(first1) <= len(first2) else (first2, first1)
+    if len(short) < 3 or not long.startswith(short):
+        return False
     if dist == 2:
-        short, long = (first1, first2) if len(first1) <= len(first2) else (first2, first1)
-        if long.startswith(short) and len(short) >= 3:
-            return True
-
-    return False
+        return True
+    # Truncated further: TIM / TIMOTHY, BRAD / BRADLEY, ALLI / ALLISON.
+    longer = {
+        NICKNAME_MAP.get(name, name)
+        for name in (surname_firsts or {long})
+        if name != short and name.startswith(short)
+    }
+    return len(longer) == 1
 
 
 def _squash(s: str) -> str:

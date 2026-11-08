@@ -1,7 +1,15 @@
-"""Compare donor pairs in the five matching phases."""
+"""Compare donor pairs in the five matching phases.
+
+    1. the same normalised name (LAST|FIRST)
+    2. first-name variants of one surname: nickname, typo, truncation
+    3. surname variants, with strong geography
+    4. other formats of one name: FIRST, LAST or the words reordered
+    5. a surname inside a compound surname, on the same street
+"""
 
 import re
 from collections import defaultdict
+from itertools import combinations
 from dataclasses import dataclass
 
 from fec.donor_match.rules import identities_must_stay_separate
@@ -9,6 +17,7 @@ from fec.donor_match.normalize import (
     _GENERATION_SUFFIXES,
     _are_cross_group_candidates,
     _is_surname_variant,
+    name_words,
 )
 from fec.donor_match.scoring import (
     MERGE_THRESHOLD,
@@ -150,10 +159,13 @@ def _cross_name_adjust(score: float, signals: list) -> float:
 
 def _score_cross_groups(context: MatchContext) -> None:
     """First-name variants only with a shared street, ZIP or employer."""
-    _score_bucket_pairs(
-        context, _norms_by_last_name(context.name_groups),
-        _are_cross_group_candidates, _any_records, _cross_name_adjust,
-    )
+    buckets = _norms_by_last_name(context.name_groups)
+    firsts = {last: {norm.split("|", 1)[1] for norm in norms} for last, norms in buckets.items()}
+
+    def candidates(name_a: str, name_b: str) -> bool:
+        return _are_cross_group_candidates(name_a, name_b, firsts[name_a.split("|", 1)[0]])
+
+    _score_bucket_pairs(context, buckets, candidates, _any_records, _cross_name_adjust)
 
 
 def _norms_by_first_name(name_groups: dict) -> dict:
@@ -192,39 +204,43 @@ def _score_surname_variants(context: MatchContext) -> None:
 
 
 def _name_token_key(norm_name: str) -> frozenset:
-    """Return the order-independent significant name tokens."""
+    """The surname and first name, in either order."""
     last, _, first = norm_name.partition("|")
     return frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
 
 
-def _norms_by_name_tokens(name_groups: dict) -> dict:
-    grouped = defaultdict(set)
-    for norm_name in name_groups:
-        if "|" not in norm_name:
-            continue
-        key = _name_token_key(norm_name)
-        if len(key) >= 2:
-            grouped[key].add(norm_name)
-    return grouped
-
-
-def _name_format_adjust(score: float, signals: list) -> float:
-    if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):
-        score += SCORE_CROSS_NAME_BONUS
-    signals.append("name_format_variant")
-    return score
-
-
 def _score_name_variants(context: MatchContext) -> None:
-    """Name formats sharing a street or ZIP; middle-name conflicts stay."""
-    _score_bucket_pairs(
-        context, _norms_by_name_tokens(context.name_groups),
-        _any_names, _same_street_or_zip, _name_format_adjust,
-    )
+    """Other formats of one name, sharing a street or ZIP.
 
-
-def _any_names(_name_a: str, _name_b: str) -> bool:
-    return True
+    FIRST, LAST beside LAST, FIRST; and the same words in another order or
+    punctuation (LAST, MIDDLE FIRST; FIRST-MIDDLE), where the middle name
+    is the same person's and not evidence against.
+    """
+    buckets = defaultdict(set)
+    for rid, profile in context.profiles.items():
+        words = name_words(profile["name"])
+        if len(words) >= 2:
+            buckets[words].add(rid)
+        tokens = _name_token_key(profile["norm_name"])
+        if len(tokens) >= 2:
+            buckets[tokens].add(rid)
+    seen = set()
+    for rids in buckets.values():
+        for rid_a, rid_b in combinations(sorted(rids), 2):
+            p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
+            if p1["norm_name"] == p2["norm_name"] or (rid_a, rid_b) in seen:
+                continue
+            seen.add((rid_a, rid_b))
+            if not _same_street_or_zip(p1, p2):
+                continue
+            freq = len(context.name_groups[p1["norm_name"]]) + len(context.name_groups[p2["norm_name"]])
+            score, signals = compute_score(p1, p2, freq)
+            if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):
+                score += SCORE_CROSS_NAME_BONUS
+            signals.append("name_format_variant")
+            _merge_and_audit(
+                context, rid_a, rid_b, f"{p1['norm_name']} ↔ {p2['norm_name']}", score, signals,
+            )
 
 
 def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:

@@ -3,8 +3,8 @@ from collections import Counter, defaultdict
 
 import pandas as pd
 
-from fec.donor_match.joint import given_tokens, joint_partners
-from fec.donor_match.rules import COMMITTEE_NAMES, joint_name_exempt
+from fec.donor_match.joint import given_tokens, joint_name_exempt, joint_partners
+from fec.donor_match.rules import COMMITTEE_NAMES
 from fec.donor_match.normalize import NICKNAME_MAP
 from fec.cleaning.donors.name_choice import (
     _LEADING_INITIAL_RE, _choose_first, _choose_last, _drop_cut_surname,

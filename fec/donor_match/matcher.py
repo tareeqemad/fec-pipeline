@@ -54,9 +54,10 @@ def match_donors(df: pd.DataFrame) -> tuple[dict, list]:
     _score_surname_superset_variants(context)
 
     components = _build_and_validate_chains(uf, profiles, name_groups)
-    _apply_force_merges(components, profiles)
+    edges = [(row["rid_a"], row["rid_b"]) for row in audit_log if row["merged"]]
+    edges += _apply_force_merges(components, profiles)
     split_joint_filings(
-        components, find_joint_filings(profiles, components), profiles,
+        components, find_joint_filings(profiles, components), profiles, edges,
     )
     rid_to_key = _donor_keys(components)
     _validate_merge_audit(rid_to_key, audit_log)
@@ -280,9 +281,12 @@ def _merge_roots_of(components: dict, rids: list) -> int:
     return len(roots_list) - 1
 
 
-def _apply_force_merges(components: dict, profiles: dict) -> None:
-    """Apply verified name merges."""
+def _apply_force_merges(components: dict, profiles: dict) -> list:
+    """Apply verified name merges; return the pairs they join."""
+    edges = []
     for prefixes in NAME_MERGES.values():
-        rids = [rid for rid, p in profiles.items() if p["name"].startswith(prefixes)]
+        rids = sorted(rid for rid, p in profiles.items() if p["name"].startswith(prefixes))
         if len(rids) >= 2:
             _merge_roots_of(components, rids)
+            edges += list(zip(rids, rids[1:]))
+    return edges

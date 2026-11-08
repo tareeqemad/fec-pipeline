@@ -174,21 +174,23 @@ def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
     return last.strip(), tuple(re.findall(r"[A-Z]+", first))
 
 
-# Longer names verified as one person by merge_keys rules.
-def _load_joint_exemptions(rows) -> frozenset[str]:
-    exempt = set()
+# Given names verified as one person's, by surname: from merge rules.
+def _load_merged_given_names(rows, name_merges) -> dict[str, list[frozenset]]:
+    merged = defaultdict(list)
     for row in rows:
         if _normalize(row.get("action")) != "MERGE_KEYS":
             continue
-        (last_a, words_a), (last_b, words_b) = (
-            _name_words(row.get("name_a")), _name_words(row.get("name_b"))
-        )
-        if not last_a or last_a != last_b or words_a == words_b:
-            continue
-        short, long = sorted((words_a, words_b), key=len)
-        if short and long[: len(short)] == short:
-            exempt.add(f"{last_a}, {' '.join(long)}")
-    return frozenset(exempt)
+        (last_a, words_a), (last_b, words_b) = _name_words(row.get("name_a")), _name_words(row.get("name_b"))
+        if last_a and last_a == last_b:
+            merged[last_a].append(frozenset(words_a + words_b))
+    for names in name_merges.values():
+        by_last = defaultdict(set)
+        for name in names:
+            last, words = _name_words(name)
+            by_last[last] |= set(words)
+        for last, words in by_last.items():
+            merged[last].append(frozenset(words))
+    return dict(merged)
 
 
 _RULES = _read_rules()
@@ -203,19 +205,8 @@ COMMITTEE_NAMES = tuple(
 HELD_FILINGS = _load_holds(_RULES)
 HELD_ADDRESSES = _load_held_addresses(_RULES)
 NAME_MERGES = _load_name_merges(_RULES)
-_JOINT_EXEMPT_NAMES = _load_joint_exemptions(_RULES)
-_MERGED_NAME_PREFIXES = tuple(
-    prefix for prefixes in NAME_MERGES.values() for prefix in prefixes
-)
-
-
-# Whether a verified merge makes this multi-word name one person.
-def joint_name_exempt(name: str) -> bool:
-    last, words = _name_words(name)
-    if not last or not words:
-        return False
-    text = f"{last}, {' '.join(words)}"
-    return text in _JOINT_EXEMPT_NAMES or text.startswith(_MERGED_NAME_PREFIXES)
+MERGED_GIVEN_NAMES = _load_merged_given_names(_RULES, NAME_MERGES)
+MERGED_NAME_PREFIXES = tuple(prefix for prefixes in NAME_MERGES.values() for prefix in prefixes)
 
 
 # true if this name pair is a curated separation rule
