@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 S1, S2 = "contributor_street_1", "contributor_street_2"
 CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
-# A rule unit that removes the filed unit.
+# A rule street or unit of [CLEAR] removes the filed value.
 CLEAR_UNIT = "[CLEAR]"
 
 
@@ -25,9 +25,11 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = N
     df[S2] = df[S2].astype(object)
     for (street, state, zipcode, match_unit, match_sub_id), fixed in rules.items():
         fixed_street, fixed_unit, fixed_city, fixed_state, fixed_zip, source = fixed
-        scoped_city = (match_sub_id is not None and fixed_street == street and fixed_city is not None
-                       and fixed_unit is None and fixed_state is None and fixed_zip is None)
-        if city_only is not None and scoped_city != city_only:
+        # A rule that only sets the city also runs after the alignment
+        # steps, which may have changed the city again.
+        city_rule = (fixed_street == street and fixed_city is not None
+                     and fixed_unit is None and fixed_state is None and fixed_zip is None)
+        if city_only and not city_rule:
             continue
         mask = (
             df[S1].fillna("").eq(street)
@@ -43,8 +45,13 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = N
             unused.append(f"{street} | {state} | {zipcode}")
             continue
         df.loc[mask, "_address_rule"] = f"{source}: {street} | {state} | {zipcode}"
-        row_changed = mask & df[S1].fillna("").ne(fixed_street)
-        df.loc[mask, S1] = fixed_street
+        if fixed_street == CLEAR_UNIT:
+            # The street field held no street (a company or a city name).
+            row_changed = mask & df[S1].notna()
+            df.loc[mask, S1] = pd.NA
+        else:
+            row_changed = mask & df[S1].fillna("").ne(fixed_street)
+            df.loc[mask, S1] = fixed_street
         if fixed_unit == CLEAR_UNIT:
             row_changed |= mask & df[S2].fillna("").ne("")
             df.loc[mask, S2] = pd.NA
