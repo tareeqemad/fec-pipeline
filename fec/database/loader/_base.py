@@ -106,26 +106,3 @@ def stage(name: str) -> Iterator[None]:
     except BaseException:
         logger.error("  stage '%s' failed", name)
         raise
-
-
-# Roll back this block if it fails.
-@contextmanager
-def savepoint(cur: Any, name: str) -> Iterator[None]:
-    cur.execute(f"SAVEPOINT {name}")
-    try:
-        yield
-    except BaseException:
-        cur.execute(f"ROLLBACK TO SAVEPOINT {name}")
-        raise
-    cur.execute(f"RELEASE SAVEPOINT {name}")
-
-
-# Read the row count, or warn and return zero.
-def _count(cur: Any, table: str) -> int:
-    try:
-        with savepoint(cur, "count_rows"):
-            cur.execute(f"SELECT COUNT(*) FROM {table}")
-            return cur.fetchone()[0]
-    except Exception as error:
-        logger.warning("_count(%s) failed -- returning 0: %s", table, error)
-        return 0

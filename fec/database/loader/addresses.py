@@ -1,4 +1,4 @@
-"""Shared address loading and links."""
+"""Shared address dimension for donors, companies and the rosters."""
 from __future__ import annotations
 
 from typing import Any
@@ -7,8 +7,7 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.database.loader._base import to_float_or_none, to_native
-from fec.env import EMPLOYER_LOCATIONS_CSV
-from fec.database.loader.locations import PUBLISHABLE_ADDRESS_TRUST
+from fec.database.loader.locations import office_address_key
 
 DONOR_ADDRESS_COLUMNS = [
     "contributor_street_1", "contributor_street_2", "contributor_city",
@@ -16,55 +15,9 @@ DONOR_ADDRESS_COLUMNS = [
 ]
 
 
-# Convert missing and whitespace-only values to None.
-def _blank_to_none(value):
-    value = to_native(value)
-    if isinstance(value, str) and not value.strip():
-        return None
-    return value
-
-
-# Read publishable company locations and their primary office.
-def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
-    if frame is None:
-        if not EMPLOYER_LOCATIONS_CSV.exists():
-            return []
-        frame = pd.read_csv(
-            EMPLOYER_LOCATIONS_CSV,
-            dtype=str,
-            keep_default_na=False,
-        )
-    locations = []
-    for row in frame.to_dict("records"):
-        street = _blank_to_none(row.get("employer_address"))
-        city = _blank_to_none(row.get("employer_city"))
-        # Allow town-only locations; skip rows with neither street nor town.
-        if street is None and city is None:
-            continue
-        if row.get("address_trust") not in PUBLISHABLE_ADDRESS_TRUST:
-            continue
-        locations.append({
-            "employer_name": row["employer_name"],
-            "employer_address": street,
-            "employer_city": city,
-            "employer_state": _blank_to_none(row.get("employer_state")),
-            "employer_zip": _blank_to_none(row.get("employer_zip")),
-            "employer_latitude": row.get("employer_latitude"),
-            "employer_longitude": row.get("employer_longitude"),
-            "is_primary": str(row.get("is_primary")).lower() == "true",
-            "method": "manual_override" if (
-                row.get("address_source") == "manual"
-                and row.get("address_trust") == "verified"
-            ) else "",
-        })
-
-    grouped: dict[str, list[dict]] = {}
-    for location in locations:
-        grouped.setdefault(location["employer_name"], []).append(location)
-    for employer_locations in grouped.values():
-        if not any(location["is_primary"] for location in employer_locations):
-            employer_locations[0]["is_primary"] = True
-    return locations
+# Use '' for missing address parts, matching SQL COALESCE.
+def address_key(street_1, street_2, city, state, zip_code):
+    return tuple(to_native(value) or '' for value in (street_1, street_2, city, state, zip_code))
 
 
 # Convert missing values and '' to None; keep whitespace.
@@ -73,18 +26,41 @@ def _empty_to_none(value):
     return None if value == '' else value
 
 
-# Use '' for missing address parts, matching SQL COALESCE.
-def _akey(street_1, street_2, city, state, zip_code):
-    return tuple(to_native(value) or '' for value in (street_1, street_2, city, state, zip_code))
+# Add an address or fill its missing coordinates.
+def add_address(address_rows: dict, parts: tuple, latitude, longitude) -> None:
+    key = address_key(*parts)
+    entry = address_rows.get(key)
+    if entry is None:
+        # '' and NULL share one key, so store NULL.
+        address_rows[key] = [_empty_to_none(value) for value in parts] + [latitude, longitude]
+    elif entry[5] is None and latitude is not None:
+        entry[5], entry[6] = latitude, longitude
 
 
-# Load shared donor and company addresses.
+# Load every address: donor filings, company offices, roster addresses.
 def load_address_dimension(
     cur: Any,
     df: pd.DataFrame,
-    employer_locations: list[dict] | None = None,
+    employer_locations: list[dict],
+    roster: list[dict] = (),
 ) -> dict:
-    address_rows = _address_rows(df, _employer_locations(employer_locations))
+    address_rows: dict = {}
+    columns = DONOR_ADDRESS_COLUMNS + ['latitude', 'longitude']
+    for parts, group in df[columns].groupby(DONOR_ADDRESS_COLUMNS, dropna=False):
+        first_row = group.iloc[0]
+        add_address(address_rows, parts,
+                    to_float_or_none(first_row.get('latitude')),
+                    to_float_or_none(first_row.get('longitude')))
+    for location in employer_locations:
+        add_address(
+            address_rows, office_address_key(location),
+            to_float_or_none(location.get("employer_latitude")),
+            to_float_or_none(location.get("employer_longitude")),
+        )
+    for person in roster:
+        if person["address"]:
+            add_address(address_rows, person["address"], person["latitude"], person["longitude"])
+
     execute_values(cur,
         """INSERT INTO addresses
            (street_1, street_2, city, state_code, zip_code, latitude, longitude)
@@ -95,72 +71,24 @@ def load_address_dimension(
     cur.execute("""SELECT address_id, COALESCE(street_1,''), COALESCE(street_2,''),
                           COALESCE(city,''), COALESCE(state_code,''), COALESCE(zip_code,'')
                    FROM addresses""")
-    address_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
-    return address_ids
+    return {tuple(row[1:]): row[0] for row in cur.fetchall()}
 
 
-# Read the CSV for None; keep an explicit empty list.
-def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
-    if employer_locations is None:
-        return load_employer_locations()
-    return employer_locations
-
-
-# Collect distinct donor and company addresses.
-def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
-    address_rows = {}
-    columns = DONOR_ADDRESS_COLUMNS + ['latitude', 'longitude']
-    for (street_1, street_2, city, state, zip_code), group in df[columns].groupby(
-        DONOR_ADDRESS_COLUMNS, dropna=False
-    ):
-        first_row = group.iloc[0]
-        _add_address(address_rows, street_1, street_2, city, state, zip_code,
-                     to_float_or_none(first_row.get('latitude')),
-                     to_float_or_none(first_row.get('longitude')))
-
-    for location in locations:
-        _add_address(
-            address_rows,
-            location["employer_address"], None,
-            location["employer_city"], location["employer_state"],
-            location["employer_zip"],
-            to_float_or_none(location.get("employer_latitude")),
-            to_float_or_none(location.get("employer_longitude")),
-        )
-    return address_rows
-
-
-# Add an address or fill its missing coordinates.
-def _add_address(address_rows: dict, street_1, street_2, city, state, zip_code, latitude, longitude) -> None:
-    parts = (street_1, street_2, city, state, zip_code)
-    key = _akey(*parts)
-    entry = address_rows.get(key)
-    if entry is None:
-        # '' and NULL share one key, so store NULL.
-        address_rows[key] = [_empty_to_none(value) for value in parts] + [latitude, longitude]
-    elif entry[5] is None and latitude is not None:
-        entry[5], entry[6] = latitude, longitude
-
-
-# Link donor addresses and return their IDs.
-def load_donor_addresses(cur: Any, df: pd.DataFrame,
-                         donor_ids: dict, address_ids: dict) -> dict:
-    donor_address_rows = []
+# Link donors to their filed and roster addresses; return the link IDs.
+def load_donor_addresses(cur: Any, df: pd.DataFrame, donor_ids: dict, address_ids: dict,
+                         roster: list[dict] = ()) -> dict:
+    links = []
     columns = ['donor_key', *DONOR_ADDRESS_COLUMNS]
-    for (donor_key, street_1, street_2, city, state, zip_code), _group in df[columns].groupby(
-        columns, dropna=False
-    ):
-        donor_id = donor_ids.get(donor_key)
-        if not donor_id:
-            continue
-        address_id = address_ids.get(_akey(street_1, street_2, city, state, zip_code))
-        if address_id is None:
-            continue
-        donor_address_rows.append((donor_id, address_id))
+    for (donor_key, *parts), _group in df[columns].groupby(columns, dropna=False):
+        links.append((donor_ids.get(donor_key), address_ids.get(address_key(*parts))))
+    for person in roster:
+        if person["address"]:
+            links.append((donor_ids[person["donor_key"]], address_ids.get(address_key(*person["address"]))))
+    rows = list(dict.fromkeys(link for link in links if None not in link))
 
     execute_values(cur,
         "INSERT INTO donor_addresses (donor_id, address_id) VALUES %s",
-        donor_address_rows, page_size=5000)
+        rows, page_size=5000)
 
     cur.execute("""
         SELECT da.donor_address_id, da.donor_id,
@@ -169,20 +97,33 @@ def load_donor_addresses(cur: Any, df: pd.DataFrame,
         FROM donor_addresses da
         JOIN addresses a ON a.address_id = da.address_id
     """)
-    donor_address_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
-    return donor_address_ids
+    return {tuple(row[1:]): row[0] for row in cur.fetchall()}
 
 
-# Link each company to its primary address.
+# Link each company to its primary office, then drop unlinked addresses.
 def link_employer_locations(
     cur: Any,
     address_ids: dict,
     get_employer_id,
-    employer_locations: list[dict] | None = None,
+    employer_locations: list[dict],
 ) -> None:
-    employer_rows = _primary_location_rows(
-        _employer_locations(employer_locations), address_ids, get_employer_id,
-    )
+    employer_rows = []
+    for location in employer_locations:
+        if not location["is_primary"]:
+            continue
+        employer_id = get_employer_id(location["employer_name"])
+        if not employer_id:
+            raise RuntimeError(
+                "employer location has no exact employer match: "
+                f"{location['employer_name']!r}"
+            )
+        address_id = address_ids.get(office_address_key(location))
+        if address_id is None:
+            raise RuntimeError(
+                "employer location has no exact address match: "
+                f"{location['employer_name']!r}"
+            )
+        employer_rows.append((int(employer_id), int(address_id)))
     if employer_rows:
         execute_values(cur, """
             UPDATE employers e
@@ -193,37 +134,6 @@ def link_employer_locations(
         employer_rows,
         template="(%s::int, %s::int)",
         page_size=5000)
-    _prune_orphan_addresses(cur)
-
-
-# Match each primary office to company and address IDs.
-def _primary_location_rows(locations, address_ids: dict, get_employer_id) -> list[tuple]:
-    employer_rows = []
-    for location in locations:
-        if not location["is_primary"]:
-            continue
-        employer_id = get_employer_id(location["employer_name"])
-        if not employer_id:
-            raise RuntimeError(
-                "employer location has no exact employer match: "
-                f"{location['employer_name']!r}"
-            )
-        address_id = address_ids.get(_akey(
-            location["employer_address"], None,
-            location["employer_city"], location["employer_state"],
-            location["employer_zip"],
-        ))
-        if address_id is None:
-            raise RuntimeError(
-                "employer location has no exact address match: "
-                f"{location['employer_name']!r}"
-            )
-        employer_rows.append((int(employer_id), int(address_id)))
-    return employer_rows
-
-
-# Delete addresses with no remaining links.
-def _prune_orphan_addresses(cur) -> None:
     cur.execute("""
         DELETE FROM addresses a
         WHERE NOT EXISTS (SELECT 1 FROM donor_addresses d WHERE d.address_id = a.address_id)

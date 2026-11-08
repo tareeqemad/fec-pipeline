@@ -8,9 +8,8 @@ import time
 from typing import Any
 
 import pandas as pd
-from psycopg2.extras import execute_values
 
-from fec.database.loader._base import _count, connect, load_transaction, stage, to_native
+from fec.database.loader._base import connect, load_transaction, stage
 from fec.database.loader.access import _check_reader, grant_read_access
 from fec.database.loader.addresses import (
     link_employer_locations,
@@ -18,58 +17,31 @@ from fec.database.loader.addresses import (
     load_donor_addresses,
 )
 from fec.database.loader.contributions import load_contributions
-from fec.database.loader.employers import (
-    _make_employer_resolver,
-    load_employers,
-    load_employments,
-)
-from fec.database.loader.leadership import (
-    committee_lookup,
-    load_key_accomplices,
-    load_leadership,
-)
-from fec.database.loader.previous_employers import link_previous_employers
+from fec.database.loader.donors import load_donors
+from fec.database.loader.employers import _make_employer_resolver, load_employers, load_employments
 from fec.database.loader.reference import load_lookups, load_reference_tables
-from fec.database.loader.schema_create import (
-    TABLES,
-    create_schema,
-    verify_extensions,
+from fec.database.loader.roster import (
+    create_missing_donors,
+    load_roster_employments,
+    load_roster_tables,
+    roster_companies,
+    roster_jobs,
 )
+from fec.database.loader.schema_create import create_schema, verify_extensions
 from fec.database.loader.schema_reset import reset_schema
-from fec.database.loader.validate import _read_input
+from fec.database.loader.validate import read_input
 from fec.env import CLEANED_CSV
 from fec.log import get_logger
 
-
-# Load one donor per donor_key and return its ID.
-def load_donors(cur: Any, df: pd.DataFrame) -> dict:
-    donor_rows = []
-    for donor_key, group in df.groupby('donor_key'):
-        # Names are already cleaned.
-        latest = group.sort_values('contribution_receipt_date', ascending=False).iloc[0]
-        entity = to_native(latest['entity_type'])
-        first = to_native(latest['contributor_first_name'])
-        last = to_native(latest['contributor_last_name'])
-        # Organizations use last_name.
-        if not last and entity in ('COMMITTEE/PAC', 'ORGANIZATION'):
-            last = to_native(latest['contributor_name'])
-        # Older CSVs default to confirmed.
-        status = to_native(latest.get('identity_status')) or 'confirmed'
-        donor_rows.append((donor_key, entity, first, last, status))
-
-    execute_values(cur,
-        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) "
-        "VALUES %s",
-        donor_rows, page_size=5000)
-
-    cur.execute("SELECT donor_id, donor_key FROM donors")
-    donor_ids = {donor_key: donor_id for donor_id, donor_key in cur.fetchall()}
-    return donor_ids
-
-# Keep the existing log-file category when moving the entry point.
 logger = get_logger("fec.database.loader.run")
 
-__all__ = ["main", "connect"]
+
+# Map committee short names to database IDs.
+def committee_lookup(cur: Any) -> dict[str, int]:
+    cur.execute(
+        "SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL"
+    )
+    return {short: committee_id for short, committee_id in cur.fetchall()}
 
 
 # Load tables in order and reuse their ID maps.
@@ -77,27 +49,36 @@ def load_all(
     cur: Any,
     df: pd.DataFrame,
     employer_locations: list[dict],
+    roster: list[dict],
 ) -> None:
-    cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
-    occupation_category_ids = {name: category_id for category_id, name in cur.fetchall()}
-
-    committee_ids = committee_lookup(cur)
+    logger.info("[2/6] Resetting schema and loading lookups")
+    with stage("schema"):
+        reset_schema(cur)
+        create_schema(cur)
+    with stage("lookups"):
+        occupation_category_ids = load_lookups(cur, df)
+        committee_ids = committee_lookup(cur)
+    jobs = roster_jobs(roster, df)
 
     logger.info("[3/6] Loading donors and employers")
     with stage("donors"):
         donor_ids = load_donors(cur, df)
+        create_missing_donors(cur, roster, donor_ids)
     with stage("employers"):
-        employer_ids = load_employers(cur, df)
-        link_previous_employers(cur, df, employer_ids)
+        employer_ids = load_employers(cur, df, roster_companies(jobs))
     get_employer_id = _make_employer_resolver(employer_ids)
 
     logger.info("[4/6] Loading addresses, employments and contributions")
     with stage("addresses"):
-        address_ids = load_address_dimension(cur, df, employer_locations)
-        donor_address_ids = load_donor_addresses(cur, df, donor_ids, address_ids)
+        address_ids = load_address_dimension(cur, df, employer_locations, roster)
+        donor_address_ids = load_donor_addresses(cur, df, donor_ids, address_ids, roster)
     with stage("employments"):
         employment_ids = load_employments(
             cur, df, donor_ids, occupation_category_ids, get_employer_id,
+            address_ids, employer_locations,
+        )
+        load_roster_employments(
+            cur, jobs, donor_ids, employer_ids, occupation_category_ids,
             address_ids, employer_locations,
         )
     with stage("contributions"):
@@ -108,11 +89,11 @@ def load_all(
     with stage("employer locations"):
         link_employer_locations(cur, address_ids, get_employer_id, employer_locations)
 
-
-# Refresh the donor view using its existing unique index.
-def refresh_materialized_views(cur: Any) -> None:
-    cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
-    cur.execute("ANALYZE mv_donor_profile")
+    logger.info("[5/6] Loading reference and roster data")
+    with stage("reference tables"):
+        load_reference_tables(cur)
+    with stage("leaders and accomplices"):
+        load_roster_tables(cur, roster, donor_ids, committee_ids)
 
 
 # Require --reset before reloading the database.
@@ -129,19 +110,12 @@ def _require_reset_flag() -> None:
         parser.error("use --reset to reload the database")
 
 
-# Update PostgreSQL statistics for non-empty tables.
-def _analyze_tables(cur: Any) -> None:
-    for table in TABLES:
-        if _count(cur, table) > 0:
-            cur.execute(f"ANALYZE {table}")
-
-
 # entry point: reset and reload the database from cleaned CSV
 def main() -> None:
     total_start = time.perf_counter()
     _require_reset_flag()
     try:
-        df, employer_locations = _read_input()
+        df, employer_locations, roster = read_input()
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(f"ERROR: {error}") from error
 
@@ -157,23 +131,13 @@ def main() -> None:
 
     # One transaction from drop to grants; failures keep the old.
     with load_transaction(conn):
-        logger.info("[2/6] Resetting schema and loading lookups")
-        with stage("schema"):
-            reset_schema(cur)
-            create_schema(cur)
-        with stage("lookups"):
-            load_lookups(cur)
-        load_all(cur, df, employer_locations)
-        logger.info("[5/6] Loading reference and roster data")
-        with stage("reference tables"):
-            load_reference_tables(cur)
-        with stage("leaders and accomplices"):
-            load_leadership(cur)
-            load_key_accomplices(cur)
+        load_all(cur, df, employer_locations, roster)
         logger.info("[6/6] Updating views and read access")
         with stage("statistics and views"):
-            _analyze_tables(cur)
-            refresh_materialized_views(cur)
+            cur.execute("ANALYZE")
+            # The view was created empty; refresh it with its unique index.
+            cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
+            cur.execute("ANALYZE mv_donor_profile")
         with stage("read access"):
             grant_read_access(cur)
 

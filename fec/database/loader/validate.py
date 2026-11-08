@@ -4,16 +4,16 @@ from __future__ import annotations
 import pandas as pd
 
 from fec.cleaning.work.status import referenced_employers
+from fec.database.loader.roster import read_roster, roster_companies, roster_jobs
 from fec.cleaning.reports.gates import run_quality_gates
 from fec.contract import check_loadable
-from fec.database.loader.addresses import load_employer_locations
 from fec.env import (
     CLEANED_CSV,
     COMMITTEES_CSV,
     EMPLOYER_LOCATIONS_CSV,
 )
 from fec.io import read_pipeline_csv
-from fec.database.loader.locations import ADDRESS_TRUST_VALUES
+from fec.database.loader.locations import ADDRESS_TRUST_VALUES, load_employer_locations
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -103,25 +103,27 @@ def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
     _validate_committees(df)
 
 
-# Read and validate contributions and company locations.
-def _read_input() -> tuple[pd.DataFrame, list[dict]]:
+# Read and validate the contributions, company offices and rosters.
+def read_input() -> tuple[pd.DataFrame, list[dict], list[dict]]:
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
     if not EMPLOYER_LOCATIONS_CSV.exists():
         raise FileNotFoundError(f"{EMPLOYER_LOCATIONS_CSV} not found")
 
     df = read_pipeline_csv(CLEANED_CSV)
+    roster = read_roster()
     locations = pd.read_csv(
         EMPLOYER_LOCATIONS_CSV,
         dtype=str,
         keep_default_na=False,
     )
-    # Offices only for companies in this data; others have none.
-    locations = locations[locations["employer_name"].isin(referenced_employers(df))]
+    # Offices only for companies in this data or the roster jobs; others have none.
+    companies = referenced_employers(df) | roster_companies(roster_jobs(roster, df))
+    locations = locations[locations["employer_name"].isin(companies)]
     _validate_input(df, locations)
 
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
     if amounts.isna().any():
         raise ValueError("contribution_receipt_amount contains invalid values")
     df["contribution_receipt_amount"] = amounts
-    return df, load_employer_locations(locations)
+    return df, load_employer_locations(locations), roster
