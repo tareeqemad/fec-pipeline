@@ -7,7 +7,6 @@ from fec.donor_match.keys import (
     apply_donor_key,
     hold_unproven_filings,
     keep_earlier_keys,
-    merge_split_name_donors,
     validate_separations,
 )
 from fec.donor_match.matcher import match_donors
@@ -44,7 +43,6 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
     rid_to_key, _ = match_donors(df_clean)
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
-    merge_split_name_donors(df_clean)
     if earlier_keys:
         lost = keep_earlier_keys(df_clean, earlier_keys)
         if lost:

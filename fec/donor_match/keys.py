@@ -5,14 +5,12 @@ from itertools import combinations
 
 import pandas as pd
 
-from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.rules import (
     HELD_ADDRESSES,
     HELD_FILINGS,
     KEY_MERGES,
     held_groups,
     identities_must_stay_separate,
-    names_must_stay_separate,
     resolve_donor_key,
     split_zip,
 )
@@ -21,12 +19,6 @@ from fec.log import get_logger
 
 
 logger = get_logger(__name__)
-
-# Categories too vague to separate same-name donors.
-_VAGUE_OCC_CATEGORIES = ("", "OTHER", "NOT EMPLOYED", "RETIRED")
-# employer words that name no workplace
-_STATUS_EMPLOYERS = frozenset(EMPLOYER_STATUS_VALUES) | {"", "NONE", "N/A", "HOMEMAKER", "INFORMATION REQUESTED"}
-
 
 # build the individual record id for matching and key assignment
 def individual_record_id(name, city, state, suffix="", zip5="") -> str:
@@ -93,111 +85,6 @@ def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     return df
 
 
-# merge donor_keys name-blocking split for the same person
-def merge_split_name_donors(df: pd.DataFrame) -> int:
-    """Merge keys split by name blocking: same tokens and ZIP."""
-    ind = df["entity_type"] == "INDIVIDUAL"
-    if not ind.any():
-        return 0
-
-    first = df["contributor_first_name"].fillna("").str.upper()
-    last = df["contributor_last_name"].fillna("").str.upper()
-    suffix = df.get("_generational_suffix", pd.Series("", index=df.index)).fillna("")
-    full = (first + " " + last).str.strip()
-    # fingerprint: sorted alpha tokens of the full name (order-independent)
-    fp = full.str.findall(r"[A-Z]+").map(lambda toks: " ".join(sorted(toks)))
-    zip5 = df["contributor_zip"].fillna("")
-
-    eligible = ind & (fp != "") & (zip5 != "")
-    work = pd.DataFrame({
-        "fp": fp[eligible], "z": zip5[eligible],
-        "key": df.loc[eligible, "donor_key"],
-        "name": df.loc[eligible, "contributor_name"].fillna(""),
-        "occ": df.loc[eligible, "occupation_category"].fillna(""),
-        "suffix": suffix[eligible],
-        "street": _filed_streets(df)[eligible],
-        "employer": _real_employers(df)[eligible],
-    })
-    names_by_key = work.groupby("key")["name"].agg(set).to_dict()
-    suffixes_by_key = work.groupby("key")["suffix"].agg(
-        lambda values: frozenset(value for value in values if value)
-    ).to_dict()
-
-    remap: dict[str, str] = {}
-    for _, grp in work.groupby(["fp", "z"]):
-        if grp["key"].nunique() < 2:
-            continue
-        # Name and ZIP prove nothing; keys join through shared streets.
-        for keys in _evidence_groups(grp):
-            remap.update(_merge_target(grp[grp["key"].isin(keys)], keys, names_by_key, suffixes_by_key))
-
-    if not remap:
-        return 0
-    mask = df["donor_key"].isin(remap)
-    df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(remap)
-    return int(mask.sum())
-
-
-# Each row's filed street, '' when copied from another filing.
-def _filed_streets(df: pd.DataFrame) -> pd.Series:
-    street = df.get("contributor_street_1", pd.Series("", index=df.index)).fillna("").astype(str).str.upper().str.strip()
-    if "_street_inferred" in df.columns:
-        street = street.where(~df["_street_inferred"].fillna(False).astype(bool), "")
-    return street
-
-
-# Each row's employer, '' for a status word.
-def _real_employers(df: pd.DataFrame) -> pd.Series:
-    employer = df.get("contributor_employer", pd.Series("", index=df.index)).fillna("").astype(str).str.upper().str.strip()
-    return employer.where(~employer.isin(_STATUS_EMPLOYERS), "")
-
-
-# Keys linked by a shared street or employer, per group.
-def _evidence_groups(grp: pd.DataFrame) -> list[set]:
-    """Key groups linked by a shared filed street or employer."""
-    owners: dict[tuple, set] = {}
-    for key, street, employer in grp[["key", "street", "employer"]].itertuples(index=False):
-        for item in (("street", street), ("employer", employer)):
-            if item[1]:
-                owners.setdefault(item, set()).add(key)
-    parent = {key: key for key in grp["key"].unique()}
-
-    # the group's representative key
-    def find(key):
-        while parent[key] != key:
-            parent[key] = parent[parent[key]]
-            key = parent[key]
-        return parent[key]
-
-    for linked in owners.values():
-        first, *rest = sorted(linked)
-        for other in rest:
-            parent[find(other)] = find(first)
-    groups: dict[str, set] = {}
-    for key in parent:
-        groups.setdefault(find(key), set()).add(key)
-    return [keys for keys in groups.values() if len(keys) > 1]
-
-
-# Each linked key's target, or {} when maybe two people.
-def _merge_target(rows: pd.DataFrame, keys: set, names_by_key: dict, suffixes_by_key: dict) -> dict:
-    if len({suffixes_by_key[key] for key in keys}) > 1:
-        return {}
-    if any(
-        names_must_stay_separate(name_a, name_b)
-        for key_a, key_b in combinations(sorted(keys), 2)
-        for name_a in names_by_key[key_a]
-        for name_b in names_by_key[key_b]
-    ):
-        return {}
-    # >1 distinct real occupation category: could be two people, skip
-    if len({o for o in rows["occ"].unique() if o not in _VAGUE_OCC_CATEGORIES}) > 1:
-        return {}
-    # winner = key with the most contribution rows
-    winner = rows["key"].value_counts().idxmax()
-    return {key: winner for key in keys if key != winner}
-
-
 # Reuse each donor's earlier key: the one most of its filings had.
 def keep_earlier_keys(df: pd.DataFrame, earlier: dict) -> list[str]:
     """Give new keys their earlier names; return earlier keys left unused."""
@@ -226,8 +113,9 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
     """Repoint verified duplicate keys to their preferred key."""
     if not KEY_MERGES:
         return 0
-    # A rule whose key is gone no longer merges anyone.
-    missing = sorted(set(KEY_MERGES) - set(df["donor_key"]))
+    # A rule naming two keys that are both gone merges nobody.
+    present = set(df["donor_key"])
+    missing = sorted(drop for drop, keep in KEY_MERGES.items() if drop not in present and keep not in present)
     if missing:
         logger.warning("WARNING: %s donor merge rules found no donor: %s",
                        len(missing), ", ".join(missing[:5]))
