@@ -4,20 +4,19 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from fec.config.streets import DIRECTION_ABBREVIATIONS, DIRECTION_TOKENS, STREET_TYPE_ABBREVIATIONS, STREET_TYPE_TOKENS
+
+# Spellings compared as equal: the normalizer's abbreviations, plus forms it
+# leaves as filed and typos seen in the data.
 _ABBREVIATIONS = {
-    "STREET": "ST", "AVENUE": "AVE", "ROAD": "RD", "DRIVE": "DR", "BOULEVARD": "BLVD", "LANE": "LN",
-    "COURT": "CT", "PLACE": "PL", "CIRCLE": "CIR", "TERRACE": "TER", "PARKWAY": "PKWY", "HIGHWAY": "HWY",
-    "TRAIL": "TRL", "SQUARE": "SQ", "NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W",
-    "NORTHEAST": "NE", "NORTHWEST": "NW", "SOUTHEAST": "SE", "SOUTHWEST": "SW", "APARTMENT": "APT",
-    "SUITE": "STE", "FLOOR": "FL", "POBOX": "PO BOX", "BUILDING": "BLDG", "NUMBER": "#",
-    "CROSSING": "XING", "HEIGHTS": "HTS", "POINT": "PT", "PLAZA": "PLZ", "BEND": "BND", "SO": "S", "SUTE": "STE", "STR": "ST",
-    "LA": "LN", "AV": "AVE", "AVNUE": "AVE",
+    **dict(STREET_TYPE_ABBREVIATIONS), **dict(DIRECTION_ABBREVIATIONS),
+    "APARTMENT": "APT", "SUITE": "STE", "FLOOR": "FL", "POBOX": "PO BOX", "BUILDING": "BLDG", "NUMBER": "#",
+    "HEIGHTS": "HTS", "POINT": "PT", "PLAZA": "PLZ", "BEND": "BND",
+    "SO": "S", "SUTE": "STE", "STR": "ST", "LA": "LN", "AV": "AVE", "AVNUE": "AVE",
 }
-STREET_TYPES = frozenset({
-    "ST", "AVE", "RD", "DR", "BLVD", "LN", "CT", "PL", "CIR", "TER", "PKWY", "HWY", "TRL", "SQ", "WAY",
-    "LOOP", "RUN", "PT", "PATH", "PLZ", "XING", "ROW", "BND", "HTS",
-})
-DIRECTIONS = frozenset({"N", "S", "E", "W", "NE", "NW", "SE", "SW"})
+# Abbreviated street types, as normalize() writes them.
+STREET_TYPES = frozenset(token for token in STREET_TYPE_TOKENS if token not in _ABBREVIATIONS)
+DIRECTIONS = frozenset(DIRECTION_TOKENS) - set(_ABBREVIATIONS)
 _UNIT_WORDS = r"APT|STE|UNIT|FL|RM|PH|BLDG|LOT|SPC|PMB"
 # First unit word or # in a street.
 _UNIT_START_RE = re.compile(rf"(?:\b(?:{_UNIT_WORDS})\b|#)")
@@ -26,7 +25,7 @@ _ORDINAL_RE = re.compile(r"\b(\d+)(?:ST|ND|RD|TH)\b")
 # A PO box and its number, however written.
 _PO_BOX_RE = re.compile(r"^(?:P ?O ?(?:BOX|B)?|BOX) ?(\d\S*)")
 # Unit number after the street type: "155 STEELE ST 616".
-_BARE_UNIT_RE = re.compile(r"\b(?:ST|AVE|RD|DR|BLVD|LN|CT|PL|CIR|TER|PKWY|WAY|TRL|SQ) (\d+(?: [A-Z])?)$")
+_BARE_UNIT_RE = re.compile(r"\b(?:" + "|".join(sorted(STREET_TYPES)) + r") (\d+(?: [A-Z])?)$")
 
 # Uppercase abbreviated tokens: "North Main Street." -> "N MAIN ST".
 def normalize(text) -> str:

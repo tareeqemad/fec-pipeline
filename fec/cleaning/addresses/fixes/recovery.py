@@ -5,18 +5,11 @@ import re
 
 import pandas as pd
 
-from fec.config.streets import FLOOR_ONLY_RE
+from fec.config.streets import DIRECTION_TOKENS, FLOOR_ONLY_RE, STREET_TYPE_TOKENS
 
-_STREET_TYPE_RE = re.compile(
-    r"\b(?:ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|PLAZA|"
-    r"ROW|LOOP|BROADWAY|PARK|BLDG|TPKE|EXPY|HTS|RIDGE|XING|PIKE|RTE|ALY|PATH|"
-    r"RUN|PT|PASS|WALK|BEND|MALL)\b"
-)
+_STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(sorted(STREET_TYPE_TOKENS | {"BLDG"})) + r")\b")
 _TRUNCATION_MIN_LEN = 30
-_NOT_A_FRAGMENT_RE = re.compile(
-    r"^(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST|"
-    r"ST|AVE|RD|BLVD|DR|LN|CT|CIR|PL|PKWY|HWY|TER|SQ|WAY|TRL|PLZ|EXT)$"
-)
+_NOT_A_FRAGMENT_RE = re.compile(r"^(?:" + "|".join(sorted(DIRECTION_TOKENS | STREET_TYPE_TOKENS | {"EXT"})) + r")$")
 _UNIT_TEXT_RE = re.compile(r"\b(APT|STE|SUITE|UNIT|RM|PMB)\b\s*#?\s*([A-Z0-9][A-Z0-9-]*)\b|#\s*([A-Z0-9][A-Z0-9-]*)\b")
 _SECOND_ADDRESS_RE = re.compile(r"^\d+\s+(?:[NSEW]\s+)?[A-Z]{3,}")
 
