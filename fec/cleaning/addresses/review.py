@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from fec.cleaning.addresses.fixes.verified import _read_address_rules
 from fec.cleaning.addresses.review_cases import REVIEW_CASES_CSV, build_review_cases
 from fec.cleaning.addresses.street_reviews import (
     _REPORT_COLUMNS,
@@ -14,8 +15,6 @@ from fec.cleaning.addresses.street_reviews import (
     _review_street1,
     _review_street2,
 )
-from fec.config.tables import read_rows
-from fec.env import ADDRESS_CASES_REVIEWED_CSV
 from fec.io import write_csv_atomic
 from fec.log import get_logger
 
@@ -91,17 +90,23 @@ def build_review_queues(
     return _combine_reports([part for part in queue if not part.empty])
 
 
-# A new address form for the donor opens the case again.
-def _case_key(donor_key, address_forms) -> tuple:
-    return donor_key, frozenset(address_forms.split(" || "))
+# Every address form a rule in address_rules.csv covers, as (street, zip).
+# A rule whose street equals its match confirms the form as filed.
+def _covered_forms() -> set:
+    return {(street, zipcode) for street, _state, zipcode, _unit, _sub_id in _read_address_rules()}
 
 
+# A case is decided once a rule covers each of its address forms; a new
+# form for the donor opens it again.
 def _open_cases(cases: pd.DataFrame) -> pd.DataFrame:
     if cases.empty:
         return cases
-    decided = {_case_key(r["donor_key"], r["address_forms"]) for r in read_rows(ADDRESS_CASES_REVIEWED_CSV)}
-    keys = [_case_key(*case) for case in zip(cases["donor_key"], cases["address_forms"])]
-    return cases[[key not in decided for key in keys]]
+    covered = _covered_forms()
+    open_case = [
+        not all((form.split(" | ")[0].strip().upper(), str(zip5)) in covered for form in forms.split(" || "))
+        for forms, zip5 in zip(cases["address_forms"], cases["zip5"].fillna("").astype(str))
+    ]
+    return cases[open_case]
 
 
 # Write reports after donor repairs and foreign-address restoration.

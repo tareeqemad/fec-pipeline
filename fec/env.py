@@ -78,7 +78,6 @@ CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
 # Curated contributor address corrections
 ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
 # Address review cases already decided, each with its source
-ADDRESS_CASES_REVIEWED_CSV = RULES_DIR / "address_cases_reviewed.csv"
 # Hand-set employer, occupation and address per filing
 MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
 # Reviewed previous employers, each with its source

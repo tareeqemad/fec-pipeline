@@ -86,7 +86,8 @@ def _read_address_rules() -> dict[tuple[str, str, str, str | None, str | None], 
             source = (row.get("source") or "").strip()
             match_unit = (row.get("match_unit") or "").strip().upper() or None
             match_sub_id = (row.get("match_sub_id") or "").strip() or None
-            if not all(address) or not fixed[0] or not source:
+            # A blank match_zip matches filings with no ZIP (a foreign address).
+            if not address[0] or not address[1] or not fixed[0] or not source:
                 raise ValueError(f"Invalid address rule on row {number}")
             if fixed[1] == CLEAR_UNIT and match_unit is None:
                 raise ValueError(
