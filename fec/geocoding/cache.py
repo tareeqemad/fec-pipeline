@@ -1,5 +1,6 @@
 """Persistent coordinates, including entries from older geocoding runs."""
 
+from fec.cleaning.addresses.compare import normalize as same_spelling
 from fec.cleaning.addresses.street_text import numbered_street
 from fec.io import JsonCache
 
@@ -14,7 +15,27 @@ class GeoCache(JsonCache):
         if normalized in self.data:
             return self.data[normalized]
         parts[0] = numbered_street(parts[0])
-        return self.data.get("|".join(parts))
+        if "|".join(parts) in self.data:
+            return self.data["|".join(parts)]
+        # The same address under an earlier spelling (PLAZA for PLZ): the
+        # coordinates already found are reused rather than looked up again.
+        return self._by_spelling().get(self._spelling(key))
+
+    @staticmethod
+    def _spelling(key: str) -> str:
+        parts = [part.strip().upper() for part in key.split("|")]
+        parts[0] = same_spelling(numbered_street(parts[0]))
+        return "|".join(parts)
+
+    def _by_spelling(self) -> dict:
+        index = getattr(self, "_spelling_index", None)
+        if index is None or len(index) != len(self.data):
+            index = {}
+            for key, entry in self.data.items():
+                if entry.get("lat") is not None:
+                    index.setdefault(self._spelling(key), entry)
+            self._spelling_index = index
+        return index
 
     def needs_retry(self, key: str) -> bool:
         entry = self.get(key)

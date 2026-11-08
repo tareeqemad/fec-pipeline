@@ -37,3 +37,12 @@ def test_rejected_openstreetmap_answer_tries_census_with_same_address(monkeypatc
     monkeypatch.setattr(geo, "census", lambda *args: calls.append(("census", args)) or point(41.8814, -87.6324, "US"))
     assert geo._geocode_one(*address) == point(41.8814, -87.6324, "US", source="census")
     assert calls == [("osm", address), ("census", address)]
+
+
+def test_cache_reuses_coordinates_found_under_an_earlier_spelling(tmp_path):
+    from fec.geocoding.cache import GeoCache
+    cache = GeoCache(str(tmp_path / 'cache.json'))
+    cache.put('2 N RIVERSIDE PLAZA|CHICAGO|IL|60606', 41.88, -87.64, 'nominatim')
+    assert cache.get('2 N RIVERSIDE PLZ|CHICAGO|IL|60606')['lat'] == 41.88
+    assert cache.get('2 N RIVERSIDE PLZ|CHICAGO|IL|60601') is None
+    assert not cache.needs_retry('2 N RIVERSIDE PLZ|CHICAGO|IL|60606')

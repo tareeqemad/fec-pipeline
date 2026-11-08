@@ -368,3 +368,13 @@ def test_split_self_marker_and_previous_employer():
     assert normalize_previous_employer_value('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
     assert normalize_previous_employer_value('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
     assert normalize_previous_employer_value('SELF EMPLOYED; DENTIST') == 'SELF-EMPLOYED'
+
+
+def test_street_suffixes_abbreviate_only_at_the_end():
+    from fec.cleaning.addresses.street_text import normalize_street
+    assert normalize_street('100 Wolf Point') == '100 WOLF PT'
+    assert normalize_street('313 W WOLF POINT PLAZA 3510') == '313 W WOLF POINT PLZ 3510'
+    assert normalize_street('3401 EVERGREEN POINT RD') == '3401 EVERGREEN POINT RD'
+    assert normalize_street('5200 TOWN CENTER CIR') == '5200 TOWN CENTER CIR'
+    assert normalize_street('1 UNIVERSITY PLAZA STE 400') == '1 UNIVERSITY PLZ STE 400'
+    assert normalize_street('21 SANDIA HEIGHTS DR NE') == '21 SANDIA HEIGHTS DR NE'

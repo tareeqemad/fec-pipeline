@@ -11,6 +11,7 @@ from fec.config.streets import (
     DIR_SUFFIX,
     HASH_EXTRACT,
     POBOX_RE,
+    STREET_SUFFIXES,
     STREET_TYPES,
     STREET_TYPO_RULES,
     UNIT_EXTRACT,
@@ -145,7 +146,7 @@ def normalize_street(s: str) -> str:
     # Missing space after the house number; ordinals stay one word.
     s = _split_fused_house_number(s)
 
-    for rules in (DIR_PREFIX, DIR_MID, STREET_TYPES, DIR_SUFFIX):
+    for rules in (DIR_PREFIX, DIR_MID, STREET_TYPES, STREET_SUFFIXES, DIR_SUFFIX):
         for pattern, replacement in rules:
             s = pattern.sub(replacement, s)
 

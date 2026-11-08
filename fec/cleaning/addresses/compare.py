@@ -4,14 +4,17 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from fec.config.streets import DIRECTION_ABBREVIATIONS, DIRECTION_TOKENS, STREET_TYPE_ABBREVIATIONS, STREET_TYPE_TOKENS
+from fec.config.streets import (
+    DIRECTION_ABBREVIATIONS, DIRECTION_TOKENS, STREET_SUFFIX_ABBREVIATIONS, STREET_TYPE_ABBREVIATIONS,
+    STREET_TYPE_TOKENS,
+)
 
 # Spellings compared as equal: the normalizer's abbreviations, plus forms it
 # leaves as filed and typos seen in the data.
 _ABBREVIATIONS = {
-    **dict(STREET_TYPE_ABBREVIATIONS), **dict(DIRECTION_ABBREVIATIONS),
+    **dict(STREET_TYPE_ABBREVIATIONS), **dict(STREET_SUFFIX_ABBREVIATIONS), **dict(DIRECTION_ABBREVIATIONS),
     "APARTMENT": "APT", "SUITE": "STE", "FLOOR": "FL", "POBOX": "PO BOX", "BUILDING": "BLDG", "NUMBER": "#",
-    "HEIGHTS": "HTS", "POINT": "PT", "PLAZA": "PLZ", "BEND": "BND",
+    "HEIGHTS": "HTS",
     "SO": "S", "SUTE": "STE", "STR": "ST", "LA": "LN", "AV": "AVE", "AVNUE": "AVE",
 }
 # Abbreviated street types, as normalize() writes them.

@@ -114,17 +114,32 @@ STREET_TYPES = [
     for full, abbr in STREET_TYPE_ABBREVIATIONS
 ]
 
-# Every token that names a street type, written out or abbreviated. The
-# normalizer abbreviates only the pairs above; the rest are recognised as
-# filed (USPS Pub 28 suffixes seen in the data).
+# USPS Pub 28 suffixes abbreviated only where they end the street name:
+# 100 WOLF POINT becomes 100 WOLF PT, EVERGREEN POINT RD keeps POINT.
+# Words that also end city names (HILLS, HEIGHTS, CENTER, LAKE) are left as
+# filed: a filer sometimes writes the city after the street, and later
+# steps recognise it by its spelling.
+STREET_SUFFIX_ABBREVIATIONS = [
+    ('PLAZA', 'PLZ'), ('POINT', 'PT'), ('BEND', 'BND'), ('ROUTE', 'RTE'),
+    ('ALLEY', 'ALY'), ('EXTENSION', 'EXT'), ('FREEWAY', 'FWY'),
+]
+# What may follow the suffix: a direction, a unit, a bare unit number
+# (commas are removed after these rules run).
+_SUFFIX_TAIL = (
+    r',?(?:\s+(?:N|S|E|W|NE|NW|SE|SW))?'
+    r',?(?:\s+(?:' + _UNIT_WORDS + r')\b.*|\s*#.*|\s+\d+[A-Z]?)?\s*$'
+)
+STREET_SUFFIXES = [
+    (re.compile(rf'\b{full}\b(?={_SUFFIX_TAIL})', re.IGNORECASE), abbr)
+    for full, abbr in STREET_SUFFIX_ABBREVIATIONS
+]
+
+# Every token that names a street type, written out or abbreviated.
 STREET_TYPE_TOKENS = frozenset(
-    {full for full, _ in STREET_TYPE_ABBREVIATIONS}
-    | {abbr for _, abbr in STREET_TYPE_ABBREVIATIONS}
-    | {
-        'WAY', 'LOOP', 'RUN', 'PATH', 'ROW', 'PASS', 'WALK', 'MALL', 'PARK', 'PIKE',
-        'RTE', 'ALY', 'BROADWAY', 'CTR', 'RIDGE', 'POINTE', 'COMMONS', 'GARDENS',
-        'PLAZA', 'PLZ', 'POINT', 'PT', 'BEND', 'BND', 'HEIGHTS', 'HTS',
-    }
+    {full for full, _ in STREET_TYPE_ABBREVIATIONS + STREET_SUFFIX_ABBREVIATIONS}
+    | {abbr for _, abbr in STREET_TYPE_ABBREVIATIONS + STREET_SUFFIX_ABBREVIATIONS}
+    | {'WAY', 'LOOP', 'RUN', 'PATH', 'ROW', 'PASS', 'WALK', 'MALL', 'PARK', 'PIKE', 'BROADWAY', 'POINTE',
+       'CTR', 'HEIGHTS', 'HTS', 'RIDGE', 'GARDENS', 'COMMONS'}
 )
 # Direction tokens, written out or abbreviated.
 DIRECTION_TOKENS = frozenset(
