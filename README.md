@@ -99,7 +99,7 @@ Warnings worth reading after `clean.py`:
 | `data/raw/` | FEC data as pulled; never edited |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Address cases, possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, each with its source; a retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
+| `data/rules/` | Reviewed decisions, each with its source. An address case from the report is closed by a row in `address_rules.csv`: a correction, or a confirmation whose `street` equals its `match_street`. A retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
 | `data/config/` | Spelling and word lists; `written_as` is the text as filed |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
 | `data/cache/` | Map points and donor keys from earlier runs; keep it |

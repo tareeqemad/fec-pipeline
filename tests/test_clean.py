@@ -378,3 +378,15 @@ def test_street_suffixes_abbreviate_only_at_the_end():
     assert normalize_street('5200 TOWN CENTER CIR') == '5200 TOWN CENTER CIR'
     assert normalize_street('1 UNIVERSITY PLAZA STE 400') == '1 UNIVERSITY PLZ STE 400'
     assert normalize_street('21 SANDIA HEIGHTS DR NE') == '21 SANDIA HEIGHTS DR NE'
+
+
+def test_address_case_closes_once_rules_cover_every_form(monkeypatch):
+    from fec.cleaning.addresses import review
+    cases = pd.DataFrame({
+        'donor_key': ['a', 'b'],
+        'address_forms': ['151 BEARS CLUB DR || 151 W BEARS CLUB DR', '35 E 67TH ST || 35 E 68TH ST'],
+        'zip5': ['33477', '10065'],
+    })
+    monkeypatch.setattr(review, '_covered_forms', lambda: {('151 BEARS CLUB DR', '33477'), ('151 W BEARS CLUB DR', '33477'), ('35 E 67TH ST', '10065')})
+
+    assert review._open_cases(cases)['donor_key'].tolist() == ['b']
