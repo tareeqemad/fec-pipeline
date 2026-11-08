@@ -114,6 +114,23 @@ STREET_TYPES = [
     for full, abbr in STREET_TYPE_ABBREVIATIONS
 ]
 
+# Every token that names a street type, written out or abbreviated. The
+# normalizer abbreviates only the pairs above; the rest are recognised as
+# filed (USPS Pub 28 suffixes seen in the data).
+STREET_TYPE_TOKENS = frozenset(
+    {full for full, _ in STREET_TYPE_ABBREVIATIONS}
+    | {abbr for _, abbr in STREET_TYPE_ABBREVIATIONS}
+    | {
+        'WAY', 'LOOP', 'RUN', 'PATH', 'ROW', 'PASS', 'WALK', 'MALL', 'PARK', 'PIKE',
+        'RTE', 'ALY', 'BROADWAY', 'CTR', 'RIDGE', 'POINTE', 'COMMONS', 'GARDENS',
+        'PLAZA', 'PLZ', 'POINT', 'PT', 'BEND', 'BND', 'HEIGHTS', 'HTS',
+    }
+)
+# Direction tokens, written out or abbreviated.
+DIRECTION_TOKENS = frozenset(
+    {full for full, _ in DIRECTION_ABBREVIATIONS} | {abbr for _, abbr in DIRECTION_ABBREVIATIONS}
+)
+
 
 # unit abbreviations
 

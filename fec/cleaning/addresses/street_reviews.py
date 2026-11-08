@@ -1,5 +1,7 @@
 """Find street_1/street_2 values that need a person's review."""
 import re
+
+from fec.config.streets import STREET_TYPE_TOKENS
 from difflib import SequenceMatcher
 from itertools import combinations
 
@@ -25,18 +27,8 @@ _PO_BOX_RE = re.compile(
 _PMB_RE = re.compile(r"^PMB\s*#?\s*\d", re.IGNORECASE)
 
 
-# Street-type tokens; a street without any is likely an entity.
-_STREET_TYPES = (
-    "ST AVE RD BLVD DR LN CT CIR PL PKWY HWY TER TPKE EXPY SQ WAY TRL XING JCT "
-    "PLZ PLAZA LOOP PATH RUN BEND PASS WALK ROW ALY PIKE RTE BROADWAY PARK MALL "
-    "CTR HTS RIDGE POINTE COMMONS GARDENS CROSSING TRAIL TURNPIKE PARKWAY "
-    "STREET AVENUE ROAD BOULEVARD DRIVE LANE COURT CIRCLE PLACE HIGHWAY TERRACE "
-    "APT STE UNIT FL"
-).split()
-
-
-# Any street-type or unit word as a token.
-_STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(_STREET_TYPES) + r")\b")
+# Any street-type or unit word as a token; a street without one is likely an entity.
+_STREET_TYPE_RE = re.compile(r"\b(?:" + "|".join(sorted(STREET_TYPE_TOKENS | {"APT", "STE", "UNIT", "FL"})) + r")\b")
 
 
 # A street_2 unit keyword without a number: dropped and flagged.

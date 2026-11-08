@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from fec.config.streets import (
+    DIRECTION_ABBREVIATIONS,
     DIR_MID,
     DIR_PREFIX,
     DIR_SUFFIX,
@@ -45,7 +46,7 @@ _SHORT_POBOX_RE = re.compile(r'^(?:P\.?\s*O\.?\s*B?|BOX)\s+(\d)')
 _HOUSE_TOKEN_RE = re.compile(r'^\d+[A-Z]?$')
 
 
-_DIRECTION_TOKENS = frozenset({'N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW'})
+_DIRECTION_TOKENS = frozenset(abbr for _, abbr in DIRECTION_ABBREVIATIONS)
 
 
 # Remove repeated streets; grid addresses stay.
