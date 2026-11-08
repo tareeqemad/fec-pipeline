@@ -1,4 +1,4 @@
-"""Move a retiree's filed company to previous_employer."""
+"""Move a retiree's filed company to previous_employer, once donors are matched."""
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
@@ -15,12 +15,11 @@ def _settle_retired_employer(df: pd.DataFrame) -> int:
         return 0
 
     employer = _norm(df['contributor_employer'])
-    retired = (
-        df['entity_type'].eq('INDIVIDUAL')
-        & df['occupation_category'].eq('RETIRED')
-        & _norm(df['contributor_occupation']).eq('RETIRED')
-        & employer.ne('RETIRED')
-    )
+    said_retired = df['occupation_category'].eq('RETIRED') & _norm(df['contributor_occupation']).eq('RETIRED')
+    if '_retired_marker' in df.columns:
+        # The filing said RETIRED beside a profession (RETIRED JUDGE MEDIATOR).
+        said_retired |= df['_retired_marker'].fillna(False).astype(bool)
+    retired = df['entity_type'].eq('INDIVIDUAL') & said_retired & employer.ne('RETIRED')
     count = int(retired.sum())
     if not count:
         return 0

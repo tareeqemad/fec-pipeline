@@ -1,8 +1,6 @@
 """Employer-field junk clearing; swap and self-employment fixes live in employer_swaps."""
 from __future__ import annotations
 
-import re
-
 import numpy as np
 import pandas as pd
 
@@ -10,51 +8,8 @@ from fec.cleaning.work.normalize import (
     _categorize,
     swap_employer_and_occupation,
 )
-from fec.config.constants import RETIRED_TYPO_EMPLOYERS
 from fec.cleaning.work.company import is_company
-from fec.config.not_employers import OCCUPATION_AS_EMPLOYER, SECTOR_AS_EMPLOYER
-
-# Variants of RETIRED, full match only, so RETIREMENT stays.
-_RETIRED_TOKEN_RE = re.compile(r'^RETIR(?:ED?|EE|D)?$')
-
-# 'RETIRED <tail>': a previous employer or profession word.
-_RETIRED_WITH_TAIL_RE = re.compile(r'^RETIRED\b[\s,-]+\S')
-# Leading RETIRED marker to strip: "RETIRED - ACME".
-_RETIRED_PREFIX_RE = re.compile(r'^RETIRED\b[\s,-]+')
-
-
-
-# normalize RETIRED typos, splitting any trailing text off
-def _fix_retired_typos(df: pd.DataFrame, is_indiv: pd.Series) -> int:
-    """RETIRED typos fixed; 'RETIRED <X>' moves X out."""
-    emp = df['contributor_employer'].fillna('')
-    retired_marker = (
-        emp.isin(RETIRED_TYPO_EMPLOYERS)
-        | emp.str.fullmatch(_RETIRED_TOKEN_RE, na=False)
-    )
-    mask = is_indiv & retired_marker & emp.ne('RETIRED')
-    n_fixed = int(mask.sum())
-    if n_fixed:
-        df.loc[mask, 'contributor_employer'] = 'RETIRED'
-        df.loc[mask, 'contributor_occupation'] = 'RETIRED'
-        df.loc[mask, 'occupation_category'] = 'RETIRED'
-
-    embedded = is_indiv & emp.str.match(_RETIRED_WITH_TAIL_RE, na=False)
-    for idx in df.index[embedded]:
-        rest = _RETIRED_PREFIX_RE.sub('', emp.at[idx]).strip()
-        df.at[idx, 'contributor_employer'] = 'RETIRED'
-        occ = str(df.at[idx, 'contributor_occupation'] or '')
-        if rest in OCCUPATION_AS_EMPLOYER:
-            if not occ or occ == 'RETIRED':
-                df.at[idx, 'contributor_occupation'] = rest
-        elif len(rest) >= 4 and rest != 'MILITARY':
-            if 'previous_employer' not in df.columns:
-                df['previous_employer'] = pd.Series(dtype='object', index=df.index)
-            if not str(df.at[idx, 'previous_employer'] or '').strip():
-                df.at[idx, 'previous_employer'] = rest
-        n_fixed += 1
-    return n_fixed
-
+from fec.config.not_employers import SECTOR_AS_EMPLOYER
 
 # EXECUTIVE is a title when beside a company.
 _TITLE_SECTOR_WORDS = frozenset({'EXECUTIVE'}) & SECTOR_AS_EMPLOYER

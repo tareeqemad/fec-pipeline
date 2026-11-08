@@ -5,6 +5,8 @@ import re
 
 import pandas as pd
 
+from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
+from fec.cleaning.work.retired import split_retired
 from fec.cleaning.work.status import is_job_title, is_real_employer, single_letters
 from fec.cleaning.work.employer_normalize import (
     normalize_employer_display_name,
@@ -59,29 +61,6 @@ _SLASH_ADMIN_PREFIX_RE = re.compile(
 
 _JUNK_EMPLOYER_RE = re.compile(JUNK_EMPLOYER_RE)
 _WS_RE = re.compile(r'\s+')
-
-# Whole-word RETIRED around a company; RETIREE and RETIREMENT stay.
-_RETIRED_WORD = r'(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY)[\s-]?)?RETIRED'
-_RETIRED_PREFIX_RE = re.compile(
-    rf'^\(?{_RETIRED_WORD}\b\)?(?:\s+FROM\b)?[\s,;:/-]*'
-)
-_RETIRED_SUFFIX_RE = re.compile(rf'[\s,;:/-]*\(?\s*{_RETIRED_WORD}\s*\)?$')
-# Keep RETIRED when it belongs to a truncated organization name.
-_NAME_BEFORE_RETIRED_RE = re.compile(r'\b(?:OF|FOR|THE|AND|&)$')
-
-
-# Remove a retirement marker without cutting an organization name.
-def _strip_retired_marker(upper: str) -> tuple[str, bool]:
-    stripped = _RETIRED_PREFIX_RE.sub('', upper, count=1)
-    if stripped != upper:
-        return stripped.strip(), True
-    match = _RETIRED_SUFFIX_RE.search(upper)
-    if match and match.start() > 0:
-        head = upper[:match.start()].strip()
-        if head and not _NAME_BEFORE_RETIRED_RE.search(head):
-            return head, True
-    return upper, False
-
 
 # Part or full time after the company: "UMIAMI P/T".
 _SCHEDULE_SUFFIX_RE = re.compile(r'\s+[PF]/T\s*$', re.IGNORECASE)
@@ -148,20 +127,53 @@ def _is_null_previous(upper: str) -> bool:
 
 # SELF-EMPLOYED written after a name or trade.
 SELF_EMPLOYED_TAIL_RE = re.compile(r'[-,/(:]\s*SELF[\s-]*EMPLOY\w*\W*$')
+# SELF written before a name or trade: "SELF - ACME LLC", "SELF EMPLOYED; DENTIST".
+_SELF_PREFIX_RE = re.compile(r'^SELF(?:[\s-]*EMPLOY\w*)?(?:\s+AND)?[\s,;:/()-]+(?=\S)')
+_SELF_REVIEWED = {
+    'SELF EMPLOYED- STANDARDIZED SUCCESS L': 'STANDARDIZED SUCCESS LLC',
+}
+
+
+def split_self_marker(value) -> tuple[bool, str]:
+    """(self_employed, rest): a SELF marker before or after the text, and what else it names."""
+    if not isinstance(value, str):
+        return False, ''
+    upper = ' '.join(value.upper().replace('.', ' ').split())
+    if upper in _SELF_REVIEWED:
+        return True, _SELF_REVIEWED[upper]
+    match = _SELF_PREFIX_RE.match(upper)
+    if match:
+        return True, upper[match.end():].strip(' ,;:/()-')
+    match = SELF_EMPLOYED_TAIL_RE.search(upper)
+    if match:
+        return True, upper[:match.start()].strip(' ,;:/()-')
+    return _is_explicit_self(upper), ''
+
+
+def firm_after_self_marker(rest: str) -> str:
+    """The firm a SELF marker was written beside, or '' for a trade or nothing.
+
+    A job or field (DENTIST, CONSULTING) describes the self-employment; a
+    company name (ACME LLC, ROUND ROCK PERIODONTICS) is the firm.
+    """
+    if not rest or rest in _SE_PREV or is_job_title(rest):
+        return ''
+    level = company_evidence(pd.Series([rest])).iloc[0]
+    if level in COMPANY_LEVELS or _FIRM_WORD_RE.search(rest):
+        return rest
+    words = rest.split()
+    # DR RICHARD ALPERIN beside SELF is the person, not a firm.
+    if level == 'unknown' and len(words) >= 2 and is_real_employer(rest) and not _PERSON_TITLES & set(words):
+        return rest
+    return ''
+
+
+_PERSON_TITLES = frozenset({'DR', 'MR', 'MRS', 'MS', 'MD', 'PHD', 'DDS', 'DO', 'ESQ', 'JR', 'SR', 'CPA'})
 # A word making the text before the marker a firm.
 _FIRM_WORD_RE = re.compile(
     r'\b(?:GROUP|INC|LLC|LLP|LTD|CORP|CORPORATION|CO|COMPANY|ASSOCIATES|PARTNERS'
     r'|FIRM|PC|PA|PLLC|ENTERPRISES|CONSULTING|SERVICES|STUDIO|AGENCY)\b'
 )
-
-
-# Keep a named firm before a trailing SELF-EMPLOYED marker.
-def _firm_before_self_marker(upper: str) -> str:
-    match = SELF_EMPLOYED_TAIL_RE.search(upper)
-    if not match:
-        return ''
-    firm = upper[:match.start()].strip(' -,/(:')
-    return firm if _FIRM_WORD_RE.search(firm) else ''
 
 
 # Recognize explicit self-employment, including doubled letters.
@@ -182,7 +194,7 @@ def normalize_previous_employer_value(v) -> str:
     upper = text.upper()
 
     # Strip retirement markers, then judge the remaining company or profession.
-    remainder, had_marker = _strip_retired_marker(upper)
+    had_marker, remainder = split_retired(upper)
     if had_marker:
         if not remainder or remainder in _SE_PREV or remainder == 'MILITARY':
             return ''
@@ -190,12 +202,11 @@ def normalize_previous_employer_value(v) -> str:
         # A former profession does not establish self-employment.
         return '' if cleaned == 'SELF-EMPLOYED' else cleaned
 
-    # Keep a named firm before recognizing SELF-EMPLOYED alone.
-    firm = _firm_before_self_marker(upper)
-    if firm:
-        return normalize_previous_employer_value(firm) or 'SELF-EMPLOYED'
-    if _is_explicit_self(upper):
-        return 'SELF-EMPLOYED'
+    # A SELF marker: the named firm stays, a trade or nothing is SELF-EMPLOYED.
+    self_marker, rest = split_self_marker(upper)
+    if self_marker:
+        firm = firm_after_self_marker(rest)
+        return (normalize_previous_employer_value(firm) if firm else '') or 'SELF-EMPLOYED'
 
     if re.match(ADMIN_NOTE_EMPLOYER_RE, upper):
         return ''

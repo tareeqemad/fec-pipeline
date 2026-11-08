@@ -205,8 +205,9 @@ def _finish_records(df: pd.DataFrame):
 
     columns = [column for column in OUTPUT_COLUMNS if column in df.columns]
     # Donor repairs still need this flag; output cleanup removes it.
-    if "_care_of_blanked" in df.columns:
-        columns.append("_care_of_blanked")
+    for column in ("previous_employer", "_care_of_blanked", "_retired_marker"):
+        if column in df.columns and column not in columns:
+            columns.append(column)
     return df[columns]
 
 

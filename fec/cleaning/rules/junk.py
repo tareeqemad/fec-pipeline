@@ -6,7 +6,8 @@ import pandas as pd
 
 from fec.cleaning._helpers import _indiv_idx, _norm, _set_missing
 from fec.cleaning.work.employer_aliases import employer_rule_key
-from fec.cleaning.work.company import is_company
+from fec.cleaning.work.previous import firm_after_self_marker, split_self_marker
+from fec.cleaning.work.status import is_job_title
 from fec.cleaning.work.employer_aliases import documented_employer_name
 from fec.config.constants import JUNK_EMPLOYER_RE, OK_SHORT_EMPLOYERS, REFUSAL_EMPLOYERS
 from fec.config.data import MISSING_VALUES
@@ -17,15 +18,6 @@ from fec.config.occupation_rules.rules import (
     FINAL_SHORT_OCCUPATIONS,
 )
 
-# SELF with a tail: named companies are kept.
-_SELF_PREFIX_RE = re.compile(r'^SELF[\s,/\-]+', re.IGNORECASE)
-# Leading SELF prefix to strip: "SELF - ACME LLC".
-_SELF_PREFIX_STRIP_RE = re.compile(r'^SELF[\s,/\-]+(?:EMPLOYED[\s,/\-]*)?')
-_SELF_COMPANY_OVERRIDES = {
-    'SELF EMPLOYED- STANDARDIZED SUCCESS L': 'STANDARDIZED SUCCESS LLC',
-    'SELF EMPLOYED AND TOTAL REALTY': 'TOTAL REALTY',
-    'SELF AND STEVENSON UNIVERSITY': 'STEVENSON UNIVERSITY',
-}
 _GENERIC_SELF_TAILS = {'LAW OFFICE', 'COMPANY OWNER', 'PRIVATE CONTRACTOR', 'CONTRACTOR'}
 
 # an occupation ending in a bare number: "TEACHER 12345"
@@ -133,24 +125,18 @@ def _clean_junk_llp_standalone(df: pd.DataFrame, ii: pd.Index) -> int:
 def _clean_junk_employer_fixes(df: pd.DataFrame, ii: pd.Index) -> int:
     n_fixed = 0
 
-    # SELF variants with a tail
-    emp_raw = df.loc[ii, 'contributor_employer'].fillna('')
-    self_pattern = ii[
-        emp_raw.str.match(_SELF_PREFIX_RE, na=False)
-        & ~emp_raw.str.startswith('SELF-EMPLOYED', na=False)
-    ]
-    if len(self_pattern):
-        extracted = emp_raw[self_pattern].str.replace(
-            _SELF_PREFIX_STRIP_RE, '', regex=True
-        ).str.strip().str.lstrip(',').str.lstrip('-').str.lstrip('/').str.strip()
-        for idx, tail in extracted.items():
-            original = emp_raw.at[idx].strip().upper()
-            company = _SELF_COMPANY_OVERRIDES.get(employer_rule_key(original))
-            clean_tail = tail.strip('() ').strip()
-            if (not company and clean_tail not in _GENERIC_SELF_TAILS
-                    and is_company(pd.Series([clean_tail])).iloc[0]):
-                company = clean_tail
-            df.at[idx, 'contributor_employer'] = company or 'SELF-EMPLOYED'
-            n_fixed += 1
+    # "SELF - ACME LLC", "CONSULTANT (SELF-EMPLOYED)": a named firm stays, the
+    # rest is SELF-EMPLOYED; a trade beside the marker fills an empty occupation.
+    emp_raw = df.loc[ii, 'contributor_employer'].fillna('').astype(str)
+    marked = emp_raw[emp_raw.ne('') & ~emp_raw.str.upper().eq('SELF-EMPLOYED')]
+    for idx, value in marked.items():
+        self_marker, rest = split_self_marker(value)
+        if not self_marker:
+            continue
+        firm = '' if rest in _GENERIC_SELF_TAILS else firm_after_self_marker(rest)
+        df.at[idx, 'contributor_employer'] = firm or 'SELF-EMPLOYED'
+        if rest and not firm and is_job_title(rest) and not str(df.at[idx, 'contributor_occupation'] or '').strip():
+            df.at[idx, 'contributor_occupation'] = rest
+        n_fixed += 1
 
     return n_fixed

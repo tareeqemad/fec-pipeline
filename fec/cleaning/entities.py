@@ -335,7 +335,6 @@ def _restore_individual_occupations(df: pd.DataFrame, raw_occupations: pd.Series
     restored = _normalize_text(
         raw_occupations[has_occupation],
         OCCUPATION_NORMALIZE,
-        collapse_retire=True,
     )
     # Swapped fields are fixed later by swap_job_and_company.
     restored = restored[~restored.isin(MISSING_VALUES) & restored.notna()]

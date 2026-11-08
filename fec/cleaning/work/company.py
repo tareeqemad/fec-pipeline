@@ -44,7 +44,7 @@ COMPANY_LEVELS = frozenset(LEVELS)
 # Legal forms, after punctuation is removed: "L.L.C." -> "LLC".
 _LEGAL_FORMS = (
     "LLC", "PLLC", "LLP", "LP", "INC", "INCORPORATED", "CORP", "CORPORATION",
-    "LTD", "LIMITED", "PLC", "PC", "PA", "CO",
+    "LTD", "LIMITED", "PLC", "PC", "PA", "CO", "APLC", "APC",
 )
 _LEGAL_FORM_END_RE = re.compile(r"\b(?:" + "|".join(_LEGAL_FORMS) + r")$")
 # "CO" alone is a word (COMPANY) only at the end: "TRADING CO".
@@ -211,7 +211,7 @@ def is_company(values: pd.Series, **context) -> pd.Series:
     return company_evidence(values, **context).isin(COMPANY_LEVELS)
 
 
-_LEGAL_TOKENS = frozenset({"LLC", "PLLC", "LLP", "LP", "INC", "INCORPORATED", "CORP", "CORPORATION", "LTD", "PLC"})
+_LEGAL_TOKENS = frozenset({"LLC", "PLLC", "LLP", "LP", "INC", "INCORPORATED", "CORP", "CORPORATION", "LTD", "PLC", "APLC", "APC"})
 
 
 def has_legal_form_token(values: pd.Series) -> pd.Series:

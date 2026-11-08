@@ -2,11 +2,13 @@
 import pandas as pd
 
 from fec.cleaning.reports.trail import (
+    EMPLOYMENT_FIELDS,
     NAME_FIELDS,
     WORK_FIELDS,
     AuditTrail,
 )
 from fec.cleaning.rules.employer_swaps import settle_job_in_employer
+from fec.cleaning.work.retired import settle_retired_fields
 from fec.cleaning.entities import (
     fix_employer_equals_occupation,
     normalize_business_names,
@@ -39,6 +41,8 @@ _EMPLOYER_ONLY = ('contributor_employer',)
 
 # In order: transform, fields, audit name, reason.
 _AUDITED_RULES = (
+    (settle_retired_fields, EMPLOYMENT_FIELDS,
+     'retired_split_after_reclassify', 'retired_marker_read_from_both_fields'),
     (normalize_business_names, _NAME_ONLY,
      'enh_normalize_business_names', 'documented_company_name'),
     (normalize_name_periods, _NAME_ONLY,

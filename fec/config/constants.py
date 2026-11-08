@@ -92,6 +92,7 @@ SELF_EMPLOYED_TYPOS = frozenset({
 RETIRED_TYPO_EMPLOYERS = frozenset({
     'TETIRED', 'RETURED', 'RETIERD', 'RETIED', 'REITRED', 'RETIREE',
     'RETIREED', 'RERTIRED', 'RETIRD', 'REIRED', 'REITERED', 'RETITED',
+    'RETIEED', 'TRTIRED', 'RETIREDE', 'RETIREFT',
     # Seen as a previous employer from an older filing.
     'RETIREF',
 })

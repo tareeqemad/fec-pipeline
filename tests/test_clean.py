@@ -321,3 +321,50 @@ def test_entity_type_from_committee_signal_and_company_evidence():
         'COMMITTEE/PAC', 'ORGANIZATION', 'ORGANIZATION',
         'ORGANIZATION', 'INDIVIDUAL',
     ]
+
+
+def test_split_retired_reads_every_spelling():
+    from fec.cleaning.work.retired import split_retired
+    assert split_retired('RETIRED') == (True, '')
+    assert split_retired('TETIRED') == (True, '')
+    assert split_retired('SEMI-RETIRED') == (True, '')
+    assert split_retired('RETIRED FROM DAIICHI SANKYO') == (True, 'DAIICHI SANKYO')
+    assert split_retired('RETIRED - ORACLE') == (True, 'ORACLE')
+    assert split_retired('UCLA RETIRED') == (True, 'UCLA')
+    assert split_retired('PHYSICIAN, RETIRED') == (True, 'PHYSICIAN')
+    assert split_retired('RETIRED ATTORNEY') == (True, 'ATTORNEY')
+    assert split_retired("I'M RETIRED") == (True, "I'M")
+    assert split_retired('OFFICE MANAGER, RETIRED NURSE') == (True, 'OFFICE MANAGER, NURSE')
+    assert split_retired('RETIREDPHYSICIAN') == (True, 'PHYSICIAN')
+    assert split_retired('VOLUNTEER (RETIRED ATTORNEY)') == (True, 'VOLUNTEER (ATTORNEY)')
+    assert split_retired('RETIREMENT PLANNER') == (False, 'RETIREMENT PLANNER')
+    assert split_retired('BOARD OF RETIRED') == (False, 'BOARD OF RETIRED')
+    assert split_retired('ACME LLC') == (False, 'ACME LLC')
+
+
+def test_settle_retired_fields_keeps_job_and_company():
+    from fec.cleaning.work.retired import settle_retired_fields
+    df = pd.DataFrame({
+        'is_individual': [True] * 6,
+        'contributor_employer': ['RETIRED FROM DAIICHI SANKYO', 'RETIRE', 'RETIRED TEACHER', "I'M RETIRED", 'RETIRED', 'ACME LLC'],
+        'contributor_occupation': ['RETIRED', 'SOCIAL WORKER', 'RETIRED', 'RETIRED.', 'RETIRED ATTORNEY', 'ENGINEER'],
+        'occupation_category': ['RETIRED', 'OTHER', 'RETIRED', 'RETIRED', 'RETIRED', 'TECHNOLOGY'],
+    })
+
+    assert settle_retired_fields(df)[1] == 5
+    assert df['contributor_employer'].tolist() == ['RETIRED'] * 5 + ['ACME LLC']
+    assert df['contributor_occupation'].tolist() == ['RETIRED', 'SOCIAL WORKER', 'TEACHER', 'RETIRED', 'ATTORNEY', 'ENGINEER']
+    assert df['previous_employer'].fillna('').tolist() == ['DAIICHI SANKYO', '', '', '', '', '']
+
+
+def test_split_self_marker_and_previous_employer():
+    from fec.cleaning.work.previous import normalize_previous_employer_value, split_self_marker
+    assert split_self_marker('SELF - ACME LLC') == (True, 'ACME LLC')
+    assert split_self_marker('SELF; JACK A FRYDRYCH APLC') == (True, 'JACK A FRYDRYCH APLC')
+    assert split_self_marker('SELF EMPLOYED AND TOTAL REALTY') == (True, 'TOTAL REALTY')
+    assert split_self_marker('CONSULTANT (SELF-EMPLOYED)') == (True, 'CONSULTANT')
+    assert split_self_marker('SELF') == (True, '')
+    assert split_self_marker('ACME LLC') == (False, '')
+    assert normalize_previous_employer_value('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
+    assert normalize_previous_employer_value('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
+    assert normalize_previous_employer_value('SELF EMPLOYED; DENTIST') == 'SELF-EMPLOYED'
