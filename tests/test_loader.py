@@ -199,3 +199,31 @@ def test_a_late_failure_rolls_back_the_drop_too():
         with stage("contributions"):
             raise ValueError("bad row")
     assert conn.commits == 0 and conn.rollbacks == 1
+
+
+def test_employment_key_matches_the_schema():
+    from fec.database.loader.employers import EMPLOYMENT_KEY_COLUMNS
+    assert _schema_unique_columns() == EMPLOYMENT_KEY_COLUMNS
+
+
+def test_roster_rows_are_read_once_and_checked():
+    from fec.database.loader.roster import _person
+    committees = {"AIPAC", "AIEF"}
+    row = {
+        "donor_key": "e038b2913c07", "create_if_missing": "false", "leader_name": "RODAN, AMNON",
+        "leader_street_1": "6114 LA SALLE AVE", "leader_street_2": "# 442", "leader_city": "OAKLAND",
+        "leader_state": "CA", "leader_zip": "94611", "leader_employer": "RETIRED",
+        "leader_occupation": "RETIRED", "committee_ids": "{AIPAC,AIEF}", "address_lat": "37.82",
+        "address_lng": "-122.21", "image_path": "/images/people/amnon-rodan.jpg",
+    }
+    person = _person(row, "leader", "leaders.csv", committees)
+    assert (person["first"], person["last"]) == ("AMNON", "RODAN")
+    assert person["committees"] == ["AIPAC", "AIEF"]
+    assert person["address"] == ("6114 LA SALLE AVE", "# 442", "OAKLAND", "CA", "94611")
+    assert person["latitude"] == 37.82 and not person["create_if_missing"]
+
+    assert _person({**row, "leader_name": ""}, "leader", "leaders.csv", committees) is None
+    with pytest.raises(ValueError, match="unknown committee"):
+        _person({**row, "committee_ids": "{AIPAC,DMFI}"}, "leader", "leaders.csv", committees)
+    with pytest.raises(ValueError, match="create_if_missing"):
+        _person({**row, "create_if_missing": "yes"}, "leader", "leaders.csv", committees)

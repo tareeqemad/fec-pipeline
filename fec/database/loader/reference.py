@@ -8,7 +8,7 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.committees import load_committees
-from fec.env import CLEANED_CSV, REFERENCE_DIR
+from fec.env import REFERENCE_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -71,19 +71,14 @@ def load_reference_tables(cur: Any) -> None:
                 rows, page_size=5000)
 
 
-# Load occupation categories and committees.
-def load_lookups(cur: Any) -> None:
-    _load_occupation_categories(cur)
-    _load_committees(cur)
-
-
-# Load the occupation categories present in the cleaned file.
-def _load_occupation_categories(cur: Any) -> None:
-    df = pd.read_csv(CLEANED_CSV, usecols=['occupation_category'], dtype=str)
+# Load the occupation categories in the data, and the committees.
+def load_lookups(cur: Any, df: pd.DataFrame) -> dict:
     categories = sorted(df['occupation_category'].dropna().unique())
-    rows = [(category,) for category in categories]
     execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING",
-                   rows, page_size=50)
+                   [(category,) for category in categories], page_size=50)
+    _load_committees(cur)
+    cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
+    return {name: category_id for category_id, name in cur.fetchall()}
 
 
 # Load committees without duplicating non-FEC organizations.
