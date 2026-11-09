@@ -273,6 +273,25 @@ def test_company_in_occupation_keeps_the_role():
     ]
 
 
+def test_company_in_occupation_is_the_donors_own_employer():
+    """A SELF-EMPLOYED filer's occupation that they file as the employer elsewhere."""
+    from fec.cleaning.rules.occupation import _null_junk_occupation
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL'] * 4,
+        'contributor_name': ['BRUST, RANDY', 'BRUST, RANDY', 'OTHER, ANN', 'OTHER, ANN'],
+        'contributor_employer': ['SELF-EMPLOYED', 'CRESCENT REALTY ADVISORS', 'SELF-EMPLOYED', 'CONSULTANT'],
+        'contributor_occupation': ['CRESCENT REALTY ADVISORS', 'REAL ESTATE', 'INVESTMENT MGR', 'CONSULTANT'],
+        'occupation_category': [None] * 4,
+    })
+
+    _null_junk_occupation(df)
+
+    assert df['contributor_employer'].tolist() == [
+        'CRESCENT REALTY ADVISORS', 'CRESCENT REALTY ADVISORS', 'SELF-EMPLOYED', 'CONSULTANT',
+    ]
+    assert df['contributor_occupation'].fillna('').tolist() == ['', 'REAL ESTATE', 'INVESTMENT MGR', 'CONSULTANT']
+
+
 def test_company_evidence_levels():
     from fec.cleaning.work.company import company_evidence
     values = pd.Series([
@@ -334,9 +353,14 @@ def test_split_retired_reads_every_spelling():
     assert split_retired('PHYSICIAN, RETIRED') == (True, 'PHYSICIAN')
     assert split_retired('RETIRED ATTORNEY') == (True, 'ATTORNEY')
     assert split_retired("I'M RETIRED") == (True, "I'M")
-    assert split_retired('OFFICE MANAGER, RETIRED NURSE') == (True, 'OFFICE MANAGER, NURSE')
     assert split_retired('RETIREDPHYSICIAN') == (True, 'PHYSICIAN')
-    assert split_retired('VOLUNTEER (RETIRED ATTORNEY)') == (True, 'VOLUNTEER (ATTORNEY)')
+    # RETIRED inside one part qualifies that part only: the role before it is current.
+    assert split_retired('OFFICE MANAGER, RETIRED NURSE') == (False, 'OFFICE MANAGER')
+    assert split_retired('VOLUNTEER (RETIRED ATTORNEY)') == (False, 'VOLUNTEER')
+    assert split_retired('ARBITRATOR/RETIRED JUDGE') == (False, 'ARBITRATOR')
+    assert split_retired('HOMEMAKER/WIFE OF RETIRED MILITARY MEM') == (False, 'HOMEMAKER')
+    assert split_retired('SELF, RETIRED TEACHER') == (True, 'SELF, TEACHER')
+    assert split_retired('TEACHER NOW RETIRED CONSULTANT') == (True, 'TEACHER NOW CONSULTANT')
     assert split_retired('RETIREMENT PLANNER') == (False, 'RETIREMENT PLANNER')
     assert split_retired('BOARD OF RETIRED') == (False, 'BOARD OF RETIRED')
     assert split_retired('ACME LLC') == (False, 'ACME LLC')
@@ -355,6 +379,21 @@ def test_settle_retired_fields_keeps_job_and_company():
     assert df['contributor_employer'].tolist() == ['RETIRED'] * 5 + ['ACME LLC']
     assert df['contributor_occupation'].tolist() == ['RETIRED', 'SOCIAL WORKER', 'TEACHER', 'RETIRED', 'ATTORNEY', 'ENGINEER']
     assert df['previous_employer'].fillna('').tolist() == ['DAIICHI SANKYO', '', '', '', '', '']
+
+
+def test_settle_retired_fields_keeps_a_current_role_before_a_retired_one():
+    from fec.cleaning.work.retired import settle_retired_fields
+    df = pd.DataFrame({
+        'is_individual': [True] * 3,
+        'contributor_employer': ['STEVEN TENNENBAUM', '', 'JAMS'],
+        'contributor_occupation': ['OFFICE MANAGER, RETIRED NURSE', 'VOLUNTEER (RETIRED ATTORNEY)', 'RETIRED JUDGE MEDIATOR'],
+        'occupation_category': ['MEDICAL / HEALTHCARE', 'LEGAL', 'LEGAL'],
+    })
+
+    assert settle_retired_fields(df)[1] == 3
+    # JAMS stays here; the donor step moves a retiree's company to previous_employer.
+    assert df['contributor_employer'].tolist() == ['STEVEN TENNENBAUM', '', 'JAMS']
+    assert df['contributor_occupation'].tolist() == ['OFFICE MANAGER', 'VOLUNTEER', 'JUDGE MEDIATOR']
 
 
 def test_split_self_marker_and_previous_employer():
