@@ -39,10 +39,11 @@ def test_rejected_openstreetmap_answer_tries_census_with_same_address(monkeypatc
     assert calls == [("osm", address), ("census", address)]
 
 
-def test_cache_reuses_coordinates_found_under_an_earlier_spelling(tmp_path):
+def test_cache_is_keyed_by_the_cleaned_address(tmp_path):
     from fec.geocoding.cache import GeoCache
     cache = GeoCache(str(tmp_path / 'cache.json'))
-    cache.put('2 N RIVERSIDE PLAZA|CHICAGO|IL|60606', 41.88, -87.64, 'nominatim')
+    cache.put('2 N RIVERSIDE PLZ|CHICAGO|IL|60606', 41.88, -87.64, 'nominatim')
     assert cache.get('2 N RIVERSIDE PLZ|CHICAGO|IL|60606')['lat'] == 41.88
     assert cache.get('2 N RIVERSIDE PLZ|CHICAGO|IL|60601') is None
     assert not cache.needs_retry('2 N RIVERSIDE PLZ|CHICAGO|IL|60606')
+    assert cache.needs_retry('2 N RIVERSIDE PLAZA|CHICAGO|IL|60606')      # an earlier spelling is another key

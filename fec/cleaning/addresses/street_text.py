@@ -5,8 +5,6 @@ import numpy as np
 import pandas as pd
 
 from fec.config.streets import (
-    ORDINAL_TENS,
-    ORDINAL_WORDS,
     DIRECTION_ABBREVIATIONS,
     DIR_MID,
     DIR_PREFIX,
@@ -278,34 +276,3 @@ def _extract_units(
 def _unit_number(unit: str) -> str:
     unit = re.sub(r'^\s*(?:(?:APT|UNIT|STE|SUITE|RM|FL|FLOOR)\b|#)', '', str(unit).upper())
     return re.sub(r'[^A-Z0-9]', '', unit) or '-'
-
-
-# Alternate spelling for legacy geocode keys; not applied by normalize_street.
-_ORDINAL_WORDS = ORDINAL_WORDS
-_ORDINAL_TENS = ORDINAL_TENS
-_ORDINAL_STREET_RE = re.compile(
-    rf"\b(?:({'|'.join(_ORDINAL_TENS)})[\s-]+)?({'|'.join(_ORDINAL_WORDS)})\b"
-    r"(?=\s+(?:ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT"
-    r"|CIR|CIRCLE|PL|PLACE|PKWY|PARKWAY|HWY|HIGHWAY|TER|TERRACE|SQ|SQUARE|TRL|TRAIL|WAY)\b)",
-    re.IGNORECASE,
-)
-# Keep building names such as "120 FIFTH AVENUE PLACE".
-_ORDINAL_BUILDING_RE = re.compile(
-    rf"\b(?:{'|'.join(_ORDINAL_WORDS)})\s+(?:AVE|AVENUE|ST|STREET)"
-    r"\s+(?:PLACE|PLAZA|TOWER|TOWERS|CENTER|CENTRE|BUILDING)\b",
-    re.IGNORECASE,
-)
-
-
-def _ordinal_number(match: re.Match) -> str:
-    number = (_ORDINAL_TENS.get((match.group(1) or "").upper(), 0)
-              + _ORDINAL_WORDS[match.group(2).upper()])
-    suffix = "TH" if 10 <= number % 100 <= 20 else {1: "ST", 2: "ND", 3: "RD"}.get(number % 10, "TH")
-    return f"{number}{suffix}"
-
-
-def numbered_street(street: str) -> str:
-    """Numeric ordinals for street names, keeping units and buildings."""
-    if _ORDINAL_BUILDING_RE.search(street):
-        return street
-    return _ORDINAL_STREET_RE.sub(_ordinal_number, street)
