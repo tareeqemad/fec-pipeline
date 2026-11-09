@@ -29,6 +29,7 @@ from fec.cleaning.rules.manual import (
     apply_manual_employer_overrides,
     outside_work_sub_ids,
 )
+from fec.cleaning.work.categorize import learn_categories
 from fec.cleaning.work.clean import clean_employer_occupation
 from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses
@@ -104,6 +105,8 @@ def clean_records(
     logger.info("[3/5] Applying corrections")
     df = apply_record_rules(df, trail)
 
+    # After the record rules: a company left in the occupation box has moved by now.
+    trail.run(df, _learn_categories, "occ_model_categories", "category_from_model", ("occupation_category",))
     trail.run(
         df, apply_manual_employer_overrides, "manual_overrides",
         "curated_row_override", WORK_FIELDS + (
@@ -111,6 +114,14 @@ def clean_records(
         source="data/rules/manual_employer_overrides.csv",
     )
     return df
+
+
+# Ask the model about occupations no table lists; log what it read.
+def _learn_categories(df: pd.DataFrame) -> int:
+    learnt = learn_categories(df)
+    if learnt:
+        logger.info("Occupation categories read from the model: %s", f"{learnt:,}")
+    return learnt
 
 
 def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:

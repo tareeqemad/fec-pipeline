@@ -2,6 +2,7 @@
 from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 from fec.config.tables import CONFIG_DIR, read_map
+from fec.env import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
 
 _nan = float("nan")
 
@@ -25,8 +26,13 @@ OCCUPATION_NORMALIZE = {
     **{written: (_nan if occupation is None else occupation) for written, occupation in OCCUPATION_CORRECTIONS.items()},
 }
 
-# Each occupation's category; patterns categorize unlisted ones.
-CATEGORY_OVERRIDES = read_map(CONFIG_DIR / "occupation_categories.csv")
+# Each occupation's category: the model's answers, then the reviewed
+# overrides on top. Unlisted texts are classified by the model when the
+# pipeline runs (fec.cleaning.work.categorize); patterns are the fallback.
+CATEGORY_OVERRIDES = {
+    **(read_map(OCCUPATION_CATEGORY_CACHE_CSV) if OCCUPATION_CATEGORY_CACHE_CSV.exists() else {}),
+    **(read_map(OCCUPATION_CATEGORY_OVERRIDES_CSV) if OCCUPATION_CATEGORY_OVERRIDES_CSV.exists() else {}),
+}
 
 
 # Employer status -> occupation/category when occupation is missing.

@@ -83,5 +83,11 @@ MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
 # Reviewed previous employers, each with its source
 PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "previous_employers.csv"
 GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
+# The model's category for every occupation text it has read.
+OCCUPATION_CATEGORY_CACHE_CSV = CACHE_DIR / "occupation_categories.csv"
+# Reviewed categories that win over the model.
+OCCUPATION_CATEGORY_OVERRIDES_CSV = RULES_DIR / "occupation_category_overrides.csv"
+# The instruction the model reads.
+OCCUPATION_CATEGORY_RULES_MD = DATA_DIR / "config" / "occupation_category_rules.md"
 # Each filing's donor key from the last run, so keys stay stable.
 DONOR_KEYS_CSV = CACHE_DIR / "donor_keys.csv"
