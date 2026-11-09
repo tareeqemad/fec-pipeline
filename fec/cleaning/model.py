@@ -51,8 +51,14 @@ def _ask(lines: list[str], instructions: str, user_prefix: str, schema: dict, ke
             return {item[key_field]: item for item in items if item.get(key_field) in wanted}
         if response.status_code in (401, 403):
             raise RuntimeError(f"OpenAI refused the key: {response.status_code}")
+        if response.status_code == 429 and "insufficient_quota" in response.text:
+            raise OutOfCredit("the OpenAI account has no credits left")
         time.sleep(2 ** attempt)
     raise RuntimeError(f"OpenAI: {response.status_code} {response.text[:200]}")
+
+
+class OutOfCredit(RuntimeError):
+    """The account cannot pay for the call; the caller falls back and says so."""
 
 
 def ask_lines(lines, instructions: str, item_schema: dict, *, key_field: str,
@@ -71,10 +77,14 @@ def ask_lines(lines, instructions: str, item_schema: dict, *, key_field: str,
               "required": ["items"], "additionalProperties": False}
     batches = [lines[i:i + batch] for i in range(0, len(lines), batch)]
     answers: dict[str, dict] = {}
-    with ThreadPoolExecutor(WORKERS) as pool:
-        for got in pool.map(lambda b: _ask(b, instructions, user_prefix, schema, key_field, model_name(model)), batches):
-            answers.update(got)
-    missing = [line for line in lines if line not in answers]
-    if missing:
-        answers.update(_ask(missing, instructions, user_prefix, schema, key_field, model_name(model)))
+    try:
+        with ThreadPoolExecutor(WORKERS) as pool:
+            for got in pool.map(lambda b: _ask(b, instructions, user_prefix, schema, key_field, model_name(model)), batches):
+                answers.update(got)
+        missing = [line for line in lines if line not in answers]
+        if missing:
+            answers.update(_ask(missing, instructions, user_prefix, schema, key_field, model_name(model)))
+    except OutOfCredit as problem:
+        logger.warning("WARNING: %s; %s of %s line(s) read, the rest left as they are",
+                       problem, f"{len(answers):,}", f"{len(lines):,}")
     return answers
