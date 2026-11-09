@@ -1,0 +1,80 @@
+"""One call to the model: an instruction file, lines of text, structured answers.
+
+The key comes from OPENAI_API_KEY; without it ask_lines returns {} and the
+caller falls back to whatever it did before the model.
+"""
+from __future__ import annotations
+
+import json
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
+
+from fec.log import get_logger
+
+logger = get_logger(__name__)
+
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+DEFAULT_MODEL = "gpt-5.6-sol"
+WORKERS = 8
+RETRIES = 4
+TIMEOUT = 300
+
+
+def model_name(model: str | None = None) -> str:
+    return model or os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
+
+
+def have_key() -> bool:
+    return bool(os.environ.get("OPENAI_API_KEY"))
+
+
+def _ask(lines: list[str], instructions: str, user_prefix: str, schema: dict, key_field: str, model: str) -> dict[str, dict]:
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": user_prefix + "\n".join(lines)},
+        ],
+        "response_format": {"type": "json_schema", "json_schema": {"name": "answers", "strict": True, "schema": schema}},
+    }
+    if model.startswith("gpt-5"):
+        body["reasoning_effort"] = "low"
+    headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
+    wanted = set(lines)
+    for attempt in range(RETRIES):
+        response = requests.post(OPENAI_URL, json=body, headers=headers, timeout=TIMEOUT)
+        if response.status_code == 200:
+            items = json.loads(response.json()["choices"][0]["message"]["content"])["items"]
+            return {item[key_field]: item for item in items if item.get(key_field) in wanted}
+        if response.status_code in (401, 403):
+            raise RuntimeError(f"OpenAI refused the key: {response.status_code}")
+        time.sleep(2 ** attempt)
+    raise RuntimeError(f"OpenAI: {response.status_code} {response.text[:200]}")
+
+
+def ask_lines(lines, instructions: str, item_schema: dict, *, key_field: str,
+              user_prefix: str = "", batch: int = 80, model: str | None = None) -> dict[str, dict]:
+    """{line: answer item} for every line the model answered; {} without a key.
+
+    item_schema describes one answer; key_field is the property that echoes the line.
+    """
+    lines = sorted({line for line in lines if isinstance(line, str) and line.strip()})
+    if not lines:
+        return {}
+    if not have_key():
+        logger.warning("WARNING: OPENAI_API_KEY not set; %s line(s) left as they are", f"{len(lines):,}")
+        return {}
+    schema = {"type": "object", "properties": {"items": {"type": "array", "items": item_schema}},
+              "required": ["items"], "additionalProperties": False}
+    batches = [lines[i:i + batch] for i in range(0, len(lines), batch)]
+    answers: dict[str, dict] = {}
+    with ThreadPoolExecutor(WORKERS) as pool:
+        for got in pool.map(lambda b: _ask(b, instructions, user_prefix, schema, key_field, model_name(model)), batches):
+            answers.update(got)
+    missing = [line for line in lines if line not in answers]
+    if missing:
+        answers.update(_ask(missing, instructions, user_prefix, schema, key_field, model_name(model)))
+    return answers

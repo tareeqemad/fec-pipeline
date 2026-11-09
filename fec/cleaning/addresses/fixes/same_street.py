@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.addresses.cities import CITY_TABLE_FIXED
-from fec.cleaning.addresses.fixes.safe_text import CARE_OF_BLANKED
 
 
 # Count supporting city/ZIP filings outside this donor group.
@@ -61,9 +59,6 @@ def _recover_address_from_same_street(df: pd.DataFrame) -> dict:
     # Pass 2: truncated unit-row city from the donor's dominant city.
     zips = df["contributor_zip"].fillna("")
     eligible_zip = eligible_base & (zips != "")
-    if CARE_OF_BLANKED in df.columns:
-        # a filing that named an office elsewhere keeps its city
-        eligible_zip &= ~df[CARE_OF_BLANKED].fillna(False).astype(bool)
     if eligible_zip.any():
         zip_key = name.str.cat(zips, sep="\x00")
         out["city"] += _unify_to_dominant(
@@ -155,11 +150,7 @@ def _adopt_attested_city(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) 
     unattested = filed & (support == 0)
     if not unattested.any():
         return 0
-    guessed = (
-        df[CITY_TABLE_FIXED].fillna(False).astype(bool)
-        if CITY_TABLE_FIXED in df.columns
-        else pd.Series(False, index=df.index)
-    )
+    guessed = pd.Series(False, index=df.index)
     supported = filed & (support > 0)
     attested = pd.DataFrame({
         "k": key[supported], "z": zips[supported], "c": cities[supported],

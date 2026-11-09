@@ -105,7 +105,7 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
         p["record_count"] += 1
 
         # Only a filed street can support a match.
-        street = "" if row.get("_street_inferred") is True else _s(row.get("contributor_street_1")).upper()
+        street = _s(row.get("contributor_street_1")).upper()
         if street and street != "NAN":
             p["streets"].add(street)
 

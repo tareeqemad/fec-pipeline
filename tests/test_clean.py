@@ -3,7 +3,6 @@ import pytest
 import clean as cli
 from fec.cleaning.donors.clean import identify_donors
 from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
-from fec.cleaning.addresses.streets import clean_streets
 
 
 def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypatch):
@@ -142,24 +141,6 @@ def test_apply_synonyms_rewrites_the_audit_examples():
     ]
 
 
-def _streets(rows):
-    return pd.DataFrame({
-        'contributor_street_1': [row[0] for row in rows],
-        'contributor_street_2': [row[1] for row in rows],
-        'contributor_first_name': ['MURIEL'] * len(rows),
-        'contributor_last_name': ['SELIGSON'] * len(rows),
-    })
-
-
-def test_clean_streets_nulls_the_audit_placeholders():
-    df = clean_streets(_streets([
-        ('320 FIRST STREET SE', '.'),
-        ('84 BIGELOW RD', 'NONE'),
-        ('5918 TYNDALL AVE', 'HOME'),
-        ('10 MAIN ST', 'APT 4'),
-    ]))
-    assert df['contributor_street_2'].isna().tolist() == [True, True, True, False]
-    assert df['contributor_street_2'].iloc[3] == 'APT 4'
 
 
 def test_keys_stay_with_their_filings_across_runs():
@@ -409,27 +390,6 @@ def test_split_self_marker_and_previous_employer():
     assert normalize_previous_employer_value('SELF EMPLOYED; DENTIST') == 'SELF-EMPLOYED'
 
 
-def test_street_suffixes_abbreviate_only_at_the_end():
-    from fec.cleaning.addresses.street_text import normalize_street
-    assert normalize_street('100 Wolf Point') == '100 WOLF PT'
-    assert normalize_street('313 W WOLF POINT PLAZA 3510') == '313 W WOLF POINT PLZ 3510'
-    assert normalize_street('3401 EVERGREEN POINT RD') == '3401 EVERGREEN POINT RD'
-    assert normalize_street('5200 TOWN CENTER CIR') == '5200 TOWN CENTER CIR'
-    assert normalize_street('1 UNIVERSITY PLAZA STE 400') == '1 UNIVERSITY PLZ STE 400'
-    assert normalize_street('21 SANDIA HEIGHTS DR NE') == '21 SANDIA HEIGHTS DR NE'
-
-
-def test_address_case_closes_once_rules_cover_every_form(monkeypatch):
-    from fec.cleaning.addresses import review
-    cases = pd.DataFrame({
-        'donor_key': ['a', 'b'],
-        'address_forms': ['151 BEARS CLUB DR || 151 W BEARS CLUB DR', '35 E 67TH ST || 35 E 68TH ST'],
-        'zip5': ['33477', '10065'],
-    })
-    monkeypatch.setattr(review, '_covered_forms', lambda: {('151 BEARS CLUB DR', '33477'), ('151 W BEARS CLUB DR', '33477'), ('35 E 67TH ST', '10065')})
-
-    assert review._open_cases(cases)['donor_key'].tolist() == ['b']
-
 
 def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
     from fec.cleaning.addresses.fixes import verified
@@ -612,3 +572,28 @@ def test_status_word_reads_a_slip_and_leaves_other_words():
     assert learn_status_typos(['Self Employeed', 'UN EMPLOYED', 'ACME LLC', 'RETIRED'], canonical={'UNEMPLOYED': 'NOT EMPLOYED'}) == {
         'SELF EMPLOYEED': 'SELF-EMPLOYED', 'UN EMPLOYED': 'NOT EMPLOYED',
     }
+
+
+def test_standardize_addresses_uses_the_cache_and_asks_once(tmp_path, monkeypatch):
+    from fec.cleaning.addresses import standardize as st
+    monkeypatch.setattr(st, "ADDRESS_CACHE_CSV", tmp_path / "addresses.csv")
+    asked = []
+
+    def fake_model(filed):
+        asked.extend(filed)
+        return {f: {"street_1": "123 E 13TH ST", "street_2": "APT 4", "city": "ANNISTON", "state": "AL", "zip": "36201"} for f in filed}
+
+    df = pd.DataFrame({
+        'sub_id': ['1', '2'],
+        'contributor_street_1': ['123 East 13th Street Apt 4', '10 Downing St'],
+        'contributor_street_2': ['', ''],
+        'contributor_city': ['Anniston', 'London'],
+        'contributor_state': ['AL', 'ZZ'],
+        'contributor_zip': ['362011234', 'SW1A 2AA'],
+    })
+    assert st.standardize_addresses(df, ask=fake_model) == 1
+    assert asked == ['123 EAST 13TH STREET APT 4 |  | ANNISTON | AL | 362011234']   # the foreign row is left as filed
+    assert df.loc[0, ['contributor_street_1', 'contributor_street_2', 'contributor_zip']].tolist() == ['123 E 13TH ST', 'APT 4', '36201']
+    assert df.loc[1, 'contributor_street_1'] == '10 Downing St'
+    assert st.standardize_addresses(df, ask=fake_model) == 0      # remembered: not asked again
+    assert asked == ['123 EAST 13TH STREET APT 4 |  | ANNISTON | AL | 362011234']

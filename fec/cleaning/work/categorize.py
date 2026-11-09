@@ -12,14 +12,10 @@ fec.config.occupation_rules.categories categorizes the new texts.
 from __future__ import annotations
 
 import csv
-import json
-import os
-import time
-from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
-import requests
 
+from fec.cleaning.model import DEFAULT_MODEL, ask_lines, model_name  # noqa: F401  (DEFAULT_MODEL: the name tests and callers know)
 from fec.config.occupation_rules.categories import VALID_CATEGORIES
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 from fec.env import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_RULES_MD
@@ -27,71 +23,28 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-DEFAULT_MODEL = "gpt-5.6-sol"
-BATCH = 80
-WORKERS = 8
-RETRIES = 4
-TIMEOUT = 180
-
-
-def _schema() -> dict:
-    item = {
-        "type": "object",
-        "properties": {"text": {"type": "string"}, "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)}},
-        "required": ["text", "category"],
-        "additionalProperties": False,
-    }
-    return {"type": "object", "properties": {"items": {"type": "array", "items": item}},
-            "required": ["items"], "additionalProperties": False}
-
-
-def _ask(batch: list[str], instructions: str, model: str, key: str) -> dict[str, str]:
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": instructions},
-            {"role": "user", "content": "Classify each text. Return every text exactly as given.\n" + "\n".join(batch)},
-        ],
-        "response_format": {"type": "json_schema", "json_schema": {"name": "occupations", "strict": True, "schema": _schema()}},
-    }
-    if model.startswith("gpt-5"):
-        body["reasoning_effort"] = "low"
-    for attempt in range(RETRIES):
-        response = requests.post(OPENAI_URL, json=body, headers={"Authorization": f"Bearer {key}"}, timeout=TIMEOUT)
-        if response.status_code == 200:
-            items = json.loads(response.json()["choices"][0]["message"]["content"])["items"]
-            return {i["text"]: i["category"] for i in items if i["text"] in batch and i["category"] in VALID_CATEGORIES}
-        if response.status_code in (401, 403):
-            raise RuntimeError(f"OpenAI refused the key: {response.status_code}")
-        time.sleep(2 ** attempt)
-    raise RuntimeError(f"OpenAI: {response.status_code} {response.text[:200]}")
+_ITEM = {
+    "type": "object",
+    "properties": {"text": {"type": "string"}, "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)}},
+    "required": ["text", "category"],
+    "additionalProperties": False,
+}
 
 
 def classify(texts, *, model: str | None = None) -> dict[str, str]:
     """{text: category} from the model, for texts not yet known; {} without a key."""
-    key = os.environ.get("OPENAI_API_KEY", "")
-    texts = sorted({t for t in texts if isinstance(t, str) and t.strip()})
-    if not texts:
-        return {}
-    if not key:
-        logger.warning("WARNING: OPENAI_API_KEY not set; %s occupation(s) categorized by patterns only", f"{len(texts):,}")
-        return {}
-    model = model or os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
-    instructions = OCCUPATION_CATEGORY_RULES_MD.read_text(encoding="utf-8")
-    batches = [texts[i:i + BATCH] for i in range(0, len(texts), BATCH)]
-    answers: dict[str, str] = {}
-    with ThreadPoolExecutor(WORKERS) as pool:
-        for got in pool.map(lambda b: _ask(b, instructions, model, key), batches):
-            answers.update(got)
-    return answers
+    answers = ask_lines(
+        texts, OCCUPATION_CATEGORY_RULES_MD.read_text(encoding="utf-8"), _ITEM, key_field="text",
+        user_prefix="Classify each text. Return every text exactly as given.\n", model=model,
+    )
+    return {text: item["category"] for text, item in answers.items() if item["category"] in VALID_CATEGORIES}
 
 
 def remember(answers: dict[str, str], model: str | None = None) -> None:
     """Add the answers to the cache file and to the categories in use."""
     if not answers:
         return
-    model = model or os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
+    model = model_name(model)
     new_file = not OCCUPATION_CATEGORY_CACHE_CSV.exists()
     OCCUPATION_CATEGORY_CACHE_CSV.parent.mkdir(parents=True, exist_ok=True)
     with open(OCCUPATION_CATEGORY_CACHE_CSV, "a", encoding="utf-8", newline="") as handle:

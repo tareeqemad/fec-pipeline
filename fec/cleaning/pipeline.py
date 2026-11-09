@@ -8,12 +8,10 @@ from fec.cleaning.addresses.foreign import (
     restore_foreign_addresses,
     snapshot_foreign_addresses,
 )
-from fec.cleaning.addresses.review import write_final_address_reports
 from fec.cleaning.reports.trail import (
     ADDRESS_FIELDS,
     ENTITY_FIELDS,
     NAME_FIELDS,
-    STREET_FIELDS,
     WORK_FIELDS,
     AuditTrail,
 )
@@ -33,7 +31,7 @@ from fec.cleaning.work.categorize import learn_categories
 from fec.cleaning.work.clean import clean_employer_occupation
 from fec.cleaning.work.status_words import extend_spellings
 from fec.cleaning.work.typos import extend_corrections
-from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses
+from fec.cleaning.addresses.clean import clean_addresses
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
 from fec.cleaning.names import _clean_names, _preclean_name_punctuation
 from fec.cleaning.rules.records import apply_record_rules
@@ -57,15 +55,8 @@ def clean_pipeline(
     # Preserve filed values before repairs.
     foreign = snapshot_foreign_addresses(df)
     filed_work = df.reindex(columns=list(FILED_WORK_FIELDS)).fillna("").astype(str)
-    filed_addresses = df.reindex(columns=["sub_id", *ADDRESS_FIELDS]).fillna("").astype(str)
-    address_reports: dict = {}
 
-    df_clean = clean_records(df, trail, address_reports=address_reports)
-
-    # Inferred streets cannot serve as evidence for matching donors.
-    df_clean["_street_inferred"] = df_clean["sub_id"].astype(str).isin(
-        trail.keys_set_by(INFERRED_STREET_STEPS, STREET_FIELDS)
-    )
+    df_clean = clean_records(df, trail)
     logger.info("[4/5] Matching and standardizing donors")
     df_clean = identify_donors(df_clean, earlier_keys)
     df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
@@ -75,11 +66,6 @@ def clean_pipeline(
         df_clean, lambda frame: restore_foreign_addresses(frame, foreign),
         "foreign_address_restore", kept_as_filed_reason, ADDRESS_FIELDS,
     )
-    if out_dir:
-        write_final_address_reports(
-            df_clean, out_dir, address_reports, foreign.index, filed_addresses, trail,
-        )
-
     unexplained = trail.finish(df_clean)
     df_clean["employment_source"] = _employment_sources(df_clean, trail, filed_work)
     if unexplained:
@@ -92,7 +78,6 @@ def clean_pipeline(
 def clean_records(
     df: pd.DataFrame,
     trail: AuditTrail,
-    address_reports: dict | None = None,
 ) -> pd.DataFrame:
     """Clean fields, apply record rules, then apply curated overrides."""
     logger.info("[1/5] Cleaning names and work")
@@ -100,7 +85,7 @@ def clean_records(
     trail.start(df)
     df = _clean_people(df, trail)
     logger.info("[2/5] Cleaning addresses")
-    df = clean_addresses(df, trail, reports=address_reports)
+    df = clean_addresses(df, trail)
     df = _finish_records(df)
 
     logger.info("[3/5] Applying corrections")
@@ -224,7 +209,7 @@ def _finish_records(df: pd.DataFrame):
 
     columns = [column for column in OUTPUT_COLUMNS if column in df.columns]
     # Donor repairs still need this flag; output cleanup removes it.
-    for column in ("previous_employer", "_care_of_blanked", "_retired_marker"):
+    for column in ("previous_employer", "_retired_marker"):
         if column in df.columns and column not in columns:
             columns.append(column)
     return df[columns]
