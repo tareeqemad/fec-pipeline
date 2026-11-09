@@ -60,14 +60,32 @@ def status_word(text) -> str | None:
     return None
 
 
-def learn_status_typos(texts) -> dict[str, str]:
-    """{filed text: status word} for every text that is a status with a slip."""
+def learn_status_typos(texts, canonical: dict | None = None) -> dict[str, str]:
+    """{filed text: status word} for every text that is a status with a slip.
+
+    canonical maps a status to the form the tables use (UNEMPLOYED -> NOT EMPLOYED).
+    """
+    canonical = canonical or {}
     learnt = {}
     for value in set(texts):
         if not isinstance(value, str):
             continue
         plain = " ".join(value.upper().split())
         status = status_word(plain)
-        if status and plain != status:
-            learnt[plain] = status
+        if status:
+            status = canonical.get(status, status)
+            if plain != status:
+                learnt[plain] = status
     return learnt
+
+
+def extend_spellings(df) -> int:
+    """Read the filed work fields once; add the status slips to the spelling maps."""
+    import pandas as pd
+    from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
+    texts = pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna()
+    learnt = learn_status_typos(texts, canonical=EMPLOYER_NORMALIZE)
+    for text, status in learnt.items():
+        EMPLOYER_NORMALIZE.setdefault(text, status)
+        OCCUPATION_NORMALIZE.setdefault(text, status)
+    return len(learnt)

@@ -7,6 +7,8 @@ from functools import lru_cache
 import pandas as pd
 
 from rapidfuzz.distance import Levenshtein
+
+from fec.cleaning.work.status_words import status_word
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
     EMPLOYER_STATUS_VALUES,
@@ -36,33 +38,6 @@ _DOUBLED_LETTER_RE = re.compile(r"([A-Z])\1+")
 # Doubled letters typed once: 'NNONE' -> 'NONE'.
 def single_letters(text: str) -> str:
     return _DOUBLED_LETTER_RE.sub(r"\1", text)
-
-
-# A doubled-letter status is still the status; short words exact.
-_STATUS_SPELLINGS = frozenset(
-    single_letters(value) for value in EMPLOYER_STATUS_VALUES if len(value) >= 4
-)
-# Scrambled status words of six+ letters: 'RETRIED'.
-_STATUS_LETTERS = frozenset(
-    "".join(sorted(value)) for value in EMPLOYER_STATUS_VALUES
-    if len(value) >= 6 and value.isalpha()
-)
-
-
-# A nine+ letter status with one wrong letter.
-_LONG_STATUSES = tuple(
-    re.sub(r"[^A-Z]", "", value) for value in EMPLOYER_STATUS_VALUES
-    if len(re.sub(r"[^A-Z]", "", value)) >= 9
-)
-
-
-# True when one edit from a long status word.
-def _long_status_typo(upper: str) -> bool:
-    letters = re.sub(r"[^A-Z]", "", upper)
-    return len(letters) >= 9 and any(
-        abs(len(letters) - len(status)) <= 1 and Levenshtein.distance(letters, status) == 1
-        for status in _LONG_STATUSES
-    )
 
 
 # Accept title words and the permitted one-letter spelling errors.
@@ -122,9 +97,7 @@ def _employer_rejection_reason(upper: str) -> str:
         return 'structural_junk'
     if is_job_title(canonical):
         return 'job_title'
-    if (single_letters(canonical) in _STATUS_SPELLINGS
-            or "".join(sorted(canonical)) in _STATUS_LETTERS
-            or _long_status_typo(canonical)):
+    if status_word(canonical) or single_letters(canonical) in EMPLOYER_STATUS_VALUES:
         return 'status_typo'
     return ''
 

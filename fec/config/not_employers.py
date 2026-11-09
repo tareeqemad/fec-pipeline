@@ -3,7 +3,7 @@ import re
 
 from fec.config.constants import (
     REFUSAL_EMPLOYERS,
-    RETIRED_TYPO_EMPLOYERS,
+    STATUS_SLIPS_BEYOND_RULE,
     SKIP_EMPLOYERS,
 )
 from fec.config.tables import CONFIG_DIR, read_set
@@ -85,7 +85,7 @@ NOT_REAL_EMPLOYER = frozenset({
     # A job title in the employer box; the rest come from the sets below.
     "PHILANTHROPIST",
 }) | (
-    SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | RETIRED_TYPO_EMPLOYERS
+    SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | STATUS_SLIPS_BEYOND_RULE
     | OCCUPATION_TITLE_EMPLOYERS | OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER
     | SECTOR_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER | SELF_EMPLOYED_OCC_AS_EMP
 )

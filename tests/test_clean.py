@@ -596,3 +596,19 @@ def test_reviewed_category_overrides_win_over_the_model():
     assert set(cache.values()) <= VALID_CATEGORIES and set(overrides.values()) <= VALID_CATEGORIES
     assert all(CATEGORY_OVERRIDES[k] == v for k, v in overrides.items())
     assert all(CATEGORY_OVERRIDES[k] == v for k, v in cache.items() if k not in overrides)
+
+
+def test_status_word_reads_a_slip_and_leaves_other_words():
+    from fec.cleaning.work.status_words import learn_status_typos, status_word
+    assert status_word('RETIERD') == 'RETIRED'
+    assert status_word('RETRIED') == 'RETIRED'                 # transposition
+    assert status_word('SE;F EMPLOYED') == 'SELF-EMPLOYED'     # a wrong key
+    assert status_word('SELF-EMPLO') == 'SELF-EMPLOYED'        # truncated
+    assert status_word('NOT EMOLOYED') == 'NOT EMPLOYED'
+    assert status_word('HOUSE WIFE') == 'HOUSEWIFE'
+    assert status_word('RETIRED') == 'RETIRED'                 # itself
+    for word in ('PRESIDENT', 'RESIDENT', 'RETAILER', 'HOMEOWNER', 'STUDIO', 'RET', 'SELF', 'RETIREMENT PLANNER'):
+        assert status_word(word) is None, word
+    assert learn_status_typos(['Self Employeed', 'UN EMPLOYED', 'ACME LLC', 'RETIRED'], canonical={'UNEMPLOYED': 'NOT EMPLOYED'}) == {
+        'SELF EMPLOYEED': 'SELF-EMPLOYED', 'UN EMPLOYED': 'NOT EMPLOYED',
+    }
