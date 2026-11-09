@@ -5,3 +5,5 @@ HOMEMAKER & HOMESCHOOL MOM,HOMEMAKER,"homemaker first; the model read HOMESCHOOL
 TECHNOLOGIST,TECHNOLOGY,"the only filer works at a technology company (NETRTINGS); the model and the old table left it OTHER (top-300 review, 2026-11-09)"
 CLOTHING DESIGNER,ARTS / ENTERTAINMENT,"a designer; the clothing rule is for the trade, not the design (manual review, 2026-11-09)"
 OWNER/CREATIVE DIRECTOR-VIDEO PRODUCTI,ARTS / ENTERTAINMENT,"creative director of video production; the owner word is secondary (manual review, 2026-11-09)"
+JEWISH EDUCATOR (DIRECTOR),EDUCATION,"an educator; DIRECTOR qualifies the role (teaching beats rank; classified before that rule, 2026-11-09)"
+FOUNDER AND PRINCIPAL/EDUCATOR,EDUCATION,"a school principal and educator (teaching beats rank; classified before that rule, 2026-11-09)"
