@@ -481,3 +481,33 @@ def test_joint_filings_do_not_join_the_two_people():
     keys = _keys(_identify(rows))
     assert keys['631'] != keys['632']
     assert keys['633'] == keys['634'] not in (keys['631'], keys['632'])
+
+
+def test_learn_typos_reads_one_slip_from_one_listed_occupation():
+    from fec.cleaning.work.typos import learn_typos
+    listed = ['ATTORNEY', 'CONSULTANT', 'PHYSICIAN', 'PARTNER', 'ARCHITECT', 'CEO OWNER', 'CO-OWNER', 'RETIRED']
+    texts = pd.Series([
+        'ATTORNEYY', 'CONSULTATN', 'PHYSICAIN ', 'ARCHITECTS',   # added, transposed, swapped, plural
+        'GARTNER',           # one slip from PARTNER: read, which is why only the occupation box is learnt from
+        'ATTORNEY',          # listed already
+        'CO OWNER',          # CO / CEO: a word under six letters
+        'ATTORNEY AT LAW',   # two words more, not a slip
+        'XX',                # junk
+        'RETIRE',            # a status word: the RETIRED reader owns it
+    ])
+    assert learn_typos(texts, listed=listed) == {
+        'ATTORNEYY': 'ATTORNEY', 'CONSULTATN': 'CONSULTANT', 'PHYSICAIN': 'PHYSICIAN',
+        'ARCHITECTS': 'ARCHITECT', 'GARTNER': 'PARTNER',
+    }
+
+
+def test_extend_corrections_adds_learnt_typos_to_the_table():
+    from fec.cleaning.work.typos import extend_corrections
+    from fec.config.occupation_rules.rules import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
+    df = pd.DataFrame({'contributor_occupation': ['ORTHODONTISTT', 'ATTORNEY'], 'contributor_employer': ['', '']})
+    try:
+        assert extend_corrections(df) == 1
+        assert OCCUPATION_CORRECTIONS['ORTHODONTISTT'] == 'ORTHODONTIST' and TEXT_CORRECTIONS['ORTHODONTISTT'] == 'ORTHODONTIST'
+    finally:
+        for table in (OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS):
+            table.pop('ORTHODONTISTT', None)

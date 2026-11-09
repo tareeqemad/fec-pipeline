@@ -30,6 +30,7 @@ from fec.cleaning.rules.manual import (
     outside_work_sub_ids,
 )
 from fec.cleaning.work.clean import clean_employer_occupation
+from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
 from fec.cleaning.names import _clean_names, _preclean_name_punctuation
@@ -136,6 +137,9 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
     attach_source_fields(df)
+    learnt = extend_corrections(df)
+    if learnt:
+        logger.info("Occupation typos read from the filings: %s", f"{learnt:,}")
     return df
 
 
