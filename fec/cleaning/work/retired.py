@@ -9,6 +9,11 @@ the text names; settle_retired_fields puts each part where it belongs:
     employer           RETIRED
     occupation         the former profession when one is named, else RETIRED
     previous_employer  the former company when one is named
+
+RETIRED inside the text, after a current role (OFFICE MANAGER, RETIRED
+NURSE; VOLUNTEER (RETIRED ATTORNEY); ARBITRATOR/RETIRED JUDGE), qualifies
+only its own part: the filer still works, and the role before it is the
+occupation. The employer stays as filed.
 """
 from __future__ import annotations
 
@@ -33,8 +38,11 @@ _PREFIX_RE = re.compile(rf"^\(?{_PARTLY}(?P<word>[A-Z]+)\)?(?:\s+FROM\b)?[\s,;:/
 _SUFFIX_RE = re.compile(rf"[\s,;:/(-]*\(?\s*{_PARTLY}(?P<word>[A-Z]+)\s*\)?\.?$")
 # Keep RETIRED when it ends a truncated organisation name.
 _NAME_BEFORE_RE = re.compile(r"\b(?:OF|FOR|THE|AND|&)$")
+# Parts of one occupation text: "OFFICE MANAGER, RETIRED NURSE", "VOLUNTEER (RETIRED ATTORNEY)"
+_PART_RE = re.compile(r"\s*(?:[,;:()]|/|\s-\s)\s*")
 # "I'M RETIRED", "SELF RETIRED": the rest names nothing.
-_NOTHING = frozenset({"I'M", "IM", "I AM", "SELF", "ME", "MILITARY", "FROM", "NOW", "FULLY", "HAPPILY"}) | STATUS_WORDS
+_NO_ROLE = frozenset({"I'M", "IM", "I AM", "SELF", "ME", "MILITARY", "FROM", "NOW", "FULLY", "HAPPILY"})
+_NOTHING = _NO_ROLE | STATUS_WORDS
 
 
 def is_retired_word(word: str) -> bool:
@@ -64,9 +72,23 @@ def split_retired(value) -> tuple[bool, str]:
     words = _WORD_RE.findall(upper)
     if not words or all(not is_retired_word(w) for w in words):
         return False, upper
-    # RETIRED somewhere inside: "OFFICE MANAGER, RETIRED NURSE".
+    # RETIRED inside one part of the text: "OFFICE MANAGER, RETIRED NURSE".
+    # The parts before it name the current role; the retired part is a
+    # former one and goes.
+    parts = [p for p in _PART_RE.split(upper) if p.strip()]
+    current = [p for p in parts if not any(is_retired_word(w) for w in _WORD_RE.findall(p))]
+    if current and len(current) < len(parts):
+        role = _tidy(" ".join(current))
+        # A status word (HOMEMAKER) is a current role too.
+        if role not in _NO_ROLE and len(re.sub(r"[^A-Z]", "", role)) >= 3:
+            return False, role
     kept = re.sub(r"\b[A-Z']+\b", lambda m: "" if is_retired_word(m.group()) else m.group(), upper)
     return True, _tidy(kept)
+
+
+def _plain(value) -> str:
+    """The text as split_retired reads it before any word is removed."""
+    return " ".join(value.upper().replace(".", " ").split()) if isinstance(value, str) else ""
 
 
 def _tidy(text: str) -> str:
@@ -100,8 +122,11 @@ def settle_retired_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     emp_split = pd.DataFrame(emp.map(split_retired).tolist(), index=rows, columns=["retired", "rest"])
     occ_split = pd.DataFrame(occ.map(split_retired).tolist(), index=rows, columns=["retired", "rest"])
     retired = emp_split["retired"] | occ_split["retired"]
+    # Not retired, but a former part was dropped: OFFICE MANAGER, RETIRED NURSE.
+    current = ~retired & occ_split["rest"].ne(occ.map(_plain)) & occ_split["rest"].ne("")
+    df.loc[rows[current], "contributor_occupation"] = occ_split.loc[current, "rest"]
     if not retired.any():
-        return df, 0
+        return df, int(current.sum())
     hit = rows[retired]
     if "previous_employer" not in df.columns:
         df["previous_employer"] = pd.Series(dtype="object", index=df.index)
@@ -148,4 +173,4 @@ def settle_retired_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     df.loc[hit[fill], "previous_employer"] = company[fill]
     if "occupation_category" in df.columns:
         df.loc[hit, "occupation_category"] = np.where(profession.ne(""), df.loc[hit, "occupation_category"], "RETIRED")
-    return df, len(hit)
+    return df, len(hit) + int(current.sum())
