@@ -511,3 +511,49 @@ def test_extend_corrections_adds_learnt_typos_to_the_table():
     finally:
         for table in (OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS):
             table.pop('ORTHODONTISTT', None)
+
+
+def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, monkeypatch):
+    from fec.cleaning.work import categorize
+    from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
+    monkeypatch.setattr(categorize, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
+    asked = []
+
+    def fake_model(texts):
+        asked.extend(sorted(texts))
+        return {t: "SCIENCE / RESEARCH" for t in texts}
+
+    df = pd.DataFrame({
+        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL', 'COMMITTEE/PAC', 'INDIVIDUAL'],
+        'contributor_occupation': ['ATTORNEY', 'QUANTUM TOPOLOGIST', 'QUANTUM TOPOLOGIST', ''],
+        'occupation_category': ['LEGAL', 'OTHER', 'POLITICAL COMMITTEE', None],
+    })
+    try:
+        assert categorize.learn_categories(df, ask=fake_model) == 1
+        assert asked == ['QUANTUM TOPOLOGIST']           # ATTORNEY is listed, the committee is not a person
+        assert df['occupation_category'].fillna('').tolist() == ['LEGAL', 'SCIENCE / RESEARCH', 'POLITICAL COMMITTEE', '']
+        assert CATEGORY_OVERRIDES['QUANTUM TOPOLOGIST'] == 'SCIENCE / RESEARCH'
+        assert (tmp_path / "cache.csv").read_text().splitlines() == [
+            'occupation,category,model', f'QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{categorize.DEFAULT_MODEL}',
+        ]
+        assert categorize.learn_categories(df, ask=fake_model) == 0      # remembered: not asked again
+    finally:
+        CATEGORY_OVERRIDES.pop('QUANTUM TOPOLOGIST', None)
+
+
+def test_classify_without_a_key_leaves_texts_to_the_patterns(monkeypatch):
+    from fec.cleaning.work.categorize import classify
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert classify(['QUANTUM TOPOLOGIST']) == {}
+
+
+def test_reviewed_category_overrides_win_over_the_model():
+    import csv
+    from fec.env import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
+    from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
+    from fec.config.occupation_rules.categories import VALID_CATEGORIES
+    cache = {r['occupation']: r['category'] for r in csv.DictReader(open(OCCUPATION_CATEGORY_CACHE_CSV))}
+    overrides = {r['occupation']: r['category'] for r in csv.DictReader(open(OCCUPATION_CATEGORY_OVERRIDES_CSV))}
+    assert set(cache.values()) <= VALID_CATEGORIES and set(overrides.values()) <= VALID_CATEGORIES
+    assert all(CATEGORY_OVERRIDES[k] == v for k, v in overrides.items())
+    assert all(CATEGORY_OVERRIDES[k] == v for k, v in cache.items() if k not in overrides)

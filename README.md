@@ -32,6 +32,7 @@ Next time, only enter the folder and activate: `cd fec-pipeline` then `source .v
 ## 2. Fill in `.env`
 
 - `FEC_API_KEY`: your FEC key (only for pulling data).
+- `OPENAI_API_KEY`: an OpenAI key; `clean.py` asks the model for the category of every occupation text it has not seen before. Without it the new texts are categorized by patterns and listed in `data/reports/new_occupations.csv`.
 - `PG_PASSWORD`: the `fec_owner` password from step 3.
 
 ## 3. Create the database (once)
@@ -91,6 +92,7 @@ Warnings worth reading after `clean.py`:
 - `donor merge rules found no donor`: a rule in `data/rules/donor_identity_rules.csv` needs an updated key.
 - `previous employer rules found no filing` (from `resolve.py`): a `sub_id` in `data/rules/previous_employers.csv` is mistyped.
 - `earlier donor keys no longer used`: a donor split or merged since the last run; check it.
+- `OPENAI_API_KEY not set`: new occupation texts were categorized by patterns only; set the key and run `clean.py` again.
 
 ## Where things are
 
@@ -99,10 +101,10 @@ Warnings worth reading after `clean.py`:
 | `data/raw/` | FEC data as pulled; never edited |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Address cases, possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, each with its source. An address case from the report is closed by a row in `address_rules.csv`: a correction, or a confirmation whose `street` equals its `match_street`. A retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
-| `data/config/` | Spelling and word lists; `written_as` is the text as filed |
+| `data/rules/` | Reviewed decisions, each with its source. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. An address case from the report is closed by a row in `address_rules.csv`: a correction, or a confirmation whose `street` equals its `match_street`. A retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
+| `data/config/` | Spelling and word lists; `written_as` is the text as filed. `occupation_category_rules.md` is the instruction the model reads to categorize occupations: edit it to change how a kind of text is categorized |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
-| `data/cache/` | Map points and donor keys from earlier runs; keep it |
+| `data/cache/` | Map points, donor keys and the model's occupation categories from earlier runs; keep it |
 
 ## Update the code
 
