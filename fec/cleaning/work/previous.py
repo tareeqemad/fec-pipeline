@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import re
 
+from fec.cleaning._helpers import name_words
+
 import pandas as pd
 
 from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
@@ -260,11 +262,7 @@ def _previous_company_name(text: str, upper: str) -> str:
 
 
 # Compare name words without punctuation or middle initials.
-def _name_words(value) -> frozenset[str]:
-    return frozenset(
-        word for word in re.sub(r'[^A-Z]', ' ', str(value).upper()).split()
-        if len(word) > 1
-    )
+_name_words = name_words
 
 
 # Keep own-named companies with a legal suffix; reject bare names.

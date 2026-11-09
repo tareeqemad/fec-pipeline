@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 
 from fec.config.streets import (
+    ORDINAL_TENS,
+    ORDINAL_WORDS,
     DIRECTION_ABBREVIATIONS,
     DIR_MID,
     DIR_PREFIX,
@@ -279,18 +281,8 @@ def _unit_number(unit: str) -> str:
 
 
 # Alternate spelling for legacy geocode keys; not applied by normalize_street.
-_ORDINAL_WORDS = {
-    "FIRST": 1, "SECOND": 2, "THIRD": 3, "FOURTH": 4, "FIFTH": 5, "SIXTH": 6,
-    "SEVENTH": 7, "EIGHTH": 8, "NINTH": 9, "TENTH": 10, "ELEVENTH": 11,
-    "TWELFTH": 12, "THIRTEENTH": 13, "FOURTEENTH": 14, "FIFTEENTH": 15,
-    "SIXTEENTH": 16, "SEVENTEENTH": 17, "EIGHTEENTH": 18, "NINETEENTH": 19,
-    "TWENTIETH": 20, "THIRTIETH": 30, "FORTIETH": 40, "FIFTIETH": 50,
-    "SIXTIETH": 60, "SEVENTIETH": 70, "EIGHTIETH": 80, "NINETIETH": 90,
-}
-_ORDINAL_TENS = {
-    "TWENTY": 20, "THIRTY": 30, "FORTY": 40, "FIFTY": 50,
-    "SIXTY": 60, "SEVENTY": 70, "EIGHTY": 80, "NINETY": 90,
-}
+_ORDINAL_WORDS = ORDINAL_WORDS
+_ORDINAL_TENS = ORDINAL_TENS
 _ORDINAL_STREET_RE = re.compile(
     rf"\b(?:({'|'.join(_ORDINAL_TENS)})[\s-]+)?({'|'.join(_ORDINAL_WORDS)})\b"
     r"(?=\s+(?:ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT"

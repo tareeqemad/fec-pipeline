@@ -22,7 +22,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import levenshtein
+from rapidfuzz.distance import Levenshtein
 from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.config.constants import RETIRED_TYPO_EMPLOYERS, STATUS_WORDS
@@ -49,7 +49,7 @@ def is_retired_word(word: str) -> bool:
     """RETIRED, a known variant, or one letter away from it."""
     if word in _RETIRED_WORDS:
         return True
-    return 6 <= len(word) <= 8 and word.isalpha() and levenshtein(word, "RETIRED") == 1
+    return 6 <= len(word) <= 8 and word.isalpha() and Levenshtein.distance(word, "RETIRED") == 1
 
 
 def split_retired(value) -> tuple[bool, str]:

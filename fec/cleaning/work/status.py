@@ -6,7 +6,7 @@ from functools import lru_cache
 
 import pandas as pd
 
-from fec.cleaning._helpers import levenshtein
+from rapidfuzz.distance import Levenshtein
 from fec.config.constants import (
     ADMIN_NOTE_EMPLOYER_RE,
     EMPLOYER_STATUS_VALUES,
@@ -60,7 +60,7 @@ _LONG_STATUSES = tuple(
 def _long_status_typo(upper: str) -> bool:
     letters = re.sub(r"[^A-Z]", "", upper)
     return len(letters) >= 9 and any(
-        abs(len(letters) - len(status)) <= 1 and levenshtein(letters, status) == 1
+        abs(len(letters) - len(status)) <= 1 and Levenshtein.distance(letters, status) == 1
         for status in _LONG_STATUSES
     )
 
@@ -74,7 +74,7 @@ def _title_word(word: str, last: bool) -> bool:
     for head in JOB_TITLE_HEADS:
         difference = abs(len(head) - len(word))
         if difference == 0 or (len(head) >= 8 and difference == 1 and word != head + 'S'):
-            if levenshtein(word, head) == 1:
+            if Levenshtein.distance(word, head) == 1:
                 return True
     return False
 

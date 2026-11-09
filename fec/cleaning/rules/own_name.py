@@ -1,7 +1,8 @@
 """Whether an employer value is the filer's own name."""
 from __future__ import annotations
 
-import re
+
+from fec.cleaning._helpers import name_words
 
 import pandas as pd
 
@@ -9,11 +10,7 @@ from fec.config.not_employers import LEGAL_SUFFIX_RE
 
 
 # build word-set from a personal name, order and case ignored
-def _name_word_set(*parts) -> frozenset[str]:
-    """Word set of a personal name, ignoring order and initials."""
-    text = ' '.join(part for part in parts if isinstance(part, str))
-    words = re.sub(r'[^A-Z]', ' ', text.upper()).split()
-    return frozenset(word for word in words if len(word) > 1)
+_name_word_set = name_words
 
 
 # check whether an employer value is really the donor's name

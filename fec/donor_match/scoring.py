@@ -1,5 +1,5 @@
 """Score the evidence shared by two donor profiles."""
-from fec.cleaning._helpers import levenshtein
+from rapidfuzz.distance import Levenshtein
 from fec.donor_match.normalize import name_words
 
 
@@ -115,7 +115,7 @@ def _middle_name_evidence(m1: str, m2: str) -> tuple:
         elif len(m1) == 1 and len(m2) == 1:
             score += SCORE_MIDDLE_CONFLICT
             signals.append(f"MIDDLE_CONFLICT={m1}\u2260{m2}({SCORE_MIDDLE_CONFLICT})")
-        elif levenshtein(m1, m2) == 1:
+        elif Levenshtein.distance(m1, m2) == 1:
             score += SCORE_MIDDLE_MATCH
             signals.append(f"middle_typo={m1}/{m2}(+{SCORE_MIDDLE_MATCH})")
         else:

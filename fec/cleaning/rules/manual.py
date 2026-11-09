@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning._helpers import levenshtein
+from rapidfuzz.distance import Levenshtein
 from fec.cleaning.work.employer_aliases import reviewed_employer_name
 from fec.cleaning.work.normalize import _categorize, categorize_final
 from fec.config.constants import EMPLOYER_STATUS_VALUES, STATUS_WORDS
@@ -138,7 +138,7 @@ def _words(text: str) -> list[str]:
 # Same word, or one edit (4+ letters), two (6+).
 def _same_word(a: str, b: str) -> bool:
     shorter = min(len(a), len(b))
-    return a == b or (shorter >= 4 and levenshtein(a, b) <= (2 if shorter >= 6 else 1))
+    return a == b or (shorter >= 4 and Levenshtein.distance(a, b) <= (2 if shorter >= 6 else 1))
 
 
 # The value spells out the abbreviation: SFSS -> SAN FRANCISCO...

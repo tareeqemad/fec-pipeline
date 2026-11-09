@@ -79,14 +79,11 @@ NOT_REAL_EMPLOYER = frozenset({
     # a request for the donor's details, not a company
     "MORE INFO NEEDED", "MORE INFORMATION NEEDED", "MORE INFO REQUESTED", "INFO NEEDED", "NEED MORE INFO",
     "DISABLED", "CHOOSE NOT TO DISCLOSE", "MANY ORGANIZATIONS",
-    # status / housewife variants
-    "RETIREE", "RETIEED", "RETIRE", "HOUSEWIFE", "HOUSWIFE", "HOUSE WIFE", "HOME MANAGER",
+    # status / housewife variants (the status typos come from the sets below)
+    "RETIRE", "HOUSEWIFE", "HOUSWIFE", "HOUSE WIFE", "HOME MANAGER",
     "STAY-AT-HOME MOM",
-    # Occupations and job titles belong in occupation.
-    "PHYSICIAN", "ATTORNEY", "CONSULTANT", "INVESTOR", "PRIVATE INVESTOR",
-    "BUSINESSMAN", "BUSINESSWOMAN", "ENTREPRENEUR", "PHILANTHROPIST", "EXECUTIVE",
-    # industries / sectors written instead of an employer
-    "REAL ESTATE", "HEALTHCARE", "HEALTH CARE", "FINANCE", "FINANCIAL SERVICES",
+    # A job title in the employer box; the rest come from the sets below.
+    "PHILANTHROPIST",
 }) | (
     SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | RETIRED_TYPO_EMPLOYERS
     | OCCUPATION_TITLE_EMPLOYERS | OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER
