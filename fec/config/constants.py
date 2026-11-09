@@ -15,10 +15,9 @@ SKIP_OCCUPATIONS = (STATUS_WORDS - {'HOUSEWIFE'}) | {''}
 # Values that are not employer names: statuses, placeholders, typos.
 SKIP_EMPLOYERS = SKIP_OCCUPATIONS | frozenset({
     'NOT DISCLOSED', 'NONE', 'N/A', 'NA',
-    # Status-word typos, so misspellings never become employers.
-    'NOT EMOLOYED', 'NOT EMPLOYEDD', 'NOT EMPLOYE', 'UNEMPLOYE',
-    'RETIRED.', 'RETIRD', 'SELF EMPLOYED',
-    'NOT APPLICABLE', 'NOT APPLICAABLE', 'SELP EMPLOYED', 'PHYSICAN',
+    # Status slips are read by fec.cleaning.work.status_words.
+    'RETIRED.', 'SELF EMPLOYED',
+    'NOT APPLICABLE', 'NOT APPLICAABLE', 'PHYSICAN',
 })
 
 # Life statuses for matching; narrower than NOT_REAL_EMPLOYER.
@@ -77,25 +76,9 @@ OK_SHORT_OCCUPATIONS = frozenset({
     'PM', 'PMO', 'SRE', 'DJ',
 })
 
-# Misspellings normalized to SELF-EMPLOYED during cleaning.
-SELF_EMPLOYED_TYPOS = frozenset({
-    'SLEF', 'SLEF-EMPLOYED', 'SLEF EMPLOYED',
-    'SELF-EMPOLYED', 'SELF EMPOLYED', 'SELF-EMPLOYE', 'SELF EMPLOYE',
-    'SELF-EMPLYED', 'SELF EMPLYED', 'SELF-EMPLO', 'SELF EMPLO',
-    'SELFEMPLOYED', 'SELF-EMPLYOED', 'SELF EMPLYOED',
-    'SEL-EMPLOYED', 'SEL EMPLOYED', 'SELD-EMPLOYED', 'SELD EMPLOYED',
-    'SELP', 'SELP EMPLOYED', 'SELP-EMPLOYED',
-    'SWLF', 'SWLF EMPLOYED', 'SWLF-EMPLOYED',
-})
-
-# RETIRED misspellings; safety net T also syncs occupation.
-RETIRED_TYPO_EMPLOYERS = frozenset({
-    'TETIRED', 'RETURED', 'RETIERD', 'RETIED', 'REITRED', 'RETIREE',
-    'RETIREED', 'RERTIRED', 'RETIRD', 'REIRED', 'REITERED', 'RETITED',
-    'RETIEED', 'TRTIRED', 'RETIREDE', 'RETIREFT',
-    # Seen as a previous employer from an older filing.
-    'RETIREF',
-})
+# A status word with a slip (SELF-EMPOLYED, RETIERD) is read by
+# fec.cleaning.work.status_words; the few it cannot read are listed here.
+STATUS_SLIPS_BEYOND_RULE = frozenset({'SLEF', 'SELP', 'SWLF', 'RETIREFT', 'RETIREF'})
 
 # Structural junk checked against the whole uppercased employer value.
 JUNK_EMPLOYER_RE = (

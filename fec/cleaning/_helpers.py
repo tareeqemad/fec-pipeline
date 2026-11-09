@@ -1,6 +1,14 @@
 """Shared cleaning helpers."""
+import re
+
 import numpy as np
 import pandas as pd
+
+
+def name_words(*parts) -> frozenset[str]:
+    """Word set of a personal name, ignoring order, punctuation and initials."""
+    text = ' '.join(str(part) for part in parts if isinstance(part, str))
+    return frozenset(word for word in re.sub(r'[^A-Z]', ' ', text.upper()).split() if len(word) > 1)
 
 
 def _norm(s: pd.Series) -> pd.Series:
@@ -28,17 +36,3 @@ def _set_missing(df: pd.DataFrame, idx) -> None:
     df.loc[idx, 'contributor_occupation'] = np.nan
     df.loc[idx, 'occupation_category'] = pd.NA
 
-
-def levenshtein(a: str, b: str) -> int:
-    """Levenshtein edit distance between two strings."""
-    if len(a) < len(b):
-        a, b = b, a
-    if not b:
-        return len(a)
-    previous_row = list(range(len(b) + 1))
-    for char_a in a:
-        current_row = [previous_row[0] + 1]
-        for position, char_b in enumerate(b):
-            current_row.append(min(previous_row[position + 1] + 1, current_row[position] + 1, previous_row[position] + (char_a != char_b)))
-        previous_row = current_row
-    return previous_row[-1]

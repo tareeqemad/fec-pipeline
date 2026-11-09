@@ -31,6 +31,7 @@ from fec.cleaning.rules.manual import (
 )
 from fec.cleaning.work.categorize import learn_categories
 from fec.cleaning.work.clean import clean_employer_occupation
+from fec.cleaning.work.status_words import extend_spellings
 from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import INFERRED_STREET_STEPS, clean_addresses
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
@@ -151,6 +152,9 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     learnt = extend_corrections(df)
     if learnt:
         logger.info("Occupation typos read from the filings: %s", f"{learnt:,}")
+    slips = extend_spellings(df)
+    if slips:
+        logger.info("Status words read through a slip: %s", f"{slips:,}")
     return df
 
 

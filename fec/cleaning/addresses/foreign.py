@@ -47,21 +47,14 @@ REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
 }
 
 
-# Self-contradicting US filings, kept as filed and not geocoded.
-REVIEWED_AS_FILED_SUB_IDS: dict[str, str] = {
-}
-
-
-# True for rows kept as filed.
+# True for rows kept as filed: foreign addresses.
 def kept_as_filed_mask(df: pd.DataFrame) -> pd.Series:
-    """foreign_address_mask plus REVIEWED_AS_FILED_SUB_IDS."""
-    return foreign_address_mask(df) | _norm(df['sub_id']).isin(REVIEWED_AS_FILED_SUB_IDS)
+    return foreign_address_mask(df)
 
 
 # the audit reason for putting a filed address back
 def kept_as_filed_reason(df: pd.DataFrame) -> pd.Series:
-    reasons = df['sub_id'].astype(str).str.strip().map(REVIEWED_AS_FILED_SUB_IDS)
-    return reasons.fillna('foreign_address_kept_as_filed')
+    return pd.Series('foreign_address_kept_as_filed', index=df.index)
 
 
 # true for rows whose filed address is outside the US

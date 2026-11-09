@@ -6,14 +6,15 @@ from fec.config.not_employers import OCCUPATION_AS_EMPLOYER
 
 from fec.cleaning.work.employer_aliases import reviewed_employer_name
 from fec.cleaning.work.retired import split_retired
+from fec.cleaning.work.status_words import status_word
 
 # Status words that never become previous_employer.
 _PREV_EMP_NOT_REAL = EMPLOYER_STATUS_VALUES | {
     'NOT-EMPLOYED', 'PRIVATE', 'N.A', 'N.A.',
     'RET', 'RET.', 'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.',
     'DR', 'DR.',
-    'RETIREDE', 'RETIREFT', 'NOT', 'NOT IN WORKFORCE', 'NO EMPLOYER',
-    'NOTEMPLOYS', 'NAT EMPLOYED', 'XXN', 'AUDIOLOGIST',
+    'RETIREFT', 'NOT', 'NOT IN WORKFORCE', 'NO EMPLOYER',
+    'XXN', 'AUDIOLOGIST',
     'COMPANY NAME', 'COMPANY NAME (OPTIONAL)', 'NOT SPECIFIED',
 }
 
@@ -34,7 +35,7 @@ def normalize_employer_display_name(name) -> str | None:
     if name is None:
         return None
     text = str(name).strip().upper()
-    if not text or text in _PREV_EMP_NOT_REAL:
+    if not text or text in _PREV_EMP_NOT_REAL or status_word(text):
         return None
     retired, rest = split_retired(text)
     if retired:

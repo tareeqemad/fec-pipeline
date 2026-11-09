@@ -76,8 +76,10 @@ def _categorize(occupation_series: pd.Series) -> pd.Series:
         result[override_mask] = occupation_series[override_mask].map(CATEGORY_OVERRIDES)
 
     filled = occupation_series.fillna('').astype(str)
+    # A listed OTHER is a decision (a company name, a non-job); patterns only fill gaps.
+    unlisted = (result == 'OTHER') & ~override_mask
     for category, pattern in CATEGORY_PATTERNS:
-        matches = filled.str.contains(pattern, na=False) & (result == 'OTHER')
+        matches = filled.str.contains(pattern, na=False) & unlisted
         result[matches] = category
 
     return result

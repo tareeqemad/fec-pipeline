@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.reports.trail import WORK_FIELDS
-from fec.config.constants import OK_SHORT_OCCUPATIONS, SELF_EMPLOYED_TYPOS
+from fec.cleaning.work.status_words import status_word
+from fec.config.constants import OK_SHORT_OCCUPATIONS, STATUS_SLIPS_BEYOND_RULE
 from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import HOMEMAKER_EMPLOYER_VALUES, OCCUPATION_CORRECTIONS
 
@@ -63,7 +64,7 @@ def _deep_clean_emp_title_prefix(df: pd.DataFrame) -> None:
 # Normalize self-employment typos before work inference.
 def _deep_clean_emp_self_employed_typos(df: pd.DataFrame) -> None:
     emp = df['contributor_employer'].fillna('')
-    mask = emp.isin(SELF_EMPLOYED_TYPOS)
+    mask = (emp.map(status_word).eq('SELF-EMPLOYED') & emp.ne('SELF-EMPLOYED')) | emp.isin(STATUS_SLIPS_BEYOND_RULE - {'RETIREFT', 'RETIREF'})
     if mask.any():
         df.loc[mask, 'contributor_employer'] = 'SELF-EMPLOYED'
 

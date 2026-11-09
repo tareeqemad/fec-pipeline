@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import re
 
+from fec.cleaning._helpers import name_words
+
 import pandas as pd
 
 from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
 from fec.cleaning.work.retired import split_retired
 from fec.cleaning.work.status import is_job_title, is_real_employer, single_letters
+from fec.cleaning.work.status_words import status_word
 from fec.cleaning.work.employer_normalize import (
     normalize_employer_display_name,
     restyle_legal_suffix,
@@ -102,8 +105,6 @@ _NULL_PREV = SECTOR_AS_EMPLOYER | MISSING_VALUES | (STATUS_WORDS - {'SELF-EMPLOY
     'BUSINESS',
     # Degrees and pronouns name no company.
     'MD', 'M.D', 'M.D.', 'ME', 'PHD', 'DDS', 'DO',
-    # Misspellings of NOT EMPLOYED.
-    'NOT EMPLYED', 'NOT EMPOLYED', 'NOT EMPLOYEED', 'NOT EMPLOYD', 'NOT EMLOYED',
 }
 _SE_PREV = ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER
 # Recognize status words with missing or extra spaces.
@@ -119,6 +120,7 @@ def _is_null_previous(upper: str) -> bool:
     return (
         '@' in upper
         or upper in _NULL_PREV
+        or status_word(upper) not in (None, 'SELF-EMPLOYED')
         or upper.endswith(' VOLUNTEER')
         or upper_nospace in _NULL_PREV_NOSPACE
         or bool(_JUNK_EMPLOYER_RE.match(upper))
@@ -260,11 +262,7 @@ def _previous_company_name(text: str, upper: str) -> str:
 
 
 # Compare name words without punctuation or middle initials.
-def _name_words(value) -> frozenset[str]:
-    return frozenset(
-        word for word in re.sub(r'[^A-Z]', ' ', str(value).upper()).split()
-        if len(word) > 1
-    )
+_name_words = name_words
 
 
 # Keep own-named companies with a legal suffix; reject bare names.

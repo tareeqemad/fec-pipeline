@@ -216,6 +216,3 @@ def has_legal_form_token(values: pd.Series) -> pd.Series:
     """A legal form anywhere in the text, as a name filed LAST, FIRST may carry one."""
     return values.map(company_key).map(lambda key: any(w in _LEGAL_TOKENS for w in key.split()))
 
-
-def ends_with_legal_form(values: pd.Series) -> pd.Series:
-    return values.map(company_key).map(_text_evidence).eq("legal_form")

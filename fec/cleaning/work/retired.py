@@ -22,12 +22,12 @@ import re
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import levenshtein
 from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
 from fec.cleaning.work.status import is_job_title, is_real_employer
-from fec.config.constants import RETIRED_TYPO_EMPLOYERS, STATUS_WORDS
+from fec.cleaning.work.status_words import status_word
+from fec.config.constants import STATUS_WORDS
 
-_RETIRED_WORDS = frozenset({"RETIRED", "RETIRE", "RETIREE", "RETIRD"}) | RETIRED_TYPO_EMPLOYERS
+_RETIRED_WORDS = frozenset({"RETIRED", "RETIRE", "RETIREE", "RETIRD", "RETIREFT", "RETIREF"})
 _PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
 _WORD_RE = re.compile(r"[A-Z][A-Z']*")
 # RETIREDPHYSICIAN: the space was dropped.
@@ -46,10 +46,8 @@ _NOTHING = _NO_ROLE | STATUS_WORDS
 
 
 def is_retired_word(word: str) -> bool:
-    """RETIRED, a known variant, or one letter away from it."""
-    if word in _RETIRED_WORDS:
-        return True
-    return 6 <= len(word) <= 8 and word.isalpha() and levenshtein(word, "RETIRED") == 1
+    """RETIRED, a known variant, or a slip away from it."""
+    return word in _RETIRED_WORDS or (word.isalpha() and status_word(word) == "RETIRED")
 
 
 def split_retired(value) -> tuple[bool, str]:

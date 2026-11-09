@@ -1,7 +1,7 @@
 """Normalize fields and compare name variants for donor matching."""
 import re
 
-from fec.cleaning._helpers import levenshtein
+from rapidfuzz.distance import Levenshtein
 from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.config.tables import CONFIG_DIR, read_map
 
@@ -170,7 +170,7 @@ def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts=None) -> 
     if NICKNAME_MAP.get(first1, first1) == NICKNAME_MAP.get(first2, first2):
         return True
 
-    dist = levenshtein(first1, first2)
+    dist = Levenshtein.distance(first1, first2)
     if dist <= 1 and len(first1) >= 3 and len(first2) >= 3:
         return True
 
@@ -199,7 +199,7 @@ def _is_surname_variant(last1: str, last2: str) -> bool:
         return False
     if _squash(last1) == _squash(last2):        # DE TOLEDO == DETOLEDO
         return True
-    d = levenshtein(last1, last2)
+    d = Levenshtein.distance(last1, last2)
     m = min(len(last1), len(last2))
     if m < 4:                                   # short surnames: single-char slip only
         return d == 1
