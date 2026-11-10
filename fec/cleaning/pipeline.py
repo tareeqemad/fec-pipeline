@@ -9,7 +9,7 @@ from fec.cleaning.addresses.foreign import (
     snapshot_foreign_addresses,
 )
 from fec.cleaning.entities import attach_source_fields, classify_entities
-from fec.cleaning.rules.manual import apply_manual_employer_overrides
+from fec.cleaning.rules.manual import apply_reviewed_filings
 from fec.cleaning.work.categorize import learn_categories
 from fec.cleaning.work.read import read_work
 from fec.cleaning.work.status_words import extend_spellings
@@ -62,7 +62,7 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
 
     # After the record rules: a company left in the occupation box has moved by now.
     _learn_categories(df)
-    apply_manual_employer_overrides(df)
+    apply_reviewed_filings(df)
     # Donors are matched on the category of the occupation as it now reads.
     rederive_occupation_category(df)
     return df
