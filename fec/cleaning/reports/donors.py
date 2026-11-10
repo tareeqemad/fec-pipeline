@@ -12,11 +12,7 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-_REVIEW_COLUMNS = {
-    "donor_key", "entity_type", "contributor_last_name",
-    "contributor_first_name", "contributor_city",
-    "contributor_state", "contributor_zip",
-}
+_REVIEW_COLUMNS = {"donor_key", "entity_type", "contributor_last_name", "contributor_first_name", "contributor_city", "contributor_state", "contributor_zip"}
 
 
 # the first non-blank value in a series, else ''

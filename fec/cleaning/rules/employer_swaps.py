@@ -20,6 +20,7 @@ from fec.config.not_employers import (
 )
 from fec.cleaning.work.clean import occupation_is_company
 from fec.cleaning.work.company import filers_of
+from fec.config.tables import words
 
 _SKIP_OCC = SKIP_OCCUPATIONS | {'OWNER', 'CEO', 'PRESIDENT'}
 _KNOWN_OCCUPATIONS = (
@@ -31,11 +32,7 @@ _KNOWN_OCCUPATIONS = (
 )
 
 # Organisation titles ("CEO of X") filed alone mean swapped boxes.
-ORG_TITLE_ROLES = frozenset({
-    'CEO', 'COO', 'PRESIDENT', 'PRESIDENT CEO', 'VICE PRESIDENT', 'VP',
-    'CHAIRMAN', 'FOUNDER', 'DEPUTY CEO', 'SENIOR DIRECTOR',
-    'MANAGING DIRECTOR', 'MANAGING PARTNER', 'EXEC DIRECTOR',
-})
+ORG_TITLE_ROLES = words("org_title_roles")
 # placeholders that categorize OTHER without naming anything
 _NO_INFO_OCCUPATIONS = frozenset({'EMPLOYED', 'NOT DISCLOSED', 'OTHER'})
 

@@ -6,6 +6,7 @@ from collections import defaultdict
 
 import pandas as pd
 from scourgify.address_constants import LONGHAND_STREET_TYPES
+from fec.config.tables import words
 
 # A house number split by a space: '10 17 GREENTREE'.
 _SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
@@ -117,7 +118,7 @@ def _unify_unit_designators(df: pd.DataFrame) -> int:
     return _collapse_to_dominant(df, 'contributor_street_2', group_key, eligible)
 
 
-_TYPE_TOKENS = {'ST', 'AVE', 'RD', 'DR', 'BLVD', 'LN', 'CT', 'PL', 'CIR', 'TER', 'PKWY', 'HWY', 'SQ', 'WAY', 'TRL', 'PLZ', 'LOOP'}
+_TYPE_TOKENS = words("type_tokens")
 
 
 def _unify_street_types(df: pd.DataFrame) -> int:

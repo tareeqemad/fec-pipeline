@@ -1,0 +1,35 @@
+word,note
+RETIRED,
+NOT EMPLOYED,
+STUDENT,
+HOMEMAKER,
+SELF-EMPLOYED,
+GOVERNMENT / MILITARY,
+ARTS / ENTERTAINMENT,
+EDUCATION,
+MEDICAL / HEALTHCARE,
+LEGAL,
+TECHNOLOGY,
+SALES / MARKETING,
+ACCOUNTING / TAX,
+INSURANCE,
+REAL ESTATE,
+FINANCE / INVESTMENT,
+EXECUTIVE / C-SUITE,
+BUSINESS / ENTREPRENEUR,
+CONSULTING,
+RELIGIOUS,
+SCIENCE / RESEARCH,
+MANAGEMENT,
+CONSTRUCTION / TRADES,
+AGRICULTURE,
+TRANSPORTATION,
+FOOD / HOSPITALITY,
+NONPROFIT / PHILANTHROPY,
+OTHER,no category fits or the text names no job
+POLITICAL COMMITTEE,not a person: set from the contributor type
+CONGRESSIONAL CAMPAIGN,not a person: set from the contributor type
+SENATE CAMPAIGN,not a person: set from the contributor type
+POLITICAL ACTION COMMITTEE,not a person: set from the contributor type
+PARTY ORGANIZATION,not a person: set from the contributor type
+ORGANIZATION,not a person: set from the contributor type

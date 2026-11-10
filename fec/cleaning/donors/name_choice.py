@@ -4,6 +4,7 @@ from collections import Counter
 from contextlib import contextmanager
 
 from fec.donor_match.normalize import _NAME_TOKEN_RE
+from fec.config.tables import words
 
 # First names can carry filer decoration that is not name.
 _PAREN_GROUP_RE = re.compile(r"\([^()]*\)")
@@ -21,9 +22,7 @@ _TRAILING_NOISE_RE = re.compile(r"[\s,\-]+$")
 _WORD_PERIOD_RE = re.compile(r"(?<=[A-Z]{3})\.+$")
 
 
-_COMMA_SUFFIXES = frozenset(
-    {"JR", "SR", "II", "III", "IV", "V", "MD", "M.D", "PHD", "PH.D", "ESQ", "DDS", "DO"}
-)
+_COMMA_SUFFIXES = words("comma_suffixes")
 
 
 # A single-letter initial before the surname: "A LEVY".

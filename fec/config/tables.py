@@ -24,3 +24,16 @@ def read_map(path) -> dict:
 def read_set(path) -> frozenset:
     return frozenset(row["word"] for row in read_rows(path))
 
+
+
+# One named word list from word_lists.csv.
+def words(name: str) -> frozenset:
+    global _WORD_LISTS
+    if _WORD_LISTS is None:
+        _WORD_LISTS = {}
+        for row in read_rows(CONFIG_DIR / "word_lists.csv"):
+            _WORD_LISTS.setdefault(row["list"], set()).add(row["word"])
+    return frozenset(_WORD_LISTS[name])
+
+
+_WORD_LISTS = None

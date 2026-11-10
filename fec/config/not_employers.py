@@ -6,17 +6,10 @@ from fec.config.constants import (
     STATUS_SLIPS_BEYOND_RULE,
     SKIP_EMPLOYERS,
 )
-from fec.config.tables import CONFIG_DIR, read_set
+from fec.config.tables import CONFIG_DIR, read_set, words
 
 # Occupation words as employer: probably self-employed.
-OCCUPATION_AS_EMPLOYER = frozenset({
-    'ATTORNEY', 'LAWYER', 'DOCTOR', 'PHYSICIAN', 'DENTIST',
-    'ACCOUNTANT', 'CONSULTANT', 'ARCHITECT', 'ENGINEER',
-    'PROFESSOR', 'TEACHER', 'NURSE', 'PSYCHOLOGIST',
-    'THERAPIST', 'SURGEON', 'RADIOLOGIST', 'DERMATOLOGIST',
-    'REALTOR', 'PHARMACY OWNER', 'CARDIOLOGIST',
-    'CPA', 'DESIGNER',
-})
+OCCUPATION_AS_EMPLOYER = words("occupation_as_employer")
 
 
 # Role words as employer; the company is often in occupation.
@@ -28,28 +21,15 @@ SECTOR_AS_EMPLOYER = read_set(CONFIG_DIR / "sectors.csv")
 
 
 # Job titles that appear as employer (swap candidates).
-JOB_TITLE_AS_EMPLOYER = frozenset({
-    'REAL ESTATE', 'INVESTMENT MANAGEMENT', 'INSURANCE',
-    'CONSULTING', 'FINANCE', 'MARKETING', 'MANAGEMENT',
-    'CONSTRUCTION', 'EDUCATION',
-})
+JOB_TITLE_AS_EMPLOYER = words("job_title_as_employer")
 
 
 # Self-employed occupation words found in the employer field.
-SELF_EMPLOYED_OCC_AS_EMP = frozenset({
-    'DESIGNER', 'CATER', 'CATERER', 'WRITER', 'ARTIST', 'SALES',
-    'REAL ESTATE', 'BUSINESS', 'FARMING', 'TRADER',
-    # Generic phrase; verified company filings use their legal name.
-    'TRUST DEED INVESTMENTS',
-})
+SELF_EMPLOYED_OCC_AS_EMP = words("self_employed_occ_as_emp")
 
 
 # Employer words that themselves say the filer works for themselves.
-SELF_EMPLOYMENT_WORDS = frozenset({
-    'OWNER', 'BUSINESS OWNER', 'BUSINESS OWNER/OPERATOR', 'OWN BUSINESS',
-    'PRIVATE PRACTICE', 'FREELANCE', 'FREELANCER', 'INDEPENDENT',
-    'INDEPENDENT CONTRACTOR', 'SELF (LANDSCAPE DESIGNER)', 'PERSONAL',
-})
+SELF_EMPLOYMENT_WORDS = words("self_employment_words")
 
 
 # Legal suffixes stripped from employer names for matching.
@@ -69,22 +49,7 @@ OCCUPATION_TITLE_EMPLOYERS = read_set(CONFIG_DIR / "job_titles.csv")
 
 
 # The shared answer to "is this string a company?".
-NOT_REAL_EMPLOYER = frozenset({
-    "NO",
-    "SELF",
-    "SELF EMPL.", "SELF EMPL", "SELF-EMP", "SELF EMP",
-    "UNKNOWN",
-    "MR AND MRS", "MR. AND MRS.", "DR AND MS", "DR. AND MS", "DR. AND MS.",
-    "INFORMATION REQUESTED", "INFORMATION REQUESTED PER BEST EFFORTS",
-    # a request for the donor's details, not a company
-    "MORE INFO NEEDED", "MORE INFORMATION NEEDED", "MORE INFO REQUESTED", "INFO NEEDED", "NEED MORE INFO",
-    "DISABLED", "CHOOSE NOT TO DISCLOSE", "MANY ORGANIZATIONS",
-    # status / housewife variants (the status typos come from the sets below)
-    "RETIRE", "HOUSEWIFE", "HOUSWIFE", "HOUSE WIFE", "HOME MANAGER",
-    "STAY-AT-HOME MOM",
-    # A job title in the employer box; the rest come from the sets below.
-    "PHILANTHROPIST",
-}) | (
+NOT_REAL_EMPLOYER = words("not_real_employer_own") | (
     SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | STATUS_SLIPS_BEYOND_RULE
     | OCCUPATION_TITLE_EMPLOYERS | OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER
     | SECTOR_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER | SELF_EMPLOYED_OCC_AS_EMP

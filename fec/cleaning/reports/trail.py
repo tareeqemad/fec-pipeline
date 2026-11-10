@@ -34,7 +34,7 @@ WORK_FIELDS = ("contributor_employer", "contributor_occupation", "occupation_cat
 EMPLOYMENT_FIELDS = WORK_FIELDS + ("previous_employer",)
 PEOPLE_FIELDS = ENTITY_FIELDS + NAME_FIELDS + EMPLOYMENT_FIELDS
 
-_BLANK_TEXT = frozenset({"", "nan", "None", "<NA>"})
+_BLANK_TEXT = {"", "nan", "None", "<NA>"}
 
 
 # blank-like values become empty string for comparison

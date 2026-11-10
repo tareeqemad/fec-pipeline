@@ -32,7 +32,7 @@ Next time, only enter the folder and activate: `cd fec-pipeline` then `source .v
 ## 2. Fill in `.env`
 
 - `FEC_API_KEY`: your FEC key (only for pulling data).
-- `OPENAI_API_KEY`: an OpenAI key; `clean.py` asks the model for the category of every occupation text it has not seen before. Without it, new occupations are categorized by patterns and listed in `data/reports/new_occupations.csv`. Addresses need no key: they are written in USPS form offline, by the `usaddress` parser and the USPS tables of `usaddress-scourgify` and `zipcodes`.
+- `OPENAI_API_KEY`: an OpenAI key; `clean.py` asks the model for the category of every occupation text it has not seen before. Without it, a new occupation text is OTHER and listed in `data/reports/new_occupations.csv` until the model reads it. Addresses need no key: they are written in USPS form offline, by the `usaddress` parser and the USPS tables of `usaddress-scourgify` and `zipcodes`.
 - `PG_PASSWORD`: the `fec_owner` password from step 3.
 
 ## 3. Create the database (once)
@@ -93,7 +93,7 @@ Warnings worth reading after `clean.py`:
 - `donor merge rules found no donor`: a rule in `data/rules/donor_identity_rules.csv` needs an updated key.
 - `previous employer rules found no filing` (from `resolve.py`): a `sub_id` in `data/rules/previous_employers.csv` is mistyped.
 - `earlier donor keys no longer used`: a donor split or merged since the last run; check it.
-- `OPENAI_API_KEY not set`: new occupation texts were categorized by patterns only; set the key and run `clean.py` again.
+- `OPENAI_API_KEY not set`: new occupation texts are OTHER for now; set the key and run `clean.py` again.
 
 ## Where things are
 
@@ -103,7 +103,7 @@ Warnings worth reading after `clean.py`:
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Possible duplicate donors and new occupations to review |
 | `data/rules/` | Reviewed decisions, each with its source. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
-| `data/config/` | Spelling and word lists; `written_as` is the text as filed. `occupation_category_rules.md` is the instructions the model reads to categorize occupations: edit it to change how a kind of occupation is handled |
+| `data/config/` | Spelling and word lists (`word_lists.csv` holds every list of words the code reads, one row per word); `written_as` is the text as filed. `occupation_category_rules.md` is the instructions the model reads to categorize occupations: edit it to change how a kind of occupation is handled |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
 | `data/cache/` | Map points, donor keys, and the model's occupation categories from earlier runs; keep it |
 

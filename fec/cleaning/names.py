@@ -13,14 +13,10 @@ from fec.config.data import (
     TITLE_RE,
 )
 from fec.cleaning.reports.trail import NAME_FIELDS, AuditTrail
+from fec.config.tables import words
 
 
-RULE_TYPES = {
-    "exact_name",
-    "sub_id",
-    "first_name",
-    "committee_name",
-}
+RULE_TYPES = {"exact_name", "sub_id", "first_name", "committee_name"}
 
 _ZIP5_RE = re.compile(r"\d{5}")
 
@@ -223,9 +219,7 @@ def _strip_individual_titles_suffixes(df: pd.DataFrame, is_individual: pd.Series
     )
 
 
-_PURE_TITLE = {'MR', 'MR.', 'MRS', 'MRS.', 'MS', 'MS.', 'DR', 'DR.',
-               'MD', 'M.D.', 'PHD', 'PH.D.', 'ESQ', 'ESQ.',
-               'DDS', 'DVM', 'JR', 'JR.', 'SR', 'SR.'}
+_PURE_TITLE = words("pure_title")
 
 
 def _text(value) -> str:

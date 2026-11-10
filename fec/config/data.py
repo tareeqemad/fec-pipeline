@@ -1,30 +1,9 @@
 """Missing-value sentinels, committee/name patterns, and output column contract."""
 import re
+from fec.config.tables import words
 
 # FEC junk values that all mean "missing"
-MISSING_VALUES = frozenset({
-    'INFORMATION REQUESTED',
-    'INFO REQUESTED',
-    'INFORMATION REQUESTED PER BEST EFFORTS',
-    'NONE', '--NONE--',
-    'N/A', 'NA',
-    'UNKNOWN',
-    'NOT AVAILABLE',
-    'NONEB',
-    'REFUSED',
-    'NONE OF YOUR BUSINESS',
-    'NOT PROVIDED',
-    'NOT APPLICABLE',
-    'AN EMPLOYER',
-    'AN OCCUPATION',
-    # FEC admin notes / form placeholders that leaked as "employers"
-    'BEST EFFORT', 'BEST EFFORT SENT', 'BEST EFFORTS',
-    '2ND REQUEST MADE', '2ND LETTER MAILED', '2ND REQUEST LETTER MAILED',
-    'REQUESTING VIA MAIL',
-    'NONE PROVIDED', 'REQUESTED', 'INFORMATION REQUESTED PER BEST EFFO',
-    '-SELECT-', 'SELECT', 'PLEASE SELECT', 'TBD', 'EMPLOYED',
-    '.', '-', '',
-})
+MISSING_VALUES = words("missing_values")
 
 # committee classification, first match wins
 COMM_PATTERNS = [

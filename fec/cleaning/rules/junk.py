@@ -17,8 +17,9 @@ from fec.config.occupation_rules.rules import (
     FINAL_NULL_EMPLOYERS,
     FINAL_SHORT_OCCUPATIONS,
 )
+from fec.config.tables import words
 
-_GENERIC_SELF_TAILS = {'LAW OFFICE', 'COMPANY OWNER', 'PRIVATE CONTRACTOR', 'CONTRACTOR'}
+_GENERIC_SELF_TAILS = words("generic_self_tails")
 
 # an occupation ending in a bare number: "TEACHER 12345"
 _OCC_NUM_TAIL_RE = re.compile(r'^[A-Z ]+\s+\d+$')

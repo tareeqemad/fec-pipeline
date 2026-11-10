@@ -36,6 +36,7 @@ from fec.config.not_employers import (
     SECTOR_AS_EMPLOYER,
 )
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES, KNOWN_COMPANY_OCCUPATIONS
+from fec.config.tables import words
 
 LEVELS = ("legal_form", "reviewed", "frequent", "named_org")
 COMPANY_LEVELS = frozenset(LEVELS)
@@ -50,31 +51,9 @@ _LEGAL_FORM_END_RE = re.compile(r"\b(?:" + "|".join(_LEGAL_FORMS) + r")$")
 _CO_AFTER_WORD_RE = re.compile(r"\b[A-Z0-9]{2,}\s+CO$")
 
 # Words that mark an organisation when a proper name stands beside them.
-ORGANISATION_WORDS = frozenset({
-    "GROUP", "PARTNERS", "PARTNERSHIP", "HOLDING", "HOLDINGS", "ASSOCIATES",
-    "ENTERPRISE", "ENTERPRISES", "INDUSTRIES", "VENTURE", "VENTURES",
-    "PROPERTIES", "PROPERTY", "REALTY", "BANK", "FOUNDATION", "UNIVERSITY",
-    "COLLEGE", "HOSPITAL", "INSTITUTE", "SCHOOL", "ACADEMY", "COMPANY",
-    "COMPANIES", "BROTHERS", "TRUST", "FUND", "FUNDS", "CAPITAL", "ADVISORS",
-    "ADVISERS", "SERVICES", "SYSTEMS", "SOLUTIONS", "TECHNOLOGIES",
-    "INTERNATIONAL", "GLOBAL", "MANAGEMENT", "INSURANCE", "FINANCIAL",
-    "MEDIA", "CENTER", "CENTRE", "INVESTMENT", "INVESTMENTS", "EQUITIES",
-    "LAW", "AGENCY", "DEPARTMENT", "BUREAU", "OFFICE", "OFFICES", "STRATEGIES",
-    "CONSULTING", "DEVELOPMENT", "CONSTRUCTION", "STEEL", "LENDING",
-    "ACQUISITIONS", "TELECOM", "CONGREGATION", "UNION", "COUNCIL",
-    "ASSOCIATION", "HEALTH", "HEALTHCARE", "ENERGY", "FINANCE", "WEALTH",
-    "ENTERTAINMENT", "COMMUNICATIONS", "LOGISTICS", "MARKETING", "TRADING",
-    "ESTATE", "MEDICAL", "DENTAL", "RADIOLOGY", "CLINIC", "PHARMACY", "STUDIOS",
-    "CARE", "ADVISORY", "AFFAIRS", "INDUSTRY", "SECTOR", "TELECOMMUNICATIONS",
-    "ACQUISITION", "CONSULTANTS", "TRADES", "ASSOC",
-})
+ORGANISATION_WORDS = words("organisation_words")
 # Common words that name no company on their own.
-_FILLER_WORDS = frozenset({
-    "THE", "OF", "AND", "AT", "IN", "FOR", "A", "AN", "GREATER", "COMMERCIAL", "PRIVATE", "PUBLIC", "GENERAL",
-    "SENIOR", "JUNIOR", "INDEPENDENT", "FAMILY", "NATIONAL", "AMERICAN",
-    "FEDERAL", "STATE", "CITY", "COUNTY", "SELF", "EMPLOYED", "REAL", "CORPORATE",
-    "GLOBAL", "REGIONAL", "LOCAL", "ASSOCIATED", "UNITED",
-})
+_FILLER_WORDS = words("filler_words")
 
 _WORDS_RE = re.compile(r"[A-Z0-9][A-Z0-9'&-]*")
 _PART_SPLIT_RE = re.compile(r"\s*(?:/|,|;| AND | & )\s*")
@@ -209,7 +188,7 @@ def is_company(values: pd.Series, **context) -> pd.Series:
     return company_evidence(values, **context).isin(COMPANY_LEVELS)
 
 
-_LEGAL_TOKENS = frozenset({"LLC", "PLLC", "LLP", "LP", "INC", "INCORPORATED", "CORP", "CORPORATION", "LTD", "PLC", "APLC", "APC"})
+_LEGAL_TOKENS = words("legal_tokens")
 
 
 def has_legal_form_token(values: pd.Series) -> pd.Series:
