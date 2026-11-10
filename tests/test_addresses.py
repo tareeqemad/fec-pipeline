@@ -51,12 +51,20 @@ def test_standard_address_follows_usps_with_no_table_of_ours():
     assert std("9 W 57 ST", "PMB #333") == ("9 W 57TH ST", "PMB 333", "SAINT LOUIS")
     assert std("123 MAIN ST", "5TH FLOOR") == ("123 MAIN ST", "FL 5", "SAINT LOUIS")
     assert std("P.O. BOX 68033") == ("PO BOX 68033", "", "SAINT LOUIS")
-    assert std("C/O RED CURVE SOLUTIONS LLC", "138 CONANT ST STE 401") == ("138 CONANT ST", "STE 401", "SAINT LOUIS")
+    assert std("C/O RED CURVE SOLUTIONS LLC", "138 CONANT ST STE 401") == (
+        "138 CONANT ST",
+        "STE 401",
+        "SAINT LOUIS",
+    )
     assert std("SOMEONE@GMAIL.COM")[0] == ""
     assert std("1 MAIN ST", "# 539")[1] == "# 539"  # a unit is never a place
     assert std("1 MAIN ST", "SAIN MO")[1] == ""  # the city and state cut short
-    assert std("22649 SHAKER BLVD SAINT LOUIS MO 631")[0] == "22649 SHAKER BLVD"  # the place typed after the street
-    assert std("103 STANTON AVE, 103 STANTON AVENU")[0] == "103 STANTON AVE"  # the street typed twice
+    assert (
+        std("22649 SHAKER BLVD SAINT LOUIS MO 631")[0] == "22649 SHAKER BLVD"
+    )  # the place typed after the street
+    assert (
+        std("103 STANTON AVE, 103 STANTON AVENU")[0] == "103 STANTON AVE"
+    )  # the street typed twice
     assert std("UNIT 8606 7485 VICTORY LANE")[:2] == ("7485 VICTORY LN", "UNIT 8606")
     assert std("13764RIVOLI DRIVE")[0] == "13764 RIVOLI DR"
     assert std("BOX 137")[0] == "PO BOX 137"
@@ -76,6 +84,9 @@ def test_standard_address_follows_usps_with_no_table_of_ours():
         }
     )
     assert standardize_addresses(df) == 1
-    assert df.loc[0, ["contributor_street_1", "contributor_street_2"]].tolist() == ["123 E 13TH ST", "APT 4"]
+    assert df.loc[0, ["contributor_street_1", "contributor_street_2"]].tolist() == [
+        "123 E 13TH ST",
+        "APT 4",
+    ]
     assert df.loc[1, "contributor_street_1"] == "10 Downing St"  # foreign: as filed
     assert standardize_addresses(df) == 0  # the standard form is stable

@@ -30,19 +30,29 @@ FIELDS = (
 )
 
 
+def _strip_column(column: pd.Series) -> pd.Series:
+    """Return a text column without surrounding spaces."""
+    return column.str.strip()
+
+
+def _review_employer_name(name: str) -> str:
+    """Return the shared company spelling of an employer; a blank or [CLEAR] stays as it is."""
+    if name and name.upper() != CLEAR:
+        return reviewed_employer_name(name)
+    return name
+
+
 @lru_cache(maxsize=1)
 def _read_reviewed_filings() -> pd.DataFrame:
     """Read the reviewed rows by sub_id, employers in their shared company spelling."""
     if not FILING_CORRECTIONS_CSV.exists():
         return pd.DataFrame(columns=[*FIELDS, "after_matching"])
     rows = pd.read_csv(FILING_CORRECTIONS_CSV, dtype=str, keep_default_na=False)
-    rows = rows.apply(lambda column: column.str.strip()).set_index("sub_id")
+    rows = rows.apply(_strip_column).set_index("sub_id")
     unknown = set(rows["occupation_category"]) - VALID_CATEGORIES - {""}
     if unknown:
         raise ValueError(f"Invalid manual occupation category: {sorted(unknown)}")
-    rows["contributor_employer"] = rows["contributor_employer"].map(
-        lambda name: reviewed_employer_name(name) if name and name.upper() != CLEAR else name
-    )
+    rows["contributor_employer"] = rows["contributor_employer"].map(_review_employer_name)
     return rows
 
 

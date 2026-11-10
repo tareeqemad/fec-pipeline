@@ -1,11 +1,18 @@
-"""SELF written beside something else in the employer box: SELF - ACME LLC, CONSULTANT (SELF-EMPLOYED)."""
+"""SELF written beside something else in the employer box.
+
+For example SELF - ACME LLC, or CONSULTANT (SELF-EMPLOYED).
+"""
 
 from __future__ import annotations
 
 import re
 
 from fec.cleaning.work.company_evidence import COMPANY_LEVELS, company_evidence_level
-from fec.cleaning.work.employer_status import collapse_doubled_letters, is_job_title, is_real_employer
+from fec.cleaning.work.employer_status import (
+    collapse_doubled_letters,
+    is_job_title,
+    is_real_employer,
+)
 from fec.vocabulary.not_employers import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.vocabulary.tables import words
 
@@ -31,7 +38,12 @@ def split_self_marker(value: object) -> tuple[bool, str]:
     if match := _TAIL_RE.search(upper):
         return True, upper[: match.start()].strip(" ,;:/()-")
     letters = collapse_doubled_letters(re.sub(r"[^A-Z]", "", upper))
-    return upper.startswith("SELF:") or letters.startswith("SELFEMPLOY") or upper in ("SELF", "SSELF", "SELFF"), ""
+    marked = (
+        upper.startswith("SELF:")
+        or letters.startswith("SELFEMPLOY")
+        or upper in ("SELF", "SSELF", "SELFF")
+    )
+    return marked, ""
 
 
 def firm_after_self_marker(rest: str) -> str:

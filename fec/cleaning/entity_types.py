@@ -8,8 +8,17 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.work.company_evidence import COMPANY_LEVELS, ORGANISATION_WORDS, Filings, has_legal_form_token
-from fec.cleaning.work.company_names import documented_employer_name, employer_rule_key, reviewed_employer_name
+from fec.cleaning.work.company_evidence import (
+    COMPANY_LEVELS,
+    ORGANISATION_WORDS,
+    Filings,
+    has_legal_form_token,
+)
+from fec.cleaning.work.company_names import (
+    documented_employer_name,
+    employer_rule_key,
+    reviewed_employer_name,
+)
 from fec.common.settings import FEC_SOURCE_CSV, RULES_DIR
 from fec.vocabulary.geography import US_STATES
 from fec.vocabulary.names import INDIV_NAME_RE
@@ -44,7 +53,9 @@ def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
     """Attach FEC source fields by sub_id; leave missing values blank."""
     source = pd.DataFrame(columns=["sub_id", *SOURCE_COLUMNS])
     if Path(path).exists():
-        source = pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates("sub_id", keep="last")
+        source = pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates(
+            "sub_id", keep="last"
+        )
     source = source.set_index("sub_id").reindex(df["sub_id"].astype(str).str.strip())
     for column in SOURCE_COLUMNS:
         values = source[column] if column in source.columns else pd.Series("", index=source.index)
@@ -59,6 +70,46 @@ def is_committee_name(name: str) -> bool:
     )
 
 
+def _ends_in_organisation_word(head: list[str]) -> bool:
+    """Tell whether the words before the comma end in an organisation word: KAHAN TRUST."""
+    return len(head) >= 2 and head[-1] in ORGANISATION_WORDS
+
+
+def _find_company_evidence(
+    df: pd.DataFrame, names: pd.Series, flagged: pd.Series
+) -> tuple[pd.Series, pd.Series]:
+    """Return which names are certainly an organisation, and which carry company evidence."""
+    filings = Filings(names[flagged], df.loc[flagged, "contributor_employer"].fillna(""))
+    level = pd.Series([filings.level(name, 1) for name in names], index=names.index)
+    legal_form = has_legal_form_token(names)
+    # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
+    head = names.str.split(",").str[0].str.upper()
+    trust_head = head.str.split().map(_ends_in_organisation_word)
+    certain = (
+        legal_form
+        | level.isin(("legal_form", "reviewed", "frequent"))
+        | (level.eq("named_org") & trust_head)
+    )
+    company = legal_form | level.isin(COMPANY_LEVELS)
+    return certain, company
+
+
+def _find_most_common(kinds: pd.Series) -> str:
+    """Return the value filed most often, the first in order on a tie."""
+    return kinds.mode().iat[0]
+
+
+def _apply_fec_types(df: pd.DataFrame, names: pd.Series, kind: pd.Series) -> pd.Series:
+    """Let FEC's type for a name hold for every filing of that name."""
+    if "fec_entity_type" not in df.columns:
+        return kind
+    filed = df["fec_entity_type"].map(FEC_ENTITY_TYPES).dropna()
+    if not len(filed):
+        return kind
+    by_name = filed.groupby(names[filed.index]).agg(_find_most_common)
+    return names.map(by_name).fillna(kind)
+
+
 def classify_entities(df: pd.DataFrame) -> None:
     """Set entity_type from the contributor name; FEC's own type wins where it is filed.
 
@@ -69,34 +120,18 @@ def classify_entities(df: pd.DataFrame) -> None:
     """
     names = df["contributor_name"].fillna("").astype(str)
     flagged = df["is_individual"].astype(bool)
-    filings = Filings(names[flagged], df.loc[flagged, "contributor_employer"].fillna(""))
-    level = names.map(lambda name: filings.level(name, 1))
-    legal_form = has_legal_form_token(names)
-    # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
-    trust_head = (
-        names.str.split(",")
-        .str[0]
-        .str.upper()
-        .str.split()
-        .map(lambda head: len(head) >= 2 and head[-1] in ORGANISATION_WORDS)
-    )
-    certain = legal_form | level.isin(("legal_form", "reviewed", "frequent")) | (level.eq("named_org") & trust_head)
-    company = legal_form | level.isin(COMPANY_LEVELS)
+    certain, company = _find_company_evidence(df, names, flagged)
     committee = names.map(is_committee_name)
     # The filer's own word that this is a person holds when the name boxes are filled.
-    trusted = flagged & df[["contributor_first_name", "contributor_last_name"]].fillna("").ne("").all(axis=1)
-    person = ~committee & np.where(names.str.match(INDIV_NAME_RE), trusted | ~certain, trusted & ~company)
-
+    name_boxes = df[["contributor_first_name", "contributor_last_name"]].fillna("")
+    trusted = flagged & name_boxes.ne("").all(axis=1)
+    written_as_person = names.str.match(INDIV_NAME_RE)
+    person = ~committee & np.where(written_as_person, trusted | ~certain, trusted & ~company)
     kind = pd.Series(
-        np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC"), index=df.index
+        np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC"),
+        index=df.index,
     )
-    # FEC's type for a name holds for every filing of that name.
-    filed = df["fec_entity_type"].map(FEC_ENTITY_TYPES) if "fec_entity_type" in df.columns else pd.Series(dtype=object)
-    filed = filed.dropna()
-    if len(filed):
-        by_name = filed.groupby(names[filed.index]).agg(lambda kinds: kinds.mode().iat[0])
-        kind = names.map(by_name).fillna(kind)
-    _set_types(df, kind)
+    _set_types(df, _apply_fec_types(df, names, kind))
 
 
 def _set_types(df: pd.DataFrame, kind: pd.Series) -> None:
@@ -113,7 +148,12 @@ def read_entity_overrides() -> dict[str, str]:
     if not path.exists():
         return {}
     rows = pd.read_csv(path, dtype=str, keep_default_na=False)
-    return dict(zip(rows["contributor_name"].str.strip().str.upper(), rows["entity_type"].str.strip().str.upper()))
+    return dict(
+        zip(
+            rows["contributor_name"].str.strip().str.upper(),
+            rows["entity_type"].str.strip().str.upper(),
+        )
+    )
 
 
 def apply_entity_overrides(df: pd.DataFrame) -> None:
@@ -136,11 +176,17 @@ def normalize_business_names(df: pd.DataFrame) -> None:
     kinds = df.loc[names.index, "entity_type"]
     keys = names.map(employer_rule_key)
     known = set(keys[kinds.eq("ORGANIZATION")])
-    known.update(employer_rule_key(name) for name, kind in read_entity_overrides().items() if kind == "ORGANIZATION")
+    known.update(
+        employer_rule_key(name)
+        for name, kind in read_entity_overrides().items()
+        if kind == "ORGANIZATION"
+    )
     organisation = keys.isin(known)
     cleaned = names.where(~organisation, names.map(reviewed_employer_name))
     committee = kinds.eq("COMMITTEE/PAC") & ~organisation & ~names.str.contains(_FOR_STATE_RE)
-    cleaned = cleaned.where(~committee, names.str.replace(LEGAL_SUFFIX_RE, "", regex=True).str.strip())
+    cleaned = cleaned.where(
+        ~committee, names.str.replace(LEGAL_SUFFIX_RE, "", regex=True).str.strip()
+    )
     # A documented company alias can also fix committee names.
     cleaned = names.map(documented_employer_name).fillna(cleaned)
     changed = cleaned.ne(names) & cleaned.ne("")

@@ -81,41 +81,43 @@ _PART_SPLIT_RE = re.compile(r"\s*(?:/|,|;| AND | & )\s*")
 
 def _is_job(text: str) -> bool:
     """Return whether a text names a job rather than a company."""
-    if text in _job_words() or is_job_title(text):
+    if text in _collect_job_words() or is_job_title(text):
         return True
     words = _WORDS_RE.findall(text)
     # "INVESTMENT PORTFOLIO MANAGER", "HEALTHCARE EXECUTIVE": a title word last,
     # unless it also names an organisation (CRESCENT REALTY ADVISORS).
-    return len(words) > 1 and _head_word(words[-1]) and words[-1] not in ORGANISATION_WORDS
+    return len(words) > 1 and _is_head_word(words[-1]) and words[-1] not in ORGANISATION_WORDS
 
 
-def _head_word(word: str) -> bool:
+def _is_head_word(word: str) -> bool:
     """Return whether a word, or its singular, is a job title head word."""
     return word in JOB_TITLE_HEADS or (word.endswith("S") and word[:-1] in JOB_TITLE_HEADS)
 
 
-def _only_common_words(text: str) -> bool:
+def _has_only_common_words(text: str) -> bool:
     """Organisation and filler words only, so a field rather than a name."""
     words = _WORDS_RE.findall(text)
-    return bool(words) and all(w in ORGANISATION_WORDS or w in _FILLER_WORDS or w == "AND" for w in words)
+    return bool(words) and all(
+        word in ORGANISATION_WORDS or word in _FILLER_WORDS or word == "AND" for word in words
+    )
 
 
 @lru_cache(maxsize=1)
-def _reviewed_names() -> frozenset[str]:
+def _read_reviewed_names() -> frozenset[str]:
     """Return every company name the reviewed employer rules mention."""
     aliases, scoped = read_company_name_rules()
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
     names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
     names |= {canonical for _anchor, _cycle, _variant, canonical in scoped}
     names |= {employer_rule_key(name) for name in names}
-    return frozenset(names - _job_words())
+    return frozenset(names - _collect_job_words())
 
 
 @lru_cache(maxsize=1)
-def _job_words() -> frozenset[str]:
+def _collect_job_words() -> frozenset[str]:
     """Exact values that are a job, field or status, never a company."""
     return frozenset(
-        {k for k, v in CATEGORY_OVERRIDES.items() if v != "OTHER"}
+        {text for text, category in CATEGORY_OVERRIDES.items() if category != "OTHER"}
         | ROLE_AS_EMPLOYER
         | OCCUPATION_AS_EMPLOYER
         | JOB_TITLE_AS_EMPLOYER
@@ -132,51 +134,72 @@ def company_key(value: object) -> str:
     return employer_rule_key(value)
 
 
+def _has_legal_form_end(key: str) -> bool:
+    """Tell whether a key of several words ends in a legal form; CO only after a real name."""
+    if " " not in key or not _LEGAL_FORM_END_RE.search(key):
+        return False
+    if not key.endswith(" CO"):
+        return True
+    return bool(_CO_AFTER_WORD_RE.search(key)) and not _has_only_common_words(key[:-3])
+
+
+def _describes_job(key: str) -> bool:
+    """Tell whether a key names a job, joins jobs and statuses, or describes a role."""
+    if _is_job(key) or _is_job(key.replace(" AND ", " & ")):
+        return True
+    # "CHAIRMAN AND CEO", "RETIRED/REAL ESTATE": every part a job or status.
+    parts = [part.strip() for part in _PART_SPLIT_RE.split(key) if part.strip()]
+    if len(parts) > 1 and all(_is_job(part) or _has_only_common_words(part) for part in parts):
+        return True
+    if any(part in STATUS_WORDS for part in parts):
+        return True
+    words = _WORDS_RE.findall(key)
+    # "DIRECTOR OF POLICY", "VP, INVESTMENTS AND PROGRAMS": a described role.
+    return bool(words) and (words[0] in JOB_TITLE_HEADS or words[0] in ROLE_AS_EMPLOYER)
+
+
+def _read_proper_name_evidence(words: list[str]) -> str:
+    """Return the evidence of the proper name left after organisation and filler words."""
+    rest = [
+        word
+        for word in words
+        if word not in ORGANISATION_WORDS and word not in _FILLER_WORDS and word != "AND"
+    ]
+    if not rest:
+        # Organisation words alone (CAPITAL GROUP, INSURANCE SERVICES): a
+        # name or a field; only other filings can tell.
+        return "unknown"
+    if _is_job(" ".join(rest)) or any(_is_head_word(word) for word in rest):
+        return "job"
+    # Every remaining word is a title word: a described role, not a name.
+    if all(word in JOB_TITLE_HEADS or word in JOB_TITLE_MODIFIERS for word in rest):
+        return "job"
+    return "named_org"
+
+
 @lru_cache(maxsize=65536)
-def _text_evidence(key: str, ampersand: bool = False) -> str:
+def _read_text_evidence(key: str, ampersand: bool = False) -> str:
     """Evidence from the text alone: legal_form, reviewed, job, named_org or unknown.
 
     ampersand says the filing wrote "&" (SMITH & JONES), which the key spells AND.
     """
     if not key:
         return ""
-    if " " in key and _LEGAL_FORM_END_RE.search(key):
-        if not key.endswith(" CO") or (_CO_AFTER_WORD_RE.search(key) and not _only_common_words(key[:-3])):
-            return "legal_form"
-    if _is_job(key) or _is_job(key.replace(" AND ", " & ")):
+    if _has_legal_form_end(key):
+        return "legal_form"
+    if _describes_job(key):
         return "job"
-    # "CHAIRMAN AND CEO", "RETIRED/REAL ESTATE": every part a job or status.
-    parts = [p.strip() for p in _PART_SPLIT_RE.split(key) if p.strip()]
-    if len(parts) > 1 and all(_is_job(p) or _only_common_words(p) for p in parts):
-        return "job"
-    if any(p in STATUS_WORDS for p in parts):
-        return "job"
-    words = _WORDS_RE.findall(key)
-    # "DIRECTOR OF POLICY", "VP, INVESTMENTS AND PROGRAMS": a described role.
-    if words and (words[0] in JOB_TITLE_HEADS or words[0] in ROLE_AS_EMPLOYER):
-        return "job"
-    if key in _reviewed_names():
+    if key in _read_reviewed_names():
         return "reviewed"
+    words = _WORDS_RE.findall(key)
     if not any(word in ORGANISATION_WORDS for word in words) and not ampersand:
         return "unknown"
-    # The proper name left after organisation and filler words.
-    rest = [w for w in words if w not in ORGANISATION_WORDS and w not in _FILLER_WORDS and w != "AND"]
-    if not rest:
-        # Organisation words alone (CAPITAL GROUP, INSURANCE SERVICES): a
-        # name or a field; only other filings can tell.
-        return "unknown"
-    rest_text = " ".join(rest)
-    if _is_job(rest_text) or any(_head_word(w) for w in rest):
-        return "job"
-    # Every remaining word is a title word: a described role, not a name.
-    if all(w in JOB_TITLE_HEADS or w in JOB_TITLE_MODIFIERS for w in rest):
-        return "job"
-    return "named_org"
+    return _read_proper_name_evidence(words)
 
 
 def company_evidence_level(text: str) -> str:
     """Return the evidence level of a text on its own."""
-    return _text_evidence(company_key(text), "&" in text)
+    return _read_text_evidence(company_key(text), "&" in text)
 
 
 class Filings:
@@ -190,7 +213,10 @@ class Filings:
         self.own = set(zip(names[filed], keys[filed]))
 
     def level(self, text: str, min_filers: int = 3) -> str:
-        """Return the evidence level of a text; 'frequent' when enough different filers name it as their employer."""
+        """Return the evidence level of a text.
+
+        It is 'frequent' when enough different filers name it as their employer.
+        """
         key = company_key(text)
         level = company_evidence_level(text)
         if (
@@ -198,7 +224,7 @@ class Filings:
             and self.filers.get(key, 0) >= min_filers
             and len(re.sub(r"[^A-Z]", "", key)) >= 3
             and is_real_employer(key)
-            and not _only_common_words(key)
+            and not _has_only_common_words(key)
         ):
             return "frequent"
         return level
@@ -207,6 +233,11 @@ class Filings:
 _LEGAL_TOKENS = words("legal_tokens")
 
 
+def _has_legal_token(key: str) -> bool:
+    """Tell whether any word of a key is a legal form."""
+    return any(word in _LEGAL_TOKENS for word in key.split())
+
+
 def has_legal_form_token(values: pd.Series) -> pd.Series:
     """Find a legal form anywhere in the text, as a name filed LAST, FIRST may carry one."""
-    return values.map(company_key).map(lambda key: any(w in _LEGAL_TOKENS for w in key.split()))
+    return values.map(company_key).map(_has_legal_token)

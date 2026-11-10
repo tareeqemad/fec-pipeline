@@ -7,7 +7,7 @@ from fec.vocabulary.names import MISSING_VALUES
 from fec.vocabulary.statuses import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
 
 # junk value -> NaN, one batch replace
-_JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
+_JUNK_TO_NAN = dict.fromkeys(MISSING_VALUES, np.nan)
 
 # Cyrillic lookalikes -> ASCII (common in FEC data entry)
 _CYRILLIC_TO_ASCII = str.maketrans(

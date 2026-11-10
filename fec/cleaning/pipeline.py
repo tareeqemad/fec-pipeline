@@ -14,8 +14,16 @@ from fec.cleaning.addresses.foreign_addresses import (
     snapshot_foreign_addresses,
 )
 from fec.cleaning.addresses.pipeline import clean_addresses
-from fec.cleaning.contributor_names import apply_name_corrections, clean_names, preclean_name_punctuation
-from fec.cleaning.entity_types import attach_source_fields, classify_entities, normalize_business_names
+from fec.cleaning.contributor_names import (
+    apply_name_corrections,
+    clean_names,
+    preclean_name_punctuation,
+)
+from fec.cleaning.entity_types import (
+    attach_source_fields,
+    classify_entities,
+    normalize_business_names,
+)
 from fec.cleaning.filing_corrections import apply_filing_corrections
 from fec.cleaning.quality_gates import run_quality_gates
 from fec.cleaning.work.occupation_categories import learn_categories
@@ -60,7 +68,10 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     """Clean fields, apply record rules, then apply curated overrides."""
     logger.info("[1/5] Cleaning names and work")
     df = _prepare_records(df)
-    filed_employers, filed_occupations = df["contributor_employer"].copy(), df["contributor_occupation"].copy()
+    filed_employers, filed_occupations = (
+        df["contributor_employer"].copy(),
+        df["contributor_occupation"].copy(),
+    )
     df = _clean_people(df)
     logger.info("[2/5] Cleaning addresses")
     df = clean_addresses(df)
@@ -97,9 +108,11 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     state = df["contributor_state"].astype("string").str.strip().str.upper()
     df["contributor_state"] = state.where(state.fillna("") != "", pd.NA).astype(object)
 
-    df["contribution_receipt_date"] = pd.to_datetime(df["contribution_receipt_date"], errors="coerce")
+    df["contribution_receipt_date"] = pd.to_datetime(
+        df["contribution_receipt_date"], errors="coerce"
+    )
 
-    warnings = _sanity_check(df)
+    warnings = _find_date_warnings(df)
     if warnings:
         logger.warning("WARNING: %s", "; ".join(warnings))
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
@@ -114,7 +127,7 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _sanity_check(df: pd.DataFrame) -> list[str]:
+def _find_date_warnings(df: pd.DataFrame) -> list[str]:
     """Warn about future or unparseable dates."""
     warnings = []
     today = pd.Timestamp.now()
@@ -135,7 +148,10 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
 
     people = df["is_individual"].astype(bool)
     read_work(df, people, df["contributor_employer"].copy(), df["contributor_occupation"].copy())
-    df.loc[~people, ["contributor_occupation", "occupation_category"]] = [np.nan, "POLITICAL COMMITTEE"]
+    df.loc[~people, ["contributor_occupation", "occupation_category"]] = [
+        np.nan,
+        "POLITICAL COMMITTEE",
+    ]
     classify_entities(df)
     clean_names(df)
     apply_name_corrections(df)
@@ -159,18 +175,18 @@ def _finish_records(df: pd.DataFrame) -> pd.DataFrame:
     return df[columns]
 
 
-def apply_record_rules(df: pd.DataFrame, filed_employers: pd.Series, filed_occupations: pd.Series) -> pd.DataFrame:
+def apply_record_rules(
+    df: pd.DataFrame, filed_employers: pd.Series, filed_occupations: pd.Series
+) -> pd.DataFrame:
     """Settle names, then read every individual's work fields from the filing."""
     df["is_individual"] = df["entity_type"].eq("INDIVIDUAL")
     normalize_business_names(df)
     read_work(df, df["is_individual"], filed_employers, filed_occupations)
-    df.loc[df["entity_type"].eq("COMMITTEE/PAC") & df["occupation_category"].isna(), "occupation_category"] = (
-        "POLITICAL COMMITTEE"
-    )
+    df.loc[
+        df["entity_type"].eq("COMMITTEE/PAC") & df["occupation_category"].isna(),
+        "occupation_category",
+    ] = "POLITICAL COMMITTEE"
     return df
-
-
-logger = get_logger(__name__)
 
 
 def main() -> pd.DataFrame:
@@ -185,12 +201,17 @@ def main() -> pd.DataFrame:
         os.makedirs(folder, exist_ok=True)
 
     df = read_pipeline_csv(input_path)
-    logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
-
-    cleaned = clean_and_match(df, out_dir=out_dir, earlier_keys=_earlier_donor_keys())
-    output = cleaned.drop(
-        columns=[column for column in cleaned.columns if column.startswith("_") or column in INTERNAL_OUTPUT_COLUMNS]
+    logger.info(
+        "Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}"
     )
+
+    cleaned = clean_and_match(df, out_dir=out_dir, earlier_keys=_read_earlier_donor_keys())
+    internal_columns = [
+        column
+        for column in cleaned.columns
+        if column.startswith("_") or column in INTERNAL_OUTPUT_COLUMNS
+    ]
+    output = cleaned.drop(columns=internal_columns)
 
     _assert_known_committees(output)
     _ensure_zip_format(output)
@@ -220,12 +241,12 @@ def _assert_known_committees(df: pd.DataFrame) -> None:
 
 def _ensure_zip_format(df: pd.DataFrame) -> None:
     """US ZIPs as five digits; foreign postcodes as filed."""
-    us = ~foreign_address_mask(df)
+    us_rows = ~foreign_address_mask(df)
     zips = df["contributor_zip"]
 
     if zips.dtype.name in ("object", "string"):
         valid = zips.isna() | zips.astype(str).str.match(r"^\d{5}$", na=False)
-        if (valid | ~us).all():
+        if (valid | ~us_rows).all():
             return
 
     cleaned = (
@@ -238,10 +259,10 @@ def _ensure_zip_format(df: pd.DataFrame) -> None:
     )
     invalid = cleaned.notna() & (~cleaned.str.match(r"^\d{5}$", na=False) | cleaned.eq("00000"))
     cleaned[invalid] = pd.NA
-    df["contributor_zip"] = cleaned.where(us, zips.astype("string"))
+    df["contributor_zip"] = cleaned.where(us_rows, zips.astype("string"))
 
 
-def _earlier_donor_keys() -> dict:
+def _read_earlier_donor_keys() -> dict:
     """Each filing's donor key from the last run, or {} the first time."""
     if not DONOR_KEYS_CSV.exists():
         return {}
@@ -258,8 +279,16 @@ def _save_donor_keys(cleaned: pd.DataFrame) -> None:
 def _write_new_occupations(df: pd.DataFrame, out_dir: str) -> None:
     """Occupations missing from the category table, for optional review."""
     occupation = df["contributor_occupation"].fillna("")
-    new = df[df["entity_type"].eq("INDIVIDUAL") & occupation.ne("") & ~occupation.isin(CATEGORY_OVERRIDES)]
-    report = new.groupby(["contributor_occupation", "occupation_category"]).size().reset_index(name="rows")
+    new = df[
+        df["entity_type"].eq("INDIVIDUAL")
+        & occupation.ne("")
+        & ~occupation.isin(CATEGORY_OVERRIDES)
+    ]
+    report = (
+        new.groupby(["contributor_occupation", "occupation_category"])
+        .size()
+        .reset_index(name="rows")
+    )
     write_csv_atomic(report, os.path.join(out_dir, "new_occupations.csv"), index=False)
     if len(report):
         logger.info("New occupations: %s (data/reports/new_occupations.csv)", f"{len(report):,}")
@@ -277,9 +306,14 @@ def _print_summary(df: pd.DataFrame, output: str, out_dir: str, elapsed: float) 
 
 
 def _save_if_gates_pass(output: pd.DataFrame, out_dir: str, output_path: str) -> None:
-    """Save the CSV only after the applicable checks pass; resolve reruns those that need employer_status."""
+    """Save the CSV only after the applicable checks pass.
+
+    Resolve reruns the checks that need employer_status.
+    """
     quality = run_quality_gates(output)
-    write_json_atomic(os.path.join(out_dir, "quality_gates.json"), {**quality, "stage": "clean"}, indent=2)
+    write_json_atomic(
+        os.path.join(out_dir, "quality_gates.json"), {**quality, "stage": "clean"}, indent=2
+    )
     if not quality["passed"]:
         logger.error("  ABORT - quality gates failed, %s kept as it was:", output_path)
         for issue in quality["issues"]:

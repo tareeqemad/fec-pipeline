@@ -1,1 +1,4 @@
-"""Address cleaning: USPS form, one spelling per donor, reviewed rules, foreign filings kept as filed."""
+"""Address cleaning.
+
+USPS form, one spelling per donor, reviewed rules, foreign filings kept as filed.
+"""

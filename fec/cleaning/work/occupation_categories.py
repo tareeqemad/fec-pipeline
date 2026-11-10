@@ -16,13 +16,18 @@ logger = get_logger(__name__)
 
 _ITEM = {
     "type": "object",
-    "properties": {"text": {"type": "string"}, "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)}},
+    "properties": {
+        "text": {"type": "string"},
+        "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)},
+    },
     "required": ["text", "category"],
     "additionalProperties": False,
 }
 
 
-def ask_model_for_categories(texts: Iterable[object], *, model: str | None = None) -> dict[str, str]:
+def ask_model_for_categories(
+    texts: Iterable[object], *, model: str | None = None
+) -> dict[str, str]:
     """{text: category} from the model, for texts not yet known; {} without a key."""
     answers = ask_lines(
         texts,
@@ -32,7 +37,11 @@ def ask_model_for_categories(texts: Iterable[object], *, model: str | None = Non
         user_prefix="Classify each text. Return every text exactly as given.\n",
         model=model,
     )
-    return {text: item["category"] for text, item in answers.items() if item["category"] in VALID_CATEGORIES}
+    return {
+        text: item["category"]
+        for text, item in answers.items()
+        if item["category"] in VALID_CATEGORIES
+    }
 
 
 def save_model_categories(answers: dict[str, str], model: str | None = None) -> None:
@@ -52,9 +61,15 @@ def save_model_categories(answers: dict[str, str], model: str | None = None) -> 
         CATEGORY_OVERRIDES.setdefault(text, category)
 
 
-def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = ask_model_for_categories) -> int:
+def learn_categories(
+    df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = ask_model_for_categories
+) -> int:
     """Categorize the individuals' occupations no table lists; return how many texts."""
-    people = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df.columns else df["is_individual"].astype(bool)
+    people = (
+        df["entity_type"].eq("INDIVIDUAL")
+        if "entity_type" in df.columns
+        else df["is_individual"].astype(bool)
+    )
     occupation = df["contributor_occupation"].fillna("").astype(str).str.strip()
     unknown = people & occupation.ne("") & ~occupation.isin(CATEGORY_OVERRIDES)
     if not unknown.any():

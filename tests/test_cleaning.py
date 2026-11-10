@@ -1,4 +1,7 @@
-"""Tests of the cleaning stage: names, entity types, work fields, categories and filing corrections."""
+"""Tests of the cleaning stage.
+
+Names, entity types, work fields, categories and filing corrections.
+"""
 
 import pandas as pd
 import pytest
@@ -42,7 +45,14 @@ def test_reviewed_company_names_rewrite_short_and_misspelt_employers():
     df = pd.DataFrame(
         {
             "entity_type": ["INDIVIDUAL"] * 6,
-            "contributor_employer": ["SPGI", "NMRK", "JPMC", "C21 STORES", "ABINITIO SOFTWARE", "SOFTERWARE"],
+            "contributor_employer": [
+                "SPGI",
+                "NMRK",
+                "JPMC",
+                "C21 STORES",
+                "ABINITIO SOFTWARE",
+                "SOFTERWARE",
+            ],
         }
     )
     apply_reviewed_employer_names(df, ("contributor_employer",))
@@ -97,7 +107,9 @@ def test_company_evidence_levels():
     ]
 
     # Other donors filing the value as their employer lifts an unknown name.
-    employers = pd.Series(["MATTEL", "MATTEL", "MATTEL", "REAL ESTATE MANAGEMENT", "REAL ESTATE MANAGEMENT", "ME"])
+    employers = pd.Series(
+        ["MATTEL", "MATTEL", "MATTEL", "REAL ESTATE MANAGEMENT", "REAL ESTATE MANAGEMENT", "ME"]
+    )
     filers = pd.Series(["A", "B", "C", "D", "E", "F"])
     filings = Filings(filers, employers)
     assert [filings.level(text, 2) for text in ("MATTEL", "REAL ESTATE MANAGEMENT", "ME")] == [
@@ -127,7 +139,18 @@ def test_entity_type_from_committee_signal_and_company_evidence():
         {
             "sub_id": [str(i) for i in range(len(names))],
             "contributor_name": names,
-            "contributor_first_name": ["ELLYN", "DAVID", "KATIE", "", "", "", "", "JOHN", "ALLAN", "WESLEY"],
+            "contributor_first_name": [
+                "ELLYN",
+                "DAVID",
+                "KATIE",
+                "",
+                "",
+                "",
+                "",
+                "JOHN",
+                "ALLAN",
+                "WESLEY",
+            ],
             "contributor_last_name": [
                 "BANK",
                 "KAHAN TRUST",
@@ -140,8 +163,30 @@ def test_entity_type_from_committee_signal_and_company_evidence():
                 "KLAIMAN OFFICE",
                 "BELLFORMISSOURI",
             ],
-            "contributor_employer": ["ACME LLC", "", "", "", "", "", "", "ACME LLC", "UROLOGY CENTER", ""],
-            "contributor_occupation": ["ANALYST", "", "", "", "", "", "", "ANALYST", "MEDICAL DOCTOR", ""],
+            "contributor_employer": [
+                "ACME LLC",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "ACME LLC",
+                "UROLOGY CENTER",
+                "",
+            ],
+            "contributor_occupation": [
+                "ANALYST",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "ANALYST",
+                "MEDICAL DOCTOR",
+                "",
+            ],
             "occupation_category": [None] * len(names),
             "is_individual": [False, False, False, True, False, True, False, False, True, True],
         }
@@ -162,7 +207,9 @@ def test_entity_type_from_committee_signal_and_company_evidence():
         "COMMITTEE/PAC",
     ]
     assert df["is_individual"].tolist() == df["entity_type"].eq("INDIVIDUAL").tolist()
-    assert is_committee_name("TEAM HAGERTY, BILL SEN.") and is_committee_name("DON DAVIS FOR NC, DON")
+    assert is_committee_name("TEAM HAGERTY, BILL SEN.") and is_committee_name(
+        "DON DAVIS FOR NC, DON"
+    )
     assert not is_committee_name("BANK OF AMERICA") and not is_committee_name("SMITH, JOHN")
 
 
@@ -195,7 +242,12 @@ def test_read_retired_keeps_job_and_company():
     from fec.cleaning.work.retired import read_retired
 
     # (employer, occupation) -> (employer, occupation, former company, said retired)
-    assert read_retired("RETIRED FROM DAIICHI SANKYO", "RETIRED") == ("RETIRED", "RETIRED", "DAIICHI SANKYO", True)
+    assert read_retired("RETIRED FROM DAIICHI SANKYO", "RETIRED") == (
+        "RETIRED",
+        "RETIRED",
+        "DAIICHI SANKYO",
+        True,
+    )
     assert read_retired("RETIRE", "SOCIAL WORKER") == ("RETIRED", "SOCIAL WORKER", "", True)
     assert read_retired("RETIRED TEACHER", "RETIRED") == ("RETIRED", "TEACHER", "", True)
     assert read_retired("I'M RETIRED", "RETIRED") == ("RETIRED", "RETIRED", "", True)
@@ -231,14 +283,24 @@ def test_split_self_marker_and_previous_employer():
 def test_learn_typos_reads_one_slip_from_one_listed_occupation():
     from fec.cleaning.work.occupation_typos import learn_typos
 
-    listed = ["ATTORNEY", "CONSULTANT", "PHYSICIAN", "PARTNER", "ARCHITECT", "CEO OWNER", "CO-OWNER", "RETIRED"]
+    listed = [
+        "ATTORNEY",
+        "CONSULTANT",
+        "PHYSICIAN",
+        "PARTNER",
+        "ARCHITECT",
+        "CEO OWNER",
+        "CO-OWNER",
+        "RETIRED",
+    ]
     texts = pd.Series(
         [
             "ATTORNEYY",
             "CONSULTATN",
             "PHYSICAIN ",
             "ARCHITECTS",  # added, transposed, swapped, plural
-            "GARTNER",  # one slip from PARTNER: read, which is why only the occupation box is learnt from
+            # one slip from PARTNER: read, which is why only the occupation box is learnt from
+            "GARTNER",
             "ATTORNEY",  # listed already
             "CO OWNER",  # CO / CEO: a word under six letters
             "ATTORNEY AT LAW",  # two words more, not a slip
@@ -259,7 +321,9 @@ def test_extend_corrections_adds_learnt_typos_to_the_table():
     from fec.cleaning.work.occupation_typos import extend_corrections
     from fec.vocabulary.occupations import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
 
-    df = pd.DataFrame({"contributor_occupation": ["ORTHODONTISTT", "ATTORNEY"], "contributor_employer": ["", ""]})
+    df = pd.DataFrame(
+        {"contributor_occupation": ["ORTHODONTISTT", "ATTORNEY"], "contributor_employer": ["", ""]}
+    )
     try:
         assert extend_corrections(df) == 1
         assert (
@@ -276,12 +340,14 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
     from fec.cleaning.work.model_client import DEFAULT_MODEL
     from fec.vocabulary.occupations import CATEGORY_OVERRIDES
 
-    monkeypatch.setattr(occupation_categories, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
+    monkeypatch.setattr(
+        occupation_categories, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv"
+    )
     asked = []
 
     def fake_model(texts):
         asked.extend(sorted(texts))
-        return {t: "SCIENCE / RESEARCH" for t in texts}
+        return dict.fromkeys(texts, "SCIENCE / RESEARCH")
 
     df = pd.DataFrame(
         {
@@ -304,7 +370,9 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
             "occupation,category,model",
             f"QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{DEFAULT_MODEL}",
         ]
-        assert occupation_categories.learn_categories(df, ask=fake_model) == 0  # remembered: not asked again
+        assert (
+            occupation_categories.learn_categories(df, ask=fake_model) == 0
+        )  # remembered: not asked again
     finally:
         CATEGORY_OVERRIDES.pop("QUANTUM TOPOLOGIST", None)
 
@@ -322,8 +390,10 @@ def test_reviewed_category_overrides_win_over_the_model():
     from fec.common.settings import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
     from fec.vocabulary.occupations import CATEGORY_OVERRIDES, VALID_CATEGORIES
 
-    cache = {r["occupation"]: r["category"] for r in csv.DictReader(open(OCCUPATION_CATEGORY_CACHE_CSV))}
-    overrides = {r["occupation"]: r["category"] for r in csv.DictReader(open(OCCUPATION_CATEGORY_OVERRIDES_CSV))}
+    with open(OCCUPATION_CATEGORY_CACHE_CSV) as handle:
+        cache = {row["occupation"]: row["category"] for row in csv.DictReader(handle)}
+    with open(OCCUPATION_CATEGORY_OVERRIDES_CSV) as handle:
+        overrides = {row["occupation"]: row["category"] for row in csv.DictReader(handle)}
     assert set(cache.values()) <= VALID_CATEGORIES and set(overrides.values()) <= VALID_CATEGORIES
     assert all(CATEGORY_OVERRIDES[k] == v for k, v in overrides.items())
     assert all(CATEGORY_OVERRIDES[k] == v for k, v in cache.items() if k not in overrides)
@@ -339,10 +409,20 @@ def test_status_word_reads_a_slip_and_leaves_other_words():
     assert status_word("NOT EMOLOYED") == "NOT EMPLOYED"
     assert status_word("HOUSE WIFE") == "HOUSEWIFE"
     assert status_word("RETIRED") == "RETIRED"  # itself
-    for word in ("PRESIDENT", "RESIDENT", "RETAILER", "HOMEOWNER", "STUDIO", "RET", "SELF", "RETIREMENT PLANNER"):
+    for word in (
+        "PRESIDENT",
+        "RESIDENT",
+        "RETAILER",
+        "HOMEOWNER",
+        "STUDIO",
+        "RET",
+        "SELF",
+        "RETIREMENT PLANNER",
+    ):
         assert status_word(word) is None, word
     assert learn_status_typos(
-        ["Self Employeed", "UN EMPLOYED", "ACME LLC", "RETIRED"], canonical={"UNEMPLOYED": "NOT EMPLOYED"}
+        ["Self Employeed", "UN EMPLOYED", "ACME LLC", "RETIRED"],
+        canonical={"UNEMPLOYED": "NOT EMPLOYED"},
     ) == {
         "SELF EMPLOYEED": "SELF-EMPLOYED",
         "UN EMPLOYED": "NOT EMPLOYED",
@@ -350,7 +430,10 @@ def test_status_word_reads_a_slip_and_leaves_other_words():
 
 
 def _read(rows):
-    """(employer, occupation) as read for filings given as (name, filed employer, filed occupation)."""
+    """(employer, occupation) as read for filings.
+
+    Each filing is given as (name, filed employer, filed occupation).
+    """
     from fec.cleaning.work.work_fields import read_work
 
     df = pd.DataFrame(rows, columns=["contributor_name", "filed_employer", "filed_occupation"])
@@ -388,20 +471,32 @@ def test_work_fields_are_read_from_the_filed_pair():
         ("A, B", "OWNER", ""): ("SELF-EMPLOYED", "OWNER"),
         ("A, B", "ATTORNEY", "RETIRED"): ("RETIRED", "ATTORNEY"),
         ("A, B", "CONSULTANT", "INVESTOR"): ("", "INVESTOR"),
-        ("A, B", "CONSULTANT", "PROJECT MANAGEMENT CONSULTANT"): ("", "PROJECT MANAGEMENT CONSULTANT"),
+        ("A, B", "CONSULTANT", "PROJECT MANAGEMENT CONSULTANT"): (
+            "",
+            "PROJECT MANAGEMENT CONSULTANT",
+        ),
         ("A, B", "ATTORNEY", "ATTORNEY"): ("", "ATTORNEY"),
         # a company in the occupation box: the role stays, the company moves to an open employer
         ("A, B", "", "PRESIDENT, RELAY HUMAN CLOUD, INC"): ("RELAY HUMAN CLOUD INC", "PRESIDENT"),
         ("A, B", "BOXER PROPERTY CORP", "CEO AT ACME LLC"): ("BOXER PROPERTY CORP", "CEO"),
         ("A, B", "", "MD ANDERSON CANCER CENTER INC"): ("MD ANDERSON CANCER CENTER INC", ""),
-        ("A, B", "ACME LLC", "PRESIDENT OF HEALTH TECH COMPANY"): ("ACME LLC", "PRESIDENT OF HEALTH TECH COMPANY"),
+        ("A, B", "ACME LLC", "PRESIDENT OF HEALTH TECH COMPANY"): (
+            "ACME LLC",
+            "PRESIDENT OF HEALTH TECH COMPANY",
+        ),
         ("A, B", "SELF-EMPLOYED", "COMPANY"): ("SELF-EMPLOYED", "SELF-EMPLOYED"),
         # the donor's own name is no employer, unless it carries a legal form
         ("DOE, JANE", "JANE DOE", "WRITER"): ("SELF-EMPLOYED", "WRITER"),
         ("DOE, JANE", "JANE DOE LLC", "WRITER"): ("JANE DOE LLC", "WRITER"),
         # the occupation is a name this donor files as their employer elsewhere
-        ("BRUST, RANDY", "SELF-EMPLOYED", "CRESCENT REALTY ADVISORS"): ("CRESCENT REALTY ADVISORS", ""),
-        ("BRUST, RANDY", "CRESCENT REALTY ADVISORS", "REAL ESTATE"): ("CRESCENT REALTY ADVISORS", "REAL ESTATE"),
+        ("BRUST, RANDY", "SELF-EMPLOYED", "CRESCENT REALTY ADVISORS"): (
+            "CRESCENT REALTY ADVISORS",
+            "",
+        ),
+        ("BRUST, RANDY", "CRESCENT REALTY ADVISORS", "REAL ESTATE"): (
+            "CRESCENT REALTY ADVISORS",
+            "REAL ESTATE",
+        ),
     }
     assert dict(zip(cases, _read(list(cases)))) == cases
 
@@ -420,7 +515,16 @@ def test_placeholder_employers_are_one_list():
         False,
         False,
     ]
-    assert [names_no_employer(v) for v in values] == [True, True, True, True, False, True, True, False]
+    assert [names_no_employer(v) for v in values] == [
+        True,
+        True,
+        True,
+        True,
+        False,
+        True,
+        True,
+        False,
+    ]
 
 
 def test_occupation_corrections_are_one_table():
@@ -428,7 +532,9 @@ def test_occupation_corrections_are_one_table():
 
     # No correction leads to another listed form: a filed value is corrected in one step.
     assert not [
-        k for k, v in OCCUPATION_CORRECTIONS.items() if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v
+        k
+        for k, v in OCCUPATION_CORRECTIONS.items()
+        if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v
     ]
     assert OCCUPATION_CORRECTIONS["ATTY"] == "ATTORNEY" and "ATTY" in TEXT_CORRECTIONS
     assert OCCUPATION_CORRECTIONS["XXX"] is None and "XXX" not in TEXT_CORRECTIONS
@@ -442,13 +548,21 @@ def test_a_name_is_read_once_from_its_three_boxes():
         "VINCENT",
         "GALICI",
     )
-    assert read_name("POLLOCK MD, TODD", "TODD", "POLLOCK MD") == ("POLLOCK, TODD", "TODD", "POLLOCK")
+    assert read_name("POLLOCK MD, TODD", "TODD", "POLLOCK MD") == (
+        "POLLOCK, TODD",
+        "TODD",
+        "POLLOCK",
+    )
     assert read_name("GERENRAICH, DPM, KENNY", "KENNY", "GERENRAICH, DPM") == (
         "GERENRAICH, KENNY",
         "KENNY",
         "GERENRAICH",
     )
-    assert read_name("YOUNGMAN, CARL M.", "CARL M.", "YOUNGMAN") == ("YOUNGMAN, CARL M", "CARL M.", "YOUNGMAN")
+    assert read_name("YOUNGMAN, CARL M.", "CARL M.", "YOUNGMAN") == (
+        "YOUNGMAN, CARL M",
+        "CARL M.",
+        "YOUNGMAN",
+    )
     assert read_name("OSHER, LOREN MARK", "LOREN", "OSHER") == (
         "OSHER, LOREN MARK",
         "LOREN MARK",
@@ -459,22 +573,40 @@ def test_a_name_is_read_once_from_its_three_boxes():
         "ELLIOTT",
         "FELSON",
     )
-    assert read_name("MOND, MRS", "MRS", "MOND") == ("MOND, MRS", "", "MOND")  # a title is no first name
-    assert read_name("DE TOLEDO, PHILIP", "PHILIP", "DE TOLEDO") == ("DE TOLEDO, PHILIP", "PHILIP", "DE TOLEDO")
-    assert read_name("CHALME'', RAYMOND", "RAYMOND", "CHALME''") == ("CHALME', RAYMOND", "RAYMOND", "CHALME'")
+    assert read_name("MOND, MRS", "MRS", "MOND") == (
+        "MOND, MRS",
+        "",
+        "MOND",
+    )  # a title is no first name
+    assert read_name("DE TOLEDO, PHILIP", "PHILIP", "DE TOLEDO") == (
+        "DE TOLEDO, PHILIP",
+        "PHILIP",
+        "DE TOLEDO",
+    )
+    assert read_name("CHALME'', RAYMOND", "RAYMOND", "CHALME''") == (
+        "CHALME', RAYMOND",
+        "RAYMOND",
+        "CHALME'",
+    )
 
 
 def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
     from fec.cleaning import filing_corrections
 
     rows = filing_corrections._read_reviewed_filings()
-    waiting = rows.index[rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")][0]
+    waiting = rows.index[
+        rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")
+    ][0]
     cleared = rows.index[rows["contributor_employer"].str.upper().eq(filing_corrections.CLEAR)][0]
-    df = pd.DataFrame({"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]})
+    df = pd.DataFrame(
+        {"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]}
+    )
     for column in filing_corrections.FIELDS[1:]:
         df[column] = "FILED"
     filing_corrections.apply_filing_corrections(df)
-    assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(df["contributor_employer"][1])
+    assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(
+        df["contributor_employer"][1]
+    )
     filing_corrections.apply_filing_corrections(df, matched=True)
     assert (
         df["contributor_employer"][0] == rows.at[waiting, "contributor_employer"]
