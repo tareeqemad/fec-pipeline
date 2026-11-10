@@ -329,17 +329,17 @@ def test_same_words_in_another_order_are_one_name():
     assert keys['624'] == keys['625']
 
 
-def test_joint_filings_do_not_join_the_two_people():
-    # STUART and SARA each file alone; their joint filings get one key of their own.
+def test_held_filing_takes_no_part_in_matching():
+    # A reviewed hold (this name at this street) keeps a filing outside the donor its name would join.
     rows = [
-        _row('631', 'MEYERS, STUART', 'STUART', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
-        _row('632', 'MEYERS, SARA', 'SARA', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
-        _row('633', 'MEYERS, STUART SARA', 'STUART SARA', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
-        _row('634', 'MEYERS, SARA STUART', 'SARA STUART', 'MEYERS', 'DUNWOODY', 'GA', '30338', '1841 VERMACK CT'),
+        _row('631', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '9 OTHER ST'),
+        _row('632', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '9 OTHER ST'),
+        _row('633', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '200 SE MIZNER BLVD'),
     ]
-    keys = _keys(_identify(rows))
-    assert keys['631'] != keys['632']
-    assert keys['633'] == keys['634'] not in (keys['631'], keys['632'])
+    df = _identify(rows)
+    keys = _keys(df)
+    assert keys['631'] == keys['632'] != keys['633']
+    assert df.set_index('sub_id')['identity_status'].to_dict() == {'631': 'confirmed', '632': 'confirmed', '633': 'held'}
 
 
 def test_learn_typos_reads_one_slip_from_one_listed_occupation():

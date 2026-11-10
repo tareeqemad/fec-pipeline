@@ -86,9 +86,12 @@ def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
 
 
 # Reuse each donor's earlier key: the one most of its filings had.
-def keep_earlier_keys(df: pd.DataFrame, earlier: dict) -> list[str]:
-    """Give new keys their earlier names; return earlier keys left unused."""
-    people = df["entity_type"].eq("INDIVIDUAL")
+def keep_earlier_keys(df: pd.DataFrame, earlier: dict, skip: pd.Series | None = None) -> list[str]:
+    """Give new keys their earlier names; return earlier keys left unused.
+
+    Filings marked skip (held ones, no donor's) claim no earlier key.
+    """
+    people = df["entity_type"].eq("INDIVIDUAL") & ~(False if skip is None else skip)
     pairs = pd.DataFrame({
         "new": df.loc[people, "donor_key"],
         "old": df.loc[people, "sub_id"].astype(str).map(earlier),

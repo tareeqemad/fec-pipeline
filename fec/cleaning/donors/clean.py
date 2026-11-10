@@ -25,6 +25,7 @@ from fec.donor_match.keys import (
     validate_separations,
 )
 from fec.donor_match.matcher import match_donors
+from fec.donor_match.rules import held_groups
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -47,7 +48,7 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
     if earlier_keys:
-        lost = keep_earlier_keys(df_clean, earlier_keys)
+        lost = keep_earlier_keys(df_clean, earlier_keys, skip=held_groups(df_clean).ne(""))
         if lost:
             logger.warning("WARNING: %s earlier donor keys no longer used (split or merged): %s",
                            len(lost), ", ".join(lost[:5]))

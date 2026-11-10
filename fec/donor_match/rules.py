@@ -83,29 +83,6 @@ def _load_separations(rows):
     return name_pairs, identity_pairs, frozenset(zip_names)
 
 
-def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
-    """The surname and the first-name words."""
-    last, _, first = _normalize(name).partition(",")
-    return last.strip(), tuple(re.findall(r"[A-Z]+", first))
-
-
-def _load_merged_given_names(key_merges, name_merges) -> dict[str, list[frozenset]]:
-    """Given names verified as one person's, by surname."""
-    merged = defaultdict(list)
-    for row in key_merges:
-        (last_a, words_a), (last_b, words_b) = _name_words(row.get("name_a")), _name_words(row.get("name_b"))
-        if last_a and last_a == last_b:
-            merged[last_a].append(frozenset(words_a + words_b))
-    for names in name_merges.values():
-        by_last = defaultdict(set)
-        for name in names:
-            last, words = _name_words(name)
-            by_last[last] |= set(words)
-        for last, words in by_last.items():
-            merged[last].append(frozenset(words))
-    return dict(merged)
-
-
 _RULES = _read_rules()
 SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES["separate"])
 # donor key to drop -> key to keep; a rule scoped to sub_ids renames a committee only.
@@ -129,8 +106,6 @@ for _row in _RULES["merge_names"]:
     _name = _normalize(_row["name_a"])
     NAME_MERGES[(_row.get("group") or _name).strip()] += (_name,)
 NAME_MERGES = dict(NAME_MERGES)
-MERGED_GIVEN_NAMES = _load_merged_given_names(_RULES["merge_keys"], NAME_MERGES)
-MERGED_NAME_PREFIXES = tuple(prefix for prefixes in NAME_MERGES.values() for prefix in prefixes)
 
 
 def held_groups(df, filings=None, addresses=None):

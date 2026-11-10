@@ -5,10 +5,9 @@ from collections import defaultdict
 import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES
-from fec.donor_match.joint import find_joint_filings, split_joint_filings
 from fec.donor_match.keys import _donor_keys, individual_record_id
 from fec.donor_match.normalize import extract_middle, normalize_employer, normalize_name
-from fec.donor_match.rules import NAME_MERGES, split_zip
+from fec.donor_match.rules import NAME_MERGES, held_groups, split_zip
 from fec.donor_match.phases import (
     MatchContext,
     _score_cross_groups,
@@ -26,8 +25,12 @@ PHASES = (
 
 
 def match_donors(df: pd.DataFrame) -> dict:
-    """Score-based donor matching; returns each profile's donor key."""
-    profiles = build_profiles(df[df["entity_type"] == "INDIVIDUAL"])
+    """Score-based donor matching; returns each profile's donor key.
+
+    A held filing (a joint name, an unproven owner) belongs to no donor, so
+    it takes no part and cannot join two people through itself.
+    """
+    profiles = build_profiles(df[df["entity_type"].eq("INDIVIDUAL") & held_groups(df).eq("")])
     name_groups = defaultdict(list)
     for rid, profile in profiles.items():
         name_groups[profile["norm_name"]].append(rid)
@@ -42,8 +45,7 @@ def match_donors(df: pd.DataFrame) -> dict:
     components = defaultdict(set)
     for rid in uf.parent:
         components[uf.find(rid)].add(rid)
-    edges = context.edges + _apply_force_merges(components, profiles)
-    split_joint_filings(components, find_joint_filings(profiles, components), profiles, edges)
+    _apply_force_merges(components, profiles)
     return _donor_keys(components)
 
 
@@ -133,18 +135,12 @@ class UnionFind:
         return True
 
 
-def _apply_force_merges(components: dict, profiles: dict) -> list:
-    """Join the groups of every profile a verified name merge covers; return the pairs joined."""
+def _apply_force_merges(components: dict, profiles: dict) -> None:
+    """Join the groups of every profile a verified name merge covers."""
     root_of = {rid: root for root, members in components.items() for rid in members}
-    edges = []
     for prefixes in NAME_MERGES.values():
-        rids = sorted(rid for rid, p in profiles.items() if p["name"].startswith(prefixes))
-        if len(rids) < 2:
-            continue
-        target, *others = sorted({root_of[rid] for rid in rids})
-        for other in others:
+        roots = sorted({root_of[rid] for rid, p in profiles.items() if p["name"].startswith(prefixes)})
+        for other in roots[1:]:
             for rid in components.pop(other):
-                components[target].add(rid)
-                root_of[rid] = target
-        edges += list(zip(rids, rids[1:]))
-    return edges
+                components[roots[0]].add(rid)
+                root_of[rid] = roots[0]
