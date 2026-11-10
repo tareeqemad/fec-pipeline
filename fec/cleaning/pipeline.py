@@ -7,10 +7,10 @@ Steps, in order (main):
     2. clean_and_match
        a. clean_records             one record at a time:
           _prepare_records          drop duplicate IDs, read dates, attach FEC source fields
-          _clean_people             names, work fields (read_work), entity types (classify_entities)
+          _clean_people             names and entity types (classify_entities)
           clean_addresses           USPS form and reviewed address rules (cleaning/addresses)
           _finish_records           recipient committee names
-          apply_record_rules        business names, then the work fields again with the final types
+          apply_record_rules        business names, then the work fields of each person (read_work)
           apply_filing_corrections  reviewed corrections by sub_id (data/rules/filing_corrections.csv)
           _learn_categories         ask the model for occupation texts no table lists
        b. identify_donors           one donor key per person (fec/matching)
@@ -49,6 +49,7 @@ from fec.cleaning.quality_gates import run_quality_gates
 from fec.cleaning.work.occupation_categories import learn_categories
 from fec.cleaning.work.occupation_typos import extend_corrections
 from fec.cleaning.work.status_spellings import extend_spellings
+from fec.cleaning.work.text_cleanup import EMPLOYER_STATUS_TEXT, clean_box_text
 from fec.cleaning.work.work_fields import read_work
 from fec.common import settings as env
 from fec.common.columns import CLEAN_COLUMNS, INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS, check_output
@@ -59,7 +60,7 @@ from fec.common.settings import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DI
 from fec.matching.donor_work import recategorize_occupations
 from fec.matching.name_compare import extract_generational_suffix
 from fec.matching.pipeline import identify_donors, standardize_donors
-from fec.vocabulary.occupations import CATEGORY_OVERRIDES
+from fec.vocabulary.occupations import CATEGORY_OVERRIDES, EMPLOYER_NORMALIZE
 
 logger = get_logger(__name__)
 
@@ -161,7 +162,10 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     preclean_name_punctuation(df)
 
     people = df["is_individual"].astype(bool)
-    read_work(df, people, df["contributor_employer"].copy(), df["contributor_occupation"].copy())
+    # The type is read from the employer as spelled; the work fields are read once the type is known.
+    df.loc[people, "contributor_employer"] = clean_box_text(
+        df.loc[people, "contributor_employer"], EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT
+    )
     df.loc[~people, ["contributor_occupation", "occupation_category"]] = [
         np.nan,
         "POLITICAL COMMITTEE",
