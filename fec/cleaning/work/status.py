@@ -26,7 +26,7 @@ _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
 _NO_WORK_OCCUPATIONS = _NO_WORK_CATEGORIES | {"HOUSEWIFE", "UNEMPLOYED"}
 
 
-def _status_text(value) -> str:
+def _status_text(value: object) -> str:
     """Uppercased, stripped text for a status field; '' if missing."""
     return "" if pd.isna(value) else str(value).strip().upper()
 
@@ -65,7 +65,7 @@ _STRUCTURAL_JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 _EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
 
-def employer_rejection_reason(emp) -> str:
+def employer_rejection_reason(emp: object) -> str:
     """Reject known non-company values; accepted names are not verified."""
     if pd.isna(emp):
         return "missing_value"
@@ -100,12 +100,12 @@ def _employer_rejection_reason(upper: str) -> str:
     return ""
 
 
-def is_real_employer(emp) -> bool:
+def is_real_employer(emp: object) -> bool:
     """Whether a value can be an employer name."""
     return not employer_rejection_reason(emp)
 
 
-def classify_employer_status(employer, occupation="", category="") -> str:
+def classify_employer_status(employer: object, occupation: object = "", category: object = "") -> str:
     """Classify work status without changing the reported company."""
     emp = _status_text(employer)
     occ = _status_text(occupation)
@@ -140,7 +140,7 @@ def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def current_employer_name(status, employer) -> str:
+def current_employer_name(status: object, employer: object) -> str:
     """Return a real current company, only when the status permits one."""
     if status not in {"active", "self_employed"} or not is_real_employer(employer):
         return ""

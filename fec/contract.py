@@ -1,5 +1,6 @@
 """Required input and output columns for each pipeline stage."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 # clean.py writes exactly these, in this order
@@ -39,6 +40,8 @@ class ContractError(ValueError):
 
 @dataclass(frozen=True)
 class Stage:
+    """Describe the columns one pipeline stage needs, adds, drops and refuses."""
+
     command: str
     needs: tuple[str, ...] = ()
     adds: tuple[str, ...] = ()
@@ -65,7 +68,7 @@ def _added_by(column: str) -> str:
     return next((stage.command for stage in STAGES.values() if column in stage.adds), "clean.py")
 
 
-def check_input(stage_name: str, columns) -> None:
+def check_input(stage_name: str, columns: Iterable[str]) -> None:
     """Check required columns; reject stages run on their own output."""
     stage = STAGES[stage_name]
     rerun = [column for column in stage.refuses if column in set(columns)]
@@ -77,7 +80,7 @@ def check_input(stage_name: str, columns) -> None:
         raise ContractError(f"{stage.command} needs columns {', '.join(missing)}; run {first} first")
 
 
-def check_output(stage_name: str, input_columns, output_columns) -> None:
+def check_output(stage_name: str, input_columns: Iterable[str], output_columns: Iterable[str]) -> None:
     """Check output columns against the stage, including duplicates."""
     stage = STAGES[stage_name]
     expected = (set(input_columns) | set(stage.adds)) - set(stage.drops)
@@ -100,7 +103,7 @@ def check_output(stage_name: str, input_columns, output_columns) -> None:
         raise ContractError(f"{stage.command} would write a broken file: " + "; ".join(problems))
 
 
-def check_loadable(columns) -> None:
+def check_loadable(columns: Iterable[str]) -> None:
     """Require the finished columns expected by the loader."""
     columns = list(columns)
     missing = [column for column in LOADED_COLUMNS if column not in columns]

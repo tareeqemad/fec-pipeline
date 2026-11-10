@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -25,16 +26,19 @@ TIMEOUT = 300
 
 
 def model_name(model: str | None = None) -> str:
+    """Return the model to call: the one given, OPENAI_MODEL, or the default."""
     return model or os.environ.get("OPENAI_MODEL", DEFAULT_MODEL)
 
 
 def have_key() -> bool:
+    """Return whether an OpenAI API key is set."""
     return bool(os.environ.get("OPENAI_API_KEY"))
 
 
 def _ask(
     lines: list[str], instructions: str, user_prefix: str, schema: dict, key_field: str, model: str
 ) -> dict[str, dict]:
+    """Send one batch of lines to the model and return the answers keyed by line."""
     body = {
         "model": model,
         "messages": [
@@ -68,7 +72,7 @@ class OutOfCredit(RuntimeError):
 
 
 def ask_lines(
-    lines,
+    lines: Iterable[object],
     instructions: str,
     item_schema: dict,
     *,

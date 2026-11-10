@@ -64,7 +64,7 @@ def _same_house_number(street: str, returned_number: str) -> bool:
     return expected.group(1).upper() == returned_number.strip().upper()
 
 
-def _same_us_place(state: str, zipcode: str, returned_state, returned_zip) -> bool:
+def _same_us_place(state: str, zipcode: str, returned_state: object, returned_zip: object) -> bool:
     """Reject a different state or ZIP; allow postal city aliases."""
     if state and returned_state:
         actual_state = str(returned_state).strip().upper().removeprefix("US-")

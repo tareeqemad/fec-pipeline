@@ -12,6 +12,7 @@ Without OPENAI_API_KEY the step is skipped and a new text stays OTHER.
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable, Iterable
 
 import pandas as pd
 
@@ -35,7 +36,7 @@ _ITEM = {
 }
 
 
-def classify(texts, *, model: str | None = None) -> dict[str, str]:
+def classify(texts: Iterable[object], *, model: str | None = None) -> dict[str, str]:
     """{text: category} from the model, for texts not yet known; {} without a key."""
     answers = ask_lines(
         texts,
@@ -65,7 +66,7 @@ def remember(answers: dict[str, str], model: str | None = None) -> None:
         CATEGORY_OVERRIDES.setdefault(text, category)
 
 
-def learn_categories(df: pd.DataFrame, *, ask=classify) -> int:
+def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = classify) -> int:
     """Categorize the individuals' occupations no table lists; return how many texts."""
     people = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df.columns else df["is_individual"].astype(bool)
     occupation = df["contributor_occupation"].fillna("").astype(str).str.strip()

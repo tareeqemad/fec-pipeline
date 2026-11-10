@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -31,7 +32,8 @@ def _first_name_rule(number: int, raw: str, corrected: str, zip_field: str) -> l
     return [(last, first, z) for z in zips]
 
 
-def _load_rules(path=CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
+def _load_rules(path: Path = CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
+    """Read the reviewed name rules, grouped by rule type."""
     if not path.exists():
         raise FileNotFoundError(f"Missing contributor name rules: {path}")
 
@@ -104,10 +106,12 @@ def _preclean_name_punctuation(df: pd.DataFrame) -> None:
 
 
 def _tidy(text: str) -> str:
+    """Remove backticks and semicolons, collapse whitespace and fix doubled quotes."""
     return re.sub(r"\s+", " ", re.sub(r"[`;]", "", text)).strip().replace("''", "'")
 
 
 def _bare(word: str) -> str:
+    """Return a word without periods."""
     return word.replace(".", "")
 
 
@@ -188,7 +192,7 @@ def clean_names(df: pd.DataFrame) -> None:
     )
 
 
-def _fix_garbled_first_names(df: pd.DataFrame, people) -> None:
+def _fix_garbled_first_names(df: pd.DataFrame, people: pd.Index) -> None:
     """Reviewed first-name fixes for the matching surname and ZIP5."""
     garbled = {word for _, word, _ in FIRST_NAME_FIXES}
     first = df.loc[people, "contributor_first_name"].fillna("").astype(str)

@@ -21,7 +21,7 @@ _FIRM_WORD_RE = re.compile(
 _PERSON_TITLES = words("person_titles")
 
 
-def split_self_marker(value) -> tuple[bool, str]:
+def split_self_marker(value: object) -> tuple[bool, str]:
     """(self_employed, rest): a SELF marker before or after the text, and what else it names."""
     if not isinstance(value, str):
         return False, ""

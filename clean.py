@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 
 
 def main() -> pd.DataFrame:
+    """Read the raw filings, clean them, run the checks and save the cleaned CSV."""
     start = time.perf_counter()
     env.load_env()
 
@@ -50,7 +51,7 @@ def main() -> pd.DataFrame:
     return output
 
 
-def _assert_known_committees(df):
+def _assert_known_committees(df: pd.DataFrame) -> None:
     """Stop if a recipient is missing from committees.csv."""
     known = {row["committee_short"] for row in load_committees() if row.get("committee_short")}
     recipients = df["recipient_committee"]
@@ -65,7 +66,7 @@ def _assert_known_committees(df):
     raise SystemExit(1)
 
 
-def _ensure_zip_format(df):
+def _ensure_zip_format(df: pd.DataFrame) -> None:
     """US ZIPs as five digits; foreign postcodes as filed."""
     us = ~foreign_address_mask(df)
     zips = df["contributor_zip"]
@@ -96,13 +97,13 @@ def _earlier_donor_keys() -> dict:
     return dict(zip(keys["sub_id"], keys["donor_key"]))
 
 
-def _save_donor_keys(cleaned) -> None:
+def _save_donor_keys(cleaned: pd.DataFrame) -> None:
     """Remember each filing's donor key for the next run."""
     keys = cleaned[["sub_id", "_matched_key"]].rename(columns={"_matched_key": "donor_key"})
     write_csv_atomic(keys, str(DONOR_KEYS_CSV), index=False)
 
 
-def _write_new_occupations(df, out_dir) -> None:
+def _write_new_occupations(df: pd.DataFrame, out_dir: str) -> None:
     """Occupations missing from the category table, for optional review."""
     occupation = df["contributor_occupation"].fillna("")
     new = df[df["entity_type"].eq("INDIVIDUAL") & occupation.ne("") & ~occupation.isin(CATEGORY_OVERRIDES)]
@@ -112,7 +113,7 @@ def _write_new_occupations(df, out_dir) -> None:
         logger.info("New occupations: %s (data/reports/new_occupations.csv)", f"{len(report):,}")
 
 
-def _print_summary(df, output, out_dir, elapsed):
+def _print_summary(df: pd.DataFrame, output: str, out_dir: str, elapsed: float) -> None:
     """Show counts, output paths and elapsed time."""
     donors = df.loc[df["entity_type"].eq("INDIVIDUAL"), "donor_key"].nunique()
     minutes, seconds = divmod(round(elapsed), 60)
@@ -123,9 +124,8 @@ def _print_summary(df, output, out_dir, elapsed):
     logger.info("Completed in %dm %02ds.", minutes, seconds)
 
 
-def _save_if_gates_pass(output, out_dir, output_path) -> None:
-    # Resolve reruns the checks that need employer_status.
-    """Save the CSV only after the applicable checks pass."""
+def _save_if_gates_pass(output: pd.DataFrame, out_dir: str, output_path: str) -> None:
+    """Save the CSV only after the applicable checks pass; resolve reruns those that need employer_status."""
     quality = run_quality_gates(output)
     write_json_atomic(os.path.join(out_dir, "quality_gates.json"), {**quality, "stage": "clean"}, indent=2)
     if not quality["passed"]:

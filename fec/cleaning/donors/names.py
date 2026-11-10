@@ -36,6 +36,7 @@ def canonicalize_committee_names(df: pd.DataFrame) -> int:
 
 
 def _tokens(text: str) -> list:
+    """Return the name tokens of a text, uppercased."""
     return _TOKEN.findall(text.upper())
 
 
@@ -50,6 +51,7 @@ def _surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
     filed = Counter(last for last in lasts if last)
 
     def base(variant: str) -> str:
+        """Return the surname a variant shortens to when its extra words are initials or given names."""
         # KARNEY GUREN beside GUREN: the same surname when the donor files KARNEY as a given name
         given = {t for last, first in zip(lasts, firsts) if last != variant for t in _tokens(first)}
         for shorter in sorted(filed, key=len):
@@ -87,6 +89,7 @@ def _fullest(spellings: list[str], asides: set, rare: frozenset) -> str | None:
     filed = Counter(kept)
 
     def plain(s: str) -> str:
+        """Return a given name without bracketed asides and the words that only repeat them."""
         first, *rest = _core(s).split() or [""]
         return " ".join([first, *(w for w in rest if not set(_tokens(w)) <= asides or not _tokens(w))])
 

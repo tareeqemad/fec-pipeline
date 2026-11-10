@@ -171,6 +171,7 @@ def companies_named(texts: pd.Series) -> pd.Series:
 
 
 def company_named(text: str) -> str:
+    """Return the company one employer text names, or '' for a status, a job or nothing."""
     return companies_named(pd.Series([text])).iloc[0]
 
 
@@ -185,6 +186,7 @@ def read_work(df: pd.DataFrame, people: pd.Series, filed_employers: pd.Series, f
     work = pd.DataFrame([retired[pair] for pair in filed], index=rows, columns=["e", "o", "previous", "said_retired"])
 
     def text(column: str) -> pd.Series:
+        """Return the column for these rows as stripped uppercase text."""
         return df.loc[rows, column].fillna("").astype(str).str.strip().str.upper()
 
     names = text("contributor_name")

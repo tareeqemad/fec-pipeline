@@ -1,11 +1,12 @@
 """Shared cleaning helpers."""
 
 import re
+from typing import Any
 
 import pandas as pd
 
 
-def name_words(*parts) -> frozenset[str]:
+def name_words(*parts: Any) -> frozenset[str]:
     """Word set of a personal name, ignoring order, punctuation and initials."""
     text = " ".join(str(part) for part in parts if isinstance(part, str))
     return frozenset(word for word in re.sub(r"[^A-Z]", " ", text.upper()).split() if len(word) > 1)

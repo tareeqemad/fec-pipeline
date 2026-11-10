@@ -33,7 +33,7 @@ def _related(first_a: str, first_b: str) -> str:
     return f"initial/prefix {short}->{long}" if long.startswith(short) else ""
 
 
-def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
+def build_donor_dedup_review(df: pd.DataFrame, out_dir: str | None) -> int:
     """Write the pairs to data/reports/donor_dedup_review.csv, largest combined amount first."""
     people = df[df["entity_type"].eq("INDIVIDUAL")].copy() if out_dir else df.iloc[:0]
     path = Path(out_dir or ".") / "donor_dedup_review.csv"
@@ -58,6 +58,7 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
     people["amount"] = pd.to_numeric(people["contribution_receipt_amount"], errors="coerce").fillna(0)
 
     def first_filed(values: pd.Series) -> str:
+        """Return the first non-empty value, or ''."""
         return next((value for value in values if value), "")
 
     donors = people.groupby("donor_key").agg(

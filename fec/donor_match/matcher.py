@@ -54,7 +54,7 @@ def match_donors(df: pd.DataFrame) -> dict:
     return _donor_keys(components)
 
 
-def _s(val) -> str:
+def _s(val: object) -> str:
     """Cell value as a stripped string, NaN -> ''."""
     if pd.isna(val):
         return ""
@@ -115,11 +115,13 @@ def build_profiles(indiv: pd.DataFrame) -> dict:
 class UnionFind:
     """Track connected profiles with path compression and union by rank."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Start with no profiles."""
         self.parent = {}
         self.rank = {}
 
-    def find(self, x):
+    def find(self, x: str) -> str:
+        """Return the root of x's group, adding x as its own group if new."""
         if x not in self.parent:
             self.parent[x] = x
             self.rank[x] = 0
@@ -128,7 +130,8 @@ class UnionFind:
             x = self.parent[x]
         return x
 
-    def union(self, a, b):
+    def union(self, a: str, b: str) -> bool:
+        """Join the groups of a and b; return False if they were already one group."""
         ra, rb = self.find(a), self.find(b)
         if ra == rb:
             return False

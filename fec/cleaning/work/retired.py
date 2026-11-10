@@ -49,7 +49,7 @@ def is_retired_word(word: str) -> bool:
     return word in _RETIRED_WORDS or (word.isalpha() and status_word(word) == "RETIRED")
 
 
-def split_retired(value) -> tuple[bool, str]:
+def split_retired(value: object) -> tuple[bool, str]:
     """(retired, rest): whether the text says retired, and what else it names."""
     if not isinstance(value, str):
         return False, ""
@@ -83,7 +83,7 @@ def split_retired(value) -> tuple[bool, str]:
     return True, _tidy(kept)
 
 
-def _plain(value) -> str:
+def _plain(value: object) -> str:
     """Return the text as split_retired reads it before any word is removed."""
     return " ".join(value.upper().replace(".", " ").split()) if isinstance(value, str) else ""
 
@@ -103,6 +103,7 @@ def _tidy(text: str) -> str:
 
 
 def _names_nothing(rest: str) -> bool:
+    """Return whether the rest of a text names nothing."""
     return not rest or rest in _NOTHING or len(re.sub(r"[^A-Z]", "", rest)) < 3
 
 

@@ -9,6 +9,7 @@
 
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import combinations
 
@@ -26,6 +27,8 @@ _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 
 @dataclass
 class MatchContext:
+    """Hold the name groups, profiles and union-find state shared by the matching phases."""
+
     name_groups: dict
     profiles: dict
     union_find: object
@@ -65,6 +68,7 @@ def _score_within_groups(context: MatchContext) -> None:
 
 
 def _norms_by_last_name(name_groups: dict) -> dict:
+    """Group the normalised names by surname."""
     grouped = defaultdict(set)
     for norm_name in name_groups:
         if "|" in norm_name:
@@ -72,7 +76,13 @@ def _norms_by_last_name(name_groups: dict) -> dict:
     return grouped
 
 
-def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, records_match, adjust) -> None:
+def _score_bucket_pairs(
+    context: MatchContext,
+    buckets: dict,
+    names_match: Callable[[str, str], bool],
+    records_match: Callable[[dict, dict], bool],
+    adjust: Callable[[Evidence], int],
+) -> None:
     """Score eligible profile pairs in sorted name order."""
     for norms in buckets.values():
         for name_a, name_b in combinations(sorted(norms), 2):
@@ -87,10 +97,12 @@ def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, recor
 
 
 def _any_records(_p1: dict, _p2: dict) -> bool:
+    """Accept any pair of profiles."""
     return True
 
 
 def _same_street_or_zip(p1: dict, p2: dict) -> bool:
+    """Return whether two profiles share a street or a five-digit ZIP."""
     z1, z2 = p1["zip5"], p2["zip5"]
     return bool(p1["streets"] & p2["streets"]) or bool(z1 and len(z1) == 5 and z1 == z2)
 
@@ -113,12 +125,14 @@ def _score_cross_groups(context: MatchContext) -> None:
     firsts = {last: {norm.split("|", 1)[1] for norm in norms} for last, norms in buckets.items()}
 
     def candidates(name_a: str, name_b: str) -> bool:
+        """Return whether two names of one surname are cross-group candidates."""
         return _are_cross_group_candidates(name_a, name_b, firsts[name_a.split("|", 1)[0]])
 
     _score_bucket_pairs(context, buckets, candidates, _any_records, _cross_name_adjust)
 
 
 def _norms_by_first_name(name_groups: dict) -> dict:
+    """Group the normalised names that have both parts by first name."""
     grouped = defaultdict(set)
     for norm_name in name_groups:
         if "|" not in norm_name:
@@ -130,6 +144,7 @@ def _norms_by_first_name(name_groups: dict) -> dict:
 
 
 def _same_street_or_zip_and_employer(p1: dict, p2: dict) -> bool:
+    """Return whether two profiles share a street, or both a ZIP and an employer."""
     z1, z2 = p1["zip5"], p2["zip5"]
     same_zip = bool(z1 and len(z1) == 5 and z1 == z2)
     same_employer = bool(p1["norm_employers"] & p2["norm_employers"])
@@ -137,6 +152,7 @@ def _same_street_or_zip_and_employer(p1: dict, p2: dict) -> bool:
 
 
 def _surnames_vary(name_a: str, name_b: str) -> bool:
+    """Return whether the surnames of two names are variants of each other."""
     return _is_surname_variant(name_a.split("|", 1)[0], name_b.split("|", 1)[0])
 
 
@@ -186,6 +202,7 @@ def _score_name_variants(context: MatchContext) -> None:
 
 
 def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
+    """Index each name's tokens, its first-name tokens, and the names holding each token."""
     key_of: dict = {}
     first_of: dict = {}
     for norm_name in name_groups:
@@ -205,6 +222,7 @@ def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
 
 
 def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
+    """Return the names that hold every one of the tokens."""
     candidates = None
     for token in tokens:
         candidates = set(token_index[token]) if candidates is None else candidates & token_index[token]
@@ -218,6 +236,7 @@ def _is_valid_superset(
     key_of: dict,
     first_of: dict,
 ) -> bool:
+    """Return whether the longer name adds up to two words to the shorter one and shares a first name."""
     if longer_name == shorter_name:
         return False
     longer_tokens = key_of[longer_name]

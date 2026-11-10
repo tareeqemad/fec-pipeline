@@ -27,10 +27,11 @@ _BUILDING_RE = re.compile(r"\b(?:BLDG|BUILDING)\b\.?")
 
 
 def _text(df: pd.DataFrame, column: str) -> pd.Series:
+    """Return a column as text, with blanks for missing values."""
     return df[column].fillna("").astype(str)
 
 
-def _key(df: pd.DataFrame, *parts) -> pd.Series:
+def _key(df: pd.DataFrame, *parts: str | pd.Series) -> pd.Series:
     """Return the filings that belong together: columns by name, or values already worked out."""
     series = [_text(df, part) if isinstance(part, str) else part for part in parts]
     return series[0].str.cat(series[1:], sep="\x00")

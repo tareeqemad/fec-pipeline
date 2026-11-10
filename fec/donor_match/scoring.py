@@ -45,6 +45,8 @@ EMPLOYER_ONLY_COMMON_CAP = 30  # a common name sharing only an employer never me
 
 
 class Evidence(NamedTuple):
+    """Hold a pair's match score and which shared facts support it."""
+
     score: int
     street: bool = False
     zip5: bool = False

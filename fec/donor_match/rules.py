@@ -10,8 +10,12 @@ hold_address  a name at a street and ZIP belongs to no confirmed donor
 import csv
 import re
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from fec.env import RULES_DIR
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 RULES_PATH = RULES_DIR / "donor_identity_rules.csv"
 REQUIRED_FIELDS = {
@@ -58,7 +62,9 @@ def _read_rules() -> dict[str, list[dict]]:
     return by_action
 
 
-def _load_separations(rows):
+def _load_separations(
+    rows: list[dict],
+) -> tuple[set[frozenset[str]], set[frozenset[str]], frozenset[str]]:
     """Name pairs, name-at-place pairs, and the names only a ZIP can tell apart."""
     separations = [
         (
@@ -120,7 +126,11 @@ for _row in _RULES["merge_names"]:
 NAME_MERGES = dict(NAME_MERGES)
 
 
-def held_groups(df, filings=None, addresses=None):
+def held_groups(
+    df: "pd.DataFrame",
+    filings: dict[str, str] | None = None,
+    addresses: dict[tuple[str, str, str], str] | None = None,
+) -> "pd.Series":
     """Return a hold rule's group per row: by sub_id, else address."""
     import pandas as pd
 

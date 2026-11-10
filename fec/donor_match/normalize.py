@@ -128,7 +128,7 @@ def normalize_committee_name(name: str) -> str:
     return f"{org}|{first}"
 
 
-def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts=None) -> bool:
+def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts: set[str] | None = None) -> bool:
     """Tell whether two names share a surname with nickname, near-spelling or truncated first names.
 
     surname_firsts holds every first name filed with this surname: a short

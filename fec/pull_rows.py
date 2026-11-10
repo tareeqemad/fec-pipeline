@@ -43,7 +43,7 @@ COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-def _number(value, sub_id: str) -> Decimal:
+def _number(value: object, sub_id: str) -> Decimal:
     """Reject missing or invalid amounts instead of recording zero."""
     try:
         amount = Decimal(str(value).strip())

@@ -8,7 +8,7 @@ import pandas as pd
 from fec.env import EMPLOYER_NAME_RULES_CSV
 
 
-def employer_rule_key(name) -> str:
+def employer_rule_key(name: object) -> str:
     """Normalise formatting only: keep words, their order, and legal forms."""
     if not isinstance(name, str):
         return ""
@@ -16,7 +16,7 @@ def employer_rule_key(name) -> str:
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
-def _load_rules():
+def _load_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
     """Reviewed spellings: variant -> canonical everywhere, or for one donor (anchor_sub_id) in one cycle."""
     aliases, scoped = {}, []
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
@@ -61,7 +61,8 @@ for _variant, _canonical in EMPLOYER_SYNONYMS.items():
         _ALIASES[_key] = _canonical
 
 
-def documented_employer_name(name) -> str | None:
+def documented_employer_name(name: object) -> str | None:
+    """Return the reviewed name for a company spelling, or None if the rules do not list it."""
     return _ALIASES.get(employer_rule_key(name))
 
 
@@ -87,7 +88,10 @@ def scoped_employer_rules(df: pd.DataFrame) -> dict:
     return rules
 
 
-def reviewed_employer_name(name, donor_key="", cycle="", scoped=None) -> str:
+def reviewed_employer_name(
+    name: object, donor_key: str = "", cycle: str = "", scoped: dict[tuple[str, str, str], str] | None = None
+) -> str:
+    """Return the reviewed spelling of an employer name, for this donor and cycle when a scoped rule applies."""
     if not isinstance(name, str):
         return ""
     key = employer_rule_key(name)
@@ -107,7 +111,7 @@ def reviewed_employer_name(name, donor_key="", cycle="", scoped=None) -> str:
 
 def apply_reviewed_employer_names(
     df: pd.DataFrame,
-    columns=("contributor_employer", "previous_employer"),
+    columns: tuple[str, ...] = ("contributor_employer", "previous_employer"),
 ) -> int:
     """Aliases change existing values only, never fill missing work."""
     scoped = scoped_employer_rules(df)

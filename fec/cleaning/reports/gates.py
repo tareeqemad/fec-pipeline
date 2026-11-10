@@ -14,14 +14,17 @@ from fec.config.occupation_rules.categories import VALID_CATEGORIES
 
 
 def _text(df: pd.DataFrame, column: str) -> pd.Series:
+    """Return a column as stripped text, with blanks for missing values."""
     return df[column].fillna("").astype(str).str.strip()
 
 
 def _people(df: pd.DataFrame) -> pd.Series:
+    """Return which rows are individuals."""
     return df["entity_type"].eq("INDIVIDUAL")
 
 
-def _nan_text(df):
+def _nan_text(df: pd.DataFrame) -> pd.Series:
+    """Return the rows where a text column holds the word NAN."""
     columns = (
         "contributor_occupation",
         "contributor_employer",
@@ -33,22 +36,26 @@ def _nan_text(df):
     return pd.concat([df[column].astype("string").str.upper().eq("NAN") for column in columns], axis=1).any(axis=1)
 
 
-def _unknown_category(df):
+def _unknown_category(df: pd.DataFrame) -> pd.Series:
+    """Return the rows whose occupation category is not a valid one."""
     return ~_text(df, "occupation_category").isin(VALID_CATEGORIES)
 
 
-def _category_differs(df):
+def _category_differs(df: pd.DataFrame) -> pd.Series:
+    """Return the individuals whose category differs from the one the rules give."""
     people = _people(df)
     return (_text(df, "occupation_category")[people] != categorize_records(df[people])).reindex(
         df.index, fill_value=False
     )
 
 
-def _status_differs(df):
+def _status_differs(df: pd.DataFrame) -> pd.Series:
+    """Return the individuals whose employer status differs from the classified one."""
     return _people(df) & _text(df, "employer_status").ne(classify_employer_statuses(df))
 
 
-def _not_an_employer(df):
+def _not_an_employer(df: pd.DataFrame) -> pd.Series:
+    """Return the individuals whose current or previous employer is not a real employer."""
     status = _text(df, "employer_status")
     current, previous = _text(df, "contributor_employer"), _text(df, "previous_employer")
     working = _people(df) & (status.eq("active") | (status.eq("self_employed") & current.ne("SELF-EMPLOYED")))
@@ -59,12 +66,14 @@ def _not_an_employer(df):
     )
 
 
-def _zip_of_another_state(df):
+def _zip_of_another_state(df: pd.DataFrame) -> pd.Series:
+    """Return the rows whose ZIP belongs to a different state."""
     state = _text(df, "contributor_zip").map(lambda zipcode: _zip_place(zipcode)[0])
     return state.ne("") & _text(df, "contributor_state").ne("") & state.ne(_text(df, "contributor_state"))
 
 
-def _null_surname_lost(df):
+def _null_surname_lost(df: pd.DataFrame) -> pd.Series:
+    """Return the rows filed with the surname NULL whose last name went missing."""
     # NULL is a real surname; a reader that turns it into a missing value loses it
     return df["contributor_name"].astype("string").str.startswith("NULL,", na=False) & _text(
         df, "contributor_last_name"

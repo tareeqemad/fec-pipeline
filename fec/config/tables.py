@@ -1,6 +1,7 @@
 """Read the plain-text rule tables kept as CSV files."""
 
 import csv
+from pathlib import Path
 
 from fec.env import DATA_DIR
 
@@ -8,12 +9,13 @@ from fec.env import DATA_DIR
 CONFIG_DIR = DATA_DIR / "config"
 
 
-def read_rows(path) -> list[dict]:
+def read_rows(path: Path) -> list[dict]:
+    """Read a CSV file into a list of row dicts."""
     with open(path, encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
 
 
-def read_map(path) -> dict:
+def read_map(path: Path) -> dict:
     """First column to second, in file order."""
     rows = read_rows(path)
     if not rows:
@@ -22,7 +24,8 @@ def read_map(path) -> dict:
     return {row[key]: row[value] for row in rows}
 
 
-def read_set(path) -> frozenset:
+def read_set(path: Path) -> frozenset:
+    """Read the word column of a CSV file into a set."""
     return frozenset(row["word"] for row in read_rows(path))
 
 

@@ -33,7 +33,7 @@ def clean_pipeline(
     df: pd.DataFrame,
     out_dir: str | None = None,
     earlier_keys: dict | None = None,
-):
+) -> pd.DataFrame:
     """Clean records, align donor filings and write reports to out_dir."""
     df = df.copy()
     # Preserve filed foreign addresses before repairs.
@@ -135,7 +135,7 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _finish_records(df: pd.DataFrame):
+def _finish_records(df: pd.DataFrame) -> pd.DataFrame:
     """Attach committee names."""
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])

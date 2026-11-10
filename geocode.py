@@ -42,7 +42,7 @@ def _geocode_contributors(
     return df
 
 
-def _write_output(df: pd.DataFrame, csv_path: str, input_columns) -> None:
+def _write_output(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> None:
     """Check the output columns and save the CSV."""
     from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 
@@ -51,7 +51,7 @@ def _write_output(df: pd.DataFrame, csv_path: str, input_columns) -> None:
     write_csv_atomic(df, csv_path, index=False)
 
 
-def main():
+def main() -> None:
     """Read the cleaned data, geocode the selected addresses and save."""
     start = time.perf_counter()
     load_env()

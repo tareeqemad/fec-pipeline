@@ -5,9 +5,10 @@ from __future__ import annotations
 import csv
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
+import requests
 from tqdm import tqdm
 
 from fec.env import FEC_SOURCE_CSV, RAW_CSV
@@ -58,7 +59,7 @@ def read_existing_ids(
         }
 
 
-def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
+def iter_pages(session: requests.Session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
     """Follow FEC pagination cursors until no results or cursor remain."""
     params = dict(params)
     while True:
@@ -159,7 +160,14 @@ def run(committee_id: str, period: int) -> None:
     _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
 
 
-def _log_summary(status, committee_id, period, stats, csv_path, writer) -> None:
+def _log_summary(
+    status: str,
+    committee_id: str,
+    period: int,
+    stats: dict[str, int],
+    csv_path: Path,
+    writer: Callable[..., None],
+) -> None:
     """Log the saved, skipped and missing-ID counts."""
     writer(
         "[%s] %s / %s: new=%s skipped=%s no_sub_id=%s pages=%s file=%s",

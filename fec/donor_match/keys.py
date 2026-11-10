@@ -20,7 +20,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-def individual_record_id(name, city, state, suffix="", zip5="") -> str:
+def individual_record_id(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
     """Individual record ID for matching; ZIP5 only for split names."""
     # Missing cells must not become literal "nan".
     name, city, state, suffix, zip5 = ("" if pd.isna(value) else value for value in (name, city, state, suffix, zip5))
@@ -30,13 +30,13 @@ def individual_record_id(name, city, state, suffix="", zip5="") -> str:
     return f"{base}|{suffix}" if suffix else base
 
 
-def individual_donor_key(name, city, state, suffix="", zip5="") -> str:
+def individual_donor_key(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
     """Canonical donor_key; must match leadership_matcher's."""
     rid = individual_record_id(name, city, state, suffix, zip5)
     return hashlib.sha256(rid.encode()).hexdigest()[:12]
 
 
-def non_individual_donor_key(name) -> str:
+def non_individual_donor_key(name: object) -> str:
     """Build the shared key used by organizations and committees."""
     normalized = normalize_committee_name(name)
     return hashlib.sha256(normalized.encode()).hexdigest()[:12]
@@ -55,7 +55,7 @@ def _donor_keys(components: dict) -> dict:
 def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
     """Apply scored donor keys; committees hash their normalized name."""
 
-    def _get_key(row):
+    def _get_key(row: pd.Series) -> str:
         """Look up or fall back to compute this row's donor_key."""
         if row["entity_type"] != "INDIVIDUAL":
             return non_individual_donor_key(row.get("contributor_name"))

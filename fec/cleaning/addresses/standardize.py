@@ -51,10 +51,12 @@ _CARE_OF = re.compile(r"^(?:C/O|CARE OF|ATTN|ATTENTION)\b")
 
 
 def _plain(text: str) -> str:
+    """Replace periods, commas and semicolons with spaces and collapse whitespace."""
     return re.sub(r"\s+", " ", re.sub(r"[.,;]", " ", text)).strip()
 
 
 def _ordinal(number: str) -> str:
+    """Return a street number as an ordinal (1 -> 1ST) or a spelled ordinal in its short form."""
     if not number.isdigit():
         return _ORDINALS.get(number, number)
     return number + (
@@ -168,6 +170,7 @@ def parse_line(line: str) -> tuple[str, str] | None:
 
 
 def _initials(text: str) -> str:
+    """Return the first letter of each word."""
     return "".join(word[0] for word in text.split())
 
 
@@ -236,6 +239,7 @@ def standard_street(
 
 @cache
 def _zip_cities(zipcode: str) -> tuple[str, ...]:
+    """Return the city names accepted for a five-digit ZIP."""
     if not (len(zipcode) == 5 and zipcode.isdigit()):
         return ()
     names = [
@@ -253,6 +257,7 @@ def _spelled_out(city: str) -> str:
 
 
 def _letters(text: str) -> str:
+    """Return only the letters of a text."""
     return re.sub(r"[^A-Z]", "", text)
 
 
@@ -297,6 +302,7 @@ def standard_city(city: str, zipcode: str) -> str:
 
 
 def standard_address(street_1: str, street_2: str, city: str, state: str, zipcode: str) -> tuple[str, ...]:
+    """Return the standardized street, city, state and ZIP of one address."""
     # 12230 BONE HOLLOW ROAD KAMAS 84036: a city and its own ZIP typed in the street are the real place
     *words, last = _plain(street_1).split() or [""]
     for size in (1, 2, 3):

@@ -11,7 +11,7 @@ _CONFIGURED = False
 class CleanFormatter(logging.Formatter):
     """Message-only console formatting."""
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Show only the message in the console."""
         return record.getMessage()
 

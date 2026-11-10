@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 
 
 def _contributor_keys(df: pd.DataFrame) -> pd.Series:
+    """Return each row's cache key: street|city|state|zip."""
     return (
         df[["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]]
         .fillna("")
@@ -94,7 +95,7 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     )
 
 
-def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
+def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50) -> None:
     """Look up donor addresses eligible for geocoding."""
     keys = _contributor_keys(df)[~kept_as_filed_mask(df)]
     _geocode_keys(keys, cache, batch_size)

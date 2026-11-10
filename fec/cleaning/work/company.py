@@ -75,6 +75,7 @@ _PART_SPLIT_RE = re.compile(r"\s*(?:/|,|;| AND | & )\s*")
 
 
 def _is_job(text: str) -> bool:
+    """Return whether a text names a job rather than a company."""
     if text in _job_words() or is_job_title(text):
         return True
     words = _WORDS_RE.findall(text)
@@ -84,6 +85,7 @@ def _is_job(text: str) -> bool:
 
 
 def _head_word(word: str) -> bool:
+    """Return whether a word, or its singular, is a job title head word."""
     return word in JOB_TITLE_HEADS or (word.endswith("S") and word[:-1] in JOB_TITLE_HEADS)
 
 
@@ -95,6 +97,7 @@ def _only_common_words(text: str) -> bool:
 
 @lru_cache(maxsize=1)
 def _reviewed_names() -> frozenset[str]:
+    """Return every company name the reviewed employer rules mention."""
     aliases, scoped = _load_rules()
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
     names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
@@ -119,7 +122,7 @@ def _job_words() -> frozenset[str]:
     )
 
 
-def company_key(value) -> str:
+def company_key(value: object) -> str:
     """Upper text with the punctuation that varies between filings removed."""
     return employer_rule_key(value)
 
@@ -174,7 +177,8 @@ def evidence(text: str) -> str:
 class Filings:
     """What the filings say together: who names which text as their employer."""
 
-    def __init__(self, names: pd.Series, employers: pd.Series):
+    def __init__(self, names: pd.Series, employers: pd.Series) -> None:
+        """Count the different filers who name each employer text."""
         keys = employers.map(company_key)
         filed = keys.ne("")
         self.filers = names[filed].groupby(keys[filed].to_numpy()).nunique().to_dict()
