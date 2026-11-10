@@ -134,11 +134,11 @@ def employment_address_id(
         for field in ("employer_address", "", "employer_city", "employer_state", "employer_zip")
     )
     return _address_id(
-        cur, fields, _coordinate(location.get("employer_latitude")), _coordinate(location.get("employer_longitude"))
+        cur, fields, _office_coordinate(location.get("employer_latitude")), _office_coordinate(location.get("employer_longitude"))
     )
 
 
-def _coordinate(value: Any) -> float | None:
+def _office_coordinate(value: Any) -> float | None:
     """Read an optional coordinate, ignoring invalid text."""
     try:
         return float(value) if str(value or "").strip() else None

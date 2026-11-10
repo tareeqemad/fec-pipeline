@@ -55,7 +55,7 @@ def _boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> bool:
     raise ValueError(f"{csv_filename}: {name!r} needs {field}=true or false")
 
 
-def _coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
+def _roster_coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
     """Read an optional coordinate and warn about invalid text."""
     raw = (row.get(field) or "").strip()
     if not raw:
@@ -107,8 +107,8 @@ def _upsert_address(
         city=city,
         state=state,
         zip_5=_person_value(row, "zip"),
-        latitude=_coordinate(row, "address_lat", csv_filename, name),
-        longitude=_coordinate(row, "address_lng", csv_filename, name),
+        latitude=_roster_coordinate(row, "address_lat", csv_filename, name),
+        longitude=_roster_coordinate(row, "address_lng", csv_filename, name),
     )
 
 
