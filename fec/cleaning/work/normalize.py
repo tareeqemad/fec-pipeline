@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
-from fec.config.data import COMM_PATTERNS, MISSING_VALUES
-from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES, OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS as _TEXT_CORRECTIONS
+from fec.config.data import MISSING_VALUES
+from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 
 # junk value -> NaN, one batch replace
 _JUNK_TO_NAN = {val: np.nan for val in MISSING_VALUES}
@@ -71,40 +71,3 @@ def categorize_final(occupation_series: pd.Series) -> pd.Series:
     """The category of final cleaned occupations."""
     return _categorize(occupation_series.fillna('').astype(str).str.strip().str.upper())
 
-
-# classify committee names into sub-types by keyword match
-def _classify_committee_names(names: pd.Series) -> pd.Series:
-    """Classify committee names into sub-types by keyword match."""
-    result = pd.Series('POLITICAL COMMITTEE', index=names.index)
-    filled = names.fillna('').astype(str)
-
-    for label, pattern in COMM_PATTERNS:
-        # This call site matches case-sensitively: pass the pattern string.
-        matches = filled.str.contains(pattern.pattern, na=False, regex=True) & (result == 'POLITICAL COMMITTEE')
-        result[matches] = label
-
-    return result
-
-
-# apply curated occupation fixes and return original values changed
-def map_occupation_fixes(df: pd.DataFrame, rows) -> pd.Series:
-    """Apply the occupation corrections; return the original changed values."""
-    original = df.loc[rows, 'contributor_occupation']
-    original = original[original.isin(OCCUPATION_CORRECTIONS)]
-    if not original.empty:
-        corrected = original.map(OCCUPATION_CORRECTIONS).astype(object).where(
-            original.map(OCCUPATION_CORRECTIONS).notna(), np.nan)
-        df.loc[original.index, 'contributor_occupation'] = corrected
-        df.loc[original.index, 'occupation_category'] = _categorize(corrected)
-    return original
-
-
-# swap employer and occupation, then recategorize the occupation
-def swap_employer_and_occupation(df: pd.DataFrame, rows, *, canonical: bool = True) -> None:
-    """rows is a mask or index; canonical maps occupations."""
-    old_employer = df.loc[rows, 'contributor_employer'].copy()
-    old_occupation = df.loc[rows, 'contributor_occupation'].copy()
-    new_occupation = old_employer.replace(_TEXT_CORRECTIONS) if canonical else old_employer
-    df.loc[rows, 'contributor_employer'] = old_occupation
-    df.loc[rows, 'contributor_occupation'] = new_occupation
-    df.loc[rows, 'occupation_category'] = _categorize(new_occupation)

@@ -156,123 +156,6 @@ def test_keys_stay_with_their_filings_across_runs():
     assert lost == ['old-x']
 
 
-def test_own_name_employer_handles_missing_name_parts():
-    from fec.cleaning.rules.name_fields import _fix_own_name_as_employer
-    df = pd.DataFrame({
-        'entity_type': ['INDIVIDUAL', 'INDIVIDUAL'],
-        'contributor_first_name': [None, 'JANE'],
-        'contributor_last_name': ['DOE', 'DOE'],
-        'contributor_employer': ['ACME CORP', 'JANE DOE'],
-    })
-
-    assert _fix_own_name_as_employer(df) == 1
-    assert df['contributor_employer'].tolist() == ['ACME CORP', 'SELF-EMPLOYED']
-
-
-def test_swap_job_and_company_moves_only_companies():
-    from fec.cleaning.work.clean import swap_job_and_company
-    df = pd.DataFrame({
-        'is_individual': [True, True, True, True, True],
-        'contributor_employer': ['ATTORNEY', 'DESIGNER', 'CONSULTANT', 'ATTORNEY', 'WOLF RIFKIN'],
-        'contributor_occupation': [
-            'WOLF, RIFKIN', 'SELF-EMPLOYED', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY', 'ATTORNEY',
-        ],
-    })
-
-    _, swapped = swap_job_and_company(df)
-
-    assert swapped == 2
-    assert df['contributor_employer'].tolist()[:4] == [
-        'WOLF, RIFKIN', 'SELF-EMPLOYED', 'CONSULTANT', 'ATTORNEY',
-    ]
-    assert df['contributor_occupation'].tolist()[:4] == [
-        'ATTORNEY', 'DESIGNER', 'PROJECT MANAGEMENT CONSULTANT', 'ATTORNEY',
-    ]
-
-
-def test_job_in_employer_never_guesses_self_employed():
-    from fec.cleaning.rules.employer_swaps import settle_job_in_employer
-    df = pd.DataFrame({
-        'entity_type': ['INDIVIDUAL'] * 6,
-        'contributor_name': ['A, B', 'C, D', 'E, F', 'G, H', 'I, J', 'K, L'],
-        'contributor_employer': ['ATTORNEY', 'OWNER', 'ATTORNEY', 'CONSULTANT', 'CARDIOLOGIST', 'LAWYER'],
-        'contributor_occupation': ['', '', 'RETIRED', 'INVESTOR', 'CARDIOLOGY PC', 'OWNER'],
-        'occupation_category': [None] * 6,
-    })
-
-    settle_job_in_employer(df)
-
-    assert df['contributor_employer'].fillna('').tolist() == [
-        '', 'SELF-EMPLOYED', 'RETIRED', '', 'CARDIOLOGY PC', 'SELF-EMPLOYED',
-    ]
-    assert df['contributor_occupation'].tolist() == [
-        'ATTORNEY', 'OWNER', 'ATTORNEY', 'INVESTOR', 'CARDIOLOGIST', 'OWNER',
-    ]
-
-
-def test_placeholder_employers_are_one_list():
-    from fec.cleaning.rules.junk import clear_placeholder_employer_words, placeholder_employer
-    values = pd.Series(['43209876', 'A@B.COM', 'XXX', 'NM', 'GE', 'N A', 'PRIVATE', 'ACME LLC'])
-    assert placeholder_employer(values, words=False).tolist() == [
-        True, True, True, True, False, False, False, False,
-    ]
-    assert placeholder_employer(values).tolist() == [
-        True, True, True, True, False, True, True, False,
-    ]
-
-    df = pd.DataFrame({
-        'entity_type': ['INDIVIDUAL'] * 3,
-        'contributor_employer': ['NOTYOURBUSINESS', 'VOLUNTEER', 'ACME LLC'],
-        'contributor_occupation': ['NOTYOURBUSINESS', 'VOLUNTEER', 'ENGINEER'],
-        'occupation_category': ['OTHER', 'NONPROFIT / PHILANTHROPY', 'ENGINEERING'],
-    })
-    assert clear_placeholder_employer_words(df) == 2
-    assert df['contributor_employer'].isna().tolist() == [True, True, False]
-    assert df['contributor_occupation'].fillna('').tolist() == ['', 'VOLUNTEER', 'ENGINEER']
-
-
-def test_company_in_occupation_keeps_the_role():
-    from fec.cleaning.rules.occupation import _null_junk_occupation
-    df = pd.DataFrame({
-        'entity_type': ['INDIVIDUAL'] * 5,
-        'contributor_employer': ['', 'BOXER PROPERTY CORP', '', 'ACME LLC', 'SELF-EMPLOYED'],
-        'contributor_occupation': [
-            'PRESIDENT, RELAY HUMAN CLOUD, INC', 'CEO AT ACME LLC',
-            'MD ANDERSON CANCER CENTER INC', 'PRESIDENT OF HEALTH TECH COMPANY', 'COMPANY',
-        ],
-        'occupation_category': [None] * 5,
-    })
-
-    _null_junk_occupation(df)
-
-    assert df['contributor_employer'].tolist() == [
-        'RELAY HUMAN CLOUD, INC', 'BOXER PROPERTY CORP', 'MD ANDERSON CANCER CENTER INC',
-        'ACME LLC', 'SELF-EMPLOYED',
-    ]
-    assert df['contributor_occupation'].fillna('').tolist() == [
-        'PRESIDENT', 'CEO', '', 'PRESIDENT OF HEALTH TECH COMPANY', '',
-    ]
-
-
-def test_company_in_occupation_is_the_donors_own_employer():
-    """A SELF-EMPLOYED filer's occupation that they file as the employer elsewhere."""
-    from fec.cleaning.rules.occupation import _null_junk_occupation
-    df = pd.DataFrame({
-        'entity_type': ['INDIVIDUAL'] * 4,
-        'contributor_name': ['BRUST, RANDY', 'BRUST, RANDY', 'OTHER, ANN', 'OTHER, ANN'],
-        'contributor_employer': ['SELF-EMPLOYED', 'CRESCENT REALTY ADVISORS', 'SELF-EMPLOYED', 'CONSULTANT'],
-        'contributor_occupation': ['CRESCENT REALTY ADVISORS', 'REAL ESTATE', 'INVESTMENT MGR', 'CONSULTANT'],
-        'occupation_category': [None] * 4,
-    })
-
-    _null_junk_occupation(df)
-
-    assert df['contributor_employer'].tolist() == [
-        'CRESCENT REALTY ADVISORS', 'CRESCENT REALTY ADVISORS', 'SELF-EMPLOYED', 'CONSULTANT',
-    ]
-    assert df['contributor_occupation'].fillna('').tolist() == ['', 'REAL ESTATE', 'INVESTMENT MGR', 'CONSULTANT']
-
-
 def test_company_evidence_levels():
     from fec.cleaning.work.company import company_evidence
     values = pd.Series([
@@ -417,21 +300,6 @@ def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
     df.loc[1, 'contributor_city'] = 'SURFSIDE'
     assert verified.apply_verified_address_fixes(df, city_only=True) == 1
     assert df['contributor_city'].tolist() == ['GARDENA', 'BAY HARBOR ISLANDS']
-
-
-def test_occupation_corrections_are_one_table():
-    from fec.cleaning.work.normalize import map_occupation_fixes
-    from fec.config.occupation_rules.rules import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
-    # No correction leads to another listed form: a filed value is corrected in one step.
-    assert not [k for k, v in OCCUPATION_CORRECTIONS.items() if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v]
-    assert OCCUPATION_CORRECTIONS['ATTY'] == 'ATTORNEY' and 'ATTY' in TEXT_CORRECTIONS
-    assert OCCUPATION_CORRECTIONS['XXX'] is None and 'XXX' not in TEXT_CORRECTIONS
-
-    df = pd.DataFrame({'contributor_occupation': ['ATTY', 'XXX', 'ENGINEER'], 'occupation_category': [None] * 3})
-    changed = map_occupation_fixes(df, df.index)
-    assert changed.tolist() == ['ATTY', 'XXX']
-    assert df['contributor_occupation'].fillna('').tolist() == ['ATTORNEY', '', 'ENGINEER']
-    assert df['occupation_category'].tolist()[0] == 'LEGAL' and pd.isna(df['occupation_category'].tolist()[1])
 
 
 def test_truncated_first_name_matches_with_an_anchor():
@@ -613,3 +481,74 @@ def test_standard_address_follows_usps_with_no_table_of_ours():
     assert df.loc[0, ['contributor_street_1', 'contributor_street_2']].tolist() == ['123 E 13TH ST', 'APT 4']
     assert df.loc[1, 'contributor_street_1'] == '10 Downing St'           # foreign: as filed
     assert standardize_addresses(df) == 0                                 # the standard form is stable
+
+
+def _read(rows):
+    """(employer, occupation) as read for filings given as (name, filed employer, filed occupation)."""
+    from fec.cleaning.work.read import read_work
+    df = pd.DataFrame(rows, columns=['contributor_name', 'filed_employer', 'filed_occupation'])
+    df['entity_type'] = 'INDIVIDUAL'
+    df['contributor_last_name'] = df['contributor_name'].str.split(', ').str[0]
+    df['contributor_first_name'] = df['contributor_name'].str.split(', ').str[1]
+    df['contributor_employer'] = df['contributor_occupation'] = df['occupation_category'] = None
+    read_work(df, df['entity_type'].eq('INDIVIDUAL'), df['filed_employer'], df['filed_occupation'])
+    return list(zip(df['contributor_employer'].fillna(''), df['contributor_occupation'].fillna('')))
+
+
+def test_work_fields_are_read_from_the_filed_pair():
+    cases = {
+        # each field on its own
+        ('A, B', 'SELF', 'ATTORNEY'): ('SELF-EMPLOYED', 'ATTORNEY'),
+        ('A, B', 'ACME LLC', 'ATTY'): ('ACME LLC', 'ATTORNEY'),
+        ('A, B', 'ACME LLC', 'XXX'): ('ACME LLC', ''),
+        ('A, B', '', 'RETIRED TEACHER'): ('RETIRED', 'TEACHER'),
+        ('A, B', 'UCLA RETIRED', 'PROFESSOR'): ('RETIRED', 'PROFESSOR'),
+        # a status in one box fills the other
+        ('A, B', 'HOUSEWIFE', ''): ('NOT EMPLOYED', 'HOMEMAKER'),
+        ('A, B', 'NONE', 'HOMEMAKER'): ('NOT EMPLOYED', 'HOMEMAKER'),
+        ('A, B', 'SELF EMPLOYEED', ''): ('SELF-EMPLOYED', 'SELF-EMPLOYED'),
+        # an employer that names none
+        ('A, B', 'NOTYOURBUSINESS', 'NOTYOURBUSINESS'): ('', ''),
+        ('A, B', 'VOLUNTEER', 'VOLUNTEER'): ('', 'VOLUNTEER'),
+        ('A, B', '43209876', 'LIBRARIAN'): ('', 'LIBRARIAN'),
+        ('A, B', 'A@B.COM', 'ENGINEER'): ('', 'ENGINEER'),
+        ('A, B', 'GE', 'ENGINEER'): ('GE', 'ENGINEER'),
+        # a job in the employer box: swapped with a company, never a guessed SELF-EMPLOYED
+        ('A, B', 'ATTORNEY', 'WOLF, RIFKIN'): ('WOLF RIFKIN', 'ATTORNEY'),
+        ('A, B', 'CARDIOLOGIST', 'CARDIOLOGY PC'): ('CARDIOLOGY PC', 'CARDIOLOGIST'),
+        ('A, B', 'DESIGNER', 'SELF-EMPLOYED'): ('SELF-EMPLOYED', 'DESIGNER'),
+        ('A, B', 'ATTORNEY', ''): ('', 'ATTORNEY'),
+        ('A, B', 'OWNER', ''): ('SELF-EMPLOYED', 'OWNER'),
+        ('A, B', 'ATTORNEY', 'RETIRED'): ('RETIRED', 'ATTORNEY'),
+        ('A, B', 'CONSULTANT', 'INVESTOR'): ('', 'INVESTOR'),
+        ('A, B', 'CONSULTANT', 'PROJECT MANAGEMENT CONSULTANT'): ('', 'PROJECT MANAGEMENT CONSULTANT'),
+        ('A, B', 'ATTORNEY', 'ATTORNEY'): ('', 'ATTORNEY'),
+        # a company in the occupation box: the role stays, the company moves to an open employer
+        ('A, B', '', 'PRESIDENT, RELAY HUMAN CLOUD, INC'): ('RELAY HUMAN CLOUD INC', 'PRESIDENT'),
+        ('A, B', 'BOXER PROPERTY CORP', 'CEO AT ACME LLC'): ('BOXER PROPERTY CORP', 'CEO'),
+        ('A, B', '', 'MD ANDERSON CANCER CENTER INC'): ('MD ANDERSON CANCER CENTER INC', ''),
+        ('A, B', 'ACME LLC', 'PRESIDENT OF HEALTH TECH COMPANY'): ('ACME LLC', 'PRESIDENT OF HEALTH TECH COMPANY'),
+        ('A, B', 'SELF-EMPLOYED', 'COMPANY'): ('SELF-EMPLOYED', 'SELF-EMPLOYED'),
+        # the donor's own name is no employer, unless it carries a legal form
+        ('DOE, JANE', 'JANE DOE', 'WRITER'): ('SELF-EMPLOYED', 'WRITER'),
+        ('DOE, JANE', 'JANE DOE LLC', 'WRITER'): ('JANE DOE LLC', 'WRITER'),
+        # the occupation is a name this donor files as their employer elsewhere
+        ('BRUST, RANDY', 'SELF-EMPLOYED', 'CRESCENT REALTY ADVISORS'): ('CRESCENT REALTY ADVISORS', ''),
+        ('BRUST, RANDY', 'CRESCENT REALTY ADVISORS', 'REAL ESTATE'): ('CRESCENT REALTY ADVISORS', 'REAL ESTATE'),
+    }
+    assert dict(zip(cases, _read(list(cases)))) == cases
+
+
+def test_placeholder_employers_are_one_list():
+    from fec.cleaning.work.read import names_no_employer
+    values = ['43209876', 'A@B.COM', 'XXX', 'NM', 'GE', 'N A', 'PRIVATE', 'ACME LLC']
+    assert [names_no_employer(v, also_words=False) for v in values] == [True, True, True, True, False, False, False, False]
+    assert [names_no_employer(v) for v in values] == [True, True, True, True, False, True, True, False]
+
+
+def test_occupation_corrections_are_one_table():
+    from fec.config.occupation_rules.rules import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
+    # No correction leads to another listed form: a filed value is corrected in one step.
+    assert not [k for k, v in OCCUPATION_CORRECTIONS.items() if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v]
+    assert OCCUPATION_CORRECTIONS['ATTY'] == 'ATTORNEY' and 'ATTY' in TEXT_CORRECTIONS
+    assert OCCUPATION_CORRECTIONS['XXX'] is None and 'XXX' not in TEXT_CORRECTIONS

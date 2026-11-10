@@ -12,12 +12,6 @@ from fec.donor_match.keys import (
 from fec.donor_match.matcher import match_donors
 import re
 import numpy as np
-from fec.cleaning.reports.trail import (
-    NAME_FIELDS,
-    PEOPLE_FIELDS,
-    STREET_FIELDS,
-    AuditTrail,
-)
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.name_fixes import apply_name_corrections
@@ -57,22 +51,10 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
     return df_clean
 
 
-def standardize(
-    df_clean: pd.DataFrame,
-    out_dir: str | None = None,
-    trail: AuditTrail | None = None,
-) -> pd.DataFrame:
+def standardize(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFrame:
     """Make each donor consistent across filings."""
-    trail = trail or AuditTrail()
     df = df_clean.reset_index(drop=True)
-    trail.run(
-        df,
-        _classify_network_organizations,
-        "network_organization_classification",
-        "unresolved_network_name_is_not_a_person",
-        PEOPLE_FIELDS + ("donor_key",),
-        source="FEC_network_name_pattern",
-    )
+    _classify_network_organizations(df)
     # Keep unconfirmed filings separate during all donor-history repairs.
     if "identity_status" in df.columns:
         unconfirmed = df["identity_status"].ne("confirmed")
@@ -82,24 +64,15 @@ def standardize(
     filing_ids = df.loc[unconfirmed, "sub_id"].astype(str)
     df.loc[unconfirmed, "donor_key"] = original_keys + "|" + filing_ids
 
-    _canonicalize(df, trail)
-
-    df, _ = trail.run(
-        df, apply_name_corrections, "curated_name_corrections", "manual_correction", NAME_FIELDS,
-        source="data/rules/contributor_name_rules.csv",
-    )
-    apply_donor_consistency(df, trail)
-    trail.run(
-        df, canonicalize_committee_names, "reviewed_committee_names",
-        "verified_same_fec_committee", NAME_FIELDS + ("donor_key",),
-        source="data/rules/donor_identity_rules.csv",
-    )
+    canonicalize_donor_names(df)
+    canonicalize_current_employers(df)
+    canonicalize_donor_units(df)
+    df, _ = apply_name_corrections(df)
+    apply_donor_consistency(df)
+    canonicalize_committee_names(df)
     build_donor_dedup_review(df, out_dir)
 
-    trail.run(
-        df, _clear_non_individual_fields, "non_individual_fields",
-        "non_individual_person_fields_cleared", NAME_FIELDS + ("contributor_employer",),
-    )
+    _clear_non_individual_fields(df)
     df.loc[original_keys.index, "donor_key"] = original_keys
     return df
 
@@ -146,19 +119,6 @@ def _classify_network_organizations(df: pd.DataFrame) -> int:
     sub_ids = df.loc[targets, "sub_id"].astype(str)
     df.loc[targets, "donor_key"] = (organization_names + " " + sub_ids).map(non_individual_donor_key)
     return int(targets.sum())
-
-
-def _canonicalize(df: pd.DataFrame, trail: AuditTrail) -> None:
-    steps = (
-        (canonicalize_donor_names, "donor_canonical_names",
-         "donor_name_unified_to_modal_last_and_longest_first", NAME_FIELDS),
-        (canonicalize_current_employers, "donor_canonical_employers",
-         "documented_company_alias", ("contributor_employer",)),
-        (canonicalize_donor_units, "donor_canonical_units",
-         "donor_unit_designator_unified", STREET_FIELDS),
-    )
-    for fix, step, reason, fields in steps:
-        trail.run(df, fix, step, reason, fields)
 
 
 # Committees and organizations have no person name or employer.

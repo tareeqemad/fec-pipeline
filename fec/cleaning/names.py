@@ -12,7 +12,6 @@ from fec.config.data import (
     SUFFIX_RE,
     TITLE_RE,
 )
-from fec.cleaning.reports.trail import NAME_FIELDS, AuditTrail
 from fec.config.tables import words
 
 
@@ -331,25 +330,22 @@ def _rebuild_contributor_name(df: pd.DataFrame, is_individual: pd.Series) -> Non
 
 
 # (function, scope, step, reason)
+# In order: the step, and whose names it reads.
 NAME_STEPS = (
-    (_remove_name_titles, 'individual', 'names_remove_titles', 'title_removed_from_name'),
-    (_handle_multi_comma_names, 'individual', 'names_multi_comma',
-     'embedded_credential_removed_and_name_split'),
-    (_clean_committee_names, 'committee', 'names_committee', 'committee_name_tail_stripped_or_curated_fix'),
-    (_strip_individual_titles_suffixes, 'individual', 'names_titles_suffixes',
-     'title_or_suffix_stripped_or_surname_from_email'),
-    (_fix_garbled_first_names, 'individual', 'names_garbled_first', 'keyboard_error'),
-    (_keep_filed_given_names, 'individual', 'names_keep_filed_given',
-     'given_name_kept_where_first_name_field_dropped_it'),
-    (_fix_title_as_first_name, 'individual', 'names_title_as_first', 'title_as_first_name_cleared'),
-    (_fix_compound_last_names, 'individual', 'names_compound_last', 'compound_last_name_split'),
-    (_rebuild_contributor_name, 'individual', 'names_rebuild', 'contributor_name_rebuilt_from_first_last'),
+    (_remove_name_titles, 'individual'),
+    (_handle_multi_comma_names, 'individual'),
+    (_clean_committee_names, 'committee'),
+    (_strip_individual_titles_suffixes, 'individual'),
+    (_fix_garbled_first_names, 'individual'),
+    (_keep_filed_given_names, 'individual'),
+    (_fix_title_as_first_name, 'individual'),
+    (_fix_compound_last_names, 'individual'),
+    (_rebuild_contributor_name, 'individual'),
 )
 
 
-def _clean_names(df: pd.DataFrame, trail=None) -> None:
+def _clean_names(df: pd.DataFrame) -> None:
     """Clean names in place, rebuild contributor_name."""
-    trail = trail or AuditTrail()
     for col in ['contributor_first_name', 'contributor_last_name']:
         df[col] = df[col].astype('object')
 
@@ -357,7 +353,5 @@ def _clean_names(df: pd.DataFrame, trail=None) -> None:
         'individual': df['entity_type'] == 'INDIVIDUAL',
         'committee': df['entity_type'] == 'COMMITTEE/PAC',
     }
-    for fn, scope, step, reason in NAME_STEPS:
-        def transform(d, fn=fn, mask=masks[scope]):
-            return fn(d, mask)
-        trail.run(df, transform, step, reason, NAME_FIELDS)
+    for fn, scope in NAME_STEPS:
+        fn(df, masks[scope])

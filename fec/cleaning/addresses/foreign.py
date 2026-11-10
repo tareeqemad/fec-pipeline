@@ -4,7 +4,10 @@ import re
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.reports.trail import ADDRESS_FIELDS
+
+ADDRESS_FIELDS = (
+    "contributor_street_1", "contributor_street_2", "contributor_city", "contributor_state", "contributor_zip",
+)
 from fec.config.constants import AMBIGUOUS_CITIES, FOREIGN_CITIES_NO_US_STATE
 from fec.config.tables import words
 
@@ -40,11 +43,6 @@ REVIEWED_FOREIGN_SUB_IDS: dict[str, str] = {
 # True for rows kept as filed: foreign addresses.
 def kept_as_filed_mask(df: pd.DataFrame) -> pd.Series:
     return foreign_address_mask(df)
-
-
-# the audit reason for putting a filed address back
-def kept_as_filed_reason(df: pd.DataFrame) -> pd.Series:
-    return pd.Series('foreign_address_kept_as_filed', index=df.index)
 
 
 # true for rows whose filed address is outside the US

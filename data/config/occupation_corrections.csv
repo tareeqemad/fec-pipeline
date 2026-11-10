@@ -457,3 +457,12 @@ XXX,[CLEAR],filed abbreviation or placeholder
 ZZZ,[CLEAR],filed abbreviation or placeholder
 ICE CREAM & COLD STORAGE COMPANY,ICE CREAM DISTRIBUTOR,"BERLINER, GUY (POTOMAC MD) - describes his company BERLINER FROZEN STORAGE; his other filing says ICE CREAM DISTRIBUTOR at BERLINER MOBILE VENDING"
 MANAGIN PARTNER,MANAGING PARTNER,typo
+COMPANY,[CLEAR],a legal form or an acronym alone names no occupation
+CORPORATION,[CLEAR],a legal form or an acronym alone names no occupation
+CORP,[CLEAR],a legal form or an acronym alone names no occupation
+INC,[CLEAR],a legal form or an acronym alone names no occupation
+LLC,[CLEAR],a legal form or an acronym alone names no occupation
+LLP,[CLEAR],a legal form or an acronym alone names no occupation
+LTD,[CLEAR],a legal form or an acronym alone names no occupation
+PLLC,[CLEAR],a legal form or an acronym alone names no occupation
+NIST,[CLEAR],a legal form or an acronym alone names no occupation

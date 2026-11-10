@@ -1,10 +1,7 @@
 """Occupation style: separators, joiners, CO- prefix, compounds, plurals."""
 import re
 
-import pandas as pd
 
-from fec.cleaning._helpers import _indiv_idx
-from fec.cleaning.work.company import company_evidence
 from fec.config.tables import words
 
 # Titles combined with "/"; longest first so VICE PRESIDENT wins.
@@ -88,23 +85,4 @@ def normalize_occupation_style(value: str) -> str:
 
 
 # Non-capturing, so pandas does not warn on every run.
-
-
-# pipeline step applying occupation style normalization to individuals
-def normalize_occupation_style_step(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Unify individuals' occupation style; runs after the swap safety nets."""
-    individuals = _indiv_idx(df)
-    occupation = df.loc[individuals, 'contributor_occupation'].dropna().astype(str)
-    if occupation.empty:
-        return df, 0
-    employer_names = set(df.loc[individuals, 'contributor_employer'].dropna().astype(str))
-    company = occupation.isin(employer_names) | company_evidence(occupation).isin(('legal_form', 'reviewed'))
-    occupation = occupation[~company]
-    if occupation.empty:
-        return df, 0
-    restyled = occupation.map(normalize_occupation_style)
-    changed = restyled != occupation
-    if changed.any():
-        df.loc[changed[changed].index, 'contributor_occupation'] = restyled[changed]
-    return df, int(changed.sum())
 

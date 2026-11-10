@@ -7,27 +7,18 @@ from fec.donor_match.rules import held_groups
 from fec.env import FEC_SOURCE_CSV
 import re
 import numpy as np
-from fec.cleaning._helpers import _norm, _indiv_idx
+from fec.cleaning._helpers import _norm
 from fec.config.constants import STATUS_CATEGORIES
 from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.config.data import INDIV_NAME_RE
-from fec.cleaning.work.normalize import (
-    EMPLOYER_STATUS_TEXT,
-    _categorize,
-    _normalize_text,
-    map_occupation_fixes,
-)
 from fec.cleaning.work.company import (
     COMPANY_LEVELS, ORGANISATION_WORDS, company_evidence, has_legal_form_token,
 )
 from fec.cleaning.work.employer_aliases import (
     documented_employer_name, employer_rule_key, reviewed_employer_name,
 )
-from fec.cleaning.work.status import is_job_title
-from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SKIP_EMPLOYERS
-from fec.config.data import MISSING_VALUES
-from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
+from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.tables import words
 
 
@@ -107,44 +98,6 @@ def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     if n_fixed:
         df.loc[changed[changed].index, 'contributor_name'] = cleaned[changed]
     return df, int(n_fixed)
-
-
-def fix_employer_equals_occupation(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """One value in both fields: keep it where it belongs, never guess the other.
-
-    A job leaves the employer unknown; the donor's own name means
-    self-employed; a company leaves the occupation unknown.
-    """
-    indiv_idx = _indiv_idx(df)
-    emp = _norm(df.loc[indiv_idx, 'contributor_employer'])
-    occ = _norm(df.loc[indiv_idx, 'contributor_occupation'])
-
-    same = indiv_idx[
-        emp.map(employer_rule_key).eq(occ.map(employer_rule_key))
-        & emp.ne('') & ~emp.isin(_NOT_WORK)
-    ]
-    n_fixed = len(same)
-
-    is_job = occ.loc[same].isin(_JOB_WORDS) | occ.loc[same].map(is_job_title)
-    jobs = same[is_job]
-    df.loc[jobs, 'contributor_employer'] = np.nan
-
-    for idx in same.difference(jobs):
-        val = df.at[idx, 'contributor_occupation']
-        first_name = (df.at[idx, 'contributor_first_name'] or '').upper()
-        last_name = (df.at[idx, 'contributor_last_name'] or '').upper()
-        val_upper = (val or '').upper()
-
-        if first_name and last_name and (first_name in val_upper or last_name in val_upper):
-            # Their own name in both fields: self-employed.
-            df.at[idx, 'contributor_occupation'] = 'SELF-EMPLOYED'
-            df.at[idx, 'occupation_category'] = 'SELF-EMPLOYED'
-        else:
-            # A company in both fields: occupation unknown.
-            df.at[idx, 'contributor_occupation'] = np.nan
-            df.at[idx, 'occupation_category'] = pd.NA
-
-    return df, n_fixed
 
 
 # Committee names and campaign phrases: "X FOR CONGRESS", "FRIENDS OF X",
@@ -318,87 +271,3 @@ def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
         df.loc[fix, "entity_type"] = "ORGANIZATION"
     return n_changed
 
-
-def _restore_individual_occupations(df: pd.DataFrame, raw_occupations: pd.Series) -> None:
-    """Restore filed occupations after reclassification as people."""
-    has_occupation = raw_occupations.notna() & raw_occupations.astype(str).str.strip().ne("")
-    if not has_occupation.any():
-        return
-
-    restored = _normalize_text(
-        raw_occupations[has_occupation],
-        OCCUPATION_NORMALIZE,
-    )
-    # Swapped fields are fixed later by swap_job_and_company.
-    restored = restored[~restored.isin(MISSING_VALUES) & restored.notna()]
-    if restored.empty:
-        return
-
-    df.loc[restored.index, "contributor_occupation"] = restored
-    df.loc[restored.index, "occupation_category"] = _categorize(restored)
-    map_occupation_fixes(df, restored.index)
-
-
-def _restore_individual_employers(
-    df: pd.DataFrame,
-    reclassified: pd.Series,
-    raw_employers: pd.Series,
-) -> None:
-    """Restore missing employers after reclassification."""
-    has_employer = raw_employers.notna() & raw_employers.astype(str).str.strip().ne("")
-    missing_employer = reclassified & (
-        df["contributor_employer"].isna()
-        | df["contributor_employer"].eq("NOT DISCLOSED")
-    )
-    restore = has_employer & missing_employer.loc[has_employer.index]
-    if not restore.any():
-        return
-
-    restored = _normalize_text(
-        raw_employers[restore],
-        EMPLOYER_NORMALIZE,
-        digits_only_before=EMPLOYER_STATUS_TEXT,
-    )
-    restored = restored[restored.notna() & ~restored.isin(MISSING_VALUES)]
-    if not restored.empty:
-        df.loc[restored.index, "contributor_employer"] = restored
-
-
-def _clear_individual_residue(df: pd.DataFrame) -> None:
-    """Fix missing-work status and clear short invalid values."""
-    is_individual = df["is_individual"]
-
-    missing_occupation = is_individual & df["contributor_occupation"].isna()
-    if missing_occupation.any():
-        df.loc[missing_occupation, "occupation_category"] = pd.NA
-
-    short_fields = (
-        ("contributor_employer", OK_SHORT_EMPLOYERS),
-        ("contributor_occupation", OK_SHORT_OCCUPATIONS),
-    )
-    for column, whitelist in short_fields:
-        values = df[column]
-        junk = (
-            is_individual
-            & values.notna()
-            & values.str.len().le(2)
-            & ~values.isin(whitelist)
-        )
-        if junk.any():
-            df.loc[junk, column] = np.nan
-
-
-def _restore_reclassified_committees(
-    df: pd.DataFrame,
-    raw_occ_backup: pd.Series,
-    raw_emp_backup: pd.Series,
-) -> None:
-    """Restore work fields for committee rows reclassified as individuals."""
-    reclassified = df["is_individual"] & df["_reclass_reason"].str.startswith(
-        "committee_to_individual", na=False
-    )
-    if reclassified.any():
-        raw_occupations = raw_occ_backup.loc[reclassified]
-        raw_employers = raw_emp_backup.loc[reclassified]
-        _restore_individual_occupations(df, raw_occupations)
-        _restore_individual_employers(df, reclassified, raw_employers)
