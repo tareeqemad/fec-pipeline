@@ -1,7 +1,7 @@
 """Occupation and employer spellings, categories and cross-field rules."""
 from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
-from fec.config.tables import CONFIG_DIR, read_map
+from fec.config.tables import CONFIG_DIR, read_map, words
 from fec.env import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
 
 _nan = float("nan")
@@ -28,7 +28,7 @@ OCCUPATION_NORMALIZE = {
 
 # Each occupation's category: the model's answers, then the reviewed
 # overrides on top. Unlisted texts are classified by the model when the
-# pipeline runs (fec.cleaning.work.categorize); patterns are the fallback.
+# pipeline runs (fec.cleaning.work.categorize); until then they are OTHER.
 CATEGORY_OVERRIDES = {
     **(read_map(OCCUPATION_CATEGORY_CACHE_CSV) if OCCUPATION_CATEGORY_CACHE_CSV.exists() else {}),
     **(read_map(OCCUPATION_CATEGORY_OVERRIDES_CSV) if OCCUPATION_CATEGORY_OVERRIDES_CSV.exists() else {}),
@@ -63,49 +63,16 @@ EMPLOYER_FROM_CATEGORY = {
     for category in ('RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'STUDENT', 'SELF-EMPLOYED')
 }
 
-SWAP_JOB_TITLES = _OCCUPATION_AS_EMPLOYER | frozenset({
-    'MANAGER', 'PARTNER', 'ADMINISTRATOR',
-    'PRESIDENT', 'VICE PRESIDENT', 'VP', 'DIRECTOR', 'EXECUTIVE',
-    'OFFICER', 'CEO', 'CFO', 'COO', 'CTO', 'CMO',
-})
+SWAP_JOB_TITLES = _OCCUPATION_AS_EMPLOYER | words("swap_job_titles_own")
 
-OCCUPATION_KEYWORDS = _OCCUPATION_AS_EMPLOYER | frozenset({
-    'ATTORNEY', 'LAWYER', 'PARTNER', 'MANAGER', 'ADMINISTRATOR',
-    'PRESIDENT', 'DIRECTOR', 'EXECUTIVE', 'PHYSICIAN', 'ACCOUNTANT',
-    'CONSULTANT', 'ENGINEER', 'OFFICER', 'ANALYST', 'ADVISOR',
-    'COUNSEL', 'DENTIST', 'SURGEON', 'BROKER', 'AGENT',
-    'CLAIMS', 'CPA', 'OWNER', 'MANAGING PARTNER', 'MANAGING DIRECTOR',
-    'PAC MANAGER', 'INSURANCE BROKER', 'INSURANCE AGENT', 'REAL ESTATE',
-    'INVESTMENT MANAGEMENT', 'FINANCE', 'MARKETING', 'MANAGEMENT',
-    'SALES', 'CASHIER', 'DESIGNER', 'CATER', 'CATERER', 'WRITER',
-    'ARTIST', 'PSYCHOLOGIST', 'THERAPIST', 'PROFESSOR',
-})
+OCCUPATION_KEYWORDS = _OCCUPATION_AS_EMPLOYER | words("occupation_keywords_own")
 
-FINAL_SHORT_OCCUPATIONS = frozenset({
-    'MD', 'VP', 'PA', 'RN', 'IT', 'PR', 'HR', 'AI', 'DJ', 'DO', 'GP', 'GM',
-})
-FINAL_JUNK_EMPLOYERS = frozenset({
-    'VARIOUS', 'JOB', 'A', 'EMP', 'N', 'MULTIPLE', 'OTHER',
-})
-FINAL_NULL_EMPLOYERS = _REFUSAL_EMPLOYERS | frozenset({
-    'N/A', 'NA', 'N A', 'NONE', 'NOT APPLICABLE', 'NOT APPLICAABLE',
-    'NOT DISCLOSED', 'INFORMATION REQUESTED',
-    'INFORMATION REQUESTED PER BEST EFFORTS', 'PHYSICAN', 'SELP EMPLOYED',
-})
-WEB_ARTIFACT_OCCUPATIONS = frozenset({
-    'LOADING', 'ACMIO', 'REMD', 'SWAP MEET', 'UOOO[',
-    # A joke with no job; the employer fill restores it.
-    'BIG BOY',
-})
+FINAL_SHORT_OCCUPATIONS = words("final_short_occupations")
+FINAL_JUNK_EMPLOYERS = words("final_junk_employers")
+FINAL_NULL_EMPLOYERS = _REFUSAL_EMPLOYERS | words("final_null_employers_own")
+WEB_ARTIFACT_OCCUPATIONS = words("web_artifact_occupations")
 
-KNOWN_COMPANY_OCCUPATIONS = frozenset({
-    'ARCH INSURANCE', 'BROWN & BROWN', 'DANZIGER & DE LLANO LLP',
-    'NNA SERVICES LLC', 'BAKER TILLY', 'AMERICAN EXPRESS',
-    'NFI INDUSTRIES', 'SKYRISE PROPERTIES', 'PAYROLL COMPANY',
-})
+KNOWN_COMPANY_OCCUPATIONS = words("known_company_occupations")
 
-HOMEMAKER_EMPLOYER_VALUES = frozenset({
-    'HOMEMAKER', 'HOUSEWIFE', 'HOUSWIFE', 'HOUSEWIVES',
-    'STAY AT HOME MOM', 'STAY AT HOME DAD',
-})
+HOMEMAKER_EMPLOYER_VALUES = words("homemaker_employer_values")
 

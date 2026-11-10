@@ -26,8 +26,9 @@ from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.cleaning.work.status_words import status_word
 from fec.config.constants import STATUS_WORDS
+from fec.config.tables import words
 
-_RETIRED_WORDS = frozenset({"RETIRED", "RETIRE", "RETIREE", "RETIRD", "RETIREFT", "RETIREF"})
+_RETIRED_WORDS = words("retired_words")
 _PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
 _WORD_RE = re.compile(r"[A-Z][A-Z']*")
 # RETIREDPHYSICIAN: the space was dropped.
@@ -41,7 +42,7 @@ _NAME_BEFORE_RE = re.compile(r"\b(?:OF|FOR|THE|AND|&)$")
 # Parts of one occupation text: "OFFICE MANAGER, RETIRED NURSE", "VOLUNTEER (RETIRED ATTORNEY)"
 _PART_RE = re.compile(r"\s*(?:[,;:()]|/|\s-\s)\s*")
 # "I'M RETIRED", "SELF RETIRED": the rest names nothing.
-_NO_ROLE = frozenset({"I'M", "IM", "I AM", "SELF", "ME", "MILITARY", "FROM", "NOW", "FULLY", "HAPPILY"})
+_NO_ROLE = words("no_role")
 _NOTHING = _NO_ROLE | STATUS_WORDS
 
 

@@ -1,5 +1,6 @@
 """Loose keys for comparing employer text."""
 import re
+from fec.config.tables import words
 
 
 _CORP_SUFFIXES = (
@@ -20,7 +21,7 @@ _CORP_SUFFIXES = (
     "LP",
 )
 # Short suffixes glued onto one word belong to the brand.
-_GLUED_BRAND_SUFFIXES = frozenset({"CO", "PC", "PA", "LP"})
+_GLUED_BRAND_SUFFIXES = words("glued_brand_suffixes")
 
 # Abbreviations folded for grouping only; ASSOC is deliberately absent.
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}

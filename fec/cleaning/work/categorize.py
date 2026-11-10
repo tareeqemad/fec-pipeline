@@ -6,8 +6,7 @@ answers one category per text. Every answer is kept in
 data/cache/occupation_categories.csv, so a text is sent once; a reviewed
 row in data/rules/occupation_category_overrides.csv wins over the model.
 
-Without OPENAI_API_KEY the step is skipped and the pattern fallback in
-fec.config.occupation_rules.categories categorizes the new texts.
+Without OPENAI_API_KEY the step is skipped and a new text stays OTHER.
 """
 from __future__ import annotations
 

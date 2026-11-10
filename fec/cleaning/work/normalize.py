@@ -4,10 +4,6 @@ import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
 from fec.config.data import COMM_PATTERNS, MISSING_VALUES
-from fec.config.occupation_rules.categories import (
-    CATEGORY_PATTERNS,
-    RECLASSIFY_CATEGORY_RULES,
-)
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES, OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS as _TEXT_CORRECTIONS
 
 # junk value -> NaN, one batch replace
@@ -65,39 +61,15 @@ def _normalize_text(series: pd.Series, normalize_map: dict,
     return cleaned.astype(object)
 
 
-# assign occupation category by override then first matching regex
 def _categorize(occupation_series: pd.Series) -> pd.Series:
-    """Occupation category: overrides first, then the first matching regex."""
-    result = pd.Series('OTHER', index=occupation_series.index)
-    result[occupation_series.isna()] = pd.NA
-
-    override_mask = occupation_series.isin(CATEGORY_OVERRIDES)
-    if override_mask.any():
-        result[override_mask] = occupation_series[override_mask].map(CATEGORY_OVERRIDES)
-
-    filled = occupation_series.fillna('').astype(str)
-    # A listed OTHER is a decision (a company name, a non-job); patterns only fill gaps.
-    unlisted = (result == 'OTHER') & ~override_mask
-    for category, pattern in CATEGORY_PATTERNS:
-        matches = filled.str.contains(pattern, na=False) & unlisted
-        result[matches] = category
-
-    return result
+    """Occupation category: the listed one, else OTHER until the model reads the text."""
+    result = occupation_series.map(CATEGORY_OVERRIDES).astype(object)
+    return result.where(result.notna(), 'OTHER').where(occupation_series.notna(), pd.NA)
 
 
-# categorize final occupations using overrides, exact map, and regex
 def categorize_final(occupation_series: pd.Series) -> pd.Series:
-    """Categorize final cleaned occupations using every configured rule."""
-    occupation = occupation_series.fillna('').astype(str).str.strip().str.upper()
-    result = _categorize(occupation)
-
-    for pattern, category in RECLASSIFY_CATEGORY_RULES:
-        matches = result.eq('OTHER') & occupation.str.contains(
-            pattern, case=False, na=False,
-        )
-        result.loc[matches] = category
-
-    return result
+    """The category of final cleaned occupations."""
+    return _categorize(occupation_series.fillna('').astype(str).str.strip().str.upper())
 
 
 # classify committee names into sub-types by keyword match

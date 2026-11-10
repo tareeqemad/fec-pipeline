@@ -6,6 +6,7 @@ import pandas as pd
 from fec.cleaning._helpers import _norm
 from fec.cleaning.reports.trail import ADDRESS_FIELDS
 from fec.config.constants import AMBIGUOUS_CITIES, FOREIGN_CITIES_NO_US_STATE
+from fec.config.tables import words
 
 _COUNTRIES = (
     'ISRAEL', 'ENGLAND', 'UNITED KINGDOM', 'UK', 'SCOTLAND', 'IRELAND', 'CANADA',
@@ -23,21 +24,10 @@ _COUNTRY_TAIL_RE = re.compile(
 
 
 # Foreign localities without US namesakes, missing from the shared list.
-_MORE_FOREIGN_CITIES = frozenset({
-    'EFRAT', 'BEIT SHEMESH', 'BET SHEMESH', 'RAMAT BEIT SHEMESH',
-    'MAALE ADUMIM', "MA'ALE ADUMIM", 'MEVASERET ZION', 'ALON SHVUT',
-    'NEVE DANIEL', 'GUSH ETZION', 'KARNEI SHOMRON', 'GINOT SHOMRON',
-    'ASHDOD', 'BNEI BRAK', 'HOLON', 'BAT YAM', 'HOD HASHARON',
-    'RAMAT HASHARON', 'GIVAT SHMUEL', 'ZICHRON YAAKOV', 'ZIKHRON YAAKOV',
-    'CAESAREA', 'KOCHAV YAIR', 'TZUR YIGAL', 'SHOHAM', 'NES ZIONA',
-    'YAVNE', 'KIRYAT ONO', 'ROSH HAAYIN', 'PETACH TIKVA', 'BEERSHEBA',
-    'BEER SHEBA', "BE'ER SHEVA", 'TZFAT', 'SAFED', 'KARMIEL', 'NAHARIYA',
-    'EILAT', 'TIBERIAS', 'HERZLIYA PITUACH', 'HERTZLIYA', "RA'ANANA",
-    "MODI'IN", 'KFAR SAVA', 'TEL AVIV-YAFO', 'TEL AVIV YAFO', 'TEL-AVIV',
-})
+_MORE_FOREIGN_CITIES = words("more_foreign_cities")
 # Foreign cities that also name US places, flagged elsewhere only.
 _MORE_AMBIGUOUS_CITIES = {
-    'MADRID': frozenset({'AL', 'CO', 'IA', 'ME', 'NE', 'NM', 'NY'}),
+    'MADRID': words("more_ambiguous_cities_own"),
 }
 
 # Hand-reviewed single filings abroad that look like US places.

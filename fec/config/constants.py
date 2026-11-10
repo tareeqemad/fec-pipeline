@@ -1,10 +1,8 @@
 """Shared status values and employer patterns."""
+from fec.config.tables import words
 
 # Occupations that are really life statuses.
-STATUS_WORDS = frozenset({
-    'RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'HOUSEWIFE',
-    'SELF-EMPLOYED', 'STUDENT', 'UNEMPLOYED',
-})
+STATUS_WORDS = words("status_words")
 
 STATUS_CATEGORIES = STATUS_WORDS - {'HOUSEWIFE', 'UNEMPLOYED'}
 
@@ -12,17 +10,10 @@ STATUS_CATEGORIES = STATUS_WORDS - {'HOUSEWIFE', 'UNEMPLOYED'}
 SKIP_OCCUPATIONS = (STATUS_WORDS - {'HOUSEWIFE'}) | {''}
 
 # Values that are not employer names: statuses, placeholders, typos.
-SKIP_EMPLOYERS = SKIP_OCCUPATIONS | frozenset({
-    'NOT DISCLOSED', 'NONE', 'N/A', 'NA',
-    # Status slips are read by fec.cleaning.work.status_words.
-    'RETIRED.', 'SELF EMPLOYED',
-    'NOT APPLICABLE', 'NOT APPLICAABLE', 'PHYSICAN',
-})
+SKIP_EMPLOYERS = SKIP_OCCUPATIONS | words("skip_employers_own")
 
 # Life statuses for matching; narrower than NOT_REAL_EMPLOYER.
-EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | frozenset({
-    'SELF EMPLOYED', 'NOT DISCLOSED', 'NONE', 'N/A', 'NA', 'NAN',
-})
+EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | words("employer_status_values_own")
 
 # Real brands containing a slash, kept verbatim and gate-checked.
 SLASH_BRAND_EMPLOYERS = frozenset({
@@ -30,54 +21,19 @@ SLASH_BRAND_EMPLOYERS = frozenset({
 })
 
 # Refusals and non-answers; the shared base for null employers.
-REFUSAL_EMPLOYERS = frozenset({
-    'PRIVATE', 'CONFIDENTIAL', 'PREFER NOT TO ANSWER',
-    'DECLINED TO ANSWER', 'REFUSED', 'NOT PROVIDED', 'NOT PROVIDED BY CONTRIBUTOR',
-    'DECLINED TO STATE', 'NONE OF YOUR BUSINESS',
-    'DECLINE TO STATE', 'PREFER NOT TO SAY',
-    'NOT YOUR BUSINESS', 'NOTYOURBUSINESS',
-    # Placeholders with no employer info: HOME, TBD, VOLUNTEER.
-    'NON', 'CHILD', 'UGH', 'SSSZSS', 'HOME', 'TBD', 'VOLUNTEER',
-    # misspelled FEC admin note that was surviving into employer locations
-    'INFORMATION REQESTED',
-    # Filer refusals; CTR is one donor's truncated CONTRACTOR.
-    'NOT IMPORTANT', 'NOT SURE WHY YOU NEED THIS',
-    "EMPLOYER DOESN'T WANT ME TO DISCLOSE", 'NOT SPECIFIED',
-    'FAMILY', 'YES', 'CTR', 'COMPANY NAME', 'COMPANY NAME (OPTIONAL)',
-    # PERSONAL answers the question; it is no firm.
-    'PERSONAL', 'DO NOT WISH TO DISCLOSE',
-    'RATHER NOT SAY', 'PRIVATE COMPANY', 'COMPANY', 'INDIVIDUAL',
-    'RESIDENCE', 'BLANK', 'VARIOUS STUDIOS', 'HOMEOWNER',
-    'XYX', 'MALE', 'NO E', 'GROUP', 'UNKEMPT CONCERT DONATION',
-})
+REFUSAL_EMPLOYERS = words("refusal_employers")
 
 # Whitelists for short but real values; confirmed entries only.
 
 # employer abbreviations that are real companies
-OK_SHORT_EMPLOYERS = frozenset({
-    '3M', 'HP', 'BP', 'GE', 'GM', 'LG', 'EY', 'PW',
-    'BJ', 'C3', 'AT', 'QC',
-    # F5, UW and KP are real names, kept as filed.
-    'F5', 'UW', 'KP',
-})
+OK_SHORT_EMPLOYERS = words("ok_short_employers")
 
 # occupations and credentials that are real, not truncated garbage
-OK_SHORT_OCCUPATIONS = frozenset({
-    # medical
-    'MD', 'DO', 'DDS', 'DMD', 'RN', 'LPN', 'NP', 'PA', 'PT', 'OT', 'DVM', 'GP',
-    # legal / finance credentials
-    'ESQ', 'JD', 'CPA', 'PHD', 'MBA',
-    # executive titles
-    'CEO', 'CFO', 'COO', 'CTO', 'CIO', 'CMO', 'CLO', 'CGO', 'CRO', 'CHRO',
-    'VP', 'EVP', 'SVP', 'GM',
-    # fields and roles
-    'IT', 'HR', 'PR', 'RE', 'SW', 'UX', 'QA', 'VFX', 'CPT', 'RSM',
-    'PM', 'PMO', 'SRE', 'DJ',
-})
+OK_SHORT_OCCUPATIONS = words("ok_short_occupations")
 
 # A status word with a slip (SELF-EMPOLYED, RETIERD) is read by
 # fec.cleaning.work.status_words; the few it cannot read are listed here.
-STATUS_SLIPS_BEYOND_RULE = frozenset({'SLEF', 'SELP', 'SWLF', 'RETIREFT', 'RETIREF'})
+STATUS_SLIPS_BEYOND_RULE = words("status_slips_beyond_rule")
 
 # Structural junk checked against the whole uppercased employer value.
 JUNK_EMPLOYER_RE = (
@@ -108,17 +64,7 @@ ADMIN_NOTE_EMPLOYER_RE = (
 
 
 # Checked against state to avoid false positives (London OH, etc.)
-FOREIGN_CITIES_NO_US_STATE = frozenset({
-    # Israel
-    'REHOVOT', 'NETANYA', 'HERZLIYA', 'HAIFA', 'TEL AVIV',
-    'RAANANA', 'MODIIN', 'ASHKELON', 'BEER SHEVA', 'PETAH TIKVA',
-    'RISHON LEZION', 'KFAR SABA', 'GIVATAYIM', 'RAMAT GAN', 'SAVYON',
-    # Canada-only names; shared US names go in AMBIGUOUS_CITIES.
-    'MONTREAL', 'OTTAWA', 'CALGARY',
-    # No US namesake, so flagged unconditionally.
-    'TOKYO', 'MUMBAI', 'DELHI', 'BANGALORE', 'SAO PAULO', 'MEXICO CITY',
-    'KRAGUJEVAC', 'PAPARA',
-})
+FOREIGN_CITIES_NO_US_STATE = words("foreign_cities_no_us_state")
 
 # Cities abroad and in the US: flagged on state mismatch.
 AMBIGUOUS_CITIES = {

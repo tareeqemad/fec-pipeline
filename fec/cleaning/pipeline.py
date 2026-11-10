@@ -32,6 +32,7 @@ from fec.cleaning.work.clean import clean_employer_occupation
 from fec.cleaning.work.status_words import extend_spellings
 from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import clean_addresses
+from fec.cleaning.donors.occupation import _rederive_occupation_category
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
 from fec.cleaning.names import _clean_names, _preclean_name_punctuation
 from fec.cleaning.rules.records import apply_record_rules
@@ -99,6 +100,9 @@ def clean_records(
         "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
         source="data/rules/manual_employer_overrides.csv",
     )
+    # Donors are matched on the category of the occupation as it now reads.
+    trail.run(df, _rederive_occupation_category, "occ_final_categories", "category_of_final_occupation",
+              ("occupation_category",))
     return df
 
 

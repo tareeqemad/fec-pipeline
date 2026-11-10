@@ -30,15 +30,12 @@ from scourgify.address_constants import (
 )
 
 from fec.cleaning.addresses.foreign import foreign_address_mask
+from fec.config.tables import words
 
 FIELDS = ("street_1", "street_2", "city", "state", "zip")
 COLUMNS = tuple(f"contributor_{field}" for field in FIELDS)
 
-_STREET = {
-    "AddressNumberPrefix", "AddressNumber", "AddressNumberSuffix", "StreetNamePreDirectional",
-    "StreetNamePreModifier", "StreetNamePreType", "StreetName", "StreetNamePostType",
-    "StreetNamePostDirectional",
-}
+_STREET = {"AddressNumberPrefix", "AddressNumber", "AddressNumberSuffix", "StreetNamePreDirectional", "StreetNamePreModifier", "StreetNamePreType", "StreetName", "StreetNamePostType", "StreetNamePostDirectional"}
 _UNIT = {"OccupancyType", "OccupancyIdentifier", "SubaddressType", "SubaddressIdentifier"}
 _BOX = {"USPSBoxType", "USPSBoxID"}
 _DIRECTIONS = {**DIRECTIONAL_REPLACEMENTS, **{short: short for short in DIRECTIONAL_REPLACEMENTS.values()}}
@@ -51,9 +48,9 @@ _ORDINAL_WORDS = dict(zip(
     "FIRST SECOND THIRD FOURTH FIFTH SIXTH SEVENTH EIGHTH NINTH TENTH".split(),
     "1ST 2ND 3RD 4TH 5TH 6TH 7TH 8TH 9TH 10TH".split(),
 ))
-_NUMBERED_ROADS = {"HWY", "RTE", "RD", "FWY", "EXPY"}
+_NUMBERED_ROADS = words("numbered_roads")
 # USPS Publication 28: these designators stand without an id
-_NEEDS_NO_ID = {"BSMT", "FRNT", "LBBY", "LOWR", "OFC", "PH", "REAR", "SIDE", "UPPR"}
+_NEEDS_NO_ID = words("needs_no_id")
 _CARE_OF = re.compile(r"^(?:C/O|C\\O|CARE OF|ATTN|ATTENTION)\b")
 _PO_BOX = re.compile(r"^(?:P ?O|POST OFFICE)(?: BOX)?$")
 _JOINED_UNIT = re.compile(r"^([A-Z]+)-(\w+)$")

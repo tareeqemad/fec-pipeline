@@ -31,6 +31,7 @@ from fec.config.not_employers import (
     ROLE_AS_EMPLOYER,
     SECTOR_AS_EMPLOYER,
 )
+from fec.config.tables import words
 
 __all__ = [
     "is_real_employer",
@@ -41,20 +42,12 @@ __all__ = [
 
 
 # Slash values can contain a company, title, or work status.
-_SLASH_STATUS_WORDS = frozenset({
-    'RETIRED', 'REITRED', 'HOMEMAKER', 'UNEMPLOYED', 'NOT EMPLOYED',
-    'NONE', 'N/A', 'NA', 'NAN', 'N A', 'VOLUNTEER', '',
-})
+_SLASH_STATUS_WORDS = words("slash_status_words")
 
-_SLASH_SELF_WORDS = frozenset({
-    'SELF', 'SELFEMPLOYED', 'SELF-EMPLOYED', 'SELF EMPLOYED',
-})
+_SLASH_SELF_WORDS = words("slash_self_words")
 
 # Sector or title strings meaning no real previous employer.
-_SLASH_SECTOR_ONLY = frozenset({
-    'INVESTMENTS', 'INSURANCE', 'BUILDER', 'DEVELOPER', 'INVESTOR',
-    'REAL ESTATE AGENT', 'DEVELOPER R E', 'RETIRED LAWYER',
-})
+_SLASH_SECTOR_ONLY = words("slash_sector_only")
 
 # Leading admin marker on a slash value: "LETTER SENT/ACME".
 _SLASH_ADMIN_PREFIX_RE = re.compile(
@@ -170,7 +163,7 @@ def firm_after_self_marker(rest: str) -> str:
     return ''
 
 
-_PERSON_TITLES = frozenset({'DR', 'MR', 'MRS', 'MS', 'MD', 'PHD', 'DDS', 'DO', 'ESQ', 'JR', 'SR', 'CPA'})
+_PERSON_TITLES = words("person_titles")
 # A word making the text before the marker a firm.
 _FIRM_WORD_RE = re.compile(
     r'\b(?:GROUP|INC|LLC|LLP|LTD|CORP|CORPORATION|CO|COMPANY|ASSOCIATES|PARTNERS'

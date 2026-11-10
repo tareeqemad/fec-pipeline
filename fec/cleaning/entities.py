@@ -28,6 +28,7 @@ from fec.cleaning.work.status import is_job_title
 from fec.config.constants import OK_SHORT_EMPLOYERS, OK_SHORT_OCCUPATIONS, SKIP_EMPLOYERS
 from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
+from fec.config.tables import words
 
 
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
@@ -78,15 +79,7 @@ def deciding_source_type(df: pd.DataFrame) -> pd.Series:
 # Placeholders and life statuses are left to their own rules.
 _NOT_WORK = STATUS_CATEGORIES | SKIP_EMPLOYERS | frozenset({'EMPLOYED'})
 # Job and field words that is_job_title does not recognise.
-_JOB_WORDS = frozenset({
-    'REAL ESTATE', 'FINANCE', 'SALES', 'CONSULTING', 'MANAGEMENT',
-    'INSURANCE', 'MARKETING', 'BANKING', 'GOVERNMENT', 'EDUCATION',
-    'CONSTRUCTION', 'ACCOUNTING', 'TECHNOLOGY', 'ENGINEERING', 'VOLUNTEER',
-    'CASHIER', 'NURSE', 'HEALTHCARE', 'ENTREPRENEUR', 'INDEPENDENT CONTRACTOR',
-    'FREELANCE', 'COMMUNITY VOLUNTEER', 'INVESTOR',
-    'FUNDRAISING CONSULTANT', 'INSURANCE AGENT', 'NON-PROFIT VOLUNTEER',
-    'BUSINESS',
-})
+_JOB_WORDS = words("job_words")
 
 
 # Keep campaign phrases such as ROB FOR PA intact.
