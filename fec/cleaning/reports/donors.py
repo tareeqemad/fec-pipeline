@@ -3,15 +3,14 @@
 Two donors are listed when they share a ZIP and a surname and their first
 names are the same, a nickname of one another (BOB, ROBERT) or one the
 start of the other (J, JOHN). Pairs already decided are left out: a
-reviewed rule keeps them apart, one is the other's joint filing, or the
-donor's identity is on hold.
+reviewed rule keeps them apart, or the donor's identity is on hold (a
+joint filing, an unproven owner).
 """
 from itertools import combinations
 from pathlib import Path
 
 import pandas as pd
 
-from fec.donor_match.joint import given_tokens, joint_partners
 from fec.donor_match.normalize import NICKNAME_MAP
 from fec.donor_match.rules import identities_must_stay_separate, names_must_stay_separate
 from fec.io import write_csv_atomic
@@ -31,17 +30,6 @@ def _related(first_a: str, first_b: str) -> str:
         return f"nickname {a}/{b}"
     short, long = sorted((a, b), key=len)
     return f"initial/prefix {short}->{long}" if long.startswith(short) else ""
-
-
-# HAROLD AND JUDY beside HAROLD: a joint filing and its solo filer stay two donors
-def _joint_and_solo(first_a: str, first_b: str, household: set) -> bool:
-    tokens_a, tokens_b = given_tokens(first_a), given_tokens(first_b)
-    others = {given_tokens(first) for first in household}
-    for joint, solo in ((tokens_a, tokens_b), (tokens_b, tokens_a)):
-        if joint and solo and joint != solo and (joint[0] == solo[0] or (len(joint) == 1 and joint[0].startswith(solo[0]))):
-            if joint_partners(joint, {joint, solo}, others - {joint, solo}):
-                return True
-    return False
 
 
 def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
@@ -74,7 +62,6 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
     places["last"] = places["donor_key"].map(donors["last"])
     for (zip_code, last), group in places[places["last"].ne("")].groupby(["contributor_zip", "last"]):
         keys = sorted(group["donor_key"].unique())
-        household = {donors.at[key, "first"] for key in keys}
         for a, b in combinations(keys, 2):
             first_a, first_b = donors.at[a, "first"], donors.at[b, "first"]
             reason = _related(first_a, first_b)
@@ -82,8 +69,7 @@ def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
                 continue
             seen.add((a, b))
             if (names_must_stay_separate(f"{last}, {first_a}", f"{last}, {first_b}")
-                    or any(identities_must_stay_separate(x, y) for x in identities[a] for y in identities[b])
-                    or _joint_and_solo(first_a, first_b, household)):
+                    or any(identities_must_stay_separate(x, y) for x in identities[a] for y in identities[b])):
                 continue
             row = {"reason": reason, "zip": zip_code, "last_name": last}
             for side, key in (("a", a), ("b", b)):

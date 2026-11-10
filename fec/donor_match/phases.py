@@ -9,7 +9,7 @@
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from itertools import combinations
 
 from fec.donor_match.normalize import (
@@ -30,7 +30,6 @@ class MatchContext:
     profiles: dict
     union_find: object
     component_suffixes: dict
-    edges: list = field(default_factory=list)   # the pairs that joined two groups
 
 
 def _suffixes_allow_merge(context: MatchContext, rid_a: str, rid_b: str) -> bool:
@@ -53,7 +52,6 @@ def _merge(context: MatchContext, rid_a: str, rid_b: str, score: int) -> None:
     if context.union_find.union(rid_a, rid_b):
         suffixes = context.component_suffixes.pop(root_a) | context.component_suffixes.pop(root_b)
         context.component_suffixes[context.union_find.find(rid_a)] = suffixes
-        context.edges.append((rid_a, rid_b))
 
 
 def _score_within_groups(context: MatchContext) -> None:
