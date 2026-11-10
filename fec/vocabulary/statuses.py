@@ -23,7 +23,7 @@ REFUSAL_EMPLOYERS = words("refusal_employers")
 OK_SHORT_EMPLOYERS = words("ok_short_employers")
 
 # A status word with a slip (SELF-EMPOLYED, RETIERD) is read by
-# fec.cleaning.work.status_words; the few it cannot read are listed here.
+# fec.cleaning.work.status_spellings; the few it cannot read are listed here.
 STATUS_SLIPS_BEYOND_RULE = words("status_slips_beyond_rule")
 
 # Structural junk checked against the whole uppercased employer value.

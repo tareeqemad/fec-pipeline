@@ -31,7 +31,7 @@ def individual_record_id(name: object, city: object, state: object, suffix: obje
 
 
 def individual_donor_key(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
-    """Canonical donor_key; must match leadership_matcher's."""
+    """Canonical donor_key; the roster loader (fec/database/roster_people.py) finds donors by it."""
     rid = individual_record_id(name, city, state, suffix, zip5)
     return hashlib.sha256(rid.encode()).hexdigest()[:12]
 

@@ -1,4 +1,4 @@
-"""Reviewed corrections for single filings, matched by FEC sub_id (manual_employer_overrides.csv).
+"""Reviewed corrections for single filings, matched by FEC sub_id (filing_corrections.csv).
 
 A filled cell replaces the filing's value and [CLEAR] empties it. Rows marked
 after_matching wait until donors are matched, so the correction does not
@@ -14,7 +14,7 @@ import pandas as pd
 
 from fec.cleaning.work.company_names import reviewed_employer_name
 from fec.cleaning.work.occupation_categories import categorize_occupations
-from fec.common.settings import MANUAL_EMPLOYER_OVERRIDES_CSV
+from fec.common.settings import FILING_CORRECTIONS_CSV
 from fec.vocabulary.occupations import VALID_CATEGORIES
 
 CLEAR = "[CLEAR]"
@@ -33,9 +33,9 @@ FIELDS = (
 @lru_cache(maxsize=1)
 def _read_reviewed_filings() -> pd.DataFrame:
     """Read the reviewed rows by sub_id, employers in their shared company spelling."""
-    if not MANUAL_EMPLOYER_OVERRIDES_CSV.exists():
+    if not FILING_CORRECTIONS_CSV.exists():
         return pd.DataFrame(columns=[*FIELDS, "after_matching"])
-    rows = pd.read_csv(MANUAL_EMPLOYER_OVERRIDES_CSV, dtype=str, keep_default_na=False)
+    rows = pd.read_csv(FILING_CORRECTIONS_CSV, dtype=str, keep_default_na=False)
     rows = rows.apply(lambda column: column.str.strip()).set_index("sub_id")
     unknown = set(rows["occupation_category"]) - VALID_CATEGORIES - {""}
     if unknown:

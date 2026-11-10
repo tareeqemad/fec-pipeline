@@ -1,4 +1,4 @@
-contributor_name,entity_type,note
+contributor_name,entity_type,source
 "MANZANITA ACTION FUND",ORGANIZATION,"501(c)(4) social-welfare nonprofit (not a traditional PAC) — gave $1.6M to UDP; FUND token defaulted it to COMMITTEE/PAC"
 "UNITED ASSOCIATION POLITICAL ISSUES FUND",ORGANIZATION,"Section 527 political org (EIN 52-2256674) of the UA plumbers/pipefitters union (501c5) — no FEC committee, reports to IRS via Form 8872; the UA federal PAC is a different name (C00012476)"
 "NON FEDERAL POLITICAL EDUCATIONAL FUND OF THE BUILDING & CONSTRUCTION TRADES DEPT.",ORGANIZATION,"FEC labels it entity_type=ORG (contributor_id=null) — the explicitly NON-FEDERAL 501(c)(5) labor account, not an FEC committee; federal PAC is C00003160 (different name)"

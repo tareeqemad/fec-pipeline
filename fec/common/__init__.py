@@ -1,1 +1,1 @@
-"""Settings, logging, files and columns shared by every stage."""
+"""Shared by every stage: settings and paths, logging, files and columns."""

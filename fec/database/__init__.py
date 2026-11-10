@@ -1,1 +1,1 @@
-"""Database schema, loader, and donor matching."""
+"""Database stage: load the cleaned data into PostgreSQL."""

@@ -1,1 +1,1 @@
-"""Stage 1: pull contributions from the FEC API."""
+"""Pull stage: new Schedule A contributions from the FEC API into data/raw."""

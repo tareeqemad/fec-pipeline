@@ -32,7 +32,7 @@ OCCUPATION_NORMALIZE = {
 
 # Each occupation's category: the model's answers, then the reviewed
 # overrides on top. Unlisted texts are classified by the model when the
-# pipeline runs (fec.cleaning.work.categorize); until then they are OTHER.
+# pipeline runs (fec.cleaning.work.occupation_categories); until then they are OTHER.
 CATEGORY_OVERRIDES = {
     **(read_map(OCCUPATION_CATEGORY_CACHE_CSV) if OCCUPATION_CATEGORY_CACHE_CSV.exists() else {}),
     **(read_map(OCCUPATION_CATEGORY_OVERRIDES_CSV) if OCCUPATION_CATEGORY_OVERRIDES_CSV.exists() else {}),

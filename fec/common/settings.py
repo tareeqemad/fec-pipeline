@@ -96,7 +96,7 @@ ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
 # The model's standard form of every filed US address it has read.
 # Address review cases already decided, each with its source
 # Hand-set employer, occupation and address per filing
-MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"
+FILING_CORRECTIONS_CSV = RULES_DIR / "filing_corrections.csv"
 
 # Reviewed previous employers, each with its source
 PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "previous_employers.csv"

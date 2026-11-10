@@ -1,1 +1,1 @@
-"""FEC cleaning. Start at pipeline.clean_pipeline."""
+"""Cleaning stage: names, entity types, work fields and addresses of every filing."""
