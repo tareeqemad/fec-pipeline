@@ -6,3 +6,6 @@ sqlparse==0.5.5
 requests==2.34.2
 tqdm==4.68.2
 rapidfuzz==3.14.6
+usaddress==0.5.16
+usaddress-scourgify==0.7.1
+zipcodes==3.0.1
