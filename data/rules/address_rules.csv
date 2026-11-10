@@ -274,7 +274,6 @@ GABLES ESTATES NORTH 601 CASUARIN,FL,33143,601 CASUARINA CONCOURSE,,,,,2026-10-2
 10382 BARCAN CIR,MD,21044,10382 BARCAN CIR,,COLUMBIA,,,"SORKIN, LAWRENCE - filed city 'HOWARD COUNTY' (a county, not a city); MD ZIP 21044 = Columbia",,
 8390 E CRESCENT PKWY,CO,80111,8390 E CRESCENT PKWY,,GREENWOOD VILLAGE,,,"DAVIDSON, J - filed city 'GV' (ambiguous initials); CO ZIP 80111 = Greenwood Village",,
 445 EAST SHORE RD KP NY 11024,NY,11024,445 E SHORE RD,,KINGS POINT,,,"BOKHOUR, AL - filed city 'KP' (ambiguous initials); NY ZIP 11024 = Kings Point",,
-EPSTEIN,NY,10530,[CLEAR],,,,,"EPSTEIN, DAVID A. $100 2022-04-24: the street field holds EPSTEIN, the rest of his surname, not an address; no street was filed filed row",,
 BROOKLYN,NY,11239,[CLEAR],,,,,"LEVY, STEVEN $250 2026-06-01: the street field holds BROOKLYN, the city, not an address; no street was filed filed row",,
 ELVENTS,NY,11976,[CLEAR],,,,,"MENACHE, DANIELE $500 2025-04-03: the street field holds ELVENTS, no address; no street was filed filed row",,
 CALIFORNIA SUPPLY,CA,90247,[CLEAR],,,,,"WEINSTEIN, MARK $500 2023-11-22: the street field holds CALIFORNIA SUPPLY, a company name, not an address; no street was filed filed row",,
