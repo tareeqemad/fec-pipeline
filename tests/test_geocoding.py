@@ -2,9 +2,8 @@ from fec.geocoding.cache import GeoCache
 from fec.geocoding import pipeline as geo
 
 
-def point(lat, lng, country="US", source=None, matched_address=None):
-    result = {"lat": lat, "lng": lng, "country": country,
-              "matched_address": matched_address or {}}
+def point(lat, lng, country="US", source=None):
+    result = {"lat": lat, "lng": lng, "country": country}
     if source is not None:
         result["source"] = source
     return result

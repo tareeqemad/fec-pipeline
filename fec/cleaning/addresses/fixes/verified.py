@@ -6,7 +6,6 @@ filing, and replaces the cells it fills; [CLEAR] empties the street or unit.
 import pandas as pd
 
 from fec.env import ADDRESS_RULES_CSV
-from fec.io import write_csv_atomic
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -17,8 +16,6 @@ FIXED = {
     "street": "contributor_street_1", "unit": "contributor_street_2", "city": "contributor_city",
     "state": "contributor_state", "zip": "contributor_zip",
 }
-# What a city correction saved by geocoding fills, and nothing else.
-CITY_RULE = ("match_street", "match_state", "match_zip", "match_sub_id", "street", "city", "source")
 
 
 def _read_rules() -> pd.DataFrame:
@@ -65,23 +62,3 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool = False, w
     if warn_unused and unused:
         logger.warning("WARNING: %s address rules matched no filing: %s", len(unused), "; ".join(unused[:5]))
     return int(df[columns].fillna("").ne(before).any(axis=1).sum())
-
-
-def save_verified_city_corrections(rows: list[dict]) -> int:
-    """Add city rules for single filings that have no rule yet; return how many were added."""
-    if not rows:
-        return 0
-    rules = pd.read_csv(ADDRESS_RULES_CSV, dtype=str, keep_default_na=False, encoding="utf-8-sig")
-    new = pd.DataFrame(rows).fillna("").astype(str).apply(lambda column: column.str.strip())
-    upper = [field for field in CITY_RULE if field not in ("match_sub_id", "source")]
-    new[upper] = new[upper].apply(lambda column: column.str.upper())
-    if (set(new.columns) != set(CITY_RULE) or new.eq("").any(axis=None) or new["street"].ne(new["match_street"]).any()
-            or not new["source"].str.startswith(("https://", "http://")).all()):
-        raise ValueError("A verified city correction needs an exact filing and unchanged street")
-    key = ["match_street", "match_state", "match_zip", "match_sub_id"]
-    taken = set(map(tuple, rules[key].apply(lambda column: column.str.strip().str.upper()).to_numpy()))
-    new = new.drop_duplicates(key)
-    new = new[[tuple(row) not in taken and (*row[:3], "") not in taken for row in new[key].to_numpy()]]
-    if len(new):
-        write_csv_atomic(pd.concat([rules, new.reindex(columns=rules.columns, fill_value="")]), ADDRESS_RULES_CSV, index=False)
-    return len(new)

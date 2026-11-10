@@ -132,18 +132,7 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
                 ):
                     return None
                 country = str(address.get("country_code") or "").upper() or None
-                return {
-                    "lat": float(result["lat"]), "lng": float(result["lon"]), "country": country,
-                    "matched_address": {
-                        "text": result.get("display_name") or "",
-                        "house_number": address.get("house_number") or "",
-                        "street": address.get("road") or "",
-                        "city": address.get("city") or address.get("town") or address.get("village") or "",
-                        "state": (address.get("ISO3166-2-lvl4") or address.get("state_code") or "").removeprefix("US-"),
-                        "zip": address.get("postcode") or "",
-                        "source_url": requests.Request("GET", url, params=params).prepare().url,
-                    },
-                }
+                return {"lat": float(result["lat"]), "lng": float(result["lon"]), "country": country}
         except requests.exceptions.RequestException as error:
             last_error = f"Nominatim {type(error).__name__}"
         except (KeyError, TypeError, ValueError, AttributeError) as error:
@@ -186,18 +175,7 @@ def census(street: str, city: str, state: str, zipcode: str) -> dict | None:
                 if not _same_us_place(state, zipcode, components.get("state"), components.get("zip")):
                     return None
                 coordinates = match["coordinates"]
-                return {
-                    "lat": float(coordinates["y"]), "lng": float(coordinates["x"]), "country": "US",
-                    "matched_address": {
-                        "text": match.get("matchedAddress") or "",
-                        "house_number": number,
-                        "street": street_text[returned.end():].strip() if returned else "",
-                        "city": components.get("city") or "",
-                        "state": components.get("state") or "",
-                        "zip": components.get("zip") or "",
-                        "source_url": requests.Request("GET", CENSUS_URL, params=params).prepare().url,
-                    },
-                }
+                return {"lat": float(coordinates["y"]), "lng": float(coordinates["x"]), "country": "US"}
         except requests.exceptions.RequestException as error:
             last_error = f"Census {type(error).__name__}"
         except (KeyError, TypeError, ValueError, AttributeError) as error:

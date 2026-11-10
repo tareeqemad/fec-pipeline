@@ -16,11 +16,8 @@ class GeoCache(JsonCache):
         entry = self.get(key)
         return entry is None or entry.get("lookup_status", entry.get("source")) == "transient_fail"
 
-    def put(self, key: str, lat: float, lng: float, source: str, country: str = "US",
-            matched_address: dict | None = None):
+    def put(self, key: str, lat: float, lng: float, source: str, country: str = "US"):
         self.data[key] = {"lat": lat, "lng": lng, "source": source, "country": country}
-        if matched_address is not None:
-            self.data[key]["matched_address"] = matched_address
 
     def _record_miss(self, key: str, status: str):
         entry = self.get(key)
