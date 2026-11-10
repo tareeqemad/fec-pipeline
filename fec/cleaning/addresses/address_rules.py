@@ -39,7 +39,7 @@ def _read_address_rules() -> pd.DataFrame:
     return rules
 
 
-def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool = False, warn_unused: bool = False) -> int:
+def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False, warn_unused: bool = False) -> int:
     """Apply the rules in file order and return the filings changed.
 
     A rule that only sets the city also runs after the alignment steps

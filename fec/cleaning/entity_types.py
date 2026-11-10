@@ -51,7 +51,7 @@ def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
         df[column] = values.fillna("").astype(str).str.strip().str.upper().to_numpy()
 
 
-def names_committee(name: str) -> bool:
+def is_committee_name(name: str) -> bool:
     """Tell whether a name holds a committee word, a word ending in PAC, or a campaign phrase."""
     name = name.upper()
     return bool(_CAMPAIGN_RE.search(name)) or any(
@@ -82,7 +82,7 @@ def classify_entities(df: pd.DataFrame) -> None:
     )
     certain = legal_form | level.isin(("legal_form", "reviewed", "frequent")) | (level.eq("named_org") & trust_head)
     company = legal_form | level.isin(COMPANY_LEVELS)
-    committee = names.map(names_committee)
+    committee = names.map(is_committee_name)
     # The filer's own word that this is a person holds when the name boxes are filled.
     trusted = flagged & df[["contributor_first_name", "contributor_last_name"]].fillna("").ne("").all(axis=1)
     person = ~committee & np.where(names.str.match(INDIV_NAME_RE), trusted | ~certain, trusted & ~company)

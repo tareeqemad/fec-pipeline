@@ -46,7 +46,7 @@ def _read_reviewed_filings() -> pd.DataFrame:
     return rows
 
 
-def apply_reviewed_filings(df: pd.DataFrame, matched: bool = False) -> None:
+def apply_filing_corrections(df: pd.DataFrame, matched: bool = False) -> None:
     """Write the reviewed cells; before donors are matched, the rows marked after_matching wait."""
     rows = _read_reviewed_filings()
     if not matched:
@@ -58,7 +58,7 @@ def apply_reviewed_filings(df: pd.DataFrame, matched: bool = False) -> None:
         df.loc[found.index, column] = found.where(found.str.upper().ne(CLEAR), np.nan)
 
 
-def categorize_records(df: pd.DataFrame) -> pd.Series:
+def categorize_with_corrections(df: pd.DataFrame) -> pd.Series:
     """Return the category of each occupation, a reviewed category for the filing first."""
     reviewed = _read_reviewed_filings()["occupation_category"]
     reviewed = df["sub_id"].astype(str).str.strip().map(reviewed[reviewed.ne("")])

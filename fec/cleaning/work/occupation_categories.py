@@ -22,7 +22,7 @@ _ITEM = {
 }
 
 
-def classify(texts: Iterable[object], *, model: str | None = None) -> dict[str, str]:
+def ask_model_for_categories(texts: Iterable[object], *, model: str | None = None) -> dict[str, str]:
     """{text: category} from the model, for texts not yet known; {} without a key."""
     answers = ask_lines(
         texts,
@@ -35,7 +35,7 @@ def classify(texts: Iterable[object], *, model: str | None = None) -> dict[str, 
     return {text: item["category"] for text, item in answers.items() if item["category"] in VALID_CATEGORIES}
 
 
-def remember(answers: dict[str, str], model: str | None = None) -> None:
+def save_model_categories(answers: dict[str, str], model: str | None = None) -> None:
     """Add the answers to the cache file and to the categories in use."""
     if not answers:
         return
@@ -52,7 +52,7 @@ def remember(answers: dict[str, str], model: str | None = None) -> None:
         CATEGORY_OVERRIDES.setdefault(text, category)
 
 
-def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = classify) -> int:
+def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = ask_model_for_categories) -> int:
     """Categorize the individuals' occupations no table lists; return how many texts."""
     people = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df.columns else df["is_individual"].astype(bool)
     occupation = df["contributor_occupation"].fillna("").astype(str).str.strip()
@@ -62,7 +62,7 @@ def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = c
     answers = ask(occupation[unknown].unique())
     if not answers:
         return 0
-    remember(answers)
+    save_model_categories(answers)
     rows = unknown & occupation.isin(answers)
     df.loc[rows, "occupation_category"] = occupation[rows].map(answers)
     return len(answers)

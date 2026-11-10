@@ -8,7 +8,7 @@ before resolve) is skipped and listed as not run.
 import pandas as pd
 
 from fec.cleaning.addresses.donor_addresses import zip_place
-from fec.cleaning.filing_corrections import categorize_records
+from fec.cleaning.filing_corrections import categorize_with_corrections
 from fec.cleaning.work.employer_status import classify_employer_statuses, is_real_employer
 from fec.vocabulary.occupations import VALID_CATEGORIES
 
@@ -44,7 +44,7 @@ def _unknown_category(df: pd.DataFrame) -> pd.Series:
 def _category_differs(df: pd.DataFrame) -> pd.Series:
     """Return the individuals whose category differs from the one the rules give."""
     people = _people(df)
-    return (_text(df, "occupation_category")[people] != categorize_records(df[people])).reindex(
+    return (_text(df, "occupation_category")[people] != categorize_with_corrections(df[people])).reindex(
         df.index, fill_value=False
     )
 

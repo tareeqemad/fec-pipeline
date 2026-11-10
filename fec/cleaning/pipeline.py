@@ -16,7 +16,7 @@ from fec.cleaning.addresses.foreign_addresses import (
 from fec.cleaning.addresses.pipeline import clean_addresses
 from fec.cleaning.contributor_names import apply_name_corrections, clean_names, preclean_name_punctuation
 from fec.cleaning.entity_types import attach_source_fields, classify_entities, normalize_business_names
-from fec.cleaning.filing_corrections import apply_reviewed_filings
+from fec.cleaning.filing_corrections import apply_filing_corrections
 from fec.cleaning.quality_gates import run_quality_gates
 from fec.cleaning.work.occupation_categories import learn_categories
 from fec.cleaning.work.occupation_typos import extend_corrections
@@ -24,7 +24,7 @@ from fec.cleaning.work.status_spellings import extend_spellings
 from fec.cleaning.work.work_fields import read_work
 from fec.common import settings as env
 from fec.common.columns import CLEAN_COLUMNS, INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS, check_output
-from fec.common.committees import committee_id_to_name, load_committees
+from fec.common.committees import committee_id_to_name, read_committees
 from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
 from fec.common.settings import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DIR
@@ -36,7 +36,7 @@ from fec.vocabulary.occupations import CATEGORY_OVERRIDES
 logger = get_logger(__name__)
 
 
-def clean_pipeline(
+def clean_and_match(
     df: pd.DataFrame,
     out_dir: str | None = None,
     earlier_keys: dict | None = None,
@@ -70,7 +70,7 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     df = apply_record_rules(df, filed_employers, filed_occupations)
 
     # After the record rules and the reviewed filings: only texts that stay are sent to the model.
-    apply_reviewed_filings(df)
+    apply_filing_corrections(df)
     _learn_categories(df)
     # Donors are matched on the category of the occupation as it now reads.
     recategorize_occupations(df)
@@ -187,7 +187,7 @@ def main() -> pd.DataFrame:
     df = read_pipeline_csv(input_path)
     logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
 
-    cleaned = clean_pipeline(df, out_dir=out_dir, earlier_keys=_earlier_donor_keys())
+    cleaned = clean_and_match(df, out_dir=out_dir, earlier_keys=_earlier_donor_keys())
     output = cleaned.drop(
         columns=[column for column in cleaned.columns if column.startswith("_") or column in INTERNAL_OUTPUT_COLUMNS]
     )
@@ -205,7 +205,7 @@ def main() -> pd.DataFrame:
 
 def _assert_known_committees(df: pd.DataFrame) -> None:
     """Stop if a recipient is missing from committees.csv."""
-    known = {row["committee_short"] for row in load_committees() if row.get("committee_short")}
+    known = {row["committee_short"] for row in read_committees() if row.get("committee_short")}
     recipients = df["recipient_committee"]
     unknown = recipients[recipients.notna() & ~recipients.isin(known)]
     if unknown.empty:

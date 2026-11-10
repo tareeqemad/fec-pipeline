@@ -9,7 +9,7 @@ from fec.common.settings import COMMITTEES_CSV
 
 
 @lru_cache(maxsize=1)
-def load_committees() -> list[dict]:
+def read_committees() -> list[dict]:
     """Cache committee rows; empty CSV values become None."""
     if not COMMITTEES_CSV.exists():
         return []
@@ -19,4 +19,4 @@ def load_committees() -> list[dict]:
 
 def committee_id_to_name() -> dict[str, str]:
     """Map configured FEC committee IDs to their short names."""
-    return {r["committee_number"]: r["committee_short"] for r in load_committees() if r.get("committee_number")}
+    return {r["committee_number"]: r["committee_short"] for r in read_committees() if r.get("committee_number")}

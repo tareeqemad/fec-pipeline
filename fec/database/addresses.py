@@ -41,7 +41,7 @@ def _blank_to_none(value: Any) -> Any:
     return value
 
 
-def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
+def read_employer_offices(frame: pd.DataFrame | None = None) -> list[dict]:
     """Read publishable company locations and their primary office."""
     if frame is None:
         if not EMPLOYER_LOCATIONS_CSV.exists():
@@ -102,7 +102,7 @@ def load_address_dimension(
     employer_locations: list[dict] | None = None,
 ) -> dict:
     """Load shared donor and company addresses."""
-    address_rows = _address_rows(df, employer_locations_or_file(employer_locations))
+    address_rows = _address_rows(df, employer_offices_or_file(employer_locations))
     execute_values(
         cur,
         """INSERT INTO addresses
@@ -120,10 +120,10 @@ def load_address_dimension(
     return address_ids
 
 
-def employer_locations_or_file(employer_locations: list[dict] | None) -> list[dict]:
+def employer_offices_or_file(employer_locations: list[dict] | None) -> list[dict]:
     """Read the CSV for None; keep an explicit empty list."""
     if employer_locations is None:
-        return load_employer_locations()
+        return read_employer_offices()
     return employer_locations
 
 
@@ -207,7 +207,7 @@ def load_donor_addresses(cur: Any, df: pd.DataFrame, donor_ids: dict, address_id
     return donor_address_ids
 
 
-def link_employer_locations(
+def link_employer_offices(
     cur: Any,
     address_ids: dict,
     get_employer_id: Callable[[str], int | None],
@@ -215,7 +215,7 @@ def link_employer_locations(
 ) -> None:
     """Link each company to its primary address."""
     employer_rows = _primary_location_rows(
-        employer_locations_or_file(employer_locations),
+        employer_offices_or_file(employer_locations),
         address_ids,
         get_employer_id,
     )

@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
-from fec.common.committees import load_committees
+from fec.common.committees import read_committees
 from fec.common.log import get_logger
 from fec.common.settings import CLEANED_CSV, REFERENCE_DIR
 
@@ -94,7 +94,7 @@ def _load_committees(cur: Any) -> None:
         "INSERT INTO committees (committee_number, committee_name, committee_short, "
         "raised, spent, irs_990_link, logo_path) "
     )
-    for committee in load_committees():
+    for committee in read_committees():
         committee_number = committee.get("committee_number")
         values = (
             committee_number,

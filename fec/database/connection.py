@@ -97,7 +97,7 @@ def load_transaction(conn: Any) -> Iterator[None]:
 
 
 @contextmanager
-def stage(name: str) -> Iterator[None]:
+def logged_stage(name: str) -> Iterator[None]:
     """Log the failed stage before the transaction rolls back."""
     try:
         yield

@@ -11,7 +11,7 @@ from fec.cleaning.work.employer_status import classify_employer_status, is_real_
 from fec.cleaning.work.occupation_categories import categorize_occupations
 from fec.common.log import get_logger
 from fec.common.settings import REFERENCE_DIR
-from fec.database.offices import offices_by_company, select_location
+from fec.database.offices import offices_by_company, select_office
 from fec.matching.identity_rules import resolve_donor_key
 
 
@@ -128,7 +128,7 @@ def roster_office_address_id(
     """Same-city office, then a nearby state office, else default."""
     if not employer or not locations:
         return None
-    location = select_location(locations.get(employer), zip_5 or "", state or "", city or "")
+    location = select_office(locations.get(employer), zip_5 or "", state or "", city or "")
     if not location:
         return None
 

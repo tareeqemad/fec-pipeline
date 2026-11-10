@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from fec.cleaning.filing_corrections import categorize_records
+from fec.cleaning.filing_corrections import categorize_with_corrections
 from fec.cleaning.work.employer_key import employer_text_key
 from fec.cleaning.work.employer_status import is_real_employer
 from fec.cleaning.work.occupation_categories import categorize_occupations
@@ -14,7 +14,7 @@ from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 def recategorize_occupations(df: pd.DataFrame) -> None:
     """Make every individual's category match the occupation as it now reads."""
     people = df[df["entity_type"].eq("INDIVIDUAL")]
-    df.loc[people.index, "occupation_category"] = categorize_records(people)
+    df.loc[people.index, "occupation_category"] = categorize_with_corrections(people)
 
 
 def fill_occupation_from_donor(df: pd.DataFrame) -> None:

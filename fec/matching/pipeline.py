@@ -10,7 +10,7 @@ import pandas as pd
 from fec.cleaning.addresses.donor_addresses import unify_units
 from fec.cleaning.contributor_names import apply_name_corrections
 from fec.cleaning.entity_types import apply_entity_overrides
-from fec.cleaning.filing_corrections import apply_reviewed_filings
+from fec.cleaning.filing_corrections import apply_filing_corrections
 from fec.cleaning.work.company_names import canonicalize_current_employers
 from fec.common.log import get_logger
 from fec.matching.donor_keys import (
@@ -83,10 +83,10 @@ def standardize_donors(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd
     canonicalize_current_employers(df)
     unify_units(df, donor="donor_key")
     apply_name_corrections(df)
-    apply_reviewed_filings(df, matched=True)
+    apply_filing_corrections(df, matched=True)
     for step in DONOR_WORK_STEPS:
         step(df)
-    apply_reviewed_filings(df, matched=True)
+    apply_filing_corrections(df, matched=True)
     canonicalize_committee_names(df)
     write_duplicate_review(df, out_dir)
 

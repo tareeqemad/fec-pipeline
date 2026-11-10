@@ -9,7 +9,7 @@ from fec.cleaning.work.employer_status import referenced_employers
 from fec.common.columns import check_loadable
 from fec.common.files import read_pipeline_csv
 from fec.common.settings import CLEANED_CSV, COMMITTEES_CSV, EMPLOYER_LOCATIONS_CSV
-from fec.database.addresses import ADDRESS_TRUST_VALUES, load_employer_locations
+from fec.database.addresses import ADDRESS_TRUST_VALUES, read_employer_offices
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -116,4 +116,4 @@ def read_load_input() -> tuple[pd.DataFrame, list[dict]]:
     if amounts.isna().any():
         raise ValueError("contribution_receipt_amount contains invalid values")
     df["contribution_receipt_amount"] = amounts
-    return df, load_employer_locations(locations)
+    return df, read_employer_offices(locations)

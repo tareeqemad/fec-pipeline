@@ -89,7 +89,7 @@ def _middle_score(m1: str, m2: str) -> int:
     return SCORE_MIDDLE_MATCH if Levenshtein.distance(m1, m2) == 1 else BLOCKED
 
 
-def compare(p1: dict, p2: dict, name_freq: int) -> Evidence:
+def compare_profiles(p1: dict, p2: dict, name_freq: int) -> Evidence:
     """Return the match score of two profiles and the anchors behind it.
 
     Two spellings of the same words (LAST, FIRST MIDDLE / LAST, MIDDLE

@@ -11,7 +11,7 @@ from psycopg2.extras import execute_values
 from fec.cleaning.work.employer_status import current_employer_name, referenced_employers
 from fec.database.connection import to_native
 from fec.database.offices import filing_office_address_id, offices_by_company
-from fec.database.previous_employers import filing_previous
+from fec.database.previous_employers import previous_employer_of_filing
 from fec.vocabulary.not_employers import NOT_REAL_EMPLOYER
 
 # Match the seven-field UNIQUE NULLS NOT DISTINCT key in schema.sql.
@@ -60,7 +60,7 @@ def filing_employment_key(
     get_employer_id: Callable[[str], int | None],
 ) -> tuple:
     """Build an employment key from this filing only."""
-    previous_employer_id, previous_self_employed = filing_previous(
+    previous_employer_id, previous_self_employed = previous_employer_of_filing(
         employer_status,
         previous_employer,
         get_employer_id,

@@ -27,7 +27,7 @@ def _status_text(value: object) -> str:
 _DOUBLED_LETTER_RE = re.compile(r"([A-Z])\1+")
 
 
-def single_letters(text: str) -> str:
+def collapse_doubled_letters(text: str) -> str:
     """Doubled letters typed once: 'NNONE' -> 'NONE'."""
     return _DOUBLED_LETTER_RE.sub(r"\1", text)
 
@@ -89,7 +89,7 @@ def _employer_rejection_reason(upper: str) -> str:
         return "structural_junk"
     if is_job_title(canonical):
         return "job_title"
-    if status_word(canonical) or single_letters(canonical) in EMPLOYER_STATUS_VALUES:
+    if status_word(canonical) or collapse_doubled_letters(canonical) in EMPLOYER_STATUS_VALUES:
         return "status_typo"
     return ""
 

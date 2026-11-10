@@ -13,7 +13,7 @@ from fec.database.roster_people import load_roster_csv
 logger = get_logger(__name__)
 
 
-def committee_lookup(cur: Any) -> dict[str, int]:
+def committee_ids_by_short_name(cur: Any) -> dict[str, int]:
     """Map committee short names to database IDs."""
     cur.execute("SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL")
     return {short: committee_id for short, committee_id in cur.fetchall()}
@@ -72,7 +72,7 @@ def accomplice_committee_id(
 
 def load_leadership(cur: Any) -> None:
     """Load leaders and their committee memberships."""
-    committees = committee_lookup(cur)
+    committees = committee_ids_by_short_name(cur)
 
     def validate_leader_committees(rows: pd.DataFrame) -> None:
         """Check every leader committee before inserting rows."""
@@ -122,7 +122,7 @@ def _accomplice_display_order(raw: str | None, who: str) -> int:
 
 def load_key_accomplices(cur: Any) -> None:
     """Load curated cards and link them to donors."""
-    committees = committee_lookup(cur)
+    committees = committee_ids_by_short_name(cur)
 
     def optional_text(row: pd.Series, column: str) -> str | None:
         """Return trimmed text or None."""

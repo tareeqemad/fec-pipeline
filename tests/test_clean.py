@@ -23,7 +23,7 @@ def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypat
     monkeypatch.setattr(cleaning_pipeline, "CLEANED_CSV", output)
     monkeypatch.setattr(cleaning_pipeline, "read_pipeline_csv", lambda path: cleaned.copy())
     monkeypatch.setattr(cleaning_pipeline, "REPORTS_DIR", tmp_path)
-    monkeypatch.setattr(cleaning_pipeline, "clean_pipeline", lambda df, **_dirs: df)
+    monkeypatch.setattr(cleaning_pipeline, "clean_and_match", lambda df, **_dirs: df)
     monkeypatch.setattr(
         cleaning_pipeline,
         "run_quality_gates",
@@ -208,7 +208,7 @@ def test_company_evidence_levels():
 
 
 def test_entity_type_from_committee_signal_and_company_evidence():
-    from fec.cleaning.entity_types import classify_entities, names_committee
+    from fec.cleaning.entity_types import classify_entities, is_committee_name
 
     names = [
         "BANK, ELLYN",
@@ -262,8 +262,8 @@ def test_entity_type_from_committee_signal_and_company_evidence():
         "COMMITTEE/PAC",
     ]
     assert df["is_individual"].tolist() == df["entity_type"].eq("INDIVIDUAL").tolist()
-    assert names_committee("TEAM HAGERTY, BILL SEN.") and names_committee("DON DAVIS FOR NC, DON")
-    assert not names_committee("BANK OF AMERICA") and not names_committee("SMITH, JOHN")
+    assert is_committee_name("TEAM HAGERTY, BILL SEN.") and is_committee_name("DON DAVIS FOR NC, DON")
+    assert not is_committee_name("BANK OF AMERICA") and not is_committee_name("SMITH, JOHN")
 
 
 def test_split_retired_reads_every_spelling():
@@ -350,12 +350,12 @@ def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
         }
     )
 
-    assert address_rules.apply_verified_address_fixes(df, city_only=False) == 2
+    assert address_rules.apply_address_rules(df, city_only=False) == 2
     assert df["contributor_street_1"].isna().tolist() == [True, False]
     assert df["contributor_city"].tolist() == ["GARDENA", "BAY HARBOR ISLANDS"]
     # The city-only rule also runs in the second pass; the clearing rule does not.
     df.loc[1, "contributor_city"] = "SURFSIDE"
-    assert address_rules.apply_verified_address_fixes(df, city_only=True) == 1
+    assert address_rules.apply_address_rules(df, city_only=True) == 1
     assert df["contributor_city"].tolist() == ["GARDENA", "BAY HARBOR ISLANDS"]
 
 
@@ -515,10 +515,10 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
 
 
 def test_classify_without_a_key_leaves_texts_to_the_patterns(monkeypatch):
-    from fec.cleaning.work.occupation_categories import classify
+    from fec.cleaning.work.occupation_categories import ask_model_for_categories
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    assert classify(["QUANTUM TOPOLOGIST"]) == {}
+    assert ask_model_for_categories(["QUANTUM TOPOLOGIST"]) == {}
 
 
 def test_reviewed_category_overrides_win_over_the_model():
@@ -758,9 +758,9 @@ def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
     df = pd.DataFrame({"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]})
     for column in filing_corrections.FIELDS[1:]:
         df[column] = "FILED"
-    filing_corrections.apply_reviewed_filings(df)
+    filing_corrections.apply_filing_corrections(df)
     assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(df["contributor_employer"][1])
-    filing_corrections.apply_reviewed_filings(df, matched=True)
+    filing_corrections.apply_filing_corrections(df, matched=True)
     assert (
         df["contributor_employer"][0] == rows.at[waiting, "contributor_employer"]
         and df["contributor_employer"][2] == "FILED"

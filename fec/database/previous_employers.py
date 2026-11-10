@@ -22,7 +22,9 @@ def _is_previous_self_employed(name: Any) -> bool:
     return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
 
 
-def filing_previous(status: Any, name: Any, get_employer_id: Callable[[str], int | None]) -> tuple[int | None, bool]:
+def previous_employer_of_filing(
+    status: Any, name: Any, get_employer_id: Callable[[str], int | None]
+) -> tuple[int | None, bool]:
     """Use this retired filing's company or self-employment flag."""
     if status != "retired" or pd.isna(name) or not str(name).strip():
         return None, False

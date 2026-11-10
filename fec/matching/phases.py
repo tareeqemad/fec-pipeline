@@ -15,7 +15,7 @@ from itertools import combinations
 
 from fec.matching.identity_rules import identities_must_stay_separate
 from fec.matching.name_compare import GENERATION_SUFFIXES, filed_name_words, first_names_may_match, is_surname_variant
-from fec.matching.scoring import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, Evidence, compare
+from fec.matching.scoring import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, Evidence, compare_profiles
 
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 
@@ -59,7 +59,12 @@ def score_same_names(context: MatchContext) -> None:
     """Score all candidate pairs within each name group."""
     for rids in context.name_groups.values():
         for rid_a, rid_b in combinations(rids, 2):
-            _merge(context, rid_a, rid_b, compare(context.profiles[rid_a], context.profiles[rid_b], len(rids)).score)
+            _merge(
+                context,
+                rid_a,
+                rid_b,
+                compare_profiles(context.profiles[rid_a], context.profiles[rid_b], len(rids)).score,
+            )
 
 
 def _norms_by_last_name(name_groups: dict) -> dict:
@@ -88,7 +93,7 @@ def _score_bucket_pairs(
                 for rid_b in rids_b:
                     p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
                     if records_match(p1, p2):
-                        _merge(context, rid_a, rid_b, adjust(compare(p1, p2, len(rids_a) + len(rids_b))))
+                        _merge(context, rid_a, rid_b, adjust(compare_profiles(p1, p2, len(rids_a) + len(rids_b))))
 
 
 def _any_records(_p1: dict, _p2: dict) -> bool:
@@ -193,7 +198,7 @@ def score_name_formats(context: MatchContext) -> None:
             if not _same_street_or_zip(p1, p2):
                 continue
             freq = len(context.name_groups[p1["norm_name"]]) + len(context.name_groups[p2["norm_name"]])
-            _merge(context, rid_a, rid_b, _same_words_adjust(compare(p1, p2, freq)))
+            _merge(context, rid_a, rid_b, _same_words_adjust(compare_profiles(p1, p2, freq)))
 
 
 def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
@@ -255,4 +260,4 @@ def score_compound_surnames(context: MatchContext) -> None:
                 for rb in context.name_groups[nn2]:
                     p1, p2 = context.profiles[ra], context.profiles[rb]
                     if p1["streets"] & p2["streets"]:
-                        _merge(context, ra, rb, _same_words_adjust(compare(p1, p2, combined_freq)))
+                        _merge(context, ra, rb, _same_words_adjust(compare_profiles(p1, p2, combined_freq)))

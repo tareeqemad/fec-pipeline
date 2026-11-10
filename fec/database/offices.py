@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 
 from fec.common.settings import REFERENCE_DIR
-from fec.database.addresses import address_key, employer_locations_or_file
+from fec.database.addresses import address_key, employer_offices_or_file
 from fec.database.connection import to_native
 from fec.geocoding.coordinate_checks import EARTH_RADIUS_MILES, great_circle
 
@@ -19,7 +19,7 @@ def offices_by_company(
 ) -> dict[str, dict]:
     """Group offices by company, keeping the primary office first."""
     grouped: dict[str, list[dict]] = {}
-    for location in employer_locations_or_file(employer_locations):
+    for location in employer_offices_or_file(employer_locations):
         grouped.setdefault(location["employer_name"], []).append(location)
 
     lookup = {}
@@ -64,7 +64,7 @@ def filing_office_address_id(
         return None
 
     entry = locations.get(name)
-    location = select_location(
+    location = select_office(
         entry,
         str(to_native(row.get("contributor_zip")) or ""),
         str(to_native(row.get("contributor_state")) or ""),
@@ -119,7 +119,7 @@ def _signature(location: dict) -> tuple[str, ...]:
     return tuple(_text(location.get(field)).upper() for field in ADDRESS_FIELDS)
 
 
-def location_candidates(entry: dict | None) -> list[dict]:
+def office_candidates(entry: dict | None) -> list[dict]:
     """Return unique locations from one employer cache entry."""
     if not isinstance(entry, dict):
         return []
@@ -154,14 +154,14 @@ def _zip_centroids() -> dict[str, tuple[float, float]]:
     return centroids
 
 
-def select_location(
+def select_office(
     entry: dict | None,
     donor_zip: str = "",
     donor_state: str = "",
     donor_city: str = "",
 ) -> dict | None:
     """Choose the office in the same city and state, else the nearest one in the state."""
-    candidates = location_candidates(entry)
+    candidates = office_candidates(entry)
     if not candidates:
         return None
     if len(candidates) == 1:
