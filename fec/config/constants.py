@@ -4,8 +4,6 @@ from fec.config.tables import words
 # Occupations that are really life statuses.
 STATUS_WORDS = words("status_words")
 
-STATUS_CATEGORIES = STATUS_WORDS - {'HOUSEWIFE', 'UNEMPLOYED'}
-
 # Values that are not occupations; HOUSEWIFE becomes HOMEMAKER.
 SKIP_OCCUPATIONS = (STATUS_WORDS - {'HOUSEWIFE'}) | {''}
 
