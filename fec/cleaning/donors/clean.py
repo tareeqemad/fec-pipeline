@@ -43,7 +43,7 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
         df_clean["_generational_suffix"] = ""
     # Hold rules and network classification can change this status later.
     df_clean["identity_status"] = "confirmed"
-    rid_to_key, _ = match_donors(df_clean)
+    rid_to_key = match_donors(df_clean)
     df_clean = apply_donor_key(df_clean, rid_to_key)
 
     if earlier_keys:
