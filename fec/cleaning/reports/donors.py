@@ -1,4 +1,11 @@
-"""Report possible duplicate donors for review."""
+"""Possible duplicate donors, listed for a person to review; nothing is merged here.
+
+Two donors are listed when they share a ZIP and a surname and their first
+names are the same, a nickname of one another (BOB, ROBERT) or one the
+start of the other (J, JOHN). Pairs already decided are left out: a
+reviewed rule keeps them apart, one is the other's joint filing, or the
+donor's identity is on hold.
+"""
 from itertools import combinations
 from pathlib import Path
 
@@ -12,183 +19,81 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-_REVIEW_COLUMNS = {"donor_key", "entity_type", "contributor_last_name", "contributor_first_name", "contributor_city", "contributor_state", "contributor_zip"}
 
-
-# the first non-blank value in a series, else ''
-def _first_nonempty(values) -> str:
-    values = values.dropna().astype(str)
-    values = values[values.str.strip() != ""]
-    return values.iloc[0] if len(values) else ""
-
-
-def _review_summary(work: pd.DataFrame) -> pd.DataFrame:
-    """Summarize the fields shown for each donor in the review."""
-    donors = work.groupby("donor_key")
-    return pd.DataFrame({
-        "last": donors["contributor_last_name"].agg(_first_nonempty).str.upper(),
-        "first": donors["contributor_first_name"].agg(_first_nonempty).str.upper(),
-        "city": donors["contributor_city"].agg(_first_nonempty),
-        "state": donors["contributor_state"].agg(_first_nonempty),
-        "n": donors.size(),
-        "amount": donors["_amt"].sum(),
-    })
-
-
-def _review_identities(individuals: pd.DataFrame) -> dict[str, list[dict]]:
-    """Keep every filed identity for scoped separation rules."""
-    fields = {
-        "contributor_city": "city", "contributor_state": "state",
-        "contributor_zip": "zip5",
-    }
-    profiles = individuals[["donor_key", *fields]].rename(columns=fields).copy()
-    names = (
-        individuals["contributor_last_name"].fillna("").astype(str)
-        + ", " + individuals["contributor_first_name"].fillna("").astype(str)
-    )
-    if "contributor_name" in individuals.columns:
-        filed_names = individuals["contributor_name"].fillna("").astype(str).str.strip()
-        names = filed_names.where(filed_names.ne(""), names)
-    profiles["name"] = names
-    identity_fields = [*fields.values(), "name"]
-    profiles[identity_fields] = profiles[identity_fields].fillna("").astype(str)
-    profiles = profiles.drop_duplicates()
-    identities = {}
-    for key, city, state, zip5, name in profiles.itertuples(index=False, name=None):
-        identities.setdefault(key, []).append({
-            "name": name, "city": city, "state": state, "zip5": zip5,
-        })
-    return identities
-
-
-def _first_name_relation(first_a: str, first_b: str) -> str:
-    """Describe a review-worthy relationship between two first names."""
-    name_a = first_a.split()[0] if first_a else ""
-    name_b = first_b.split()[0] if first_b else ""
-    if not name_a or not name_b:
+def _related(first_a: str, first_b: str) -> str:
+    """How two first names are related, or '' when they are not."""
+    a, b = (first_a.split() or [""])[0], (first_b.split() or [""])[0]
+    if not a or not b:
         return ""
-    if name_a == name_b:
+    if a == b:
         return "same first name (different city?)"
-
-    root_a = NICKNAME_MAP.get(name_a, name_a)
-    root_b = NICKNAME_MAP.get(name_b, name_b)
-    if root_a == root_b:
-        return f"nickname {name_a}/{name_b}"
-
-    short, long_name = sorted((name_a, name_b), key=len)
-    if long_name.startswith(short) and short != long_name:
-        return f"initial/prefix {short}->{long_name}"
-    return ""
+    if NICKNAME_MAP.get(a, a) == NICKNAME_MAP.get(b, b):
+        return f"nickname {a}/{b}"
+    short, long = sorted((a, b), key=len)
+    return f"initial/prefix {short}->{long}" if long.startswith(short) else ""
 
 
-# Joint filings and their solo filer stay separate donors.
-def _is_joint_pair(first_a: str, first_b: str, household_firsts) -> bool:
+# HAROLD AND JUDY beside HAROLD: a joint filing and its solo filer stay two donors
+def _joint_and_solo(first_a: str, first_b: str, household: set) -> bool:
     tokens_a, tokens_b = given_tokens(first_a), given_tokens(first_b)
+    others = {given_tokens(first) for first in household}
     for joint, solo in ((tokens_a, tokens_b), (tokens_b, tokens_a)):
-        if not joint or not solo or joint == solo:
-            continue
-        same_filer = joint[0] == solo[0] or (
-            len(joint) == 1 and joint[0].startswith(solo[0])
-        )
-        others = {given_tokens(first) for first in household_firsts} - {joint, solo}
-        if same_filer and joint_partners(joint, {joint, solo}, others):
-            return True
+        if joint and solo and joint != solo and (joint[0] == solo[0] or (len(joint) == 1 and joint[0].startswith(solo[0]))):
+            if joint_partners(joint, {joint, solo}, others - {joint, solo}):
+                return True
     return False
 
 
-# build one candidate-duplicate-pair row for the review CSV
-def _review_row(
-    summary: pd.DataFrame, zip_code: str, last_name: str,
-    key_a: str, key_b: str, reason: str,
-) -> dict:
-    amount_a = float(summary.at[key_a, "amount"])
-    amount_b = float(summary.at[key_b, "amount"])
-    return {
-        "reason": reason, "zip": zip_code, "last_name": last_name,
-        "donor_key_a": key_a, "first_a": summary.at[key_a, "first"],
-        "city_a": summary.at[key_a, "city"],
-        "state_a": summary.at[key_a, "state"],
-        "donations_a": int(summary.at[key_a, "n"]),
-        "amount_a": round(amount_a, 2),
-        "donor_key_b": key_b, "first_b": summary.at[key_b, "first"],
-        "city_b": summary.at[key_b, "city"],
-        "state_b": summary.at[key_b, "state"],
-        "donations_b": int(summary.at[key_b, "n"]),
-        "amount_b": round(amount_b, 2),
-        "combined_amount": round(amount_a + amount_b, 2),
-    }
-
-
-def _review_candidates(
-    individuals: pd.DataFrame, summary: pd.DataFrame,
-) -> list[dict]:
-    """Find distinct donors sharing ZIP, surname and related first names."""
-    zip_profiles = individuals[["donor_key", "contributor_zip"]].dropna()
-    has_zip = zip_profiles["contributor_zip"].astype(str).str.strip() != ""
-    zip_profiles = zip_profiles[has_zip].drop_duplicates()
-    zip_profiles = zip_profiles.join(summary["last"], on="donor_key")
-    identities = _review_identities(individuals)
-
-    seen: set[tuple[str, str]] = set()
-    rows = []
-    for (zip_code, last_name), group in zip_profiles.groupby(
-        ["contributor_zip", "last"]
-    ):
-        donor_keys = sorted(group["donor_key"].unique())
-        if not last_name or len(donor_keys) < 2:
-            continue
-        household_firsts = {summary.at[key, "first"] for key in donor_keys}
-        for key_a, key_b in combinations(donor_keys, 2):
-            if (key_a, key_b) in seen:
-                continue
-            seen.add((key_a, key_b))
-            first_a = summary.at[key_a, "first"]
-            first_b = summary.at[key_b, "first"]
-            reason = _first_name_relation(first_a, first_b)
-            if not reason:
-                continue
-            if names_must_stay_separate(
-                f"{last_name}, {first_a}", f"{last_name}, {first_b}"
-            ) or any(
-                identities_must_stay_separate(person_a, person_b)
-                for person_a in identities[key_a]
-                for person_b in identities[key_b]
-            ) or _is_joint_pair(first_a, first_b, household_firsts):
-                continue
-            rows.append(_review_row(
-                summary, zip_code, last_name, key_a, key_b, reason,
-            ))
-    return rows
-
-
-# donor_keys a hold rule or the network step already decided
-def _decided_keys(individuals: pd.DataFrame) -> set[str]:
-    if "identity_status" not in individuals.columns:
-        return set()
-    return set(individuals.loc[individuals["identity_status"].ne("confirmed"), "donor_key"])
-
-
 def build_donor_dedup_review(df: pd.DataFrame, out_dir) -> int:
-    """Write likely duplicate donor pairs for human review; never merge."""
-    if not out_dir or not _REVIEW_COLUMNS <= set(df.columns):
+    """Write the pairs to data/reports/donor_dedup_review.csv, largest combined amount first."""
+    people = df[df["entity_type"].eq("INDIVIDUAL")].copy() if out_dir else df.iloc[:0]
+    path = Path(out_dir or ".") / "donor_dedup_review.csv"
+    if people.empty:
         return 0
-    individuals = df[df["entity_type"] == "INDIVIDUAL"]
-    if individuals.empty:
-        return 0
+    text = people[["contributor_last_name", "contributor_first_name", "contributor_city", "contributor_state",
+                   "contributor_zip", "contributor_name"]].fillna("").astype(str).apply(lambda column: column.str.strip())
+    people[text.columns] = text
+    people["amount"] = pd.to_numeric(people["contribution_receipt_amount"], errors="coerce").fillna(0)
 
-    amount = pd.to_numeric(
-        df["contribution_receipt_amount"], errors="coerce"
-    ).fillna(0)
-    work = df.assign(_amt=amount).loc[individuals.index]
-    rows = _review_candidates(individuals, _review_summary(work))
-    # Held or unresolved filings are already decided.
-    decided = _decided_keys(individuals)
-    rows = [row for row in rows if not {row["donor_key_a"], row["donor_key_b"]} & decided]
-    path = Path(out_dir) / "donor_dedup_review.csv"
+    def first_filed(values: pd.Series) -> str:
+        return next((value for value in values if value), "")
+
+    donors = people.groupby("donor_key").agg(
+        last=("contributor_last_name", lambda v: first_filed(v).upper()), first=("contributor_first_name", lambda v: first_filed(v).upper()),
+        city=("contributor_city", first_filed), state=("contributor_state", first_filed),
+        donations=("amount", "size"), amount=("amount", "sum"))
+    held = set(people.loc[people["identity_status"].ne("confirmed"), "donor_key"]) if "identity_status" in people else set()
+    filed = people.assign(name=people["contributor_name"].where(
+        people["contributor_name"].ne(""), people["contributor_last_name"] + ", " + people["contributor_first_name"]))
+    identities = {key: rows.to_dict("records") for key, rows in filed.rename(columns={
+        "contributor_city": "city", "contributor_state": "state", "contributor_zip": "zip5",
+    })[["donor_key", "name", "city", "state", "zip5"]].drop_duplicates().groupby("donor_key")}
+
+    rows, seen = [], set()
+    places = people.loc[people["contributor_zip"].ne(""), ["donor_key", "contributor_zip"]].drop_duplicates()
+    places["last"] = places["donor_key"].map(donors["last"])
+    for (zip_code, last), group in places[places["last"].ne("")].groupby(["contributor_zip", "last"]):
+        keys = sorted(group["donor_key"].unique())
+        household = {donors.at[key, "first"] for key in keys}
+        for a, b in combinations(keys, 2):
+            first_a, first_b = donors.at[a, "first"], donors.at[b, "first"]
+            reason = _related(first_a, first_b)
+            if (a, b) in seen or not reason or {a, b} & held:
+                continue
+            seen.add((a, b))
+            if (names_must_stay_separate(f"{last}, {first_a}", f"{last}, {first_b}")
+                    or any(identities_must_stay_separate(x, y) for x in identities[a] for y in identities[b])
+                    or _joint_and_solo(first_a, first_b, household)):
+                continue
+            row = {"reason": reason, "zip": zip_code, "last_name": last}
+            for side, key in (("a", a), ("b", b)):
+                row |= {f"donor_key_{side}": key, f"first_{side}": donors.at[key, "first"], f"city_{side}": donors.at[key, "city"],
+                        f"state_{side}": donors.at[key, "state"], f"donations_{side}": int(donors.at[key, "donations"]),
+                        f"amount_{side}": round(float(donors.at[key, "amount"]), 2)}
+            rows.append(row | {"combined_amount": round(float(donors.at[a, "amount"] + donors.at[b, "amount"]), 2)})
     if not rows:
         path.unlink(missing_ok=True)
         return 0
-
     rows.sort(key=lambda row: -row["combined_amount"])
     write_csv_atomic(pd.DataFrame(rows), path, index=False, na_rep="")
     logger.info("Review: %s donor pairs", f"{len(rows):,}")

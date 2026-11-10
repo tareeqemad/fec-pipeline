@@ -1,170 +1,101 @@
-"""Check cleaned data quality."""
+"""Checks the cleaned data must pass before it is saved.
+
+Each check names what must hold and returns the filings that break it.
+A check that needs a column the stage has not written yet (employer_status
+before resolve) is skipped and listed as not run.
+"""
 import pandas as pd
 
-from fec.cleaning.reports.employment_gates import (
-    _gate_employer_names,
-    _gate_not_employed_status,
-    _gate_occupation_category_consistency,
-    _gate_previous_employer_scope,
-    _gate_retired_active_sync,
-    _gate_retired_employer_marker,
-    _gate_self_employed_status,
-    _gate_valid_categories,
+from fec.cleaning.addresses.align import _zip_place
+from fec.cleaning.rules.manual import categorize_records
+from fec.cleaning.work.status import classify_employer_statuses, is_real_employer
+from fec.config.occupation_rules.categories import VALID_CATEGORIES
+
+
+def _text(df: pd.DataFrame, column: str) -> pd.Series:
+    return df[column].fillna("").astype(str).str.strip()
+
+
+def _people(df: pd.DataFrame) -> pd.Series:
+    return df["entity_type"].eq("INDIVIDUAL")
+
+
+def _nan_text(df):
+    columns = ("contributor_occupation", "contributor_employer", "contributor_name", "contributor_city",
+               "contributor_state", "contributor_street_1")
+    return pd.concat([df[column].astype("string").str.upper().eq("NAN") for column in columns], axis=1).any(axis=1)
+
+
+def _unknown_category(df):
+    return ~_text(df, "occupation_category").isin(VALID_CATEGORIES)
+
+
+def _category_differs(df):
+    people = _people(df)
+    return (_text(df, "occupation_category")[people] != categorize_records(df[people])).reindex(df.index, fill_value=False)
+
+
+def _status_differs(df):
+    return _people(df) & _text(df, "employer_status").ne(classify_employer_statuses(df))
+
+
+def _not_an_employer(df):
+    status = _text(df, "employer_status")
+    current, previous = _text(df, "contributor_employer"), _text(df, "previous_employer")
+    working = _people(df) & (status.eq("active") | (status.eq("self_employed") & current.ne("SELF-EMPLOYED")))
+    retired = _people(df) & status.eq("retired") & previous.ne("")
+    real = {name: is_real_employer(name) for name in set(current[working]) | set(previous[retired])}
+    return (working & ~current.map(real).fillna(True).astype(bool)) | (retired & ~previous.map(real).fillna(True).astype(bool))
+
+
+def _zip_of_another_state(df):
+    state = _text(df, "contributor_zip").map(lambda zipcode: _zip_place(zipcode)[0])
+    return state.ne("") & _text(df, "contributor_state").ne("") & state.ne(_text(df, "contributor_state"))
+
+
+def _null_surname_lost(df):
+    # NULL is a real surname; a reader that turns it into a missing value loses it
+    return df["contributor_name"].astype("string").str.startswith("NULL,", na=False) & _text(df, "contributor_last_name").eq("")
+
+
+# What must hold, the filings that break it, and how many may.
+CHECKS = (
+    ("no text column holds the word NAN", _nan_text, 0),
+    ("every contribution has a readable amount",
+     lambda df: pd.to_numeric(df["contribution_receipt_amount"], errors="coerce").isna(), 0),
+    ("every occupation category is a known one", _unknown_category, 0),
+    ("the occupation category is the one of the occupation", _category_differs, 0),
+    ("employer_status is the one the work fields give", _status_differs, 0),
+    ("only a retired filing has a previous employer",
+     lambda df: _text(df, "previous_employer").ne("") & _text(df, "employer_status").ne("retired"), 0),
+    ("an employer or previous employer names an employer", _not_an_employer, 0),
+    ("at least half the filings have a ZIP", lambda df: _text(df, "contributor_zip").eq(""), 0.5),
+    ("sub_id is unique", lambda df: df["sub_id"].duplicated(), 0),
+    ("transaction_id is unique", lambda df: df["transaction_id"].duplicated(), 0),
+    ("no contribution is dated more than 60 days ahead",
+     lambda df: pd.to_datetime(df["contribution_receipt_date"], errors="coerce") > pd.Timestamp.now() + pd.Timedelta(days=60), 0),
+    ("the ZIP belongs to the state", _zip_of_another_state, 99),
+    ("no street is an email address", lambda df: _text(df, "contributor_street_1").str.contains("@", regex=False), 0),
+    ("no name holds ` ; [ ] or @",
+     lambda df: _text(df, "contributor_first_name").str.contains(r"[`;\[\]@]") | _text(df, "contributor_last_name").str.contains(r"[`;\[\]@]"), 0),
+    ("a RETIRED category is never an active employer",
+     lambda df: _people(df) & df["occupation_category"].eq("RETIRED") & df["employer_status"].eq("active"), 0),
+    ("a RETIRED category has RETIRED as the employer",
+     lambda df: _people(df) & df["occupation_category"].eq("RETIRED") & _text(df, "contributor_employer").ne("RETIRED"), 0),
+    ("the surname NULL is kept", _null_surname_lost, 0),
 )
 
-_ZIP_PREFIX_STATES = {
-    '0': {'CT', 'MA', 'ME', 'NH', 'NJ', 'PR', 'RI', 'VT', 'VI', 'AE', 'AA'},
-    '1': {'DE', 'NY', 'PA'},
-    '2': {'DC', 'MD', 'NC', 'SC', 'VA', 'WV'},
-    '3': {'AL', 'FL', 'GA', 'MS', 'TN', 'AA', 'AP'},
-    '4': {'IN', 'KY', 'MI', 'OH'},
-    '5': {'IA', 'MN', 'MT', 'ND', 'NE', 'SD', 'WI'},
-    '6': {'CO', 'IL', 'KS', 'MO', 'NE', 'NM', 'OK', 'TX'},
-    '7': {'AR', 'LA', 'OK', 'TX'},
-    '8': {'AZ', 'CO', 'ID', 'MT', 'NM', 'NV', 'UT', 'WY'},
-    '9': {'AK', 'CA', 'HI', 'OR', 'WA', 'GU', 'AS', 'MP', 'AP'},
-}
 
-
-# flag literal 'NAN' strings left in text columns
-def _gate_nan_strings(df):
-    nan_count = 0
-    for col in ['contributor_occupation', 'contributor_employer', 'contributor_name',
-                'contributor_city', 'contributor_state', 'contributor_street_1']:
-        nan_count += int((df[col].astype('string').str.upper() == 'NAN').sum())
-    issue = f"Found {nan_count} literal 'NAN' in text columns" if nan_count else None
-    return [('no_nan_strings', {'passed': nan_count == 0, 'count': nan_count}, issue)]
-
-
-# flag rows with a missing or unreadable contribution amount
-def _gate_amounts_readable(df):
-    # Every filing keeps a real amount; blank is never $0.
-    amounts = pd.to_numeric(df['contribution_receipt_amount'], errors='coerce')
-    bad = int(amounts.isna().sum())
-    issue = f"{bad} rows with a missing or unreadable contribution_receipt_amount" if bad else None
-    return [('amounts_readable', {'passed': bad == 0, 'count': bad}, issue)]
-
-
-# flag when too many rows are missing a ZIP
-def _gate_zip_coverage(df):
-    pct = float((df['contributor_zip'].isna() | (df['contributor_zip'].astype(str).str.strip() == '')).mean() * 100)
-    issue = f"ZIP empty: {pct:.1f}%" if pct >= 50 else None
-    return [('zip_coverage', {'passed': pct < 50, 'pct_empty': round(pct, 2)}, issue)]
-
-
-# generic duplicate-id check for one column
-def _dup_id_check(df, col, key):
-    n_dup = int(df[col].duplicated().sum())
-    issue = f"Duplicate {col}: {n_dup}" if n_dup else None
-    return [(key, {'passed': n_dup == 0, 'count': n_dup}, issue)]
-
-
-# flag duplicate sub_id values
-def _gate_dup_sub_id(df):
-    return _dup_id_check(df, 'sub_id', 'no_duplicate_sub_id')
-
-
-# flag duplicate transaction_id values
-def _gate_dup_transaction_id(df):
-    return _dup_id_check(df, 'transaction_id', 'no_duplicate_transaction_id')
-
-
-# flag contribution dates more than 60 days in the future
-def _gate_future_dates(df):
-    dates = pd.to_datetime(df['contribution_receipt_date'], errors='coerce')
-    today = pd.Timestamp.now()
-    n_future = int((dates > today + pd.Timedelta(days=60)).sum())
-    issue = f"Future dates (>60 days ahead): {n_future}" if n_future else None
-    return [('no_future_dates', {'passed': n_future == 0, 'count': n_future}, issue)]
-
-
-# report the row count
-def _gate_row_count(df):
-    return [('row_count', int(len(df)), None)]
-
-
-# flag ZIP codes whose prefix doesn't match the filed state
-def _gate_zip_state(df):
-    # vectorized: 10 prefix masks instead of a per-row loop
-    zip_str = df['contributor_zip'].astype(str)
-    valid_rows = df['contributor_zip'].notna() & (zip_str.str.len() == 5)
-    zip_first = zip_str.str[0]
-    state = df['contributor_state'].astype(str)
-
-    n_zip_mismatch = 0
-    for prefix, allowed in _ZIP_PREFIX_STATES.items():
-        in_prefix = valid_rows & (zip_first == prefix)
-        n_zip_mismatch += int((in_prefix & ~state.isin(allowed)).sum())
-    issue = f"ZIP-State mismatches: {n_zip_mismatch}" if n_zip_mismatch >= 100 else None
-    return [('zip_state_match', {'passed': n_zip_mismatch < 100, 'count': n_zip_mismatch}, issue)]
-
-
-# flag email addresses stored in the street field
-def _gate_email_as_address(df):
-    n_email_addr = int(df['contributor_street_1'].fillna('').str.contains('@', regex=False).sum())
-    issue = f"Email addresses in street field: {n_email_addr}" if n_email_addr else None
-    return [('no_email_as_address', {'passed': n_email_addr == 0, 'count': n_email_addr}, issue)]
-
-
-# flag special characters in first/last names
-def _gate_special_chars_names(df):
-    n_special_chars = 0
-    for col in ['contributor_first_name', 'contributor_last_name']:
-        n_special_chars += int(df[col].fillna('').str.contains(r'[`;\[\]@]', regex=True).sum())
-    issue = f"Special characters in names: {n_special_chars}" if n_special_chars else None
-    return [('no_special_chars_in_names', {'passed': n_special_chars == 0, 'count': n_special_chars}, issue)]
-
-
-# flag literal 'NULL' surnames lost to NaN coercion
-def _gate_null_surname(df):
-    # "NULL" is a real surname pandas, not NaN.
-    name_null_prefix = df['contributor_name'].astype('string').str.startswith('NULL,', na=False)
-    last_names = df['contributor_last_name'].astype('string')
-    lost = name_null_prefix & (last_names.isna() | last_names.eq(''))
-    n_lost = int(lost.sum())
-    issue = (
-        f"NULL surname erased on {n_lost} row(s) — pandas coerced literal "
-        "'NULL' to NaN. Ensure all readers use "
-        "fec.io.read_pipeline_csv()"
-    ) if n_lost else None
-    return [('null_surname_preserved', {'passed': n_lost == 0, 'count': n_lost}, issue)]
-
-
-# Order matters: checks and reported issues follow it.
-_QUALITY_GATES = [
-    _gate_nan_strings,
-    _gate_amounts_readable,
-    _gate_valid_categories,
-    _gate_occupation_category_consistency,
-    _gate_self_employed_status,
-    _gate_not_employed_status,
-    _gate_previous_employer_scope,
-    _gate_employer_names,
-    _gate_zip_coverage,
-    _gate_dup_sub_id,
-    _gate_dup_transaction_id,
-    _gate_future_dates,
-    _gate_row_count,
-    _gate_zip_state,
-    _gate_email_as_address,
-    _gate_special_chars_names,
-    _gate_retired_active_sync,
-    _gate_retired_employer_marker,
-    _gate_null_surname,
-]
-
-
-# Run quality checks and collect their results and issues.
 def run_quality_gates(df: pd.DataFrame) -> dict:
+    """Run every check; {'passed', 'rows', 'checks': {what must hold: filings that break it}, 'issues'}."""
     checks, issues = {}, []
-    for gate in _QUALITY_GATES:
-        for key, check, issue in gate(df):
-            checks[key] = check
-            if issue:
-                issues.append(issue)
-    passed = all(
-        check['passed']
-        for check in checks.values()
-        if isinstance(check, dict) and check.get('passed') is not None
-    )
-    return {'passed': passed, 'checks': checks, 'issues': issues}
+    for must_hold, breaking, allowed in CHECKS:
+        try:
+            count = int(breaking(df).sum())
+        except KeyError as missing:
+            checks[must_hold] = f"not run: no column {missing}"
+            continue
+        checks[must_hold] = count
+        if count > (allowed * len(df) if isinstance(allowed, float) else allowed):
+            issues.append(f"{must_hold}: {count:,} filing(s) do not")
+    return {"passed": not issues, "rows": int(len(df)), "checks": checks, "issues": issues}
