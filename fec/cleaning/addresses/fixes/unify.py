@@ -5,6 +5,7 @@ import re
 from collections import defaultdict
 
 import pandas as pd
+from scourgify.address_constants import LONGHAND_STREET_TYPES
 
 # A house number split by a space: '10 17 GREENTREE'.
 _SPLIT_HOUSE_NUMBER_RE = r'^\d+ \d+\b'
@@ -124,7 +125,9 @@ def _unify_street_types(df: pd.DataFrame) -> int:
     # Fill missing street types only when the donor's spellings agree.
     street = df['contributor_street_1'].fillna('')
     name = df['contributor_name'].fillna('')
-    words = street.str.upper().str.findall(r'[A-Z0-9]+')
+    # 5 YANKEE HL and 5 YANKEE HILL RD are one street: a rare type is read in full
+    words = street.str.upper().str.findall(r'[A-Z0-9]+').map(
+        lambda tokens: [t if t in _TYPE_TOKENS else LONGHAND_STREET_TYPES.get(t, t) for t in tokens])
     bare = words.map(lambda tokens: ' '.join(t for t in tokens if t not in _TYPE_TOKENS))
     types = words.map(lambda tokens: ' '.join(t for t in tokens if t in _TYPE_TOKENS))
     group_key = name.str.cat([df['contributor_city'].fillna(''), df['contributor_state'].fillna(''), bare],

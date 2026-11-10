@@ -589,6 +589,13 @@ def test_standard_address_follows_usps_with_no_table_of_ours():
     assert std('P.O. BOX 68033') == ('PO BOX 68033', '', 'SAINT LOUIS')
     assert std('C/O RED CURVE SOLUTIONS LLC', '138 CONANT ST STE 401') == ('138 CONANT ST', 'STE 401', 'SAINT LOUIS')
     assert std('SOMEONE@GMAIL.COM')[0] == ''
+    assert std('1 MAIN ST', '# 539')[1] == '# 539'                                       # a unit is never a place
+    assert std('1 MAIN ST', 'SAIN MO')[1] == ''                                          # the city and state cut short
+    assert std('22649 SHAKER BLVD SAINT LOUIS MO 631')[0] == '22649 SHAKER BLVD'         # the place typed after the street
+    assert std('103 STANTON AVE, 103 STANTON AVENU')[0] == '103 STANTON AVE'             # the street typed twice
+    assert std('UNIT 8606 7485 VICTORY LANE')[:2] == ('7485 VICTORY LN', 'UNIT 8606')
+    assert std('13764RIVOLI DRIVE')[0] == '13764 RIVOLI DR'
+    assert std('BOX 137')[0] == 'PO BOX 137'
     assert std('1 MAIN ST', city='ST LOUIS')[2] == 'SAINT LOUIS'
     assert std('1 MAIN ST', city='ST LOUS')[2] == 'SAINT LOUIS'            # one slip, read through the ZIP
     assert std('1 MAIN ST', city='CREVE COEUR')[2] == 'CREVE COEUR'        # a USPS name of the ZIP stays
