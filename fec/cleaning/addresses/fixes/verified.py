@@ -44,7 +44,6 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = N
         if not mask.any():
             unused.append(f"{street} | {state} | {zipcode}")
             continue
-        df.loc[mask, "_address_rule"] = f"{source}: {street} | {state} | {zipcode}"
         if fixed_street == CLEAR_UNIT:
             # The street field held no street (a company or a city name).
             row_changed = mask & df[S1].notna()

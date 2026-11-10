@@ -75,7 +75,6 @@ INTERNAL_OUTPUT_COLUMNS = [
     'is_individual',  # redundant with entity_type
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
     'committee_type',  # overloaded with non-committee sentinels
-    'employment_source',  # kept in the cleaning audit only
     '_generational_suffix',  # identity evidence from the raw contributor name
     'geocode_level',  # how the donor coordinate was derived
     # FEC's own type and id, read while cleaning, never written.

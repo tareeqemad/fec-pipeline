@@ -1,13 +1,6 @@
 """Keep each donor consistent across filings."""
 import pandas as pd
 
-from fec.cleaning.reports.trail import (
-    EMPLOYMENT_FIELDS,
-    ENTITY_FIELDS,
-    NAME_FIELDS,
-    WORK_FIELDS,
-    AuditTrail,
-)
 from fec.config.occupation_rules.rules import EMPLOYER_FROM_CATEGORY, FINAL_EMPLOYER_FROM_OCCUPATION
 from fec.cleaning.donors.entity import _apply_entity_overrides
 from fec.cleaning.donors.occupation import (
@@ -17,7 +10,7 @@ from fec.cleaning.donors.occupation import (
 from fec.cleaning.donors.retired import (
     _settle_retired_employer,
 )
-from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
+from fec.cleaning.rules.manual import apply_manual_employer_overrides
 
 
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
@@ -45,40 +38,19 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
 
     return n
 
-ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
-
-# (audit step, fix, fields, reason, source)
+# In order.
 CONSISTENCY_FIXES = (
-    ("donor_fill_occupation_from_donor", _fill_occupation_from_donor, WORK_FIELDS,
-     "occupation_derived_from_donor_same_employer", None),
-    ("donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,
-     "employer_derived_from_occupation_or_category", None),
-    ("donor_apply_entity_overrides", _apply_entity_overrides, ENTITY_AND_WORK,
-     "curated_entity_type_override", "data/rules/entity_overrides.csv"),
-    ("donor_rebuild_occupation_category", _rederive_occupation_category, WORK_FIELDS,
-     "occupation_category_rederived_from_final_occupation", None),
-    ("donor_settle_retired_employer", _settle_retired_employer, EMPLOYMENT_FIELDS,
-     "retired_recovered_company_demoted_to_previous", None),
+    _fill_occupation_from_donor,
+    _fill_employer_from_occupation,
+    _apply_entity_overrides,
+    _rederive_occupation_category,
+    _settle_retired_employer,
 )
 
 
-# Work fields inferred from other filings.
-INFERRED_WORK_STEPS = frozenset({
-    "donor_fill_occupation_from_donor",
-})
-
-
-def _keep_reviewed_work(df: pd.DataFrame, trail: AuditTrail) -> None:
-    trail.run(
-        df, lambda frame: apply_manual_employer_overrides(frame, company_names_only=True),
-        "manual_overrides_kept", "curated_row_override", OVERRIDE_FIELDS,
-        source="data/rules/manual_employer_overrides.csv",
-    )
-
-
-def apply_donor_consistency(df: pd.DataFrame, trail: AuditTrail) -> None:
+def apply_donor_consistency(df: pd.DataFrame) -> None:
     """Repair values using donor history; reviewed decisions win."""
-    _keep_reviewed_work(df, trail)
-    for step, fix, fields, reason, source in CONSISTENCY_FIXES:
-        trail.run(df, fix, step, reason, fields, source=source)
-    _keep_reviewed_work(df, trail)
+    apply_manual_employer_overrides(df, company_names_only=True)
+    for fix in CONSISTENCY_FIXES:
+        fix(df)
+    apply_manual_employer_overrides(df, company_names_only=True)

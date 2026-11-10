@@ -4,29 +4,16 @@ from __future__ import annotations
 import pandas as pd
 
 from fec.cleaning.addresses.foreign import (
-    kept_as_filed_reason,
     restore_foreign_addresses,
     snapshot_foreign_addresses,
 )
-from fec.cleaning.reports.trail import (
-    ADDRESS_FIELDS,
-    ENTITY_FIELDS,
-    NAME_FIELDS,
-    WORK_FIELDS,
-    AuditTrail,
-)
-from fec.cleaning.donors.steps import INFERRED_WORK_STEPS
 from fec.cleaning.entities import (
     _clear_individual_residue,
     _reclassify_entities,
     _restore_reclassified_committees,
     attach_source_fields,
 )
-from fec.cleaning.rules.manual import (
-    FILED_WORK_FIELDS,
-    apply_manual_employer_overrides,
-    outside_work_sub_ids,
-)
+from fec.cleaning.rules.manual import apply_manual_employer_overrides
 from fec.cleaning.work.categorize import learn_categories
 from fec.cleaning.work.clean import clean_employer_occupation
 from fec.cleaning.work.status_words import extend_spellings
@@ -51,58 +38,36 @@ def clean_pipeline(
     earlier_keys: dict | None = None,
 ):
     df = df.copy()
-    trail = AuditTrail()
-
-    # Preserve filed values before repairs.
+    # Preserve filed foreign addresses before repairs.
     foreign = snapshot_foreign_addresses(df)
-    filed_work = df.reindex(columns=list(FILED_WORK_FIELDS)).fillna("").astype(str)
 
-    df_clean = clean_records(df, trail)
+    df_clean = clean_records(df)
     logger.info("[4/5] Matching and standardizing donors")
     df_clean = identify_donors(df_clean, earlier_keys)
-    df_clean = standardize_donors(df_clean, out_dir=out_dir, trail=trail)
+    df_clean = standardize_donors(df_clean, out_dir=out_dir)
 
     logger.info("[5/5] Checking data and saving")
-    trail.run(
-        df_clean, lambda frame: restore_foreign_addresses(frame, foreign),
-        "foreign_address_restore", kept_as_filed_reason, ADDRESS_FIELDS,
-    )
-    unexplained = trail.finish(df_clean)
-    df_clean["employment_source"] = _employment_sources(df_clean, trail, filed_work)
-    if unexplained:
-        logger.warning(
-            "WARNING: %s field values changed outside tracked steps", f"{unexplained:,}"
-        )
+    restore_foreign_addresses(df_clean, foreign)
     return df_clean
 
 
-def clean_records(
-    df: pd.DataFrame,
-    trail: AuditTrail,
-) -> pd.DataFrame:
+def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     """Clean fields, apply record rules, then apply curated overrides."""
     logger.info("[1/5] Cleaning names and work")
     df = _prepare_records(df)
-    trail.start(df)
-    df = _clean_people(df, trail)
+    df = _clean_people(df)
     logger.info("[2/5] Cleaning addresses")
-    df = clean_addresses(df, trail)
+    df = clean_addresses(df)
     df = _finish_records(df)
 
     logger.info("[3/5] Applying corrections")
-    df = apply_record_rules(df, trail)
+    df = apply_record_rules(df)
 
     # After the record rules: a company left in the occupation box has moved by now.
-    trail.run(df, _learn_categories, "occ_model_categories", "category_from_model", ("occupation_category",))
-    trail.run(
-        df, apply_manual_employer_overrides, "manual_overrides",
-        "curated_row_override", WORK_FIELDS + (
-        "contributor_city", "contributor_street_1", "contributor_street_2", "contributor_zip"),
-        source="data/rules/manual_employer_overrides.csv",
-    )
+    _learn_categories(df)
+    apply_manual_employer_overrides(df)
     # Donors are matched on the category of the occupation as it now reads.
-    trail.run(df, _rederive_occupation_category, "occ_final_categories", "category_of_final_occupation",
-              ("occupation_category",))
+    _rederive_occupation_category(df)
     return df
 
 
@@ -162,43 +127,19 @@ def _sanity_check(df: pd.DataFrame) -> list[str]:
     return warnings
 
 
-def _reclassify_reason(df: pd.DataFrame) -> pd.Series:
-    reasons = df["_reclass_reason"].astype(object)
-    return reasons.where(reasons.notna(), "entity_type_from_business_or_committee_signal")
-
-
-def _clean_people(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
+def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     """Clean names, work fields and entity types."""
-    trail.run(
-        df,
-        _preclean_name_punctuation,
-        "names_preclean_punctuation",
-        "name_punctuation_cleaned",
-        NAME_FIELDS,
-    )
+    _preclean_name_punctuation(df)
 
     # Reclassification restores raw work fields.
     raw_occupations = df["contributor_occupation"].copy()
     raw_employers = df["contributor_employer"].copy()
-    clean_employer_occupation(df, trail)
+    clean_employer_occupation(df)
 
-    trail.run(
-        df, _reclassify_entities, "reclassify", _reclassify_reason,
-        ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS,
-    )
-    trail.run(
-        df,
-        lambda frame: _restore_reclassified_committees(
-            frame, raw_occupations, raw_employers
-        ),
-        "reclassify_restore_work_fields",
-        "raw_work_fields_restored_for_reclassified_committee", WORK_FIELDS,
-    )
-    trail.run(
-        df, _clear_individual_residue, "reclassify_clear_residue",
-        "short_junk_value_nulled_for_individual", WORK_FIELDS,
-    )
-    _clean_names(df, trail)
+    _reclassify_entities(df)
+    _restore_reclassified_committees(df, raw_occupations, raw_employers)
+    _clear_individual_residue(df)
+    _clean_names(df)
     return df
 
 
@@ -217,15 +158,3 @@ def _finish_records(df: pd.DataFrame):
         if column in df.columns and column not in columns:
             columns.append(column)
     return df[columns]
-
-
-# Mark work from other filings or outside sources as inferred.
-def _employment_sources(df: pd.DataFrame, trail: AuditTrail, filed_work: pd.DataFrame) -> pd.Series:
-    inferred = trail.keys_set_by(INFERRED_WORK_STEPS, ("contributor_employer", "contributor_occupation"))
-    inferred |= outside_work_sub_ids(filed_work)
-    has_work = (
-        df["contributor_employer"].fillna("").astype(str).ne("")
-        | df["contributor_occupation"].fillna("").astype(str).ne("")
-    )
-    from_others = df["sub_id"].astype(str).isin(inferred) & has_work
-    return pd.Series("filed", index=df.index).mask(from_others, "inferred")

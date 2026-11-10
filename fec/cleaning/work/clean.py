@@ -3,9 +3,8 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
-from fec.cleaning.reports.trail import EMPLOYMENT_FIELDS, WORK_FIELDS
 from fec.cleaning.work.retired import settle_retired_fields
-from fec.cleaning.work.employer_deep_clean import _deep_clean_employer
+from fec.cleaning.work.employer_deep_clean import DEEP_CLEAN_PASSES
 from fec.cleaning.work.normalize import (
     EMPLOYER_STATUS_TEXT as _EMPLOYER_STATUS_TEXT,
     _categorize,
@@ -100,18 +99,14 @@ def _clear_committee_work_fields(df: pd.DataFrame) -> None:
     df.loc[is_committee, 'contributor_occupation'] = np.nan
 
 
-def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
+def clean_employer_occupation(df: pd.DataFrame) -> None:
     """Run the employer/occupation pipeline in place."""
-    trail.run(
-        df, _normalize_work_text, 'occ_normalize_text',
-        'text_normalized_or_missing_placeholder_nulled', WORK_FIELDS,
-    )
+    _normalize_work_text(df)
     # swap before short titles are dropped
-    trail.run(df, settle_retired_fields, 'occ_retired_split', 'retired_marker_read_from_both_fields', EMPLOYMENT_FIELDS)
-    trail.run(df, swap_job_and_company, 'occ_swap_fields', 'occupation_and_employer_swapped', WORK_FIELDS)
-    _deep_clean_employer(df, trail)
-    trail.run(df, _derive_status_and_category, 'occ_derive_status_category', 'derived_from_occupation', WORK_FIELDS)
-    trail.run(
-        df, _clear_committee_work_fields, 'occ_committee_rows', 'committee_has_no_occupation', WORK_FIELDS,
-    )
-    trail.run(df, _cross_fill, 'occ_cross_fill', 'filled_from_paired_field', WORK_FIELDS)
+    settle_retired_fields(df)
+    swap_job_and_company(df)
+    for clean in DEEP_CLEAN_PASSES:
+        clean(df)
+    _derive_status_and_category(df)
+    _clear_committee_work_fields(df)
+    _cross_fill(df)
