@@ -35,7 +35,9 @@ def _read_reference_rows(
     frame = frame[columns].replace("", None).dropna(how="all")
     for column in required:
         if column not in frame.columns:
-            raise ValueError(f"{path.name}: required column {column!r} missing (NOT NULL in {table})")
+            raise ValueError(
+                f"{path.name}: required column {column!r} missing (NOT NULL in {table})"
+            )
         missing = frame[column].isna()
         if missing.any():
             lines = [int(index) + 2 for index in frame.index[missing][:10]]
@@ -46,7 +48,8 @@ def _read_reference_rows(
             )
 
     rows = [
-        tuple(None if pd.isna(value) else value for value in row) for row in frame.itertuples(index=False, name=None)
+        tuple(None if pd.isna(value) else value for value in row)
+        for row in frame.itertuples(index=False, name=None)
     ]
     return columns, rows
 
@@ -70,7 +73,10 @@ def load_reference_tables(cur: Any) -> None:
         if rows:
             columns_sql = ", ".join(columns)
             execute_values(
-                cur, f"INSERT INTO {table_name} ({columns_sql}) VALUES %s ON CONFLICT DO NOTHING", rows, page_size=5000
+                cur,
+                f"INSERT INTO {table_name} ({columns_sql}) VALUES %s ON CONFLICT DO NOTHING",
+                rows,
+                page_size=5000,
             )
 
 
@@ -85,7 +91,12 @@ def _load_occupation_categories(cur: Any) -> None:
     df = pd.read_csv(CLEANED_CSV, usecols=["occupation_category"], dtype=str)
     categories = sorted(df["occupation_category"].dropna().unique())
     rows = [(category,) for category in categories]
-    execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING", rows, page_size=50)
+    execute_values(
+        cur,
+        "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING",
+        rows,
+        page_size=50,
+    )
 
 
 def _load_committees(cur: Any) -> None:
