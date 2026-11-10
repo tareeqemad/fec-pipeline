@@ -1,6 +1,6 @@
 # One style for the whole project: `ruff format .` then `ruff check --fix .`
 [tool.ruff]
-line-length = 120
+line-length = 100
 target-version = "py312"
 extend-exclude = ["data"]
 
@@ -16,6 +16,13 @@ select = [
     "UP",   # modern Python syntax
     "D",    # docstrings
     "ANN",  # type hints on function signatures
+    "C90",  # one function does one thing: limited branching
+    "SIM",  # the simpler form of an if, a with or a loop
+    "RET",  # no detour before a return
+    "C4",   # plain comprehensions
+    "PIE",  # no needless statements
+    "PERF", # no slow loops where a plain form exists
+    "PLR0913", # at most 6 arguments
 ]
 ignore = [
     "D203", "D213",          # one docstring layout: summary on the first line
@@ -25,6 +32,12 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "ANN"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
