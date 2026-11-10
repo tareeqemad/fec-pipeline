@@ -80,19 +80,8 @@ def load_leadership(cur: Any) -> None:
             row.get("committee_ids"), committees, (row.get("leader_name") or "").strip(),
         )
 
-        # Reuse existing leaders.
-        cur.execute(
-            """
-            INSERT INTO leaders (donor_id) VALUES (%s)
-            ON CONFLICT (donor_id) DO UPDATE SET donor_id = EXCLUDED.donor_id
-            RETURNING leader_id
-            """,
-            (donor_id,),
-        )
+        cur.execute("INSERT INTO leaders (donor_id) VALUES (%s) RETURNING leader_id", (donor_id,))
         leader_id = cur.fetchone()[0]
-
-        # Rebuild committee links.
-        cur.execute("DELETE FROM leader_committees WHERE leader_id = %s", (leader_id,))
         if committee_ids:
             execute_values(
                 cur,
@@ -144,12 +133,6 @@ def load_key_accomplices(cur: Any) -> None:
                 (donor_id, sign, subtitle, body_text,
                  committee_id, display_order)
             VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (donor_id) DO UPDATE SET
-                sign          = EXCLUDED.sign,
-                subtitle      = EXCLUDED.subtitle,
-                body_text     = EXCLUDED.body_text,
-                committee_id  = EXCLUDED.committee_id,
-                display_order = EXCLUDED.display_order
             """,
             (
                 donor_id,

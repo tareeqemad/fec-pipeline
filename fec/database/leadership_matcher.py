@@ -19,19 +19,18 @@ def find_or_create_donor(
     name: str,
     first: str,
     last: str,
-) -> tuple[int, str]:
+) -> int:
     donor_key = donor_key.strip()
     if not donor_key:
         raise ValueError(f"Missing donor_key for {name!r}")
 
     # Follow merged keys so old roster keys create no duplicates.
     resolved_key = resolve_donor_key(donor_key)
-    method = "donor_key_exact" if resolved_key == donor_key else "donor_key_merged"
 
     cur.execute("SELECT donor_id FROM donors WHERE donor_key = %s", (resolved_key,))
     row = cur.fetchone()
     if row:
-        return row[0], method
+        return row[0]
 
     if not create_if_missing:
         raise ValueError(
@@ -47,8 +46,7 @@ def find_or_create_donor(
         """,
         (resolved_key, (first or "").strip().upper() or None, (last or "").strip().upper() or None),
     )
-    new_id = cur.fetchone()[0]
-    return new_id, "created"
+    return cur.fetchone()[0]
 
 
 # Reuse an address or insert it with its coordinates.
@@ -61,6 +59,7 @@ def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: floa
           AND city       IS NOT DISTINCT FROM %s
           AND state_code IS NOT DISTINCT FROM %s
           AND zip_code   IS NOT DISTINCT FROM %s
+        ORDER BY address_id
         LIMIT 1
         """,
         fields,
@@ -124,48 +123,20 @@ def employment_address_id(
     if not location:
         return None
 
-    values = (
-        location.get("employer_address"),
-        None,
-        location.get("employer_city"),
-        location.get("employer_state"),
-        location.get("employer_zip"),
+    fields = tuple(
+        location.get(field) or None
+        for field in ("employer_address", "", "employer_city", "employer_state", "employer_zip")
     )
-    cur.execute(
-        """
-        SELECT address_id FROM addresses
-        WHERE COALESCE(street_1, '')   = %s
-          AND COALESCE(street_2, '')   = %s
-          AND COALESCE(city, '')       = %s
-          AND COALESCE(state_code, '') = %s
-          AND COALESCE(zip_code, '')   = %s
-        ORDER BY address_id
-        LIMIT 1
-        """,
-        tuple(value or "" for value in values),
-    )
-    row = cur.fetchone()
-    if row:
-        return row[0]
+    return _address_id(cur, fields, _coordinate(location.get("employer_latitude")),
+                       _coordinate(location.get("employer_longitude")))
 
-    # Read an optional coordinate, ignoring invalid text.
-    def _coordinate(value):
-        try:
-            return float(value) if str(value or "").strip() else None
-        except ValueError:
-            return None
 
-    cur.execute(
-        """
-        INSERT INTO addresses
-            (street_1, street_2, city, state_code, zip_code, latitude, longitude)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        RETURNING address_id
-        """,
-        (*values, _coordinate(location.get("employer_latitude")),
-         _coordinate(location.get("employer_longitude"))),
-    )
-    return cur.fetchone()[0]
+# Read an optional coordinate, ignoring invalid text.
+def _coordinate(value) -> float | None:
+    try:
+        return float(value) if str(value or "").strip() else None
+    except ValueError:
+        return None
 
 
 # Add roster employment only when the donor has none.

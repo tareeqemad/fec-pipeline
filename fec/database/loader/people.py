@@ -10,44 +10,11 @@ from fec.database.leadership_matcher import (
     upsert_donor_address,
     upsert_leader_employment,
 )
-from fec.database.loader._base import savepoint
 from fec.database.loader.employment_locations import _location_index
 from fec.env import REFERENCE_DIR
 from fec.log import get_logger
 
 logger = get_logger(__name__)
-
-
-# Reset the table sequence, logging any failure.
-def _reset_id_sequence(cur: Any, table: str) -> None:
-    try:
-        with savepoint(cur, "reset_sequence"):
-            _set_sequence_to_max(cur, table)
-    except Exception as error:
-        logger.warning("  %s: sequence not reset: %s", table, error)
-
-
-# Set the sequence to the highest ID, or one.
-def _set_sequence_to_max(cur: Any, table: str) -> None:
-    cur.execute(
-        """
-        SELECT a.attname
-        FROM pg_attribute a
-        JOIN pg_class c ON c.oid = a.attrelid
-        WHERE c.relname = %s AND a.attnum > 0 AND NOT a.attisdropped
-          AND pg_get_serial_sequence(c.relname, a.attname) IS NOT NULL
-        LIMIT 1
-        """,
-        (table,),
-    )
-    row = cur.fetchone()
-    if not row:
-        return
-    column = row[0]
-    cur.execute(
-        f"SELECT setval(pg_get_serial_sequence('{table}', '{column}'), "
-        f"COALESCE(MAX({column}), 1)) FROM {table}"
-    )
 
 
 # Read a field from either roster format.
@@ -161,21 +128,19 @@ def _load_donor_linked_csv(
     skipped = 0
 
     for _, row in rows.iterrows():
-        if _load_person(cur, row, csv_filename, locations, insert_row) is None:
-            skipped += 1
+        skipped += not _load_person(cur, row, csv_filename, locations, insert_row)
 
-    _reset_id_sequence(cur, table)
     if skipped:
         logger.warning("WARNING: %s has %s rows without a name; skipped", csv_path.name, skipped)
 
 
-# Save one roster donor and return the matching method.
-def _load_person(cur, row, csv_filename: str, locations, insert_row):
+# Save one roster donor; False for a row without a name.
+def _load_person(cur, row, csv_filename: str, locations, insert_row) -> bool:
     name, first, last, city, state = _person_identity(row)
     if not name:
-        return None
+        return False
 
-    donor_id, method = find_or_create_donor(
+    donor_id = find_or_create_donor(
         cur,
         (row.get("donor_key") or "").strip(),
         _boolean(row, "create_if_missing", csv_filename, name),
@@ -197,4 +162,4 @@ def _load_person(cur, row, csv_filename: str, locations, insert_row):
         locations=locations,
     )
     insert_row(cur, row, donor_id)
-    return method
+    return True

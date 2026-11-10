@@ -27,19 +27,6 @@ def _map_required_ids(df, donor_ids, committee_ids):
         _committee_id=df["recipient_committee"].map(committee_ids),
     )
     missing_donor = rows["_donor_id"].isna()
-    missing_committee = ~missing_donor & rows["_committee_id"].isna()
-
-    if missing_committee.any():
-        values = sorted(set(
-            rows.loc[missing_committee, "recipient_committee"].fillna("<blank>")
-        ))
-        shown = ", ".join(repr(value) for value in values[:10])
-        more = f" (+{len(values) - 10} more)" if len(values) > 10 else ""
-        raise RuntimeError(
-            f"{CLEANED_CSV.name}: {int(missing_committee.sum())} contribution row(s) reference "
-            f"recipient_committee value(s) with no committees-table match: {shown}{more} -- "
-            "add them to data/reference/committees.csv"
-        )
 
     if missing_donor.any():
         sample = rows.loc[missing_donor, "sub_id"].head(10).tolist()
@@ -113,14 +100,6 @@ def _native_row(values):
 
 # Prepare contribution rows for insertion.
 def _build_rows(rows):
-    missing = rows["contribution_receipt_amount"].isna()
-    if missing.any():
-        sample = rows.loc[missing, "sub_id"].head(10).tolist()
-        raise ValueError(
-            f"{CLEANED_CSV.name}: {int(missing.sum())} row(s) with missing/unparseable "
-            f"contribution_receipt_amount -- sample sub_ids: {sample}"
-        )
-
     receipt_dates = pd.to_datetime(
         rows["contribution_receipt_date"], errors="coerce"
     )

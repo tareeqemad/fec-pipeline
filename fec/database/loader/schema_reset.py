@@ -44,18 +44,5 @@ def reset_schema(cur: Any) -> None:
             f"Expected {DATABASE_OWNER}: {preview}"
         )
 
-    if not objects:
-        return
-
-    try:
-        for name, kind, _owner in objects:
-            quoted = _quote_identifier(name)
-            cur.execute(f'DROP {kind} IF EXISTS {quoted} CASCADE')
-
-        cur.execute(OBJECTS_SQL)
-        leftover = cur.fetchall()
-        if leftover:
-            names = ", ".join(f"{kind} {name}" for name, kind, _ in leftover[:5])
-            raise RuntimeError(f"Schema reset left objects: {names}")
-    except Exception as error:
-        raise RuntimeError(f"Schema reset failed: {error}") from error
+    for name, kind, _owner in objects:
+        cur.execute(f"DROP {kind} IF EXISTS {_quote_identifier(name)} CASCADE")
