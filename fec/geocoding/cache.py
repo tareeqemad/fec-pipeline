@@ -5,7 +5,7 @@ earlier street spellings); those entries were rewritten under the current
 keys once, so a lookup is a plain lookup.
 """
 
-from fec.io import JsonCache
+from fec.common.files import JsonCache
 
 
 class GeoCache(JsonCache):

@@ -1,4 +1,4 @@
-occupation,category,note
+occupation,category,source
 HOME ENGINEER,HOMEMAKER,"a homemaker's own name for the work; the model read ENGINEER (audit sample, 2026-11-09)"
 HOMEMAKER & HOMESCHOOL MOM,HOMEMAKER,"homemaker first; the model read HOMESCHOOL as education (keyword audit, 2026-11-09)"
 TECHNOLOGIST,TECHNOLOGY,"the only filer works at a technology company (NETRTINGS); the model and the old table left it OTHER (top-300 review, 2026-11-09)"

@@ -20,11 +20,11 @@ from __future__ import annotations
 
 import re
 
-from fec.cleaning.work.company import COMPANY_LEVELS, evidence
-from fec.cleaning.work.status import is_job_title, is_real_employer
-from fec.cleaning.work.status_words import status_word
-from fec.config.constants import STATUS_WORDS
-from fec.config.tables import words
+from fec.cleaning.work.company_evidence import COMPANY_LEVELS, company_evidence_level
+from fec.cleaning.work.employer_status import is_job_title, is_real_employer
+from fec.cleaning.work.status_spellings import status_word
+from fec.vocabulary.statuses import STATUS_WORDS
+from fec.vocabulary.tables import words
 
 _RETIRED_WORDS = words("retired_words")
 _PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
@@ -120,12 +120,12 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
         return employer, (o_rest if o_rest and o_rest != _plain(occupation) else occupation), "", False
     e_rest = e_rest if e_retired and not _names_nothing(e_rest) else ""
     o_rest = o_rest if o_retired and not _names_nothing(o_rest) else ""
-    level = evidence(e_rest)
+    level = company_evidence_level(e_rest)
     e_is_job = bool(e_rest) and is_job_title(e_rest)
     e_is_company = (
         bool(e_rest) and not e_is_job and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(e_rest)))
     )
-    o_is_company = bool(o_rest) and evidence(o_rest) in ("legal_form", "reviewed")
+    o_is_company = bool(o_rest) and company_evidence_level(o_rest) in ("legal_form", "reviewed")
     # An employer box without the marker: a job word is the profession (PHYSICIAN / RETIRED);
     # a company stays for the donor step, which moves it to previous_employer.
     unmarked = bool(employer) and not e_retired

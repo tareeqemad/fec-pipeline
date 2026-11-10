@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Resolve employer addresses."""
+"""Resolve employer status and previous employers.
+
+Run: python resolve.py --apply
+"""
 
 from fec.resolve.pipeline import main
 

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from fec.geocoding.validation import US_TERRITORIES, is_foreign_address
+from fec.geocoding.coordinate_checks import US_TERRITORIES, is_foreign_address
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {"User-Agent": "FEC-Geocoder/1.0 (research project)"}

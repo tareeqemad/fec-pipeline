@@ -1,1 +1,1 @@
-"""Address cleaning: streets, units, cities, ZIPs, foreign filings, reviews."""
+"""Address cleaning: USPS form, one spelling per donor, reviewed rules, foreign filings kept as filed."""

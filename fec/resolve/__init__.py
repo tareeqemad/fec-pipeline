@@ -1,1 +1,1 @@
-"""Employer address resolution - cross-record, FEC API, and AI lookup."""
+"""Resolve stage: each filing's employer status and the previous employer of retired donors."""

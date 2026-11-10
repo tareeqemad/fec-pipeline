@@ -101,10 +101,33 @@ Warnings worth reading after `clean.py`:
 | `data/raw/` | FEC data as pulled; never edited |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, each with its source. `donor_identity_rules.csv` merges, separates or holds donors: a filing whose owner is not proven is held (`identity_status` `held`) and counts toward nobody rather than risk the wrong person. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A donor whose latest contribution says retired gets a previous employer: the company on their latest earlier contribution, or the answer in `previous_employers.csv` for people whose former work is known (`[CLEAR]` empties it) |
+| `data/rules/` | Reviewed decisions, one file per kind, every row with its `source`. `donor_identity_rules.csv` merges, separates or holds donors: a filing whose owner is not proven is held (`identity_status` `held`) and counts toward nobody rather than risk the wrong person. `filing_corrections.csv` corrects one filing by its `sub_id` (employer, occupation, category or address). `contributor_name_rules.csv` corrects a filed name. `employer_name_rules.csv` gives a company its one spelling. `entity_overrides.csv` says a name is a person, an organization or a committee. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A donor whose latest contribution says retired gets a previous employer: the company on their latest earlier contribution, or the answer in `previous_employers.csv` for people whose former work is known (`[CLEAR]` empties it) |
 | `data/config/` | Spelling and word lists (`word_lists.csv` holds every list of words the code reads, one row per word). `occupation_category_rules.md` is the instructions the model reads to categorize occupations: edit it to change how a kind of occupation is handled |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
 | `data/cache/` | Map points, donor keys, and the model's occupation categories from earlier runs; keep it |
+
+## How the code is organised
+
+Each command at the root only starts one stage; the stage is a folder in `fec/` whose `pipeline.py` is its entry point.
+
+| Command | Stage folder | What it does |
+| --- | --- | --- |
+| `pull.py` | `fec/pull/` | Pulls new contributions from the FEC API into `data/raw/` |
+| `clean.py` | `fec/cleaning/` | Cleans names, work fields and addresses, then calls `fec/matching/` to give every person one donor key |
+| `geocode.py` | `fec/geocoding/` | Finds a map point for each cleaned address |
+| `resolve.py` | `fec/resolve/` | Sets each filing's employer status and the previous employer of retired donors |
+| `loader.py` | `fec/database/` | Loads the result into PostgreSQL in one transaction |
+
+Shared code: `fec/common/` (settings and paths, logging, files, the columns each stage needs) and `fec/vocabulary/` (the word lists the code reads, built from `data/config/`).
+Inside `fec/cleaning/`, `addresses/` holds the address steps and `work/` the employer and occupation steps.
+
+Writing rules, checked by `ruff check .` (configured in `pyproject.toml`; run `ruff format .` before committing):
+
+- Every function and class has a type-hinted signature and a docstring whose first line starts with a verb.
+- A name starting with `_` is used only in its own file; anything another file imports has a public name.
+- Each file is named after what it does, and a name is not reused for something else in another file.
+- Verbs: `read_` reads a file or a filing's boxes, `apply_` applies reviewed rules, `clean_` is a cleaning step, `load_` writes to the database.
+- Word lists live in `data/config/`, reviewed decisions in `data/rules/`, never inside the code.
 
 ## Update the code
 
@@ -117,5 +140,6 @@ pip install -r requirements.txt
 
 ```bash
 pip install -r requirements-dev.txt
+ruff check .
 python -m pytest
 ```

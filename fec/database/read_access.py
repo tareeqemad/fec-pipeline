@@ -1,0 +1,54 @@
+"""Give the read-only login SELECT on every table and view."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fec.common.settings import DATABASE_READER
+from fec.database.connection import quote_identifier
+
+
+def check_reader_role(cur: Any) -> None:
+    """Require a reader without admin rights or inherited roles."""
+    cur.execute(
+        """
+        SELECT
+            rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls,
+            EXISTS (
+                SELECT 1 FROM pg_auth_members
+                WHERE member = pg_roles.oid
+            )
+        FROM pg_roles
+        WHERE rolname = %s
+        """,
+        (DATABASE_READER,),
+    )
+    role = cur.fetchone()
+
+    if role is None:
+        raise RuntimeError(f"Database role {DATABASE_READER} does not exist")
+    if role[0]:
+        raise RuntimeError(f"{DATABASE_READER} must be unprivileged")
+    if role[1]:
+        raise RuntimeError(f"{DATABASE_READER} must not inherit another role")
+
+
+def grant_read_access(cur: Any) -> None:
+    """Give the reader SELECT access to tables and views."""
+    check_reader_role(cur)
+
+    reader = quote_identifier(DATABASE_READER)
+
+    statements = (
+        "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC",
+        f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {reader}",
+        "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC",
+        f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {reader}",
+        f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {reader}",
+    )
+
+    try:
+        for statement in statements:
+            cur.execute(statement)
+    except Exception as error:
+        raise RuntimeError(f"Permission update failed: {error}") from error

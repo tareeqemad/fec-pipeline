@@ -2,8 +2,8 @@ import csv
 
 import pytest
 
-import fec.fec_api as fec_api
-import fec.pull as pull
+from fec.pull import api
+from fec.pull import pipeline as pull_pipeline
 
 
 class Response:
@@ -30,16 +30,16 @@ def test_fetch_page_stops_after_rate_limit_timeout(monkeypatch):
         def wait(self):
             pass
 
-    monkeypatch.setattr(fec_api, "RATE_LIMIT_MAX_WAIT", 2)
-    monkeypatch.setattr(fec_api, "sleep", lambda _delay: None)
+    monkeypatch.setattr(api, "RATE_LIMIT_MAX_WAIT", 2)
+    monkeypatch.setattr(api, "sleep", lambda _delay: None)
 
-    with pytest.raises(fec_api.PullError, match="rate limit did not clear"):
-        fec_api.fetch_page(Session(), {"api_key": "secret"}, Limiter())
+    with pytest.raises(api.PullError, match="rate limit did not clear"):
+        api.fetch_page(Session(), {"api_key": "secret"}, Limiter())
 
 
 def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
     csv_path = tmp_path / "contributions.csv"
-    existing = pull.build_row(
+    existing = pull_pipeline.build_row(
         {
             "sub_id": "1",
             "committee_id": "C00000001",
@@ -50,7 +50,7 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
     )
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(pull.COLUMNS)
+        writer.writerow(pull_pipeline.COLUMNS)
         writer.writerow(existing)
 
     params_seen = {}
@@ -80,13 +80,13 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
         def get(self, *args, **kwargs):
             raise AssertionError("iter_pages should be mocked")
 
-    monkeypatch.setattr(pull, "RAW_CSV", csv_path)
-    monkeypatch.setattr(pull, "build_session", FakeSession)
-    monkeypatch.setattr(pull, "iter_pages", fake_pages)
+    monkeypatch.setattr(pull_pipeline, "RAW_CSV", csv_path)
+    monkeypatch.setattr(pull_pipeline, "build_session", FakeSession)
+    monkeypatch.setattr(pull_pipeline, "iter_pages", fake_pages)
     monkeypatch.setenv("FEC_API_KEY", "test")
 
-    pull.run("C00000001", 2026)
-    pull.run("C00000001", 2026)
+    pull_pipeline.pull_committee("C00000001", 2026)
+    pull_pipeline.pull_committee("C00000001", 2026)
 
     with csv_path.open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -96,7 +96,7 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
     assert rows[0]["contribution_receipt_amount"] == "10"
     assert rows[1]["contribution_receipt_amount"] == "25.50"
     assert "min_date" not in params_seen
-    with pull.source_path(csv_path).open(encoding="utf-8", newline="") as handle:
+    with pull_pipeline.source_path(csv_path).open(encoding="utf-8", newline="") as handle:
         assert [row["sub_id"] for row in csv.DictReader(handle)] == ["2"]
 
 
@@ -121,14 +121,14 @@ def _result(sub_id, entity="ORG", contributor_id="", **raw):
 
 def test_source_file_keeps_other_rows_when_appending(tmp_path):
     path = tmp_path / "fec_source_fields.csv"
-    first = pull._source_record("1", {**_result("1", entity="IND"), "image_number": "202410189698745485"})
-    second = pull._source_record("5", _result("5", contributor_id="C00000935"))
-    pull.append_source_fields(path, [first])
-    pull.append_source_fields(path, [second])
+    first = pull_pipeline._source_record("1", {**_result("1", entity="IND"), "image_number": "202410189698745485"})
+    second = pull_pipeline._source_record("5", _result("5", contributor_id="C00000935"))
+    pull_pipeline.append_source_fields(path, [first])
+    pull_pipeline.append_source_fields(path, [second])
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
-        assert reader.fieldnames == pull.SOURCE_COLUMNS
+        assert reader.fieldnames == pull_pipeline.SOURCE_COLUMNS
         assert list(reader) == [first, second]
     assert first["fec_entity_type"] == "IND" and first["fec_image_number"] == "202410189698745485"
     assert second["fec_entity_type"] == "ORG" and second["fec_contributor_id"] == "C00000935"
-    assert pull.source_path(tmp_path / "contributions.csv") == path
+    assert pull_pipeline.source_path(tmp_path / "contributions.csv") == path

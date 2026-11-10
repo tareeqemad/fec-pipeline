@@ -1,4 +1,4 @@
-"""Resolve employer status and history, then write the cleaned CSV."""
+"""Resolve each filing's employer status and previous employer, then write the cleaned CSV."""
 
 import argparse
 import os
@@ -8,12 +8,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from fec.cleaning.reports.gates import run_quality_gates
-from fec.contract import check_input, check_output
-from fec.env import CLEANED_CSV, PROJECT_ROOT, REPORTS_DIR, load_env
-from fec.io import read_pipeline_csv, write_csv_atomic, write_json_atomic
-from fec.log import get_logger
-from fec.resolve.apply import apply_results
+from fec.cleaning.quality_gates import run_quality_gates
+from fec.cleaning.work.employer_status import classify_employer_statuses
+from fec.common.columns import check_input, check_output
+from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
+from fec.common.log import get_logger
+from fec.common.settings import CLEANED_CSV, PROJECT_ROOT, REPORTS_DIR, load_env
+from fec.resolve.previous_employer import previous_employers
 
 logger = get_logger(__name__)
 
@@ -54,7 +55,7 @@ def _write_quality_gates(quality: dict, csv_written: bool) -> None:
 
 def _write_results(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> pd.DataFrame:
     """Resolve the data, run the checks, and save the CSV and quality report."""
-    df = apply_results(df)
+    df = resolve_employers(df)
     quality = run_quality_gates(df)
     if not quality["passed"]:
         _write_quality_gates(quality, csv_written=False)
@@ -90,3 +91,13 @@ def main() -> None:
     logger.info("Saved: %s", os.path.relpath(csv_path, PROJECT_ROOT))
     logger.info("Resolve checks passed. Completed in %dm %02ds.", minutes, seconds)
     logger.info("Next: python loader.py --reset")
+
+
+def resolve_employers(df: pd.DataFrame) -> pd.DataFrame:
+    """Set each filing's employer status and its donor's previous employer."""
+    status = classify_employer_statuses(df)
+    status[df["entity_type"].eq("COMMITTEE/PAC")] = "committee"
+    status[df["entity_type"].eq("ORGANIZATION")] = "organization"
+    df["employer_status"] = status
+    df["previous_employer"] = previous_employers(df, status)
+    return df
