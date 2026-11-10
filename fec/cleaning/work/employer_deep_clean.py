@@ -27,40 +27,6 @@ def _deep_clean_employer(df: pd.DataFrame, trail) -> None:
         )
 
 
-# Short codes with a known meaning, before short values are cleared.
-def _deep_clean_emp_short_junk(df: pd.DataFrame) -> None:
-    emp = df['contributor_employer']
-
-    me_mask = emp.eq('ME') & df['contributor_occupation'].eq('ME')
-    if me_mask.any():
-        df.loc[me_mask, 'contributor_employer'] = 'SELF-EMPLOYED'
-        df.loc[me_mask, 'contributor_occupation'] = 'SELF-EMPLOYED'
-
-    nd_mask = emp.eq('ND') & df['contributor_occupation'].eq('ND')
-    if nd_mask.any():
-        df.loc[nd_mask, 'contributor_employer'] = np.nan
-        df.loc[nd_mask, 'contributor_occupation'] = np.nan
-
-
-
-# normalize separators without discarding any filed employer
-def _deep_clean_emp_semicolons(df: pd.DataFrame) -> None:
-    emp = df['contributor_employer'].fillna('')
-    normalized = emp.str.replace(r'\s*;\s*', ' ; ', regex=True).str.strip()
-    changed = emp.str.contains(';', na=False, regex=False) & normalized.ne(emp)
-    if changed.any():
-        df.loc[changed, 'contributor_employer'] = normalized[changed]
-
-
-# Strip configured job titles followed by a comma.
-def _deep_clean_emp_title_prefix(df: pd.DataFrame) -> None:
-    emp = df['contributor_employer'].fillna('')
-    stripped = emp.str.replace(_TITLE_PREFIX_RE, '', regex=True).str.strip()
-    mask = (stripped != emp) & (stripped != '')
-    if mask.any():
-        df.loc[mask, 'contributor_employer'] = stripped[mask]
-
-
 # Normalize self-employment typos before work inference.
 def _deep_clean_emp_self_employed_typos(df: pd.DataFrame) -> None:
     emp = df['contributor_employer'].fillna('')
@@ -103,9 +69,6 @@ def _deep_clean_emp_truncated(df: pd.DataFrame) -> None:
 
 # (pass, audit reason)
 DEEP_CLEAN_PASSES = (
-    (_deep_clean_emp_short_junk, 'short_code_employer_resolved'),
-    (_deep_clean_emp_semicolons, 'semicolon_list_spacing_normalized'),
-    (_deep_clean_emp_title_prefix, 'leading_job_title_stripped'),
     (_deep_clean_emp_self_employed_typos, 'self_employed_typo_fixed'),
     (_deep_clean_emp_homemaker_sync, 'homemaker_employer_is_not_employed'),
     (_deep_clean_emp_typo_patterns, 'employer_typo_pattern_fixed'),

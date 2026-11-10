@@ -76,12 +76,6 @@ def zip_state(zip5: str) -> str:
     return _load_zcta_to_state().get(zip5) or _load_zip3_to_state().get(zip5[:3], '')
 
 
-# true when the ZIP is a real Census area ZIP
-def is_zcta(zip5: str) -> bool:
-    """True for ZIPs with a Census ZCTA (not PO-box-only)."""
-    return str(zip5 or '') in _load_zcta_to_state()
-
-
 # correct a state typo from the same person's other filings
 def _fix_impossible_city_states(df: pd.DataFrame) -> int:
     """Fix a person's state typos from their own history."""

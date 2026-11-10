@@ -1,7 +1,6 @@
 """Loose keys for comparing employer text."""
 import re
 
-from fec.cleaning.work.employer_aliases import preserved_employer_name
 
 _CORP_SUFFIXES = (
     "INCORPORATED",
@@ -59,9 +58,3 @@ def employer_text_key(name: str) -> str:
     return key
 
 
-
-def tidy_employer_commas(name):
-    """Style only: keep every name word and legal form."""
-    if not isinstance(name, str) or "," not in name or preserved_employer_name(name):
-        return name
-    return re.sub(r"\s*,(?=[A-Z])", ", ", re.sub(r"\s+,", ",", name))

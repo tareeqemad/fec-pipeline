@@ -9,10 +9,7 @@ from fec.cleaning.reports.trail import (
     AuditTrail,
 )
 from fec.config.occupation_rules.rules import EMPLOYER_FROM_CATEGORY, FINAL_EMPLOYER_FROM_OCCUPATION
-from fec.cleaning.donors.entity import (
-    _apply_entity_overrides,
-    _reenforce_entity_consistency,
-)
+from fec.cleaning.donors.entity import _apply_entity_overrides
 from fec.cleaning.donors.occupation import (
     _fill_occupation_from_donor,
     _rederive_occupation_category,
@@ -20,11 +17,7 @@ from fec.cleaning.donors.occupation import (
 from fec.cleaning.donors.retired import (
     _settle_retired_employer,
 )
-from fec.cleaning.work.previous import normalize_previous_employer_column
 from fec.cleaning.rules.manual import OVERRIDE_FIELDS, apply_manual_employer_overrides
-from fec.cleaning.rules.occupation_category import (
-    _fix_emp_occ_category_consistency,
-)
 
 
 def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
@@ -52,7 +45,6 @@ def _fill_employer_from_occupation(df: pd.DataFrame) -> int:
 
     return n
 
-PREVIOUS = ("previous_employer",)
 ENTITY_AND_WORK = ENTITY_FIELDS + NAME_FIELDS + WORK_FIELDS
 
 # (audit step, fix, fields, reason, source)
@@ -61,18 +53,12 @@ CONSISTENCY_FIXES = (
      "occupation_derived_from_donor_same_employer", None),
     ("donor_fill_employer_from_occupation", _fill_employer_from_occupation, WORK_FIELDS,
      "employer_derived_from_occupation_or_category", None),
-    ("donor_enforce_entity_consistency", _reenforce_entity_consistency, ENTITY_AND_WORK,
-     "entity_type_unified_by_name", None),
     ("donor_apply_entity_overrides", _apply_entity_overrides, ENTITY_AND_WORK,
      "curated_entity_type_override", "data/rules/entity_overrides.csv"),
-    ("donor_sync_employer_and_occupation", _fix_emp_occ_category_consistency, WORK_FIELDS,
-     "employer_occupation_category_consistency_fixed", None),
     ("donor_rebuild_occupation_category", _rederive_occupation_category, WORK_FIELDS,
      "occupation_category_rederived_from_final_occupation", None),
     ("donor_settle_retired_employer", _settle_retired_employer, EMPLOYMENT_FIELDS,
      "retired_recovered_company_demoted_to_previous", None),
-    ("donor_normalize_previous_employers", normalize_previous_employer_column, PREVIOUS,
-     "previous_employer_contract_normalized", None),
 )
 
 

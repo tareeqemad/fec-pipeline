@@ -4,7 +4,6 @@ import csv
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.entities import _enforce_entity_name_consistency
 from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.env import RULES_DIR
 
@@ -61,13 +60,3 @@ def _set_entity_type(df: pd.DataFrame, mask: pd.Series, et: str) -> None:
         )
         df.loc[mask, 'occupation_category'] = 'OTHER'
 
-
-# re-enforce same-name donors share one entity_type
-def _reenforce_entity_consistency(df: pd.DataFrame) -> int:
-    """Same name, same entity type; run after names are unified."""
-    before = df['entity_type'].copy()
-    n = _enforce_entity_name_consistency(df)
-    if n:
-        flipped = (before == 'COMMITTEE/PAC') & (df['entity_type'] == 'ORGANIZATION')
-        df.loc[flipped, 'occupation_category'] = 'ORGANIZATION'
-    return n
