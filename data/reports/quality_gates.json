@@ -1,85 +1,24 @@
 {
   "passed": true,
+  "rows": 222603,
   "checks": {
-    "no_nan_strings": {
-      "passed": true,
-      "count": 0
-    },
-    "amounts_readable": {
-      "passed": true,
-      "count": 0
-    },
-    "valid_categories": {
-      "passed": true,
-      "invalid": [],
-      "blank": 0
-    },
-    "occupation_category_consistency": {
-      "passed": true,
-      "count": 0
-    },
-    "self_employed_status_consistency": {
-      "passed": true,
-      "count": 0,
-      "marker_without_status": 0,
-      "status_without_marker": 0
-    },
-    "not_employed_status_consistency": {
-      "passed": true,
-      "count": 0,
-      "marker_without_status": 0,
-      "status_without_marker": 0
-    },
-    "previous_employer_scope": {
-      "passed": true,
-      "count": 0
-    },
-    "employer_names_valid": {
-      "passed": true,
-      "count": 0,
-      "examples": []
-    },
-    "zip_coverage": {
-      "passed": true,
-      "pct_empty": 0.0
-    },
-    "no_duplicate_sub_id": {
-      "passed": true,
-      "count": 0
-    },
-    "no_duplicate_transaction_id": {
-      "passed": true,
-      "count": 0
-    },
-    "no_future_dates": {
-      "passed": true,
-      "count": 0
-    },
-    "row_count": 222603,
-    "zip_state_match": {
-      "passed": true,
-      "count": 9
-    },
-    "no_email_as_address": {
-      "passed": true,
-      "count": 0
-    },
-    "no_special_chars_in_names": {
-      "passed": true,
-      "count": 0
-    },
-    "retired_active_sync": {
-      "passed": true,
-      "count": 0
-    },
-    "retired_employer_marker": {
-      "passed": true,
-      "count": 0
-    },
-    "null_surname_preserved": {
-      "passed": true,
-      "count": 0
-    }
+    "no text column holds the word NAN": 0,
+    "every contribution has a readable amount": 0,
+    "every occupation category is a known one": 0,
+    "the occupation category is the one of the occupation": 0,
+    "employer_status is the one the work fields give": 0,
+    "only a retired filing has a previous employer": 0,
+    "an employer or previous employer names an employer": 0,
+    "at least half the filings have a ZIP": 5,
+    "sub_id is unique": 0,
+    "transaction_id is unique": 0,
+    "no contribution is dated more than 60 days ahead": 0,
+    "the ZIP belongs to the state": 5,
+    "no street is an email address": 0,
+    "no name holds ` ; [ ] or @": 0,
+    "a RETIRED category is never an active employer": 0,
+    "a RETIRED category has RETIRED as the employer": 0,
+    "the surname NULL is kept": 0
   },
   "issues": [],
   "stage": "resolve",
