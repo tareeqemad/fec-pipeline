@@ -15,9 +15,7 @@ import numpy as np
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.names import apply_name_corrections
-from fec.cleaning.addresses.fixes.unify import (
-    canonicalize_donor_units,
-)
+from fec.cleaning.addresses.align import unify_units
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
 from fec.cleaning.reports.donors import build_donor_dedup_review
 from fec.donor_match.keys import non_individual_donor_key
@@ -66,7 +64,7 @@ def standardize(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFr
 
     canonicalize_donor_names(df)
     canonicalize_current_employers(df)
-    canonicalize_donor_units(df)
+    unify_units(df, donor="donor_key")
     df, _ = apply_name_corrections(df)
     apply_donor_consistency(df)
     canonicalize_committee_names(df)

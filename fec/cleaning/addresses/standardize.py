@@ -225,6 +225,7 @@ def standard_city(city: str, zipcode: str) -> str:
         lambda name: _letters(name) == _letters(full),
         lambda name: _shortens(full, name) or (" " in name and len(full) >= 2 and _initials(name) == full),
         lambda name: len(_letters(full)) >= 5 and OSA.distance(_letters(name), _letters(full)) <= allowed,
+        lambda name: len(full) >= 5 and name.startswith(full + " "),          # SANTA for SANTA FE: cut short
     )
     for test in tests:
         if found := [name for name in names if test(name)]:
