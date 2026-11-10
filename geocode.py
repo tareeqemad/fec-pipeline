@@ -17,32 +17,33 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# Find the cleaned file or stop with a clear message.
 def _find_csv() -> str:
+    """Find the cleaned file or stop with a clear message."""
     if CLEANED_CSV.exists():
         return str(CLEANED_CSV)
     logger.error("No cleaned CSV found. Run python clean.py first.")
     sys.exit(1)
 
 
-# Look up donor addresses and apply cached coordinates.
 def _geocode_contributors(
     df: pd.DataFrame,
     cache: GeoCache,
 ) -> pd.DataFrame:
+    """Look up donor addresses and apply cached coordinates."""
     logger.info("[1/2] Finding contributor coordinates")
     geocode_addresses(df, cache)
     df = apply_to_dataframe(df, cache)
 
     logger.info(
         "Rows with contributor coordinates: %s / %s",
-        f"{df['latitude'].notna().sum():,}", f"{len(df):,}",
+        f"{df['latitude'].notna().sum():,}",
+        f"{len(df):,}",
     )
     return df
 
 
-# Check the output columns and save the CSV.
-def _write_output(df: pd.DataFrame, csv_path: str, input_columns) -> None:
+def _write_output(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> None:
+    """Check the output columns and save the CSV."""
     from fec.config.data import INTERNAL_OUTPUT_COLUMNS
 
     df = df.drop(columns=INTERNAL_OUTPUT_COLUMNS, errors="ignore")
@@ -50,8 +51,8 @@ def _write_output(df: pd.DataFrame, csv_path: str, input_columns) -> None:
     write_csv_atomic(df, csv_path, index=False)
 
 
-# Read the cleaned data, geocode the selected addresses and save.
-def main():
+def main() -> None:
+    """Read the cleaned data, geocode the selected addresses and save."""
     start = time.perf_counter()
     load_env()
 

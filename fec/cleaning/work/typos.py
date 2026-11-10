@@ -13,9 +13,11 @@ word (the RETIRED reader owns those), and any text already listed or
 already corrected. Only the occupation box is read: a company name in the
 employer box can be one letter from a job (GARTNER / PARTNER).
 """
+
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 import pandas as pd
 from rapidfuzz import process
@@ -33,7 +35,8 @@ MIN_WORD_LETTERS = 6
 _TEXT_RE = re.compile(r"[A-Z][A-Z '&/.-]*")
 
 
-def _plain(value) -> str:
+def _plain(value: object) -> str:
+    """Return a text uppercased with single spaces, or '' if it is not a string."""
     return " ".join(value.upper().split()) if isinstance(value, str) else ""
 
 
@@ -50,10 +53,11 @@ def _one_word_slip(text: str, listed: str) -> bool:
     return len(letters) >= MIN_WORD_LETTERS and x.isalpha() and y.isalpha() and OSA.distance(x, y) == 1
 
 
-def learn_typos(texts, listed=None) -> dict[str, str]:
+def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) -> dict[str, str]:
     """{filed text: listed occupation} for every text one slip from one listed occupation."""
     listed = [
-        k for k in (CATEGORY_OVERRIDES if listed is None else listed)
+        k
+        for k in (CATEGORY_OVERRIDES if listed is None else listed)
         if k not in OCCUPATION_CORRECTIONS and k not in STATUS_WORDS
     ]
     known = set(listed)

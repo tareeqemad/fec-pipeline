@@ -1,27 +1,29 @@
 """Read CSV values without losing names; replace completed output files."""
+
 import json
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
 # Keep NULL, NA and n/a as text: real names.
-NA_VALUES = ['', '#N/A', '#NA', 'N/A', '#N/A N/A', 'NaN', 'nan', 'None']
+NA_VALUES = ["", "#N/A", "#NA", "N/A", "#N/A N/A", "NaN", "nan", "None"]
 
 
 # Read strings to preserve leading zeros and avoid scientific notation.
 ID_DTYPES = {
-    'sub_id': 'string',
-    'transaction_id': 'string',
-    'committee_id': 'string',
-    'contributor_zip': 'string',
-    'employer_zip': 'string',
+    "sub_id": "string",
+    "transaction_id": "string",
+    "committee_id": "string",
+    "contributor_zip": "string",
+    "employer_zip": "string",
 }
 
 
-# Keep ID leading zeros and surnames like NULL and NA.
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
+    """Read a pipeline CSV, keeping ID leading zeros and surnames like NULL and NA."""
     # Apply dtypes only to columns present in the header.
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
@@ -41,8 +43,8 @@ REPLACE_ATTEMPTS = 10
 REPLACE_WAIT_SECONDS = 0.5
 
 
-# Replace the target after lock retries; on failure keep it.
 def replace_file(temp_path: str, path: str) -> None:
+    """Replace the target after lock retries; on failure keep it."""
     for attempt in range(REPLACE_ATTEMPTS):
         try:
             os.replace(temp_path, path)
@@ -60,8 +62,8 @@ def replace_file(temp_path: str, path: str) -> None:
     )
 
 
-# Write JSON to a temporary file, then replace the target.
-def write_json_atomic(path: str | Path, data, **dump_options) -> None:
+def write_json_atomic(path: str | Path, data: Any, **dump_options: Any) -> None:
+    """Write JSON to a temporary file, then replace the target."""
     path = str(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     temp_path = path + ".tmp"
@@ -70,8 +72,8 @@ def write_json_atomic(path: str | Path, data, **dump_options) -> None:
     replace_file(temp_path, path)
 
 
-# Write CSV to a temporary file, then replace the target.
-def write_csv_atomic(df, path: str | Path, **to_csv_options) -> None:
+def write_csv_atomic(df: pd.DataFrame, path: str | Path, **to_csv_options: Any) -> None:
+    """Write CSV to a temporary file, then replace the target."""
     path = str(path)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     temp_path = path + ".tmp"
@@ -79,17 +81,22 @@ def write_csv_atomic(df, path: str | Path, **to_csv_options) -> None:
     replace_file(temp_path, path)
 
 
-# Keyed entries in a JSON file, saved atomically.
 class JsonCache:
-    def __init__(self, path):
+    """Keyed entries in a JSON file, saved atomically."""
+
+    def __init__(self, path: str | Path) -> None:
+        """Load the entries from the file, or start empty if it does not exist."""
         self.path = path
         self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
 
-    def get(self, key):
+    def get(self, key: str) -> Any:
+        """Return the entry stored under key, or None."""
         return self.data.get(key)
 
-    def put(self, key, value):
+    def put(self, key: str, value: Any) -> None:
+        """Store an entry under key."""
         self.data[key] = value
 
-    def save(self):
+    def save(self) -> None:
+        """Write the entries to the file atomically."""
         write_json_atomic(self.path, self.data, ensure_ascii=False)

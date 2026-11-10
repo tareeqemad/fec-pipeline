@@ -1,4 +1,5 @@
 """Company names supported by the shared rules file."""
+
 import csv
 import re
 
@@ -7,15 +8,15 @@ import pandas as pd
 from fec.env import EMPLOYER_NAME_RULES_CSV
 
 
-# Formatting only: keep words, their order, and legal forms.
-def employer_rule_key(name) -> str:
+def employer_rule_key(name: object) -> str:
+    """Normalise formatting only: keep words, their order, and legal forms."""
     if not isinstance(name, str):
         return ""
     name = name.upper().replace("&", " AND ")
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
-def _load_rules():
+def _load_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
     """Reviewed spellings: variant -> canonical everywhere, or for one donor (anchor_sub_id) in one cycle."""
     aliases, scoped = {}, []
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
@@ -60,12 +61,13 @@ for _variant, _canonical in EMPLOYER_SYNONYMS.items():
         _ALIASES[_key] = _canonical
 
 
-def documented_employer_name(name) -> str | None:
+def documented_employer_name(name: object) -> str | None:
+    """Return the reviewed name for a company spelling, or None if the rules do not list it."""
     return _ALIASES.get(employer_rule_key(name))
 
 
-# Resolve evidence to its current donor; never match by company.
 def scoped_employer_rules(df: pd.DataFrame) -> dict:
+    """Resolve evidence to its current donor; never match by company."""
     needed = {"sub_id", "donor_key", "entity_type", "identity_status"}
     if not _SCOPED_RULES or not needed.issubset(df.columns):
         return {}
@@ -86,7 +88,10 @@ def scoped_employer_rules(df: pd.DataFrame) -> dict:
     return rules
 
 
-def reviewed_employer_name(name, donor_key="", cycle="", scoped=None) -> str:
+def reviewed_employer_name(
+    name: object, donor_key: str = "", cycle: str = "", scoped: dict[tuple[str, str, str], str] | None = None
+) -> str:
+    """Return the reviewed spelling of an employer name, for this donor and cycle when a scoped rule applies."""
     if not isinstance(name, str):
         return ""
     key = employer_rule_key(name)
@@ -104,10 +109,11 @@ def reviewed_employer_name(name, donor_key="", cycle="", scoped=None) -> str:
     return " ".join(text.split())
 
 
-# Aliases change existing values only, never fill missing work.
 def apply_reviewed_employer_names(
-    df: pd.DataFrame, columns=("contributor_employer", "previous_employer"),
+    df: pd.DataFrame,
+    columns: tuple[str, ...] = ("contributor_employer", "previous_employer"),
 ) -> int:
+    """Aliases change existing values only, never fill missing work."""
     scoped = scoped_employer_rules(df)
     mask = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df else pd.Series(True, index=df.index)
     donors = df.get("donor_key", pd.Series("", index=df.index)).fillna("").astype(str)
@@ -119,13 +125,19 @@ def apply_reviewed_employer_names(
             continue
         values = df.loc[mask & df[column].notna(), column]
         if scoped:
-            names = pd.Series([
-                reviewed_employer_name(value, donor, cycle, scoped if known else None)
-                for value, donor, cycle, known in zip(
-                    values, donors.loc[values.index], cycles.loc[values.index],
-                    confirmed.loc[values.index],
-                )
-            ], index=values.index, dtype=object)
+            names = pd.Series(
+                [
+                    reviewed_employer_name(value, donor, cycle, scoped if known else None)
+                    for value, donor, cycle, known in zip(
+                        values,
+                        donors.loc[values.index],
+                        cycles.loc[values.index],
+                        confirmed.loc[values.index],
+                    )
+                ],
+                index=values.index,
+                dtype=object,
+            )
         else:
             names = values.map(reviewed_employer_name)
         different = names.ne(values)
@@ -134,6 +146,6 @@ def apply_reviewed_employer_names(
     return changed
 
 
-# Apply documented names to the current employer only.
 def canonicalize_current_employers(df: pd.DataFrame) -> int:
+    """Apply documented names to the current employer only."""
     return apply_reviewed_employer_names(df, ("contributor_employer",))

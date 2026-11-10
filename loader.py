@@ -37,30 +37,33 @@ from fec.env import CLEANED_CSV
 from fec.log import get_logger
 
 
-# Load one donor per donor_key and return its ID.
 def load_donors(cur: Any, df: pd.DataFrame) -> dict:
+    """Load one donor per donor_key and return its ID."""
     donor_rows = []
-    for donor_key, group in df.groupby('donor_key'):
+    for donor_key, group in df.groupby("donor_key"):
         # Names are already cleaned.
-        latest = group.sort_values('contribution_receipt_date', ascending=False).iloc[0]
-        entity = to_native(latest['entity_type'])
-        first = to_native(latest['contributor_first_name'])
-        last = to_native(latest['contributor_last_name'])
+        latest = group.sort_values("contribution_receipt_date", ascending=False).iloc[0]
+        entity = to_native(latest["entity_type"])
+        first = to_native(latest["contributor_first_name"])
+        last = to_native(latest["contributor_last_name"])
         # Organizations use last_name.
-        if not last and entity in ('COMMITTEE/PAC', 'ORGANIZATION'):
-            last = to_native(latest['contributor_name'])
+        if not last and entity in ("COMMITTEE/PAC", "ORGANIZATION"):
+            last = to_native(latest["contributor_name"])
         # Older CSVs default to confirmed.
-        status = to_native(latest.get('identity_status')) or 'confirmed'
+        status = to_native(latest.get("identity_status")) or "confirmed"
         donor_rows.append((donor_key, entity, first, last, status))
 
-    execute_values(cur,
-        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) "
-        "VALUES %s",
-        donor_rows, page_size=5000)
+    execute_values(
+        cur,
+        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) VALUES %s",
+        donor_rows,
+        page_size=5000,
+    )
 
     cur.execute("SELECT donor_id, donor_key FROM donors")
     donor_ids = {donor_key: donor_id for donor_id, donor_key in cur.fetchall()}
     return donor_ids
+
 
 # Keep the existing log-file category when moving the entry point.
 logger = get_logger("fec.database.loader.run")
@@ -68,12 +71,12 @@ logger = get_logger("fec.database.loader.run")
 __all__ = ["main", "connect"]
 
 
-# Load tables in order and reuse their ID maps.
 def load_all(
     cur: Any,
     df: pd.DataFrame,
     employer_locations: list[dict],
 ) -> None:
+    """Load tables in order and reuse their ID maps."""
     cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
     occupation_category_ids = {name: category_id for category_id, name in cur.fetchall()}
 
@@ -93,40 +96,47 @@ def load_all(
         donor_address_ids = load_donor_addresses(cur, df, donor_ids, address_ids)
     with stage("employments"):
         employment_ids = load_employments(
-            cur, df, donor_ids, occupation_category_ids, get_employer_id,
-            address_ids, employer_locations,
+            cur,
+            df,
+            donor_ids,
+            occupation_category_ids,
+            get_employer_id,
+            address_ids,
+            employer_locations,
         )
     with stage("contributions"):
         load_contributions(
-            cur, df, donor_ids, committee_ids, donor_address_ids,
-            employment_ids, get_employer_id, occupation_category_ids,
+            cur,
+            df,
+            donor_ids,
+            committee_ids,
+            donor_address_ids,
+            employment_ids,
+            get_employer_id,
+            occupation_category_ids,
         )
     with stage("employer locations"):
         link_employer_locations(cur, address_ids, get_employer_id, employer_locations)
 
 
-# Refresh the donor view using its existing unique index.
 def refresh_materialized_views(cur: Any) -> None:
+    """Refresh the donor view using its existing unique index."""
     cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
     cur.execute("ANALYZE mv_donor_profile")
 
 
-# Require --reset before reloading the database.
 def _require_reset_flag() -> None:
-    parser = argparse.ArgumentParser(
-        description="Load FEC data into normalized PostgreSQL"
-    )
-    parser.add_argument(
-        "--reset", action="store_true", help="Drop all objects & reload"
-    )
+    """Require --reset before reloading the database."""
+    parser = argparse.ArgumentParser(description="Load FEC data into normalized PostgreSQL")
+    parser.add_argument("--reset", action="store_true", help="Drop all objects & reload")
     args = parser.parse_args()
 
     if not args.reset:
         parser.error("use --reset to reload the database")
 
 
-# entry point: reset and reload the database from cleaned CSV
 def main() -> None:
+    """Entry point: reset and reload the database from cleaned CSV."""
     total_start = time.perf_counter()
     _require_reset_flag()
     try:

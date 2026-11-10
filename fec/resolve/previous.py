@@ -5,6 +5,7 @@ whose former work is known), the company the retired filing itself names
 (RETIRED FROM ACME), else the company on the donor's latest earlier
 contribution, to any committee, where they still filed an employer.
 """
+
 import pandas as pd
 
 from fec.cleaning.rules.manual import CLEAR
@@ -16,8 +17,8 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# Reviewed answers by donor; [CLEAR] says there is none.
 def _reviewed(donors: dict) -> dict:
+    """Reviewed answers by donor; [CLEAR] says there is none."""
     found, missing = {}, []
     for row in read_rows(PREVIOUS_EMPLOYERS_CSV):
         value = (row.get("previous_employer") or "").strip()
@@ -31,15 +32,15 @@ def _reviewed(donors: dict) -> dict:
     return found
 
 
-# Each donor's latest company in a column.
 def _latest(rows: pd.DataFrame, column: str) -> dict:
+    """Each donor's latest company in a column."""
     names = companies_named(rows[column])
     named = rows.assign(company=names)[names.ne("")].sort_values("contribution_receipt_date")
     return named.groupby("donor_key")["company"].last().to_dict()
 
 
 def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
-    """The previous employer on the retired filings of donors who are retired now."""
+    """Return the previous employer on the retired filings of donors who are retired now."""
     people = df["entity_type"].eq("INDIVIDUAL")
     retired = people & status.eq("retired")
     latest = df[people].sort_values("contribution_receipt_date").groupby("donor_key").tail(1)

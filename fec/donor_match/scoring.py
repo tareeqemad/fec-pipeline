@@ -1,4 +1,5 @@
 """Score the evidence shared by two donor profiles."""
+
 from typing import NamedTuple
 
 from rapidfuzz.distance import Levenshtein
@@ -7,13 +8,20 @@ from fec.donor_match.normalize import name_words
 
 # Generic categories support no match; retirement is scored separately.
 GENERIC_OCC_CATEGORIES = {
-    "RETIRED", "NOT EMPLOYED", "SELF-EMPLOYED", "OTHER",
-    "ORGANIZATION", "POLITICAL COMMITTEE", "HOMEMAKER", "STUDENT",
-    "NAN", "",
+    "RETIRED",
+    "NOT EMPLOYED",
+    "SELF-EMPLOYED",
+    "OTHER",
+    "ORGANIZATION",
+    "POLITICAL COMMITTEE",
+    "HOMEMAKER",
+    "STUDENT",
+    "NAN",
+    "",
 }
 
-MERGE_THRESHOLD = 50   # a pair at this score is one donor, unless a rule separates it
-BLOCKED = -999         # two different full middle names: different people
+MERGE_THRESHOLD = 50  # a pair at this score is one donor, unless a rule separates it
+BLOCKED = -999  # two different full middle names: different people
 
 # shared evidence
 SCORE_SAME_STREET = 60
@@ -21,14 +29,14 @@ SCORE_SAME_EMPLOYER = 30
 SCORE_SAME_STATE = 10
 SCORE_SAME_CITY = 15
 SCORE_SAME_ZIP5 = 25
-SCORE_SAME_ZIP3 = 5        # same ZIP area (first 3 digits)
-SCORE_SAME_OCC = 15        # same occupation category
-SCORE_OCC_RETIRED = 10     # an occupation on one record, retired on the other
-SCORE_MIDDLE_MATCH = 15    # same middle, an initial of the full form, or a one-letter slip
-SCORE_MIDDLE_PARTIAL = 5   # only one side has a middle name
+SCORE_SAME_ZIP3 = 5  # same ZIP area (first 3 digits)
+SCORE_SAME_OCC = 15  # same occupation category
+SCORE_OCC_RETIRED = 10  # an occupation on one record, retired on the other
+SCORE_MIDDLE_MATCH = 15  # same middle, an initial of the full form, or a one-letter slip
+SCORE_MIDDLE_PARTIAL = 5  # only one side has a middle name
 SCORE_MIDDLE_CONFLICT = -30  # different initials
 # name rarity (name_freq = profiles sharing the normalised name)
-SCORE_RARE_NAME = 15       # freq <= 3
+SCORE_RARE_NAME = 15  # freq <= 3
 SCORE_VERY_RARE_BONUS = 20  # freq <= 2, on top of the rare bonus
 SCORE_RETIRED_NO_EMP = 25  # no employer on either side, a rare name and shared geography
 SCORE_RARE_EMPLOYER_OK = 10  # no geography, but a shared employer and a rare name
@@ -37,6 +45,8 @@ EMPLOYER_ONLY_COMMON_CAP = 30  # a common name sharing only an employer never me
 
 
 class Evidence(NamedTuple):
+    """Hold a pair's match score and which shared facts support it."""
+
     score: int
     street: bool = False
     zip5: bool = False
@@ -63,7 +73,7 @@ def _middle_score(m1: str, m2: str) -> int:
 
 
 def compare(p1: dict, p2: dict, name_freq: int) -> Evidence:
-    """The match score of two profiles and the anchors behind it.
+    """Return the match score of two profiles and the anchors behind it.
 
     Two spellings of the same words (LAST, FIRST MIDDLE / LAST, MIDDLE
     FIRST) name one person, so their middle names are not compared.
@@ -76,9 +86,14 @@ def compare(p1: dict, p2: dict, name_freq: int) -> Evidence:
     zip5 = zips and z1 == z2
     zip3 = zips and not zip5 and z1[:3] == z2[:3]
     has_geo = street or state or zip5 or zip3
-    score = (street * SCORE_SAME_STREET + employer * SCORE_SAME_EMPLOYER + state * SCORE_SAME_STATE
-             + (bool(p1["city"]) and p1["city"] == p2["city"]) * SCORE_SAME_CITY
-             + zip5 * SCORE_SAME_ZIP5 + zip3 * SCORE_SAME_ZIP3)
+    score = (
+        street * SCORE_SAME_STREET
+        + employer * SCORE_SAME_EMPLOYER
+        + state * SCORE_SAME_STATE
+        + (bool(p1["city"]) and p1["city"] == p2["city"]) * SCORE_SAME_CITY
+        + zip5 * SCORE_SAME_ZIP5
+        + zip3 * SCORE_SAME_ZIP3
+    )
 
     c1, c2 = p1["occ_categories"], p2["occ_categories"]
     if c1 & c2:

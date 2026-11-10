@@ -1,8 +1,10 @@
 """Choose the company office nearest each donor."""
+
 from __future__ import annotations
 
 import csv
 from functools import lru_cache
+from typing import Any
 
 from fec.env import REFERENCE_DIR
 from fec.geocoding.validation import EARTH_RADIUS_MILES, great_circle
@@ -13,31 +15,39 @@ ADDRESS_FIELDS = (
     "employer_state",
     "employer_zip",
 )
-ADDRESS_TRUST_VALUES = frozenset({
-    "verified",
-    "grounded",
-    "corroborated",
-    "uncorroborated",
-})
+ADDRESS_TRUST_VALUES = frozenset(
+    {
+        "verified",
+        "grounded",
+        "corroborated",
+        "uncorroborated",
+    }
+)
 PUBLISHABLE_ADDRESS_TRUST = frozenset({"verified", "grounded"})
 
 
-def _text(value) -> str:
+def _text(value: Any) -> str:
+    """Return the value as trimmed text, '' when missing."""
     return str(value or "").strip()
 
 
 def _usable(location: dict | None) -> bool:
-    return bool(location and (
-        _text(location.get("employer_address"))
-        or (
-            location.get("method") == "manual_override"
-            and _text(location.get("employer_city"))
-            and _text(location.get("employer_state"))
+    """Check that a location has a street, or a manual city and state."""
+    return bool(
+        location
+        and (
+            _text(location.get("employer_address"))
+            or (
+                location.get("method") == "manual_override"
+                and _text(location.get("employer_city"))
+                and _text(location.get("employer_state"))
+            )
         )
-    ))
+    )
 
 
 def _signature(location: dict) -> tuple[str, ...]:
+    """Return the upper-cased address fields that identify a location."""
     return tuple(_text(location.get(field)).upper() for field in ADDRESS_FIELDS)
 
 
@@ -61,6 +71,7 @@ def location_candidates(entry: dict | None) -> list[dict]:
 
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
+    """Load ZIP code centroids from the reference CSV, empty when missing."""
     path = REFERENCE_DIR / "zip_centroids.csv"
     if not path.exists():
         return {}
@@ -81,7 +92,7 @@ def select_location(
     donor_state: str = "",
     donor_city: str = "",
 ) -> dict | None:
-    """Same city and state, then the nearest state office."""
+    """Choose the office in the same city and state, else the nearest one in the state."""
     candidates = location_candidates(entry)
     if not candidates:
         return None
@@ -90,10 +101,7 @@ def select_location(
 
     donor_zip = _text(donor_zip)[:5]
     donor_state = _text(donor_state).upper()
-    same_state = [
-        location for location in candidates
-        if _text(location.get("employer_state")).upper() == donor_state
-    ]
+    same_state = [location for location in candidates if _text(location.get("employer_state")).upper() == donor_state]
 
     if not same_state:
         return next(
@@ -103,8 +111,7 @@ def select_location(
 
     donor_city = _text(donor_city).upper()
     same_city = [
-        location for location in same_state
-        if donor_city and _text(location.get("employer_city")).upper() == donor_city
+        location for location in same_state if donor_city and _text(location.get("employer_city")).upper() == donor_city
     ]
     same_state = same_city or same_state
     centroids = _zip_centroids()

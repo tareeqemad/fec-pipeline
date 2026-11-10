@@ -1,4 +1,5 @@
 """Database connection and value conversion."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -22,19 +23,19 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# Read database settings when connecting.
 def db_config() -> dict:
+    """Read database settings when connecting."""
     load_env()
     return get_db_config()
 
 
-# Quote an SQL identifier and escape embedded quotes.
 def _quote_identifier(value: str) -> str:
+    """Quote an SQL identifier and escape embedded quotes."""
     return '"' + value.replace('"', '""') + '"'
 
 
-# Connect to PostgreSQL using the configured credentials.
 def connect(dbname: str | None = None) -> Any:
+    """Connect to PostgreSQL using the configured credentials."""
     config = db_config()
     return psycopg2.connect(
         host=config["host"],
@@ -45,8 +46,8 @@ def connect(dbname: str | None = None) -> Any:
     )
 
 
-# Pandas values to Python values, None when missing.
 def to_native(val: Any) -> Any:
+    """Pandas values to Python values, None when missing."""
     if pd.isna(val):
         return None
     if isinstance(val, np.integer):
@@ -58,8 +59,8 @@ def to_native(val: Any) -> Any:
     return val
 
 
-# Read a float or None; reject invalid text.
 def to_float_or_none(val: Any) -> float | None:
+    """Read a float or None; reject invalid text."""
     if val is None or pd.isna(val):
         return None
     stripped = str(val).strip()
@@ -71,8 +72,8 @@ def to_float_or_none(val: Any) -> float | None:
         raise ValueError(f"to_float_or_none: cannot parse {stripped!r} as float")
 
 
-# Read an integer or None; reject invalid text.
 def to_int_or_none(val: Any) -> int | None:
+    """Read an integer or None; reject invalid text."""
     if val is None or pd.isna(val):
         return None
     if isinstance(val, str):
@@ -86,9 +87,9 @@ def to_int_or_none(val: Any) -> int | None:
         raise ValueError(f"to_int_or_none: cannot parse {val!r} as int")
 
 
-# Commit the whole load, or roll it back on failure.
 @contextmanager
 def load_transaction(conn: Any) -> Iterator[None]:
+    """Commit the whole load, or roll it back on failure."""
     try:
         yield
     except BaseException:
@@ -98,9 +99,9 @@ def load_transaction(conn: Any) -> Iterator[None]:
     conn.commit()
 
 
-# Log the failed stage before the transaction rolls back.
 @contextmanager
 def stage(name: str) -> Iterator[None]:
+    """Log the failed stage before the transaction rolls back."""
     try:
         yield
     except BaseException:

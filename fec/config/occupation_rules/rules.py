@@ -1,4 +1,5 @@
 """Occupation and employer spellings, categories and cross-field rules."""
+
 from fec.config.constants import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 from fec.config.tables import CONFIG_DIR, read_map, words
@@ -37,23 +38,23 @@ CATEGORY_OVERRIDES = {
 
 # Occupation status -> employer during the field-level pass.
 EMPLOYER_FROM_OCCUPATION = {
-    'RETIRED': 'RETIRED',
-    'NOT EMPLOYED': 'NOT EMPLOYED',
-    'HOMEMAKER': 'NOT EMPLOYED',
-    'SELF-EMPLOYED': 'SELF-EMPLOYED',
-    'STUDENT': 'STUDENT',
+    "RETIRED": "RETIRED",
+    "NOT EMPLOYED": "NOT EMPLOYED",
+    "HOMEMAKER": "NOT EMPLOYED",
+    "SELF-EMPLOYED": "SELF-EMPLOYED",
+    "STUDENT": "STUDENT",
 }
 
 # Donor consistency keeps homemaker distinct and handles aliases.
 FINAL_EMPLOYER_FROM_OCCUPATION = {
     **EMPLOYER_FROM_OCCUPATION,
-    'HOMEMAKER': 'HOMEMAKER',
-    'HOUSEWIFE': 'HOMEMAKER',
-    'UNEMPLOYED': 'NOT EMPLOYED',
+    "HOMEMAKER": "HOMEMAKER",
+    "HOUSEWIFE": "HOMEMAKER",
+    "UNEMPLOYED": "NOT EMPLOYED",
 }
 EMPLOYER_FROM_CATEGORY = {
     category: FINAL_EMPLOYER_FROM_OCCUPATION[category]
-    for category in ('RETIRED', 'NOT EMPLOYED', 'HOMEMAKER', 'STUDENT', 'SELF-EMPLOYED')
+    for category in ("RETIRED", "NOT EMPLOYED", "HOMEMAKER", "STUDENT", "SELF-EMPLOYED")
 }
 
 SWAP_JOB_TITLES = _OCCUPATION_AS_EMPLOYER | words("swap_job_titles_own")
@@ -68,4 +69,3 @@ WEB_ARTIFACT_OCCUPATIONS = words("web_artifact_occupations")
 KNOWN_COMPANY_OCCUPATIONS = words("known_company_occupations")
 
 HOMEMAKER_EMPLOYER_VALUES = words("homemaker_employer_values")
-

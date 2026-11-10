@@ -1,10 +1,11 @@
 """Occupations, roles, sectors and titles that are not employers."""
+
 import re
 
 from fec.config.constants import (
     REFUSAL_EMPLOYERS,
-    STATUS_SLIPS_BEYOND_RULE,
     SKIP_EMPLOYERS,
+    STATUS_SLIPS_BEYOND_RULE,
 )
 from fec.config.tables import CONFIG_DIR, read_set, words
 
@@ -34,12 +35,12 @@ SELF_EMPLOYMENT_WORDS = words("self_employment_words")
 
 # Legal suffixes stripped from employer names for matching.
 LEGAL_SUFFIX_RE = re.compile(
-    r',?\s*\b'  # word boundary — don't strip inside words
-    r'(LLC|LLP|L\.L\.C\.?|L\.L\.P\.?'
-    r'|INC\.?|CORP\.?|LTD\.?'
-    r'|LP|PLC'
-    r'|P\.?C\.?|P\.?A\.?|P\.?L\.?L\.?C\.?|APLC|APC)'
-    r'\s*\.?\s*$',
+    r",?\s*\b"  # word boundary — don't strip inside words
+    r"(LLC|LLP|L\.L\.C\.?|L\.L\.P\.?"
+    r"|INC\.?|CORP\.?|LTD\.?"
+    r"|LP|PLC"
+    r"|P\.?C\.?|P\.?A\.?|P\.?L\.?L\.?C\.?|APLC|APC)"
+    r"\s*\.?\s*$",
     re.IGNORECASE,
 )
 
@@ -50,9 +51,15 @@ OCCUPATION_TITLE_EMPLOYERS = read_set(CONFIG_DIR / "job_titles.csv")
 
 # The shared answer to "is this string a company?".
 NOT_REAL_EMPLOYER = words("not_real_employer_own") | (
-    SKIP_EMPLOYERS | REFUSAL_EMPLOYERS | STATUS_SLIPS_BEYOND_RULE
-    | OCCUPATION_TITLE_EMPLOYERS | OCCUPATION_AS_EMPLOYER | ROLE_AS_EMPLOYER
-    | SECTOR_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER | SELF_EMPLOYED_OCC_AS_EMP
+    SKIP_EMPLOYERS
+    | REFUSAL_EMPLOYERS
+    | STATUS_SLIPS_BEYOND_RULE
+    | OCCUPATION_TITLE_EMPLOYERS
+    | OCCUPATION_AS_EMPLOYER
+    | ROLE_AS_EMPLOYER
+    | SECTOR_AS_EMPLOYER
+    | JOB_TITLE_AS_EMPLOYER
+    | SELF_EMPLOYED_OCC_AS_EMP
 )
 
 

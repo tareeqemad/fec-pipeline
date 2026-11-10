@@ -6,10 +6,11 @@ in several ways. Each step here takes the filings that agree on a key
 donor files most. Different real addresses are never merged: the key
 always holds what makes the place the same.
 """
+
 from __future__ import annotations
 
 import re
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 import pandas as pd
@@ -26,11 +27,12 @@ _BUILDING_RE = re.compile(r"\b(?:BLDG|BUILDING)\b\.?")
 
 
 def _text(df: pd.DataFrame, column: str) -> pd.Series:
+    """Return a column as text, with blanks for missing values."""
     return df[column].fillna("").astype(str)
 
 
-def _key(df: pd.DataFrame, *parts) -> pd.Series:
-    """The filings that belong together: columns by name, or values already worked out."""
+def _key(df: pd.DataFrame, *parts: str | pd.Series) -> pd.Series:
+    """Return the filings that belong together: columns by name, or values already worked out."""
     series = [_text(df, part) if isinstance(part, str) else part for part in parts]
     return series[0].str.cat(series[1:], sep="\x00")
 
@@ -58,9 +60,9 @@ def unify(df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Series, *,
     df.loc[change, column] = winner[change]
 
 
-@lru_cache(maxsize=None)
+@cache
 def _zip_place(zipcode: str) -> tuple[str, frozenset]:
-    """The state of a ZIP and the cities USPS names for it."""
+    """Return the state of a ZIP and the cities USPS names for it."""
     found = zipcodes.matching(zipcode) if len(zipcode) == 5 and zipcode.isdigit() else []
     cities = {name.upper() for record in found for name in (record["city"], *record.get("acceptable_cities", []))}
     return (found[0]["state"] if found else ""), frozenset(cities)
@@ -68,12 +70,19 @@ def _zip_place(zipcode: str) -> tuple[str, frozenset]:
 
 def unify_state(df: pd.DataFrame) -> None:
     """One person's city under two states: the state filed less is a slip."""
-    eligible = df["entity_type"].eq("INDIVIDUAL") & _text(df, "contributor_name").ne("") & _text(df, "contributor_city").ne("")
-    unify(df, "contributor_state", _key(df, "contributor_name", "contributor_city"), eligible & _text(df, "contributor_state").ne(""))
+    eligible = (
+        df["entity_type"].eq("INDIVIDUAL") & _text(df, "contributor_name").ne("") & _text(df, "contributor_city").ne("")
+    )
+    unify(
+        df,
+        "contributor_state",
+        _key(df, "contributor_name", "contributor_city"),
+        eligible & _text(df, "contributor_state").ne(""),
+    )
 
 
 def settle_state_and_zip(df: pd.DataFrame) -> None:
-    """A ZIP of another state: the state is wrong when the city belongs to the ZIP, else the ZIP is."""
+    """Settle a ZIP of another state: the state is wrong when the city belongs to the ZIP, else the ZIP is."""
     zips, states, cities = _text(df, "contributor_zip"), _text(df, "contributor_state"), _text(df, "contributor_city")
     place = zips.map(_zip_place)
     zip_state = place.str[0]
@@ -88,13 +97,16 @@ def unify_street_types(df: pd.DataFrame) -> None:
     street, name = _text(df, "contributor_street_1"), _text(df, "contributor_name")
     # 5 YANKEE HL and 5 YANKEE HILL RD are one street: a rare type is read in full
     tokens = street.str.findall(r"[A-Z0-9]+").map(
-        lambda found: [t if t in _TYPE_TOKENS else LONGHAND_STREET_TYPES.get(t, t) for t in found])
+        lambda found: [t if t in _TYPE_TOKENS else LONGHAND_STREET_TYPES.get(t, t) for t in found]
+    )
     bare = tokens.map(lambda found: " ".join(t for t in found if t not in _TYPE_TOKENS))
     types = tokens.map(lambda found: " ".join(t for t in found if t in _TYPE_TOKENS))
     key = _key(df, name, "contributor_city", "contributor_state", bare)
     # two different types at one bare street are two streets
     kinds = types[types.ne("")].groupby(key[types.ne("")]).nunique()
-    unify(df, "contributor_street_1", key, name.ne("") & street.ne("") & ~key.isin(kinds[kinds > 1].index), longest=True)
+    unify(
+        df, "contributor_street_1", key, name.ne("") & street.ne("") & ~key.isin(kinds[kinds > 1].index), longest=True
+    )
 
 
 def unify_street_spacing(df: pd.DataFrame) -> None:
@@ -105,7 +117,7 @@ def unify_street_spacing(df: pd.DataFrame) -> None:
 
 
 def unit_core(unit: str) -> str:
-    """The bare id of a unit; a floor or a building keeps its kind."""
+    """Return the bare id of a unit; a floor or a building keeps its kind."""
     text = _UNIT_DESIGNATOR_RE.sub("|", str(unit).upper())
     text = _FLOOR_RE.sub("|FLOOR|", _BUILDING_RE.sub("|BUILDING|", text))
     return " ".join(part for part in (re.sub(r"[^A-Z0-9]", "", piece) for piece in text.split("|")) if part)
@@ -114,9 +126,17 @@ def unit_core(unit: str) -> str:
 def unify_units(df: pd.DataFrame, donor: str = "contributor_name") -> None:
     """APT 4, UNIT 4 and # 4 at one street are one unit."""
     unit, core = _text(df, "contributor_street_2"), _text(df, "contributor_street_2").map(unit_core)
-    eligible = df["entity_type"].eq("INDIVIDUAL") & _text(df, donor).ne("") & _text(df, "contributor_street_1").ne("") & core.ne("")
-    place = ("contributor_street_1", "contributor_zip") if donor == "donor_key" else (
-        "contributor_street_1", "contributor_city", "contributor_state", "contributor_zip")
+    eligible = (
+        df["entity_type"].eq("INDIVIDUAL")
+        & _text(df, donor).ne("")
+        & _text(df, "contributor_street_1").ne("")
+        & core.ne("")
+    )
+    place = (
+        ("contributor_street_1", "contributor_zip")
+        if donor == "donor_key"
+        else ("contributor_street_1", "contributor_city", "contributor_state", "contributor_zip")
+    )
     unify(df, "contributor_street_2", _key(df, donor, *place, core), eligible & unit.ne(""))
 
 
@@ -144,13 +164,15 @@ def _city_most_filed(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) -> N
     # a city nobody else files with that ZIP is no better than the one filed: it stays
     pairs = pd.DataFrame({"key": key, "city": cities, "zip": zips})[cities.ne("") & zips.ne("")]
     everyone, own = pairs.groupby(["city", "zip"]).size(), pairs.groupby(["key", "city", "zip"]).size()
-    others = pd.Series([everyone.get((c, z), 0) - own.get((k, c, z), 0) for k, c, z in zip(key, city.fillna(""), zips)], index=df.index)
+    others = pd.Series(
+        [everyone.get((c, z), 0) - own.get((k, c, z), 0) for k, c, z in zip(key, city.fillna(""), zips)], index=df.index
+    )
     keep = cities.ne("") & zips.ne("") & others.eq(0)
     df.loc[fewer & ~keep, "contributor_city"] = city[fewer & ~keep]
 
 
 def _fill_blank(df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Series) -> None:
-    """A blank takes the one value the same donor files at the same place."""
+    """Fill a blank with the one value the same donor files at the same place."""
     values = _text(df, column)
     known = eligible & values.ne("") & ~key.str.contains("\x00\x00|\x00$", regex=True)
     if column == "contributor_zip":

@@ -9,6 +9,7 @@ from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes
 from fec.cleaning.addresses.standardize import clear_own_name_street, standardize_addresses
 from fec.cleaning.addresses.zips import clean_zips
 
+
 def clean_addresses(df: pd.DataFrame) -> pd.DataFrame:
     """USPS standard form, own-name streets cleared, ZIPs checked, rules and alignment applied."""
     standardize_addresses(df)

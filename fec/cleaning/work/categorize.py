@@ -8,13 +8,19 @@ row in data/rules/occupation_category_overrides.csv wins over the model.
 
 Without OPENAI_API_KEY the step is skipped and a new text stays OTHER.
 """
+
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable, Iterable
 
 import pandas as pd
 
-from fec.cleaning.model import DEFAULT_MODEL, ask_lines, model_name  # noqa: F401  (DEFAULT_MODEL: the name tests and callers know)
+from fec.cleaning.model import (  # noqa: F401  (DEFAULT_MODEL: the name tests and callers know)
+    DEFAULT_MODEL,
+    ask_lines,
+    model_name,
+)
 from fec.config.occupation_rules.categories import VALID_CATEGORIES
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 from fec.env import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_RULES_MD
@@ -30,11 +36,15 @@ _ITEM = {
 }
 
 
-def classify(texts, *, model: str | None = None) -> dict[str, str]:
+def classify(texts: Iterable[object], *, model: str | None = None) -> dict[str, str]:
     """{text: category} from the model, for texts not yet known; {} without a key."""
     answers = ask_lines(
-        texts, OCCUPATION_CATEGORY_RULES_MD.read_text(encoding="utf-8"), _ITEM, key_field="text",
-        user_prefix="Classify each text. Return every text exactly as given.\n", model=model,
+        texts,
+        OCCUPATION_CATEGORY_RULES_MD.read_text(encoding="utf-8"),
+        _ITEM,
+        key_field="text",
+        user_prefix="Classify each text. Return every text exactly as given.\n",
+        model=model,
     )
     return {text: item["category"] for text, item in answers.items() if item["category"] in VALID_CATEGORIES}
 
@@ -56,7 +66,7 @@ def remember(answers: dict[str, str], model: str | None = None) -> None:
         CATEGORY_OVERRIDES.setdefault(text, category)
 
 
-def learn_categories(df: pd.DataFrame, *, ask=classify) -> int:
+def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = classify) -> int:
     """Categorize the individuals' occupations no table lists; return how many texts."""
     people = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df.columns else df["is_individual"].astype(bool)
     occupation = df["contributor_occupation"].fillna("").astype(str).str.strip()

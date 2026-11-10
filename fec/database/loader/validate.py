@@ -1,19 +1,20 @@
 """Validate loader inputs."""
+
 from __future__ import annotations
 
 import pandas as pd
 
-from fec.cleaning.work.status import referenced_employers
 from fec.cleaning.reports.gates import run_quality_gates
+from fec.cleaning.work.status import referenced_employers
 from fec.contract import check_loadable
 from fec.database.loader.addresses import load_employer_locations
+from fec.database.loader.locations import ADDRESS_TRUST_VALUES
 from fec.env import (
     CLEANED_CSV,
     COMMITTEES_CSV,
     EMPLOYER_LOCATIONS_CSV,
 )
 from fec.io import read_pipeline_csv
-from fec.database.loader.locations import ADDRESS_TRUST_VALUES
 
 _LOCATION_COLUMNS = {
     "employer_name",
@@ -29,22 +30,20 @@ _LOCATION_COLUMNS = {
 }
 
 
-# Check cleaned columns and quality rules.
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
+    """Check cleaned columns and quality rules."""
     check_loadable(df.columns)
 
     quality = run_quality_gates(df)
     if not quality["passed"]:
-        raise ValueError(
-            "cleaned data failed quality gates: " + "; ".join(quality["issues"])
-        )
+        raise ValueError("cleaned data failed quality gates: " + "; ".join(quality["issues"]))
 
 
-# Check company names, primary offices and address trust.
 def _validate_employer_locations(
     df: pd.DataFrame,
     locations: pd.DataFrame,
 ) -> None:
+    """Check company names, primary offices and address trust."""
     if not _LOCATION_COLUMNS.issubset(locations.columns):
         raise ValueError("employer_locations.csv is missing columns")
 
@@ -64,8 +63,8 @@ def _validate_employer_locations(
         raise ValueError("employer_locations.csv contains an invalid address_trust value")
 
 
-# Check donor keys, filing IDs, dates and election cycles.
 def _validate_contribution_fields(df: pd.DataFrame) -> None:
+    """Check donor keys, filing IDs, dates and election cycles."""
     donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
     if donor_keys.eq("").any():
         raise ValueError("donor_key contains blank values")
@@ -83,28 +82,26 @@ def _validate_contribution_fields(df: pd.DataFrame) -> None:
         raise ValueError("two_year_transaction_period contains invalid values")
 
 
-# Require every recipient committee in committees.csv.
 def _validate_committees(df: pd.DataFrame) -> None:
+    """Require every recipient committee in committees.csv."""
     committees = pd.read_csv(COMMITTEES_CSV, dtype=str, keep_default_na=False)
     known = set(committees["committee_short"].str.strip())
     received = set(df["recipient_committee"].dropna().astype(str).str.strip())
     unknown = sorted(received - known)
     if unknown:
-        raise ValueError(
-            "recipient_committee is missing from committees.csv: " + ", ".join(unknown)
-        )
+        raise ValueError("recipient_committee is missing from committees.csv: " + ", ".join(unknown))
 
 
-# Check both output files before loading.
 def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
+    """Check both output files before loading."""
     _validate_cleaned_data(df)
     _validate_employer_locations(df, locations)
     _validate_contribution_fields(df)
     _validate_committees(df)
 
 
-# Read and validate contributions and company locations.
 def _read_input() -> tuple[pd.DataFrame, list[dict]]:
+    """Read and validate contributions and company locations."""
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")
     if not EMPLOYER_LOCATIONS_CSV.exists():

@@ -1,4 +1,5 @@
 """Identify donors and make their filings consistent."""
+
 from __future__ import annotations
 
 import re
@@ -9,7 +10,10 @@ import pandas as pd
 from fec.cleaning.addresses.align import unify_units
 from fec.cleaning.donors.names import canonicalize_committee_names, canonicalize_donor_names
 from fec.cleaning.donors.work import (
-    fill_occupation_from_donor, fill_status_employer, rederive_occupation_category, settle_retired_employer,
+    fill_occupation_from_donor,
+    fill_status_employer,
+    rederive_occupation_category,
+    settle_retired_employer,
 )
 from fec.cleaning.entities import apply_entity_overrides
 from fec.cleaning.names import apply_name_corrections
@@ -32,8 +36,11 @@ logger = get_logger(__name__)
 
 # In order; reviewed row decisions are applied before and after them.
 DONOR_WORK_STEPS = (
-    fill_occupation_from_donor, fill_status_employer, apply_entity_overrides,
-    rederive_occupation_category, settle_retired_employer,
+    fill_occupation_from_donor,
+    fill_status_employer,
+    apply_entity_overrides,
+    rederive_occupation_category,
+    settle_retired_employer,
 )
 
 
@@ -50,8 +57,9 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
     if earlier_keys:
         lost = keep_earlier_keys(df_clean, earlier_keys, skip=held_groups(df_clean).ne(""))
         if lost:
-            logger.warning("WARNING: %s earlier donor keys no longer used (split or merged): %s",
-                           len(lost), ", ".join(lost[:5]))
+            logger.warning(
+                "WARNING: %s earlier donor keys no longer used (split or merged): %s", len(lost), ", ".join(lost[:5])
+            )
     # Saved by clean.py so the next run reuses these keys.
     df_clean["_matched_key"] = df_clean["donor_key"]
     apply_curated_key_merges(df_clean)
@@ -105,13 +113,25 @@ _NETWORK_NAME_RE = re.compile(r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL 
 
 
 def _separate_network_filings(df: pd.DataFrame) -> None:
-    """A person filed under a network's name is that network, one unresolved donor per filing."""
+    """Make a person filed under a network's name that network, one unresolved donor per filing."""
     region = df["contributor_name"].fillna("").astype(str).str.extract(_NETWORK_NAME_RE).bfill(axis=1)[0]
     rows = df.index[df["entity_type"].eq("INDIVIDUAL") & region.notna()]
     names = region[rows].str.strip().str.upper() + " POLITICAL NETWORK"
     df.loc[rows, "contributor_name"] = names
     df.loc[rows, ["entity_type", "is_individual", "occupation_category", "identity_status"]] = [
-        "ORGANIZATION", False, "ORGANIZATION", "unresolved"]
-    df.loc[rows, ["contributor_first_name", "contributor_last_name", "contributor_employer",
-                  "contributor_occupation", "previous_employer"]] = np.nan
+        "ORGANIZATION",
+        False,
+        "ORGANIZATION",
+        "unresolved",
+    ]
+    df.loc[
+        rows,
+        [
+            "contributor_first_name",
+            "contributor_last_name",
+            "contributor_employer",
+            "contributor_occupation",
+            "previous_employer",
+        ],
+    ] = np.nan
     df.loc[rows, "donor_key"] = (names + " " + df.loc[rows, "sub_id"].astype(str)).map(non_individual_donor_key)

@@ -1,4 +1,5 @@
 """Work fields that need the donor's other filings."""
+
 import pandas as pd
 
 from fec.cleaning._helpers import _norm
@@ -17,34 +18,43 @@ def rederive_occupation_category(df: pd.DataFrame) -> None:
 
 
 def fill_occupation_from_donor(df: pd.DataFrame) -> None:
-    """An empty or SELF-EMPLOYED occupation takes the donor's one role at this employer."""
+    """Fill an empty or SELF-EMPLOYED occupation with the donor's one role at this employer."""
     employer = df["contributor_employer"]
     people = df[df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
     occupation = people["contributor_occupation"].fillna("").astype(str).str.strip()
     vague = occupation.isin(("", "SELF-EMPLOYED"))
     known = people[
-        ~vague & ~occupation.isin(SKIP_OCCUPATIONS)
+        ~vague
+        & ~occupation.isin(SKIP_OCCUPATIONS)
         & occupation.map(employer_text_key).ne(people["contributor_employer"].map(employer_text_key))
     ]
     job = ["donor_key", "contributor_employer"]
     roles = known.groupby(job)["contributor_occupation"].unique()
     roles = roles[roles.map(len).eq(1)].str[0].to_dict()
-    found = pd.Series(list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]])), index=people.index[vague],
-                      dtype=object).map(roles).dropna()
+    found = (
+        pd.Series(
+            list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]])), index=people.index[vague], dtype=object
+        )
+        .map(roles)
+        .dropna()
+    )
     df.loc[found.index, "contributor_occupation"] = found
     df.loc[found.index, "occupation_category"] = categorize_final(found)
 
 
 def fill_status_employer(df: pd.DataFrame) -> None:
-    """A status with no employer (RETIRED, HOMEMAKER) is filed as the employer too; no company is inferred."""
-    status = df["contributor_occupation"].map(FINAL_EMPLOYER_FROM_OCCUPATION).fillna(
-        df["occupation_category"].map(EMPLOYER_FROM_CATEGORY))
+    """Write a status with no employer (RETIRED, HOMEMAKER) as the employer too; infer no company."""
+    status = (
+        df["contributor_occupation"]
+        .map(FINAL_EMPLOYER_FROM_OCCUPATION)
+        .fillna(df["occupation_category"].map(EMPLOYER_FROM_CATEGORY))
+    )
     fill = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].fillna("").eq("") & status.notna()
     df.loc[fill, "contributor_employer"] = status[fill]
 
 
 def settle_retired_employer(df: pd.DataFrame) -> None:
-    """A retired filing's employer reads RETIRED; a company filed there becomes the previous employer."""
+    """Make a retired filing's employer RETIRED; a company filed there becomes the previous employer."""
     said_retired = df["occupation_category"].eq("RETIRED") & _norm(df["contributor_occupation"]).eq("RETIRED")
     # The filing said RETIRED beside a profession (RETIRED JUDGE MEDIATOR).
     said_retired |= df["_retired_marker"].fillna(False).astype(bool)

@@ -17,14 +17,14 @@ def create_schema(cur: Any) -> None:
             cur.execute(statement)
 
 
-# Read the database name for error messages.
 def _database_name(cur: Any) -> str:
+    """Read the database name for error messages."""
     connection = getattr(cur, "connection", None)
     return getattr(getattr(connection, "info", None), "dbname", None) or os.getenv("PG_DBNAME", "fec_db")
 
 
-# Check required extensions before resetting tables.
 def verify_extensions(cur: Any) -> None:
+    """Check required extensions before resetting tables."""
     required = {
         "pg_trgm": "fuzzy text search (gin_trgm_ops indexes)",
         "cube": "dependency of earthdistance",
@@ -37,12 +37,8 @@ def verify_extensions(cur: Any) -> None:
     if not missing:
         return
 
-    details = ", ".join(
-        f"{extension} ({required[extension]})" for extension in missing
-    )
-    sql = " ".join(
-        f"CREATE EXTENSION IF NOT EXISTS {extension};" for extension in missing
-    )
+    details = ", ".join(f"{extension} ({required[extension]})" for extension in missing)
+    sql = " ".join(f"CREATE EXTENSION IF NOT EXISTS {extension};" for extension in missing)
     raise RuntimeError(
         f"Missing PostgreSQL extensions: {details}\n"
         "Run as a PostgreSQL superuser before loader.py --reset:\n"

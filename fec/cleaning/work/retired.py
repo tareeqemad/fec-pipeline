@@ -15,10 +15,10 @@ NURSE; VOLUNTEER (RETIRED ATTORNEY); ARBITRATOR/RETIRED JUDGE), qualifies
 only its own part: the filer still works, and the role before it is the
 occupation. The employer stays as filed.
 """
+
 from __future__ import annotations
 
 import re
-
 
 from fec.cleaning.work.company import COMPANY_LEVELS, evidence
 from fec.cleaning.work.status import is_job_title, is_real_employer
@@ -49,7 +49,7 @@ def is_retired_word(word: str) -> bool:
     return word in _RETIRED_WORDS or (word.isalpha() and status_word(word) == "RETIRED")
 
 
-def split_retired(value) -> tuple[bool, str]:
+def split_retired(value: object) -> tuple[bool, str]:
     """(retired, rest): whether the text says retired, and what else it names."""
     if not isinstance(value, str):
         return False, ""
@@ -59,10 +59,10 @@ def split_retired(value) -> tuple[bool, str]:
     upper = _GLUED_RE.sub(r"RETIRED \1", upper)
     match = _PREFIX_RE.match(upper)
     if match and is_retired_word(match.group("word")):
-        return True, _tidy(upper[match.end():])
+        return True, _tidy(upper[match.end() :])
     match = _SUFFIX_RE.search(upper)
     if match and match.start() > 0 and is_retired_word(match.group("word")):
-        head = _tidy(upper[:match.start()])
+        head = _tidy(upper[: match.start()])
         if _NAME_BEFORE_RE.search(head):
             return False, upper  # "BOARD OF RETIRED ...": a truncated name
         return True, head
@@ -83,8 +83,8 @@ def split_retired(value) -> tuple[bool, str]:
     return True, _tidy(kept)
 
 
-def _plain(value) -> str:
-    """The text as split_retired reads it before any word is removed."""
+def _plain(value: object) -> str:
+    """Return the text as split_retired reads it before any word is removed."""
     return " ".join(value.upper().replace(".", " ").split()) if isinstance(value, str) else ""
 
 
@@ -103,6 +103,7 @@ def _tidy(text: str) -> str:
 
 
 def _names_nothing(rest: str) -> bool:
+    """Return whether the rest of a text names nothing."""
     return not rest or rest in _NOTHING or len(re.sub(r"[^A-Z]", "", rest)) < 3
 
 
@@ -121,7 +122,9 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
     o_rest = o_rest if o_retired and not _names_nothing(o_rest) else ""
     level = evidence(e_rest)
     e_is_job = bool(e_rest) and is_job_title(e_rest)
-    e_is_company = bool(e_rest) and not e_is_job and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(e_rest)))
+    e_is_company = (
+        bool(e_rest) and not e_is_job and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(e_rest)))
+    )
     o_is_company = bool(o_rest) and evidence(o_rest) in ("legal_form", "reviewed")
     # An employer box without the marker: a job word is the profession (PHYSICIAN / RETIRED);
     # a company stays for the donor step, which moves it to previous_employer.
@@ -129,8 +132,10 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
     unmarked_job = unmarked and is_job_title(employer)
     # The former profession: the occupation's own words, else a job from the employer box.
     profession = (
-        ("" if o_is_company else o_rest) or ("" if o_retired else occupation)
-        or (e_rest if e_is_job else "") or (employer if unmarked_job else "")
+        ("" if o_is_company else o_rest)
+        or ("" if o_retired else occupation)
+        or (e_rest if e_is_job else "")
+        or (employer if unmarked_job else "")
     )
     company = e_rest if e_is_company else o_rest if o_is_company else ""
     keeps_employer = unmarked and not unmarked_job and is_real_employer(employer)

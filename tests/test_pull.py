@@ -1,5 +1,7 @@
 import csv
+
 import pytest
+
 import fec.fec_api as fec_api
 import fec.pull as pull
 
@@ -37,13 +39,15 @@ def test_fetch_page_stops_after_rate_limit_timeout(monkeypatch):
 
 def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
     csv_path = tmp_path / "contributions.csv"
-    existing = pull.build_row({
-        "sub_id": "1",
-        "committee_id": "C00000001",
-        "two_year_transaction_period": 2026,
-        "contribution_receipt_date": "2026-08-31T00:00:00",
-        "contribution_receipt_amount": 10,
-    })
+    existing = pull.build_row(
+        {
+            "sub_id": "1",
+            "committee_id": "C00000001",
+            "two_year_transaction_period": 2026,
+            "contribution_receipt_date": "2026-08-31T00:00:00",
+            "contribution_receipt_amount": 10,
+        }
+    )
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(pull.COLUMNS)
@@ -61,11 +65,15 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
             "contribution_receipt_date": "2026-02-03T12:00:00",
             "contribution_receipt_amount": "25.50",
         }
-        yield {"results": [
-            {"sub_id": "1", "committee_id": "C00000001"},
-            late_filing, late_filing,
-            {"committee_id": "C00000001"},
-        ], "pagination": {}}
+        yield {
+            "results": [
+                {"sub_id": "1", "committee_id": "C00000001"},
+                late_filing,
+                late_filing,
+                {"committee_id": "C00000001"},
+            ],
+            "pagination": {},
+        }
         yield {"results": [late_filing], "pagination": {}}
 
     class FakeSession:
@@ -92,10 +100,19 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
         assert [row["sub_id"] for row in csv.DictReader(handle)] == ["2"]
 
 
-def _raw(sub_id, name="AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE", tx="SA11AI.1", date="2024-10-18", amount="11000000.00"):
-    return {"sub_id": sub_id, "transaction_id": tx, "two_year_transaction_period": "2024", "committee_id": "C00797670",
-            "contributor_name": name, "contribution_receipt_date": date, "contribution_receipt_amount": amount,
-            "is_individual": "True"}
+def _raw(
+    sub_id, name="AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE", tx="SA11AI.1", date="2024-10-18", amount="11000000.00"
+):
+    return {
+        "sub_id": sub_id,
+        "transaction_id": tx,
+        "two_year_transaction_period": "2024",
+        "committee_id": "C00797670",
+        "contributor_name": name,
+        "contribution_receipt_date": date,
+        "contribution_receipt_amount": amount,
+        "is_individual": "True",
+    }
 
 
 def _result(sub_id, entity="ORG", contributor_id="", **raw):
