@@ -2,8 +2,8 @@ import csv
 
 import pytest
 
-import fec.fec_api as fec_api
-import fec.pull as pull
+import fec.pull.api as fec_api
+import fec.pull.pipeline as pull
 
 
 class Response:

@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import fec.database.loader.addresses as address_loader
-import fec.database.loader.employers as employer_loader
-from fec.database.loader._base import load_transaction, stage
-from fec.database.loader.addresses import load_address_dimension
-from fec.database.loader.contributions import _map_employment_ids
-from fec.database.loader.employers import _make_employer_resolver, load_employments
-from fec.env import SCHEMA_SQL
+import fec.database.addresses as address_loader
+import fec.database.employments as employer_loader
+from fec.common.settings import SCHEMA_SQL
+from fec.database.addresses import load_address_dimension
+from fec.database.connection import load_transaction, stage
+from fec.database.contributions import _map_employment_ids
+from fec.database.employments import _make_employer_resolver, load_employments
 
 
 class AddressCursor:

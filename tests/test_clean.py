@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
-import clean as cli
-from fec.cleaning.donors.clean import identify_donors
-from fec.cleaning.work.employer_aliases import apply_reviewed_employer_names
+import fec.cleaning.pipeline as cli
+from fec.cleaning.work.company_names import apply_reviewed_employer_names
+from fec.matching.pipeline import identify_donors
 
 
 def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypatch):
@@ -139,7 +139,7 @@ def test_apply_synonyms_rewrites_the_audit_examples():
 
 
 def test_keys_stay_with_their_filings_across_runs():
-    from fec.donor_match.keys import keep_earlier_keys
+    from fec.matching.donor_keys import keep_earlier_keys
 
     df = pd.DataFrame(
         {
@@ -155,7 +155,7 @@ def test_keys_stay_with_their_filings_across_runs():
 
 
 def test_company_evidence_levels():
-    from fec.cleaning.work.company import Filings, evidence
+    from fec.cleaning.work.company_evidence import Filings, evidence
 
     values = pd.Series(
         [
@@ -206,7 +206,7 @@ def test_company_evidence_levels():
 
 
 def test_entity_type_from_committee_signal_and_company_evidence():
-    from fec.cleaning.entities import classify_entities, names_committee
+    from fec.cleaning.entity_types import classify_entities, names_committee
 
     names = [
         "BANK, ELLYN",
@@ -312,8 +312,8 @@ def test_read_retired_keeps_job_and_company():
 
 
 def test_split_self_marker_and_previous_employer():
-    from fec.cleaning.work.read import company_named
     from fec.cleaning.work.self_employed import split_self_marker
+    from fec.cleaning.work.work_fields import company_named
 
     assert split_self_marker("SELF - ACME LLC") == (True, "ACME LLC")
     assert split_self_marker("SELF; JACK A FRYDRYCH APLC") == (True, "JACK A FRYDRYCH APLC")
@@ -327,7 +327,7 @@ def test_split_self_marker_and_previous_employer():
 
 
 def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
-    from fec.cleaning.addresses.fixes import verified
+    from fec.cleaning.addresses import address_rules as verified
 
     rules = tmp_path / "rules.csv"
     rules.write_text(
@@ -412,7 +412,8 @@ def test_same_words_in_another_order_are_one_name():
 
 def test_held_filing_takes_no_part_in_matching(monkeypatch):
     # A reviewed hold keeps a filing outside the donor its name and street would join.
-    from fec.donor_match import keys, rules
+    from fec.matching import donor_keys as keys
+    from fec.matching import identity_rules as rules
 
     for module in (keys, rules):
         monkeypatch.setattr(module, "HELD_FILINGS", {"633": "GOLDSTEIN, RICHARD | unproven"})
@@ -432,7 +433,7 @@ def test_held_filing_takes_no_part_in_matching(monkeypatch):
 
 
 def test_learn_typos_reads_one_slip_from_one_listed_occupation():
-    from fec.cleaning.work.typos import learn_typos
+    from fec.cleaning.work.occupation_typos import learn_typos
 
     listed = ["ATTORNEY", "CONSULTANT", "PHYSICIAN", "PARTNER", "ARCHITECT", "CEO OWNER", "CO-OWNER", "RETIRED"]
     texts = pd.Series(
@@ -459,8 +460,8 @@ def test_learn_typos_reads_one_slip_from_one_listed_occupation():
 
 
 def test_extend_corrections_adds_learnt_typos_to_the_table():
-    from fec.cleaning.work.typos import extend_corrections
-    from fec.config.occupation_rules.rules import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
+    from fec.cleaning.work.occupation_typos import extend_corrections
+    from fec.vocabulary.occupations import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
 
     df = pd.DataFrame({"contributor_occupation": ["ORTHODONTISTT", "ATTORNEY"], "contributor_employer": ["", ""]})
     try:
@@ -475,8 +476,9 @@ def test_extend_corrections_adds_learnt_typos_to_the_table():
 
 
 def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, monkeypatch):
-    from fec.cleaning.work import categorize
-    from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
+    from fec.cleaning.work import occupation_categories as categorize
+    from fec.cleaning.work.model_client import DEFAULT_MODEL
+    from fec.vocabulary.occupations import CATEGORY_OVERRIDES
 
     monkeypatch.setattr(categorize, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
     asked = []
@@ -504,7 +506,7 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
         assert CATEGORY_OVERRIDES["QUANTUM TOPOLOGIST"] == "SCIENCE / RESEARCH"
         assert (tmp_path / "cache.csv").read_text().splitlines() == [
             "occupation,category,model",
-            f"QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{categorize.DEFAULT_MODEL}",
+            f"QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{DEFAULT_MODEL}",
         ]
         assert categorize.learn_categories(df, ask=fake_model) == 0  # remembered: not asked again
     finally:
@@ -512,7 +514,7 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
 
 
 def test_classify_without_a_key_leaves_texts_to_the_patterns(monkeypatch):
-    from fec.cleaning.work.categorize import classify
+    from fec.cleaning.work.occupation_categories import classify
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     assert classify(["QUANTUM TOPOLOGIST"]) == {}
@@ -521,9 +523,8 @@ def test_classify_without_a_key_leaves_texts_to_the_patterns(monkeypatch):
 def test_reviewed_category_overrides_win_over_the_model():
     import csv
 
-    from fec.config.occupation_rules.categories import VALID_CATEGORIES
-    from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
-    from fec.env import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
+    from fec.common.settings import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
+    from fec.vocabulary.occupations import CATEGORY_OVERRIDES, VALID_CATEGORIES
 
     cache = {r["occupation"]: r["category"] for r in csv.DictReader(open(OCCUPATION_CATEGORY_CACHE_CSV))}
     overrides = {r["occupation"]: r["category"] for r in csv.DictReader(open(OCCUPATION_CATEGORY_OVERRIDES_CSV))}
@@ -533,7 +534,7 @@ def test_reviewed_category_overrides_win_over_the_model():
 
 
 def test_status_word_reads_a_slip_and_leaves_other_words():
-    from fec.cleaning.work.status_words import learn_status_typos, status_word
+    from fec.cleaning.work.status_spellings import learn_status_typos, status_word
 
     assert status_word("RETIERD") == "RETIRED"
     assert status_word("RETRIED") == "RETIRED"  # transposition
@@ -553,7 +554,7 @@ def test_status_word_reads_a_slip_and_leaves_other_words():
 
 
 def test_standard_address_follows_usps_with_no_table_of_ours():
-    from fec.cleaning.addresses.standardize import standard_address, standardize_addresses
+    from fec.cleaning.addresses.standard_form import standard_address, standardize_addresses
 
     def std(street_1, street_2="", city="SAINT LOUIS", zipcode="63141"):
         return standard_address(street_1, street_2, city, "MO", zipcode)[:3]
@@ -601,7 +602,7 @@ def test_standard_address_follows_usps_with_no_table_of_ours():
 
 def _read(rows):
     """(employer, occupation) as read for filings given as (name, filed employer, filed occupation)."""
-    from fec.cleaning.work.read import read_work
+    from fec.cleaning.work.work_fields import read_work
 
     df = pd.DataFrame(rows, columns=["contributor_name", "filed_employer", "filed_occupation"])
     df["entity_type"] = "INDIVIDUAL"
@@ -657,7 +658,7 @@ def test_work_fields_are_read_from_the_filed_pair():
 
 
 def test_placeholder_employers_are_one_list():
-    from fec.cleaning.work.read import names_no_employer
+    from fec.cleaning.work.work_fields import names_no_employer
 
     values = ["43209876", "A@B.COM", "XXX", "NM", "GE", "N A", "PRIVATE", "ACME LLC"]
     assert [names_no_employer(v, also_words=False) for v in values] == [
@@ -674,7 +675,7 @@ def test_placeholder_employers_are_one_list():
 
 
 def test_occupation_corrections_are_one_table():
-    from fec.config.occupation_rules.rules import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
+    from fec.vocabulary.occupations import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
 
     # No correction leads to another listed form: a filed value is corrected in one step.
     assert not [
@@ -685,7 +686,7 @@ def test_occupation_corrections_are_one_table():
 
 
 def test_a_name_is_read_once_from_its_three_boxes():
-    from fec.cleaning.names import read_name
+    from fec.cleaning.contributor_names import read_name
 
     assert read_name("GALICI, SR., DR. VINCENT", "DR. VINCENT", "GALICI, SR.") == (
         "GALICI, VINCENT",
@@ -715,7 +716,7 @@ def test_a_name_is_read_once_from_its_three_boxes():
 
 
 def test_a_donor_gets_one_surname_and_the_fullest_given_name():
-    from fec.cleaning.donors.names import donor_names
+    from fec.matching.donor_names import donor_names
 
     def names(filed, rare=frozenset()):
         firsts, lasts = [f for f, _ in filed], [last for _, last in filed]
@@ -748,7 +749,7 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
 
 
 def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
-    from fec.cleaning.rules import manual
+    from fec.cleaning import filing_corrections as manual
 
     rows = manual._reviewed()
     waiting = rows.index[rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")][0]

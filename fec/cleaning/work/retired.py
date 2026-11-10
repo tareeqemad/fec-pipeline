@@ -20,11 +20,11 @@ from __future__ import annotations
 
 import re
 
-from fec.cleaning.work.company import COMPANY_LEVELS, evidence
-from fec.cleaning.work.status import is_job_title, is_real_employer
-from fec.cleaning.work.status_words import status_word
-from fec.config.constants import STATUS_WORDS
-from fec.config.tables import words
+from fec.cleaning.work.company_evidence import COMPANY_LEVELS, evidence
+from fec.cleaning.work.employer_status import is_job_title, is_real_employer
+from fec.cleaning.work.status_spellings import status_word
+from fec.vocabulary.statuses import STATUS_WORDS
+from fec.vocabulary.tables import words
 
 _RETIRED_WORDS = words("retired_words")
 _PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
