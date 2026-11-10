@@ -5,30 +5,6 @@ from fec.config.tables import words
 # FEC junk values that all mean "missing"
 MISSING_VALUES = words("missing_values")
 
-# Titles stripped from first names (DR. JOHN -> JOHN)
-TITLE_RE = re.compile(
-    r'^(DR\.?|MR\.?|MRS\.?|MS\.?|REV\.?|REVEREND|'
-    r'RABBI|CANTOR|PASTOR|DEACON|BISHOP|FATHER|SISTER|IMAM|'
-    r'JUDGE|HON\.?|HONORABLE|'
-    r'PROF\.?|PROFESSOR|'
-    r'SGT\.?|CAPT\.?|COL\.?|MAJ\.?|GEN\.?|LT\.?|'
-    r'CAPTAIN|COLONEL|MAJOR|GENERAL|LIEUTENANT|SERGEANT|'
-    r'AMBASSADOR|AMB\.?|COMMISSIONER|MAYOR)\s+',
-    re.IGNORECASE,
-)
-
-# Last-name suffixes stripped; V/IV need a comma before.
-SUFFIX_RE = re.compile(
-    r',?\s+(JR\.?|SR\.?|III|II|ESQ\.?)\s*$|,\s*(IV|V)\s*$',
-    re.IGNORECASE,
-)
-
-# Professional suffixes in last names (MILLER MD), handled separately.
-PRO_SUFFIX_RE = re.compile(
-    r'\s+(MD|M\.D\.?|DDS|D\.D\.S\.?|PHD|PH\.D\.?|DO|D\.O\.?|FACS|FAAOS)\s*$',
-    re.IGNORECASE,
-)
-
 # Individual names in FEC "LASTNAME, F..." form.
 INDIV_NAME_RE = re.compile(r"^[A-Z][\w\s.'\-()`;]*,\s*[A-Z]")
 

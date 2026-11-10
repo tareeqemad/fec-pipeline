@@ -20,7 +20,7 @@ from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import clean_addresses
 from fec.cleaning.donors.occupation import _rederive_occupation_category
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
-from fec.cleaning.names import _clean_names, _preclean_name_punctuation
+from fec.cleaning.names import _preclean_name_punctuation, apply_name_corrections, clean_names
 from fec.cleaning.rules.records import apply_record_rules
 from fec.committees import committee_id_to_name
 from fec.config.data import OUTPUT_COLUMNS
@@ -135,7 +135,8 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     read_work(df, people, df["contributor_employer"].copy(), df["contributor_occupation"].copy())
     df.loc[~people, ["contributor_occupation", "occupation_category"]] = [np.nan, "POLITICAL COMMITTEE"]
     _reclassify_entities(df)
-    _clean_names(df)
+    clean_names(df)
+    apply_name_corrections(df)
     return df
 
 

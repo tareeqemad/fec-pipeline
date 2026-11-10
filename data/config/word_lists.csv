@@ -909,3 +909,51 @@ homemaker_employer_values,HOUSWIFE,
 homemaker_employer_values,HOUSEWIVES,
 homemaker_employer_values,STAY AT HOME MOM,
 homemaker_employer_values,STAY AT HOME DAD,
+name_titles,DR,a title before a given name
+name_titles,MR,a title before a given name
+name_titles,MRS,a title before a given name
+name_titles,MS,a title before a given name
+name_titles,REV,a title before a given name
+name_titles,REVEREND,a title before a given name
+name_titles,RABBI,a title before a given name
+name_titles,CANTOR,a title before a given name
+name_titles,PASTOR,a title before a given name
+name_titles,DEACON,a title before a given name
+name_titles,BISHOP,a title before a given name
+name_titles,FATHER,a title before a given name
+name_titles,SISTER,a title before a given name
+name_titles,IMAM,a title before a given name
+name_titles,JUDGE,a title before a given name
+name_titles,HON,a title before a given name
+name_titles,HONORABLE,a title before a given name
+name_titles,PROF,a title before a given name
+name_titles,PROFESSOR,a title before a given name
+name_titles,SGT,a title before a given name
+name_titles,CAPT,a title before a given name
+name_titles,COL,a title before a given name
+name_titles,MAJ,a title before a given name
+name_titles,GEN,a title before a given name
+name_titles,LT,a title before a given name
+name_titles,CAPTAIN,a title before a given name
+name_titles,COLONEL,a title before a given name
+name_titles,MAJOR,a title before a given name
+name_titles,GENERAL,a title before a given name
+name_titles,LIEUTENANT,a title before a given name
+name_titles,SERGEANT,a title before a given name
+name_titles,AMBASSADOR,a title before a given name
+name_titles,AMB,a title before a given name
+name_titles,COMMISSIONER,a title before a given name
+name_titles,MAYOR,a title before a given name
+name_endings,JR,a generation or credential after a surname
+name_endings,SR,a generation or credential after a surname
+name_endings,II,a generation or credential after a surname
+name_endings,III,a generation or credential after a surname
+name_endings,ESQ,a generation or credential after a surname
+name_endings,MD,a generation or credential after a surname
+name_endings,DDS,a generation or credential after a surname
+name_endings,PHD,a generation or credential after a surname
+name_endings,DO,a generation or credential after a surname
+name_endings,FACS,a generation or credential after a surname
+name_endings,FAAOS,a generation or credential after a surname
+name_endings,DPM,a generation or credential after a surname
+name_endings,DVM,a generation or credential after a surname

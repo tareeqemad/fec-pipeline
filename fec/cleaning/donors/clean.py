@@ -14,7 +14,7 @@ import re
 import numpy as np
 from fec.cleaning.donors.steps import apply_donor_consistency
 from fec.cleaning.work.employer_aliases import canonicalize_current_employers
-from fec.cleaning.name_fixes import apply_name_corrections
+from fec.cleaning.names import apply_name_corrections
 from fec.cleaning.addresses.fixes.unify import (
     canonicalize_donor_units,
 )
