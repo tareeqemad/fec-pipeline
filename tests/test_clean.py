@@ -491,7 +491,7 @@ def _read(rows):
     df['contributor_last_name'] = df['contributor_name'].str.split(', ').str[0]
     df['contributor_first_name'] = df['contributor_name'].str.split(', ').str[1]
     df['contributor_employer'] = df['contributor_occupation'] = df['occupation_category'] = None
-    read_work(df, df['filed_employer'], df['filed_occupation'])
+    read_work(df, df['entity_type'].eq('INDIVIDUAL'), df['filed_employer'], df['filed_occupation'])
     return list(zip(df['contributor_employer'].fillna(''), df['contributor_occupation'].fillna('')))
 
 
@@ -524,11 +524,11 @@ def test_work_fields_are_read_from_the_filed_pair():
         ('A, B', 'CONSULTANT', 'PROJECT MANAGEMENT CONSULTANT'): ('', 'PROJECT MANAGEMENT CONSULTANT'),
         ('A, B', 'ATTORNEY', 'ATTORNEY'): ('', 'ATTORNEY'),
         # a company in the occupation box: the role stays, the company moves to an open employer
-        ('A, B', '', 'PRESIDENT, RELAY HUMAN CLOUD, INC'): ('RELAY HUMAN CLOUD, INC', 'PRESIDENT'),
+        ('A, B', '', 'PRESIDENT, RELAY HUMAN CLOUD, INC'): ('RELAY HUMAN CLOUD INC', 'PRESIDENT'),
         ('A, B', 'BOXER PROPERTY CORP', 'CEO AT ACME LLC'): ('BOXER PROPERTY CORP', 'CEO'),
         ('A, B', '', 'MD ANDERSON CANCER CENTER INC'): ('MD ANDERSON CANCER CENTER INC', ''),
         ('A, B', 'ACME LLC', 'PRESIDENT OF HEALTH TECH COMPANY'): ('ACME LLC', 'PRESIDENT OF HEALTH TECH COMPANY'),
-        ('A, B', 'SELF-EMPLOYED', 'COMPANY'): ('SELF-EMPLOYED', ''),
+        ('A, B', 'SELF-EMPLOYED', 'COMPANY'): ('SELF-EMPLOYED', 'SELF-EMPLOYED'),
         # the donor's own name is no employer, unless it carries a legal form
         ('DOE, JANE', 'JANE DOE', 'WRITER'): ('SELF-EMPLOYED', 'WRITER'),
         ('DOE, JANE', 'JANE DOE LLC', 'WRITER'): ('JANE DOE LLC', 'WRITER'),

@@ -176,11 +176,6 @@ def company_evidence(
     return levels
 
 
-def is_company(values: pd.Series, **context) -> pd.Series:
-    """True where the evidence is strong enough to treat the value as a company."""
-    return company_evidence(values, **context).isin(COMPANY_LEVELS)
-
-
 _LEGAL_TOKENS = words("legal_tokens")
 
 

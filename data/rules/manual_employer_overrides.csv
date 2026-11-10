@@ -68,3 +68,5 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,contrib
 4080120261540165200,,VICE PRESIDENT,,2026-11-10: kept from a removed one-off cleaning step; filed VP,,,,,,contributor_occupation,
 4010420231645702389,,NOT EMPLOYED,,"2026-11-10: kept from a removed one-off cleaning step; employer NOT EMPLOYED, occupation empty",,,,,NOT EMPLOYED,contributor_occupation,
 4030420261386074872,,NOT EMPLOYED,,"2026-11-10: kept from a removed one-off cleaning step; employer NOT EMPLOYED, occupation empty",,,,,NOT EMPLOYED,contributor_occupation,
+4112020241071382065,TAP,CEO,,"2026-11-10: VERON, JANE filed CEO as the employer and TAP as the occupation: the two boxes swapped; TAP is the company she leads",,,,,,contributor_employer;contributor_occupation,
+4072120251209629172,TAP,CEO,,"2026-11-10: VERON, JANE filed CEO as the employer and TAP as the occupation: the two boxes swapped; TAP is the company she leads",,,,,,contributor_employer;contributor_occupation,

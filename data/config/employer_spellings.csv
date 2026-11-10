@@ -11,3 +11,6 @@ NOT WORKING,NOT EMPLOYED,
 JOBLESS,NOT EMPLOYED,
 I AM UNEMPLOYED,NOT EMPLOYED,
 UNEMPLOYMENT,NOT EMPLOYED,
+SLEF,SELF-EMPLOYED,a slip the status rule cannot read
+SELP,SELF-EMPLOYED,a slip the status rule cannot read
+SWLF,SELF-EMPLOYED,a slip the status rule cannot read

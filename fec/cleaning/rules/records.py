@@ -28,7 +28,7 @@ def apply_record_rules(df: pd.DataFrame, filed_employers: pd.Series, filed_occup
     df['is_individual'] = (df['entity_type'] == 'INDIVIDUAL')
     for rule in _NAME_RULES:
         df = rule(df)[0]
-    read_work(df, filed_employers, filed_occupations)
+    read_work(df, df['is_individual'], filed_employers, filed_occupations)
     df.loc[df['entity_type'].eq('COMMITTEE/PAC') & df['occupation_category'].isna(), 'occupation_category'] = 'POLITICAL COMMITTEE'
     _disambiguate_vague_occupation(df)
     return df

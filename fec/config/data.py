@@ -5,18 +5,6 @@ from fec.config.tables import words
 # FEC junk values that all mean "missing"
 MISSING_VALUES = words("missing_values")
 
-# committee classification, first match wins
-COMM_PATTERNS = [
-    ('CONGRESSIONAL CAMPAIGN', re.compile(r'FOR CONGRESS|REP\.', re.IGNORECASE)),
-    ('SENATE CAMPAIGN', re.compile(r'FOR SENATE|SEN\.', re.IGNORECASE)),
-    ('POLITICAL ACTION COMMITTEE', re.compile(r'\bPAC\b', re.IGNORECASE)),
-    (
-        'PARTY ORGANIZATION',
-        re.compile(r'PARTY|NRSC|NRCC|DCCC|DSCC|DNC|RNC', re.IGNORECASE),
-    ),
-    ('POLITICAL COMMITTEE', re.compile(r'COMMITTEE', re.IGNORECASE)),
-]
-
 # Titles stripped from first names (DR. JOHN -> JOHN)
 TITLE_RE = re.compile(
     r'^(DR\.?|MR\.?|MRS\.?|MS\.?|REV\.?|REVEREND|'
@@ -62,7 +50,7 @@ OUTPUT_COLUMNS = [
     'contributor_employer',
     'contributor_occupation', 'occupation_category',
     # Internal working fields for later safety nets; dropped at save.
-    'committee_type', '_generational_suffix',
+    '_generational_suffix',
     # Contribution; amounts alone mark refunds (below zero).
     'contribution_receipt_date',
     'contribution_receipt_amount',
@@ -74,7 +62,6 @@ OUTPUT_COLUMNS = [
 INTERNAL_OUTPUT_COLUMNS = [
     'is_individual',  # redundant with entity_type
     'contributor_employer_original',  # raw per-filing employer (for prev-employer)
-    'committee_type',  # overloaded with non-committee sentinels
     '_generational_suffix',  # identity evidence from the raw contributor name
     'geocode_level',  # how the donor coordinate was derived
     # FEC's own type and id, read while cleaning, never written.

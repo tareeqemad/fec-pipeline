@@ -1,6 +1,7 @@
 """Cleaning stages in execution order. Start with clean_pipeline."""
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from fec.cleaning.addresses.foreign import (
@@ -13,7 +14,7 @@ from fec.cleaning.entities import (
 )
 from fec.cleaning.rules.manual import apply_manual_employer_overrides
 from fec.cleaning.work.categorize import learn_categories
-from fec.cleaning.work.read import first_reading
+from fec.cleaning.work.read import read_work
 from fec.cleaning.work.status_words import extend_spellings
 from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import clean_addresses
@@ -130,7 +131,9 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     """Clean names, work fields and entity types."""
     _preclean_name_punctuation(df)
 
-    first_reading(df)
+    people = df["is_individual"].astype(bool)
+    read_work(df, people, df["contributor_employer"].copy(), df["contributor_occupation"].copy())
+    df.loc[~people, ["contributor_occupation", "occupation_category"]] = [np.nan, "POLITICAL COMMITTEE"]
     _reclassify_entities(df)
     _clean_names(df)
     return df

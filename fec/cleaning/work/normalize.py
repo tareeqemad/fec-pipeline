@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from fec.config.constants import EMPLOYER_STATUS_VALUES, SKIP_EMPLOYERS
-from fec.config.data import COMM_PATTERNS, MISSING_VALUES
+from fec.config.data import MISSING_VALUES
 from fec.config.occupation_rules.rules import CATEGORY_OVERRIDES
 
 # junk value -> NaN, one batch replace
@@ -70,18 +70,4 @@ def _categorize(occupation_series: pd.Series) -> pd.Series:
 def categorize_final(occupation_series: pd.Series) -> pd.Series:
     """The category of final cleaned occupations."""
     return _categorize(occupation_series.fillna('').astype(str).str.strip().str.upper())
-
-
-# classify committee names into sub-types by keyword match
-def _classify_committee_names(names: pd.Series) -> pd.Series:
-    """Classify committee names into sub-types by keyword match."""
-    result = pd.Series('POLITICAL COMMITTEE', index=names.index)
-    filled = names.fillna('').astype(str)
-
-    for label, pattern in COMM_PATTERNS:
-        # This call site matches case-sensitively: pass the pattern string.
-        matches = filled.str.contains(pattern.pattern, na=False, regex=True) & (result == 'POLITICAL COMMITTEE')
-        result[matches] = label
-
-    return result
 
