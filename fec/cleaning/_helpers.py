@@ -14,8 +14,3 @@ def _norm(s: pd.Series) -> pd.Series:
     """Fill blanks, trim spaces and uppercase text."""
     return s.fillna('').astype(str).str.strip().str.upper()
 
-
-def _indiv_idx(df: pd.DataFrame) -> pd.Index:
-    """Return the index of all INDIVIDUAL rows."""
-    return df.index[df['entity_type'] == 'INDIVIDUAL']
-

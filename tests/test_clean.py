@@ -539,3 +539,17 @@ def test_occupation_corrections_are_one_table():
     assert not [k for k, v in OCCUPATION_CORRECTIONS.items() if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v]
     assert OCCUPATION_CORRECTIONS['ATTY'] == 'ATTORNEY' and 'ATTY' in TEXT_CORRECTIONS
     assert OCCUPATION_CORRECTIONS['XXX'] is None and 'XXX' not in TEXT_CORRECTIONS
+
+
+def test_a_name_is_read_once_from_its_three_boxes():
+    from fec.cleaning.names import read_name
+    assert read_name('GALICI, SR., DR. VINCENT', 'DR. VINCENT', 'GALICI, SR.') == ('GALICI, VINCENT', 'VINCENT', 'GALICI')
+    assert read_name('POLLOCK MD, TODD', 'TODD', 'POLLOCK MD') == ('POLLOCK, TODD', 'TODD', 'POLLOCK')
+    assert read_name('GERENRAICH, DPM, KENNY', 'KENNY', 'GERENRAICH, DPM') == ('GERENRAICH, KENNY', 'KENNY', 'GERENRAICH')
+    assert read_name('YOUNGMAN, CARL M.', 'CARL M.', 'YOUNGMAN') == ('YOUNGMAN, CARL M', 'CARL M.', 'YOUNGMAN')
+    assert read_name('OSHER, LOREN MARK', 'LOREN', 'OSHER') == ('OSHER, LOREN MARK', 'LOREN MARK', 'OSHER')     # filed given names kept
+    assert read_name('ELLIOTT FELSON, ELLIOTT FELSON', 'ELLIOTT FELSON', 'ELLIOTT FELSON') == ('FELSON, ELLIOTT', 'ELLIOTT', 'FELSON')
+    assert read_name('MOND, MRS', 'MRS', 'MOND') == ('MOND, MRS', '', 'MOND')                              # a title is no first name
+    assert read_name('DE TOLEDO, PHILIP', 'PHILIP', 'DE TOLEDO') == ('DE TOLEDO, PHILIP', 'PHILIP', 'DE TOLEDO')
+    assert read_name("CHALME'', RAYMOND", 'RAYMOND', "CHALME''") == ("CHALME', RAYMOND", 'RAYMOND', "CHALME'")
+
