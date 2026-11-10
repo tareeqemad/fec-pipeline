@@ -80,7 +80,7 @@ def _only_common_words(text: str) -> bool:
 
 @lru_cache(maxsize=1)
 def _reviewed_names() -> frozenset[str]:
-    aliases, _separate, scoped = _load_rules()
+    aliases, scoped = _load_rules()
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
     names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
     names |= {canonical for _anchor, _cycle, _variant, canonical in scoped}
