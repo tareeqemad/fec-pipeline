@@ -8,17 +8,14 @@ from fec.cleaning.addresses.foreign import (
     restore_foreign_addresses,
     snapshot_foreign_addresses,
 )
-from fec.cleaning.entities import (
-    _reclassify_entities,
-    attach_source_fields,
-)
+from fec.cleaning.entities import attach_source_fields, classify_entities
 from fec.cleaning.rules.manual import apply_manual_employer_overrides
 from fec.cleaning.work.categorize import learn_categories
 from fec.cleaning.work.read import read_work
 from fec.cleaning.work.status_words import extend_spellings
 from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import clean_addresses
-from fec.cleaning.donors.occupation import _rederive_occupation_category
+from fec.cleaning.donors.work import rederive_occupation_category
 from fec.cleaning.donors.clean import identify_donors, standardize as standardize_donors
 from fec.cleaning.names import _preclean_name_punctuation, apply_name_corrections, clean_names
 from fec.cleaning.rules.records import apply_record_rules
@@ -67,7 +64,7 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     _learn_categories(df)
     apply_manual_employer_overrides(df)
     # Donors are matched on the category of the occupation as it now reads.
-    _rederive_occupation_category(df)
+    rederive_occupation_category(df)
     return df
 
 
@@ -134,7 +131,7 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     people = df["is_individual"].astype(bool)
     read_work(df, people, df["contributor_employer"].copy(), df["contributor_occupation"].copy())
     df.loc[~people, ["contributor_occupation", "occupation_category"]] = [np.nan, "POLITICAL COMMITTEE"]
-    _reclassify_entities(df)
+    classify_entities(df)
     clean_names(df)
     apply_name_corrections(df)
     return df

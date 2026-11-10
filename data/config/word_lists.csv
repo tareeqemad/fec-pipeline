@@ -957,3 +957,24 @@ name_endings,FACS,a generation or credential after a surname
 name_endings,FAAOS,a generation or credential after a surname
 name_endings,DPM,a generation or credential after a surname
 name_endings,DVM,a generation or credential after a surname
+committee_words,COMMITTEE,
+committee_words,VICTORY,
+committee_words,FRIENDS,
+committee_words,CITIZENS,
+committee_words,FUND,
+committee_words,DEMOCRAT,
+committee_words,DEMOCRATIC,
+committee_words,DEMOCRATS,
+committee_words,REPUBLICAN,
+committee_words,REPUBLICANS,
+committee_words,SENATE,
+committee_words,CONGRESS,
+committee_words,ACTION,
+committee_words,CAMPAIGN,
+committee_words,NRSC,
+committee_words,NRCC,
+committee_words,DCCC,
+committee_words,DSCC,
+committee_words,RNC,
+committee_words,DNC,
+committee_words,BELLFORMISSOURI,a campaign name filed as one word

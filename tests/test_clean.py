@@ -179,31 +179,36 @@ def test_company_evidence_levels():
 
 
 def test_entity_type_from_committee_signal_and_company_evidence():
-    from fec.cleaning.entities import _reclassify_entities
+    from fec.cleaning.entities import classify_entities, names_committee
     names = [
         'BANK, ELLYN', 'KAHAN TRUST, DAVID', 'BRITT FOR ALABAMA INC, KATIE MS.',
         'SUNPAC, SUNPAC', 'AMALGAMATED BANK', 'KRAFT GROUP LLC',
         'CLEVELAND BUILDING AND CONSTRUCTION TRADES COUNCIL', 'SMITH, JOHN',
+        # The filer's own flag keeps a person whose name box holds an organisation word.
+        'KLAIMAN OFFICE, ALLAN', 'BELLFORMISSOURI, WESLEY MR',
     ]
     df = pd.DataFrame({
         'sub_id': [str(i) for i in range(len(names))],
         'contributor_name': names,
-        'contributor_first_name': ['ELLYN', 'DAVID', 'KATIE', '', '', '', '', 'JOHN'],
-        'contributor_last_name': ['BANK', 'KAHAN TRUST', 'BRITT FOR ALABAMA INC', '', '', '', '', 'SMITH'],
-        'contributor_employer': ['ACME LLC', '', '', '', '', '', '', 'ACME LLC'],
-        'contributor_occupation': ['ANALYST', '', '', '', '', '', '', 'ANALYST'],
+        'contributor_first_name': ['ELLYN', 'DAVID', 'KATIE', '', '', '', '', 'JOHN', 'ALLAN', 'WESLEY'],
+        'contributor_last_name': ['BANK', 'KAHAN TRUST', 'BRITT FOR ALABAMA INC', '', '', '', '', 'SMITH',
+                                  'KLAIMAN OFFICE', 'BELLFORMISSOURI'],
+        'contributor_employer': ['ACME LLC', '', '', '', '', '', '', 'ACME LLC', 'UROLOGY CENTER', ''],
+        'contributor_occupation': ['ANALYST', '', '', '', '', '', '', 'ANALYST', 'MEDICAL DOCTOR', ''],
         'occupation_category': [None] * len(names),
-        'is_individual': [False, False, False, True, False, True, False, False],
-        'committee_type': [None] * len(names),
+        'is_individual': [False, False, False, True, False, True, False, False, True, True],
     })
 
-    _reclassify_entities(df)
+    classify_entities(df)
 
     assert df['entity_type'].tolist() == [
         'INDIVIDUAL', 'ORGANIZATION', 'COMMITTEE/PAC',
         'COMMITTEE/PAC', 'ORGANIZATION', 'ORGANIZATION',
-        'ORGANIZATION', 'INDIVIDUAL',
+        'ORGANIZATION', 'INDIVIDUAL', 'INDIVIDUAL', 'COMMITTEE/PAC',
     ]
+    assert df['is_individual'].tolist() == df['entity_type'].eq('INDIVIDUAL').tolist()
+    assert names_committee('TEAM HAGERTY, BILL SEN.') and names_committee('DON DAVIS FOR NC, DON')
+    assert not names_committee('BANK OF AMERICA') and not names_committee('SMITH, JOHN')
 
 
 def test_split_retired_reads_every_spelling():

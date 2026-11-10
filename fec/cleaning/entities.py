@@ -1,271 +1,131 @@
-"""Classify contributors and apply entity corrections."""
+"""Say what each contributor is: a person, an organisation or a committee."""
 from __future__ import annotations
 
-from pathlib import Path
-import pandas as pd
-from fec.donor_match.rules import held_groups
-from fec.env import FEC_SOURCE_CSV
 import re
+from pathlib import Path
+
 import numpy as np
-from fec.cleaning._helpers import _norm
-from fec.config.constants import STATUS_CATEGORIES
+import pandas as pd
+
+from fec.cleaning.work.company import COMPANY_LEVELS, ORGANISATION_WORDS, Filings, has_legal_form_token
+from fec.cleaning.work.employer_aliases import documented_employer_name, employer_rule_key, reviewed_employer_name
+from fec.config.data import INDIV_NAME_RE
 from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
-from fec.config.data import INDIV_NAME_RE
-from fec.cleaning.work.company import (
-    COMPANY_LEVELS, ORGANISATION_WORDS, Filings, has_legal_form_token,
-)
-from fec.cleaning.work.employer_aliases import (
-    documented_employer_name, employer_rule_key, reviewed_employer_name,
-)
-from fec.config.constants import SKIP_EMPLOYERS
 from fec.config.tables import words
-
+from fec.env import FEC_SOURCE_CSV, RULES_DIR
 
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
-
 # FEC entity codes; a candidate (CAN) giving is a person.
 FEC_ENTITY_TYPES = {
-    "IND": "INDIVIDUAL",
-    "CAN": "INDIVIDUAL",
-    "ORG": "ORGANIZATION",
-    "COM": "COMMITTEE/PAC",
-    "PAC": "COMMITTEE/PAC",
-    "PTY": "COMMITTEE/PAC",
-    "CCM": "COMMITTEE/PAC",
+    "IND": "INDIVIDUAL", "CAN": "INDIVIDUAL", "ORG": "ORGANIZATION",
+    "COM": "COMMITTEE/PAC", "PAC": "COMMITTEE/PAC", "PTY": "COMMITTEE/PAC", "CCM": "COMMITTEE/PAC",
 }
+CATEGORY_OF_TYPE = {"ORGANIZATION": "ORGANIZATION", "COMMITTEE/PAC": "POLITICAL COMMITTEE"}
+
+_COMMITTEE_WORDS = words("committee_words")
+# A campaign before the comma or an office after it: TENNEY FOR CONGRESS, CLAUDIA REP.
+_CAMPAIGN_RE = re.compile(r" FOR [^,]+,|,.* (?:REP|SEN)\.?(?: |$)")
+# Keep campaign phrases such as ROB FOR PA intact.
+_FOR_STATE_RE = re.compile(r"\bFOR (?:" + "|".join(sorted(US_STATES)) + r")$")
 
 
 def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
     """Attach FEC source fields by sub_id; leave missing values blank."""
-    source = (
-        pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates("sub_id", keep="last").set_index("sub_id")
-        if Path(path).exists() else pd.DataFrame(columns=list(SOURCE_COLUMNS))
-    )
-    sub_ids = df["sub_id"].astype(str).str.strip()
+    source = pd.DataFrame(columns=["sub_id", *SOURCE_COLUMNS])
+    if Path(path).exists():
+        source = pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates("sub_id", keep="last")
+    source = source.set_index("sub_id").reindex(df["sub_id"].astype(str).str.strip())
     for column in SOURCE_COLUMNS:
-        values = source[column] if column in source.columns else pd.Series(dtype=object)
-        df[column] = sub_ids.map(values).fillna("").astype(str).str.strip().str.upper().to_numpy()
+        values = source[column] if column in source.columns else pd.Series("", index=source.index)
+        df[column] = values.fillna("").astype(str).str.strip().str.upper().to_numpy()
 
 
-def source_entity_type(df: pd.DataFrame) -> pd.Series:
-    """Map FEC codes to entity types, leaving unknown codes blank."""
-    if "fec_entity_type" not in df.columns:
-        return pd.Series("", index=df.index, dtype=object)
-    codes = df["fec_entity_type"].astype("string").fillna("").str.strip().str.upper()
-    return codes.map(FEC_ENTITY_TYPES).fillna("").astype(object)
+def names_committee(name: str) -> bool:
+    """A committee word, a word ending in PAC, or a campaign phrase."""
+    name = name.upper()
+    return bool(_CAMPAIGN_RE.search(name)) or any(
+        word in _COMMITTEE_WORDS or word.endswith("PAC") for word in re.findall(r"[A-Z]+", name)
+    )
 
 
-def deciding_source_type(df: pd.DataFrame) -> pd.Series:
-    """Use FEC's type only for confirmed filings."""
-    source = source_entity_type(df)
-    if not source.ne("").any():
-        return source
-    undecided = held_groups(df) != ""
-    if "identity_status" in df.columns:
-        undecided |= df["identity_status"].fillna("confirmed").ne("confirmed")
-    return source.where(~undecided, "")
+def classify_entities(df: pd.DataFrame) -> None:
+    """Set entity_type from the contributor name; FEC's own type wins where it is filed.
+
+    A committee phrase names a committee and company evidence names an
+    organisation. A name written LAST, FIRST is a person unless that evidence
+    is certain, as a surname can be an organisation word (BANK, ELLYN).
+    FEC's individual flag is filed for a third of the people only.
+    """
+    names = df["contributor_name"].fillna("").astype(str)
+    flagged = df["is_individual"].astype(bool)
+    filings = Filings(names[flagged], df.loc[flagged, "contributor_employer"].fillna(""))
+    level = names.map(lambda name: filings.level(name, 1))
+    legal_form = has_legal_form_token(names)
+    # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
+    trust_head = names.str.split(",").str[0].str.upper().str.split().map(
+        lambda head: len(head) >= 2 and head[-1] in ORGANISATION_WORDS
+    )
+    certain = legal_form | level.isin(("legal_form", "reviewed", "frequent")) | (level.eq("named_org") & trust_head)
+    company = legal_form | level.isin(COMPANY_LEVELS)
+    committee = names.map(names_committee)
+    # The filer's own word that this is a person holds when the name boxes are filled.
+    trusted = flagged & df[["contributor_first_name", "contributor_last_name"]].fillna("").ne("").all(axis=1)
+    person = ~committee & np.where(names.str.match(INDIV_NAME_RE), trusted | ~certain, trusted & ~company)
+
+    kind = pd.Series(np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC"), index=df.index)
+    # FEC's type for a name holds for every filing of that name.
+    filed = df["fec_entity_type"].map(FEC_ENTITY_TYPES) if "fec_entity_type" in df.columns else pd.Series(dtype=object)
+    filed = filed.dropna()
+    if len(filed):
+        by_name = filed.groupby(names[filed.index]).agg(lambda kinds: kinds.mode().iat[0])
+        kind = names.map(by_name).fillna(kind)
+    _set_types(df, kind)
 
 
-# Placeholders and life statuses are left to their own rules.
-_NOT_WORK = STATUS_CATEGORIES | SKIP_EMPLOYERS | frozenset({'EMPLOYED'})
-# Job and field words that is_job_title does not recognise.
-_JOB_WORDS = words("job_words")
+def _set_types(df: pd.DataFrame, kind: pd.Series) -> None:
+    """Write the type with the flag and category that follow from it."""
+    df.loc[kind.index, "entity_type"] = kind
+    df.loc[kind.index, "is_individual"] = kind.eq("INDIVIDUAL")
+    other = kind[kind.ne("INDIVIDUAL")]
+    df.loc[other.index, "occupation_category"] = other.map(CATEGORY_OF_TYPE)
 
 
-# Keep campaign phrases such as ROB FOR PA intact.
-_FOR_STATE_RE = re.compile(r'\bFOR (?:' + '|'.join(sorted(US_STATES)) + r')$')
+def read_entity_overrides() -> dict[str, str]:
+    """Reviewed contributor name -> entity type (entity_overrides.csv)."""
+    path = RULES_DIR / "entity_overrides.csv"
+    if not path.exists():
+        return {}
+    rows = pd.read_csv(path, dtype=str, keep_default_na=False)
+    return dict(zip(rows["contributor_name"].str.strip().str.upper(), rows["entity_type"].str.strip().str.upper()))
 
 
-def normalize_business_names(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Retain company legal forms and the existing committee-name format."""
-    from fec.cleaning.donors.entity import read_entity_overrides
+def apply_entity_overrides(df: pd.DataFrame) -> None:
+    """Apply the reviewed types by name; a person gets the LAST, FIRST name back."""
+    reviewed = {employer_rule_key(name): kind for name, kind in read_entity_overrides().items()}
+    kind = df["contributor_name"].map(employer_rule_key).map(reviewed).dropna()
+    _set_types(df, kind)
+    other = kind.index[kind.ne("INDIVIDUAL")]
+    df.loc[other, ["contributor_employer", "contributor_occupation"]] = np.nan
+    people = kind.index[kind.eq("INDIVIDUAL")]
+    parts = df.loc[people, "contributor_name"].fillna("").str.split(",", n=1)
+    df.loc[people, "contributor_last_name"] = parts.str[0].str.strip()
+    df.loc[people, "contributor_first_name"] = parts.str[1].fillna("").str.strip().str.lstrip(". ")
+    df.loc[people, "occupation_category"] = "OTHER"
 
-    names = df.loc[df['entity_type'].ne('INDIVIDUAL'), 'contributor_name'].fillna('')
-    types = df.loc[names.index, 'entity_type']
-    cleaned = names.copy()
-    company_names = set(names[types.eq('ORGANIZATION')].map(employer_rule_key))
-    company_names.update(employer_rule_key(name) for name, kind in read_entity_overrides().items()
-                         if kind == 'ORGANIZATION')
-    organizations = names.map(employer_rule_key).isin(company_names)
-    cleaned.loc[organizations] = names[organizations].map(reviewed_employer_name)
-    committees = types.eq('COMMITTEE/PAC') & ~organizations & ~names.str.contains(_FOR_STATE_RE)
-    cleaned.loc[committees] = names[committees].str.replace(LEGAL_SUFFIX_RE, '', regex=True).str.strip()
+
+def normalize_business_names(df: pd.DataFrame) -> None:
+    """Give organisations their reviewed name and committees a name without a legal form."""
+    names = df.loc[df["entity_type"].ne("INDIVIDUAL"), "contributor_name"].fillna("")
+    kinds = df.loc[names.index, "entity_type"]
+    keys = names.map(employer_rule_key)
+    known = set(keys[kinds.eq("ORGANIZATION")])
+    known.update(employer_rule_key(name) for name, kind in read_entity_overrides().items() if kind == "ORGANIZATION")
+    organisation = keys.isin(known)
+    cleaned = names.where(~organisation, names.map(reviewed_employer_name))
+    committee = kinds.eq("COMMITTEE/PAC") & ~organisation & ~names.str.contains(_FOR_STATE_RE)
+    cleaned = cleaned.where(~committee, names.str.replace(LEGAL_SUFFIX_RE, "", regex=True).str.strip())
     # A documented company alias can also fix committee names.
     cleaned = names.map(documented_employer_name).fillna(cleaned)
-    changed = (cleaned != names) & (cleaned != '')
-    n_fixed = changed.sum()
-    if n_fixed:
-        df.loc[changed[changed].index, 'contributor_name'] = cleaned[changed]
-    return df, int(n_fixed)
-
-
-# Committee names and campaign phrases: "X FOR CONGRESS", "FRIENDS OF X",
-# "BELL FOR MISSOURI, WESLEY REP.", "NRSC, DAN SEN.".
-_COMMITTEE_RE = re.compile(
-    r"\b(?:COMMITTEE|VICTORY|FRIENDS|CITIZENS|FUND|DEMOCRAT(?:IC|S)?"
-    r"|REPUBLICANS?|SENATE|CONGRESS|ACTION|CAMPAIGN"
-    r"|NRSC|NRCC|DCCC|DSCC|RNC|DNC)\b"
-    r"|PAC\b"
-    r"|\bFOR (?:CONGRESS|SENATE|AMERICA|GOVERNOR|MAYOR)\b"
-    r"|,\s+[\w\s.]+\s+(?:REP|SEN)\.?(?:\s|$)"
-    r"| FOR [A-Z]{2,}(?: [A-Z]{2,}){0,2}(?:,? INC\.?)?,\s",
-    re.IGNORECASE,
-)
-
-# Committee prefixes, including the joined name BELLFORMISSOURI.
-_DEFINITE_COMM_RE = re.compile(
-    r"^(?:FRIENDS\s+(?:OF|FOR|TO\s+ELECT)\b"
-    r"|BELLFORMISSOURI"
-    r"|PEOPLE\s+FOR\b"
-    r"|CITIZENS\s+FOR\b"
-    r"|TEXANS\s+FOR\b"
-    r"|NEVADANS\s+FOR\b"
-    r"|ALASKANS\s+FOR\b"
-    r"|MONTANANS\s+FOR\b"
-    r"|KANSANS\s+FOR\b)",
-    re.IGNORECASE,
-)
-
-# Company evidence for contributor names (fec.cleaning.work.company); a
-# name other donors file as their employer counts as well.
-def _company_levels(df: pd.DataFrame, names: pd.Series) -> pd.Series:
-    people = df["is_individual"].astype(bool)
-    filings = Filings(df.loc[people, "contributor_name"], df.loc[people, "contributor_employer"].fillna(""))
-    return names.map(lambda name: filings.level(name, 1) if isinstance(name, str) else "")
-
-
-def _blank(s: pd.Series) -> pd.Series:
-    """True where the value is missing or whitespace-only."""
-    return _norm(s) == ""
-
-
-def _reclassify_entities(df: pd.DataFrame) -> tuple[int, int]:
-    """Correct entity types; return person and committee reclassification counts.
-
-    A committee phrase or company evidence in the name marks an organisation
-    or committee; a LAST, FIRST shape without either marks a person.
-    """
-    initial_names = df["contributor_name"].astype(str)
-    committee = initial_names.str.contains(_COMMITTEE_RE, na=False)
-    levels = _company_levels(df, initial_names)
-    # A surname can be an organisation word (BANK, ELLYN), so a LAST, FIRST
-    # name stays a person unless the evidence is certain.
-    certain = has_legal_form_token(initial_names) | levels.isin(("legal_form", "reviewed", "frequent"))
-    # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
-    named_head = initial_names.str.split(",").str[0].str.upper().str.split().map(
-        lambda words: len(words) >= 2 and words[-1] in ORGANISATION_WORDS
-    )
-    certain |= levels.eq("named_org") & named_head
-    company = certain | levels.eq("named_org")
-    looks_like_person = initial_names.str.match(INDIV_NAME_RE, na=False)
-
-    df["_reclass_reason"] = pd.Series(pd.NA, index=df.index, dtype="object")
-
-    to_individual = ~df["is_individual"] & ~committee & ~certain & looks_like_person
-    n_to_indiv = _reclassify(
-        df, to_individual, "committee_to_individual_last_first",
-        individual=True,
-    )
-    to_committee = df["is_individual"] & (committee | company) & ~looks_like_person
-    n_to_comm = _reclassify(
-        df, to_committee, "individual_to_committee_org_keywords",
-        individual=False,
-    )
-    n_to_comm += _reclass_individual_nameless_org(df, committee | company)
-    n_to_comm += _reclass_individual_ghost(df)
-    n_to_comm += _reclass_definite_committees(df, initial_names)
-
-    individuals = df["is_individual"]
-    names = df["contributor_name"].fillna("").astype(str)
-    changed = names.ne(initial_names)
-    if changed.any():
-        committee = committee.where(~changed, names.str.contains(_COMMITTEE_RE, na=False))
-        levels = levels.where(~changed, _company_levels(df, names))
-        company = company.where(~changed, has_legal_form_token(names) | levels.isin(COMPANY_LEVELS))
-    organizations = ~individuals & ~committee & company
-    df["entity_type"] = np.select(
-        [individuals, organizations], ["INDIVIDUAL", "ORGANIZATION"], default="COMMITTEE/PAC"
-    )
-
-    _apply_source_entity_type(df)
-    _enforce_entity_name_consistency(df)
-
-    df.loc[df["entity_type"] == "ORGANIZATION", "occupation_category"] = "ORGANIZATION"
-    df.loc[df["entity_type"] == "COMMITTEE/PAC", "occupation_category"] = "POLITICAL COMMITTEE"
-    return n_to_indiv, n_to_comm
-
-
-def _apply_source_entity_type(df: pd.DataFrame) -> int:
-    """Prefer FEC's type; mark new people for work restoration."""
-    source = deciding_source_type(df)
-    differs = source.ne("") & source.ne(df["entity_type"])
-    if not differs.any():
-        return 0
-    to_person = differs & source.eq("INDIVIDUAL")
-    df.loc[to_person, "_reclass_reason"] = "committee_to_individual_fec_source"
-    df.loc[differs & ~to_person, "_reclass_reason"] = "fec_source_entity_type"
-    df.loc[differs, "entity_type"] = source[differs]
-    df.loc[differs, "is_individual"] = to_person[differs]
-    return int(differs.sum())
-
-
-def _reclassify(df: pd.DataFrame, mask: pd.Series, reason: str, individual: bool) -> int:
-    count = int(mask.sum())
-    if count:
-        df.loc[mask, "_reclass_reason"] = reason
-        df.loc[mask, "is_individual"] = individual
-    return count
-
-
-def _reclass_individual_nameless_org(df: pd.DataFrame, organisation: pd.Series) -> int:
-    """Individuals with no first/last name and an organisation name."""
-    no_names = _blank(df["contributor_first_name"]) & _blank(
-        df["contributor_last_name"]
-    )
-    mask = df["is_individual"] & no_names & organisation
-    return _reclassify(df, mask, "individual_to_committee_no_name_org_pattern", individual=False)
-
-
-def _reclass_individual_ghost(df: pd.DataFrame) -> int:
-    """Individuals without name, employer and occupation are committees."""
-    mask = (
-        df["is_individual"]
-        & _blank(df["contributor_first_name"])
-        & _blank(df["contributor_last_name"])
-        & _blank(df["contributor_employer"])
-        & _blank(df["contributor_occupation"])
-    )
-    return _reclassify(df, mask, "individual_to_committee_no_identity", individual=False)
-
-
-def _reclass_definite_committees(df: pd.DataFrame, name_str: pd.Series) -> int:
-    """Names that are always committees (FRIENDS OF, PEOPLE FOR, ...)."""
-    mask = df["is_individual"] & name_str.str.contains(_DEFINITE_COMM_RE, na=False)
-    n_changed = _reclassify(df, mask, "individual_to_committee_definite_prefix", individual=False)
-    for idx in df.loc[mask].index:
-        name = df.at[idx, "contributor_name"]
-        if "," in name:
-            df.at[idx, "contributor_name"] = name.split(",")[0].strip()
-        df.at[idx, "contributor_first_name"] = np.nan
-        df.at[idx, "contributor_last_name"] = np.nan
-    return n_changed
-
-
-def _enforce_entity_name_consistency(df: pd.DataFrame) -> int:
-    """Use ORGANIZATION for matching names unless FEC supplied a type."""
-    org_names = set(
-        df.loc[df["entity_type"] == "ORGANIZATION", "contributor_name"].dropna()
-    )
-    if not org_names:
-        return 0
-    fix = (
-        (df["entity_type"] == "COMMITTEE/PAC")
-        & df["contributor_name"].isin(org_names)
-        & source_entity_type(df).eq("")
-    )
-    n_changed = int(fix.sum())
-    if n_changed:
-        df.loc[fix, "entity_type"] = "ORGANIZATION"
-    return n_changed
-
+    changed = cleaned.ne(names) & cleaned.ne("")
+    df.loc[changed[changed].index, "contributor_name"] = cleaned[changed]
