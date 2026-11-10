@@ -52,8 +52,8 @@ _ALIGN_STEPS = (
 
 
 def clean_addresses(df: pd.DataFrame, trail: AuditTrail) -> pd.DataFrame:
-    """Standard form from the model, own-name streets cleared, ZIPs checked, rules and alignment applied."""
-    trail.run(df, standardize_addresses, "address_standard_form", "standard_form_from_model", ADDRESS_FIELDS)
+    """USPS standard form, own-name streets cleared, ZIPs checked, rules and alignment applied."""
+    trail.run(df, standardize_addresses, "address_standard_form", "usps_standard_form", ADDRESS_FIELDS)
     trail.run(df, clear_own_name_street, "streets_own_name", "street_is_the_donor_name_nulled", STREET_FIELDS)
     trail.run(df, clean_zips, "zips_normalize", "zip_reduced_to_five_digits_or_invalid_nulled", PLACE_FIELDS)
     trail.run(

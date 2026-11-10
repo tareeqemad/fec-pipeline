@@ -78,8 +78,6 @@ CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
 # Curated contributor address corrections
 ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
 # The model's standard form of every filed US address it has read.
-ADDRESS_CACHE_CSV = CACHE_DIR / "addresses.csv"
-ADDRESS_STANDARD_RULES_MD = DATA_DIR / "config" / "address_standard_rules.md"
 # Address review cases already decided, each with its source
 # Hand-set employer, occupation and address per filing
 MANUAL_EMPLOYER_OVERRIDES_CSV = RULES_DIR / "manual_employer_overrides.csv"

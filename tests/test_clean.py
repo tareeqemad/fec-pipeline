@@ -574,14 +574,25 @@ def test_status_word_reads_a_slip_and_leaves_other_words():
     }
 
 
-def test_standardize_addresses_uses_the_cache_and_asks_once(tmp_path, monkeypatch):
-    from fec.cleaning.addresses import standardize as st
-    monkeypatch.setattr(st, "ADDRESS_CACHE_CSV", tmp_path / "addresses.csv")
-    asked = []
+def test_standard_address_follows_usps_with_no_table_of_ours():
+    from fec.cleaning.addresses.standardize import standard_address, standardize_addresses
 
-    def fake_model(filed):
-        asked.extend(filed)
-        return {f: {"street_1": "123 E 13TH ST", "street_2": "APT 4", "city": "ANNISTON", "state": "AL", "zip": "36201"} for f in filed}
+    def std(street_1, street_2='', city='SAINT LOUIS', zipcode='63141'):
+        return standard_address(street_1, street_2, city, 'MO', zipcode)[:3]
+
+    assert std('50 EAST 79TH STREET, 16D') == ('50 E 79TH ST', '# 16D', 'SAINT LOUIS')
+    assert std('123 Town Square Place #515'.upper()) == ('123 TOWN SQUARE PL', '# 515', 'SAINT LOUIS')   # SQUARE is the name
+    assert std('750 SOUTH ST') == ('750 SOUTH ST', '', 'SAINT LOUIS')                      # SOUTH is the name
+    assert std('374 N COAST HIGHWAY 101 SUITE 2') == ('374 N COAST HWY 101', 'STE 2', 'SAINT LOUIS')
+    assert std('9 W 57 ST', 'PMB #333') == ('9 W 57TH ST', 'PMB 333', 'SAINT LOUIS')
+    assert std('123 MAIN ST', '5TH FLOOR') == ('123 MAIN ST', 'FL 5', 'SAINT LOUIS')
+    assert std('P.O. BOX 68033') == ('PO BOX 68033', '', 'SAINT LOUIS')
+    assert std('C/O RED CURVE SOLUTIONS LLC', '138 CONANT ST STE 401') == ('138 CONANT ST', 'STE 401', 'SAINT LOUIS')
+    assert std('SOMEONE@GMAIL.COM')[0] == ''
+    assert std('1 MAIN ST', city='ST LOUIS')[2] == 'SAINT LOUIS'
+    assert std('1 MAIN ST', city='ST LOUS')[2] == 'SAINT LOUIS'            # one slip, read through the ZIP
+    assert std('1 MAIN ST', city='CREVE COEUR')[2] == 'CREVE COEUR'        # a USPS name of the ZIP stays
+    assert std('1 MAIN ST', city='SPRINGFIELD')[2] == 'SPRINGFIELD'        # another city is not rewritten
 
     df = pd.DataFrame({
         'sub_id': ['1', '2'],
@@ -591,9 +602,7 @@ def test_standardize_addresses_uses_the_cache_and_asks_once(tmp_path, monkeypatc
         'contributor_state': ['AL', 'ZZ'],
         'contributor_zip': ['362011234', 'SW1A 2AA'],
     })
-    assert st.standardize_addresses(df, ask=fake_model) == 1
-    assert asked == ['123 EAST 13TH STREET APT 4 |  | ANNISTON | AL | 362011234']   # the foreign row is left as filed
-    assert df.loc[0, ['contributor_street_1', 'contributor_street_2', 'contributor_zip']].tolist() == ['123 E 13TH ST', 'APT 4', '36201']
-    assert df.loc[1, 'contributor_street_1'] == '10 Downing St'
-    assert st.standardize_addresses(df, ask=fake_model) == 0      # remembered: not asked again
-    assert asked == ['123 EAST 13TH STREET APT 4 |  | ANNISTON | AL | 362011234']
+    assert standardize_addresses(df) == 1
+    assert df.loc[0, ['contributor_street_1', 'contributor_street_2']].tolist() == ['123 E 13TH ST', 'APT 4']
+    assert df.loc[1, 'contributor_street_1'] == '10 Downing St'           # foreign: as filed
+    assert standardize_addresses(df) == 0                                 # the standard form is stable
