@@ -553,3 +553,24 @@ def test_a_name_is_read_once_from_its_three_boxes():
     assert read_name('DE TOLEDO, PHILIP', 'PHILIP', 'DE TOLEDO') == ('DE TOLEDO, PHILIP', 'PHILIP', 'DE TOLEDO')
     assert read_name("CHALME'', RAYMOND", 'RAYMOND', "CHALME''") == ("CHALME', RAYMOND", 'RAYMOND', "CHALME'")
 
+
+def test_a_donor_gets_one_surname_and_the_fullest_given_name():
+    from fec.cleaning.donors.names import donor_names
+
+    def names(filed, rare=frozenset()):
+        firsts, lasts = [f for f, _ in filed], [last for _, last in filed]
+        surname, given = donor_names(lasts, firsts, rare)
+        return surname, sorted(set(g or '' for g in given))
+
+    assert names([('MATT', 'ENGEL')] * 3 + [('MATTHEW', 'ENGEL')]) == ('ENGEL', ['MATTHEW'])                 # the full name over the nickname
+    assert names([('ZIPORA', 'ARISON')] * 5 + [('ZIPORAH', 'ARISON')], frozenset({'ZIPORAH'})) == ('ARISON', ['ZIPORA'])   # a rare slip
+    assert names([('STEVE', 'FEIN')] * 3 + [('STEVEN', 'FEIN')]) == ('FEIN', ['STEVEN'])                    # a common name is no slip
+    assert names([('ALIZA', 'GUREN')] * 3 + [('ALIZA KARNEY', 'GUREN'), ('ALIZA', 'KARNEY GUREN')]) == ('GUREN', ['ALIZA KARNEY'])
+    assert names([('JILL', 'HARMATZ SANDERS')] * 3 + [('JILL', 'SANDERS')]) == ('HARMATZ SANDERS', ['JILL'])
+    assert names([('RICHARD', 'A FREEDMAN')]) == ('FREEDMAN', ['RICHARD A'])                                # an initial in the surname box
+    assert names([('JOSH KRAFT', 'KRAFT'), ('JOSH', 'KRAFT')]) == ('KRAFT', ['JOSH'])                       # the surname typed twice
+    assert names([('EPHRAIM', 'WERNICK')] * 3 + [('EPHRAIM (FRY)', 'WERNICK'), ('EPHRAIM FRY', 'WERNICK')]) == ('WERNICK', ['EPHRAIM'])
+    assert names([('P R', 'ZITELMAN')] * 2 + [('P RICHARD', 'ZITELMAN')]) == ('ZITELMAN', ['P RICHARD'])
+    # another given name under the same donor keeps its own: a spouse on a joint account
+    assert names([('MARGERY', 'GOTTESMAN')] * 2 + [('ARCHIE', 'GOTTESMAN')]) == ('GOTTESMAN', ['ARCHIE', 'MARGERY'])
+
