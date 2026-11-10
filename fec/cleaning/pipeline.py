@@ -8,14 +8,12 @@ from fec.cleaning.addresses.foreign import (
     snapshot_foreign_addresses,
 )
 from fec.cleaning.entities import (
-    _clear_individual_residue,
     _reclassify_entities,
-    _restore_reclassified_committees,
     attach_source_fields,
 )
 from fec.cleaning.rules.manual import apply_manual_employer_overrides
 from fec.cleaning.work.categorize import learn_categories
-from fec.cleaning.work.clean import clean_employer_occupation
+from fec.cleaning.work.read import first_reading
 from fec.cleaning.work.status_words import extend_spellings
 from fec.cleaning.work.typos import extend_corrections
 from fec.cleaning.addresses.clean import clean_addresses
@@ -55,13 +53,14 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     """Clean fields, apply record rules, then apply curated overrides."""
     logger.info("[1/5] Cleaning names and work")
     df = _prepare_records(df)
+    filed_employers, filed_occupations = df["contributor_employer"].copy(), df["contributor_occupation"].copy()
     df = _clean_people(df)
     logger.info("[2/5] Cleaning addresses")
     df = clean_addresses(df)
     df = _finish_records(df)
 
     logger.info("[3/5] Applying corrections")
-    df = apply_record_rules(df)
+    df = apply_record_rules(df, filed_employers, filed_occupations)
 
     # After the record rules: a company left in the occupation box has moved by now.
     _learn_categories(df)
@@ -131,14 +130,8 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     """Clean names, work fields and entity types."""
     _preclean_name_punctuation(df)
 
-    # Reclassification restores raw work fields.
-    raw_occupations = df["contributor_occupation"].copy()
-    raw_employers = df["contributor_employer"].copy()
-    clean_employer_occupation(df)
-
+    first_reading(df)
     _reclassify_entities(df)
-    _restore_reclassified_committees(df, raw_occupations, raw_employers)
-    _clear_individual_residue(df)
     _clean_names(df)
     return df
 

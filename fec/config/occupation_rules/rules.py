@@ -35,13 +35,6 @@ CATEGORY_OVERRIDES = {
 }
 
 
-# Employer status -> occupation/category when occupation is missing.
-OCCUPATION_FROM_EMPLOYER = {
-    'RETIRED': ('RETIRED', 'RETIRED'),
-    'SELF-EMPLOYED': ('SELF-EMPLOYED', 'SELF-EMPLOYED'),
-    'NOT EMPLOYED': ('NOT EMPLOYED', 'NOT EMPLOYED'),
-}
-
 # Occupation status -> employer during the field-level pass.
 EMPLOYER_FROM_OCCUPATION = {
     'RETIRED': 'RETIRED',

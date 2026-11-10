@@ -176,13 +176,6 @@ def company_evidence(
     return levels
 
 
-def filers_of(df: pd.DataFrame, rows=None) -> pd.Series | None:
-    """The filer names for rows, or None when the frame has none."""
-    if "contributor_name" not in df.columns:
-        return None
-    return df["contributor_name"] if rows is None else df.loc[rows, "contributor_name"]
-
-
 def is_company(values: pd.Series, **context) -> pd.Series:
     """True where the evidence is strong enough to treat the value as a company."""
     return company_evidence(values, **context).isin(COMPANY_LEVELS)

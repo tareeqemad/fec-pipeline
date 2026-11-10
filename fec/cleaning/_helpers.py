@@ -1,7 +1,6 @@
 """Shared cleaning helpers."""
 import re
 
-import numpy as np
 import pandas as pd
 
 
@@ -19,10 +18,4 @@ def _norm(s: pd.Series) -> pd.Series:
 def _indiv_idx(df: pd.DataFrame) -> pd.Index:
     """Return the index of all INDIVIDUAL rows."""
     return df.index[df['entity_type'] == 'INDIVIDUAL']
-
-
-def _set_missing(df: pd.DataFrame, idx) -> None:
-    """Clear occupation and category; mark occupation as missing."""
-    df.loc[idx, 'contributor_occupation'] = np.nan
-    df.loc[idx, 'occupation_category'] = pd.NA
 
