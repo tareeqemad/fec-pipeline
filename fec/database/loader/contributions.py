@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -21,7 +22,7 @@ _INSERT_SQL = """
 """
 
 
-def _map_required_ids(df, donor_ids, committee_ids):
+def _map_required_ids(df: pd.DataFrame, donor_ids: dict, committee_ids: dict) -> pd.DataFrame:
     """Require matching donor and committee IDs for every filing."""
     rows = df.assign(
         _donor_id=df["donor_key"].map(donor_ids),
@@ -38,7 +39,7 @@ def _map_required_ids(df, donor_ids, committee_ids):
     return rows
 
 
-def _map_address_ids(rows, address_ids):
+def _map_address_ids(rows: pd.DataFrame, address_ids: dict) -> None:
     """Match each filing to its donor-address link."""
     addresses = rows[DONOR_ADDRESS_COLUMNS].fillna("").astype(str)
     rows["_address_id"] = [
@@ -47,7 +48,12 @@ def _map_address_ids(rows, address_ids):
     ]
 
 
-def _map_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids):
+def _map_employment_ids(
+    rows: pd.DataFrame,
+    employment_ids: dict,
+    get_employer_id: Callable[[str], int | None],
+    occupation_category_ids: dict,
+) -> None:
     """Match each filing to its own employment row."""
     employer_ids = [
         get_employer_id(current_employer_name(status, employer))
@@ -91,7 +97,7 @@ def _map_employment_ids(rows, employment_ids, get_employer_id, occupation_catego
         )
 
 
-def _native_row(values):
+def _native_row(values: tuple) -> tuple:
     """Convert one contribution to PostgreSQL values."""
     (
         sub_id,
@@ -117,7 +123,7 @@ def _native_row(values):
     )
 
 
-def _build_rows(rows):
+def _build_rows(rows: pd.DataFrame) -> list[tuple]:
     """Prepare contribution rows for insertion."""
     receipt_dates = pd.to_datetime(rows["contribution_receipt_date"], errors="coerce")
     election_cycles = pd.to_numeric(rows["two_year_transaction_period"], errors="coerce")
@@ -146,7 +152,7 @@ def load_contributions(
     committee_ids: dict,
     address_ids: dict,
     employment_ids: dict,
-    get_employer_id,
+    get_employer_id: Callable[[str], int | None],
     occupation_category_ids: dict,
 ) -> None:
     """Load contributions with their donor, address and employment links."""

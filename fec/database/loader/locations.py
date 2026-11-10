@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from functools import lru_cache
+from typing import Any
 
 from fec.env import REFERENCE_DIR
 from fec.geocoding.validation import EARTH_RADIUS_MILES, great_circle
@@ -25,11 +26,13 @@ ADDRESS_TRUST_VALUES = frozenset(
 PUBLISHABLE_ADDRESS_TRUST = frozenset({"verified", "grounded"})
 
 
-def _text(value) -> str:
+def _text(value: Any) -> str:
+    """Return the value as trimmed text, '' when missing."""
     return str(value or "").strip()
 
 
 def _usable(location: dict | None) -> bool:
+    """Check that a location has a street, or a manual city and state."""
     return bool(
         location
         and (
@@ -44,6 +47,7 @@ def _usable(location: dict | None) -> bool:
 
 
 def _signature(location: dict) -> tuple[str, ...]:
+    """Return the upper-cased address fields that identify a location."""
     return tuple(_text(location.get(field)).upper() for field in ADDRESS_FIELDS)
 
 
@@ -67,6 +71,7 @@ def location_candidates(entry: dict | None) -> list[dict]:
 
 @lru_cache(maxsize=1)
 def _zip_centroids() -> dict[str, tuple[float, float]]:
+    """Load ZIP code centroids from the reference CSV, empty when missing."""
     path = REFERENCE_DIR / "zip_centroids.csv"
     if not path.exists():
         return {}

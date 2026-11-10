@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.database.loader.people import _load_donor_linked_csv
@@ -73,7 +74,7 @@ def load_leadership(cur: Any) -> None:
     """Load leaders and their committee memberships."""
     committees = committee_lookup(cur)
 
-    def validate_leader_committees(rows):
+    def validate_leader_committees(rows: pd.DataFrame) -> None:
         """Check every leader committee before inserting rows."""
         for _, row in rows.iterrows():
             leader_committee_ids(
@@ -82,7 +83,7 @@ def load_leadership(cur: Any) -> None:
                 (row.get("leader_name") or "").strip(),
             )
 
-    def insert_leader(cur, row, donor_id):
+    def insert_leader(cur: Any, row: pd.Series, donor_id: int) -> None:
         """Save the leader and replace its committee links."""
         committee_ids = leader_committee_ids(
             row.get("committee_ids"),
@@ -108,7 +109,7 @@ def load_leadership(cur: Any) -> None:
     )
 
 
-def _accomplice_display_order(raw, who: str) -> int:
+def _accomplice_display_order(raw: str | None, who: str) -> int:
     """Read display order, using zero for missing or invalid text."""
     text = (raw or "").strip()
     if not text:
@@ -123,12 +124,12 @@ def load_key_accomplices(cur: Any) -> None:
     """Load curated cards and link them to donors."""
     committees = committee_lookup(cur)
 
-    def optional_text(row, column):
+    def optional_text(row: pd.Series, column: str) -> str | None:
         """Return trimmed text or None."""
         value = (row.get(column) or "").strip()
         return value or None
 
-    def validate_accomplice_committees(rows):
+    def validate_accomplice_committees(rows: pd.DataFrame) -> None:
         """Check every card committee before inserting rows."""
         for _, row in rows.iterrows():
             accomplice_committee_id(
@@ -137,7 +138,7 @@ def load_key_accomplices(cur: Any) -> None:
                 (row.get("accomplice_name") or "").strip(),
             )
 
-    def insert_accomplice(cur, row, donor_id):
+    def insert_accomplice(cur: Any, row: pd.Series, donor_id: int) -> None:
         """Save the card text, committee and display order."""
         who = (row.get("accomplice_name") or "").strip()
         committee_id = accomplice_committee_id(row.get("committee_id"), committees, who)

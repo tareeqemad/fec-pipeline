@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -16,12 +17,12 @@ logger = get_logger(__name__)
 PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
 
 
-def _is_previous_self_employed(name) -> bool:
+def _is_previous_self_employed(name: Any) -> bool:
     """Check the previous self-employment marker."""
     return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
 
 
-def filing_previous(status, name, get_employer_id) -> tuple[int | None, bool]:
+def filing_previous(status: Any, name: Any, get_employer_id: Callable[[str], int | None]) -> tuple[int | None, bool]:
     """Use this retired filing's company or self-employment flag."""
     if status != "retired" or pd.isna(name) or not str(name).strip():
         return None, False

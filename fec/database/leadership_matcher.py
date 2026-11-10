@@ -138,7 +138,7 @@ def employment_address_id(
     )
 
 
-def _coordinate(value) -> float | None:
+def _coordinate(value: Any) -> float | None:
     """Read an optional coordinate, ignoring invalid text."""
     try:
         return float(value) if str(value or "").strip() else None

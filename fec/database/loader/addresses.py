@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -20,7 +21,7 @@ DONOR_ADDRESS_COLUMNS = [
 ]
 
 
-def _blank_to_none(value):
+def _blank_to_none(value: Any) -> Any:
     """Convert missing and whitespace-only values to None."""
     value = to_native(value)
     if isinstance(value, str) and not value.strip():
@@ -72,13 +73,13 @@ def load_employer_locations(frame: pd.DataFrame | None = None) -> list[dict]:
     return locations
 
 
-def _empty_to_none(value):
+def _empty_to_none(value: Any) -> Any:
     """Convert missing values and '' to None; keep whitespace."""
     value = to_native(value)
     return None if value == "" else value
 
 
-def _akey(street_1, street_2, city, state, zip_code):
+def _akey(street_1: Any, street_2: Any, city: Any, state: Any, zip_code: Any) -> tuple:
     """Use '' for missing address parts, matching SQL COALESCE."""
     return tuple(to_native(value) or "" for value in (street_1, street_2, city, state, zip_code))
 
@@ -145,7 +146,16 @@ def _address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
     return address_rows
 
 
-def _add_address(address_rows: dict, street_1, street_2, city, state, zip_code, latitude, longitude) -> None:
+def _add_address(
+    address_rows: dict,
+    street_1: Any,
+    street_2: Any,
+    city: Any,
+    state: Any,
+    zip_code: Any,
+    latitude: float | None,
+    longitude: float | None,
+) -> None:
     """Add an address or fill its missing coordinates."""
     parts = (street_1, street_2, city, state, zip_code)
     key = _akey(*parts)
@@ -188,7 +198,7 @@ def load_donor_addresses(cur: Any, df: pd.DataFrame, donor_ids: dict, address_id
 def link_employer_locations(
     cur: Any,
     address_ids: dict,
-    get_employer_id,
+    get_employer_id: Callable[[str], int | None],
     employer_locations: list[dict] | None = None,
 ) -> None:
     """Link each company to its primary address."""
@@ -213,7 +223,9 @@ def link_employer_locations(
     _prune_orphan_addresses(cur)
 
 
-def _primary_location_rows(locations, address_ids: dict, get_employer_id) -> list[tuple]:
+def _primary_location_rows(
+    locations: list[dict], address_ids: dict, get_employer_id: Callable[[str], int | None]
+) -> list[tuple]:
     """Match each primary office to company and address IDs."""
     employer_rows = []
     for location in locations:
@@ -237,7 +249,7 @@ def _primary_location_rows(locations, address_ids: dict, get_employer_id) -> lis
     return employer_rows
 
 
-def _prune_orphan_addresses(cur) -> None:
+def _prune_orphan_addresses(cur: Any) -> None:
     """Delete addresses with no remaining links."""
     cur.execute("""
         DELETE FROM addresses a

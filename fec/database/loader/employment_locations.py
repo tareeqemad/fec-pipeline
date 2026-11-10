@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import pandas as pd
+
 from fec.database.loader._base import to_native
 from fec.database.loader.addresses import _akey, _employer_locations
 from fec.database.loader.locations import select_location
@@ -26,11 +30,11 @@ def _location_index(
 
 
 def _employment_address_id(
-    row,
-    employer_name,
+    row: pd.Series,
+    employer_name: Any,
     locations: dict,
     address_ids: dict,
-):
+) -> int | None:
     """Choose a company office or the self-employed donor address."""
     status = str(to_native(row.get("employer_status")) or "")
 

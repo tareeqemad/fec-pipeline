@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -18,13 +19,13 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-def _person_value(row, field: str) -> str:
+def _person_value(row: pd.Series, field: str) -> str:
     """Read a field from either roster format."""
     value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
     return value.strip()
 
 
-def _person_identity(row) -> tuple[str, str, str, str, str]:
+def _person_identity(row: pd.Series) -> tuple[str, str, str, str, str]:
     """Read the roster name and place, filling split names."""
     name = _person_value(row, "name")
     first = _person_value(row, "first_name")
@@ -44,7 +45,7 @@ def _person_identity(row) -> tuple[str, str, str, str, str]:
     )
 
 
-def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
+def _boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> bool:
     """Accept true or false; reject missing or invalid values."""
     value = (row.get(field) or "").strip().lower()
     if value == "true":
@@ -54,7 +55,7 @@ def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
     raise ValueError(f"{csv_filename}: {name!r} needs {field}=true or false")
 
 
-def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
+def _coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
     """Read an optional coordinate and warn about invalid text."""
     raw = (row.get(field) or "").strip()
     if not raw:
@@ -72,7 +73,7 @@ def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
         return None
 
 
-def _upsert_image(cur: Any, row, donor_id: int) -> None:
+def _upsert_image(cur: Any, row: pd.Series, donor_id: int) -> None:
     """Save the donor image when a path is provided."""
     image_path = (row.get("image_path") or "").strip()
     if not image_path:
@@ -86,7 +87,7 @@ def _upsert_image(cur: Any, row, donor_id: int) -> None:
 
 def _upsert_address(
     cur: Any,
-    row,
+    row: pd.Series,
     donor_id: int,
     csv_filename: str,
     name: str,
@@ -115,8 +116,8 @@ def _load_donor_linked_csv(
     cur: Any,
     csv_filename: str,
     table: str,
-    insert_row,
-    validate_rows=None,
+    insert_row: Callable[[Any, pd.Series, int], None],
+    validate_rows: Callable[[pd.DataFrame], None] | None = None,
 ) -> None:
     """Validate and load the roster, linking rows to donors."""
     csv_path = REFERENCE_DIR / csv_filename
@@ -139,7 +140,13 @@ def _load_donor_linked_csv(
         logger.warning("WARNING: %s has %s rows without a name; skipped", csv_path.name, skipped)
 
 
-def _load_person(cur, row, csv_filename: str, locations, insert_row) -> bool:
+def _load_person(
+    cur: Any,
+    row: pd.Series,
+    csv_filename: str,
+    locations: dict[str, dict],
+    insert_row: Callable[[Any, pd.Series, int], None],
+) -> bool:
     """Save one roster donor; False for a row without a name."""
     name, first, last, city, state = _person_identity(row)
     if not name:

@@ -22,7 +22,9 @@ REF_TABLES = [
 ]
 
 
-def _read_reference_rows(path: Path, table: str, required: list[str], optional: list[str]):
+def _read_reference_rows(
+    path: Path, table: str, required: list[str], optional: list[str]
+) -> tuple[list[str], list[tuple]]:
     """Read reference values and reject missing required columns or cells."""
     frame = pd.read_csv(path, dtype=str, keep_default_na=False)
     columns = [column for column in required + optional if column in frame.columns]

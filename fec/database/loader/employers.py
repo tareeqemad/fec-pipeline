@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -32,13 +33,13 @@ EMPLOYMENT_KEY_COLUMNS = (
 
 
 def employment_key(
-    donor_id,
-    employer_id,
-    occupation,
-    employer_status,
-    previous_employer_id=None,
-    previous_self_employed=False,
-    occupation_category_id=None,
+    donor_id: Any,
+    employer_id: Any,
+    occupation: Any,
+    employer_status: Any,
+    previous_employer_id: Any = None,
+    previous_self_employed: bool = False,
+    occupation_category_id: Any = None,
 ) -> tuple:
     """Build the seven-field employment key with None for missing values."""
     employer_id = to_native(employer_id)
@@ -56,7 +57,13 @@ def employment_key(
 
 
 def filing_employment_key(
-    donor_id, employer_id, occupation, employer_status, previous_employer, occupation_category_id, get_employer_id
+    donor_id: Any,
+    employer_id: int | None,
+    occupation: Any,
+    employer_status: Any,
+    previous_employer: Any,
+    occupation_category_id: Any,
+    get_employer_id: Callable[[str], int | None],
 ) -> tuple:
     """Build an employment key from this filing only."""
     previous_employer_id, previous_self_employed = filing_previous(
@@ -91,10 +98,10 @@ def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
     ).drop_duplicates(keys, keep="first")
 
 
-def _make_employer_resolver(employer_ids: dict):
+def _make_employer_resolver(employer_ids: dict) -> Callable[[Any], int | None]:
     """Create an exact company-name lookup."""
 
-    def get_employer_id(name):
+    def get_employer_id(name: Any) -> int | None:
         """Reject non-company values and find the exact company name."""
         if pd.isna(name):
             return None
@@ -124,7 +131,7 @@ def load_employments(
     df: pd.DataFrame,
     donor_ids: dict,
     occupation_category_ids: dict,
-    get_employer_id,
+    get_employer_id: Callable[[str], int | None],
     address_ids: dict | None = None,
     employer_locations: list[dict] | None = None,
 ) -> dict:
@@ -155,7 +162,7 @@ def _employment_rows(
     df: pd.DataFrame,
     donor_ids: dict,
     occupation_category_ids: dict,
-    get_employer_id,
+    get_employer_id: Callable[[str], int | None],
     address_ids: dict | None,
     employer_locations: list[dict] | None,
 ) -> list[tuple]:
@@ -222,7 +229,9 @@ def _employment_rows(
     return employment_rows
 
 
-def _current_employer(status, employer, donor_key, get_employer_id):
+def _current_employer(
+    status: str | None, employer: Any, donor_key: str, get_employer_id: Callable[[str], int | None]
+) -> tuple[str, int | None]:
     """Find the filing company and require its database ID."""
     employer_name = current_employer_name(status, employer)
     if status == "active" and not employer_name:
@@ -233,7 +242,7 @@ def _current_employer(status, employer, donor_key, get_employer_id):
     return employer_name, employer_id
 
 
-def _employment_ids(cur) -> dict:
+def _employment_ids(cur: Any) -> dict:
     """Map each employment key to its database ID."""
     cur.execute("SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS) + " FROM donor_employments")
     return {employment_key(*row[1:]): row[0] for row in cur.fetchall()}
