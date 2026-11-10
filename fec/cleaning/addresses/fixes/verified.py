@@ -1,6 +1,8 @@
-"""Exact, externally verified address corrections."""
-import csv
+"""Exact, externally verified address corrections (address_rules.csv).
 
+A rule matches a filed street, state and ZIP, optionally one unit or one
+filing, and replaces the cells it fills; [CLEAR] empties the street or unit.
+"""
 import pandas as pd
 
 from fec.env import ADDRESS_RULES_CSV
@@ -9,132 +11,77 @@ from fec.log import get_logger
 
 logger = get_logger(__name__)
 
-S1, S2 = "contributor_street_1", "contributor_street_2"
-CITY, STATE, ZIP = "contributor_city", "contributor_state", "contributor_zip"
-# A rule street or unit of [CLEAR] removes the filed value.
-CLEAR_UNIT = "[CLEAR]"
+CLEAR = "[CLEAR]"
+MATCH = ("match_street", "match_state", "match_zip", "match_unit", "match_sub_id")
+FIXED = {
+    "street": "contributor_street_1", "unit": "contributor_street_2", "city": "contributor_city",
+    "state": "contributor_state", "zip": "contributor_zip",
+}
+# What a city correction saved by geocoding fills, and nothing else.
+CITY_RULE = ("match_street", "match_state", "match_zip", "match_sub_id", "street", "city", "source")
 
 
-# apply exact, externally verified address corrections to the frame
-def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool | None = None,
-                                  warn_unused: bool = False) -> int:
-    """Apply exact, externally verified address corrections."""
-    rules = _read_address_rules()
-    changed = 0
-    unused = []
-    df[S2] = df[S2].astype(object)
-    for (street, state, zipcode, match_unit, match_sub_id), fixed in rules.items():
-        fixed_street, fixed_unit, fixed_city, fixed_state, fixed_zip, source = fixed
-        # A rule that only sets the city also runs after the alignment
-        # steps, which may have changed the city again.
-        city_rule = (fixed_street == street and fixed_city is not None
-                     and fixed_unit is None and fixed_state is None and fixed_zip is None)
-        if city_only and not city_rule:
-            continue
-        mask = (
-            df[S1].fillna("").eq(street)
-            & df[STATE].fillna("").eq(state)
-            & df[ZIP].fillna("").eq(zipcode)
-        )
-        if match_unit is not None:
-            # Match the normalized unit before applying any part.
-            mask &= df[S2].fillna("").eq(match_unit)
-        if match_sub_id is not None:
-            mask &= df["sub_id"].fillna("").astype(str).str.strip().eq(match_sub_id)
-        if not mask.any():
-            unused.append(f"{street} | {state} | {zipcode}")
-            continue
-        if fixed_street == CLEAR_UNIT:
-            # The street field held no street (a company or a city name).
-            row_changed = mask & df[S1].notna()
-            df.loc[mask, S1] = pd.NA
-        else:
-            row_changed = mask & df[S1].fillna("").ne(fixed_street)
-            df.loc[mask, S1] = fixed_street
-        if fixed_unit == CLEAR_UNIT:
-            row_changed |= mask & df[S2].fillna("").ne("")
-            df.loc[mask, S2] = pd.NA
-        elif fixed_unit is not None:
-            row_changed |= mask & df[S2].fillna("").ne(fixed_unit)
-            df.loc[mask, S2] = fixed_unit
-        if fixed_city is not None:
-            row_changed |= mask & df[CITY].fillna("").ne(fixed_city)
-            df.loc[mask, CITY] = fixed_city
-        if fixed_state is not None:
-            row_changed |= mask & df[STATE].fillna("").ne(fixed_state)
-            df.loc[mask, STATE] = fixed_state
-        if fixed_zip is not None:
-            row_changed |= mask & df[ZIP].fillna("").ne(fixed_zip)
-            df.loc[mask, ZIP] = fixed_zip
-        changed += int(row_changed.sum())
-    # A rule that matches nothing is mistyped or no longer needed.
-    if warn_unused and unused:
-        logger.warning("WARNING: %s address rules matched no filing: %s",
-                       len(unused), "; ".join(unused[:5]))
-    return changed
-
-
-# load the address rules CSV into a lookup dict
-def _read_address_rules() -> dict[tuple[str, str, str, str | None, str | None], tuple]:
-    """Read exact corrections; unit clearing requires an explicit unit match."""
-    if not ADDRESS_RULES_CSV.exists():
-        raise FileNotFoundError(f"Missing address rules: {ADDRESS_RULES_CSV}")
-
-    rules = {}
-    fixed_fields = ("street", "unit", "city", "state", "zip")
-    with ADDRESS_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
-        for number, row in enumerate(csv.DictReader(handle), start=2):
-            address = tuple(
-                (row.get(field) or "").strip().upper()
-                for field in ("match_street", "match_state", "match_zip")
-            )
-            fixed = tuple((row.get(field) or "").strip() or None for field in fixed_fields)
-            source = (row.get("source") or "").strip()
-            match_unit = (row.get("match_unit") or "").strip().upper() or None
-            match_sub_id = (row.get("match_sub_id") or "").strip() or None
-            # A blank match_zip matches filings with no ZIP (a foreign address).
-            if not address[0] or not address[1] or not fixed[0] or not source:
-                raise ValueError(f"Invalid address rule on row {number}")
-            if fixed[1] == CLEAR_UNIT and match_unit is None:
-                raise ValueError(
-                    f"Invalid address rule on row {number}: [CLEAR] requires match_unit"
-                )
-            key = address + (match_unit, match_sub_id)
-            if key in rules:
-                raise ValueError(f"Duplicate address rule on row {number}: {key}")
-            rules[key] = fixed + (source,)
+def _read_rules() -> pd.DataFrame:
+    """The rules as text; a blank match_zip matches filings with no ZIP (a foreign address)."""
+    rules = pd.read_csv(ADDRESS_RULES_CSV, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    rules = rules.apply(lambda column: column.str.strip())
+    rules[list(MATCH[:4])] = rules[list(MATCH[:4])].apply(lambda column: column.str.upper())
+    invalid = (rules[["match_street", "match_state", "street", "source"]].eq("").any(axis=1)
+               | (rules["unit"].eq(CLEAR) & rules["match_unit"].eq("")) | rules.duplicated(list(MATCH)))
+    if invalid.any():
+        raise ValueError(f"Invalid or duplicate address rule on row(s) {[row + 2 for row in rules.index[invalid]]}")
     return rules
 
 
-# Save city-only corrections for filings with verified addresses.
+def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool = False, warn_unused: bool = False) -> int:
+    """Apply the rules in file order and return the filings changed.
+
+    A rule that only sets the city also runs after the alignment steps
+    (city_only), which may have changed the city again.
+    """
+    rules = _read_rules()
+    if city_only:
+        rules = rules[rules["street"].str.upper().eq(rules["match_street"]) & rules["city"].ne("")
+                      & rules[["unit", "state", "zip"]].eq("").all(axis=1)]
+    columns = list(FIXED.values())
+    df[columns[1]] = df[columns[1]].astype(object)
+    before = df[columns].fillna("")
+    sub_ids = df["sub_id"].fillna("").astype(str).str.strip()
+    unused = []
+    for rule in rules.itertuples(index=False):
+        mask = (df[columns[0]].fillna("").eq(rule.match_street) & df[columns[3]].fillna("").eq(rule.match_state)
+                & df[columns[4]].fillna("").eq(rule.match_zip))
+        if rule.match_unit:
+            mask &= df[columns[1]].fillna("").eq(rule.match_unit)
+        if rule.match_sub_id:
+            mask &= sub_ids.eq(rule.match_sub_id)
+        if not mask.any():
+            unused.append(f"{rule.match_street} | {rule.match_state} | {rule.match_zip}")
+        for field, column in FIXED.items():
+            value = getattr(rule, field)
+            if value:
+                df.loc[mask, column] = pd.NA if value == CLEAR else value
+    # A rule that matches nothing is mistyped or no longer needed.
+    if warn_unused and unused:
+        logger.warning("WARNING: %s address rules matched no filing: %s", len(unused), "; ".join(unused[:5]))
+    return int(df[columns].fillna("").ne(before).any(axis=1).sum())
+
+
 def save_verified_city_corrections(rows: list[dict]) -> int:
+    """Add city rules for single filings that have no rule yet; return how many were added."""
     if not rows:
         return 0
-    with ADDRESS_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        columns = reader.fieldnames or []
-        existing = list(reader)
-    required = {"match_street", "match_state", "match_zip", "match_sub_id", "street", "city", "source"}
-    if not required.issubset(columns):
-        raise ValueError("Address rules are missing columns for city corrections")
-    match_fields = ("match_street", "match_state", "match_zip", "match_sub_id")
-    occupied = {tuple((row.get(field) or "").strip().upper() for field in match_fields)
-                for row in existing}
-
-    added = []
-    for row in rows:
-        candidate = {field: str(row.get(field) or "").strip() for field in columns}
-        if (any(not candidate[field] for field in required)
-                or any(str(value or "").strip() for field, value in row.items() if field not in required)
-                or candidate["street"].upper() != candidate["match_street"].upper()
-                or not candidate["source"].startswith(("https://", "http://"))):
-            raise ValueError("A verified city correction needs an exact filing and unchanged street")
-        for field in required - {"match_sub_id", "source"}:
-            candidate[field] = candidate[field].upper()
-        key = tuple(candidate[field].upper() for field in match_fields)
-        if key not in occupied and (*key[:3], "") not in occupied:
-            added.append(candidate)
-            occupied.add(key)
-    if added:
-        write_csv_atomic(pd.DataFrame(existing + added, columns=columns), ADDRESS_RULES_CSV, index=False)
-    return len(added)
+    rules = pd.read_csv(ADDRESS_RULES_CSV, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    new = pd.DataFrame(rows).fillna("").astype(str).apply(lambda column: column.str.strip())
+    upper = [field for field in CITY_RULE if field not in ("match_sub_id", "source")]
+    new[upper] = new[upper].apply(lambda column: column.str.upper())
+    if (set(new.columns) != set(CITY_RULE) or new.eq("").any(axis=None) or new["street"].ne(new["match_street"]).any()
+            or not new["source"].str.startswith(("https://", "http://")).all()):
+        raise ValueError("A verified city correction needs an exact filing and unchanged street")
+    key = ["match_street", "match_state", "match_zip", "match_sub_id"]
+    taken = set(map(tuple, rules[key].apply(lambda column: column.str.strip().str.upper()).to_numpy()))
+    new = new.drop_duplicates(key)
+    new = new[[tuple(row) not in taken and (*row[:3], "") not in taken for row in new[key].to_numpy()]]
+    if len(new):
+        write_csv_atomic(pd.concat([rules, new.reindex(columns=rules.columns, fill_value="")]), ADDRESS_RULES_CSV, index=False)
+    return len(new)
