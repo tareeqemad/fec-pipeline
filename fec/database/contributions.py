@@ -44,9 +44,7 @@ def _map_address_ids(rows: pd.DataFrame, address_ids: dict) -> None:
     addresses = rows[DONOR_ADDRESS_COLUMNS].fillna("").astype(str)
     rows["_address_id"] = [
         address_ids.get((int(donor_id), *address))
-        for donor_id, address in zip(
-            rows["_donor_id"], addresses.itertuples(index=False, name=None)
-        )
+        for donor_id, address in zip(rows["_donor_id"], addresses.itertuples(index=False, name=None))
     ]
 
 
@@ -57,9 +55,7 @@ def map_employment_ids(
     occupation_category_ids: dict,
 ) -> None:
     """Match each filing to its own employment row."""
-    rows["_employment_id"] = _find_filing_employment_ids(
-        rows, employment_ids, get_employer_id, occupation_category_ids
-    )
+    rows["_employment_id"] = _find_filing_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids)
     _require_individual_employments(rows)
 
 
@@ -70,16 +66,11 @@ def _find_filing_employment_ids(
     occupation_category_ids: dict,
 ) -> list:
     """Look up the employment ID of each filing, None when unmatched."""
-    statuses_and_employers = rows[["employer_status", "contributor_employer"]].itertuples(
-        index=False
-    )
+    statuses_and_employers = rows[["employer_status", "contributor_employer"]].itertuples(index=False)
     employer_ids = [
-        get_employer_id(current_employer_name(status, employer))
-        for status, employer in statuses_and_employers
+        get_employer_id(current_employer_name(status, employer)) for status, employer in statuses_and_employers
     ]
-    previous_names = (
-        rows["previous_employer"] if "previous_employer" in rows else [None] * len(rows)
-    )
+    previous_names = rows["previous_employer"] if "previous_employer" in rows else [None] * len(rows)
     filings = zip(
         rows["_donor_id"],
         employer_ids,

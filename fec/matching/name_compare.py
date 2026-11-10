@@ -15,8 +15,7 @@ NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V", "ESQ", "MD", "PHD", "DDS", 
 
 # First names that look alike but name different people (DAN / DANA).
 _BLOCKED_FIRST_PAIRS = {
-    frozenset((row["name_a"], row["name_b"]))
-    for row in read_rows(CONFIG_DIR / "different_first_names.csv")
+    frozenset((row["name_a"], row["name_b"])) for row in read_rows(CONFIG_DIR / "different_first_names.csv")
 }
 
 
@@ -58,9 +57,7 @@ def extract_generational_suffix(name: str) -> str:
     last, comma, first = text.partition(",")
     parts = (last, first) if comma else (text,)
     found = {
-        tokens[-1]
-        for part in parts
-        if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in GENERATION_SUFFIXES
+        tokens[-1] for part in parts if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in GENERATION_SUFFIXES
     }
     return next(iter(found)) if len(found) == 1 else ""
 
@@ -131,9 +128,7 @@ def normalize_committee_name(name: str) -> str:
     return f"{org}|{first}"
 
 
-def first_names_may_match(
-    norm_name_a: str, norm_name_b: str, surname_firsts: set[str] | None = None
-) -> bool:
+def first_names_may_match(norm_name_a: str, norm_name_b: str, surname_firsts: set[str] | None = None) -> bool:
     """Tell whether two names share a surname with nickname, near-spelling or truncated first names.
 
     surname_firsts holds every first name filed with this surname: a short
@@ -170,9 +165,7 @@ def first_names_may_match(
         return True
     # Truncated further: TIM / TIMOTHY, BRAD / BRADLEY, ALLI / ALLISON.
     longer = {
-        NICKNAME_MAP.get(name, name)
-        for name in (surname_firsts or {long})
-        if name != short and name.startswith(short)
+        NICKNAME_MAP.get(name, name) for name in (surname_firsts or {long}) if name != short and name.startswith(short)
     }
     return len(longer) == 1
 

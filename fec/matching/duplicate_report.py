@@ -100,9 +100,7 @@ def _describe_donor(side: str, key: str, donors: pd.DataFrame) -> dict:
     }
 
 
-def _build_review_row(
-    reason: str, zip_code: str, last: str, key_a: str, key_b: str, donors: pd.DataFrame
-) -> dict:
+def _build_review_row(reason: str, zip_code: str, last: str, key_a: str, key_b: str, donors: pd.DataFrame) -> dict:
     """Return the review row of one donor pair."""
     row = {"reason": reason, "zip": zip_code, "last_name": last}
     row |= _describe_donor("a", key_a, donors)
@@ -112,14 +110,10 @@ def _build_review_row(
     return row
 
 
-def _find_review_rows(
-    people: pd.DataFrame, donors: pd.DataFrame, held: set, identities: dict
-) -> list[dict]:
+def _find_review_rows(people: pd.DataFrame, donors: pd.DataFrame, held: set, identities: dict) -> list[dict]:
     """Pair donors of one ZIP and surname whose first names are related."""
     rows, seen = [], set()
-    places = people.loc[
-        people["contributor_zip"].ne(""), ["donor_key", "contributor_zip"]
-    ].drop_duplicates()
+    places = people.loc[people["contributor_zip"].ne(""), ["donor_key", "contributor_zip"]].drop_duplicates()
     places["last"] = places["donor_key"].map(donors["last"])
     named_places = places[places["last"].ne("")]
     for (zip_code, last), group in named_places.groupby(["contributor_zip", "last"]):

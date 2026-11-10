@@ -35,9 +35,7 @@ def _read_reference_rows(
     frame = frame[columns].replace("", None).dropna(how="all")
     for column in required:
         if column not in frame.columns:
-            raise ValueError(
-                f"{path.name}: required column {column!r} missing (NOT NULL in {table})"
-            )
+            raise ValueError(f"{path.name}: required column {column!r} missing (NOT NULL in {table})")
         missing = frame[column].isna()
         if missing.any():
             lines = [int(index) + 2 for index in frame.index[missing][:10]]
@@ -48,8 +46,7 @@ def _read_reference_rows(
             )
 
     rows = [
-        tuple(None if pd.isna(value) else value for value in row)
-        for row in frame.itertuples(index=False, name=None)
+        tuple(None if pd.isna(value) else value for value in row) for row in frame.itertuples(index=False, name=None)
     ]
     return columns, rows
 

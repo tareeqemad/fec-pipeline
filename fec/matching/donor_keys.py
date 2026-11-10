@@ -20,23 +20,17 @@ from fec.matching.name_compare import normalize_committee_name
 logger = get_logger(__name__)
 
 
-def individual_record_id(
-    name: object, city: object, state: object, suffix: object = "", zip5: object = ""
-) -> str:
+def individual_record_id(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
     """Individual record ID for matching; ZIP5 only for split names."""
     # Missing cells must not become literal "nan".
-    name, city, state, suffix, zip5 = (
-        "" if pd.isna(value) else value for value in (name, city, state, suffix, zip5)
-    )
+    name, city, state, suffix, zip5 = ("" if pd.isna(value) else value for value in (name, city, state, suffix, zip5))
     base = f"{name or ''}|{city or ''}|{state or ''}"
     if zip5:
         base = f"{base}|@{zip5}"
     return f"{base}|{suffix}" if suffix else base
 
 
-def individual_donor_key(
-    name: object, city: object, state: object, suffix: object = "", zip5: object = ""
-) -> str:
+def individual_donor_key(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
     """Canonical donor_key; the roster loader (fec/database/roster_people.py) finds donors by it."""
     record_id = individual_record_id(name, city, state, suffix, zip5)
     return hashlib.sha256(record_id.encode()).hexdigest()[:12]
@@ -112,13 +106,9 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
         return 0
     # A rule naming two keys that are both gone merges nobody.
     present = set(df["donor_key"])
-    missing = sorted(
-        drop for drop, keep in KEY_MERGES.items() if drop not in present and keep not in present
-    )
+    missing = sorted(drop for drop, keep in KEY_MERGES.items() if drop not in present and keep not in present)
     if missing:
-        logger.warning(
-            "WARNING: %s donor merge rules found no donor: %s", len(missing), ", ".join(missing[:5])
-        )
+        logger.warning("WARNING: %s donor merge rules found no donor: %s", len(missing), ", ".join(missing[:5]))
 
     merged = df["donor_key"].isin(KEY_MERGES)
     merged_count = int(merged.sum())
@@ -170,6 +160,4 @@ def validate_separations(df: pd.DataFrame) -> None:
         for person_a, person_b in combinations(people, 2):
             if identities_must_stay_separate(person_a, person_b):
                 pair = f"{person_a} / {person_b}"
-                raise ValueError(
-                    f"Donor identity rules joined a separation pair under {donor_key}: {pair}"
-                )
+                raise ValueError(f"Donor identity rules joined a separation pair under {donor_key}: {pair}")

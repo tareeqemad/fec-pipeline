@@ -47,13 +47,7 @@ def _count_runner_up(counts: pd.Series) -> int:
 
 def _find_most_filed(values: pd.Series, key: pd.Series, *, longest: bool = False) -> pd.DataFrame:
     """Per key: the value filed most (or the longest), how often, and how many values there are."""
-    counts = (
-        pd.DataFrame({"key": key, "value": values})
-        .groupby(["key", "value"])
-        .size()
-        .rename("n")
-        .reset_index()
-    )
+    counts = pd.DataFrame({"key": key, "value": values}).groupby(["key", "value"]).size().rename("n").reset_index()
     counts["length"] = counts["value"].str.len()
     # 1017 GREENTREE DR over 10 17 GREENTREE DR
     counts["split_number"] = counts["value"].str.match(r"^\d+ \d+\b")
@@ -65,9 +59,7 @@ def _find_most_filed(values: pd.Series, key: pd.Series, *, longest: bool = False
     return best
 
 
-def unify(
-    df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Series, *, longest: bool = False
-) -> None:
+def unify(df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Series, *, longest: bool = False) -> None:
     """Filings sharing a key take the spelling the donor files most."""
     values = _read_text(df, column)
     best = _find_most_filed(values[eligible], key[eligible], longest=longest)
@@ -80,11 +72,7 @@ def unify(
 def zip_place(zipcode: str) -> tuple[str, frozenset]:
     """Return the state of a ZIP and the cities USPS names for it."""
     found = zipcodes.matching(zipcode) if len(zipcode) == 5 and zipcode.isdigit() else []
-    cities = {
-        name.upper()
-        for record in found
-        for name in (record["city"], *record.get("acceptable_cities", []))
-    }
+    cities = {name.upper() for record in found for name in (record["city"], *record.get("acceptable_cities", []))}
     return (found[0]["state"] if found else ""), frozenset(cities)
 
 
@@ -116,19 +104,14 @@ def settle_state_and_zip(df: pd.DataFrame) -> None:
     place = zips.map(zip_place)
     zip_state = place.str[0]
     conflict = zips.ne("") & states.ne("") & zip_state.ne("") & zip_state.ne(states)
-    city_fits = pd.Series(
-        [city in names for city, (_, names) in zip(cities, place)], index=df.index
-    )
+    city_fits = pd.Series([city in names for city, (_, names) in zip(cities, place)], index=df.index)
     df.loc[conflict & city_fits, "contributor_state"] = zip_state[conflict & city_fits]
     df.loc[conflict & ~city_fits, "contributor_zip"] = np.nan
 
 
 def _read_long_types(tokens: list[str]) -> list[str]:
     """Return the words of a street with a rare street type written in full."""
-    return [
-        token if token in _TYPE_TOKENS else LONGHAND_STREET_TYPES.get(token, token)
-        for token in tokens
-    ]
+    return [token if token in _TYPE_TOKENS else LONGHAND_STREET_TYPES.get(token, token) for token in tokens]
 
 
 def _join_bare_words(tokens: list[str]) -> str:
@@ -237,9 +220,7 @@ def _set_city_most_filed(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) 
     best = _find_most_filed(cities[named], key[named])
     top_city, top_count = key.map(best["value"]), key.map(best["n"])
     filed = pd.Series([counts.get(pair, 0) for pair in zip(key, cities)], index=df.index)
-    fewer = (
-        eligible & top_city.notna() & cities.ne(top_city) & (cities.eq("") | (filed < top_count))
-    )
+    fewer = eligible & top_city.notna() & cities.ne(top_city) & (cities.eq("") | (filed < top_count))
     # a city nobody else files with that ZIP is no better than the one filed: it stays
     pairs = pd.DataFrame({"key": key, "city": cities, "zip": zips})[cities.ne("") & zips.ne("")]
     everyone, own = (
@@ -265,12 +246,7 @@ def _fill_blank(df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Seri
         known &= values.str.fullmatch(r"\d{5}") & values.ne("00000")
     choices = pd.DataFrame({"key": key[known], "value": values[known]}).drop_duplicates()
     choices = choices[~choices["key"].duplicated(keep=False)].set_index("key")["value"]
-    fill = (
-        eligible
-        & values.eq("")
-        & key.map(choices).notna()
-        & ~key.str.contains("\x00\x00|\x00$", regex=True)
-    )
+    fill = eligible & values.eq("") & key.map(choices).notna() & ~key.str.contains("\x00\x00|\x00$", regex=True)
     df.loc[fill, column] = key.map(choices)[fill]
 
 

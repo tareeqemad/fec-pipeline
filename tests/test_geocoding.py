@@ -41,9 +41,9 @@ def test_openstreetmap_answer_prevents_a_census_request(monkeypatch):
         "nominatim",
         lambda *_args: calls.append("osm") or point(35.0466, -85.3072, "US"),
     )
-    assert geocoding_pipeline._geocode_one(
-        "1 FOUNTAIN SQUARE", "CHATTANOOGA", "TN", "37402"
-    ) == point(35.0466, -85.3072, "US", source="nominatim")
+    assert geocoding_pipeline._geocode_one("1 FOUNTAIN SQUARE", "CHATTANOOGA", "TN", "37402") == point(
+        35.0466, -85.3072, "US", source="nominatim"
+    )
     assert calls == ["osm"]
 
 
@@ -60,9 +60,7 @@ def test_rejected_openstreetmap_answer_tries_census_with_same_address(monkeypatc
         "census",
         lambda *args: calls.append(("census", args)) or point(41.8814, -87.6324, "US"),
     )
-    assert geocoding_pipeline._geocode_one(*address) == point(
-        41.8814, -87.6324, "US", source="census"
-    )
+    assert geocoding_pipeline._geocode_one(*address) == point(41.8814, -87.6324, "US", source="census")
     assert calls == [("osm", address), ("census", address)]
 
 
@@ -74,6 +72,4 @@ def test_cache_is_keyed_by_the_cleaned_address(tmp_path):
     assert cache.get("2 N RIVERSIDE PLZ|CHICAGO|IL|60606")["lat"] == 41.88
     assert cache.get("2 N RIVERSIDE PLZ|CHICAGO|IL|60601") is None
     assert not cache.needs_retry("2 N RIVERSIDE PLZ|CHICAGO|IL|60606")
-    assert cache.needs_retry(
-        "2 N RIVERSIDE PLAZA|CHICAGO|IL|60606"
-    )  # an earlier spelling is another key
+    assert cache.needs_retry("2 N RIVERSIDE PLAZA|CHICAGO|IL|60606")  # an earlier spelling is another key

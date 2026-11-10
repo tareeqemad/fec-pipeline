@@ -53,9 +53,7 @@ def _merge(context: MatchContext, profile_id_a: str, profile_id_b: str, score: i
     if (
         score < MERGE_THRESHOLD
         or not _can_merge_suffixes(context, profile_id_a, profile_id_b)
-        or identities_must_stay_separate(
-            context.profiles[profile_id_a], context.profiles[profile_id_b]
-        )
+        or identities_must_stay_separate(context.profiles[profile_id_a], context.profiles[profile_id_b])
     ):
         return
     root_a = context.union_find.find(profile_id_a)
@@ -159,8 +157,7 @@ def score_first_name_variants(context: MatchContext) -> None:
     """First-name variants only with a shared street, ZIP or employer."""
     buckets = _group_norms_by_last_name(context.name_groups)
     first_names_by_surname = {
-        last: {norm_name.split("|", 1)[1] for norm_name in norm_names}
-        for last, norm_names in buckets.items()
+        last: {norm_name.split("|", 1)[1] for norm_name in norm_names} for last, norm_names in buckets.items()
     }
 
     def are_candidates(name_a: str, name_b: str) -> bool:
@@ -168,9 +165,7 @@ def score_first_name_variants(context: MatchContext) -> None:
         surname = name_a.split("|", 1)[0]
         return first_names_may_match(name_a, name_b, first_names_by_surname[surname])
 
-    _score_bucket_pairs(
-        context, buckets, are_candidates, _accept_any_profiles, _adjust_cross_name_score
-    )
+    _score_bucket_pairs(context, buckets, are_candidates, _accept_any_profiles, _adjust_cross_name_score)
 
 
 def _group_norms_by_first_name(name_groups: dict) -> dict:
@@ -262,14 +257,10 @@ def _index_superset_names(name_groups: dict) -> tuple[dict, dict, dict]:
         if "|" not in norm_name:
             continue
         last, _, first = norm_name.partition("|")
-        name_tokens = frozenset(
-            token for token in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(token) >= 2
-        )
+        name_tokens = frozenset(token for token in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(token) >= 2)
         if len(name_tokens) >= 2:
             tokens_of[norm_name] = name_tokens
-            first_tokens_of[norm_name] = frozenset(
-                token for token in _TOKEN_SPLIT_RE.split(first) if len(token) >= 2
-            )
+            first_tokens_of[norm_name] = frozenset(token for token in _TOKEN_SPLIT_RE.split(first) if len(token) >= 2)
 
     names_with_token: dict = defaultdict(set)
     for norm_name, name_tokens in tokens_of.items():
@@ -316,9 +307,7 @@ def score_compound_surnames(context: MatchContext) -> None:
     tokens_of, first_tokens_of, names_with_token = _index_superset_names(context.name_groups)
     for short_name, short_tokens in tokens_of.items():
         for long_name in _find_superset_candidates(short_tokens, names_with_token):
-            if not _is_valid_superset(
-                short_name, long_name, short_tokens, tokens_of, first_tokens_of
-            ):
+            if not _is_valid_superset(short_name, long_name, short_tokens, tokens_of, first_tokens_of):
                 continue
             _score_group_pairs(
                 context,

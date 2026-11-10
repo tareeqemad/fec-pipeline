@@ -1,4 +1,14 @@
-"""Resolve each filing's employer status and previous employer, then write the cleaned CSV."""
+"""Resolve each filing's employer status and previous employer, then write the cleaned CSV.
+
+Run: python resolve.py --apply
+
+Steps, in order (main):
+    1. _load_data              data/output/contributions_cleaned.csv
+    2. resolve_employers
+       a. classify_employer_statuses   active, retired, self-employed, not employed, missing
+       b. previous_employers           for donors whose latest filing says retired (previous_employer.py)
+    3. _write_results          the quality checks, then the CSV and data/reports/quality_gates.json
+"""
 
 import argparse
 import os

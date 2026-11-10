@@ -141,9 +141,7 @@ COMMITTEE_NAMES = tuple(
 # sub_id -> hold group, and (name, street, zip5) -> hold group for later filings too.
 HELD_FILINGS = {row["sub_id"].strip(): row["group"].strip() for row in _RULES["hold"]}
 
-HELD_ADDRESSES = {
-    _build_held_address_key(row): row["group"].strip() for row in _RULES["hold_address"]
-}
+HELD_ADDRESSES = {_build_held_address_key(row): row["group"].strip() for row in _RULES["hold_address"]}
 
 NAME_MERGES = defaultdict(tuple)
 

@@ -16,9 +16,7 @@ logger = get_logger(__name__)
 
 def committee_ids_by_short_name(cur: Any) -> dict[str, int]:
     """Map committee short names to database IDs."""
-    cur.execute(
-        "SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL"
-    )
+    cur.execute("SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL")
     return dict(cur.fetchall())
 
 

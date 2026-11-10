@@ -214,9 +214,7 @@ def _build_employment_rows(
     return employment_rows
 
 
-def _pick_office_employer(
-    row: pd.Series, status: Any, employer_name: str, employer_id: int | None
-) -> Any:
+def _pick_office_employer(row: pd.Series, status: Any, employer_name: str, employer_id: int | None) -> Any:
     """Pick the company whose office is linked: current, else a retiree's previous one."""
     if employer_id:
         return employer_name
@@ -263,9 +261,5 @@ def _find_current_employer(
 
 def _read_employment_ids(cur: Any) -> dict:
     """Map each employment key to its database ID."""
-    cur.execute(
-        "SELECT donor_employment_id, "
-        + ", ".join(EMPLOYMENT_KEY_COLUMNS)
-        + " FROM donor_employments"
-    )
+    cur.execute("SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS) + " FROM donor_employments")
     return {employment_key(row[1:]): row[0] for row in cur.fetchall()}

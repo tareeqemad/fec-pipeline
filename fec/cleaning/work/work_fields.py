@@ -75,9 +75,7 @@ _PLACEHOLDER_WORDS = FINAL_JUNK_EMPLOYERS | FINAL_NULL_EMPLOYERS | REFUSAL_EMPLO
 _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 
 # A role, then the company: "PRESIDENT, ACME INC", "CEO AT ACME LLC".
-_ROLE_THEN_COMPANY_RE = re.compile(
-    r"^(?P<role>[A-Z][A-Z .&-]*?)\s*(?:,|/|\bAT\b|\bOF\b| - )\s*(?P<company>.+)$"
-)
+_ROLE_THEN_COMPANY_RE = re.compile(r"^(?P<role>[A-Z][A-Z .&-]*?)\s*(?:,|/|\bAT\b|\bOF\b| - )\s*(?P<company>.+)$")
 
 
 def names_no_employer(text: str, *, also_words: bool = True) -> bool:
@@ -123,10 +121,7 @@ def _clear_boxes_naming_nothing(employer: str, occupation: str) -> tuple[str, st
         occupation = ""
     occupation = re.sub(r"^([A-Z ]+?)\s+\d+$", r"\1", occupation)
     if names_no_employer(employer):
-        if (
-            company_key(occupation) == company_key(employer)
-            and occupation not in CATEGORY_OVERRIDES
-        ):
+        if company_key(occupation) == company_key(employer) and occupation not in CATEGORY_OVERRIDES:
             occupation = ""
         employer = documented_employer_name(employer) or ""
     return employer, occupation
@@ -198,18 +193,12 @@ def _replace_own_name(employer: str, first: str, last: str, legal_form: bool) ->
     first_words = name_words_without_initials(first)
     last_words = name_words_without_initials(last)
     own = first_words | last_words if first_words and last_words else None
-    if (
-        employer not in SKIP_EMPLOYERS
-        and name_words_without_initials(employer) == own
-        and not legal_form
-    ):
+    if employer not in SKIP_EMPLOYERS and name_words_without_initials(employer) == own and not legal_form:
         return "SELF-EMPLOYED"
     return employer
 
 
-def _move_company_out_of_occupation(
-    employer: str, occupation: str, name: str, filings: Filings
-) -> tuple[str, str]:
+def _move_company_out_of_occupation(employer: str, occupation: str, name: str, filings: Filings) -> tuple[str, str]:
     """Move a company out of the occupation box to an open employer; the role stays."""
     level = filings.level(occupation, 2) if occupation else ""
     own_employer = (
@@ -269,14 +258,10 @@ def companies_named(texts: pd.Series) -> pd.Series:
     A status, a job or nothing gives ''.
     """
     filed = pd.Series(texts.dropna().astype(str).unique())
-    spelled = clean_box_text(
-        filed, EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT
-    ).fillna("")
+    spelled = clean_box_text(filed, EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT).fillna("")
     alone = Filings(pd.Series(dtype=str), pd.Series(dtype=str))
     read = (settle_work_pair(text, "", "", "", "", alone)[0] for text in spelled)
-    named = {
-        text: (company if is_real_employer(company) else "") for text, company in zip(filed, read)
-    }
+    named = {text: (company if is_real_employer(company) else "") for text, company in zip(filed, read)}
     return texts.map(named).fillna("")
 
 
@@ -290,14 +275,10 @@ def _read_upper_text(df: pd.DataFrame, rows: pd.Index, column: str) -> pd.Series
     return df.loc[rows, column].fillna("").astype(str).str.strip().str.upper()
 
 
-def read_work(
-    df: pd.DataFrame, people: pd.Series, filed_employers: pd.Series, filed_occupations: pd.Series
-) -> None:
+def read_work(df: pd.DataFrame, people: pd.Series, filed_employers: pd.Series, filed_occupations: pd.Series) -> None:
     """Set the work fields of these people from the employer and occupation they filed."""
     rows = df.index[people]
-    employers = clean_box_text(
-        filed_employers.loc[rows], EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT
-    )
+    employers = clean_box_text(filed_employers.loc[rows], EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT)
     occupations = clean_box_text(filed_occupations.loc[rows], OCCUPATION_NORMALIZE)
     # RETIRED, read in both boxes (see fec.cleaning.work.retired).
     filed = list(zip(employers.fillna("").astype(str), occupations.fillna("").astype(str)))
@@ -319,9 +300,7 @@ def read_work(
         )
     )
     read = {key: settle_work_pair(*key, filings) for key in set(keys)}
-    df.loc[rows, "contributor_employer"] = pd.Series(
-        [read[key][0] or np.nan for key in keys], index=rows, dtype=object
-    )
+    df.loc[rows, "contributor_employer"] = pd.Series([read[key][0] or np.nan for key in keys], index=rows, dtype=object)
     occupation = pd.Series([read[key][1] or np.nan for key in keys], index=rows, dtype=object)
     df.loc[rows, "contributor_occupation"] = occupation
     df.loc[rows, "occupation_category"] = lookup_categories(occupation)

@@ -1,4 +1,13 @@
-"""Find map points for the cleaned addresses: cache, OpenStreetMap, then Census."""
+"""Find map points for the cleaned addresses: cache, OpenStreetMap, then Census.
+
+Run: python geocode.py
+
+Steps, in order (main):
+    1. read_pipeline_csv       data/output/contributions_cleaned.csv
+    2. geocode_addresses       look up each address the cache does not hold (providers.py)
+    3. apply_coordinates       latitude and longitude from the cache; foreign filings stay empty
+    4. _write_output           save the CSV with the coordinates
+"""
 
 import os
 import sys

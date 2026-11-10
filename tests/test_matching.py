@@ -5,9 +5,7 @@ import pandas as pd
 from fec.matching.pipeline import identify_donors
 
 
-def _row(
-    sub_id, name, first, last, city, state, zip5, street, employer="ACME LLP", occupation="ATTORNEY"
-):
+def _row(sub_id, name, first, last, city, state, zip5, street, employer="ACME LLP", occupation="ATTORNEY"):
     return {
         "sub_id": sub_id,
         "transaction_id": f"T{sub_id}",
@@ -32,9 +30,7 @@ def _row(
 
 
 OLD_ROWS = [
-    _row(
-        "101", "SHTREMBERG, VICTOR", "VICTOR", "SHTREMBERG", "ENCINO", "CA", "91316", "123 MAPLE ST"
-    ),
+    _row("101", "SHTREMBERG, VICTOR", "VICTOR", "SHTREMBERG", "ENCINO", "CA", "91316", "123 MAPLE ST"),
     _row(
         "102",
         "SHTREMBERG, VICTOR",
@@ -143,9 +139,7 @@ def test_keys_stay_with_their_filings_across_runs():
         }
     )
     # 1-3 were one donor, 4-5 another; 6 is new; the old donor split from 3.
-    lost = keep_earlier_keys(
-        df, {"1": "old-a", "2": "old-a", "3": "old-x", "4": "old-b", "5": "old-a"}
-    )
+    lost = keep_earlier_keys(df, {"1": "old-a", "2": "old-a", "3": "old-x", "4": "old-b", "5": "old-a"})
     assert df["donor_key"].tolist() == ["old-a", "old-a", "old-a", "old-b", "old-b", "new-c"]
     assert lost == ["old-x"]
 
@@ -308,9 +302,7 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
         "FEIN",
         ["STEVEN"],
     )  # a common name is no slip
-    assert names(
-        [("ALIZA", "GUREN")] * 3 + [("ALIZA KARNEY", "GUREN"), ("ALIZA", "KARNEY GUREN")]
-    ) == (
+    assert names([("ALIZA", "GUREN")] * 3 + [("ALIZA KARNEY", "GUREN"), ("ALIZA", "KARNEY GUREN")]) == (
         "GUREN",
         ["ALIZA KARNEY"],
     )
@@ -326,9 +318,7 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
         "KRAFT",
         ["JOSH"],
     )  # the surname typed twice
-    assert names(
-        [("EPHRAIM", "WERNICK")] * 3 + [("EPHRAIM (FRY)", "WERNICK"), ("EPHRAIM FRY", "WERNICK")]
-    ) == (
+    assert names([("EPHRAIM", "WERNICK")] * 3 + [("EPHRAIM (FRY)", "WERNICK"), ("EPHRAIM FRY", "WERNICK")]) == (
         "WERNICK",
         ["EPHRAIM"],
     )

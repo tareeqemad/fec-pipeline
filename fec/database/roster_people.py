@@ -54,9 +54,7 @@ def find_or_create_donor(
     return cur.fetchone()[0]
 
 
-def _find_or_insert_address(
-    cur: Any, fields: tuple, latitude: float | None, longitude: float | None
-) -> int:
+def _find_or_insert_address(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
     """Reuse an address or insert it with its coordinates."""
     cur.execute(
         """
@@ -76,8 +74,7 @@ def _find_or_insert_address(
         address_id = row[0]
         if latitude is not None:
             cur.execute(
-                "UPDATE addresses SET latitude=%s, longitude=%s "
-                "WHERE address_id=%s AND latitude IS NULL",
+                "UPDATE addresses SET latitude=%s, longitude=%s WHERE address_id=%s AND latitude IS NULL",
                 (latitude, longitude, address_id),
             )
         return address_id
@@ -218,9 +215,7 @@ def _find_occupation_category_id(cur: Any, occupation: str | None) -> int | None
     if not occupation:
         return None
     category = categorize_occupations(pd.Series([occupation])).iloc[0]
-    cur.execute(
-        "SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,)
-    )
+    cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
     category_row = cur.fetchone()
     return category_row[0] if category_row else None
 
@@ -261,9 +256,7 @@ def _read_boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> b
     raise ValueError(f"{csv_filename}: {name!r} needs {field}=true or false")
 
 
-def _read_roster_coordinate(
-    row: pd.Series, field: str, csv_filename: str, name: str
-) -> float | None:
+def _read_roster_coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
     """Read an optional coordinate and warn about invalid text."""
     coordinate_text = (row.get(field) or "").strip()
     if not coordinate_text:

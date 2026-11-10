@@ -1,4 +1,13 @@
-"""Pull new Schedule A contributions of one committee from the FEC API."""
+"""Pull new Schedule A contributions of one committee from the FEC API.
+
+Run: python pull.py C00797670 --period 2026
+
+Steps, in order (main -> pull_committee):
+    1. read_existing_ids     the filing IDs already in data/raw/contributions.csv
+    2. iter_pages            every page of the committee's period from the FEC API
+    3. _write_pages          append only the new filings, and their FEC source fields
+    4. _log_summary          how many filings were new
+"""
 
 from __future__ import annotations
 
@@ -217,9 +226,7 @@ CURRENT_PERIOD = _round_up_to_period(date.today().year)
 
 def main(argv: list[str] | None = None) -> int:
     """Validate the committee and period, then pull new records."""
-    parser = argparse.ArgumentParser(
-        description="Check a committee's full FEC period and save new records."
-    )
+    parser = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
     parser.add_argument("committee_id", help="Committee ID from committees.csv.")
     parser.add_argument(
         "--period",

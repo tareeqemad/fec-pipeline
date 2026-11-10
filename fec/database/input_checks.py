@@ -84,9 +84,7 @@ def _validate_committees(df: pd.DataFrame) -> None:
     received = set(df["recipient_committee"].dropna().astype(str).str.strip())
     unknown = sorted(received - known)
     if unknown:
-        raise ValueError(
-            "recipient_committee is missing from committees.csv: " + ", ".join(unknown)
-        )
+        raise ValueError("recipient_committee is missing from committees.csv: " + ", ".join(unknown))
 
 
 def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:

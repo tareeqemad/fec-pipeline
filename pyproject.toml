@@ -1,6 +1,6 @@
 # One style for the whole project: `ruff format .` then `ruff check --fix .`
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 extend-exclude = ["data"]
 
@@ -28,6 +28,7 @@ ignore = [
     "D203", "D213",          # one docstring layout: summary on the first line
     "D100", "D104",          # package __init__ files carry no docstring
     "ANN401",                # Any is allowed where pandas or psycopg2 values pass through
+    "SIM108",                # a plain if/else block reads better than a long one-line conditional
 ]
 
 [tool.ruff.lint.per-file-ignores]

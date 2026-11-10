@@ -60,16 +60,11 @@ def _is_same_house_number(street: str, returned_number: str) -> bool:
     expected = _HOUSE_NUMBER.match(street)
     if expected is None:
         first_word = street.split()[0] if street.strip() else ""
-        return (
-            not any(char.isdigit() for char in first_word)
-            or first_word.upper() == returned_number.strip().upper()
-        )
+        return not any(char.isdigit() for char in first_word) or first_word.upper() == returned_number.strip().upper()
     return expected.group(1).upper() == returned_number.strip().upper()
 
 
-def _is_same_us_place(
-    state: str, zipcode: str, returned_state: object, returned_zip: object
-) -> bool:
+def _is_same_us_place(state: str, zipcode: str, returned_state: object, returned_zip: object) -> bool:
     """Reject a different state or ZIP; allow postal city aliases."""
     if state and returned_state:
         actual_state = str(returned_state).strip().upper().removeprefix("US-")
@@ -113,9 +108,7 @@ def _wait_for_nominatim(url: str) -> None:
     _last_nominatim_request = time.monotonic()
 
 
-def _build_nominatim_params(
-    street: str, city: str, state: str, zipcode: str, foreign: bool
-) -> dict:
+def _build_nominatim_params(street: str, city: str, state: str, zipcode: str, foreign: bool) -> dict:
     """Build the search query, limited to the US unless the address is foreign."""
     params = {
         "q": ", ".join(part for part in (street, city, state, zipcode) if part),
@@ -125,15 +118,11 @@ def _build_nominatim_params(
     }
     if not foreign:
         state_code = state.strip().upper()
-        params["countrycodes"] = (
-            f"us,{state_code.lower()}" if state_code in US_TERRITORIES else "us"
-        )
+        params["countrycodes"] = f"us,{state_code.lower()}" if state_code in US_TERRITORIES else "us"
     return params
 
 
-def _read_nominatim_results(
-    results: object, street: str, state: str, zipcode: str, foreign: bool
-) -> dict | None:
+def _read_nominatim_results(results: object, street: str, state: str, zipcode: str, foreign: bool) -> dict | None:
     """Return the point of the first result, or None when it is not this address."""
     if not isinstance(results, list):
         raise ValueError("expected a result list")
@@ -144,9 +133,7 @@ def _read_nominatim_results(
         return None
     address = result.get("address") or {}
     returned_state = address.get("ISO3166-2-lvl4") or address.get("state_code")
-    if not foreign and not _is_same_us_place(
-        state, zipcode, returned_state, address.get("postcode")
-    ):
+    if not foreign and not _is_same_us_place(state, zipcode, returned_state, address.get("postcode")):
         return None
     country = str(address.get("country_code") or "").upper() or None
     return {

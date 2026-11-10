@@ -50,9 +50,7 @@ def _is_title_word(word: str, last: bool) -> bool:
 def is_job_title(text: str) -> bool:
     """All title words, the last one naming a job."""
     words = re.findall(r"[A-Z0-9&]+", text)
-    return bool(words) and all(
-        _is_title_word(word, index == len(words) - 1) for index, word in enumerate(words)
-    )
+    return bool(words) and all(_is_title_word(word, index == len(words) - 1) for index, word in enumerate(words))
 
 
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
@@ -102,9 +100,7 @@ def is_real_employer(employer: object) -> bool:
     return not employer_rejection_reason(employer)
 
 
-def classify_employer_status(
-    employer: object, occupation: object = "", category: object = ""
-) -> str:
+def classify_employer_status(employer: object, occupation: object = "", category: object = "") -> str:
     """Classify work status without changing the reported company."""
     employer_text = _read_status_text(employer)
     occupation_text = _read_status_text(occupation)
@@ -155,9 +151,7 @@ def referenced_employers(df: pd.DataFrame) -> set[str]:
     rows = df[df["entity_type"].eq("INDIVIDUAL")]
 
     names: set[str] = set()
-    for status, employer in rows[["employer_status", "contributor_employer"]].itertuples(
-        index=False
-    ):
+    for status, employer in rows[["employer_status", "contributor_employer"]].itertuples(index=False):
         current = current_employer_name(status, employer)
         if current:
             names.add(current)

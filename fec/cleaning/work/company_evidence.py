@@ -97,9 +97,7 @@ def _is_head_word(word: str) -> bool:
 def _has_only_common_words(text: str) -> bool:
     """Organisation and filler words only, so a field rather than a name."""
     words = _WORDS_RE.findall(text)
-    return bool(words) and all(
-        word in ORGANISATION_WORDS or word in _FILLER_WORDS or word == "AND" for word in words
-    )
+    return bool(words) and all(word in ORGANISATION_WORDS or word in _FILLER_WORDS or word == "AND" for word in words)
 
 
 @lru_cache(maxsize=1)
@@ -160,11 +158,7 @@ def _describes_job(key: str) -> bool:
 
 def _read_proper_name_evidence(words: list[str]) -> str:
     """Return the evidence of the proper name left after organisation and filler words."""
-    rest = [
-        word
-        for word in words
-        if word not in ORGANISATION_WORDS and word not in _FILLER_WORDS and word != "AND"
-    ]
+    rest = [word for word in words if word not in ORGANISATION_WORDS and word not in _FILLER_WORDS and word != "AND"]
     if not rest:
         # Organisation words alone (CAPITAL GROUP, INSURANCE SERVICES): a
         # name or a field; only other filings can tell.

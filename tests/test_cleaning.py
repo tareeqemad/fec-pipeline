@@ -107,9 +107,7 @@ def test_company_evidence_levels():
     ]
 
     # Other donors filing the value as their employer lifts an unknown name.
-    employers = pd.Series(
-        ["MATTEL", "MATTEL", "MATTEL", "REAL ESTATE MANAGEMENT", "REAL ESTATE MANAGEMENT", "ME"]
-    )
+    employers = pd.Series(["MATTEL", "MATTEL", "MATTEL", "REAL ESTATE MANAGEMENT", "REAL ESTATE MANAGEMENT", "ME"])
     filers = pd.Series(["A", "B", "C", "D", "E", "F"])
     filings = Filings(filers, employers)
     assert [filings.level(text, 2) for text in ("MATTEL", "REAL ESTATE MANAGEMENT", "ME")] == [
@@ -207,9 +205,7 @@ def test_entity_type_from_committee_signal_and_company_evidence():
         "COMMITTEE/PAC",
     ]
     assert df["is_individual"].tolist() == df["entity_type"].eq("INDIVIDUAL").tolist()
-    assert is_committee_name("TEAM HAGERTY, BILL SEN.") and is_committee_name(
-        "DON DAVIS FOR NC, DON"
-    )
+    assert is_committee_name("TEAM HAGERTY, BILL SEN.") and is_committee_name("DON DAVIS FOR NC, DON")
     assert not is_committee_name("BANK OF AMERICA") and not is_committee_name("SMITH, JOHN")
 
 
@@ -321,9 +317,7 @@ def test_extend_corrections_adds_learnt_typos_to_the_table():
     from fec.cleaning.work.occupation_typos import extend_corrections
     from fec.vocabulary.occupations import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
 
-    df = pd.DataFrame(
-        {"contributor_occupation": ["ORTHODONTISTT", "ATTORNEY"], "contributor_employer": ["", ""]}
-    )
+    df = pd.DataFrame({"contributor_occupation": ["ORTHODONTISTT", "ATTORNEY"], "contributor_employer": ["", ""]})
     try:
         assert extend_corrections(df) == 1
         assert (
@@ -340,9 +334,7 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
     from fec.cleaning.work.model_client import DEFAULT_MODEL
     from fec.vocabulary.occupations import CATEGORY_OVERRIDES
 
-    monkeypatch.setattr(
-        occupation_categories, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv"
-    )
+    monkeypatch.setattr(occupation_categories, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
     asked = []
 
     def fake_model(texts):
@@ -370,9 +362,7 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
             "occupation,category,model",
             f"QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{DEFAULT_MODEL}",
         ]
-        assert (
-            occupation_categories.learn_categories(df, ask=fake_model) == 0
-        )  # remembered: not asked again
+        assert occupation_categories.learn_categories(df, ask=fake_model) == 0  # remembered: not asked again
     finally:
         CATEGORY_OVERRIDES.pop("QUANTUM TOPOLOGIST", None)
 
@@ -532,9 +522,7 @@ def test_occupation_corrections_are_one_table():
 
     # No correction leads to another listed form: a filed value is corrected in one step.
     assert not [
-        k
-        for k, v in OCCUPATION_CORRECTIONS.items()
-        if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v
+        k for k, v in OCCUPATION_CORRECTIONS.items() if v in OCCUPATION_CORRECTIONS and OCCUPATION_CORRECTIONS[v] != v
     ]
     assert OCCUPATION_CORRECTIONS["ATTY"] == "ATTORNEY" and "ATTY" in TEXT_CORRECTIONS
     assert OCCUPATION_CORRECTIONS["XXX"] is None and "XXX" not in TEXT_CORRECTIONS
@@ -594,19 +582,13 @@ def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
     from fec.cleaning import filing_corrections
 
     rows = filing_corrections._read_reviewed_filings()
-    waiting = rows.index[
-        rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")
-    ][0]
+    waiting = rows.index[rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")][0]
     cleared = rows.index[rows["contributor_employer"].str.upper().eq(filing_corrections.CLEAR)][0]
-    df = pd.DataFrame(
-        {"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]}
-    )
+    df = pd.DataFrame({"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]})
     for column in filing_corrections.FIELDS[1:]:
         df[column] = "FILED"
     filing_corrections.apply_filing_corrections(df)
-    assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(
-        df["contributor_employer"][1]
-    )
+    assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(df["contributor_employer"][1])
     filing_corrections.apply_filing_corrections(df, matched=True)
     assert (
         df["contributor_employer"][0] == rows.at[waiting, "contributor_employer"]

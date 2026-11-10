@@ -51,12 +51,7 @@ def _is_one_word_slip(text: str, listed: str) -> bool:
         return False
     filed, known = differing[0]
     letters = re.sub(r"[^A-Z]", "", known)
-    return (
-        len(letters) >= MIN_WORD_LETTERS
-        and filed.isalpha()
-        and known.isalpha()
-        and OSA.distance(filed, known) == 1
-    )
+    return len(letters) >= MIN_WORD_LETTERS and filed.isalpha() and known.isalpha() and OSA.distance(filed, known) == 1
 
 
 def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) -> dict[str, str]:
@@ -70,12 +65,7 @@ def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) ->
     known = set(listed)
     learnt: dict[str, str] = {}
     for text in set(map(_to_plain_text, texts)):
-        if (
-            not text
-            or text in known
-            or text in OCCUPATION_CORRECTIONS
-            or not _TEXT_RE.fullmatch(text)
-        ):
+        if not text or text in known or text in OCCUPATION_CORRECTIONS or not _TEXT_RE.fullmatch(text):
             continue
         near = process.extract(text, listed, scorer=OSA.distance, score_cutoff=1, limit=2)
         if len(near) == 1 and _is_one_word_slip(text, near[0][0]):

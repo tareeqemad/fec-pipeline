@@ -1,4 +1,20 @@
-"""Identify donors and make their filings consistent."""
+"""Give every person one donor key and make each donor's filings consistent.
+
+Steps, in order:
+    identify_donors
+        1. match_donors                 score name pairs and join the same person (matcher.py, phases.py)
+        2. apply_donor_key              write the key on every filing
+        3. keep_earlier_keys            reuse last month's keys (data/cache/donor_keys.csv)
+        4. apply_curated_key_merges     reviewed merges (data/rules/donor_identity_rules.csv)
+        5. hold_unproven_filings        filings whose owner is not proven count toward nobody
+        6. validate_separations         stop if a reviewed separation was joined
+    standardize_donors
+        1. _separate_network_filings    network names filed as people
+        2. canonicalize_donor_names     one surname and given name per donor
+        3. canonicalize_current_employers, unify_units, apply_name_corrections
+        4. apply_filing_corrections, DONOR_WORK_STEPS, apply_filing_corrections
+        5. canonicalize_committee_names, write_duplicate_review
+"""
 
 from __future__ import annotations
 
@@ -113,9 +129,7 @@ def _validate_generational_suffixes(df: pd.DataFrame) -> None:
 
 
 # The region before or after POLITICAL NETWORK.
-_NETWORK_NAME_RE = re.compile(
-    r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL NETWORK)$", re.IGNORECASE
-)
+_NETWORK_NAME_RE = re.compile(r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL NETWORK)$", re.IGNORECASE)
 
 
 def _separate_network_filings(df: pd.DataFrame) -> None:

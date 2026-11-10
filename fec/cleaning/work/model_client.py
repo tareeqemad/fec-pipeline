@@ -105,9 +105,7 @@ def ask_lines(
     if not lines:
         return {}
     if not have_key():
-        logger.warning(
-            "WARNING: OPENAI_API_KEY not set; %s line(s) left as they are", f"{len(lines):,}"
-        )
+        logger.warning("WARNING: OPENAI_API_KEY not set; %s line(s) left as they are", f"{len(lines):,}")
         return {}
     schema = _build_answers_schema(item_schema)
     batches = [lines[i : i + BATCH_SIZE] for i in range(0, len(lines), BATCH_SIZE)]
@@ -116,17 +114,13 @@ def ask_lines(
         with ThreadPoolExecutor(WORKERS) as pool:
             # pool.map passes one batch; the lambda adds the arguments every call shares.
             for batch_answers in pool.map(
-                lambda batch: _ask(
-                    batch, instructions, user_prefix, schema, key_field, model_name(model)
-                ),
+                lambda batch: _ask(batch, instructions, user_prefix, schema, key_field, model_name(model)),
                 batches,
             ):
                 answers.update(batch_answers)
         missing = [line for line in lines if line not in answers]
         if missing:
-            answers.update(
-                _ask(missing, instructions, user_prefix, schema, key_field, model_name(model))
-            )
+            answers.update(_ask(missing, instructions, user_prefix, schema, key_field, model_name(model)))
     except OutOfCredit as problem:
         logger.warning(
             "WARNING: %s; %s of %s line(s) read, the rest left as they are",

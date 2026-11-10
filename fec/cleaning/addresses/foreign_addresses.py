@@ -68,9 +68,7 @@ _COUNTRIES = (
 )
 
 # A country as the last word(s), not inside street names.
-_COUNTRY_TAIL_RE = re.compile(
-    r"(?:^|,\s*|\s)(?:" + "|".join(re.escape(country) for country in _COUNTRIES) + r")\.?$"
-)
+_COUNTRY_TAIL_RE = re.compile(r"(?:^|,\s*|\s)(?:" + "|".join(re.escape(country) for country in _COUNTRIES) + r")\.?$")
 
 
 # Foreign localities without US namesakes, missing from the shared list.

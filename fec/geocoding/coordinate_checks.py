@@ -19,9 +19,7 @@ STREET_LEVEL_SOURCES = {
 US_TERRITORIES = {"AS", "GU", "MP", "PR", "VI"}
 
 # A Canadian or British postcode.
-_FOREIGN_POSTCODE = re.compile(
-    r"[ABCEGHJ-NPRSTVXY]\d[A-Z]\s?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}"
-)
+_FOREIGN_POSTCODE = re.compile(r"[ABCEGHJ-NPRSTVXY]\d[A-Z]\s?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}")
 
 
 def is_po_box(street: str) -> bool:
@@ -49,9 +47,7 @@ def great_circle(first: tuple, second: tuple, radius: float) -> float:
     first_lat, first_lng = map(math.radians, first)
     second_lat, second_lng = map(math.radians, second)
     haversine = math.sin((second_lat - first_lat) / 2) ** 2
-    haversine += (
-        math.cos(first_lat) * math.cos(second_lat) * math.sin((second_lng - first_lng) / 2) ** 2
-    )
+    haversine += math.cos(first_lat) * math.cos(second_lat) * math.sin((second_lng - first_lng) / 2) ** 2
     return radius * 2 * math.asin(min(1.0, math.sqrt(haversine)))
 
 
@@ -59,10 +55,7 @@ def valid_for_state(lat: float, lng: float, state: str) -> bool:
     """Return whether the point lies within the state's bounding box, or any state's if unknown."""
     state = state.strip().upper()
     bounds = [US_STATE_BBOX[state]] if state in US_STATE_BBOX else US_STATE_BBOX.values()
-    return any(
-        south - 1 <= lat <= north + 1 and west - 1 <= lng <= east + 1
-        for south, north, west, east in bounds
-    )
+    return any(south - 1 <= lat <= north + 1 and west - 1 <= lng <= east + 1 for south, north, west, east in bounds)
 
 
 def accepted_coordinates(key: str, entry: dict | None) -> tuple:

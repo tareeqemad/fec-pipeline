@@ -107,9 +107,7 @@ def _build_street(tagged: list) -> str | None:
     ):
         labels[-1] = "StreetNamePostType"  # CENTRAL EXPRESSWAY
     # 750 SOUTH ST: a direction alone before the type is the street's name
-    direction_is_name = (
-        len(words) - labels.count("AddressNumber") == 2 and words[-1] in STREET_TYPE_ABBREVIATIONS
-    )
+    direction_is_name = len(words) - labels.count("AddressNumber") == 2 and words[-1] in STREET_TYPE_ABBREVIATIONS
     for position, label in enumerate(labels):
         last_of_run = position + 1 == len(labels) or labels[position + 1] != label
         if label == "AddressNumber":
@@ -126,9 +124,7 @@ def _build_street(tagged: list) -> str | None:
             and labels[position - 1] != "StreetName"
         ):
             words[position] = _to_ordinal(words[position])  # 9 W 57 ST
-    return " ".join(
-        word for position, word in enumerate(words) if not position or word != words[position - 1]
-    )
+    return " ".join(word for position, word in enumerate(words) if not position or word != words[position - 1])
 
 
 def _build_unit(text: str) -> str:
@@ -172,12 +168,7 @@ def _tag_words(text: str, after_hash: str) -> list[tuple[str, str]]:
             (tagged[0][0], "AddressNumber"),
             *((word, "StreetName") for word, _ in tagged[1:]),
         ]
-    if (
-        len(tagged) >= 2
-        and tagged[-1][0] in ("NO", "SO")
-        and tagged[-2][1] == "StreetNamePostType"
-        and not after_hash
-    ):
+    if len(tagged) >= 2 and tagged[-1][0] in ("NO", "SO") and tagged[-2][1] == "StreetNamePostType" and not after_hash:
         # 40TH AVENUE NO: north, as Minneapolis writes it
         tagged[-1] = (tagged[-1][0][0], "StreetNamePostDirectional")
     return tagged
@@ -228,10 +219,7 @@ def parse_line(line: str) -> tuple[str, str] | None:
     text, _, after_hash = text.partition("#")
     tagged = _tag_words(text, after_hash)
     cut = _find_street_end(tagged)
-    street_words = [
-        (word, "StreetName" if label == "StreetNameNumber" else label)
-        for word, label in tagged[:cut]
-    ]
+    street_words = [(word, "StreetName" if label == "StreetNameNumber" else label) for word, label in tagged[:cut]]
     street = _build_street(street_words)
     unit_words = [word for word, _ in tagged[cut:]]
     hash_unit = "#" + after_hash if after_hash.strip() else ""
@@ -256,16 +244,12 @@ def _repeats_the_place(text: str, city: str, state: str, zipcode: str) -> bool:
 
     BALT MD, NEW, # LA, ANTA GA3034, FL USA.
     """
-    words = [
-        word for word in re.sub(r"[#\d]", " ", text).split() if word not in ("USA", "US", state)
-    ]
+    words = [word for word in re.sub(r"[#\d]", " ", text).split() if word not in ("USA", "US", state)]
     rest = " ".join(words)
     if not rest:
         return bool(re.sub(r"[#\d ]", "", text))
     return len(rest) >= 2 and (
-        city.startswith(rest)
-        or _get_initials(city) == rest
-        or (len(rest) >= 4 and city.endswith(rest))
+        city.startswith(rest) or _get_initials(city) == rest or (len(rest) >= 4 and city.endswith(rest))
     )
 
 
@@ -277,10 +261,7 @@ def _split_street_words(street_1: str) -> list[str]:
     kept = [
         part
         for part in later
-        if not (
-            len(part) >= 4
-            and (first_part.startswith(part) or (starts_with_number and part.split()[:2] == start))
-        )
+        if not (len(part) >= 4 and (first_part.startswith(part) or (starts_with_number and part.split()[:2] == start)))
     ]
     return " ".join([first_part, *kept]).split()
 
@@ -341,9 +322,7 @@ def _find_zip_cities(zipcode: str) -> tuple[str, ...]:
     if not (len(zipcode) == 5 and zipcode.isdigit()):
         return ()
     names = [
-        name
-        for record in zipcodes.matching(zipcode)
-        for name in (record["city"], *record.get("acceptable_cities", []))
+        name for record in zipcodes.matching(zipcode) for name in (record["city"], *record.get("acceptable_cities", []))
     ]
     return tuple(dict.fromkeys(name.upper() for name in names))
 
@@ -380,9 +359,7 @@ def _is_shortening(short: str, full: str) -> bool:
 
 def _find_full_zip_names(zipcode: str) -> list[str]:
     """Return the full USPS city names of a ZIP, without the short forms USPS also lists."""
-    listed = [
-        name for name in _find_zip_cities(zipcode[:5]) if set(name.split()[-1]) & set("AEIOUY")
-    ]
+    listed = [name for name in _find_zip_cities(zipcode[:5]) if set(name.split()[-1]) & set("AEIOUY")]
     listed = [_spell_out_city(name) for name in listed]
     # USPS lists its own short forms too (PARADISE VLY, SLC): only the full names are answers
     full_names = (
@@ -407,16 +384,13 @@ def standard_city(city: str, zipcode: str) -> str:
     shortened = [
         name
         for name in names
-        if _is_shortening(full, name)
-        or (" " in name and len(full) >= 2 and _get_initials(name) == full)
+        if _is_shortening(full, name) or (" " in name and len(full) >= 2 and _get_initials(name) == full)
     ]
     if shortened:
         return max(shortened, key=len)
     allowed = 2 if len(full_letters) >= 10 else 1
     slipped = [
-        name
-        for name in names
-        if len(full_letters) >= 5 and OSA.distance(_keep_letters(name), full_letters) <= allowed
+        name for name in names if len(full_letters) >= 5 and OSA.distance(_keep_letters(name), full_letters) <= allowed
     ]
     if slipped:
         return slipped[0] if len(slipped) == 1 else full
@@ -427,9 +401,7 @@ def standard_city(city: str, zipcode: str) -> str:
     return full
 
 
-def standard_address(
-    street_1: str, street_2: str, city: str, state: str, zipcode: str
-) -> tuple[str, ...]:
+def standard_address(street_1: str, street_2: str, city: str, state: str, zipcode: str) -> tuple[str, ...]:
     """Return the standardized street, city, state and ZIP of one address."""
     # 12230 BONE HOLLOW ROAD KAMAS 84036: a city and its own ZIP typed in the street
     # are the real place

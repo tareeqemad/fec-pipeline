@@ -50,23 +50,12 @@ def _strip_asides(first: str) -> str:
 def _find_surname_root(variant: str, lasts: list[str], firsts: list[str], filed: Counter) -> str:
     """Return the surname a variant shortens to when its extra words are initials or given names."""
     # KARNEY GUREN beside GUREN: the same surname when the donor files KARNEY as a given name
-    given = {
-        token
-        for last, first in zip(lasts, firsts)
-        if last != variant
-        for token in _split_tokens(first)
-    }
+    given = {token for last, first in zip(lasts, firsts) if last != variant for token in _split_tokens(first)}
     for shorter in sorted(filed, key=len):
         head = variant[: -len(shorter)]
-        ends_with_shorter = (
-            shorter != variant and variant.endswith(shorter) and head[-1:] in (" ", ".")
-        )
+        ends_with_shorter = shorter != variant and variant.endswith(shorter) and head[-1:] in (" ", ".")
         head_tokens = _split_tokens(head)
-        if (
-            ends_with_shorter
-            and head_tokens
-            and all(len(token) == 1 or token in given for token in head_tokens)
-        ):
+        if ends_with_shorter and head_tokens and all(len(token) == 1 or token in given for token in head_tokens):
             return _find_surname_root(shorter, lasts, firsts, filed)
     return variant
 
@@ -91,9 +80,7 @@ def _choose_surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
 def _drop_repeated_asides(spelling: str, asides: set) -> str:
     """Return a given name without bracketed asides and the words that only repeat them."""
     first, *rest = _strip_asides(spelling).split() or [""]
-    kept_words = (
-        word for word in rest if not set(_split_tokens(word)) <= asides or not _split_tokens(word)
-    )
+    kept_words = (word for word in rest if not set(_split_tokens(word)) <= asides or not _split_tokens(word))
     return " ".join([first, *kept_words])
 
 
@@ -109,9 +96,7 @@ def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset)
         and word in rare
         and any(words[other] > words[word] and OSA.distance(word, other) == 1 for other in words)
     }
-    kept = [
-        spelling for spelling in spellings if _split_tokens(spelling)[0] not in slips
-    ] or spellings
+    kept = [spelling for spelling in spellings if _split_tokens(spelling)[0] not in slips] or spellings
     filed = Counter(kept)
 
     rank = {}
@@ -126,9 +111,7 @@ def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset)
         )
     best = max(rank, key=rank.get)
     plain_best = _drop_repeated_asides(best, asides)
-    balanced_aside = (
-        "(" in best and _strip_asides(best) == plain_best and best.count("(") == best.count(")")
-    )
+    balanced_aside = "(" in best and _strip_asides(best) == plain_best and best.count("(") == best.count(")")
     if plain_best == best or balanced_aside:
         return best
     return plain_best
@@ -151,49 +134,31 @@ def _group_given_names(given: list[str], own: set, asides: set) -> dict:
         tokens = _split_tokens(first)
         if not tokens:
             continue
-        others = frozenset(
-            token
-            for token in tokens[1:]
-            if len(token) > 1 and token not in own and token not in asides
-        )
+        others = frozenset(token for token in tokens[1:] if len(token) > 1 and token not in own and token not in asides)
         groups[(NICKNAME_MAP.get(tokens[0], tokens[0])[0], others)].append(position)
     # P R beside P RICHARD: initials that a fuller filing spells out are the same name
     for key in sorted(groups, key=lambda group_key: len(group_key[1])):
         initials = {
-            token
-            for position in groups[key]
-            for token in _split_tokens(given[position])[1:]
-            if len(token) == 1
+            token for position in groups[key] for token in _split_tokens(given[position])[1:] if len(token) == 1
         }
         fuller = [
             other
             for other in groups
-            if other[0] == key[0]
-            and key[1] < other[1]
-            and all(word[0] in initials for word in other[1] - key[1])
+            if other[0] == key[0] and key[1] < other[1] and all(word[0] in initials for word in other[1] - key[1])
         ]
         if fuller:
             groups[max(fuller, key=lambda group_key: len(groups[group_key]))] += groups.pop(key)
     return groups
 
 
-def donor_names(
-    lasts: list[str], firsts: list[str], rare: frozenset = frozenset()
-) -> tuple[str, list]:
+def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset()) -> tuple[str, list]:
     """Return the donor's surname and, for each filing, the given name to show."""
     surname, initial = _choose_surname(lasts, firsts)
     surname_words = surname.split()
     own = {token for last in lasts for token in _split_tokens(last)} | set(surname_words)
-    asides = {
-        token
-        for first in firsts
-        for inner in re.findall(r"\(([^()]*)", first)
-        for token in _split_tokens(inner)
-    }
+    asides = {token for first in firsts for inner in re.findall(r"\(([^()]*)", first) for token in _split_tokens(inner)}
     # the surname typed again in the first-name box is no given name
-    given = [
-        " ".join(word for word in first.split() if word not in surname_words) for first in firsts
-    ]
+    given = [" ".join(word for word in first.split() if word not in surname_words) for first in firsts]
     # GLENN STUART CHRYSTA: the surname again, cut short by the field
     given = [_drop_cut_surname(name, surname) for name in given]
     groups = _group_given_names(given, own, asides)
@@ -201,17 +166,12 @@ def donor_names(
     shown = [everyone] * len(given)
     if len(groups) > 1:
         for positions in groups.values():
-            name = _choose_fullest_spelling(
-                [given[position] for position in positions], asides, rare
-            )
+            name = _choose_fullest_spelling([given[position] for position in positions], asides, rare)
             for position in positions:
                 shown[position] = name
     if initial:
         shown = [
-            name
-            if name and initial[0] in _split_tokens(name)
-            else f"{name or ''} {initial}".strip()
-            for name in shown
+            name if name and initial[0] in _split_tokens(name) else f"{name or ''} {initial}".strip() for name in shown
         ]
     return surname, shown
 
@@ -224,21 +184,11 @@ def canonicalize_donor_names(df: pd.DataFrame) -> None:
     rare = frozenset(word for word, count in words.items() if count <= 2)
     for rows_index in people.groupby("donor_key").groups.values():
         rows = df.loc[rows_index]
-        lasts = [
-            value.strip() if isinstance(value, str) else ""
-            for value in rows["contributor_last_name"]
-        ]
+        lasts = [value.strip() if isinstance(value, str) else "" for value in rows["contributor_last_name"]]
         if not any(lasts):
             continue
-        firsts = [
-            value.strip() if isinstance(value, str) else ""
-            for value in rows["contributor_first_name"]
-        ]
+        firsts = [value.strip() if isinstance(value, str) else "" for value in rows["contributor_first_name"]]
         surname, given = donor_names(lasts, firsts, rare)
         df.loc[rows_index, "contributor_last_name"] = surname
-        df.loc[rows_index, "contributor_first_name"] = pd.Series(
-            given, index=rows_index, dtype=object
-        )
-        df.loc[rows_index, "contributor_name"] = [
-            f"{surname}, {name}" if name else surname for name in given
-        ]
+        df.loc[rows_index, "contributor_first_name"] = pd.Series(given, index=rows_index, dtype=object)
+        df.loc[rows_index, "contributor_name"] = [f"{surname}, {name}" if name else surname for name in given]

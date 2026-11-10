@@ -64,9 +64,7 @@ def _find_self_employed_address_id(row: pd.Series, address_ids: dict) -> int | N
         return None
     address_id = address_ids.get(address)
     if address_id is None:
-        raise RuntimeError(
-            f"self-employed address was not loaded: donor_key={row.get('donor_key')}"
-        )
+        raise RuntimeError(f"self-employed address was not loaded: donor_key={row.get('donor_key')}")
     return address_id
 
 
@@ -191,9 +189,7 @@ def select_office(
     donor_zip = _trim_text(donor_zip)[:5]
     donor_state = _trim_text(donor_state).upper()
     same_state = [
-        location
-        for location in candidates
-        if _trim_text(location.get("employer_state")).upper() == donor_state
+        location for location in candidates if _trim_text(location.get("employer_state")).upper() == donor_state
     ]
 
     if not same_state:

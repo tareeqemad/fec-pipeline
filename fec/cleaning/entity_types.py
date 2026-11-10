@@ -53,9 +53,7 @@ def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
     """Attach FEC source fields by sub_id; leave missing values blank."""
     source = pd.DataFrame(columns=["sub_id", *SOURCE_COLUMNS])
     if Path(path).exists():
-        source = pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates(
-            "sub_id", keep="last"
-        )
+        source = pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates("sub_id", keep="last")
     source = source.set_index("sub_id").reindex(df["sub_id"].astype(str).str.strip())
     for column in SOURCE_COLUMNS:
         values = source[column] if column in source.columns else pd.Series("", index=source.index)
@@ -75,9 +73,7 @@ def _ends_in_organisation_word(head: list[str]) -> bool:
     return len(head) >= 2 and head[-1] in ORGANISATION_WORDS
 
 
-def _find_company_evidence(
-    df: pd.DataFrame, names: pd.Series, flagged: pd.Series
-) -> tuple[pd.Series, pd.Series]:
+def _find_company_evidence(df: pd.DataFrame, names: pd.Series, flagged: pd.Series) -> tuple[pd.Series, pd.Series]:
     """Return which names are certainly an organisation, and which carry company evidence."""
     filings = Filings(names[flagged], df.loc[flagged, "contributor_employer"].fillna(""))
     level = pd.Series([filings.level(name, 1) for name in names], index=names.index)
@@ -85,11 +81,7 @@ def _find_company_evidence(
     # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
     head = names.str.split(",").str[0].str.upper()
     trust_head = head.str.split().map(_ends_in_organisation_word)
-    certain = (
-        legal_form
-        | level.isin(("legal_form", "reviewed", "frequent"))
-        | (level.eq("named_org") & trust_head)
-    )
+    certain = legal_form | level.isin(("legal_form", "reviewed", "frequent")) | (level.eq("named_org") & trust_head)
     company = legal_form | level.isin(COMPANY_LEVELS)
     return certain, company
 
@@ -176,17 +168,11 @@ def normalize_business_names(df: pd.DataFrame) -> None:
     kinds = df.loc[names.index, "entity_type"]
     keys = names.map(employer_rule_key)
     known = set(keys[kinds.eq("ORGANIZATION")])
-    known.update(
-        employer_rule_key(name)
-        for name, kind in read_entity_overrides().items()
-        if kind == "ORGANIZATION"
-    )
+    known.update(employer_rule_key(name) for name, kind in read_entity_overrides().items() if kind == "ORGANIZATION")
     organisation = keys.isin(known)
     cleaned = names.where(~organisation, names.map(reviewed_employer_name))
     committee = kinds.eq("COMMITTEE/PAC") & ~organisation & ~names.str.contains(_FOR_STATE_RE)
-    cleaned = cleaned.where(
-        ~committee, names.str.replace(LEGAL_SUFFIX_RE, "", regex=True).str.strip()
-    )
+    cleaned = cleaned.where(~committee, names.str.replace(LEGAL_SUFFIX_RE, "", regex=True).str.strip())
     # A documented company alias can also fix committee names.
     cleaned = names.map(documented_employer_name).fillna(cleaned)
     changed = cleaned.ne(names) & cleaned.ne("")

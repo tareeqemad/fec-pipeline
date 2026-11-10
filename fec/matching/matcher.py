@@ -158,11 +158,7 @@ def _apply_force_merges(components: dict, profiles: dict) -> None:
     root_of = {profile_id: root for root, members in components.items() for profile_id in members}
     for prefixes in NAME_MERGES.values():
         roots = sorted(
-            {
-                root_of[profile_id]
-                for profile_id, profile in profiles.items()
-                if profile["name"].startswith(prefixes)
-            }
+            {root_of[profile_id] for profile_id, profile in profiles.items() if profile["name"].startswith(prefixes)}
         )
         for other_root in roots[1:]:
             for profile_id in components.pop(other_root):

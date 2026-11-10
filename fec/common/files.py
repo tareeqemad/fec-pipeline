@@ -87,9 +87,7 @@ class JsonCache:
     def __init__(self, path: str | Path) -> None:
         """Load the entries from the file, or start empty if it does not exist."""
         self.path = path
-        self.data = (
-            json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
-        )
+        self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
 
     def get(self, key: str) -> Any:
         """Return the entry stored under key, or None."""

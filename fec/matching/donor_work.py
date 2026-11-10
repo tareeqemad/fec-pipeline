@@ -20,9 +20,7 @@ def recategorize_occupations(df: pd.DataFrame) -> None:
 def fill_occupation_from_donor(df: pd.DataFrame) -> None:
     """Fill an empty or SELF-EMPLOYED occupation with the donor's one role at this employer."""
     employer = df["contributor_employer"]
-    people = df[
-        df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)
-    ]
+    people = df[df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
     occupation = people["contributor_occupation"].fillna("").astype(str).str.strip()
     vague = occupation.isin(("", "SELF-EMPLOYED"))
     occupation_key = occupation.map(employer_text_key)
@@ -52,11 +50,7 @@ def fill_status_employer(df: pd.DataFrame) -> None:
         .map(FINAL_EMPLOYER_FROM_OCCUPATION)
         .fillna(df["occupation_category"].map(EMPLOYER_FROM_CATEGORY))
     )
-    fill = (
-        df["entity_type"].eq("INDIVIDUAL")
-        & df["contributor_employer"].fillna("").eq("")
-        & status.notna()
-    )
+    fill = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].fillna("").eq("") & status.notna()
     df.loc[fill, "contributor_employer"] = status[fill]
 
 
@@ -70,15 +64,7 @@ def settle_retired_employer(df: pd.DataFrame) -> None:
     said_retired = retired_category & retired_occupation
     # The filing said RETIRED beside a profession (RETIRED JUDGE MEDIATOR).
     said_retired |= df["_retired_marker"].fillna(False).astype(bool)
-    retired = (
-        df["entity_type"].eq("INDIVIDUAL")
-        & said_retired
-        & upper_text(df["contributor_employer"]).ne("RETIRED")
-    )
-    company = (
-        retired
-        & upper_text(df["previous_employer"]).eq("")
-        & df["contributor_employer"].map(is_real_employer)
-    )
+    retired = df["entity_type"].eq("INDIVIDUAL") & said_retired & upper_text(df["contributor_employer"]).ne("RETIRED")
+    company = retired & upper_text(df["previous_employer"]).eq("") & df["contributor_employer"].map(is_real_employer)
     df.loc[company, "previous_employer"] = df.loc[company, "contributor_employer"]
     df.loc[retired, "contributor_employer"] = "RETIRED"

@@ -18,9 +18,7 @@ RULE_TYPES = {"exact_name", "sub_id", "first_name", "committee_name"}
 _ZIP5_RE = re.compile(r"\d{5}")
 
 
-def _read_first_name_rule(
-    number: int, raw: str, corrected: str, zip_field: str
-) -> list[tuple[str, str, str]]:
+def _read_first_name_rule(number: int, raw: str, corrected: str, zip_field: str) -> list[tuple[str, str, str]]:
     """Parse one first_name rule into (surname, garbled word, zip5) keys."""
     last, comma, first = raw.partition(",")
     last, first = last.strip(), first.strip()
@@ -145,9 +143,7 @@ def read_name(name: str, first: str, last: str) -> tuple[str, str, str]:
         given.pop(0)
     first = " ".join(given)
     family = last.replace(",", " ").split()
-    while len(family) > 1 and (
-        _strip_periods(family[-1]) in _ENDINGS or ("," in last and family[-1] in ("IV", "V"))
-    ):
+    while len(family) > 1 and (_strip_periods(family[-1]) in _ENDINGS or ("," in last and family[-1] in ("IV", "V"))):
         family.pop()
     last = " ".join(family)
     # The whole name typed in both boxes.
@@ -171,10 +167,7 @@ def _add_filed_given_names(name: str, first: str, given: list[str]) -> str:
     extra = filed_first[len(given) :]
     if filed_first[: len(given)] != given or not extra:
         return first
-    if all(
-        re.fullmatch(r"[A-Z][A-Z'-]+", word) and word not in _ONLY_A_TITLE and word not in given
-        for word in extra
-    ):
+    if all(re.fullmatch(r"[A-Z][A-Z'-]+", word) and word not in _ONLY_A_TITLE and word not in given for word in extra):
         return " ".join(filed_first)
     return first
 
@@ -193,9 +186,7 @@ def clean_names(df: pd.DataFrame) -> None:
     filed = list(zip(*boxes))
     read = {key: read_name(*key) for key in set(filed)}
     for position, column in enumerate(columns):
-        df.loc[people, column] = pd.Series(
-            [read[key][position] or np.nan for key in filed], index=people, dtype=object
-        )
+        df.loc[people, column] = pd.Series([read[key][position] or np.nan for key in filed], index=people, dtype=object)
     _fix_garbled_first_names(df, people)
 
     committees = df["entity_type"].eq("COMMITTEE/PAC")
@@ -217,13 +208,7 @@ def _fix_garbled_first_names(df: pd.DataFrame, people: pd.Index) -> None:
     garbled = {word for _, word, _ in FIRST_NAME_FIXES}
     first = df.loc[people, "contributor_first_name"].fillna("").astype(str)
     rows = first.index[first.str.split().str[0].isin(garbled)]
-    zip5 = (
-        df.loc[rows, "contributor_zip"]
-        .astype("string")
-        .fillna("")
-        .str.replace(r"\D", "", regex=True)
-        .str[:5]
-    )
+    zip5 = df.loc[rows, "contributor_zip"].astype("string").fillna("").str.replace(r"\D", "", regex=True).str[:5]
     for row in rows:
         word, _, rest = first.at[row].partition(" ")
         last = df.at[row, "contributor_last_name"]

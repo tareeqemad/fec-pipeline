@@ -1,4 +1,24 @@
-"""Clean the raw FEC filings: read, clean, match donors, check and save the cleaned CSV."""
+"""Clean the raw FEC filings, match donors, check and save the cleaned CSV.
+
+Run: python clean.py
+
+Steps, in order (main):
+    1. read_pipeline_csv            data/raw/contributions.csv
+    2. clean_and_match
+       a. clean_records             one record at a time:
+          _prepare_records          drop duplicate IDs, read dates, attach FEC source fields
+          _clean_people             names, work fields (read_work), entity types (classify_entities)
+          clean_addresses           USPS form and reviewed address rules (cleaning/addresses)
+          _finish_records           recipient committee names
+          apply_record_rules        business names, then the work fields again with the final types
+          apply_filing_corrections  reviewed corrections by sub_id (data/rules/filing_corrections.csv)
+          _learn_categories         ask the model for occupation texts no table lists
+       b. identify_donors           one donor key per person (fec/matching)
+       c. standardize_donors        one name, job and address spelling per donor (fec/matching)
+    3. _save_if_gates_pass          the quality checks, then data/output/contributions_cleaned.csv
+    4. _save_donor_keys             data/cache/donor_keys.csv, so keys stay stable next month
+    5. _write_new_occupations       data/reports/new_occupations.csv
+"""
 
 from __future__ import annotations
 
@@ -108,9 +128,7 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     state = df["contributor_state"].astype("string").str.strip().str.upper()
     df["contributor_state"] = state.where(state.fillna("") != "", pd.NA).astype(object)
 
-    df["contribution_receipt_date"] = pd.to_datetime(
-        df["contribution_receipt_date"], errors="coerce"
-    )
+    df["contribution_receipt_date"] = pd.to_datetime(df["contribution_receipt_date"], errors="coerce")
 
     warnings = _find_date_warnings(df)
     if warnings:
@@ -175,9 +193,7 @@ def _finish_records(df: pd.DataFrame) -> pd.DataFrame:
     return df[columns]
 
 
-def apply_record_rules(
-    df: pd.DataFrame, filed_employers: pd.Series, filed_occupations: pd.Series
-) -> pd.DataFrame:
+def apply_record_rules(df: pd.DataFrame, filed_employers: pd.Series, filed_occupations: pd.Series) -> pd.DataFrame:
     """Settle names, then read every individual's work fields from the filing."""
     df["is_individual"] = df["entity_type"].eq("INDIVIDUAL")
     normalize_business_names(df)
@@ -201,15 +217,11 @@ def main() -> pd.DataFrame:
         os.makedirs(folder, exist_ok=True)
 
     df = read_pipeline_csv(input_path)
-    logger.info(
-        "Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}"
-    )
+    logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
 
     cleaned = clean_and_match(df, out_dir=out_dir, earlier_keys=_read_earlier_donor_keys())
     internal_columns = [
-        column
-        for column in cleaned.columns
-        if column.startswith("_") or column in INTERNAL_OUTPUT_COLUMNS
+        column for column in cleaned.columns if column.startswith("_") or column in INTERNAL_OUTPUT_COLUMNS
     ]
     output = cleaned.drop(columns=internal_columns)
 
@@ -279,16 +291,8 @@ def _save_donor_keys(cleaned: pd.DataFrame) -> None:
 def _write_new_occupations(df: pd.DataFrame, out_dir: str) -> None:
     """Occupations missing from the category table, for optional review."""
     occupation = df["contributor_occupation"].fillna("")
-    new = df[
-        df["entity_type"].eq("INDIVIDUAL")
-        & occupation.ne("")
-        & ~occupation.isin(CATEGORY_OVERRIDES)
-    ]
-    report = (
-        new.groupby(["contributor_occupation", "occupation_category"])
-        .size()
-        .reset_index(name="rows")
-    )
+    new = df[df["entity_type"].eq("INDIVIDUAL") & occupation.ne("") & ~occupation.isin(CATEGORY_OVERRIDES)]
+    report = new.groupby(["contributor_occupation", "occupation_category"]).size().reset_index(name="rows")
     write_csv_atomic(report, os.path.join(out_dir, "new_occupations.csv"), index=False)
     if len(report):
         logger.info("New occupations: %s (data/reports/new_occupations.csv)", f"{len(report):,}")
@@ -311,9 +315,7 @@ def _save_if_gates_pass(output: pd.DataFrame, out_dir: str, output_path: str) ->
     Resolve reruns the checks that need employer_status.
     """
     quality = run_quality_gates(output)
-    write_json_atomic(
-        os.path.join(out_dir, "quality_gates.json"), {**quality, "stage": "clean"}, indent=2
-    )
+    write_json_atomic(os.path.join(out_dir, "quality_gates.json"), {**quality, "stage": "clean"}, indent=2)
     if not quality["passed"]:
         logger.error("  ABORT - quality gates failed, %s kept as it was:", output_path)
         for issue in quality["issues"]:

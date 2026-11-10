@@ -38,9 +38,7 @@ def get_env(key: str, default: str | None = None, required: bool = False) -> str
     """Read a setting and report missing required values."""
     value = os.environ.get(key, default)
     if required and not value:
-        raise OSError(
-            f"Required environment variable {key} is not set. Add it to .env or export it."
-        )
+        raise OSError(f"Required environment variable {key} is not set. Add it to .env or export it.")
     return value
 
 

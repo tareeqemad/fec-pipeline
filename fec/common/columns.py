@@ -74,20 +74,14 @@ def check_input(stage_name: str, columns: Iterable[str]) -> None:
     stage = STAGES[stage_name]
     rerun = [column for column in stage.refuses if column in set(columns)]
     if rerun:
-        raise ContractError(
-            f"{stage.command} already ran on this file ({', '.join(rerun)}); run clean.py first"
-        )
+        raise ContractError(f"{stage.command} already ran on this file ({', '.join(rerun)}); run clean.py first")
     missing = [column for column in stage.needs if column not in set(columns)]
     if missing:
         first = _find_adding_command(missing[0])
-        raise ContractError(
-            f"{stage.command} needs columns {', '.join(missing)}; run {first} first"
-        )
+        raise ContractError(f"{stage.command} needs columns {', '.join(missing)}; run {first} first")
 
 
-def check_output(
-    stage_name: str, input_columns: Iterable[str], output_columns: Iterable[str]
-) -> None:
+def check_output(stage_name: str, input_columns: Iterable[str], output_columns: Iterable[str]) -> None:
     """Check output columns against the stage, including duplicates."""
     stage = STAGES[stage_name]
     expected = (set(input_columns) | set(stage.adds)) - set(stage.drops)

@@ -266,14 +266,10 @@ def _match_primary_offices(
             continue
         employer_id = get_employer_id(location["employer_name"])
         if not employer_id:
-            raise RuntimeError(
-                f"employer location has no exact employer match: {location['employer_name']!r}"
-            )
+            raise RuntimeError(f"employer location has no exact employer match: {location['employer_name']!r}")
         address_id = address_ids.get(address_key(*_build_office_address_parts(location)))
         if address_id is None:
-            raise RuntimeError(
-                f"employer location has no exact address match: {location['employer_name']!r}"
-            )
+            raise RuntimeError(f"employer location has no exact address match: {location['employer_name']!r}")
         employer_rows.append((int(employer_id), int(address_id)))
     return employer_rows
 

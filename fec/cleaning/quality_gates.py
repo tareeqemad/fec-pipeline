@@ -33,9 +33,7 @@ def _find_nan_text(df: pd.DataFrame) -> pd.Series:
         "contributor_state",
         "contributor_street_1",
     )
-    return pd.concat(
-        [df[column].astype("string").str.upper().eq("NAN") for column in columns], axis=1
-    ).any(axis=1)
+    return pd.concat([df[column].astype("string").str.upper().eq("NAN") for column in columns], axis=1).any(axis=1)
 
 
 def _find_unreadable_amount(df: pd.DataFrame) -> pd.Series:
@@ -71,9 +69,7 @@ def _find_not_an_employer(df: pd.DataFrame) -> pd.Series:
     """Return the individuals whose current or previous employer is not a real employer."""
     status = _read_text(df, "employer_status")
     current, previous = _read_text(df, "contributor_employer"), _read_text(df, "previous_employer")
-    working = _find_people(df) & (
-        status.eq("active") | (status.eq("self_employed") & current.ne("SELF-EMPLOYED"))
-    )
+    working = _find_people(df) & (status.eq("active") | (status.eq("self_employed") & current.ne("SELF-EMPLOYED")))
     retired = _find_people(df) & status.eq("retired") & previous.ne("")
     real = {name: is_real_employer(name) for name in set(current[working]) | set(previous[retired])}
     current_is_real = current.map(real).fillna(True).astype(bool)
@@ -128,11 +124,7 @@ def _find_odd_name_characters(df: pd.DataFrame) -> pd.Series:
 
 def _find_retired_but_active(df: pd.DataFrame) -> pd.Series:
     """Return the individuals with a RETIRED category and an active employer status."""
-    return (
-        _find_people(df)
-        & df["occupation_category"].eq("RETIRED")
-        & df["employer_status"].eq("active")
-    )
+    return _find_people(df) & df["occupation_category"].eq("RETIRED") & df["employer_status"].eq("active")
 
 
 def _find_retired_without_retired_employer(df: pd.DataFrame) -> pd.Series:

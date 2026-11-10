@@ -109,9 +109,7 @@ def scoped_employer_rules(df: pd.DataFrame) -> dict:
     return rules
 
 
-def _find_scoped_name(
-    key: str, donor_key: str, cycle: str, scoped: dict[tuple[str, str, str], str]
-) -> str | None:
+def _find_scoped_name(key: str, donor_key: str, cycle: str, scoped: dict[tuple[str, str, str], str]) -> str | None:
     """Return the name a scoped rule gives this donor, this cycle first, or None."""
     spellings = (key, employer_rule_key(_ALIASES.get(key, key)))
     for period in (str(cycle), ""):
@@ -159,9 +157,7 @@ def _review_names_per_donor(
     return pd.Series(
         [
             reviewed_employer_name(value, donor, cycle, scoped if known else None)
-            for value, donor, cycle, known in zip(
-                values, donors.loc[rows], cycles.loc[rows], confirmed.loc[rows]
-            )
+            for value, donor, cycle, known in zip(values, donors.loc[rows], cycles.loc[rows], confirmed.loc[rows])
         ],
         index=rows,
         dtype=object,
@@ -174,15 +170,9 @@ def apply_reviewed_employer_names(
 ) -> int:
     """Aliases change existing values only, never fill missing work."""
     scoped = scoped_employer_rules(df)
-    mask = (
-        df["entity_type"].eq("INDIVIDUAL")
-        if "entity_type" in df
-        else pd.Series(True, index=df.index)
-    )
+    mask = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df else pd.Series(True, index=df.index)
     donors = df.get("donor_key", pd.Series("", index=df.index)).fillna("").astype(str)
-    cycles = (
-        df.get("two_year_transaction_period", pd.Series("", index=df.index)).fillna("").astype(str)
-    )
+    cycles = df.get("two_year_transaction_period", pd.Series("", index=df.index)).fillna("").astype(str)
     confirmed = df.get("identity_status", pd.Series("", index=df.index)).eq("confirmed")
     changed = 0
     for column in columns:

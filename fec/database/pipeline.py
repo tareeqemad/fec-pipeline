@@ -1,4 +1,17 @@
-"""Load the cleaned FEC data into PostgreSQL in one transaction."""
+"""Load the cleaned FEC data into PostgreSQL in one transaction.
+
+Run: python loader.py --reset
+
+Steps, in order (main -> _reload_tables), all in one transaction:
+    1. check_reader_role, verify_extensions
+    2. reset_schema, create_schema (schema.sql), load_lookups
+    3. load_filing_tables
+       load_donors, load_employers, link_previous_employers,
+       load_address_dimension, load_donor_addresses, load_employments,
+       load_contributions, link_employer_offices
+    4. load_reference_tables, load_leadership, load_key_accomplices
+    5. ANALYZE, refresh_materialized_views, grant_read_access
+"""
 
 from __future__ import annotations
 
@@ -45,8 +58,7 @@ def load_donors(cur: Any, df: pd.DataFrame) -> dict:
 
     execute_values(
         cur,
-        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) "
-        "VALUES %s",
+        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) VALUES %s",
         donor_rows,
         page_size=5000,
     )
@@ -86,13 +98,9 @@ def load_filing_tables(
     logger.info("[4/6] Loading addresses, employments and contributions")
     with logged_stage("addresses"):
         id_maps["address"] = load_address_dimension(cur, df, employer_locations)
-        id_maps["donor_address"] = load_donor_addresses(
-            cur, df, id_maps["donor"], id_maps["address"]
-        )
+        id_maps["donor_address"] = load_donor_addresses(cur, df, id_maps["donor"], id_maps["address"])
     with logged_stage("employments"):
-        id_maps["employment"] = load_employments(
-            cur, df, id_maps, get_employer_id, employer_locations
-        )
+        id_maps["employment"] = load_employments(cur, df, id_maps, get_employer_id, employer_locations)
     with logged_stage("contributions"):
         load_contributions(cur, df, id_maps, get_employer_id)
     with logged_stage("employer locations"):
@@ -164,7 +172,5 @@ def main() -> None:
     conn.close()
     minutes, seconds = divmod(round(time.perf_counter() - total_start), 60)
     logger.info("Database load committed.")
-    logger.info(
-        "Input: %s rows | %s donor groups", f"{len(df):,}", f"{df['donor_key'].nunique():,}"
-    )
+    logger.info("Input: %s rows | %s donor groups", f"{len(df):,}", f"{df['donor_key'].nunique():,}")
     logger.info("Completed in %dm %02ds.", minutes, seconds)

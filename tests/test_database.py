@@ -35,9 +35,7 @@ class AddressCursor:
 
 def _load_addresses(monkeypatch, donors, locations):
     cursor = AddressCursor()
-    monkeypatch.setattr(
-        addresses, "execute_values", lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows)
-    )
+    monkeypatch.setattr(addresses, "execute_values", lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
     address_ids = load_address_dimension(cursor, donors, locations)
     return cursor.rows, address_ids
 
@@ -81,10 +79,7 @@ class FakeEmploymentDB:
         pass
 
     def insert(self, sql, values):
-        columns = [
-            c.strip()
-            for c in re.search(r"donor_employments\s*\(([^)]*)\)", sql, re.S).group(1).split(",")
-        ]
+        columns = [c.strip() for c in re.search(r"donor_employments\s*\(([^)]*)\)", sql, re.S).group(1).split(",")]
         keys = {tuple(row.get(c) for c in self.unique_columns) for row in self.rows}
         for value in values:
             row = dict(zip(columns, value))
@@ -109,9 +104,7 @@ class FakeEmploymentDB:
 @pytest.fixture
 def db(monkeypatch):
     fake = FakeEmploymentDB()
-    monkeypatch.setattr(
-        employments, "execute_values", lambda _cur, sql, rows, **_kw: fake.insert(sql, rows)
-    )
+    monkeypatch.setattr(employments, "execute_values", lambda _cur, sql, rows, **_kw: fake.insert(sql, rows))
     return fake
 
 
@@ -147,10 +140,7 @@ def _load(db, filings, employers=None):
     rows = frame.assign(_donor_id=frame["donor_key"].map(donor_ids))
     map_employment_ids(rows, employment_ids, get_employer_id, {"LEGAL": 1})
     by_id = dict(enumerate(db.rows, 1))
-    return {
-        sub_id: by_id[int(employment_id)]
-        for sub_id, employment_id in zip(rows["sub_id"], rows["_employment_id"])
-    }
+    return {sub_id: by_id[int(employment_id)] for sub_id, employment_id in zip(rows["sub_id"], rows["_employment_id"])}
 
 
 def test_statuses_sharing_a_null_employer_keep_their_own_rows(db):

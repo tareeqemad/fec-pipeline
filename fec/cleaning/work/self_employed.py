@@ -38,11 +38,7 @@ def split_self_marker(value: object) -> tuple[bool, str]:
     if match := _TAIL_RE.search(upper):
         return True, upper[: match.start()].strip(" ,;:/()-")
     letters = collapse_doubled_letters(re.sub(r"[^A-Z]", "", upper))
-    marked = (
-        upper.startswith("SELF:")
-        or letters.startswith("SELFEMPLOY")
-        or upper in ("SELF", "SSELF", "SELFF")
-    )
+    marked = upper.startswith("SELF:") or letters.startswith("SELFEMPLOY") or upper in ("SELF", "SSELF", "SELFF")
     return marked, ""
 
 

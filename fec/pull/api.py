@@ -60,9 +60,7 @@ def build_session() -> requests.Session:
     return session
 
 
-def _find_retry_delay(
-    attempt: int, response: requests.Response | None = None, cap: float = 60.0
-) -> float:
+def _find_retry_delay(attempt: int, response: requests.Response | None = None, cap: float = 60.0) -> float:
     """Use Retry-After when valid, otherwise the capped backoff."""
     retry_after = response.headers.get("Retry-After") if response is not None else None
     fallback = min(cap, 2 ** (attempt - 1))

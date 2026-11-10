@@ -65,17 +65,12 @@ def reset_schema(cur: Any) -> None:
     current_user = cur.fetchone()[0]
 
     if current_user != DATABASE_OWNER:
-        raise RuntimeError(
-            f"Loader must run as {DATABASE_OWNER}, not {current_user}. "
-            f"Set PG_USER={DATABASE_OWNER}."
-        )
+        raise RuntimeError(f"Loader must run as {DATABASE_OWNER}, not {current_user}. Set PG_USER={DATABASE_OWNER}.")
 
     cur.execute(OBJECTS_SQL)
     objects = cur.fetchall()
 
-    wrongly_owned = [
-        (name, kind, owner) for name, kind, owner in objects if owner != DATABASE_OWNER
-    ]
+    wrongly_owned = [(name, kind, owner) for name, kind, owner in objects if owner != DATABASE_OWNER]
     if wrongly_owned:
         preview = ", ".join(f"{kind} {name} ({owner})" for name, kind, owner in wrongly_owned[:5])
         raise RuntimeError(f"Ownership check failed. Expected {DATABASE_OWNER}: {preview}")

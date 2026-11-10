@@ -73,9 +73,7 @@ def split_retired(value: object) -> tuple[bool, str]:
     # The parts before it name the current role; the retired part is a
     # former one and goes.
     parts = [part for part in _PART_RE.split(upper) if part.strip()]
-    current = [
-        part for part in parts if not any(is_retired_word(word) for word in _WORD_RE.findall(part))
-    ]
+    current = [part for part in parts if not any(is_retired_word(word) for word in _WORD_RE.findall(part))]
     if current and len(current) < len(parts):
         role = _tidy(" ".join(current))
         # A status word (HOMEMAKER) is a current role too.
@@ -127,9 +125,7 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
         part_dropped = occupation_rest and occupation_rest != _to_plain_text(occupation)
         return employer, (occupation_rest if part_dropped else occupation), "", False
     employer_rest = employer_rest if employer_retired and not _names_nothing(employer_rest) else ""
-    occupation_rest = (
-        occupation_rest if occupation_retired and not _names_nothing(occupation_rest) else ""
-    )
+    occupation_rest = occupation_rest if occupation_retired and not _names_nothing(occupation_rest) else ""
     level = company_evidence_level(employer_rest)
     employer_is_job = bool(employer_rest) and is_job_title(employer_rest)
     employer_is_company = (
