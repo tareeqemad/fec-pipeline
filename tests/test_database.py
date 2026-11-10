@@ -1,3 +1,5 @@
+"""Tests of the database stage: addresses, employments and the load transaction."""
+
 import re
 
 import numpy as np

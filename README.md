@@ -138,6 +138,8 @@ pip install -r requirements.txt
 
 ## Tests
 
+One test file per stage folder: `tests/test_pull.py`, `test_cleaning.py`, `test_addresses.py`, `test_matching.py`, `test_geocoding.py`, `test_database.py`, and `test_common.py` for the shared code.
+
 ```bash
 pip install -r requirements-dev.txt
 ruff check .

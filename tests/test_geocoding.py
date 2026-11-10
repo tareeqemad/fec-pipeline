@@ -1,3 +1,5 @@
+"""Tests of the geocoding stage: the cache and the order of the two providers."""
+
 from fec.geocoding import pipeline as geocoding_pipeline
 from fec.geocoding.cache import GeoCache
 

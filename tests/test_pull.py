@@ -1,3 +1,5 @@
+"""Tests of the pull stage: rate limits and appending only new filings."""
+
 import csv
 
 import pytest
@@ -37,7 +39,7 @@ def test_fetch_page_stops_after_rate_limit_timeout(monkeypatch):
         api.fetch_page(Session(), {"api_key": "secret"}, Limiter())
 
 
-def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
+def test_pull_committee_appends_only_new_sub_ids(tmp_path, monkeypatch):
     csv_path = tmp_path / "contributions.csv"
     existing = pull_pipeline.build_row(
         {
