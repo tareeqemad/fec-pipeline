@@ -44,7 +44,6 @@ SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
 def _parse_amount(value: object, sub_id: str) -> Decimal:
-    """Reject missing or invalid amounts instead of recording zero."""
     try:
         amount = Decimal(str(value).strip())
     except (InvalidOperation, ValueError):

@@ -56,7 +56,6 @@ class CensusUnavailable(RuntimeError):
 
 
 def _is_same_house_number(street: str, returned_number: str) -> bool:
-    """Compare the supplied and returned house numbers."""
     expected = _HOUSE_NUMBER.match(street)
     if expected is None:
         first_word = street.split()[0] if street.strip() else ""
@@ -65,7 +64,6 @@ def _is_same_house_number(street: str, returned_number: str) -> bool:
 
 
 def _is_same_us_place(state: str, zipcode: str, returned_state: object, returned_zip: object) -> bool:
-    """Reject a different state or ZIP; allow postal city aliases."""
     if state and returned_state:
         actual_state = str(returned_state).strip().upper().removeprefix("US-")
         if actual_state != state.strip().upper():
@@ -76,7 +74,6 @@ def _is_same_us_place(state: str, zipcode: str, returned_state: object, returned
 
 
 def _is_address_result(result: dict, street: str) -> bool:
-    """Accept buildings and addresses, excluding street and area centres."""
     category = result.get("category", result.get("class", ""))
     kind = result.get("type", "")
     address_type = result.get("addresstype", "")
@@ -96,7 +93,6 @@ def _is_address_result(result: dict, street: str) -> bool:
 
 
 def _wait_for_nominatim(url: str) -> None:
-    """Space every request and retry using the same clock."""
     global _last_nominatim_request
     public = urlparse(url).hostname == "nominatim.openstreetmap.org"
     minimum = 15.0 if public else 1.0
@@ -109,7 +105,6 @@ def _wait_for_nominatim(url: str) -> None:
 
 
 def _build_nominatim_params(street: str, city: str, state: str, zipcode: str, foreign: bool) -> dict:
-    """Build the search query, limited to the US unless the address is foreign."""
     params = {
         "q": ", ".join(part for part in (street, city, state, zipcode) if part),
         "format": "jsonv2",
@@ -123,7 +118,6 @@ def _build_nominatim_params(street: str, city: str, state: str, zipcode: str, fo
 
 
 def _read_nominatim_results(results: object, street: str, state: str, zipcode: str, foreign: bool) -> dict | None:
-    """Return the point of the first result, or None when it is not this address."""
     if not isinstance(results, list):
         raise ValueError("expected a result list")
     if not results:
@@ -176,7 +170,6 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
 
 
 def _read_census_match(data: dict, street: str, state: str, zipcode: str) -> dict | None:
-    """Return the point of the first Census match, or None when it is not this address."""
     matches = data["result"]["addressMatches"]
     if not isinstance(matches, list):
         raise ValueError("expected an address match list")

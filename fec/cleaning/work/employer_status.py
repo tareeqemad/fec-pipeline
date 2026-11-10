@@ -19,7 +19,6 @@ _NO_WORK_OCCUPATIONS = _NO_WORK_CATEGORIES | {"HOUSEWIFE", "UNEMPLOYED"}
 
 
 def _read_status_text(value: object) -> str:
-    """Uppercased, stripped text for a status field; '' if missing."""
     return "" if pd.isna(value) else str(value).strip().upper()
 
 
@@ -33,7 +32,6 @@ def collapse_doubled_letters(text: str) -> str:
 
 
 def _is_title_word(word: str, last: bool) -> bool:
-    """Accept title words and the permitted one-letter spelling errors."""
     if word in JOB_TITLE_HEADS or (not last and word in JOB_TITLE_MODIFIERS):
         return True
     if not last or len(word) < 6:
@@ -70,7 +68,6 @@ def employer_rejection_reason(employer: object) -> str:
 
 @lru_cache(maxsize=32768)
 def _find_rejection_reason(upper: str) -> str:
-    """Evaluate each distinct normalized name once during a pipeline run."""
     if upper in ("NAN", "NONE", "N/A", "NA", ""):
         return "missing_value"
     # Ignore terminal punctuation on statuses/admin notes, not punctuation inside names.

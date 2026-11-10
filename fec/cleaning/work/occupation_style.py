@@ -105,7 +105,6 @@ _LAST_WORD_RE = re.compile(r"([A-Z]+)S$")
 
 
 def _depluralize_last_word(value: str) -> str:
-    """Drop trailing S from a known role noun."""
     if " OF " in f" {value} ":
         return value
     match = _LAST_WORD_RE.search(value)

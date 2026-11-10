@@ -109,7 +109,6 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _learn_categories(df: pd.DataFrame) -> int:
-    """Ask the model about occupations no table lists; log what it read."""
     learnt = learn_categories(df)
     if learnt:
         logger.info("Occupation categories read from the model: %s", f"{learnt:,}")
@@ -117,7 +116,6 @@ def _learn_categories(df: pd.DataFrame) -> int:
 
 
 def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepare IDs, states, dates and missing-work flags."""
     df["_generational_suffix"] = df["contributor_name"].map(extract_generational_suffix)
     dup_count = int(df["sub_id"].duplicated().sum())
     if dup_count:
@@ -146,7 +144,6 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _find_date_warnings(df: pd.DataFrame) -> list[str]:
-    """Warn about future or unparseable dates."""
     warnings = []
     today = pd.Timestamp.now()
     n_future = int((df["contribution_receipt_date"] > today + pd.Timedelta(days=30)).sum())
@@ -161,7 +158,6 @@ def _find_date_warnings(df: pd.DataFrame) -> list[str]:
 
 
 def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean names, work fields and entity types."""
     preclean_name_punctuation(df)
 
     people = df["is_individual"].astype(bool)
@@ -177,7 +173,6 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _finish_records(df: pd.DataFrame) -> pd.DataFrame:
-    """Attach committee names."""
     names = committee_id_to_name()
     df["recipient_committee"] = df["committee_id"].map(names).fillna(df["committee_id"])
     unknown_mask = df["committee_id"].notna() & ~df["committee_id"].isin(names)
@@ -237,7 +232,6 @@ def main() -> pd.DataFrame:
 
 
 def _assert_known_committees(df: pd.DataFrame) -> None:
-    """Stop if a recipient is missing from committees.csv."""
     known = {row["committee_short"] for row in read_committees() if row.get("committee_short")}
     recipients = df["recipient_committee"]
     unknown = recipients[recipients.notna() & ~recipients.isin(known)]
@@ -252,7 +246,6 @@ def _assert_known_committees(df: pd.DataFrame) -> None:
 
 
 def _ensure_zip_format(df: pd.DataFrame) -> None:
-    """US ZIPs as five digits; foreign postcodes as filed."""
     us_rows = ~foreign_address_mask(df)
     zips = df["contributor_zip"]
 
@@ -275,7 +268,6 @@ def _ensure_zip_format(df: pd.DataFrame) -> None:
 
 
 def _read_earlier_donor_keys() -> dict:
-    """Each filing's donor key from the last run, or {} the first time."""
     if not DONOR_KEYS_CSV.exists():
         return {}
     keys = pd.read_csv(DONOR_KEYS_CSV, dtype=str, keep_default_na=False)
@@ -283,13 +275,11 @@ def _read_earlier_donor_keys() -> dict:
 
 
 def _save_donor_keys(cleaned: pd.DataFrame) -> None:
-    """Remember each filing's donor key for the next run."""
     keys = cleaned[["sub_id", "_matched_key"]].rename(columns={"_matched_key": "donor_key"})
     write_csv_atomic(keys, str(DONOR_KEYS_CSV), index=False)
 
 
 def _write_new_occupations(df: pd.DataFrame, out_dir: str) -> None:
-    """Occupations missing from the category table, for optional review."""
     occupation = df["contributor_occupation"].fillna("")
     new = df[df["entity_type"].eq("INDIVIDUAL") & occupation.ne("") & ~occupation.isin(CATEGORY_OVERRIDES)]
     report = new.groupby(["contributor_occupation", "occupation_category"]).size().reset_index(name="rows")
@@ -299,7 +289,6 @@ def _write_new_occupations(df: pd.DataFrame, out_dir: str) -> None:
 
 
 def _print_summary(df: pd.DataFrame, output: str, out_dir: str, elapsed: float) -> None:
-    """Show counts, output paths and elapsed time."""
     donors = df.loc[df["entity_type"].eq("INDIVIDUAL"), "donor_key"].nunique()
     minutes, seconds = divmod(round(elapsed), 60)
     logger.info("Clean checks passed.")

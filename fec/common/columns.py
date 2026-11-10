@@ -65,7 +65,6 @@ STAGES = {
 
 
 def _find_adding_command(column: str) -> str:
-    """Find the command that first creates a column."""
     return next((stage.command for stage in STAGES.values() if column in stage.adds), "clean.py")
 
 

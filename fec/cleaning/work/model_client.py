@@ -44,7 +44,6 @@ def have_key() -> bool:
 def _ask(
     lines: list[str], instructions: str, user_prefix: str, schema: dict, key_field: str, model: str
 ) -> dict[str, dict]:
-    """Send one batch of lines to the model and return the answers keyed by line."""
     body = {
         "model": model,
         "messages": [
@@ -78,7 +77,6 @@ class OutOfCredit(RuntimeError):
 
 
 def _build_answers_schema(item_schema: dict) -> dict:
-    """Return the schema of one answer: an object holding a list of answer items."""
     return {
         "type": "object",
         "properties": {"items": {"type": "array", "items": item_schema}},

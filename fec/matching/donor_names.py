@@ -37,18 +37,15 @@ def canonicalize_committee_names(df: pd.DataFrame) -> int:
 
 
 def _split_tokens(text: str) -> list:
-    """Return the name tokens of a text, uppercased."""
     return _TOKEN.findall(text.upper())
 
 
 def _strip_asides(first: str) -> str:
-    """Return a given name without what the filer wrote in brackets."""
     text = " ".join(_ASIDE.sub(" ", first).replace(")", " ").split()).strip(" ,-")
     return re.sub(r"(?<=[A-Z]{3})\.+$", "", text)  # JOHN.
 
 
 def _find_surname_root(variant: str, lasts: list[str], firsts: list[str], filed: Counter) -> str:
-    """Return the surname a variant shortens to when its extra words are initials or given names."""
     # KARNEY GUREN beside GUREN: the same surname when the donor files KARNEY as a given name
     given = {token for last, first in zip(lasts, firsts) if last != variant for token in _split_tokens(first)}
     for shorter in sorted(filed, key=len):
@@ -61,7 +58,6 @@ def _find_surname_root(variant: str, lasts: list[str], firsts: list[str], filed:
 
 
 def _choose_surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
-    """Return the most filed surname, and an initial typed before it (W. HAHN)."""
     filed = Counter(last for last in lasts if last)
     roots = Counter()
     for variant, count in filed.items():
@@ -78,14 +74,12 @@ def _choose_surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
 
 
 def _drop_repeated_asides(spelling: str, asides: set) -> str:
-    """Return a given name without bracketed asides and the words that only repeat them."""
     first, *rest = _strip_asides(spelling).split() or [""]
     kept_words = (word for word in rest if not set(_split_tokens(word)) <= asides or not _split_tokens(word))
     return " ".join([first, *kept_words])
 
 
 def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset) -> str | None:
-    """Return the fullest spelling; among equals the most filed, then the first filed."""
     if not spellings:
         return None
     words = Counter(_split_tokens(spelling)[0] for spelling in spellings)
@@ -118,7 +112,6 @@ def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset)
 
 
 def _drop_cut_surname(given: str, surname: str) -> str:
-    """Drop a last word that is the surname again, cut short by the field."""
     if " " not in given:
         return given
     last_word = given.split()[-1]
@@ -128,7 +121,6 @@ def _drop_cut_surname(given: str, surname: str) -> str:
 
 
 def _group_given_names(given: list[str], own: set, asides: set) -> dict:
-    """Group the filings by given name; initials a fuller filing spells out join it."""
     groups = defaultdict(list)
     for position, first in enumerate(given):
         tokens = _split_tokens(first)

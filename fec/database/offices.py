@@ -52,7 +52,6 @@ def filing_office_address_id(
 
 
 def _find_self_employed_address_id(row: pd.Series, address_ids: dict) -> int | None:
-    """Return the donor's own address ID, None when the filing has no address."""
     address = address_key(
         row.get("contributor_street_1"),
         row.get("contributor_street_2"),
@@ -74,7 +73,6 @@ def _find_company_office_address_id(
     locations: dict,
     address_ids: dict,
 ) -> int | None:
-    """Return the address ID of the company office chosen for this donor."""
     name = str(to_native(employer_name) or "").strip()
     if not name or not locations:
         return None
@@ -111,12 +109,10 @@ ADDRESS_FIELDS = (
 
 
 def _trim_text(value: Any) -> str:
-    """Return the value as trimmed text, '' when missing."""
     return str(value or "").strip()
 
 
 def _is_usable(location: dict | None) -> bool:
-    """Check that a location has a street, or a manual city and state."""
     if not location:
         return False
     if _trim_text(location.get("employer_address")):
@@ -129,7 +125,6 @@ def _is_usable(location: dict | None) -> bool:
 
 
 def _build_signature(location: dict) -> tuple[str, ...]:
-    """Return the upper-cased address fields that identify a location."""
     return tuple(_trim_text(location.get(field)).upper() for field in ADDRESS_FIELDS)
 
 
@@ -156,7 +151,6 @@ def office_candidates(entry: dict | None) -> list[dict]:
 
 @lru_cache(maxsize=1)
 def _read_zip_centroids() -> dict[str, tuple[float, float]]:
-    """Load ZIP code centroids from the reference CSV, empty when missing."""
     path = REFERENCE_DIR / "zip_centroids.csv"
     if not path.exists():
         return {}
@@ -213,7 +207,6 @@ def select_office(
 
 
 def _find_nearest_office(offices: list[dict], donor_zip: str) -> dict | None:
-    """Return the office whose ZIP centroid is closest to the donor's, None when unknown."""
     centroids = _read_zip_centroids()
     donor_point = centroids.get(donor_zip)
     if not donor_point:
@@ -230,11 +223,9 @@ def _find_nearest_office(offices: list[dict], donor_zip: str) -> dict | None:
 
 
 def _rank_office(location: dict) -> tuple[bool, tuple[str, ...]]:
-    """Rank the primary office first, then by address."""
     return (not location.get("is_primary", False), _build_signature(location))
 
 
 def _rank_by_distance(ranked_office: tuple[float, dict]) -> tuple[float, bool, tuple[str, ...]]:
-    """Rank by distance, then the primary office first, then by address."""
     distance, location = ranked_office
     return (distance, not location.get("is_primary", False), _build_signature(location))

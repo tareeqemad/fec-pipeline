@@ -37,12 +37,10 @@ _TEXT_RE = re.compile(r"[A-Z][A-Z '&/.-]*")
 
 
 def _to_plain_text(value: object) -> str:
-    """Return a text uppercased with single spaces, or '' if it is not a string."""
     return " ".join(value.upper().split()) if isinstance(value, str) else ""
 
 
 def _is_one_word_slip(text: str, listed: str) -> bool:
-    """Exactly one word differs, by one slip, and that word is long enough."""
     text_words, listed_words = text.split(), listed.split()
     if len(text_words) != len(listed_words):
         return False

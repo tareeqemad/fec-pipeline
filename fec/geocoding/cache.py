@@ -21,7 +21,6 @@ class GeoCache(JsonCache):
         self.data[key] = {"lat": lat, "lng": lng, "source": source, "country": country}
 
     def _record_miss(self, key: str, status: str) -> None:
-        """Record a failed lookup, keeping any coordinates found before."""
         entry = self.get(key)
         if entry and entry.get("lat") is not None:
             self.data[key] = {**entry, "lookup_status": status}

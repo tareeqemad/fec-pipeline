@@ -31,7 +31,6 @@ _TEXT_COLUMNS = [
 
 
 def _describe_first_name_relation(first_a: str, first_b: str) -> str:
-    """How two first names are related, or '' when they are not."""
     word_a = (first_a.split() or [""])[0]
     word_b = (first_b.split() or [""])[0]
     if not word_a or not word_b:
@@ -45,17 +44,14 @@ def _describe_first_name_relation(first_a: str, first_b: str) -> str:
 
 
 def _find_first_filed(values: pd.Series) -> str:
-    """Return the first non-empty value, or ''."""
     return next((value for value in values if value), "")
 
 
 def _find_first_filed_upper(values: pd.Series) -> str:
-    """Return the first non-empty value uppercased, or ''."""
     return _find_first_filed(values).upper()
 
 
 def _summarize_donors(people: pd.DataFrame) -> pd.DataFrame:
-    """Return each donor's name, place, number of donations and total amount."""
     return people.groupby("donor_key").agg(
         last=("contributor_last_name", _find_first_filed_upper),
         first=("contributor_first_name", _find_first_filed_upper),
@@ -67,14 +63,12 @@ def _summarize_donors(people: pd.DataFrame) -> pd.DataFrame:
 
 
 def _find_held_donors(people: pd.DataFrame) -> set:
-    """Return the donor keys whose identity is not confirmed."""
     if "identity_status" not in people:
         return set()
     return set(people.loc[people["identity_status"].ne("confirmed"), "donor_key"])
 
 
 def _list_identities(people: pd.DataFrame) -> dict[str, list[dict]]:
-    """Return each donor's distinct filed names and places, as identity rules read them."""
     filed_parts = people["contributor_last_name"] + ", " + people["contributor_first_name"]
     names = people["contributor_name"].where(people["contributor_name"].ne(""), filed_parts)
     places = people.assign(name=names).rename(
@@ -89,7 +83,6 @@ def _list_identities(people: pd.DataFrame) -> dict[str, list[dict]]:
 
 
 def _describe_donor(side: str, key: str, donors: pd.DataFrame) -> dict:
-    """Return one donor's review columns, suffixed with its side of the pair."""
     return {
         f"donor_key_{side}": key,
         f"first_{side}": donors.at[key, "first"],
@@ -101,7 +94,6 @@ def _describe_donor(side: str, key: str, donors: pd.DataFrame) -> dict:
 
 
 def _build_review_row(reason: str, zip_code: str, last: str, key_a: str, key_b: str, donors: pd.DataFrame) -> dict:
-    """Return the review row of one donor pair."""
     row = {"reason": reason, "zip": zip_code, "last_name": last}
     row |= _describe_donor("a", key_a, donors)
     row |= _describe_donor("b", key_b, donors)
@@ -111,7 +103,6 @@ def _build_review_row(reason: str, zip_code: str, last: str, key_a: str, key_b: 
 
 
 def _find_review_rows(people: pd.DataFrame, donors: pd.DataFrame, held: set, identities: dict) -> list[dict]:
-    """Pair donors of one ZIP and surname whose first names are related."""
     rows, seen = [], set()
     places = people.loc[people["contributor_zip"].ne(""), ["donor_key", "contributor_zip"]].drop_duplicates()
     places["last"] = places["donor_key"].map(donors["last"])

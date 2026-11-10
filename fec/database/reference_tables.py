@@ -25,7 +25,6 @@ REF_TABLES = [
 def _read_reference_rows(
     path: Path, table: str, required: list[str], optional: list[str]
 ) -> tuple[list[str], list[tuple]]:
-    """Read reference values and reject missing required columns or cells."""
     frame = pd.read_csv(path, dtype=str, keep_default_na=False)
     columns = [column for column in required + optional if column in frame.columns]
     if not columns:
@@ -84,7 +83,6 @@ def load_lookups(cur: Any) -> None:
 
 
 def _load_occupation_categories(cur: Any) -> None:
-    """Load the occupation categories present in the cleaned file."""
     df = pd.read_csv(CLEANED_CSV, usecols=["occupation_category"], dtype=str)
     categories = sorted(df["occupation_category"].dropna().unique())
     rows = [(category,) for category in categories]
@@ -97,7 +95,6 @@ def _load_occupation_categories(cur: Any) -> None:
 
 
 def _load_committees(cur: Any) -> None:
-    """Load committees without duplicating non-FEC organizations."""
     insert_sql = (
         "INSERT INTO committees (committee_number, committee_name, committee_short, "
         "raised, spent, irs_990_link, logo_path) "

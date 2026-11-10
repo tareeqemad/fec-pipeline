@@ -69,12 +69,10 @@ def is_committee_name(name: str) -> bool:
 
 
 def _ends_in_organisation_word(head: list[str]) -> bool:
-    """Tell whether the words before the comma end in an organisation word: KAHAN TRUST."""
     return len(head) >= 2 and head[-1] in ORGANISATION_WORDS
 
 
 def _find_company_evidence(df: pd.DataFrame, names: pd.Series, flagged: pd.Series) -> tuple[pd.Series, pd.Series]:
-    """Return which names are certainly an organisation, and which carry company evidence."""
     filings = Filings(names[flagged], df.loc[flagged, "contributor_employer"].fillna(""))
     level = pd.Series([filings.level(name, 1) for name in names], index=names.index)
     legal_form = has_legal_form_token(names)
@@ -87,12 +85,10 @@ def _find_company_evidence(df: pd.DataFrame, names: pd.Series, flagged: pd.Serie
 
 
 def _find_most_common(kinds: pd.Series) -> str:
-    """Return the value filed most often, the first in order on a tie."""
     return kinds.mode().iat[0]
 
 
 def _apply_fec_types(df: pd.DataFrame, names: pd.Series, kind: pd.Series) -> pd.Series:
-    """Let FEC's type for a name hold for every filing of that name."""
     if "fec_entity_type" not in df.columns:
         return kind
     filed = df["fec_entity_type"].map(FEC_ENTITY_TYPES).dropna()
@@ -127,7 +123,6 @@ def classify_entities(df: pd.DataFrame) -> None:
 
 
 def _set_types(df: pd.DataFrame, kind: pd.Series) -> None:
-    """Write the type with the flag and category that follow from it."""
     df.loc[kind.index, "entity_type"] = kind
     df.loc[kind.index, "is_individual"] = kind.eq("INDIVIDUAL")
     other = kind[kind.ne("INDIVIDUAL")]

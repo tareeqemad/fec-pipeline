@@ -55,7 +55,6 @@ def find_or_create_donor(
 
 
 def _find_or_insert_address(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
-    """Reuse an address or insert it with its coordinates."""
     cur.execute(
         """
         SELECT address_id FROM addresses
@@ -148,7 +147,6 @@ def roster_office_address_id(
 
 
 def _read_office_coordinate(value: Any) -> float | None:
-    """Read an optional coordinate, ignoring invalid text."""
     try:
         return float(value) if str(value or "").strip() else None
     except ValueError:
@@ -197,7 +195,6 @@ def upsert_leader_employment(
 
 
 def _find_roster_employer(cur: Any, employer_name: str) -> tuple[int | None, str]:
-    """Return the company ID and employer status, adding a real company if missing."""
     if not employer_name or not is_real_employer(employer_name):
         status = classify_employer_status(employer_name) if employer_name else "missing"
         return None, status
@@ -211,7 +208,6 @@ def _find_roster_employer(cur: Any, employer_name: str) -> tuple[int | None, str
 
 
 def _find_occupation_category_id(cur: Any, occupation: str | None) -> int | None:
-    """Return the database ID of the occupation's category, None when unknown."""
     if not occupation:
         return None
     category = categorize_occupations(pd.Series([occupation])).iloc[0]
@@ -221,13 +217,11 @@ def _find_occupation_category_id(cur: Any, occupation: str | None) -> int | None
 
 
 def _read_person_value(row: pd.Series, field: str) -> str:
-    """Read a field from either roster format."""
     value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
     return value.strip()
 
 
 def _read_person_identity(row: pd.Series) -> tuple[str, str, str, str, str]:
-    """Read the roster name and place, filling split names."""
     name = _read_person_value(row, "name")
     first = _read_person_value(row, "first_name")
     last = _read_person_value(row, "last_name")
@@ -247,7 +241,6 @@ def _read_person_identity(row: pd.Series) -> tuple[str, str, str, str, str]:
 
 
 def _read_boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> bool:
-    """Accept true or false; reject missing or invalid values."""
     value = (row.get(field) or "").strip().lower()
     if value == "true":
         return True
@@ -257,7 +250,6 @@ def _read_boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> b
 
 
 def _read_roster_coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
-    """Read an optional coordinate and warn about invalid text."""
     coordinate_text = (row.get(field) or "").strip()
     if not coordinate_text:
         return None
@@ -275,7 +267,6 @@ def _read_roster_coordinate(row: pd.Series, field: str, csv_filename: str, name:
 
 
 def _upsert_image(cur: Any, row: pd.Series, donor_id: int) -> None:
-    """Save the donor image when a path is provided."""
     image_path = (row.get("image_path") or "").strip()
     if not image_path:
         return
@@ -293,7 +284,6 @@ def _upsert_address(
     csv_filename: str,
     name: str,
 ) -> None:
-    """Save the roster address and optional coordinates."""
     street_1 = _read_person_value(row, "street_1")
     city = _read_person_value(row, "city")
     if not street_1 and not city:
@@ -350,7 +340,6 @@ def _load_person(
     locations: dict[str, dict],
     insert_row: Callable[[Any, pd.Series, int], None],
 ) -> bool:
-    """Save one roster donor; False for a row without a name."""
     name, first, last, city, state = _read_person_identity(row)
     if not name:
         return False

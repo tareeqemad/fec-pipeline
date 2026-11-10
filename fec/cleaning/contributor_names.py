@@ -19,7 +19,6 @@ _ZIP5_RE = re.compile(r"\d{5}")
 
 
 def _read_first_name_rule(number: int, raw: str, corrected: str, zip_field: str) -> list[tuple[str, str, str]]:
-    """Parse one first_name rule into (surname, garbled word, zip5) keys."""
     last, comma, first = raw.partition(",")
     last, first = last.strip(), first.strip()
     if not comma or "," in first or not last or not first or len(first.split()) != 1:
@@ -34,7 +33,6 @@ def _read_first_name_rule(number: int, raw: str, corrected: str, zip_field: str)
 
 
 def _add_name_rule(rules: dict[str, dict], number: int, row: dict[str, str]) -> None:
-    """Check one row of the name rules and add it to the rules of its type."""
     rule_type = (row.get("rule_type") or "").strip()
     raw = (row.get("raw_value") or "").strip()
     corrected = (row.get("corrected_value") or "").strip()
@@ -118,12 +116,10 @@ def preclean_name_punctuation(df: pd.DataFrame) -> None:
 
 
 def _tidy(text: str) -> str:
-    """Remove backticks and semicolons, collapse whitespace and fix doubled quotes."""
     return re.sub(r"\s+", " ", re.sub(r"[`;]", "", text)).strip().replace("''", "'")
 
 
 def _strip_periods(word: str) -> str:
-    """Return a word without periods."""
     return word.replace(".", "")
 
 
@@ -162,7 +158,6 @@ def read_name(name: str, first: str, last: str) -> tuple[str, str, str]:
 
 
 def _add_filed_given_names(name: str, first: str, given: list[str]) -> str:
-    """Return the given names of the filed name when they start with the first-name box's."""
     filed_first = name.partition(",")[2].strip().split()
     extra = filed_first[len(given) :]
     if filed_first[: len(given)] != given or not extra:
@@ -173,7 +168,6 @@ def _add_filed_given_names(name: str, first: str, given: list[str]) -> str:
 
 
 def _remove_periods(name: str) -> str:
-    """Contributor_name carries no period after an initial or a title."""
     name = re.sub(r"\b([A-Z]|MR|MRS|MS|DR|JR|SR|II|III|IV)\.", r"\1 ", name.replace("''", "'"))
     return re.sub(r"\s+", " ", name).strip()
 
@@ -204,7 +198,6 @@ def clean_names(df: pd.DataFrame) -> None:
 
 
 def _fix_garbled_first_names(df: pd.DataFrame, people: pd.Index) -> None:
-    """Reviewed first-name fixes for the matching surname and ZIP5."""
     garbled = {word for _, word, _ in FIRST_NAME_FIXES}
     first = df.loc[people, "contributor_first_name"].fillna("").astype(str)
     rows = first.index[first.str.split().str[0].isin(garbled)]

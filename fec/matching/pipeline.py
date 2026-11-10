@@ -118,7 +118,6 @@ def standardize_donors(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd
 
 
 def _validate_generational_suffixes(df: pd.DataFrame) -> None:
-    """Reject a donor containing different explicit generation suffixes."""
     people = df[df["entity_type"] == "INDIVIDUAL"]
     suffixes = people[people["_generational_suffix"] != ""]
     conflicts = suffixes.groupby("donor_key")["_generational_suffix"].nunique()
@@ -133,7 +132,6 @@ _NETWORK_NAME_RE = re.compile(r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL 
 
 
 def _separate_network_filings(df: pd.DataFrame) -> None:
-    """Make a person filed under a network's name that network, one unresolved donor per filing."""
     names = df["contributor_name"].fillna("").astype(str)
     region_parts = names.str.extract(_NETWORK_NAME_RE)
     region = region_parts.bfill(axis=1)[0]

@@ -26,7 +26,6 @@ _LOCATION_COLUMNS = {
 
 
 def _validate_cleaned_data(df: pd.DataFrame) -> None:
-    """Check cleaned columns and quality rules."""
     check_loadable(df.columns)
 
     quality = run_quality_gates(df)
@@ -38,7 +37,6 @@ def _validate_employer_locations(
     df: pd.DataFrame,
     locations: pd.DataFrame,
 ) -> None:
-    """Check company names, primary offices and address trust."""
     if not _LOCATION_COLUMNS.issubset(locations.columns):
         raise ValueError("employer_locations.csv is missing columns")
 
@@ -59,7 +57,6 @@ def _validate_employer_locations(
 
 
 def _validate_contribution_fields(df: pd.DataFrame) -> None:
-    """Check donor keys, filing IDs, dates and election cycles."""
     donor_keys = df["donor_key"].fillna("").astype(str).str.strip()
     if donor_keys.eq("").any():
         raise ValueError("donor_key contains blank values")
@@ -78,7 +75,6 @@ def _validate_contribution_fields(df: pd.DataFrame) -> None:
 
 
 def _validate_committees(df: pd.DataFrame) -> None:
-    """Require every recipient committee in committees.csv."""
     committees = pd.read_csv(COMMITTEES_CSV, dtype=str, keep_default_na=False)
     known = set(committees["committee_short"].str.strip())
     received = set(df["recipient_committee"].dropna().astype(str).str.strip())
@@ -88,7 +84,6 @@ def _validate_committees(df: pd.DataFrame) -> None:
 
 
 def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
-    """Check both output files before loading."""
     _validate_cleaned_data(df)
     _validate_employer_locations(df, locations)
     _validate_contribution_fields(df)

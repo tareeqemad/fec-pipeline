@@ -14,17 +14,14 @@ from fec.vocabulary.occupations import VALID_CATEGORIES
 
 
 def _read_text(df: pd.DataFrame, column: str) -> pd.Series:
-    """Return a column as stripped text, with blanks for missing values."""
     return df[column].fillna("").astype(str).str.strip()
 
 
 def _find_people(df: pd.DataFrame) -> pd.Series:
-    """Return which rows are individuals."""
     return df["entity_type"].eq("INDIVIDUAL")
 
 
 def _find_nan_text(df: pd.DataFrame) -> pd.Series:
-    """Return the rows where a text column holds the word NAN."""
     columns = (
         "contributor_occupation",
         "contributor_employer",
@@ -37,17 +34,14 @@ def _find_nan_text(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_unreadable_amount(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose amount is not a number."""
     return pd.to_numeric(df["contribution_receipt_amount"], errors="coerce").isna()
 
 
 def _find_unknown_category(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose occupation category is not a valid one."""
     return ~_read_text(df, "occupation_category").isin(VALID_CATEGORIES)
 
 
 def _find_category_differs(df: pd.DataFrame) -> pd.Series:
-    """Return the individuals whose category differs from the one the rules give."""
     people = _find_people(df)
     filed = _read_text(df, "occupation_category")[people]
     differs = filed != categorize_with_corrections(df[people])
@@ -55,18 +49,15 @@ def _find_category_differs(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_status_differs(df: pd.DataFrame) -> pd.Series:
-    """Return the individuals whose employer status differs from the classified one."""
     return _find_people(df) & _read_text(df, "employer_status").ne(classify_employer_statuses(df))
 
 
 def _find_previous_employer_not_retired(df: pd.DataFrame) -> pd.Series:
-    """Return the rows with a previous employer whose status is not retired."""
     has_previous = _read_text(df, "previous_employer").ne("")
     return has_previous & _read_text(df, "employer_status").ne("retired")
 
 
 def _find_not_an_employer(df: pd.DataFrame) -> pd.Series:
-    """Return the individuals whose current or previous employer is not a real employer."""
     status = _read_text(df, "employer_status")
     current, previous = _read_text(df, "contributor_employer"), _read_text(df, "previous_employer")
     working = _find_people(df) & (status.eq("active") | (status.eq("self_employed") & current.ne("SELF-EMPLOYED")))
@@ -78,57 +69,47 @@ def _find_not_an_employer(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_no_zip(df: pd.DataFrame) -> pd.Series:
-    """Return the rows without a ZIP."""
     return _read_text(df, "contributor_zip").eq("")
 
 
 def _find_duplicate_sub_id(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose sub_id an earlier row already has."""
     return df["sub_id"].duplicated()
 
 
 def _find_duplicate_transaction_id(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose transaction_id an earlier row already has."""
     return df["transaction_id"].duplicated()
 
 
 def _find_dated_ahead(df: pd.DataFrame) -> pd.Series:
-    """Return the rows dated more than 60 days from now."""
     dates = pd.to_datetime(df["contribution_receipt_date"], errors="coerce")
     return dates > pd.Timestamp.now() + pd.Timedelta(days=60)
 
 
 def _read_zip_state(zipcode: str) -> str:
-    """Return the state a ZIP belongs to, or '' when it is not known."""
     return zip_place(zipcode)[0]
 
 
 def _find_zip_of_another_state(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose ZIP belongs to a different state."""
     zip_state = _read_text(df, "contributor_zip").map(_read_zip_state)
     filed_state = _read_text(df, "contributor_state")
     return zip_state.ne("") & filed_state.ne("") & zip_state.ne(filed_state)
 
 
 def _find_email_street(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose street holds an @."""
     return _read_text(df, "contributor_street_1").str.contains("@", regex=False)
 
 
 def _find_odd_name_characters(df: pd.DataFrame) -> pd.Series:
-    """Return the rows whose first or last name holds ` ; [ ] or @."""
     first = _read_text(df, "contributor_first_name").str.contains(r"[`;\[\]@]")
     last = _read_text(df, "contributor_last_name").str.contains(r"[`;\[\]@]")
     return first | last
 
 
 def _find_retired_but_active(df: pd.DataFrame) -> pd.Series:
-    """Return the individuals with a RETIRED category and an active employer status."""
     return _find_people(df) & df["occupation_category"].eq("RETIRED") & df["employer_status"].eq("active")
 
 
 def _find_retired_without_retired_employer(df: pd.DataFrame) -> pd.Series:
-    """Return the individuals with a RETIRED category whose employer is not RETIRED."""
     return (
         _find_people(df)
         & df["occupation_category"].eq("RETIRED")
@@ -137,7 +118,6 @@ def _find_retired_without_retired_employer(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_null_surname_lost(df: pd.DataFrame) -> pd.Series:
-    """Return the rows filed with the surname NULL whose last name went missing."""
     # NULL is a real surname; a reader that turns it into a missing value loses it
     filed_null = df["contributor_name"].astype("string").str.startswith("NULL,", na=False)
     return filed_null & _read_text(df, "contributor_last_name").eq("")

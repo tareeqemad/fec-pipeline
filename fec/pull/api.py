@@ -61,7 +61,6 @@ def build_session() -> requests.Session:
 
 
 def _find_retry_delay(attempt: int, response: requests.Response | None = None, cap: float = 60.0) -> float:
-    """Use Retry-After when valid, otherwise the capped backoff."""
     retry_after = response.headers.get("Retry-After") if response is not None else None
     fallback = min(cap, 2 ** (attempt - 1))
     if not retry_after:
@@ -79,7 +78,6 @@ def _retry_or_raise(
     response: requests.Response | None = None,
     error: Exception | None = None,
 ) -> None:
-    """Retry a temporary error or stop after the final attempt."""
     if attempt == MAX_ATTEMPTS:
         raise PullError(f"{gave_up} after {attempt} attempts") from error
     delay = _find_retry_delay(attempt, response)
@@ -88,7 +86,6 @@ def _retry_or_raise(
 
 
 def _wait_for_rate_limit(response: requests.Response, attempt: int, waited: float) -> float:
-    """Wait for the quota to reset, within the wait limit."""
     delay = max(1.0, _find_retry_delay(attempt, response, cap=120.0))
     if waited + delay > RATE_LIMIT_MAX_WAIT:
         raise PullError(f"FEC rate limit did not clear after {waited / 60:.0f} minutes")
@@ -103,7 +100,6 @@ def _wait_for_rate_limit(response: requests.Response, attempt: int, waited: floa
 
 
 def _read_response_data(response: requests.Response, params: dict) -> dict:
-    """Read JSON or raise a useful error, hiding the key."""
     if response.status_code == 403:
         raise PullError("FEC API key is invalid or expired")
     if response.status_code == 404:
