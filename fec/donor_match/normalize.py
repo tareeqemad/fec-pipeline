@@ -3,7 +3,7 @@ import re
 
 from rapidfuzz.distance import Levenshtein
 from fec.cleaning.work.employer_aliases import employer_rule_key
-from fec.config.tables import CONFIG_DIR, read_map
+from fec.config.tables import CONFIG_DIR, read_map, read_rows
 
 
 _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
@@ -12,38 +12,10 @@ _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V", "ESQ", "MD", "PHD", "DDS", "CPA", "DO"}
 
 
-# blocked first-name pairs: look similar but are different people
-_BLOCKED_FIRST_PAIRS = {frozenset(p) for p in [
-    ('DAN', 'DANA'),        ('DANIEL', 'DANA'),
-    ('BETH', 'SETH'),
-    ('JOAN', 'JOHN'),
-    ('ANDREA', 'ANDREW'),   ('ANDREA', 'ANDRE'),
-    ('ALLEN', 'ELLEN'),     ('ALAN', 'ELENA'),
-    ('RANDI', 'RANDY'),
-    ('ROBIN', 'ROB'),       ('ROBIN', 'ROBERT'),
-    ('SANDY', 'ANDY'),      ('SANDRA', 'ANDREW'),
-    ('CARL', 'CARI'),
-    ('EVAN', 'IVAN'),
-    ('MARK', 'MARY'),       ('MARC', 'MARY'),
-    ('KEREN', 'KAREN'),
-    ('EARL', 'CARL'),
-    ('JOY', 'JAY'),
-    ('DAWN', 'DAN'),
-    ('JANE', 'JUNE'),
-    ('JULIE', 'JULIA'),
-    ('ANN', 'DAN'),
-    ('BARRY', 'LARRY'),     ('BARRY', 'HARRY'),
-    ('LARRY', 'HARRY'),     ('TERRY', 'JERRY'),
-    ('TERRY', 'PERRY'),     ('TERRY', 'KERRY'),
-    ('JERRY', 'PERRY'),     ('JERRY', 'KERRY'),
-    ('LOREN', 'OREN'),
-    ('ARI', 'AVI'),         ('ARI', 'URI'),
-    ('ETAN', 'EVAN'),
-    ('KEN', 'BEN'),         ('KEN', 'LEN'),
-    ('BEN', 'LEN'),
-    ('ROY', 'ROB'),         ('ROY', 'RON'),
-    ('GARY', 'CARY'),
-]}
+# First names that look alike but name different people (DAN / DANA).
+_BLOCKED_FIRST_PAIRS = {
+    frozenset((row["name_a"], row["name_b"])) for row in read_rows(CONFIG_DIR / "different_first_names.csv")
+}
 
 
 NICKNAME_MAP = read_map(CONFIG_DIR / "nicknames.csv")

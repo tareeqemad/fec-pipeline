@@ -1,4 +1,11 @@
-"""Read and evaluate reviewed donor identity rules."""
+"""Read and evaluate the reviewed donor identity rules (donor_identity_rules.csv).
+
+    merge_keys    two donor keys are one person (or one committee, with a canonical name)
+    merge_names   every filing whose name starts with name_a is one person
+    separate      two names, optionally at a place, are different people
+    hold          one filing belongs to no confirmed donor
+    hold_address  a name at a street and ZIP belongs to no confirmed donor
+"""
 
 import csv
 import re
@@ -6,10 +13,7 @@ from collections import defaultdict
 
 from fec.env import RULES_DIR
 
-
 RULES_PATH = RULES_DIR / "donor_identity_rules.csv"
-VALID_ACTIONS = {"merge_keys", "merge_names", "separate", "hold", "hold_address"}
-VALID_REVIEW_STATUSES = {"verified_fec", "verified_web"}
 REQUIRED_FIELDS = {
     "merge_keys": ("donor_key_a", "donor_key_b"),
     "merge_names": ("name_a",),
@@ -17,72 +21,56 @@ REQUIRED_FIELDS = {
     "hold": ("sub_id", "group"),
     "hold_address": ("name_a", "street_a", "zip_a", "group"),
 }
+VALID_REVIEW_STATUSES = {"verified_fec", "verified_web"}
 
 
-# uppercase and collapse whitespace
 def _normalize(value: str) -> str:
+    """Uppercase with single spaces."""
     return " ".join(str(value or "").upper().split())
 
 
-# build a name+place identity key
 def _identity(name: str, city: str, state: str, zip5: str = "") -> str:
+    """A name at a place, with the ZIP when the rule is that narrow."""
     parts = (name, city, state, zip5) if zip5 else (name, city, state)
     return "|".join(map(_normalize, parts))
 
 
-# read and validate donor identity rules from CSV
-def _read_rules() -> list[dict[str, str]]:
+def _read_rules() -> dict[str, list[dict]]:
+    """The rule rows by action; every row needs its fields, a source and a review date."""
     if not RULES_PATH.exists():
         raise FileNotFoundError(f"Missing donor identity rules: {RULES_PATH}")
+    by_action = {action: [] for action in REQUIRED_FIELDS}
     with RULES_PATH.open(encoding="utf-8-sig", newline="") as handle:
-        rows = list(csv.DictReader(handle))
-
-    for number, row in enumerate(rows, start=2):
-        action = (row.get("action") or "").strip().lower()
-        if action not in VALID_ACTIONS:
-            raise ValueError(f"Invalid identity action on row {number}: {action}")
-
-        status = (row.get("review_status") or "").strip().lower()
-        if status not in VALID_REVIEW_STATUSES:
-            raise ValueError(f"Invalid review status on row {number}: {status}")
-        if not (row.get("source") or "").strip():
-            raise ValueError(f"Identity rule row {number} needs a source")
-        reviewed_at = (row.get("reviewed_at") or "").strip()
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", reviewed_at):
-            raise ValueError(f"Identity rule row {number} needs YYYY-MM-DD reviewed_at")
-
-        missing = [field for field in REQUIRED_FIELDS[action] if not row.get(field)]
-        if missing:
-            raise ValueError(
-                f"Identity rule row {number} needs: {', '.join(missing)}"
-            )
-    return rows
+        for number, row in enumerate(csv.DictReader(handle), start=2):
+            action = (row.get("action") or "").strip().lower()
+            if (action not in REQUIRED_FIELDS
+                    or (row.get("review_status") or "").strip().lower() not in VALID_REVIEW_STATUSES
+                    or not (row.get("source") or "").strip()
+                    or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", (row.get("reviewed_at") or "").strip())
+                    or not all(row.get(field) for field in REQUIRED_FIELDS[action])):
+                raise ValueError(f"Invalid identity rule on row {number}: it needs a known action, "
+                                 "its fields, a review status, a source and a YYYY-MM-DD reviewed_at")
+            by_action[action].append(row)
+    return by_action
 
 
-# Load separation rules; ZIP-scoped names split profiles by ZIP.
 def _load_separations(rows):
-    separations = []
-    for row in rows:
-        if _normalize(row.get("action")) != "SEPARATE":
-            continue
-        name_a = _normalize(row.get("name_a"))
-        name_b = _normalize(row.get("name_b"))
-        if not name_a or not name_b:
-            continue
-        place_a = (_normalize(row.get("city_a")), _normalize(row.get("state_a")))
-        place_b = (_normalize(row.get("city_b")), _normalize(row.get("state_b")))
-        zips = (_normalize(row.get("zip_a"))[:5], _normalize(row.get("zip_b"))[:5])
-        separations.append((name_a, name_b, place_a, place_b, zips))
-
-    # ZIPs matter only when the city cannot tell names apart.
+    """Name pairs, name-at-place pairs, and the names only a ZIP can tell apart."""
+    separations = [
+        (_normalize(row["name_a"]), _normalize(row["name_b"]),
+         (_normalize(row.get("city_a")), _normalize(row.get("state_a"))),
+         (_normalize(row.get("city_b")), _normalize(row.get("state_b"))),
+         (_normalize(row.get("zip_a"))[:5], _normalize(row.get("zip_b"))[:5]))
+        for row in rows
+    ]
+    # ZIPs matter only when the city cannot tell the names apart.
     zip_names = {
         name
         for name_a, name_b, place_a, place_b, zips in separations
         if all(place_a + place_b + zips) and place_a == place_b
         for name in (name_a, name_b)
     }
-    name_pairs = set()
-    identity_pairs = set()
+    name_pairs, identity_pairs = set(), set()
     for name_a, name_b, place_a, place_b, zips in separations:
         if not all(place_a + place_b):
             name_pairs.add(frozenset((name_a, name_b)))
@@ -95,44 +83,56 @@ def _load_separations(rows):
     return name_pairs, identity_pairs, frozenset(zip_names)
 
 
-# load donor_key merge rules (drop -> keep)
-def _load_key_merges(rows) -> dict[str, str]:
-    merges = {}
-    for row in rows:
-        if _normalize(row.get("action")) != "MERGE_KEYS" or row.get("sub_ids"):
-            continue
-        keep = (row.get("donor_key_a") or "").strip()
-        drop = (row.get("donor_key_b") or "").strip()
-        if keep and drop and keep != drop:
-            merges[drop] = keep
-    return merges
+def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
+    """The surname and the first-name words."""
+    last, _, first = _normalize(name).partition(",")
+    return last.strip(), tuple(re.findall(r"[A-Z]+", first))
 
 
-# map sub_id to its hold group
-def _load_holds(rows) -> dict[str, str]:
-    """sub_id to hold group: filings proven to belong to nobody."""
-    return {
-        row["sub_id"].strip(): row["group"].strip()
-        for row in rows
-        if _normalize(row.get("action")) == "HOLD"
-    }
+def _load_merged_given_names(key_merges, name_merges) -> dict[str, list[frozenset]]:
+    """Given names verified as one person's, by surname."""
+    merged = defaultdict(list)
+    for row in key_merges:
+        (last_a, words_a), (last_b, words_b) = _name_words(row.get("name_a")), _name_words(row.get("name_b"))
+        if last_a and last_a == last_b:
+            merged[last_a].append(frozenset(words_a + words_b))
+    for names in name_merges.values():
+        by_last = defaultdict(set)
+        for name in names:
+            last, words = _name_words(name)
+            by_last[last] |= set(words)
+        for last, words in by_last.items():
+            merged[last].append(frozenset(words))
+    return dict(merged)
 
 
-# map name+street+ZIP to its hold group
-def _load_held_addresses(rows) -> dict[tuple[str, str, str], str]:
-    """(name, street, zip5) to hold group, including later filings."""
-    return {
-        (
-            _normalize(row.get("name_a")),
-            _normalize(row.get("street_a")),
-            _normalize(row.get("zip_a"))[:5],
-        ): row["group"].strip()
-        for row in rows
-        if _normalize(row.get("action")) == "HOLD_ADDRESS"
-    }
+_RULES = _read_rules()
+SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES["separate"])
+# donor key to drop -> key to keep; a rule scoped to sub_ids renames a committee only.
+KEY_MERGES = {
+    row["donor_key_b"].strip(): row["donor_key_a"].strip()
+    for row in _RULES["merge_keys"]
+    if not row.get("sub_ids") and row["donor_key_a"].strip() != row["donor_key_b"].strip()
+}
+COMMITTEE_NAMES = tuple(
+    (row["donor_key_a"], row["donor_key_b"], row["canonical_name"], frozenset((row.get("sub_ids") or "").split()))
+    for row in _RULES["merge_keys"] if row.get("canonical_name")
+)
+# sub_id -> hold group, and (name, street, zip5) -> hold group for later filings too.
+HELD_FILINGS = {row["sub_id"].strip(): row["group"].strip() for row in _RULES["hold"]}
+HELD_ADDRESSES = {
+    (_normalize(row["name_a"]), _normalize(row["street_a"]), _normalize(row["zip_a"])[:5]): row["group"].strip()
+    for row in _RULES["hold_address"]
+}
+NAME_MERGES = defaultdict(tuple)
+for _row in _RULES["merge_names"]:
+    _name = _normalize(_row["name_a"])
+    NAME_MERGES[(_row.get("group") or _name).strip()] += (_name,)
+NAME_MERGES = dict(NAME_MERGES)
+MERGED_GIVEN_NAMES = _load_merged_given_names(_RULES["merge_keys"], NAME_MERGES)
+MERGED_NAME_PREFIXES = tuple(prefix for prefixes in NAME_MERGES.values() for prefix in prefixes)
 
 
-# the hold group of each filing ('' when none)
 def held_groups(df, filings=None, addresses=None):
     """A hold rule's group per row: by sub_id, else address."""
     import pandas as pd
@@ -152,61 +152,6 @@ def held_groups(df, filings=None, addresses=None):
         by_place = pd.Series([addresses.get(key, "") for key in place], index=df.index)
         groups = groups.where(groups != "", by_place)
     return groups
-
-
-# group curated name-merge rules by their group label
-def _load_name_merges(rows) -> dict[str, tuple[str, ...]]:
-    groups = defaultdict(list)
-    for row in rows:
-        if _normalize(row.get("action")) != "MERGE_NAMES":
-            continue
-        name = _normalize(row.get("name_a"))
-        if not name:
-            continue
-        group = (row.get("group") or name).strip()
-        groups[group].append(name)
-    return {group: tuple(names) for group, names in groups.items()}
-
-
-# split a name into last name and first-name word tuple
-def _name_words(name: str) -> tuple[str, tuple[str, ...]]:
-    last, _, first = _normalize(name).partition(",")
-    return last.strip(), tuple(re.findall(r"[A-Z]+", first))
-
-
-# Given names verified as one person's, by surname: from merge rules.
-def _load_merged_given_names(rows, name_merges) -> dict[str, list[frozenset]]:
-    merged = defaultdict(list)
-    for row in rows:
-        if _normalize(row.get("action")) != "MERGE_KEYS":
-            continue
-        (last_a, words_a), (last_b, words_b) = _name_words(row.get("name_a")), _name_words(row.get("name_b"))
-        if last_a and last_a == last_b:
-            merged[last_a].append(frozenset(words_a + words_b))
-    for names in name_merges.values():
-        by_last = defaultdict(set)
-        for name in names:
-            last, words = _name_words(name)
-            by_last[last] |= set(words)
-        for last, words in by_last.items():
-            merged[last].append(frozenset(words))
-    return dict(merged)
-
-
-_RULES = _read_rules()
-SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES)
-KEY_MERGES = _load_key_merges(_RULES)
-COMMITTEE_NAMES = tuple(
-    (row["donor_key_a"], row["donor_key_b"], row["canonical_name"],
-     frozenset((row.get("sub_ids") or "").split()))
-    for row in _RULES
-    if _normalize(row.get("action")) == "MERGE_KEYS" and row.get("canonical_name")
-)
-HELD_FILINGS = _load_holds(_RULES)
-HELD_ADDRESSES = _load_held_addresses(_RULES)
-NAME_MERGES = _load_name_merges(_RULES)
-MERGED_GIVEN_NAMES = _load_merged_given_names(_RULES, NAME_MERGES)
-MERGED_NAME_PREFIXES = tuple(prefix for prefixes in NAME_MERGES.values() for prefix in prefixes)
 
 
 # true if this name pair is a curated separation rule

@@ -9,22 +9,17 @@
 
 import re
 from collections import defaultdict
+from dataclasses import dataclass, field
 from itertools import combinations
-from dataclasses import dataclass
 
-from fec.donor_match.rules import identities_must_stay_separate
 from fec.donor_match.normalize import (
     _GENERATION_SUFFIXES,
     _are_cross_group_candidates,
     _is_surname_variant,
     name_words,
 )
-from fec.donor_match.scoring import (
-    MERGE_THRESHOLD,
-    SCORE_CROSS_NAME_BONUS,
-    compute_score,
-)
-
+from fec.donor_match.rules import identities_must_stay_separate
+from fec.donor_match.scoring import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, Evidence, compare
 
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
 
@@ -34,77 +29,38 @@ class MatchContext:
     name_groups: dict
     profiles: dict
     union_find: object
-    audit_log: list
     component_suffixes: dict
+    edges: list = field(default_factory=list)   # the pairs that joined two groups
 
 
-def _suffixes_allow_merge(context: MatchContext, rid_a: str, rid_b: str) -> tuple[bool, str]:
-    root_a = context.union_find.find(rid_a)
-    root_b = context.union_find.find(rid_b)
-    suffixes_a = context.component_suffixes[root_a]
-    suffixes_b = context.component_suffixes[root_b]
+def _suffixes_allow_merge(context: MatchContext, rid_a: str, rid_b: str) -> bool:
+    """JR and SR are two people; a suffix on one side only needs a shared street."""
+    suffixes_a = context.component_suffixes[context.union_find.find(rid_a)]
+    suffixes_b = context.component_suffixes[context.union_find.find(rid_b)]
     if len(suffixes_a | suffixes_b) > 1:
-        return False, "SUFFIX_CONFLICT"
-    if bool(suffixes_a) != bool(suffixes_b):
-        p1 = context.profiles[rid_a]
-        p2 = context.profiles[rid_b]
-        if not (p1["streets"] & p2["streets"]):
-            return False, "SUFFIX_MISSING_NO_STREET"
-    return True, ""
-
-
-def _join_components(context: MatchContext, rid_a: str, rid_b: str) -> bool:
-    root_a = context.union_find.find(rid_a)
-    root_b = context.union_find.find(rid_b)
-    suffixes = context.component_suffixes[root_a] | context.component_suffixes[root_b]
-    if not context.union_find.union(rid_a, rid_b):
         return False
-    new_root = context.union_find.find(rid_a)
-    context.component_suffixes.pop(root_a, None)
-    context.component_suffixes.pop(root_b, None)
-    context.component_suffixes[new_root] = suffixes
+    if bool(suffixes_a) != bool(suffixes_b):
+        return bool(context.profiles[rid_a]["streets"] & context.profiles[rid_b]["streets"])
     return True
 
 
-def _merge_and_audit(
-    context: MatchContext, rid_a: str, rid_b: str, label: str, score: int, signals: list,
-) -> None:
-    """Score and merge one candidate pair."""
-    p1 = context.profiles[rid_a]
-    p2 = context.profiles[rid_b]
-    merged = False
-    if score >= MERGE_THRESHOLD:
-        suffix_allowed, suffix_signal = _suffixes_allow_merge(context, rid_a, rid_b)
-        if not suffix_allowed:
-            signals.append(suffix_signal)
-        elif identities_must_stay_separate(p1, p2):
-            signals.append("SEPARATED(curated_rule)")
-        elif _join_components(context, rid_a, rid_b):
-            merged = True
-    context.audit_log.append(
-        {
-            "rid_a": rid_a,
-            "rid_b": rid_b,
-            "norm_name": label,
-            "score": score,
-            "merged": merged,
-            "signals": "; ".join(signals),
-        }
-    )
+def _merge(context: MatchContext, rid_a: str, rid_b: str, score: int) -> None:
+    """Join the two profiles' groups when the score and the identity rules allow."""
+    if (score < MERGE_THRESHOLD or not _suffixes_allow_merge(context, rid_a, rid_b)
+            or identities_must_stay_separate(context.profiles[rid_a], context.profiles[rid_b])):
+        return
+    root_a, root_b = context.union_find.find(rid_a), context.union_find.find(rid_b)
+    if context.union_find.union(rid_a, rid_b):
+        suffixes = context.component_suffixes.pop(root_a) | context.component_suffixes.pop(root_b)
+        context.component_suffixes[context.union_find.find(rid_a)] = suffixes
+        context.edges.append((rid_a, rid_b))
 
 
 def _score_within_groups(context: MatchContext) -> None:
     """Score all candidate pairs within each name group."""
-    for norm_name, rids in context.name_groups.items():
-        if len(rids) < 2:
-            continue
-        name_freq = len(rids)
-        for i in range(len(rids)):
-            for j in range(i + 1, len(rids)):
-                p1 = context.profiles[rids[i]]
-                p2 = context.profiles[rids[j]]
-                score, signals = compute_score(p1, p2, name_freq)
-                _merge_and_audit(context, rids[i], rids[j], norm_name, score, signals)
+    for rids in context.name_groups.values():
+        for rid_a, rid_b in combinations(rids, 2):
+            _merge(context, rid_a, rid_b, compare(context.profiles[rid_a], context.profiles[rid_b], len(rids)).score)
 
 
 def _norms_by_last_name(name_groups: dict) -> dict:
@@ -118,26 +74,15 @@ def _norms_by_last_name(name_groups: dict) -> dict:
 def _score_bucket_pairs(context: MatchContext, buckets: dict, names_match, records_match, adjust) -> None:
     """Score eligible profile pairs in sorted name order."""
     for norms in buckets.values():
-        if len(norms) < 2:
-            continue
-        norm_list = sorted(norms)
-        for i, name_a in enumerate(norm_list):
-            for name_b in norm_list[i + 1:]:
-                if not names_match(name_a, name_b):
-                    continue
-                rids_a = context.name_groups[name_a]
-                rids_b = context.name_groups[name_b]
-                combined_freq = len(rids_a) + len(rids_b)
-                for rid_a in rids_a:
-                    for rid_b in rids_b:
-                        p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
-                        if not records_match(p1, p2):
-                            continue
-                        score, signals = compute_score(p1, p2, combined_freq)
-                        score = adjust(score, signals)
-                        _merge_and_audit(
-                            context, rid_a, rid_b, f"{name_a} ↔ {name_b}", score, signals,
-                        )
+        for name_a, name_b in combinations(sorted(norms), 2):
+            if not names_match(name_a, name_b):
+                continue
+            rids_a, rids_b = context.name_groups[name_a], context.name_groups[name_b]
+            for rid_a in rids_a:
+                for rid_b in rids_b:
+                    p1, p2 = context.profiles[rid_a], context.profiles[rid_b]
+                    if records_match(p1, p2):
+                        _merge(context, rid_a, rid_b, adjust(compare(p1, p2, len(rids_a) + len(rids_b))))
 
 
 def _any_records(_p1: dict, _p2: dict) -> bool:
@@ -149,12 +94,16 @@ def _same_street_or_zip(p1: dict, p2: dict) -> bool:
     return bool(p1["streets"] & p2["streets"]) or bool(z1 and len(z1) == 5 and z1 == z2)
 
 
-def _cross_name_adjust(score: float, signals: list) -> float:
-    if any(signal.startswith(("street(", "zip5=", "employer=")) for signal in signals):
-        signals.append(f"cross_name(+{SCORE_CROSS_NAME_BONUS})")
-        return score + SCORE_CROSS_NAME_BONUS
-    signals.append("CROSS_NAME_NO_ANCHOR")
-    return min(score, MERGE_THRESHOLD - 1)
+def _cross_name_adjust(evidence: Evidence) -> int:
+    """Another first name counts only beside a shared street, ZIP or employer."""
+    if evidence.anchored:
+        return evidence.score + SCORE_CROSS_NAME_BONUS
+    return min(evidence.score, MERGE_THRESHOLD - 1)
+
+
+def _same_words_adjust(evidence: Evidence) -> int:
+    """The same words in another order: a bonus unless the middle initials differ."""
+    return evidence.score if evidence.middle_conflict else evidence.score + SCORE_CROSS_NAME_BONUS
 
 
 def _score_cross_groups(context: MatchContext) -> None:
@@ -190,16 +139,11 @@ def _surnames_vary(name_a: str, name_b: str) -> bool:
     return _is_surname_variant(name_a.split("|", 1)[0], name_b.split("|", 1)[0])
 
 
-def _surname_variant_adjust(score: float, signals: list) -> float:
-    signals.append("surname_variant")
-    return score
-
-
 def _score_surname_variants(context: MatchContext) -> None:
     """Surname typos need a shared street, or ZIP and employer."""
     _score_bucket_pairs(
         context, _norms_by_first_name(context.name_groups),
-        _surnames_vary, _same_street_or_zip_and_employer, _surname_variant_adjust,
+        _surnames_vary, _same_street_or_zip_and_employer, lambda evidence: evidence.score,
     )
 
 
@@ -234,13 +178,7 @@ def _score_name_variants(context: MatchContext) -> None:
             if not _same_street_or_zip(p1, p2):
                 continue
             freq = len(context.name_groups[p1["norm_name"]]) + len(context.name_groups[p2["norm_name"]])
-            score, signals = compute_score(p1, p2, freq)
-            if not any(("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals):
-                score += SCORE_CROSS_NAME_BONUS
-            signals.append("name_format_variant")
-            _merge_and_audit(
-                context, rid_a, rid_b, f"{p1['norm_name']} ↔ {p2['norm_name']}", score, signals,
-            )
+            _merge(context, rid_a, rid_b, _same_words_adjust(compare(p1, p2, freq)))
 
 
 def _superset_name_index(name_groups: dict) -> tuple[dict, dict, dict]:
@@ -294,12 +232,5 @@ def _score_surname_superset_variants(context: MatchContext) -> None:
             for ra in context.name_groups[nn1]:
                 for rb in context.name_groups[nn2]:
                     p1, p2 = context.profiles[ra], context.profiles[rb]
-                    if not (p1["streets"] & p2["streets"]):  # SAME exact street only
-                        continue
-                    score, signals = compute_score(p1, p2, combined_freq)
-                    if not any(
-                        ("MIDDLE_CONFLICT" in s) or ("HARD_BLOCK" in s) for s in signals
-                    ):
-                        score += SCORE_CROSS_NAME_BONUS
-                    signals.append("surname_superset")
-                    _merge_and_audit(context, ra, rb, f"{nn1} ⊂ {nn2}", score, signals)
+                    if p1["streets"] & p2["streets"]:
+                        _merge(context, ra, rb, _same_words_adjust(compare(p1, p2, combined_freq)))
