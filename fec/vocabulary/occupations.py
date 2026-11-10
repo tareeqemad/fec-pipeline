@@ -22,12 +22,17 @@ OCCUPATION_CORRECTIONS = {
 }
 
 # The same corrections without the placeholders, for text replacement.
-TEXT_CORRECTIONS = {written: occupation for written, occupation in OCCUPATION_CORRECTIONS.items() if occupation}
+TEXT_CORRECTIONS = {
+    written: occupation for written, occupation in OCCUPATION_CORRECTIONS.items() if occupation
+}
 
 # Employer spellings first; occupation rows override them.
 OCCUPATION_NORMALIZE = {
     **EMPLOYER_NORMALIZE,
-    **{written: (_nan if occupation is None else occupation) for written, occupation in OCCUPATION_CORRECTIONS.items()},
+    **{
+        written: (_nan if occupation is None else occupation)
+        for written, occupation in OCCUPATION_CORRECTIONS.items()
+    },
 }
 
 # Each occupation's category: the model's answers, then the reviewed
@@ -35,7 +40,11 @@ OCCUPATION_NORMALIZE = {
 # pipeline runs (fec.cleaning.work.occupation_categories); until then they are OTHER.
 CATEGORY_OVERRIDES = {
     **(read_map(OCCUPATION_CATEGORY_CACHE_CSV) if OCCUPATION_CATEGORY_CACHE_CSV.exists() else {}),
-    **(read_map(OCCUPATION_CATEGORY_OVERRIDES_CSV) if OCCUPATION_CATEGORY_OVERRIDES_CSV.exists() else {}),
+    **(
+        read_map(OCCUPATION_CATEGORY_OVERRIDES_CSV)
+        if OCCUPATION_CATEGORY_OVERRIDES_CSV.exists()
+        else {}
+    ),
 }
 
 

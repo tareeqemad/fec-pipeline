@@ -60,7 +60,9 @@ def build_session() -> requests.Session:
     return session
 
 
-def _retry_delay(attempt: int, response: requests.Response | None = None, cap: float = 60.0) -> float:
+def _find_retry_delay(
+    attempt: int, response: requests.Response | None = None, cap: float = 60.0
+) -> float:
     """Use Retry-After when valid, otherwise the capped backoff."""
     retry_after = response.headers.get("Retry-After") if response is not None else None
     fallback = min(cap, 2 ** (attempt - 1))
@@ -82,14 +84,14 @@ def _retry_or_raise(
     """Retry a temporary error or stop after the final attempt."""
     if attempt == MAX_ATTEMPTS:
         raise PullError(f"{gave_up} after {attempt} attempts") from error
-    delay = _retry_delay(attempt, response)
+    delay = _find_retry_delay(attempt, response)
     log.warning("%s; retrying in %.1fs", failure, delay)
     sleep(delay)
 
 
 def _wait_for_rate_limit(response: requests.Response, attempt: int, waited: float) -> float:
     """Wait for the quota to reset, within the wait limit."""
-    delay = max(1.0, _retry_delay(attempt, response, cap=120.0))
+    delay = max(1.0, _find_retry_delay(attempt, response, cap=120.0))
     if waited + delay > RATE_LIMIT_MAX_WAIT:
         raise PullError(f"FEC rate limit did not clear after {waited / 60:.0f} minutes")
     waited += delay
@@ -102,7 +104,7 @@ def _wait_for_rate_limit(response: requests.Response, attempt: int, waited: floa
     return waited
 
 
-def _response_data(response: requests.Response, params: dict) -> dict:
+def _read_response_data(response: requests.Response, params: dict) -> dict:
     """Read JSON or raise a useful error, hiding the key."""
     if response.status_code == 403:
         raise PullError("FEC API key is invalid or expired")
@@ -159,4 +161,4 @@ def fetch_page(session: requests.Session, params: dict, limiter: RateLimiter) ->
             )
             continue
 
-        return _response_data(response, params)
+        return _read_response_data(response, params)

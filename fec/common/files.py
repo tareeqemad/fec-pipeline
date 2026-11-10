@@ -1,5 +1,6 @@
 """Read CSV values without losing names; replace completed output files."""
 
+import contextlib
 import json
 import os
 import time
@@ -27,7 +28,7 @@ def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     # Apply dtypes only to columns present in the header.
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
-    dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
+    dtypes = {column: dtype for column, dtype in ID_DTYPES.items() if column in present}
 
     return pd.read_csv(
         path,
@@ -53,10 +54,8 @@ def replace_file(temp_path: str, path: str) -> None:
         except PermissionError:
             if attempt + 1 < REPLACE_ATTEMPTS:
                 time.sleep(REPLACE_WAIT_SECONDS)
-    try:
+    with contextlib.suppress(OSError):
         os.remove(temp_path)
-    except OSError:
-        pass
     raise PermissionError(
         f"{path} is open in another program (Excel, an editor, a viewer or a sync tool); "
         "close it and run the same command again. The file was left as it was."
@@ -88,7 +87,9 @@ class JsonCache:
     def __init__(self, path: str | Path) -> None:
         """Load the entries from the file, or start empty if it does not exist."""
         self.path = path
-        self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
+        self.data = (
+            json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
+        )
 
     def get(self, key: str) -> Any:
         """Return the entry stored under key, or None."""

@@ -22,8 +22,8 @@ def load_env(env_path: Path | None = None) -> None:
         logger.warning(".env not found at %s - using environment variables only", path)
         return
 
-    with open(path) as f:
-        for line in f:
+    with open(path) as handle:
+        for line in handle:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
@@ -38,7 +38,9 @@ def get_env(key: str, default: str | None = None, required: bool = False) -> str
     """Read a setting and report missing required values."""
     value = os.environ.get(key, default)
     if required and not value:
-        raise OSError(f"Required environment variable {key} is not set. Add it to .env or export it.")
+        raise OSError(
+            f"Required environment variable {key} is not set. Add it to .env or export it."
+        )
     return value
 
 

@@ -9,7 +9,8 @@ US_STATES = words("us_states")
 _BOUNDS = ("lat_min", "lat_max", "lng_min", "lng_max")
 
 US_STATE_BBOX = {
-    row["state"]: tuple(float(row[c]) for c in _BOUNDS) for row in read_rows(CONFIG_DIR / "state_bounds.csv")
+    row["state"]: tuple(float(row[bound]) for bound in _BOUNDS)
+    for row in read_rows(CONFIG_DIR / "state_bounds.csv")
 }
 
 

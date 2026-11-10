@@ -7,9 +7,21 @@ from fec.vocabulary.geography import US_STATE_BBOX, US_STATES
 
 EARTH_RADIUS_MILES = 3958.8
 
-STREET_LEVEL_SOURCES = {"nominatim", "census", "google", "manual_census", "manual_verified", "nominatim_intl"}
+STREET_LEVEL_SOURCES = {
+    "nominatim",
+    "census",
+    "google",
+    "manual_census",
+    "manual_verified",
+    "nominatim_intl",
+}
 
 US_TERRITORIES = {"AS", "GU", "MP", "PR", "VI"}
+
+# A Canadian or British postcode.
+_FOREIGN_POSTCODE = re.compile(
+    r"[ABCEGHJ-NPRSTVXY]\d[A-Z]\s?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}"
+)
 
 
 def is_po_box(street: str) -> bool:
@@ -26,9 +38,7 @@ def is_foreign_address(state: str, zipcode: str) -> bool:
     """Return whether the state or postcode marks the address as outside the US."""
     state, zipcode = str(state or "").strip().upper(), str(zipcode or "").strip().upper()
     if state:
-        return state not in US_STATES or bool(
-            re.fullmatch(r"[ABCEGHJ-NPRSTVXY]\d[A-Z]\s?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}", zipcode)
-        )
+        return state not in US_STATES or bool(_FOREIGN_POSTCODE.fullmatch(zipcode))
     if zipcode.endswith(".0"):
         zipcode = zipcode[:-2].zfill(5)
     return not bool(re.fullmatch(r"\d{5}(?:-?\d{4})?", zipcode))
@@ -36,18 +46,23 @@ def is_foreign_address(state: str, zipcode: str) -> bool:
 
 def great_circle(first: tuple, second: tuple, radius: float) -> float:
     """Return the great-circle distance between two (lat, lng) points on a sphere of this radius."""
-    lat1, lng1 = map(math.radians, first)
-    lat2, lng2 = map(math.radians, second)
-    value = math.sin((lat2 - lat1) / 2) ** 2
-    value += math.cos(lat1) * math.cos(lat2) * math.sin((lng2 - lng1) / 2) ** 2
-    return radius * 2 * math.asin(min(1.0, math.sqrt(value)))
+    first_lat, first_lng = map(math.radians, first)
+    second_lat, second_lng = map(math.radians, second)
+    haversine = math.sin((second_lat - first_lat) / 2) ** 2
+    haversine += (
+        math.cos(first_lat) * math.cos(second_lat) * math.sin((second_lng - first_lng) / 2) ** 2
+    )
+    return radius * 2 * math.asin(min(1.0, math.sqrt(haversine)))
 
 
 def valid_for_state(lat: float, lng: float, state: str) -> bool:
     """Return whether the point lies within the state's bounding box, or any state's if unknown."""
     state = state.strip().upper()
     bounds = [US_STATE_BBOX[state]] if state in US_STATE_BBOX else US_STATE_BBOX.values()
-    return any(south - 1 <= lat <= north + 1 and west - 1 <= lng <= east + 1 for south, north, west, east in bounds)
+    return any(
+        south - 1 <= lat <= north + 1 and west - 1 <= lng <= east + 1
+        for south, north, west, east in bounds
+    )
 
 
 def accepted_coordinates(key: str, entry: dict | None) -> tuple:

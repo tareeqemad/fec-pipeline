@@ -20,20 +20,26 @@ from fec.matching.name_compare import normalize_committee_name
 logger = get_logger(__name__)
 
 
-def individual_record_id(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
+def individual_record_id(
+    name: object, city: object, state: object, suffix: object = "", zip5: object = ""
+) -> str:
     """Individual record ID for matching; ZIP5 only for split names."""
     # Missing cells must not become literal "nan".
-    name, city, state, suffix, zip5 = ("" if pd.isna(value) else value for value in (name, city, state, suffix, zip5))
+    name, city, state, suffix, zip5 = (
+        "" if pd.isna(value) else value for value in (name, city, state, suffix, zip5)
+    )
     base = f"{name or ''}|{city or ''}|{state or ''}"
     if zip5:
         base = f"{base}|@{zip5}"
     return f"{base}|{suffix}" if suffix else base
 
 
-def individual_donor_key(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
+def individual_donor_key(
+    name: object, city: object, state: object, suffix: object = "", zip5: object = ""
+) -> str:
     """Canonical donor_key; the roster loader (fec/database/roster_people.py) finds donors by it."""
-    rid = individual_record_id(name, city, state, suffix, zip5)
-    return hashlib.sha256(rid.encode()).hexdigest()[:12]
+    record_id = individual_record_id(name, city, state, suffix, zip5)
+    return hashlib.sha256(record_id.encode()).hexdigest()[:12]
 
 
 def non_individual_donor_key(name: object) -> str:
@@ -44,41 +50,32 @@ def non_individual_donor_key(name: object) -> str:
 
 def keys_for_groups(components: dict) -> dict:
     """Assign a group root's key to every member."""
-    rid_to_key = {}
+    profile_keys = {}
     for root, members in components.items():
         key = hashlib.sha256(root.encode()).hexdigest()[:12]
-        for rid in members:
-            rid_to_key[rid] = key
-    return rid_to_key
+        for profile_id in members:
+            profile_keys[profile_id] = key
+    return profile_keys
 
 
-def apply_donor_key(df: pd.DataFrame, rid_to_key: dict) -> pd.DataFrame:
+def _find_row_donor_key(row: pd.Series, profile_keys: dict) -> str:
+    """Look up or fall back to compute this row's donor_key."""
+    if row["entity_type"] != "INDIVIDUAL":
+        return non_individual_donor_key(row.get("contributor_name"))
+    name = row["contributor_name"]
+    city = row["contributor_city"]
+    state = row["contributor_state"]
+    suffix = row.get("_generational_suffix", "")
+    zip5 = split_zip(name, row.get("contributor_zip", ""))
+    profile_id = individual_record_id(name, city, state, suffix, zip5)
+    if profile_id in profile_keys:
+        return profile_keys[profile_id]
+    return individual_donor_key(name, city, state, suffix, zip5)
+
+
+def apply_donor_key(df: pd.DataFrame, profile_keys: dict) -> pd.DataFrame:
     """Apply scored donor keys; committees hash their normalized name."""
-
-    def _get_key(row: pd.Series) -> str:
-        """Look up or fall back to compute this row's donor_key."""
-        if row["entity_type"] != "INDIVIDUAL":
-            return non_individual_donor_key(row.get("contributor_name"))
-        zip5 = split_zip(row["contributor_name"], row.get("contributor_zip", ""))
-        rid = individual_record_id(
-            row["contributor_name"],
-            row["contributor_city"],
-            row["contributor_state"],
-            row.get("_generational_suffix", ""),
-            zip5,
-        )
-        return rid_to_key.get(
-            rid,
-            individual_donor_key(
-                row["contributor_name"],
-                row["contributor_city"],
-                row["contributor_state"],
-                row.get("_generational_suffix", ""),
-                zip5,
-            ),
-        )
-
-    df["donor_key"] = df.apply(_get_key, axis=1)
+    df["donor_key"] = df.apply(_find_row_donor_key, axis=1, args=(profile_keys,))
     return df
 
 
@@ -115,15 +112,24 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
         return 0
     # A rule naming two keys that are both gone merges nobody.
     present = set(df["donor_key"])
-    missing = sorted(drop for drop, keep in KEY_MERGES.items() if drop not in present and keep not in present)
+    missing = sorted(
+        drop for drop, keep in KEY_MERGES.items() if drop not in present and keep not in present
+    )
     if missing:
-        logger.warning("WARNING: %s donor merge rules found no donor: %s", len(missing), ", ".join(missing[:5]))
+        logger.warning(
+            "WARNING: %s donor merge rules found no donor: %s", len(missing), ", ".join(missing[:5])
+        )
 
-    mask = df["donor_key"].isin(KEY_MERGES)
-    n = int(mask.sum())
-    if n:
-        df.loc[mask, "donor_key"] = df.loc[mask, "donor_key"].map(resolve_donor_key)
-    return n
+    merged = df["donor_key"].isin(KEY_MERGES)
+    merged_count = int(merged.sum())
+    if merged_count:
+        df.loc[merged, "donor_key"] = df.loc[merged, "donor_key"].map(resolve_donor_key)
+    return merged_count
+
+
+def _build_held_key(group: str) -> str:
+    """Build the separate donor key of a hold group."""
+    return hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
 
 
 def hold_unproven_filings(df: pd.DataFrame) -> int:
@@ -134,9 +140,7 @@ def hold_unproven_filings(df: pd.DataFrame) -> int:
     missing = len(set(HELD_FILINGS) - found)
     if missing:
         logger.warning("  %s held filings not in the data", missing)
-    df.loc[held, "donor_key"] = groups[held].map(
-        lambda group: hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
-    )
+    df.loc[held, "donor_key"] = groups[held].map(_build_held_key)
     df.loc[held, "identity_status"] = "held"
     return int(held.sum())
 
@@ -165,6 +169,7 @@ def validate_separations(df: pd.DataFrame) -> None:
         ]
         for person_a, person_b in combinations(people, 2):
             if identities_must_stay_separate(person_a, person_b):
+                pair = f"{person_a} / {person_b}"
                 raise ValueError(
-                    f"Donor identity rules joined a separation pair under {donor_key}: {person_a} / {person_b}"
+                    f"Donor identity rules joined a separation pair under {donor_key}: {pair}"
                 )

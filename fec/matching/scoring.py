@@ -76,51 +76,65 @@ class Evidence(NamedTuple):
         return self.street or self.zip5 or self.employer
 
 
-def _middle_score(m1: str, m2: str) -> int:
+def _score_middle_names(middle_a: str, middle_b: str) -> int:
     """Points for the middle names; BLOCKED for two different full names."""
-    if not m1 and not m2:
+    if not middle_a and not middle_b:
         return 0
-    if not m1 or not m2:
+    if not middle_a or not middle_b:
         return SCORE_MIDDLE_PARTIAL
-    if m1 == m2 or (len(m1) == 1 and m2[0] == m1) or (len(m2) == 1 and m1[0] == m2):
+    if (
+        middle_a == middle_b
+        or (len(middle_a) == 1 and middle_b[0] == middle_a)
+        or (len(middle_b) == 1 and middle_a[0] == middle_b)
+    ):
         return SCORE_MIDDLE_MATCH
-    if len(m1) == 1 and len(m2) == 1:
+    if len(middle_a) == 1 and len(middle_b) == 1:
         return SCORE_MIDDLE_CONFLICT
-    return SCORE_MIDDLE_MATCH if Levenshtein.distance(m1, m2) == 1 else BLOCKED
+    return SCORE_MIDDLE_MATCH if Levenshtein.distance(middle_a, middle_b) == 1 else BLOCKED
 
 
-def compare_profiles(p1: dict, p2: dict, name_freq: int) -> Evidence:
+def _limit_without_geography(score: int, employer: bool, name_freq: int) -> int:
+    """Without geography only a shared employer of a rare name is enough."""
+    if employer and name_freq <= 3:
+        return score + SCORE_RARE_EMPLOYER_OK
+    if employer and name_freq > 10:
+        return min(score, EMPLOYER_ONLY_COMMON_CAP)
+    return min(score, MERGE_THRESHOLD - 1)
+
+
+def compare_profiles(profile_a: dict, profile_b: dict, name_freq: int) -> Evidence:
     """Return the match score of two profiles and the anchors behind it.
 
     Two spellings of the same words (LAST, FIRST MIDDLE / LAST, MIDDLE
     FIRST) name one person, so their middle names are not compared.
     """
-    street = bool(p1["streets"] & p2["streets"])
-    employer = bool(p1["norm_employers"] & p2["norm_employers"])
-    state = bool(p1["state"]) and p1["state"] == p2["state"]
-    z1, z2 = p1["zip5"], p2["zip5"]
-    zips = len(z1) == 5 and len(z2) == 5
-    zip5 = zips and z1 == z2
-    zip3 = zips and not zip5 and z1[:3] == z2[:3]
+    street = bool(profile_a["streets"] & profile_b["streets"])
+    employer = bool(profile_a["norm_employers"] & profile_b["norm_employers"])
+    state = bool(profile_a["state"]) and profile_a["state"] == profile_b["state"]
+    city = bool(profile_a["city"]) and profile_a["city"] == profile_b["city"]
+    zip_a, zip_b = profile_a["zip5"], profile_b["zip5"]
+    both_zips = len(zip_a) == 5 and len(zip_b) == 5
+    zip5 = both_zips and zip_a == zip_b
+    zip3 = both_zips and not zip5 and zip_a[:3] == zip_b[:3]
     has_geo = street or state or zip5 or zip3
     score = (
         street * SCORE_SAME_STREET
         + employer * SCORE_SAME_EMPLOYER
         + state * SCORE_SAME_STATE
-        + (bool(p1["city"]) and p1["city"] == p2["city"]) * SCORE_SAME_CITY
+        + city * SCORE_SAME_CITY
         + zip5 * SCORE_SAME_ZIP5
         + zip3 * SCORE_SAME_ZIP3
     )
 
-    c1, c2 = p1["occ_categories"], p2["occ_categories"]
-    if c1 & c2:
+    categories_a, categories_b = profile_a["occ_categories"], profile_b["occ_categories"]
+    if categories_a & categories_b:
         score += SCORE_SAME_OCC
-    elif (c1 and p2["retired"]) or (c2 and p1["retired"]):
+    elif (categories_a and profile_b["retired"]) or (categories_b and profile_a["retired"]):
         score += SCORE_OCC_RETIRED
 
     middle = 0
-    if filed_name_words(p1["name"]) != filed_name_words(p2["name"]):
-        middle = _middle_score(p1["middle"], p2["middle"])
+    if filed_name_words(profile_a["name"]) != filed_name_words(profile_b["name"]):
+        middle = _score_middle_names(profile_a["middle"], profile_b["middle"])
         if middle == BLOCKED:
             return Evidence(BLOCKED, street, zip5, employer)
         score += middle
@@ -129,15 +143,10 @@ def compare_profiles(p1: dict, p2: dict, name_freq: int) -> Evidence:
         score += SCORE_RARE_NAME
     if name_freq <= 2:
         score += SCORE_VERY_RARE_BONUS
-    if has_geo and name_freq <= 3 and not p1["norm_employers"] and not p2["norm_employers"]:
+    no_employers = not profile_a["norm_employers"] and not profile_b["norm_employers"]
+    if has_geo and name_freq <= 3 and no_employers:
         score += SCORE_RETIRED_NO_EMP
 
-    # Without geography only a shared employer of a rare name is enough.
     if not has_geo:
-        if employer and name_freq <= 3:
-            score += SCORE_RARE_EMPLOYER_OK
-        elif employer and name_freq > 10:
-            score = min(score, EMPLOYER_ONLY_COMMON_CAP)
-        else:
-            score = min(score, MERGE_THRESHOLD - 1)
+        score = _limit_without_geography(score, employer, name_freq)
     return Evidence(score, street, zip5, employer, middle == SCORE_MIDDLE_CONFLICT)

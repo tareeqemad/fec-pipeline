@@ -15,7 +15,8 @@ NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V", "ESQ", "MD", "PHD", "DDS", 
 
 # First names that look alike but name different people (DAN / DANA).
 _BLOCKED_FIRST_PAIRS = {
-    frozenset((row["name_a"], row["name_b"])) for row in read_rows(CONFIG_DIR / "different_first_names.csv")
+    frozenset((row["name_a"], row["name_b"]))
+    for row in read_rows(CONFIG_DIR / "different_first_names.csv")
 }
 
 
@@ -57,7 +58,9 @@ def extract_generational_suffix(name: str) -> str:
     last, comma, first = text.partition(",")
     parts = (last, first) if comma else (text,)
     found = {
-        tokens[-1] for part in parts if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in GENERATION_SUFFIXES
+        tokens[-1]
+        for part in parts
+        if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in GENERATION_SUFFIXES
     }
     return next(iter(found)) if len(found) == 1 else ""
 
@@ -65,7 +68,7 @@ def extract_generational_suffix(name: str) -> str:
 def filed_name_words(name: str) -> frozenset:
     """Every word of the filed name, initials included, whatever the order."""
     words = _NAME_TOKEN_RE.findall(str(name or "").upper())
-    return frozenset(w for w in words if w not in NAME_SUFFIXES)
+    return frozenset(word for word in words if word not in NAME_SUFFIXES)
 
 
 def normalize_name(name: str) -> str:
@@ -79,11 +82,11 @@ def normalize_name(name: str) -> str:
     first_raw = parts[1].strip()
 
     last_words = last.split()
-    last_words = [w for w in last_words if w not in NAME_SUFFIXES]
+    last_words = [word for word in last_words if word not in NAME_SUFFIXES]
     last = " ".join(last_words).replace(".", "").replace("'", "").strip()
 
     first_parts = first_raw.replace(".", " ").split()
-    first_parts = [p for p in first_parts if p not in NAME_SUFFIXES]
+    first_parts = [part for part in first_parts if part not in NAME_SUFFIXES]
     first = first_parts[0] if first_parts else ""
     if first.startswith("("):
         first = first_parts[1] if len(first_parts) > 1 else ""
@@ -98,16 +101,16 @@ def extract_middle(name: str) -> str:
         return ""
     first_raw = name.split(",", 1)[1].strip()
     parts = first_raw.replace(".", " ").split()
-    parts = [p for p in parts if p not in NAME_SUFFIXES and not p.startswith("(")]
+    parts = [part for part in parts if part not in NAME_SUFFIXES and not part.startswith("(")]
     return parts[1] if len(parts) > 1 else ""
 
 
-def normalize_employer(emp: str) -> str:
+def normalize_employer(employer: str) -> str:
     """Normalize employer name for comparison."""
-    emp = employer_rule_key(str(emp or ""))
+    employer = employer_rule_key(str(employer or ""))
     for suffix in _EMPLOYER_STRIP:
-        emp = emp.replace(suffix, "")
-    return emp.strip()
+        employer = employer.replace(suffix, "")
+    return employer.strip()
 
 
 def normalize_committee_name(name: str) -> str:
@@ -128,64 +131,68 @@ def normalize_committee_name(name: str) -> str:
     return f"{org}|{first}"
 
 
-def first_names_may_match(norm1: str, norm2: str, surname_firsts: set[str] | None = None) -> bool:
+def first_names_may_match(
+    norm_name_a: str, norm_name_b: str, surname_firsts: set[str] | None = None
+) -> bool:
     """Tell whether two names share a surname with nickname, near-spelling or truncated first names.
 
     surname_firsts holds every first name filed with this surname: a short
     form that begins two different names there (CHRIS beside CHRISTINE and
     CHRISTOPHER) names nobody in particular and is not a candidate.
     """
-    if "|" not in norm1 or "|" not in norm2:
+    if "|" not in norm_name_a or "|" not in norm_name_b:
         return False
-    last1, first1 = norm1.split("|", 1)
-    last2, first2 = norm2.split("|", 1)
+    last_a, first_a = norm_name_a.split("|", 1)
+    last_b, first_b = norm_name_b.split("|", 1)
 
-    if last1 != last2:
+    if last_a != last_b:
         return False
-    if first1 == first2:
+    if first_a == first_b:
         return False
-    if not first1 or not first2:
+    if not first_a or not first_b:
         return False
 
-    pair = frozenset((first1.upper(), first2.upper()))
+    pair = frozenset((first_a.upper(), first_b.upper()))
     if pair in _BLOCKED_FIRST_PAIRS:
         return False
 
-    if NICKNAME_MAP.get(first1, first1) == NICKNAME_MAP.get(first2, first2):
+    if NICKNAME_MAP.get(first_a, first_a) == NICKNAME_MAP.get(first_b, first_b):
         return True
 
-    dist = Levenshtein.distance(first1, first2)
-    if dist <= 1 and len(first1) >= 3 and len(first2) >= 3:
+    distance = Levenshtein.distance(first_a, first_b)
+    if distance <= 1 and len(first_a) >= 3 and len(first_b) >= 3:
         return True
 
-    short, long = (first1, first2) if len(first1) <= len(first2) else (first2, first1)
+    short, long = (first_a, first_b) if len(first_a) <= len(first_b) else (first_b, first_a)
     if len(short) < 3 or not long.startswith(short):
         return False
-    if dist == 2:
+    if distance == 2:
         return True
     # Truncated further: TIM / TIMOTHY, BRAD / BRADLEY, ALLI / ALLISON.
     longer = {
-        NICKNAME_MAP.get(name, name) for name in (surname_firsts or {long}) if name != short and name.startswith(short)
+        NICKNAME_MAP.get(name, name)
+        for name in (surname_firsts or {long})
+        if name != short and name.startswith(short)
     }
     return len(longer) == 1
 
 
-def _squash(s: str) -> str:
+def _squash(surname: str) -> str:
     """Strip spaces, hyphens and dots for surname comparison."""
-    return s.replace(" ", "").replace("-", "").replace(".", "")
+    return surname.replace(" ", "").replace("-", "").replace(".", "")
 
 
-def is_surname_variant(last1: str, last2: str) -> bool:
+def is_surname_variant(last_a: str, last_b: str) -> bool:
     """Surname spelling variants; the phase still demands strong geography."""
-    if not last1 or not last2 or last1 == last2:
+    if not last_a or not last_b or last_a == last_b:
         return False
-    if _squash(last1) == _squash(last2):  # DE TOLEDO == DETOLEDO
+    if _squash(last_a) == _squash(last_b):  # DE TOLEDO == DETOLEDO
         return True
-    d = Levenshtein.distance(last1, last2)
-    m = min(len(last1), len(last2))
-    if m < 4:  # short surnames: single-char slip only
-        return d == 1
-    if d <= 2:  # KHODAR/KHODARI (1), A SPIEGEL/SPIEGEL (2)
+    distance = Levenshtein.distance(last_a, last_b)
+    shortest_length = min(len(last_a), len(last_b))
+    if shortest_length < 4:  # short surnames: single-char slip only
+        return distance == 1
+    if distance <= 2:  # KHODAR/KHODARI (1), A SPIEGEL/SPIEGEL (2)
         return True
-    lo, hi = sorted((last1, last2), key=len)  # truncation: DOLNER/DOLINER
-    return hi.startswith(lo) and len(lo) >= 4 and (len(hi) - len(lo)) <= 3
+    shorter, longer = sorted((last_a, last_b), key=len)  # truncation: DOLNER/DOLINER
+    return longer.startswith(shorter) and len(shorter) >= 4 and (len(longer) - len(shorter)) <= 3

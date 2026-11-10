@@ -43,12 +43,14 @@ COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-def _number(value: object, sub_id: str) -> Decimal:
+def _parse_amount(value: object, sub_id: str) -> Decimal:
     """Reject missing or invalid amounts instead of recording zero."""
     try:
         amount = Decimal(str(value).strip())
     except (InvalidOperation, ValueError):
-        raise ValueError(f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}") from None
+        raise ValueError(
+            f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}"
+        ) from None
     if not amount.is_finite():
         raise ValueError(f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}")
     return amount
@@ -70,10 +72,15 @@ def build_row(result: dict[str, Any]) -> list | None:
     values["sub_id"] = sub_id
     values["contribution_receipt_date"] = receipt_date
     values["contributor_year"] = year
-    values["contribution_receipt_amount"] = _number(result.get("contribution_receipt_amount"), sub_id)
+    values["contribution_receipt_amount"] = _parse_amount(
+        result.get("contribution_receipt_amount"), sub_id
+    )
     return [values.get(column) for column in COLUMNS]
 
 
 def source_values(result: dict[str, Any]) -> dict[str, str]:
     """Read the FEC source fields saved beside the raw CSV."""
-    return {column: str(result.get(field) or "").strip().upper() for column, field in SOURCE_FIELDS.items()}
+    return {
+        column: str(result.get(field) or "").strip().upper()
+        for column, field in SOURCE_FIELDS.items()
+    }

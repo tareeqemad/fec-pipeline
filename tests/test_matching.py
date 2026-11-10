@@ -5,7 +5,9 @@ import pandas as pd
 from fec.matching.pipeline import identify_donors
 
 
-def _row(sub_id, name, first, last, city, state, zip5, street, employer="ACME LLP", occupation="ATTORNEY"):
+def _row(
+    sub_id, name, first, last, city, state, zip5, street, employer="ACME LLP", occupation="ATTORNEY"
+):
     return {
         "sub_id": sub_id,
         "transaction_id": f"T{sub_id}",
@@ -30,15 +32,55 @@ def _row(sub_id, name, first, last, city, state, zip5, street, employer="ACME LL
 
 
 OLD_ROWS = [
-    _row("101", "SHTREMBERG, VICTOR", "VICTOR", "SHTREMBERG", "ENCINO", "CA", "91316", "123 MAPLE ST"),
-    _row("102", "SHTREMBERG, VICTOR", "VICTOR", "SHTREMBERG", "LOS ANGELES", "CA", "91316", "123 MAPLE ST"),
-    _row("103", "NULL, KAREN", "KAREN", "NULL", "WESTPORT", "CT", "06880", "9 ELM RD", employer="YALE"),
+    _row(
+        "101", "SHTREMBERG, VICTOR", "VICTOR", "SHTREMBERG", "ENCINO", "CA", "91316", "123 MAPLE ST"
+    ),
+    _row(
+        "102",
+        "SHTREMBERG, VICTOR",
+        "VICTOR",
+        "SHTREMBERG",
+        "LOS ANGELES",
+        "CA",
+        "91316",
+        "123 MAPLE ST",
+    ),
+    _row(
+        "103",
+        "NULL, KAREN",
+        "KAREN",
+        "NULL",
+        "WESTPORT",
+        "CT",
+        "06880",
+        "9 ELM RD",
+        employer="YALE",
+    ),
 ]
 
 
 NEW_ROWS = [
-    _row("201", "SHTREMBERG, VICTOR", "VICTOR", "SHTREMBERG", "LOS ANGELES", "CA", "91316", "123 MAPLE ST"),
-    _row("202", "NULL, KAREN", "KAREN", "NULL", "WESTPORT", "CT", "06880", "9 ELM RD", employer="YALE"),
+    _row(
+        "201",
+        "SHTREMBERG, VICTOR",
+        "VICTOR",
+        "SHTREMBERG",
+        "LOS ANGELES",
+        "CA",
+        "91316",
+        "123 MAPLE ST",
+    ),
+    _row(
+        "202",
+        "NULL, KAREN",
+        "KAREN",
+        "NULL",
+        "WESTPORT",
+        "CT",
+        "06880",
+        "9 ELM RD",
+        employer="YALE",
+    ),
 ]
 
 
@@ -101,7 +143,9 @@ def test_keys_stay_with_their_filings_across_runs():
         }
     )
     # 1-3 were one donor, 4-5 another; 6 is new; the old donor split from 3.
-    lost = keep_earlier_keys(df, {"1": "old-a", "2": "old-a", "3": "old-x", "4": "old-b", "5": "old-a"})
+    lost = keep_earlier_keys(
+        df, {"1": "old-a", "2": "old-a", "3": "old-x", "4": "old-b", "5": "old-a"}
+    )
     assert df["donor_key"].tolist() == ["old-a", "old-a", "old-a", "old-b", "old-b", "new-c"]
     assert lost == ["old-x"]
 
@@ -111,7 +155,17 @@ def test_truncated_first_name_matches_with_an_anchor():
     rows = [
         _row("601", "WULIGER, TIMOTHY", "TIMOTHY", "WULIGER", "SOLON", "OH", "44139", "7 OAK LN"),
         _row("602", "WULIGER, TIM", "TIM", "WULIGER", "SOLON", "OH", "44139", "7 OAK LN"),
-        _row("603", "WULIGER, TIM", "TIM", "WULIGER", "AUSTIN", "TX", "78701", "90 ELM ST", employer="DELL"),
+        _row(
+            "603",
+            "WULIGER, TIM",
+            "TIM",
+            "WULIGER",
+            "AUSTIN",
+            "TX",
+            "78701",
+            "90 ELM ST",
+            employer="DELL",
+        ),
     ]
     keys = _keys(_identify(rows))
     assert keys["601"] == keys["602"] != keys["603"]
@@ -130,7 +184,16 @@ def test_short_form_of_two_names_matches_neither():
 
 def test_same_words_in_another_order_are_one_name():
     rows = [
-        _row("621", "GAHFI, ALBERT", "ALBERT", "GAHFI", "BAL HARBOUR", "FL", "33154", "10201 COLLINS AVE"),
+        _row(
+            "621",
+            "GAHFI, ALBERT",
+            "ALBERT",
+            "GAHFI",
+            "BAL HARBOUR",
+            "FL",
+            "33154",
+            "10201 COLLINS AVE",
+        ),
         _row(
             "622",
             "GAHFI, MENACHEM ALBERT",
@@ -151,8 +214,26 @@ def test_same_words_in_another_order_are_one_name():
             "33154",
             "10201 COLLINS AVE",
         ),
-        _row("624", "FARAHI, DAVID-JACQUES", "DAVID-JACQUES", "FARAHI", "DENVER", "CO", "80206", "373 GARFIELD ST"),
-        _row("625", "FARAHI, DAVID JACQUES", "DAVID JACQUES", "FARAHI", "DENVER", "CO", "80206", "373 GARFIELD ST"),
+        _row(
+            "624",
+            "FARAHI, DAVID-JACQUES",
+            "DAVID-JACQUES",
+            "FARAHI",
+            "DENVER",
+            "CO",
+            "80206",
+            "373 GARFIELD ST",
+        ),
+        _row(
+            "625",
+            "FARAHI, DAVID JACQUES",
+            "DAVID JACQUES",
+            "FARAHI",
+            "DENVER",
+            "CO",
+            "80206",
+            "373 GARFIELD ST",
+        ),
     ]
     keys = _keys(_identify(rows))
     assert keys["621"] == keys["622"] == keys["623"]
@@ -166,9 +247,36 @@ def test_held_filing_takes_no_part_in_matching(monkeypatch):
     for module in (donor_keys, identity_rules):
         monkeypatch.setattr(module, "HELD_FILINGS", {"633": "GOLDSTEIN, RICHARD | unproven"})
     rows = [
-        _row("631", "GOLDSTEIN, RICHARD", "RICHARD", "GOLDSTEIN", "BOCA RATON", "FL", "33432", "9 OTHER ST"),
-        _row("632", "GOLDSTEIN, RICHARD", "RICHARD", "GOLDSTEIN", "BOCA RATON", "FL", "33432", "9 OTHER ST"),
-        _row("633", "GOLDSTEIN, RICHARD", "RICHARD", "GOLDSTEIN", "BOCA RATON", "FL", "33432", "9 OTHER ST"),
+        _row(
+            "631",
+            "GOLDSTEIN, RICHARD",
+            "RICHARD",
+            "GOLDSTEIN",
+            "BOCA RATON",
+            "FL",
+            "33432",
+            "9 OTHER ST",
+        ),
+        _row(
+            "632",
+            "GOLDSTEIN, RICHARD",
+            "RICHARD",
+            "GOLDSTEIN",
+            "BOCA RATON",
+            "FL",
+            "33432",
+            "9 OTHER ST",
+        ),
+        _row(
+            "633",
+            "GOLDSTEIN, RICHARD",
+            "RICHARD",
+            "GOLDSTEIN",
+            "BOCA RATON",
+            "FL",
+            "33432",
+            "9 OTHER ST",
+        ),
     ]
     df = _identify(rows)
     keys_ = _keys(df)
@@ -186,7 +294,7 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
     def names(filed, rare=frozenset()):
         firsts, lasts = [f for f, _ in filed], [last for _, last in filed]
         surname, given = donor_names(lasts, firsts, rare)
-        return surname, sorted(set(g or "" for g in given))
+        return surname, sorted({given_name or "" for given_name in given})
 
     assert names([("MATT", "ENGEL")] * 3 + [("MATTHEW", "ENGEL")]) == (
         "ENGEL",
@@ -196,18 +304,40 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
         "ARISON",
         ["ZIPORA"],
     )  # a rare slip
-    assert names([("STEVE", "FEIN")] * 3 + [("STEVEN", "FEIN")]) == ("FEIN", ["STEVEN"])  # a common name is no slip
-    assert names([("ALIZA", "GUREN")] * 3 + [("ALIZA KARNEY", "GUREN"), ("ALIZA", "KARNEY GUREN")]) == (
+    assert names([("STEVE", "FEIN")] * 3 + [("STEVEN", "FEIN")]) == (
+        "FEIN",
+        ["STEVEN"],
+    )  # a common name is no slip
+    assert names(
+        [("ALIZA", "GUREN")] * 3 + [("ALIZA KARNEY", "GUREN"), ("ALIZA", "KARNEY GUREN")]
+    ) == (
         "GUREN",
         ["ALIZA KARNEY"],
     )
-    assert names([("JILL", "HARMATZ SANDERS")] * 3 + [("JILL", "SANDERS")]) == ("HARMATZ SANDERS", ["JILL"])
-    assert names([("RICHARD", "A FREEDMAN")]) == ("FREEDMAN", ["RICHARD A"])  # an initial in the surname box
-    assert names([("JOSH KRAFT", "KRAFT"), ("JOSH", "KRAFT")]) == ("KRAFT", ["JOSH"])  # the surname typed twice
-    assert names([("EPHRAIM", "WERNICK")] * 3 + [("EPHRAIM (FRY)", "WERNICK"), ("EPHRAIM FRY", "WERNICK")]) == (
+    assert names([("JILL", "HARMATZ SANDERS")] * 3 + [("JILL", "SANDERS")]) == (
+        "HARMATZ SANDERS",
+        ["JILL"],
+    )
+    assert names([("RICHARD", "A FREEDMAN")]) == (
+        "FREEDMAN",
+        ["RICHARD A"],
+    )  # an initial in the surname box
+    assert names([("JOSH KRAFT", "KRAFT"), ("JOSH", "KRAFT")]) == (
+        "KRAFT",
+        ["JOSH"],
+    )  # the surname typed twice
+    assert names(
+        [("EPHRAIM", "WERNICK")] * 3 + [("EPHRAIM (FRY)", "WERNICK"), ("EPHRAIM FRY", "WERNICK")]
+    ) == (
         "WERNICK",
         ["EPHRAIM"],
     )
-    assert names([("P R", "ZITELMAN")] * 2 + [("P RICHARD", "ZITELMAN")]) == ("ZITELMAN", ["P RICHARD"])
+    assert names([("P R", "ZITELMAN")] * 2 + [("P RICHARD", "ZITELMAN")]) == (
+        "ZITELMAN",
+        ["P RICHARD"],
+    )
     # another given name under the same donor keeps its own: a spouse on a joint account
-    assert names([("MARGERY", "GOTTESMAN")] * 2 + [("ARCHIE", "GOTTESMAN")]) == ("GOTTESMAN", ["ARCHIE", "MARGERY"])
+    assert names([("MARGERY", "GOTTESMAN")] * 2 + [("ARCHIE", "GOTTESMAN")]) == (
+        "GOTTESMAN",
+        ["ARCHIE", "MARGERY"],
+    )
