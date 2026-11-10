@@ -93,22 +93,11 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
     _geocode_keys(keys, cache, batch_size)
 
 
-# Read accepted coordinates once per distinct address.
-def _cached_results(keys: pd.Series, cache: GeoCache) -> pd.Series:
-    results = {}
-    for key in keys.unique():
-        lat, lng, level = accepted_coordinates(key, cache.get(key))
-        results[key] = (np.nan, np.nan, level) if lat is None else (lat, lng, level)
-    return keys.map(results)
-
-
 # Apply donor coordinates, leaving preserved foreign filings ungeocoded.
 def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
-    results = _cached_results(_contributor_keys(df), cache)
-    df["latitude"] = results.map(lambda point: point[0])
-    df["longitude"] = results.map(lambda point: point[1])
-    df["geocode_level"] = results.map(lambda point: point[2])
-    held = kept_as_filed_mask(df)
-    df.loc[held, ["latitude", "longitude"]] = np.nan
-    df.loc[held, "geocode_level"] = "foreign_not_geocoded"
+    keys = _contributor_keys(df)
+    points = {key: accepted_coordinates(key, cache.get(key))[:2] for key in keys.unique()}
+    df["latitude"] = keys.map(lambda key: points[key][0]).astype(float)
+    df["longitude"] = keys.map(lambda key: points[key][1]).astype(float)
+    df.loc[kept_as_filed_mask(df), ["latitude", "longitude"]] = np.nan
     return df

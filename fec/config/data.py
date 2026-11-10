@@ -37,9 +37,7 @@ OUTPUT_COLUMNS = [
 # Working columns no writer may save; coordinates are kept.
 INTERNAL_OUTPUT_COLUMNS = [
     'is_individual',  # redundant with entity_type
-    'contributor_employer_original',  # raw per-filing employer (for prev-employer)
     '_generational_suffix',  # identity evidence from the raw contributor name
-    'geocode_level',  # how the donor coordinate was derived
     # FEC's own type and id, read while cleaning, never written.
     'fec_entity_type',
     'fec_contributor_id',

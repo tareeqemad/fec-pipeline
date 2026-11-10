@@ -9,9 +9,6 @@ from fec.io import JsonCache
 
 
 class GeoCache(JsonCache):
-    def get(self, key: str) -> dict | None:
-        return self.data.get(key)
-
     def needs_retry(self, key: str) -> bool:
         entry = self.get(key)
         return entry is None or entry.get("lookup_status", entry.get("source")) == "transient_fail"

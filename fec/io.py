@@ -91,8 +91,5 @@ class JsonCache:
     def put(self, key, value):
         self.data[key] = value
 
-    def discard(self, key):
-        self.data.pop(key, None)
-
     def save(self):
         write_json_atomic(self.path, self.data, ensure_ascii=False)
