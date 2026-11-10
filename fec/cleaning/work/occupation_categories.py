@@ -16,7 +16,10 @@ logger = get_logger(__name__)
 
 _ITEM = {
     "type": "object",
-    "properties": {"text": {"type": "string"}, "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)}},
+    "properties": {
+        "text": {"type": "string"},
+        "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)},
+    },
     "required": ["text", "category"],
     "additionalProperties": False,
 }

@@ -1,3 +1,5 @@
+"""Tests of the database stage: addresses, employments and the load transaction."""
+
 import re
 
 import numpy as np
@@ -106,11 +108,11 @@ def db(monkeypatch):
     return fake
 
 
-def _filing(sub_id, date, employer, occupation, status, previous=None, donor="D1"):
+def _filing(sub_id, date, employer, occupation, status, previous=None):
     return {
         "sub_id": sub_id,
         "entity_type": "INDIVIDUAL",
-        "donor_key": donor,
+        "donor_key": "D1",
         "contributor_employer": employer,
         "contributor_occupation": occupation,
         "occupation_category": "LEGAL",
@@ -133,15 +135,8 @@ def _load(db, filings, employers=None):
     frame = pd.DataFrame(filings)
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
     get_employer_id = make_employer_lookup(employers or {})
-    employment_ids = load_employments(
-        db,
-        frame,
-        donor_ids,
-        {"LEGAL": 1},
-        get_employer_id,
-        HOME,
-        [],
-    )
+    id_maps = {"donor": donor_ids, "occupation_category": {"LEGAL": 1}, "address": HOME}
+    employment_ids = load_employments(db, frame, id_maps, get_employer_id, [])
     rows = frame.assign(_donor_id=frame["donor_key"].map(donor_ids))
     map_employment_ids(rows, employment_ids, get_employer_id, {"LEGAL": 1})
     by_id = dict(enumerate(db.rows, 1))

@@ -38,14 +38,14 @@ def setup_logging() -> None:
     root.addHandler(console)
 
     if log_file:
-        fh = logging.FileHandler(log_file, encoding="utf-8")
-        fh.setFormatter(
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(
             logging.Formatter(
                 "%(asctime)s  %(levelname)-5s  %(name)-30s  %(message)s",
                 datefmt="%H:%M:%S",
             )
         )
-        root.addHandler(fh)
+        root.addHandler(file_handler)
 
     _CONFIGURED = True
 

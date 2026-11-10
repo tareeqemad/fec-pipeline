@@ -67,23 +67,28 @@ def split_retired(value: object) -> tuple[bool, str]:
             return False, upper  # "BOARD OF RETIRED ...": a truncated name
         return True, head
     words = _WORD_RE.findall(upper)
-    if not words or all(not is_retired_word(w) for w in words):
+    if not words or all(not is_retired_word(word) for word in words):
         return False, upper
     # RETIRED inside one part of the text: "OFFICE MANAGER, RETIRED NURSE".
     # The parts before it name the current role; the retired part is a
     # former one and goes.
-    parts = [p for p in _PART_RE.split(upper) if p.strip()]
-    current = [p for p in parts if not any(is_retired_word(w) for w in _WORD_RE.findall(p))]
+    parts = [part for part in _PART_RE.split(upper) if part.strip()]
+    current = [part for part in parts if not any(is_retired_word(word) for word in _WORD_RE.findall(part))]
     if current and len(current) < len(parts):
         role = _tidy(" ".join(current))
         # A status word (HOMEMAKER) is a current role too.
         if role not in _NO_ROLE and len(re.sub(r"[^A-Z]", "", role)) >= 3:
             return False, role
-    kept = re.sub(r"\b[A-Z']+\b", lambda m: "" if is_retired_word(m.group()) else m.group(), upper)
+    kept = re.sub(r"\b[A-Z']+\b", _drop_retired_word, upper)
     return True, _tidy(kept)
 
 
-def _plain(value: object) -> str:
+def _drop_retired_word(match: re.Match) -> str:
+    """Return a matched word, or '' when it is a retired word."""
+    return "" if is_retired_word(match.group()) else match.group()
+
+
+def _to_plain_text(value: object) -> str:
     """Return the text as split_retired reads it before any word is removed."""
     return " ".join(value.upper().replace(".", " ").split()) if isinstance(value, str) else ""
 
@@ -113,30 +118,39 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
     A box without the marker is left as filed: it already names the
     profession or the company.
     """
-    e_retired, e_rest = split_retired(employer)
-    o_retired, o_rest = split_retired(occupation)
-    if not (e_retired or o_retired):
+    employer_retired, employer_rest = split_retired(employer)
+    occupation_retired, occupation_rest = split_retired(occupation)
+    if not (employer_retired or occupation_retired):
         # Not retired, but a former part was dropped: OFFICE MANAGER, RETIRED NURSE.
-        return employer, (o_rest if o_rest and o_rest != _plain(occupation) else occupation), "", False
-    e_rest = e_rest if e_retired and not _names_nothing(e_rest) else ""
-    o_rest = o_rest if o_retired and not _names_nothing(o_rest) else ""
-    level = company_evidence_level(e_rest)
-    e_is_job = bool(e_rest) and is_job_title(e_rest)
-    e_is_company = (
-        bool(e_rest) and not e_is_job and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(e_rest)))
+        part_dropped = occupation_rest and occupation_rest != _to_plain_text(occupation)
+        return employer, (occupation_rest if part_dropped else occupation), "", False
+    employer_rest = employer_rest if employer_retired and not _names_nothing(employer_rest) else ""
+    occupation_rest = occupation_rest if occupation_retired and not _names_nothing(occupation_rest) else ""
+    level = company_evidence_level(employer_rest)
+    employer_is_job = bool(employer_rest) and is_job_title(employer_rest)
+    employer_is_company = (
+        bool(employer_rest)
+        and not employer_is_job
+        and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(employer_rest)))
     )
-    o_is_company = bool(o_rest) and company_evidence_level(o_rest) in ("legal_form", "reviewed")
+    occupation_level = company_evidence_level(occupation_rest) if occupation_rest else ""
+    occupation_is_company = occupation_level in ("legal_form", "reviewed")
     # An employer box without the marker: a job word is the profession (PHYSICIAN / RETIRED);
     # a company stays for the donor step, which moves it to previous_employer.
-    unmarked = bool(employer) and not e_retired
+    unmarked = bool(employer) and not employer_retired
     unmarked_job = unmarked and is_job_title(employer)
     # The former profession: the occupation's own words, else a job from the employer box.
     profession = (
-        ("" if o_is_company else o_rest)
-        or ("" if o_retired else occupation)
-        or (e_rest if e_is_job else "")
+        ("" if occupation_is_company else occupation_rest)
+        or ("" if occupation_retired else occupation)
+        or (employer_rest if employer_is_job else "")
         or (employer if unmarked_job else "")
     )
-    company = e_rest if e_is_company else o_rest if o_is_company else ""
+    if employer_is_company:
+        company = employer_rest
+    elif occupation_is_company:
+        company = occupation_rest
+    else:
+        company = ""
     keeps_employer = unmarked and not unmarked_job and is_real_employer(employer)
     return (employer if keeps_employer else "RETIRED"), profession or "RETIRED", company, True

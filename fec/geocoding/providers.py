@@ -55,25 +55,24 @@ class CensusUnavailable(RuntimeError):
     """Census failed temporarily; this is not an address miss."""
 
 
-def _same_house_number(street: str, returned_number: str) -> bool:
+def _is_same_house_number(street: str, returned_number: str) -> bool:
     """Compare the supplied and returned house numbers."""
     expected = _HOUSE_NUMBER.match(street)
     if expected is None:
-        first = street.split()[0] if street.strip() else ""
-        return not any(char.isdigit() for char in first) or first.upper() == returned_number.strip().upper()
+        first_word = street.split()[0] if street.strip() else ""
+        return not any(char.isdigit() for char in first_word) or first_word.upper() == returned_number.strip().upper()
     return expected.group(1).upper() == returned_number.strip().upper()
 
 
-def _same_us_place(state: str, zipcode: str, returned_state: object, returned_zip: object) -> bool:
+def _is_same_us_place(state: str, zipcode: str, returned_state: object, returned_zip: object) -> bool:
     """Reject a different state or ZIP; allow postal city aliases."""
     if state and returned_state:
         actual_state = str(returned_state).strip().upper().removeprefix("US-")
         if actual_state != state.strip().upper():
             return False
-    if zipcode and returned_zip:
-        if str(returned_zip).strip()[:5] != zipcode.strip()[:5]:
-            return False
-    return True
+    if not (zipcode and returned_zip):
+        return True
+    return str(returned_zip).strip()[:5] == zipcode.strip()[:5]
 
 
 def _is_address_result(result: dict, street: str) -> bool:
@@ -86,7 +85,7 @@ def _is_address_result(result: dict, street: str) -> bool:
     if kind in _AREA_TYPES and category != "building":
         return False
     number = str((result.get("address") or {}).get("house_number") or "")
-    if not _same_house_number(street, number):
+    if not _is_same_house_number(street, number):
         return False
     return bool(
         number
@@ -109,20 +108,47 @@ def _wait_for_nominatim(url: str) -> None:
     _last_nominatim_request = time.monotonic()
 
 
-def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
-    """Look up the address; no US filter for foreign addresses."""
-    if not street:
-        return None
+def _build_nominatim_params(street: str, city: str, state: str, zipcode: str, foreign: bool) -> dict:
+    """Build the search query, limited to the US unless the address is foreign."""
     params = {
         "q": ", ".join(part for part in (street, city, state, zipcode) if part),
         "format": "jsonv2",
         "limit": 1,
         "addressdetails": 1,
     }
-    foreign = is_foreign_address(state, zipcode)
     if not foreign:
         state_code = state.strip().upper()
         params["countrycodes"] = f"us,{state_code.lower()}" if state_code in US_TERRITORIES else "us"
+    return params
+
+
+def _read_nominatim_results(results: object, street: str, state: str, zipcode: str, foreign: bool) -> dict | None:
+    """Return the point of the first result, or None when it is not this address."""
+    if not isinstance(results, list):
+        raise ValueError("expected a result list")
+    if not results:
+        return None
+    result = results[0]
+    if not _is_address_result(result, street):
+        return None
+    address = result.get("address") or {}
+    returned_state = address.get("ISO3166-2-lvl4") or address.get("state_code")
+    if not foreign and not _is_same_us_place(state, zipcode, returned_state, address.get("postcode")):
+        return None
+    country = str(address.get("country_code") or "").upper() or None
+    return {
+        "lat": float(result["lat"]),
+        "lng": float(result["lon"]),
+        "country": country,
+    }
+
+
+def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
+    """Look up the address; no US filter for foreign addresses."""
+    if not street:
+        return None
+    foreign = is_foreign_address(state, zipcode)
+    params = _build_nominatim_params(street, city, state, zipcode, foreign)
     url = os.environ.get("NOMINATIM_URL", NOMINATIM_URL)
     headers = {
         **NOMINATIM_HEADERS,
@@ -133,29 +159,13 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
         _wait_for_nominatim(url)
         try:
             response = requests.get(url, params=params, headers=headers, timeout=NOMINATIM_TIMEOUT)
-            if response.status_code == 429 or response.status_code >= 500:
-                last_error = f"Nominatim HTTP {response.status_code}"
+            status = response.status_code
+            if status == 429 or status >= 500:
+                last_error = f"Nominatim HTTP {status}"
             elif not response.ok:
-                raise NominatimUnavailable(f"Nominatim HTTP {response.status_code}")
+                raise NominatimUnavailable(f"Nominatim HTTP {status}")
             else:
-                results = response.json()
-                if not isinstance(results, list):
-                    raise ValueError("expected a result list")
-                if not results:
-                    return None
-                result = results[0]
-                if not _is_address_result(result, street):
-                    return None
-                address = result.get("address") or {}
-                if not foreign and not _same_us_place(
-                    state,
-                    zipcode,
-                    address.get("ISO3166-2-lvl4") or address.get("state_code"),
-                    address.get("postcode"),
-                ):
-                    return None
-                country = str(address.get("country_code") or "").upper() or None
-                return {"lat": float(result["lat"]), "lng": float(result["lon"]), "country": country}
+                return _read_nominatim_results(response.json(), street, state, zipcode, foreign)
         except requests.exceptions.RequestException as error:
             last_error = f"Nominatim {type(error).__name__}"
         except (KeyError, TypeError, ValueError, AttributeError) as error:
@@ -163,6 +173,31 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
         if attempt < NOMINATIM_RETRIES:
             time.sleep(2**attempt)
     raise NominatimUnavailable(last_error)
+
+
+def _read_census_match(data: dict, street: str, state: str, zipcode: str) -> dict | None:
+    """Return the point of the first Census match, or None when it is not this address."""
+    matches = data["result"]["addressMatches"]
+    if not isinstance(matches, list):
+        raise ValueError("expected an address match list")
+    if not matches:
+        return None
+    match = matches[0]
+    street_text = str(match.get("matchedAddress") or "").split(",", 1)[0].strip()
+    returned = _HOUSE_NUMBER.match(street_text)
+    words = street_text.split()
+    number = returned.group(1) if returned else (words[0] if words else "")
+    if not _is_same_house_number(street, number):
+        return None
+    components = match.get("addressComponents") or {}
+    if not _is_same_us_place(state, zipcode, components.get("state"), components.get("zip")):
+        return None
+    coordinates = match["coordinates"]
+    return {
+        "lat": float(coordinates["y"]),
+        "lng": float(coordinates["x"]),
+        "country": "US",
+    }
 
 
 def census(street: str, city: str, state: str, zipcode: str) -> dict | None:
@@ -178,28 +213,13 @@ def census(street: str, city: str, state: str, zipcode: str) -> dict | None:
     for attempt in range(1 + CENSUS_RETRIES):
         try:
             response = requests.get(CENSUS_URL, params=params, timeout=CENSUS_TIMEOUT)
-            if response.status_code == 429 or response.status_code >= 500:
-                last_error = f"Census HTTP {response.status_code}"
+            status = response.status_code
+            if status == 429 or status >= 500:
+                last_error = f"Census HTTP {status}"
             elif not response.ok:
-                raise CensusUnavailable(f"Census HTTP {response.status_code}")
+                raise CensusUnavailable(f"Census HTTP {status}")
             else:
-                matches = response.json()["result"]["addressMatches"]
-                if not isinstance(matches, list):
-                    raise ValueError("expected an address match list")
-                if not matches:
-                    return None
-                match = matches[0]
-                street_text = str(match.get("matchedAddress") or "").split(",", 1)[0].strip()
-                returned = _HOUSE_NUMBER.match(street_text)
-                first = street_text.split()
-                number = returned.group(1) if returned else (first[0] if first else "")
-                if not _same_house_number(street, number):
-                    return None
-                components = match.get("addressComponents") or {}
-                if not _same_us_place(state, zipcode, components.get("state"), components.get("zip")):
-                    return None
-                coordinates = match["coordinates"]
-                return {"lat": float(coordinates["y"]), "lng": float(coordinates["x"]), "country": "US"}
+                return _read_census_match(response.json(), street, state, zipcode)
         except requests.exceptions.RequestException as error:
             last_error = f"Census {type(error).__name__}"
         except (KeyError, TypeError, ValueError, AttributeError) as error:

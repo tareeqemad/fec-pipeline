@@ -35,10 +35,33 @@ def _normalize(value: str) -> str:
     return " ".join(str(value or "").upper().split())
 
 
-def _identity(name: str, city: str, state: str, zip5: str = "") -> str:
+def _build_identity(name: str, city: str, state: str, zip5: str = "") -> str:
     """Key a name at a place, with the ZIP when the rule is that narrow."""
     parts = (name, city, state, zip5) if zip5 else (name, city, state)
     return "|".join(map(_normalize, parts))
+
+
+def _build_profile_identity(person: dict, zip5: str = "") -> str:
+    """Key a donor profile's name at its place, with the ZIP when given."""
+    return _build_identity(person["name"], person["city"], person["state"], zip5)
+
+
+def _build_held_address_key(row: dict) -> tuple[str, str, str]:
+    """Key a hold_address rule by its name, street and ZIP5."""
+    return (_normalize(row["name_a"]), _normalize(row["street_a"]), _normalize(row["zip_a"])[:5])
+
+
+def _is_valid_rule(action: str, row: dict) -> bool:
+    """Return whether a rule row has a known action, its fields, a source and a review."""
+    review_status = (row.get("review_status") or "").strip().lower()
+    reviewed_at = (row.get("reviewed_at") or "").strip()
+    return (
+        action in REQUIRED_FIELDS
+        and review_status in VALID_REVIEW_STATUSES
+        and bool((row.get("source") or "").strip())
+        and bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", reviewed_at))
+        and all(row.get(field) for field in REQUIRED_FIELDS[action])
+    )
 
 
 def _read_identity_rules() -> dict[str, list[dict]]:
@@ -49,13 +72,7 @@ def _read_identity_rules() -> dict[str, list[dict]]:
     with RULES_PATH.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
             action = (row.get("action") or "").strip().lower()
-            if (
-                action not in REQUIRED_FIELDS
-                or (row.get("review_status") or "").strip().lower() not in VALID_REVIEW_STATUSES
-                or not (row.get("source") or "").strip()
-                or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", (row.get("reviewed_at") or "").strip())
-                or not all(row.get(field) for field in REQUIRED_FIELDS[action])
-            ):
+            if not _is_valid_rule(action, row):
                 raise ValueError(
                     f"Invalid identity rule on row {number}: it needs a known action, "
                     "its fields, a review status, a source and a YYYY-MM-DD reviewed_at"
@@ -91,14 +108,11 @@ def _load_separations(
             name_pairs.add(frozenset((name_a, name_b)))
             continue
         by_zip = all(zips) and {name_a, name_b} <= zip_names
-        identity_pairs.add(
-            frozenset(
-                (
-                    _identity(name_a, *place_a, zips[0] if by_zip else ""),
-                    _identity(name_b, *place_b, zips[1] if by_zip else ""),
-                )
-            )
-        )
+        zip_a = zips[0] if by_zip else ""
+        zip_b = zips[1] if by_zip else ""
+        identity_a = _build_identity(name_a, *place_a, zip_a)
+        identity_b = _build_identity(name_b, *place_b, zip_b)
+        identity_pairs.add(frozenset((identity_a, identity_b)))
     return name_pairs, identity_pairs, frozenset(zip_names)
 
 
@@ -114,7 +128,12 @@ KEY_MERGES = {
 }
 
 COMMITTEE_NAMES = tuple(
-    (row["donor_key_a"], row["donor_key_b"], row["canonical_name"], frozenset((row.get("sub_ids") or "").split()))
+    (
+        row["donor_key_a"],
+        row["donor_key_b"],
+        row["canonical_name"],
+        frozenset((row.get("sub_ids") or "").split()),
+    )
     for row in _RULES["merge_keys"]
     if row.get("canonical_name")
 )
@@ -122,16 +141,13 @@ COMMITTEE_NAMES = tuple(
 # sub_id -> hold group, and (name, street, zip5) -> hold group for later filings too.
 HELD_FILINGS = {row["sub_id"].strip(): row["group"].strip() for row in _RULES["hold"]}
 
-HELD_ADDRESSES = {
-    (_normalize(row["name_a"]), _normalize(row["street_a"]), _normalize(row["zip_a"])[:5]): row["group"].strip()
-    for row in _RULES["hold_address"]
-}
+HELD_ADDRESSES = {_build_held_address_key(row): row["group"].strip() for row in _RULES["hold_address"]}
 
 NAME_MERGES = defaultdict(tuple)
 
-for _row in _RULES["merge_names"]:
-    _name = _normalize(_row["name_a"])
-    NAME_MERGES[(_row.get("group") or _name).strip()] += (_name,)
+for _merge_row in _RULES["merge_names"]:
+    _merge_name = _normalize(_merge_row["name_a"])
+    NAME_MERGES[(_merge_row.get("group") or _merge_name).strip()] += (_merge_name,)
 
 NAME_MERGES = dict(NAME_MERGES)
 
@@ -178,18 +194,10 @@ def identities_must_stay_separate(person_a: dict, person_b: dict) -> bool:
     """Tell whether curated rules require these two donors stay separate."""
     if names_must_stay_separate(person_a["name"], person_b["name"]):
         return True
-    pair = frozenset(
-        (
-            _identity(person_a["name"], person_a["city"], person_a["state"]),
-            _identity(person_b["name"], person_b["city"], person_b["state"]),
-        )
-    )
-    zip_pair = frozenset(
-        (
-            _identity(person_a["name"], person_a["city"], person_a["state"], person_a.get("zip5", "")[:5]),
-            _identity(person_b["name"], person_b["city"], person_b["state"], person_b.get("zip5", "")[:5]),
-        )
-    )
+    pair = frozenset((_build_profile_identity(person_a), _build_profile_identity(person_b)))
+    zip_identity_a = _build_profile_identity(person_a, person_a.get("zip5", "")[:5])
+    zip_identity_b = _build_profile_identity(person_b, person_b.get("zip5", "")[:5])
+    zip_pair = frozenset((zip_identity_a, zip_identity_b))
     return pair in SEPARATE_IDENTITIES or zip_pair in SEPARATE_IDENTITIES
 
 

@@ -18,7 +18,7 @@ _NO_WORK_CATEGORIES = frozenset({"STUDENT", "HOMEMAKER", "NOT EMPLOYED"})
 _NO_WORK_OCCUPATIONS = _NO_WORK_CATEGORIES | {"HOUSEWIFE", "UNEMPLOYED"}
 
 
-def _status_text(value: object) -> str:
+def _read_status_text(value: object) -> str:
     """Uppercased, stripped text for a status field; '' if missing."""
     return "" if pd.isna(value) else str(value).strip().upper()
 
@@ -32,7 +32,7 @@ def collapse_doubled_letters(text: str) -> str:
     return _DOUBLED_LETTER_RE.sub(r"\1", text)
 
 
-def _title_word(word: str, last: bool) -> bool:
+def _is_title_word(word: str, last: bool) -> bool:
     """Accept title words and the permitted one-letter spelling errors."""
     if word in JOB_TITLE_HEADS or (not last and word in JOB_TITLE_MODIFIERS):
         return True
@@ -40,16 +40,17 @@ def _title_word(word: str, last: bool) -> bool:
         return False
     for head in JOB_TITLE_HEADS:
         difference = abs(len(head) - len(word))
-        if difference == 0 or (len(head) >= 8 and difference == 1 and word != head + "S"):
-            if Levenshtein.distance(word, head) == 1:
-                return True
+        same_length = difference == 0
+        one_letter_more_or_less = len(head) >= 8 and difference == 1 and word != head + "S"
+        if (same_length or one_letter_more_or_less) and Levenshtein.distance(word, head) == 1:
+            return True
     return False
 
 
-def is_job_title(upper: str) -> bool:
+def is_job_title(text: str) -> bool:
     """All title words, the last one naming a job."""
-    words = re.findall(r"[A-Z0-9&]+", upper)
-    return bool(words) and all(_title_word(word, index == len(words) - 1) for index, word in enumerate(words))
+    words = re.findall(r"[A-Z0-9&]+", text)
+    return bool(words) and all(_is_title_word(word, index == len(words) - 1) for index, word in enumerate(words))
 
 
 _ADMIN_NOTE_RE = re.compile(ADMIN_NOTE_EMPLOYER_RE)
@@ -59,16 +60,16 @@ _STRUCTURAL_JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 _EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 
 
-def employer_rejection_reason(emp: object) -> str:
+def employer_rejection_reason(employer: object) -> str:
     """Reject known non-company values; accepted names are not verified."""
-    if pd.isna(emp):
+    if pd.isna(employer):
         return "missing_value"
-    text = re.sub(r"\s+", " ", str(emp)).strip()
-    return _employer_rejection_reason(text.upper())
+    text = re.sub(r"\s+", " ", str(employer)).strip()
+    return _find_rejection_reason(text.upper())
 
 
 @lru_cache(maxsize=32768)
-def _employer_rejection_reason(upper: str) -> str:
+def _find_rejection_reason(upper: str) -> str:
     """Evaluate each distinct normalized name once during a pipeline run."""
     if upper in ("NAN", "NONE", "N/A", "NA", ""):
         return "missing_value"
@@ -94,23 +95,27 @@ def _employer_rejection_reason(upper: str) -> str:
     return ""
 
 
-def is_real_employer(emp: object) -> bool:
+def is_real_employer(employer: object) -> bool:
     """Whether a value can be an employer name."""
-    return not employer_rejection_reason(emp)
+    return not employer_rejection_reason(employer)
 
 
 def classify_employer_status(employer: object, occupation: object = "", category: object = "") -> str:
     """Classify work status without changing the reported company."""
-    emp = _status_text(employer)
-    occ = _status_text(occupation)
-    cat = _status_text(category)
+    employer_text = _read_status_text(employer)
+    occupation_text = _read_status_text(occupation)
+    category_text = _read_status_text(category)
 
-    if emp == "RETIRED":
+    if employer_text == "RETIRED":
         return "retired"
-    no_work = emp in _NO_WORK_OCCUPATIONS or cat in _NO_WORK_CATEGORIES or occ in _NO_WORK_OCCUPATIONS
+    no_work = (
+        employer_text in _NO_WORK_OCCUPATIONS
+        or category_text in _NO_WORK_CATEGORIES
+        or occupation_text in _NO_WORK_OCCUPATIONS
+    )
     if no_work:
         return "not_employed"
-    if emp in {"SELF-EMPLOYED", "SELF EMPLOYED"} or cat == "SELF-EMPLOYED":
+    if employer_text in {"SELF-EMPLOYED", "SELF EMPLOYED"} or category_text == "SELF-EMPLOYED":
         return "self_employed"
     return "active" if is_real_employer(employer) else "missing"
 

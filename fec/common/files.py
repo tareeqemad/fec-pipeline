@@ -1,5 +1,6 @@
 """Read CSV values without losing names; replace completed output files."""
 
+import contextlib
 import json
 import os
 import time
@@ -27,7 +28,7 @@ def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     # Apply dtypes only to columns present in the header.
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
-    dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
+    dtypes = {column: dtype for column, dtype in ID_DTYPES.items() if column in present}
 
     return pd.read_csv(
         path,
@@ -53,10 +54,8 @@ def replace_file(temp_path: str, path: str) -> None:
         except PermissionError:
             if attempt + 1 < REPLACE_ATTEMPTS:
                 time.sleep(REPLACE_WAIT_SECONDS)
-    try:
+    with contextlib.suppress(OSError):
         os.remove(temp_path)
-    except OSError:
-        pass
     raise PermissionError(
         f"{path} is open in another program (Excel, an editor, a viewer or a sync tool); "
         "close it and run the same command again. The file was left as it was."

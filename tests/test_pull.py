@@ -1,3 +1,5 @@
+"""Tests of the pull stage: rate limits and appending only new filings."""
+
 import csv
 
 import pytest
@@ -37,7 +39,7 @@ def test_fetch_page_stops_after_rate_limit_timeout(monkeypatch):
         api.fetch_page(Session(), {"api_key": "secret"}, Limiter())
 
 
-def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
+def test_pull_committee_appends_only_new_sub_ids(tmp_path, monkeypatch):
     csv_path = tmp_path / "contributions.csv"
     existing = pull_pipeline.build_row(
         {
@@ -101,7 +103,11 @@ def test_run_appends_only_new_sub_ids(tmp_path, monkeypatch):
 
 
 def _raw(
-    sub_id, name="AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE", tx="SA11AI.1", date="2024-10-18", amount="11000000.00"
+    sub_id,
+    name="AMERICAN ISRAEL PUBLIC AFFAIRS COMMITTEE",
+    tx="SA11AI.1",
+    date="2024-10-18",
+    amount="11000000.00",
 ):
     return {
         "sub_id": sub_id,
@@ -121,8 +127,10 @@ def _result(sub_id, entity="ORG", contributor_id="", **raw):
 
 def test_source_file_keeps_other_rows_when_appending(tmp_path):
     path = tmp_path / "fec_source_fields.csv"
-    first = pull_pipeline._source_record("1", {**_result("1", entity="IND"), "image_number": "202410189698745485"})
-    second = pull_pipeline._source_record("5", _result("5", contributor_id="C00000935"))
+    first = pull_pipeline._build_source_record(
+        "1", {**_result("1", entity="IND"), "image_number": "202410189698745485"}
+    )
+    second = pull_pipeline._build_source_record("5", _result("5", contributor_id="C00000935"))
     pull_pipeline.append_source_fields(path, [first])
     pull_pipeline.append_source_fields(path, [second])
     with path.open(encoding="utf-8", newline="") as handle:

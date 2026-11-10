@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 import pandas as pd
@@ -16,7 +17,7 @@ logger = get_logger(__name__)
 def committee_ids_by_short_name(cur: Any) -> dict[str, int]:
     """Map committee short names to database IDs."""
     cur.execute("SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL")
-    return {short: committee_id for short, committee_id in cur.fetchall()}
+    return dict(cur.fetchall())
 
 
 def resolve_committee(
@@ -70,46 +71,47 @@ def accomplice_committee_id(
     return resolve_committee(short, committees, "key_accomplices.csv", who)
 
 
-def load_leadership(cur: Any) -> None:
-    """Load leaders and their committee memberships."""
-    committees = committee_ids_by_short_name(cur)
-
-    def validate_leader_committees(rows: pd.DataFrame) -> None:
-        """Check every leader committee before inserting rows."""
-        for _, row in rows.iterrows():
-            leader_committee_ids(
-                row.get("committee_ids"),
-                committees,
-                (row.get("leader_name") or "").strip(),
-            )
-
-    def insert_leader(cur: Any, row: pd.Series, donor_id: int) -> None:
-        """Save the leader and replace its committee links."""
-        committee_ids = leader_committee_ids(
+def _validate_leader_committees(committees: dict[str, int], rows: pd.DataFrame) -> None:
+    """Check every leader committee before inserting rows."""
+    for _, row in rows.iterrows():
+        leader_committee_ids(
             row.get("committee_ids"),
             committees,
             (row.get("leader_name") or "").strip(),
         )
 
-        cur.execute("INSERT INTO leaders (donor_id) VALUES (%s) RETURNING leader_id", (donor_id,))
-        leader_id = cur.fetchone()[0]
-        if committee_ids:
-            execute_values(
-                cur,
-                "INSERT INTO leader_committees (leader_id, committee_id) VALUES %s",
-                [(leader_id, committee_id) for committee_id in committee_ids],
-            )
 
+def _insert_leader(committees: dict[str, int], cur: Any, row: pd.Series, donor_id: int) -> None:
+    """Save the leader and replace its committee links."""
+    committee_ids = leader_committee_ids(
+        row.get("committee_ids"),
+        committees,
+        (row.get("leader_name") or "").strip(),
+    )
+
+    cur.execute("INSERT INTO leaders (donor_id) VALUES (%s) RETURNING leader_id", (donor_id,))
+    leader_id = cur.fetchone()[0]
+    if committee_ids:
+        execute_values(
+            cur,
+            "INSERT INTO leader_committees (leader_id, committee_id) VALUES %s",
+            [(leader_id, committee_id) for committee_id in committee_ids],
+        )
+
+
+def load_leadership(cur: Any) -> None:
+    """Load leaders and their committee memberships."""
+    committees = committee_ids_by_short_name(cur)
     load_roster_csv(
         cur,
         "leaders.csv",
         "leaders",
-        insert_leader,
-        validate_leader_committees,
+        partial(_insert_leader, committees),
+        partial(_validate_leader_committees, committees),
     )
 
 
-def _accomplice_display_order(raw: str | None, who: str) -> int:
+def _read_display_order(raw: str | None, who: str) -> int:
     """Read display order, using zero for missing or invalid text."""
     text = (raw or "").strip()
     if not text:
@@ -120,50 +122,52 @@ def _accomplice_display_order(raw: str | None, who: str) -> int:
     return 0
 
 
+def _read_optional_text(row: pd.Series, column: str) -> str | None:
+    """Return trimmed text or None."""
+    value = (row.get(column) or "").strip()
+    return value or None
+
+
+def _validate_accomplice_committees(committees: dict[str, int], rows: pd.DataFrame) -> None:
+    """Check every card committee before inserting rows."""
+    for _, row in rows.iterrows():
+        accomplice_committee_id(
+            row.get("committee_id"),
+            committees,
+            (row.get("accomplice_name") or "").strip(),
+        )
+
+
+def _insert_accomplice(committees: dict[str, int], cur: Any, row: pd.Series, donor_id: int) -> None:
+    """Save the card text, committee and display order."""
+    who = (row.get("accomplice_name") or "").strip()
+    committee_id = accomplice_committee_id(row.get("committee_id"), committees, who)
+    display_order = _read_display_order(row.get("display_order"), who)
+    cur.execute(
+        """
+        INSERT INTO key_accomplices
+            (donor_id, sign, subtitle, body_text,
+             committee_id, display_order)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (
+            donor_id,
+            _read_optional_text(row, "sign"),
+            _read_optional_text(row, "subtitle"),
+            _read_optional_text(row, "body_text"),
+            committee_id,
+            display_order,
+        ),
+    )
+
+
 def load_key_accomplices(cur: Any) -> None:
     """Load curated cards and link them to donors."""
     committees = committee_ids_by_short_name(cur)
-
-    def optional_text(row: pd.Series, column: str) -> str | None:
-        """Return trimmed text or None."""
-        value = (row.get(column) or "").strip()
-        return value or None
-
-    def validate_accomplice_committees(rows: pd.DataFrame) -> None:
-        """Check every card committee before inserting rows."""
-        for _, row in rows.iterrows():
-            accomplice_committee_id(
-                row.get("committee_id"),
-                committees,
-                (row.get("accomplice_name") or "").strip(),
-            )
-
-    def insert_accomplice(cur: Any, row: pd.Series, donor_id: int) -> None:
-        """Save the card text, committee and display order."""
-        who = (row.get("accomplice_name") or "").strip()
-        committee_id = accomplice_committee_id(row.get("committee_id"), committees, who)
-        display_order = _accomplice_display_order(row.get("display_order"), who)
-        cur.execute(
-            """
-            INSERT INTO key_accomplices
-                (donor_id, sign, subtitle, body_text,
-                 committee_id, display_order)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            (
-                donor_id,
-                optional_text(row, "sign"),
-                optional_text(row, "subtitle"),
-                optional_text(row, "body_text"),
-                committee_id,
-                display_order,
-            ),
-        )
-
     load_roster_csv(
         cur,
         "key_accomplices.csv",
         "key_accomplices",
-        insert_accomplice,
-        validate_accomplice_committees,
+        partial(_insert_accomplice, committees),
+        partial(_validate_accomplice_committees, committees),
     )

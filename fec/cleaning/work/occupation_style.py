@@ -73,7 +73,7 @@ _TITLES = (
     "HOMEMAKER",
 )
 
-_TITLE_ALT = "|".join(re.escape(t) for t in sorted(_TITLES, key=len, reverse=True))
+_TITLE_ALT = "|".join(re.escape(title) for title in sorted(_TITLES, key=len, reverse=True))
 
 # whole string = TITLE (& | AND | -) TITLE
 _TITLE_PAIR_RE = re.compile(rf"^({_TITLE_ALT})\s*(?:&|\bAND\b|-)\s*({_TITLE_ALT})$")
@@ -123,15 +123,14 @@ def _depluralize_last_word(value: str) -> str:
 
 def normalize_occupation_style(value: str) -> str:
     """Apply every style rule to one occupation string."""
-    s = value
+    text = value
     # Separator spacing; short abbreviations like R&D stay tight.
-    s = re.sub(r"\s*/+\s*", "/", s)
-    s = re.sub(r"\s*&\s*", " & ", s)
-    s = re.sub(r"\b([A-Z]{1,2}) & ([A-Z]{1,2})\b", r"\1&\2", s)
+    text = re.sub(r"\s*/+\s*", "/", text)
+    text = re.sub(r"\s*&\s*", " & ", text)
+    text = re.sub(r"\b([A-Z]{1,2}) & ([A-Z]{1,2})\b", r"\1&\2", text)
     for regex, replacement in _COMPOUND_TOKENS:
-        s = regex.sub(replacement, s)
-    s = _CO_PREFIX_RE.sub("CO-", s)
-    s = _TITLE_PAIR_RE.sub(r"\1/\2", s)
-    s = _depluralize_last_word(s)
-    s = re.sub(r"\s{2,}", " ", s).strip()
-    return s
+        text = regex.sub(replacement, text)
+    text = _CO_PREFIX_RE.sub("CO-", text)
+    text = _TITLE_PAIR_RE.sub(r"\1/\2", text)
+    text = _depluralize_last_word(text)
+    return re.sub(r"\s{2,}", " ", text).strip()

@@ -41,7 +41,7 @@ _LETTERS_RE = re.compile(r"[^A-Z]")
 _MIN_PREFIX = 7  # SELFEMP: a truncated SELF-EMPLOYED
 
 
-def _slips_allowed(letters: str) -> int:
+def _count_slips_allowed(letters: str) -> int:
     """Return how many slips a status word of this length allows."""
     return 2 if len(letters) >= 10 else 1
 
@@ -58,7 +58,7 @@ def status_word(text: object) -> str | None:
     for status, target in _STATUSES.items():
         if letters == target:
             return status
-        allowed = _slips_allowed(target)
+        allowed = _count_slips_allowed(target)
         distance = OSA.distance(letters, target, score_cutoff=allowed)
         if distance <= allowed and distance < best_distance:
             best, best_distance = status, distance
@@ -81,10 +81,11 @@ def learn_status_typos(texts: Iterable[object], canonical: dict | None = None) -
             continue
         plain = " ".join(value.upper().split())
         status = status_word(plain)
-        if status:
-            status = canonical.get(status, status)
-            if plain != status:
-                learnt[plain] = status
+        if not status:
+            continue
+        status = canonical.get(status, status)
+        if plain != status:
+            learnt[plain] = status
     return learnt
 
 

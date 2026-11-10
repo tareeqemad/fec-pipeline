@@ -1,4 +1,13 @@
-"""Find map points for the cleaned addresses: cache, OpenStreetMap, then Census."""
+"""Find map points for the cleaned addresses: cache, OpenStreetMap, then Census.
+
+Run: python geocode.py
+
+Steps, in order (main):
+    1. read_pipeline_csv       data/output/contributions_cleaned.csv
+    2. geocode_addresses       look up each address the cache does not hold (providers.py)
+    3. apply_coordinates       latitude and longitude from the cache; foreign filings stay empty
+    4. _write_output           save the CSV with the coordinates
+"""
 
 import os
 import sys
@@ -19,7 +28,7 @@ from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, cen
 logger = get_logger(__name__)
 
 
-def _contributor_keys(df: pd.DataFrame) -> pd.Series:
+def _build_cache_keys(df: pd.DataFrame) -> pd.Series:
     """Return each row's cache key: street|city|state|zip."""
     return (
         df[["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]]
@@ -66,59 +75,76 @@ def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int) -> None:
     keys = list(dict.fromkeys(key for key in keys if key != "|||"))
     todo = [key for key in keys if _needs_lookup(key, cache)]
     logger.info(
-        "Addresses: %s | cached: %s | remaining: %s", f"{len(keys):,}", f"{len(keys) - len(todo):,}", f"{len(todo):,}"
+        "Addresses: %s | cached: %s | remaining: %s",
+        f"{len(keys):,}",
+        f"{len(keys) - len(todo):,}",
+        f"{len(todo):,}",
     )
     if todo:
         _geocode_todo(todo, cache, batch_size)
 
 
+def _look_up_and_cache(key: str, cache: GeoCache) -> str:
+    """Look up one address, cache the outcome, and return found, missed or transient."""
+    try:
+        entry = _geocode_one(*key.split("|"))
+    except (NominatimUnavailable, CensusUnavailable) as error:
+        cache.put_transient(key)
+        logger.debug("Geocoding unavailable for %s: %s", key, error)
+        return "transient"
+    if entry is None:
+        cache.put_failed(key)
+        return "missed"
+    cache.put(key, **entry)
+    return "found"
+
+
 def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
     """Save lookup results in batches and when the run stops."""
-    found = missed = transient = 0
+    counts = {"found": 0, "missed": 0, "transient": 0}
     try:
         for done, key in enumerate(todo, 1):
-            try:
-                entry = _geocode_one(*key.split("|"))
-            except (NominatimUnavailable, CensusUnavailable) as error:
-                cache.put_transient(key)
-                transient += 1
-                logger.debug("Geocoding unavailable for %s: %s", key, error)
-            else:
-                if entry is None:
-                    cache.put_failed(key)
-                    missed += 1
-                else:
-                    cache.put(key, **entry)
-                    found += 1
+            outcome = _look_up_and_cache(key, cache)
+            counts[outcome] += 1
             if done % batch_size == 0:
                 cache.save()
                 logger.info(
-                    "[%s/%s] found: %s | not found: %s | retry later: %s", done, len(todo), found, missed, transient
+                    "[%s/%s] found: %s | not found: %s | retry later: %s",
+                    done,
+                    len(todo),
+                    counts["found"],
+                    counts["missed"],
+                    counts["transient"],
                 )
     finally:
         cache.save()
     logger.info(
-        "Lookups finished: %s | found: %s | not found: %s | retry later: %s", len(todo), found, missed, transient
+        "Lookups finished: %s | found: %s | not found: %s | retry later: %s",
+        len(todo),
+        counts["found"],
+        counts["missed"],
+        counts["transient"],
     )
 
 
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50) -> None:
     """Look up donor addresses eligible for geocoding."""
-    keys = _contributor_keys(df)[~kept_as_filed_mask(df)]
+    keys = _build_cache_keys(df)[~kept_as_filed_mask(df)]
     _geocode_keys(keys, cache, batch_size)
 
 
 def apply_coordinates(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     """Apply donor coordinates, leaving preserved foreign filings ungeocoded."""
-    keys = _contributor_keys(df)
-    points = {key: accepted_coordinates(key, cache.get(key))[:2] for key in keys.unique()}
-    df["latitude"] = keys.map(lambda key: points[key][0]).astype(float)
-    df["longitude"] = keys.map(lambda key: points[key][1]).astype(float)
+    keys = _build_cache_keys(df)
+    latitudes, longitudes = {}, {}
+    for key in keys.unique():
+        latitude, longitude, _ = accepted_coordinates(key, cache.get(key))
+        latitudes[key] = latitude
+        longitudes[key] = longitude
+    df["latitude"] = keys.map(latitudes).astype(float)
+    df["longitude"] = keys.map(longitudes).astype(float)
     df.loc[kept_as_filed_mask(df), ["latitude", "longitude"]] = np.nan
     return df
-
-
-logger = get_logger(__name__)
 
 
 def _find_csv() -> str:

@@ -1,4 +1,13 @@
-"""Address cleaning stage: the standard form, then the reviewed and per-donor fixes."""
+"""Clean the addresses of every filing.
+
+Steps, in order (clean_addresses):
+    1. standardize_addresses   USPS standard form of street, unit, city, state and ZIP
+    2. clear_own_name_street   a street box that holds the filer's own name
+    3. clean_zips              five-digit US ZIP codes
+    4. apply_address_rules     reviewed corrections (data/rules/address_rules.csv)
+    5. ALIGN_STEPS             one spelling per donor and place (donor_addresses.py)
+    6. apply_address_rules     the city-only rules again, after the alignment
+"""
 
 from __future__ import annotations
 

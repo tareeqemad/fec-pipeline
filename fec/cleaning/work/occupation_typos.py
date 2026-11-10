@@ -36,38 +36,39 @@ MIN_WORD_LETTERS = 6
 _TEXT_RE = re.compile(r"[A-Z][A-Z '&/.-]*")
 
 
-def _plain(value: object) -> str:
+def _to_plain_text(value: object) -> str:
     """Return a text uppercased with single spaces, or '' if it is not a string."""
     return " ".join(value.upper().split()) if isinstance(value, str) else ""
 
 
-def _one_word_slip(text: str, listed: str) -> bool:
+def _is_one_word_slip(text: str, listed: str) -> bool:
     """Exactly one word differs, by one slip, and that word is long enough."""
-    a, b = text.split(), listed.split()
-    if len(a) != len(b):
+    text_words, listed_words = text.split(), listed.split()
+    if len(text_words) != len(listed_words):
         return False
-    differing = [(x, y) for x, y in zip(a, b) if x != y]
+    differing = [(filed, known) for filed, known in zip(text_words, listed_words) if filed != known]
     if len(differing) != 1:
         return False
-    x, y = differing[0]
-    letters = re.sub(r"[^A-Z]", "", y)
-    return len(letters) >= MIN_WORD_LETTERS and x.isalpha() and y.isalpha() and OSA.distance(x, y) == 1
+    filed, known = differing[0]
+    letters = re.sub(r"[^A-Z]", "", known)
+    return len(letters) >= MIN_WORD_LETTERS and filed.isalpha() and known.isalpha() and OSA.distance(filed, known) == 1
 
 
 def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) -> dict[str, str]:
     """{filed text: listed occupation} for every text one slip from one listed occupation."""
+    candidates = CATEGORY_OVERRIDES if listed is None else listed
     listed = [
-        k
-        for k in (CATEGORY_OVERRIDES if listed is None else listed)
-        if k not in OCCUPATION_CORRECTIONS and k not in STATUS_WORDS
+        occupation
+        for occupation in candidates
+        if occupation not in OCCUPATION_CORRECTIONS and occupation not in STATUS_WORDS
     ]
     known = set(listed)
     learnt: dict[str, str] = {}
-    for text in set(map(_plain, texts)):
+    for text in set(map(_to_plain_text, texts)):
         if not text or text in known or text in OCCUPATION_CORRECTIONS or not _TEXT_RE.fullmatch(text):
             continue
         near = process.extract(text, listed, scorer=OSA.distance, score_cutoff=1, limit=2)
-        if len(near) == 1 and _one_word_slip(text, near[0][0]):
+        if len(near) == 1 and _is_one_word_slip(text, near[0][0]):
             learnt[text] = near[0][0]
     return learnt
 

@@ -1,3 +1,5 @@
+"""Tests of the shared column contract between stages."""
+
 from fec.common.columns import LOADED_COLUMNS, STAGES, check_input, check_loadable
 
 ORDER = ("clean", "geocode", "resolve")

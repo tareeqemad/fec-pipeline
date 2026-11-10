@@ -22,8 +22,8 @@ def load_env(env_path: Path | None = None) -> None:
         logger.warning(".env not found at %s - using environment variables only", path)
         return
 
-    with open(path) as f:
-        for line in f:
+    with open(path) as handle:
+        for line in handle:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue

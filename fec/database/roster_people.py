@@ -14,6 +14,8 @@ from fec.common.settings import REFERENCE_DIR
 from fec.database.offices import offices_by_company, select_office
 from fec.matching.identity_rules import resolve_donor_key
 
+logger = get_logger(__name__)
+
 
 def find_or_create_donor(
     cur: Any,
@@ -39,18 +41,20 @@ def find_or_create_donor(
     if not create_if_missing:
         raise ValueError(f"Unknown donor_key {donor_key!r} for {name!r}; update the editorial CSV")
 
+    first_name = (first or "").strip().upper() or None
+    last_name = (last or "").strip().upper() or None
     cur.execute(
         """
         INSERT INTO donors (donor_key, entity_type, first_name, last_name)
         VALUES (%s, 'INDIVIDUAL', %s, %s)
         RETURNING donor_id
         """,
-        (resolved_key, (first or "").strip().upper() or None, (last or "").strip().upper() or None),
+        (resolved_key, first_name, last_name),
     )
     return cur.fetchone()[0]
 
 
-def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
+def _find_or_insert_address(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
     """Reuse an address or insert it with its coordinates."""
     cur.execute(
         """
@@ -90,20 +94,19 @@ def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: floa
 def upsert_donor_address(
     cur: Any,
     donor_id: int,
-    street_1: str | None,
-    street_2: str | None,
-    city: str | None,
-    state: str | None,
-    zip_5: str | None = None,
+    address_parts: tuple,
     latitude: float | None = None,
     longitude: float | None = None,
 ) -> None:
-    """Link the curated address to its donor."""
+    """Link the curated address to its donor.
+
+    address_parts holds street_1, street_2, city, state and zip_5.
+    """
     # Treat blank strings as missing.
-    fields = tuple((value or "").strip() or None for value in (street_1, street_2, city, state, zip_5))
+    fields = tuple((value or "").strip() or None for value in address_parts)
     if all(value is None for value in fields):
         return
-    address_id = _address_id(cur, fields, latitude, longitude)
+    address_id = _find_or_insert_address(cur, fields, latitude, longitude)
 
     cur.execute(
         "SELECT 1 FROM donor_addresses WHERE donor_id = %s AND address_id = %s LIMIT 1",
@@ -136,15 +139,15 @@ def roster_office_address_id(
         location.get(field) or None
         for field in ("employer_address", "", "employer_city", "employer_state", "employer_zip")
     )
-    return _address_id(
+    return _find_or_insert_address(
         cur,
         fields,
-        _office_coordinate(location.get("employer_latitude")),
-        _office_coordinate(location.get("employer_longitude")),
+        _read_office_coordinate(location.get("employer_latitude")),
+        _read_office_coordinate(location.get("employer_longitude")),
     )
 
 
-def _office_coordinate(value: Any) -> float | None:
+def _read_office_coordinate(value: Any) -> float | None:
     """Read an optional coordinate, ignoring invalid text."""
     try:
         return float(value) if str(value or "").strip() else None
@@ -158,12 +161,13 @@ def upsert_leader_employment(
     employer: str | None,
     occupation: str | None = None,
     *,
-    state: str | None = "",
-    zip_5: str | None = "",
-    city: str | None = "",
+    place: tuple[str | None, str | None, str | None] = ("", "", ""),
     locations: dict | None = None,
 ) -> None:
-    """Add roster employment only when the donor has none."""
+    """Add roster employment only when the donor has none.
+
+    place holds the donor's state, zip_5 and city.
+    """
     employer_name = (employer or "").strip()
     occupation = (occupation or "").strip() or None
     if not employer_name and not occupation:
@@ -173,28 +177,13 @@ def upsert_leader_employment(
     if cur.fetchone():
         return
 
-    if not employer_name or not is_real_employer(employer_name):
-        employer_id = None
-        status = classify_employer_status(employer_name) if employer_name else "missing"
-    else:
-        cur.execute(
-            "INSERT INTO employers (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
-            (employer_name,),
-        )
-        cur.execute("SELECT employer_id FROM employers WHERE name = %s", (employer_name,))
-        employer_id = cur.fetchone()[0]
-        status = "active"
+    employer_id, status = _find_roster_employer(cur, employer_name)
+    category_id = _find_occupation_category_id(cur, occupation)
 
-    category_id = None
-    if occupation:
-        category = categorize_occupations(pd.Series([occupation])).iloc[0]
-        cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
-        found = cur.fetchone()
-        category_id = found[0] if found else None
-
-    address_id = (
-        roster_office_address_id(cur, employer_name, locations, state, zip_5, city) if status == "active" else None
-    )
+    address_id = None
+    if status == "active":
+        state, zip_5, city = place
+        address_id = roster_office_address_id(cur, employer_name, locations, state, zip_5, city)
 
     cur.execute(
         """
@@ -207,20 +196,41 @@ def upsert_leader_employment(
     )
 
 
-logger = get_logger(__name__)
+def _find_roster_employer(cur: Any, employer_name: str) -> tuple[int | None, str]:
+    """Return the company ID and employer status, adding a real company if missing."""
+    if not employer_name or not is_real_employer(employer_name):
+        status = classify_employer_status(employer_name) if employer_name else "missing"
+        return None, status
+
+    cur.execute(
+        "INSERT INTO employers (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
+        (employer_name,),
+    )
+    cur.execute("SELECT employer_id FROM employers WHERE name = %s", (employer_name,))
+    return cur.fetchone()[0], "active"
 
 
-def _person_value(row: pd.Series, field: str) -> str:
+def _find_occupation_category_id(cur: Any, occupation: str | None) -> int | None:
+    """Return the database ID of the occupation's category, None when unknown."""
+    if not occupation:
+        return None
+    category = categorize_occupations(pd.Series([occupation])).iloc[0]
+    cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
+    category_row = cur.fetchone()
+    return category_row[0] if category_row else None
+
+
+def _read_person_value(row: pd.Series, field: str) -> str:
     """Read a field from either roster format."""
     value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
     return value.strip()
 
 
-def _person_identity(row: pd.Series) -> tuple[str, str, str, str, str]:
+def _read_person_identity(row: pd.Series) -> tuple[str, str, str, str, str]:
     """Read the roster name and place, filling split names."""
-    name = _person_value(row, "name")
-    first = _person_value(row, "first_name")
-    last = _person_value(row, "last_name")
+    name = _read_person_value(row, "name")
+    first = _read_person_value(row, "first_name")
+    last = _read_person_value(row, "last_name")
 
     if (not first or not last) and "," in name:
         last_part, _, first_part = name.partition(",")
@@ -231,12 +241,12 @@ def _person_identity(row: pd.Series) -> tuple[str, str, str, str, str]:
         name,
         first,
         last,
-        _person_value(row, "city"),
-        _person_value(row, "state"),
+        _read_person_value(row, "city"),
+        _read_person_value(row, "state"),
     )
 
 
-def _boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> bool:
+def _read_boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> bool:
     """Accept true or false; reject missing or invalid values."""
     value = (row.get(field) or "").strip().lower()
     if value == "true":
@@ -246,20 +256,20 @@ def _boolean(row: pd.Series, field: str, csv_filename: str, name: str) -> bool:
     raise ValueError(f"{csv_filename}: {name!r} needs {field}=true or false")
 
 
-def _roster_coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
+def _read_roster_coordinate(row: pd.Series, field: str, csv_filename: str, name: str) -> float | None:
     """Read an optional coordinate and warn about invalid text."""
-    raw = (row.get(field) or "").strip()
-    if not raw:
+    coordinate_text = (row.get(field) or "").strip()
+    if not coordinate_text:
         return None
     try:
-        return float(raw)
+        return float(coordinate_text)
     except ValueError:
         logger.warning(
             "  %s: %s -- unparseable %s %r, storing NULL",
             csv_filename,
             name,
             field,
-            raw,
+            coordinate_text,
         )
         return None
 
@@ -282,24 +292,26 @@ def _upsert_address(
     donor_id: int,
     csv_filename: str,
     name: str,
-    city: str,
-    state: str,
 ) -> None:
     """Save the roster address and optional coordinates."""
-    street_1 = _person_value(row, "street_1")
+    street_1 = _read_person_value(row, "street_1")
+    city = _read_person_value(row, "city")
     if not street_1 and not city:
         return
 
+    address_parts = (
+        street_1,
+        _read_person_value(row, "street_2"),
+        city,
+        _read_person_value(row, "state"),
+        _read_person_value(row, "zip"),
+    )
     upsert_donor_address(
         cur,
         donor_id,
-        street_1=street_1,
-        street_2=_person_value(row, "street_2"),
-        city=city,
-        state=state,
-        zip_5=_person_value(row, "zip"),
-        latitude=_roster_coordinate(row, "address_lat", csv_filename, name),
-        longitude=_roster_coordinate(row, "address_lng", csv_filename, name),
+        address_parts,
+        latitude=_read_roster_coordinate(row, "address_lat", csv_filename, name),
+        longitude=_read_roster_coordinate(row, "address_lng", csv_filename, name),
     )
 
 
@@ -339,29 +351,22 @@ def _load_person(
     insert_row: Callable[[Any, pd.Series, int], None],
 ) -> bool:
     """Save one roster donor; False for a row without a name."""
-    name, first, last, city, state = _person_identity(row)
+    name, first, last, city, state = _read_person_identity(row)
     if not name:
         return False
 
-    donor_id = find_or_create_donor(
-        cur,
-        (row.get("donor_key") or "").strip(),
-        _boolean(row, "create_if_missing", csv_filename, name),
-        name,
-        first,
-        last,
-    )
+    donor_key = (row.get("donor_key") or "").strip()
+    create_if_missing = _read_boolean(row, "create_if_missing", csv_filename, name)
+    donor_id = find_or_create_donor(cur, donor_key, create_if_missing, name, first, last)
 
     _upsert_image(cur, row, donor_id)
-    _upsert_address(cur, row, donor_id, csv_filename, name, city, state)
+    _upsert_address(cur, row, donor_id, csv_filename, name)
     upsert_leader_employment(
         cur,
         donor_id,
-        _person_value(row, "employer"),
-        _person_value(row, "occupation"),
-        state=state,
-        city=city,
-        zip_5=_person_value(row, "zip"),
+        _read_person_value(row, "employer"),
+        _read_person_value(row, "occupation"),
+        place=(state, _read_person_value(row, "zip"), city),
         locations=locations,
     )
     insert_row(cur, row, donor_id)

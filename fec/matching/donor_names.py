@@ -36,36 +36,37 @@ def canonicalize_committee_names(df: pd.DataFrame) -> int:
     return total
 
 
-def _tokens(text: str) -> list:
+def _split_tokens(text: str) -> list:
     """Return the name tokens of a text, uppercased."""
     return _TOKEN.findall(text.upper())
 
 
-def _core(first: str) -> str:
+def _strip_asides(first: str) -> str:
     """Return a given name without what the filer wrote in brackets."""
     text = " ".join(_ASIDE.sub(" ", first).replace(")", " ").split()).strip(" ,-")
     return re.sub(r"(?<=[A-Z]{3})\.+$", "", text)  # JOHN.
 
 
-def _surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
+def _find_surname_root(variant: str, lasts: list[str], firsts: list[str], filed: Counter) -> str:
+    """Return the surname a variant shortens to when its extra words are initials or given names."""
+    # KARNEY GUREN beside GUREN: the same surname when the donor files KARNEY as a given name
+    given = {token for last, first in zip(lasts, firsts) if last != variant for token in _split_tokens(first)}
+    for shorter in sorted(filed, key=len):
+        head = variant[: -len(shorter)]
+        ends_with_shorter = shorter != variant and variant.endswith(shorter) and head[-1:] in (" ", ".")
+        head_tokens = _split_tokens(head)
+        if ends_with_shorter and head_tokens and all(len(token) == 1 or token in given for token in head_tokens):
+            return _find_surname_root(shorter, lasts, firsts, filed)
+    return variant
+
+
+def _choose_surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
     """Return the most filed surname, and an initial typed before it (W. HAHN)."""
     filed = Counter(last for last in lasts if last)
-
-    def base(variant: str) -> str:
-        """Return the surname a variant shortens to when its extra words are initials or given names."""
-        # KARNEY GUREN beside GUREN: the same surname when the donor files KARNEY as a given name
-        given = {t for last, first in zip(lasts, firsts) if last != variant for t in _tokens(first)}
-        for shorter in sorted(filed, key=len):
-            head = variant[: -len(shorter)]
-            if shorter != variant and variant.endswith(shorter) and head[-1:] in (" ", ".") and _tokens(head):
-                if all(len(t) == 1 or t in given for t in _tokens(head)):
-                    return base(shorter)
-        return variant
-
     roots = Counter()
     for variant, count in filed.items():
-        roots[base(variant)] += count
-    surname = min(roots, key=lambda v: (-roots[v], v))
+        roots[_find_surname_root(variant, lasts, firsts, filed)] += count
+    surname = min(roots, key=lambda root: (-roots[root], root))
     initial, _, rest = surname.partition(" ")
     if (
         rest
@@ -76,88 +77,118 @@ def _surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
     return surname, ""
 
 
-def _fullest(spellings: list[str], asides: set, rare: frozenset) -> str | None:
+def _drop_repeated_asides(spelling: str, asides: set) -> str:
+    """Return a given name without bracketed asides and the words that only repeat them."""
+    first, *rest = _strip_asides(spelling).split() or [""]
+    kept_words = (word for word in rest if not set(_split_tokens(word)) <= asides or not _split_tokens(word))
+    return " ".join([first, *kept_words])
+
+
+def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset) -> str | None:
     """Return the fullest spelling; among equals the most filed, then the first filed."""
     if not spellings:
         return None
-    words = Counter(_tokens(s)[0] for s in spellings)
+    words = Counter(_split_tokens(spelling)[0] for spelling in spellings)
     slips = {
-        w
-        for w in words
-        if len(w) >= 4 and w in rare and any(words[o] > words[w] and OSA.distance(w, o) == 1 for o in words)
+        word
+        for word in words
+        if len(word) >= 4
+        and word in rare
+        and any(words[other] > words[word] and OSA.distance(word, other) == 1 for other in words)
     }
-    kept = [s for s in spellings if _tokens(s)[0] not in slips] or spellings
+    kept = [spelling for spelling in spellings if _split_tokens(spelling)[0] not in slips] or spellings
     filed = Counter(kept)
 
-    def plain(s: str) -> str:
-        """Return a given name without bracketed asides and the words that only repeat them."""
-        first, *rest = _core(s).split() or [""]
-        return " ".join([first, *(w for w in rest if not set(_tokens(w)) <= asides or not _tokens(w))])
-
-    rank = {
-        s: (len("".join(_tokens(plain(s)))), plain(s) == s, len(s) if plain(s) == s else 0, filed[s], -kept.index(s))
-        for s in filed
-    }
+    rank = {}
+    for spelling in filed:
+        plain = _drop_repeated_asides(spelling, asides)
+        rank[spelling] = (
+            len("".join(_split_tokens(plain))),
+            plain == spelling,
+            len(spelling) if plain == spelling else 0,
+            filed[spelling],
+            -kept.index(spelling),
+        )
     best = max(rank, key=rank.get)
-    return (
-        best
-        if plain(best) == best or "(" in best and _core(best) == plain(best) and best.count("(") == best.count(")")
-        else plain(best)
-    )
+    plain_best = _drop_repeated_asides(best, asides)
+    balanced_aside = "(" in best and _strip_asides(best) == plain_best and best.count("(") == best.count(")")
+    if plain_best == best or balanced_aside:
+        return best
+    return plain_best
+
+
+def _drop_cut_surname(given: str, surname: str) -> str:
+    """Drop a last word that is the surname again, cut short by the field."""
+    if " " not in given:
+        return given
+    last_word = given.split()[-1]
+    if len(last_word) >= len(surname) - 2 and surname.startswith(last_word):
+        return given.rsplit(" ", 1)[0]
+    return given
+
+
+def _group_given_names(given: list[str], own: set, asides: set) -> dict:
+    """Group the filings by given name; initials a fuller filing spells out join it."""
+    groups = defaultdict(list)
+    for position, first in enumerate(given):
+        tokens = _split_tokens(first)
+        if not tokens:
+            continue
+        others = frozenset(token for token in tokens[1:] if len(token) > 1 and token not in own and token not in asides)
+        groups[(NICKNAME_MAP.get(tokens[0], tokens[0])[0], others)].append(position)
+    # P R beside P RICHARD: initials that a fuller filing spells out are the same name
+    for key in sorted(groups, key=lambda group_key: len(group_key[1])):
+        initials = {
+            token for position in groups[key] for token in _split_tokens(given[position])[1:] if len(token) == 1
+        }
+        fuller = [
+            other
+            for other in groups
+            if other[0] == key[0] and key[1] < other[1] and all(word[0] in initials for word in other[1] - key[1])
+        ]
+        if fuller:
+            groups[max(fuller, key=lambda group_key: len(groups[group_key]))] += groups.pop(key)
+    return groups
 
 
 def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset()) -> tuple[str, list]:
     """Return the donor's surname and, for each filing, the given name to show."""
-    surname, initial = _surname(lasts, firsts)
-    own = {t for last in lasts for t in _tokens(last)} | set(surname.split())
-    asides = {t for first in firsts for inner in re.findall(r"\(([^()]*)", first) for t in _tokens(inner)}
+    surname, initial = _choose_surname(lasts, firsts)
+    surname_words = surname.split()
+    own = {token for last in lasts for token in _split_tokens(last)} | set(surname_words)
+    asides = {token for first in firsts for inner in re.findall(r"\(([^()]*)", first) for token in _split_tokens(inner)}
     # the surname typed again in the first-name box is no given name
-    given = [" ".join(w for w in first.split() if w not in surname.split()) for first in firsts]
+    given = [" ".join(word for word in first.split() if word not in surname_words) for first in firsts]
     # GLENN STUART CHRYSTA: the surname again, cut short by the field
-    given = [
-        g.rsplit(" ", 1)[0]
-        if " " in g and len(g.split()[-1]) >= len(surname) - 2 and surname.startswith(g.split()[-1])
-        else g
-        for g in given
-    ]
-    groups = defaultdict(list)
-    for position, first in enumerate(given):
-        tokens = _tokens(first)
-        if tokens:
-            others = frozenset(t for t in tokens[1:] if len(t) > 1 and t not in own and t not in asides)
-            groups[(NICKNAME_MAP.get(tokens[0], tokens[0])[0], others)].append(position)
-    # P R beside P RICHARD: initials that a fuller filing spells out are the same name
-    for key in sorted(groups, key=lambda k: len(k[1])):
-        initials = {t for p in groups[key] for t in _tokens(given[p])[1:] if len(t) == 1}
-        fuller = [
-            k for k in groups if k[0] == key[0] and key[1] < k[1] and all(n[0] in initials for n in k[1] - key[1])
-        ]
-        if fuller:
-            groups[max(fuller, key=lambda k: len(groups[k]))] += groups.pop(key)
-    everyone = _fullest([g for g in given if g], asides, rare)
+    given = [_drop_cut_surname(name, surname) for name in given]
+    groups = _group_given_names(given, own, asides)
+    everyone = _choose_fullest_spelling([name for name in given if name], asides, rare)
     shown = [everyone] * len(given)
     if len(groups) > 1:
         for positions in groups.values():
-            name = _fullest([given[p] for p in positions], asides, rare)
-            for p in positions:
-                shown[p] = name
+            name = _choose_fullest_spelling([given[position] for position in positions], asides, rare)
+            for position in positions:
+                shown[position] = name
     if initial:
-        shown = [name if name and initial[0] in _tokens(name) else f"{name or ''} {initial}".strip() for name in shown]
+        shown = [
+            name if name and initial[0] in _split_tokens(name) else f"{name or ''} {initial}".strip() for name in shown
+        ]
     return surname, shown
 
 
 def canonicalize_donor_names(df: pd.DataFrame) -> None:
     """Give each donor one surname and each of their given names one spelling."""
     people = df[df["entity_type"].eq("INDIVIDUAL")]
-    words = Counter(w[0] for w in people["contributor_first_name"].fillna("").astype(str).str.upper().str.split() if w)
-    rare = frozenset(w for w, n in words.items() if n <= 2)
-    for _, idx in people.groupby("donor_key").groups.items():
-        rows = df.loc[idx]
-        lasts = [v.strip() if isinstance(v, str) else "" for v in rows["contributor_last_name"]]
+    first_names = people["contributor_first_name"].fillna("").astype(str).str.upper()
+    words = Counter(name_words[0] for name_words in first_names.str.split() if name_words)
+    rare = frozenset(word for word, count in words.items() if count <= 2)
+    for rows_index in people.groupby("donor_key").groups.values():
+        rows = df.loc[rows_index]
+        lasts = [value.strip() if isinstance(value, str) else "" for value in rows["contributor_last_name"]]
         if not any(lasts):
             continue
-        firsts = [v.strip() if isinstance(v, str) else "" for v in rows["contributor_first_name"]]
+        firsts = [value.strip() if isinstance(value, str) else "" for value in rows["contributor_first_name"]]
         surname, given = donor_names(lasts, firsts, rare)
-        df.loc[idx, "contributor_last_name"] = surname
-        df.loc[idx, "contributor_first_name"] = pd.Series(given, index=idx, dtype=object)
-        df.loc[idx, "contributor_name"] = [f"{surname}, {g}" if g else surname for g in given]
+        df.loc[rows_index, "contributor_last_name"] = surname
+        df.loc[rows_index, "contributor_first_name"] = pd.Series(given, index=rows_index, dtype=object)
+        df.loc[rows_index, "contributor_name"] = [f"{surname}, {name}" if name else surname for name in given]

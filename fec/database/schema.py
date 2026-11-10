@@ -18,10 +18,12 @@ def create_schema(cur: Any) -> None:
             cur.execute(statement)
 
 
-def _database_name(cur: Any) -> str:
+def _read_database_name(cur: Any) -> str:
     """Read the database name for error messages."""
     connection = getattr(cur, "connection", None)
-    return getattr(getattr(connection, "info", None), "dbname", None) or os.getenv("PG_DBNAME", "fec_db")
+    connection_info = getattr(connection, "info", None)
+    dbname = getattr(connection_info, "dbname", None)
+    return dbname or os.getenv("PG_DBNAME", "fec_db")
 
 
 def verify_extensions(cur: Any) -> None:
@@ -43,7 +45,7 @@ def verify_extensions(cur: Any) -> None:
     raise RuntimeError(
         f"Missing PostgreSQL extensions: {details}\n"
         "Run as a PostgreSQL superuser before loader.py --reset:\n"
-        f'  sudo -u postgres psql -d {_database_name(cur)} -c "{sql}"'
+        f'  sudo -u postgres psql -d {_read_database_name(cur)} -c "{sql}"'
     )
 
 
@@ -68,9 +70,9 @@ def reset_schema(cur: Any) -> None:
     cur.execute(OBJECTS_SQL)
     objects = cur.fetchall()
 
-    wrong = [(name, kind, owner) for name, kind, owner in objects if owner != DATABASE_OWNER]
-    if wrong:
-        preview = ", ".join(f"{kind} {name} ({owner})" for name, kind, owner in wrong[:5])
+    wrongly_owned = [(name, kind, owner) for name, kind, owner in objects if owner != DATABASE_OWNER]
+    if wrongly_owned:
+        preview = ", ".join(f"{kind} {name} ({owner})" for name, kind, owner in wrongly_owned[:5])
         raise RuntimeError(f"Ownership check failed. Expected {DATABASE_OWNER}: {preview}")
 
     for name, kind, _owner in objects:

@@ -70,7 +70,10 @@ def load_reference_tables(cur: Any) -> None:
         if rows:
             columns_sql = ", ".join(columns)
             execute_values(
-                cur, f"INSERT INTO {table_name} ({columns_sql}) VALUES %s ON CONFLICT DO NOTHING", rows, page_size=5000
+                cur,
+                f"INSERT INTO {table_name} ({columns_sql}) VALUES %s ON CONFLICT DO NOTHING",
+                rows,
+                page_size=5000,
             )
 
 
@@ -85,7 +88,12 @@ def _load_occupation_categories(cur: Any) -> None:
     df = pd.read_csv(CLEANED_CSV, usecols=["occupation_category"], dtype=str)
     categories = sorted(df["occupation_category"].dropna().unique())
     rows = [(category,) for category in categories]
-    execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING", rows, page_size=50)
+    execute_values(
+        cur,
+        "INSERT INTO occupation_categories (name) VALUES %s ON CONFLICT DO NOTHING",
+        rows,
+        page_size=50,
+    )
 
 
 def _load_committees(cur: Any) -> None:

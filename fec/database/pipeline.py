@@ -1,4 +1,17 @@
-"""Load the cleaned FEC data into PostgreSQL in one transaction."""
+"""Load the cleaned FEC data into PostgreSQL in one transaction.
+
+Run: python loader.py --reset
+
+Steps, in order (main -> _reload_tables), all in one transaction:
+    1. check_reader_role, verify_extensions
+    2. reset_schema, create_schema (schema.sql), load_lookups
+    3. load_filing_tables
+       load_donors, load_employers, link_previous_employers,
+       load_address_dimension, load_donor_addresses, load_employments,
+       load_contributions, link_employer_offices
+    4. load_reference_tables, load_leadership, load_key_accomplices
+    5. ANALYZE, refresh_materialized_views, grant_read_access
+"""
 
 from __future__ import annotations
 
@@ -11,7 +24,11 @@ from psycopg2.extras import execute_values
 
 from fec.common.log import get_logger
 from fec.common.settings import CLEANED_CSV
-from fec.database.addresses import link_employer_offices, load_address_dimension, load_donor_addresses
+from fec.database.addresses import (
+    link_employer_offices,
+    load_address_dimension,
+    load_donor_addresses,
+)
 from fec.database.connection import connect, load_transaction, logged_stage, to_native
 from fec.database.contributions import load_contributions
 from fec.database.employments import load_employers, load_employments, make_employer_lookup
@@ -47,8 +64,7 @@ def load_donors(cur: Any, df: pd.DataFrame) -> dict:
     )
 
     cur.execute("SELECT donor_id, donor_key FROM donors")
-    donor_ids = {donor_key: donor_id for donor_id, donor_key in cur.fetchall()}
-    return donor_ids
+    return {donor_key: donor_id for donor_id, donor_key in cur.fetchall()}
 
 
 # Keep the existing log-file category when moving the entry point.
@@ -63,14 +79,17 @@ def load_filing_tables(
     employer_locations: list[dict],
 ) -> None:
     """Load tables in order and reuse their ID maps."""
-    cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
-    occupation_category_ids = {name: category_id for category_id, name in cur.fetchall()}
+    # Each loaded table adds its ID map here for the tables that link to it.
+    id_maps: dict[str, dict] = {}
 
-    committee_ids = committee_ids_by_short_name(cur)
+    cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
+    id_maps["occupation_category"] = {name: category_id for category_id, name in cur.fetchall()}
+
+    id_maps["committee"] = committee_ids_by_short_name(cur)
 
     logger.info("[3/6] Loading donors and employers")
     with logged_stage("donors"):
-        donor_ids = load_donors(cur, df)
+        id_maps["donor"] = load_donors(cur, df)
     with logged_stage("employers"):
         employer_ids = load_employers(cur, df)
         link_previous_employers(cur, df, employer_ids)
@@ -78,31 +97,14 @@ def load_filing_tables(
 
     logger.info("[4/6] Loading addresses, employments and contributions")
     with logged_stage("addresses"):
-        address_ids = load_address_dimension(cur, df, employer_locations)
-        donor_address_ids = load_donor_addresses(cur, df, donor_ids, address_ids)
+        id_maps["address"] = load_address_dimension(cur, df, employer_locations)
+        id_maps["donor_address"] = load_donor_addresses(cur, df, id_maps["donor"], id_maps["address"])
     with logged_stage("employments"):
-        employment_ids = load_employments(
-            cur,
-            df,
-            donor_ids,
-            occupation_category_ids,
-            get_employer_id,
-            address_ids,
-            employer_locations,
-        )
+        id_maps["employment"] = load_employments(cur, df, id_maps, get_employer_id, employer_locations)
     with logged_stage("contributions"):
-        load_contributions(
-            cur,
-            df,
-            donor_ids,
-            committee_ids,
-            donor_address_ids,
-            employment_ids,
-            get_employer_id,
-            occupation_category_ids,
-        )
+        load_contributions(cur, df, id_maps, get_employer_id)
     with logged_stage("employer locations"):
-        link_employer_offices(cur, address_ids, get_employer_id, employer_locations)
+        link_employer_offices(cur, id_maps["address"], get_employer_id, employer_locations)
 
 
 def refresh_materialized_views(cur: Any) -> None:
@@ -119,6 +121,29 @@ def _require_reset_flag() -> None:
 
     if not args.reset:
         parser.error("use --reset to reload the database")
+
+
+def _reload_tables(cur: Any, df: pd.DataFrame, employer_locations: list[dict]) -> None:
+    """Rebuild the schema, load every table and grant read access."""
+    logger.info("[2/6] Resetting schema and loading lookups")
+    with logged_stage("schema"):
+        reset_schema(cur)
+        create_schema(cur)
+    with logged_stage("lookups"):
+        load_lookups(cur)
+    load_filing_tables(cur, df, employer_locations)
+    logger.info("[5/6] Loading reference and roster data")
+    with logged_stage("reference tables"):
+        load_reference_tables(cur)
+    with logged_stage("leaders and accomplices"):
+        load_leadership(cur)
+        load_key_accomplices(cur)
+    logger.info("[6/6] Updating views and read access")
+    with logged_stage("statistics and views"):
+        cur.execute("ANALYZE")
+        refresh_materialized_views(cur)
+    with logged_stage("read access"):
+        grant_read_access(cur)
 
 
 def main() -> None:
@@ -142,25 +167,7 @@ def main() -> None:
 
     # One transaction from drop to grants; failures keep the old.
     with load_transaction(conn):
-        logger.info("[2/6] Resetting schema and loading lookups")
-        with logged_stage("schema"):
-            reset_schema(cur)
-            create_schema(cur)
-        with logged_stage("lookups"):
-            load_lookups(cur)
-        load_filing_tables(cur, df, employer_locations)
-        logger.info("[5/6] Loading reference and roster data")
-        with logged_stage("reference tables"):
-            load_reference_tables(cur)
-        with logged_stage("leaders and accomplices"):
-            load_leadership(cur)
-            load_key_accomplices(cur)
-        logger.info("[6/6] Updating views and read access")
-        with logged_stage("statistics and views"):
-            cur.execute("ANALYZE")
-            refresh_materialized_views(cur)
-        with logged_stage("read access"):
-            grant_read_access(cur)
+        _reload_tables(cur, df, employer_locations)
 
     conn.close()
     minutes, seconds = divmod(round(time.perf_counter() - total_start), 60)

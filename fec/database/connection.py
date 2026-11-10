@@ -43,24 +43,24 @@ def connect(dbname: str | None = None) -> Any:
     )
 
 
-def to_native(val: Any) -> Any:
+def to_native(value: Any) -> Any:
     """Pandas values to Python values, None when missing."""
-    if pd.isna(val):
+    if pd.isna(value):
         return None
-    if isinstance(val, np.integer):
-        return int(val)
-    if isinstance(val, np.floating):
-        return float(val)
-    if isinstance(val, np.bool_):
-        return bool(val)
-    return val
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    return value
 
 
-def to_float_or_none(val: Any) -> float | None:
+def to_float_or_none(value: Any) -> float | None:
     """Read a float or None; reject invalid text."""
-    if val is None or pd.isna(val):
+    if value is None or pd.isna(value):
         return None
-    stripped = str(val).strip()
+    stripped = str(value).strip()
     if not stripped:
         return None
     try:
@@ -69,19 +69,19 @@ def to_float_or_none(val: Any) -> float | None:
         raise ValueError(f"to_float_or_none: cannot parse {stripped!r} as float")
 
 
-def to_int_or_none(val: Any) -> int | None:
+def to_int_or_none(value: Any) -> int | None:
     """Read an integer or None; reject invalid text."""
-    if val is None or pd.isna(val):
+    if value is None or pd.isna(value):
         return None
-    if isinstance(val, str):
-        stripped = val.strip()
+    if isinstance(value, str):
+        stripped = value.strip()
         if not stripped:
             return None
-        val = stripped
+        value = stripped
     try:
-        return int(val)
+        return int(value)
     except (ValueError, TypeError):
-        raise ValueError(f"to_int_or_none: cannot parse {val!r} as int")
+        raise ValueError(f"to_int_or_none: cannot parse {value!r} as int")
 
 
 @contextmanager

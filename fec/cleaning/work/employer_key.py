@@ -29,6 +29,17 @@ _GLUED_BRAND_SUFFIXES = words("glued_brand_suffixes")
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
 
 
+def _strip_one_suffix(key: str, brand_length: int) -> str:
+    """Return the key without its first trailing corporate suffix, or unchanged if it has none."""
+    for suffix in _CORP_SUFFIXES:
+        cuts_brand = len(key) - len(suffix) < brand_length
+        if cuts_brand and suffix in _GLUED_BRAND_SUFFIXES:
+            continue
+        if key.endswith(suffix) and len(key) > len(suffix) + 3:
+            return key[: -len(suffix)]
+    return key
+
+
 def employer_text_key(name: str) -> str:
     """Ignore punctuation and suffixes when comparing employer text."""
     key = name.strip().upper()
@@ -46,15 +57,9 @@ def employer_text_key(name: str) -> str:
         words.pop()
     brand_length = len(words[0]) if len(words) == 1 else 0
     key = re.sub(r"[^A-Z0-9]+", "", key)
-    # iteratively strip trailing corporate suffixes until stable
+    # strip trailing corporate suffixes one at a time until none is left
     while True:
-        for suffix in _CORP_SUFFIXES:
-            cuts_brand = len(key) - len(suffix) < brand_length
-            if cuts_brand and suffix in _GLUED_BRAND_SUFFIXES:
-                continue
-            if key.endswith(suffix) and len(key) > len(suffix) + 3:
-                key = key[: -len(suffix)]
-                break
-        else:
-            break
-    return key
+        shorter = _strip_one_suffix(key, brand_length)
+        if shorter == key:
+            return key
+        key = shorter
