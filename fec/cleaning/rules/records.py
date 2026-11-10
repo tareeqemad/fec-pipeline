@@ -20,24 +20,14 @@ from fec.cleaning.name_fixes import (
     fix_fullname_in_both_fields,
     normalize_name_periods,
 )
-from fec.cleaning.work.clean import (
-    swap_job_and_company,
-    normalize_occupation_canonical,
-)
-from fec.cleaning.work.style import (
-    apply_occupation_typo_fixes,
-    normalize_occupation_style_step,
-)
-from fec.cleaning.rules.junk import (
-    clear_placeholder_employer_words,
-    clean_remaining_junk,
-)
+from fec.cleaning.work.clean import swap_job_and_company
+from fec.cleaning.work.style import normalize_occupation_style_step
+from fec.cleaning.rules.junk import clean_remaining_junk
 from fec.cleaning.rules.steps import ALL_ROWS, SAFETY_RULES
 
 
 _NAME_ONLY = ('contributor_name',)
 _OCCUPATION_ONLY = ('contributor_occupation',)
-_EMPLOYER_ONLY = ('contributor_employer',)
 
 # In order: transform, fields, audit name, reason.
 _AUDITED_RULES = (
@@ -55,8 +45,6 @@ _AUDITED_RULES = (
      'enh_fix_apostrophes', 'double_apostrophe_cleanup'),
     (swap_job_and_company, WORK_FIELDS,
      'enh_swap_occ_emp', 'occ_emp_swap_or_same_value'),
-    (normalize_occupation_canonical, _OCCUPATION_ONLY,
-     'enh_normalize_occupation', 'canonical_variant'),
     (clean_remaining_junk, WORK_FIELDS,
      'enh_clean_junk', 'junk_cleanup'),
     (fix_fullname_in_both_fields, NAME_FIELDS,
@@ -74,11 +62,6 @@ _LATE_STEPS = (
     # Fix swapped company names before changing occupation spelling.
     (normalize_occupation_style_step, 'enh_normalize_occupation_style',
      'separator_joiner_or_plural_style_unified', _OCCUPATION_ONLY),
-    (apply_occupation_typo_fixes, 'enh_occupation_typo_fixes',
-     'curated_typo_or_abbreviation_fixed', _OCCUPATION_ONLY),
-    # Normalization can expose more placeholders.
-    (clear_placeholder_employer_words, 'late_placeholder_employers',
-     'refusal_placeholder_employer_nulled', _EMPLOYER_ONLY),
 )
 
 

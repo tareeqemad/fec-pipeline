@@ -19,7 +19,6 @@ from fec.cleaning.reports.trail import (
     AuditTrail,
 )
 from fec.cleaning.donors.steps import apply_donor_consistency
-from fec.cleaning.work.employer_names import finalize_employer_names
 from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.cleaning.name_fixes import apply_name_corrections
 from fec.cleaning.addresses.fixes.unify import (
@@ -90,7 +89,6 @@ def standardize(
         source="data/rules/contributor_name_rules.csv",
     )
     apply_donor_consistency(df, trail)
-    df = finalize_employer_names(df, trail)
     trail.run(
         df, canonicalize_committee_names, "reviewed_committee_names",
         "verified_same_fec_committee", NAME_FIELDS + ("donor_key",),

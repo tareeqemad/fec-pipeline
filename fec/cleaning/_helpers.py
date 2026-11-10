@@ -21,16 +21,6 @@ def _indiv_idx(df: pd.DataFrame) -> pd.Index:
     return df.index[df['entity_type'] == 'INDIVIDUAL']
 
 
-def _map_occupations(df: pd.DataFrame, mapping: dict) -> tuple[pd.DataFrame, int]:
-    """Map individual occupations; return the frame and changed row count."""
-    individuals = _indiv_idx(df)
-    occupation = df.loc[individuals, 'contributor_occupation']
-    hits = individuals[occupation.isin(mapping)]
-    if len(hits):
-        df.loc[hits, 'contributor_occupation'] = occupation[hits].map(mapping)
-    return df, int(len(hits))
-
-
 def _set_missing(df: pd.DataFrame, idx) -> None:
     """Clear occupation and category; mark occupation as missing."""
     df.loc[idx, 'contributor_occupation'] = np.nan

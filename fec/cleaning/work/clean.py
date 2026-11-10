@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from fec.cleaning._helpers import _map_occupations, _norm
+from fec.cleaning._helpers import _norm
 from fec.cleaning.reports.trail import EMPLOYMENT_FIELDS, WORK_FIELDS
 from fec.cleaning.work.retired import settle_retired_fields
 from fec.cleaning.work.employer_deep_clean import _deep_clean_employer
@@ -11,12 +11,10 @@ from fec.cleaning.work.normalize import (
     _categorize,
     _classify_committee_names,
     _normalize_text,
-    map_occupation_fixes,
     swap_employer_and_occupation,
 )
 from fec.config.occupation_rules.rules import (
     EMPLOYER_NORMALIZE,
-    TEXT_CORRECTIONS,
     OCCUPATION_NORMALIZE,
     EMPLOYER_FROM_OCCUPATION,
     OCCUPATION_FROM_EMPLOYER,
@@ -56,13 +54,6 @@ def swap_job_and_company(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return df, len(swap)
 
 
-def normalize_occupation_canonical(
-    df: pd.DataFrame,
-) -> tuple[pd.DataFrame, int]:
-    """Map safe occupation variants."""
-    return _map_occupations(df, TEXT_CORRECTIONS)
-
-
 def _cross_fill(df: pd.DataFrame) -> None:
     """Fill an obviously missing occupation or employer from the other."""
     for employer, (occupation, category) in OCCUPATION_FROM_EMPLOYER.items():
@@ -95,11 +86,6 @@ def _derive_status_and_category(df: pd.DataFrame) -> None:
     df['occupation_category'] = _categorize(df['contributor_occupation'])
 
 
-# Apply known occupation fixes.
-def _apply_occupation_fixes(df: pd.DataFrame) -> None:
-    map_occupation_fixes(df, df.index)
-
-
 def _clear_committee_work_fields(df: pd.DataFrame) -> None:
     """Committees: committee_type from the name, no occupation."""
     is_committee = ~df['is_individual']
@@ -125,10 +111,6 @@ def clean_employer_occupation(df: pd.DataFrame, trail) -> None:
     trail.run(df, swap_job_and_company, 'occ_swap_fields', 'occupation_and_employer_swapped', WORK_FIELDS)
     _deep_clean_employer(df, trail)
     trail.run(df, _derive_status_and_category, 'occ_derive_status_category', 'derived_from_occupation', WORK_FIELDS)
-    trail.run(
-        df, _apply_occupation_fixes, 'occ_known_fixes',
-        'known_occupation_typo_fixed_or_junk_nulled', WORK_FIELDS,
-    )
     trail.run(
         df, _clear_committee_work_fields, 'occ_committee_rows', 'committee_has_no_occupation', WORK_FIELDS,
     )
