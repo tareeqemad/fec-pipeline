@@ -80,3 +80,6 @@ sub_id,contributor_employer,contributor_occupation,contributor_city,note,contrib
 4011420231698184889,,,,"MICHEL, IAN (ARDMORE PA) - DEVELOPER at INTERSECT ENERGY: an energy developer by the employer name, not property",,,,data/raw/contributions.csv (employer as filed),TECHNOLOGY,
 4032120231736710947,,,,"MICHEL, IAN (ARDMORE PA) - DEVELOPER at INTERSECT ENERGY: an energy developer by the employer name, not property",,,,data/raw/contributions.csv (employer as filed),TECHNOLOGY,
 4020920241823943186,,,,"MICHEL, IAN (ARDMORE PA) - DEVELOPER at INTERSECT ENERGY: an energy developer by the employer name, not property",,,,data/raw/contributions.csv (employer as filed),TECHNOLOGY,
+4021220241824545584,,,,"SAAYED, ISAAC (BROOKLYN NY) - DEVELOPER at TZUMI ELECTRONICS: a product company, not property; the text names no field",,,,data/raw/contributions.csv (employer as filed),OTHER,
+4021220241824545583,,,,"SAAYED, ISAAC (BROOKLYN NY) - DEVELOPER at TZUMI ELECTRONICS: a product company, not property; the text names no field",,,,data/raw/contributions.csv (employer as filed),OTHER,
+4061720261521510454,,,,"MENDELSOHN, DAVID (PIKESVILLE MD) - DEVELOPER at HASBRO: a product company, not property; the text names no field",,,,data/raw/contributions.csv (employer as filed),OTHER,
