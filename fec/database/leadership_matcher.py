@@ -95,8 +95,8 @@ def upsert_donor_address(
     latitude: float | None = None,
     longitude: float | None = None,
 ) -> None:
-    # Treat blank strings as missing.
     """Link the curated address to its donor."""
+    # Treat blank strings as missing.
     fields = tuple((value or "").strip() or None for value in (street_1, street_2, city, state, zip_5))
     if all(value is None for value in fields):
         return
