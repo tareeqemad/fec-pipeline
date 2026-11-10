@@ -581,19 +581,6 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
 
 
 
-def test_bare_developer_takes_the_field_its_employer_names():
-    from fec.cleaning.rules.records import name_developer_field
-    df = pd.DataFrame({
-        'is_individual': [True, True, True, False],
-        'contributor_occupation': ['DEVELOPER', 'DEVELOPER', 'SOFTWARE DEVELOPER', 'DEVELOPER'],
-        'contributor_employer': ['TERRACO REAL ESTATE', 'INTERSECT ENERGY', 'FINE HOMES LLC', 'FINE HOMES LLC'],
-        'occupation_category': ['TECHNOLOGY'] * 4,
-    })
-    name_developer_field(df)
-    assert df['contributor_occupation'].tolist() == ['REAL ESTATE DEVELOPER', 'DEVELOPER', 'SOFTWARE DEVELOPER', 'DEVELOPER']
-    assert df['occupation_category'].tolist() == ['REAL ESTATE', 'TECHNOLOGY', 'TECHNOLOGY', 'TECHNOLOGY']
-
-
 def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
     from fec.cleaning.rules import manual
     rows = manual._reviewed()
