@@ -1,16 +1,21 @@
-"""Choose one name per donor while keeping co-filer names."""
+"""One name per donor.
+
+The surname is the one the donor files most. A given name is shown in its
+fullest spelling (MATTHEW over MATT), a rare one-letter slip aside
+(ZIPORAH beside 87 ZIPORA). Filings with a different given name under the
+same donor (a spouse on a joint account) keep their own.
+"""
+import re
 from collections import Counter, defaultdict
 
 import pandas as pd
+from rapidfuzz.distance import OSA
 
-from fec.donor_match.joint import given_tokens, joint_name_exempt, joint_partners
-from fec.donor_match.rules import COMMITTEE_NAMES
 from fec.donor_match.normalize import NICKNAME_MAP
-from fec.cleaning.donors.name_choice import (
-    _LEADING_INITIAL_RE, _choose_first, _choose_last, _drop_cut_surname,
-    _is_particle, _name_tokens, _parenthesized_tokens, _surname_parents,
-    rare_spellings,
-)
+from fec.donor_match.rules import COMMITTEE_NAMES
+
+_TOKEN = re.compile(r"[A-Z0-9]+")
+_ASIDE = re.compile(r"\([^()]*\)?")
 
 
 # Apply reviewed committee names and keys after the cleaning steps.
@@ -29,222 +34,105 @@ def canonicalize_committee_names(df: pd.DataFrame) -> int:
     return total
 
 
-def _canonical_person_name(lasts: list[str], firsts: list[str], is_joint=None,
-                           given_names: frozenset = frozenset(), by_row: bool = False):
-    """Choose a surname and first name; by_row keeps extra names."""
-    firsts_by_last: dict[str, list[str]] = defaultdict(list)
-    for last, first in zip(lasts, firsts):
-        if last and first:
-            firsts_by_last[last].append(first)
-    named = [last for last in lasts if last]
-    variants = list(dict.fromkeys(named))
-    parents = _surname_parents(variants, firsts_by_last) if len(variants) > 1 else {}
-    canon_last = _choose_last(named, parents)
-
-    # One candidate per row: prefix given name, else first name.
-    candidates = [parents.get(last, (None, None))[1] or first or None for last, first in zip(lasts, firsts)]
-
-    moved_initial = None
-    match = _LEADING_INITIAL_RE.match(canon_last)
-    if match and not _is_particle(match.group(1), match.group(3)):
-        # Filed only as "W. HAHN": W is a middle initial.
-        dot = "." if "." in match.group(2) else ""
-        moved_initial = match.group(1) + dot
-        canon_last = match.group(3).strip()
-
-    last_words = set(canon_last.upper().split())
-    # A name cut by FEC's limit ends in a fragment.
-    candidates = [
-        _drop_cut_surname(first, last_words, given_names) if first else None
-        for first in candidates
-    ]
-
-    # pick the canonical first name for one candidate group
-    def pick(group: list) -> str | None:
-        return _pick_first(group, last_words, is_joint, moved_initial)
-
-    if not by_row:
-        return canon_last, pick(candidates)
-    own = {word for last in named for word in _name_tokens(last)} | last_words
-    return canon_last, _firsts_by_row(candidates, own, pick)
+def _tokens(text: str) -> list:
+    return _TOKEN.findall(text.upper())
 
 
-def _pick_first(group: list, last_words: set, is_joint, moved_initial: str | None) -> str | None:
-    """The canonical first name among one group's candidates."""
-    # Candidates need a non-surname token, against reversed filings.
-    fcands = [f for f in group if f and any(w.upper() not in last_words for w in f.split())]
-    if is_joint is not None:
-        solo = [f for f in fcands if not is_joint(f)]
-        if solo:
-            fcands = solo
-    # Drop the surname repeated in the first-name field first.
-    fcands = [" ".join(w for w in f.split() if w.upper() not in last_words) for f in fcands]
-    canon_first = _choose_first(fcands)
-    if canon_first:
-        kept = [w for w in canon_first.split() if w.upper() not in last_words]
-        canon_first = " ".join(kept) or None
-    if moved_initial and moved_initial[0] not in _name_tokens(canon_first or ""):
-        canon_first = f"{canon_first} {moved_initial}" if canon_first else moved_initial
-    return canon_first
+def _core(first: str) -> str:
+    """A given name without what the filer wrote in brackets."""
+    text = " ".join(_ASIDE.sub(" ", first).replace(")", " ").split()).strip(" ,-")
+    return re.sub(r"(?<=[A-Z]{3})\.+$", "", text)                # JOHN.
 
 
-def _firsts_by_row(candidates: list, own: set, pick) -> list:
-    """One first name per row, unified among identical given names."""
-    own = own | _parenthesized_tokens({first for first in candidates if first})
+def _surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
+    """The most filed surname, and an initial typed before it (W. HAHN)."""
+    filed = Counter(last for last in lasts if last)
+
+    def base(variant: str) -> str:
+        # KARNEY GUREN beside GUREN: the same surname when the donor files KARNEY as a given name
+        given = {t for last, first in zip(lasts, firsts) if last != variant for t in _tokens(first)}
+        for shorter in sorted(filed, key=len):
+            head = variant[: -len(shorter)]
+            if shorter != variant and variant.endswith(shorter) and head[-1:] in (" ", ".") and _tokens(head):
+                if all(len(t) == 1 or t in given for t in _tokens(head)):
+                    return base(shorter)
+        return variant
+
+    roots = Counter()
+    for variant, count in filed.items():
+        roots[base(variant)] += count
+    surname = min(roots, key=lambda v: (-roots[v], v))
+    initial, _, rest = surname.partition(" ")
+    if rest and len(initial.rstrip(".")) == 1 and not (initial[0] in "OD" or (initial[0] == "L" and rest[0] in "AEIOUH")):
+        return rest.strip(), initial
+    return surname, ""
+
+
+def _fullest(spellings: list[str], asides: set, rare: frozenset) -> str | None:
+    """The fullest spelling; among equals the most filed, then the first filed."""
+    if not spellings:
+        return None
+    words = Counter(_tokens(s)[0] for s in spellings)
+    slips = {w for w in words if len(w) >= 4 and w in rare
+             and any(words[o] > words[w] and OSA.distance(w, o) == 1 for o in words)}
+    kept = [s for s in spellings if _tokens(s)[0] not in slips] or spellings
+    filed = Counter(kept)
+
+    def plain(s: str) -> str:
+        first, *rest = _core(s).split() or [""]
+        return " ".join([first, *(w for w in rest if not set(_tokens(w)) <= asides or not _tokens(w))])
+
+    rank = {s: (len("".join(_tokens(plain(s)))), plain(s) == s, len(s) if plain(s) == s else 0, filed[s], -kept.index(s)) for s in filed}
+    best = max(rank, key=rank.get)
+    return best if plain(best) == best or "(" in best and _core(best) == plain(best) and best.count("(") == best.count(")") else plain(best)
+
+
+def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset()) -> tuple[str, list]:
+    """The donor's surname and, for each filing, the given name to show."""
+    surname, initial = _surname(lasts, firsts)
+    own = {t for last in lasts for t in _tokens(last)} | set(surname.split())
+    asides = {t for first in firsts for inner in re.findall(r"\(([^()]*)", first) for t in _tokens(inner)}
+    # the surname typed again in the first-name box is no given name
+    given = [" ".join(w for w in first.split() if w not in surname.split()) for first in firsts]
+    # GLENN STUART CHRYSTA: the surname again, cut short by the field
+    given = [g.rsplit(" ", 1)[0] if " " in g and len(g.split()[-1]) >= len(surname) - 2 and surname.startswith(g.split()[-1]) else g
+             for g in given]
     groups = defaultdict(list)
-    for position, first in enumerate(candidates):
-        groups[_extra_given_words(first or "", own)].append(position)
-    groups = _join_initial_groups(groups, candidates)
-    donor_first = pick(candidates)
-    if len(groups) == 1:
-        return [donor_first] * len(candidates)
-    by_position = [None] * len(candidates)
-    for positions in groups.values():
-        group_first = pick([candidates[p] for p in positions]) or donor_first
-        for position in positions:
-            by_position[position] = group_first
-    return by_position
+    for position, first in enumerate(given):
+        tokens = _tokens(first)
+        if tokens:
+            others = frozenset(t for t in tokens[1:] if len(t) > 1 and t not in own and t not in asides)
+            groups[(NICKNAME_MAP.get(tokens[0], tokens[0])[0], others)].append(position)
+    # P R beside P RICHARD: initials that a fuller filing spells out are the same name
+    for key in sorted(groups, key=lambda k: len(k[1])):
+        initials = {t for p in groups[key] for t in _tokens(given[p])[1:] if len(t) == 1}
+        fuller = [k for k in groups if k[0] == key[0] and key[1] < k[1] and all(n[0] in initials for n in k[1] - key[1])]
+        if fuller:
+            groups[max(fuller, key=lambda k: len(groups[k]))] += groups.pop(key)
+    everyone = _fullest([g for g in given if g], asides, rare)
+    shown = [everyone] * len(given)
+    if len(groups) > 1:
+        for positions in groups.values():
+            name = _fullest([given[p] for p in positions], asides, rare)
+            for p in positions:
+                shown[p] = name
+    if initial:
+        shown = [name if name and initial[0] in _tokens(name) else f"{name or ''} {initial}".strip() for name in shown]
+    return surname, shown
 
 
-# a dataframe column as trimmed, uppercased strings, '' for non-strings
-def _text_column(df: pd.DataFrame, column: str) -> pd.Series:
-    if column not in df.columns:
-        return pd.Series("", index=df.index)
-    values = df[column]
-    return values.where(values.map(lambda v: isinstance(v, str)), "").str.strip().str.upper()
-
-
-def _household_spellings(df: pd.DataFrame, ind: pd.Series) -> tuple[dict, dict]:
-    """Return own spellings and same-surname household spellings by donor key."""
-    keys = df.loc[ind, "donor_key"]
-    lasts = _text_column(df, "contributor_last_name")[ind]
-    firsts = _text_column(df, "contributor_first_name")[ind]
-    streets = _text_column(df, "contributor_street_1")[ind]
-    zips = _text_column(df, "contributor_zip")[ind].str[:5]
-
-    own = defaultdict(set)
-    spots_of = defaultdict(set)
-    at_spot = defaultdict(set)  # (surname, street/zip) -> {(donor_key, spelling)}
-    for key, last, first, street, zip5 in zip(keys, lasts, firsts, streets, zips):
-        spelling = given_tokens(first)
-        if not (isinstance(key, str) and last and spelling):
-            continue
-        own[key].add(spelling)
-        spots = [("S", street)] if street else []
-        if len(zip5) == 5:
-            spots.append(("Z", zip5))
-        for spot in spots:
-            spots_of[key].add((last, spot))
-            at_spot[(last, spot)].add((key, spelling))
-
-    household = {}
-    for key, spots in spots_of.items():
-        found = {
-            spelling
-            for spot in spots
-            for other, spelling in at_spot[spot]
-            if other != key
-        }
-        if found:
-            household[key] = found
-    return own, household
-
-
-def _shared_given_names(df: pd.DataFrame, ind: pd.Series) -> frozenset:
-    """Words at least two donors file as first names."""
-    words = _text_column(df, "contributor_first_name")[ind].str.split()
-    donors = pd.DataFrame({"donor": df.loc[ind, "donor_key"], "word": words}).explode("word")
-    per_word = donors.dropna().drop_duplicates().groupby("word")["donor"].size()
-    return frozenset(per_word[per_word >= 2].index)
-
-
-def canonicalize_donor_names(df: pd.DataFrame) -> int:
-    """Unify each donor's names without copying co-filers onto solo filings."""
-    ind = df["entity_type"] == "INDIVIDUAL"
-    if not ind.any():
-        return 0
-
-    fn_col = "contributor_first_name"
-    own_spellings, household_spellings = _household_spellings(df, ind)
-    given_names = _shared_given_names(df, ind)
-    first_words = Counter(
-        words[0] for words in _text_column(df, fn_col)[ind].str.split() if words
-    )
-    with rare_spellings(word for word, count in first_words.items() if count <= 2):
-        return _write_canonical_names(df, ind, own_spellings, household_spellings, given_names)
-
-
-# choose and write each donor's canonical name, returning rows changed
-def _write_canonical_names(df, ind, own_spellings, household_spellings, given_names) -> int:
-    changed = 0
-    fn_col, ln_col, cn_col = "contributor_first_name", "contributor_last_name", "contributor_name"
-    for donor_key, idx in df[ind].groupby("donor_key").groups.items():
+def canonicalize_donor_names(df: pd.DataFrame) -> None:
+    """Give each donor one surname and each of their given names one spelling."""
+    people = df[df["entity_type"].eq("INDIVIDUAL")]
+    words = Counter(w[0] for w in people["contributor_first_name"].fillna("").astype(str).str.upper().str.split() if w)
+    rare = frozenset(w for w, n in words.items() if n <= 2)
+    for _, idx in people.groupby("donor_key").groups.items():
         rows = df.loc[idx]
-        lasts = [v.strip() if isinstance(v, str) else "" for v in rows[ln_col]]
+        lasts = [v.strip() if isinstance(v, str) else "" for v in rows["contributor_last_name"]]
         if not any(lasts):
             continue
-        firsts = [v.strip() if isinstance(v, str) else "" for v in rows[fn_col]]
-        is_joint = None
-        household = household_spellings.get(donor_key)
-        if household:
-            own = own_spellings.get(donor_key, set())
-            surnames = {last for last in lasts if last}
-            verdicts: dict[str, bool] = {}
-
-            # true if this spelling names a co-filer, cached per spelling
-            def is_joint(first, own=own, household=household, surnames=surnames,
-                         verdicts=verdicts):
-                if first not in verdicts:
-                    verdicts[first] = not any(
-                        joint_name_exempt(f"{last}, {first}") for last in surnames
-                    ) and bool(joint_partners(given_tokens(first), own, household))
-                return verdicts[first]
-
-        canon_last, firsts_by_row = _canonical_person_name(
-            lasts, firsts, is_joint, given_names, by_row=True,
-        )
-
-        for i, canon_first in zip(idx, firsts_by_row):
-            # Composite rebuilt from the canonical pair as "LAST, FIRST".
-            canon_name = f"{canon_last}, {canon_first}" if canon_first else canon_last
-            cur_f = df.at[i, fn_col]
-            cur_l = df.at[i, ln_col]
-            cf = cur_f if (isinstance(cur_f, str) and cur_f.strip()) else None
-            cl = cur_l if (isinstance(cur_l, str) and cur_l.strip()) else None
-            cur_n = df.at[i, cn_col]
-            if cf != canon_first or cl != canon_last or cur_n != canon_name:
-                df.at[i, fn_col] = canon_first
-                df.at[i, ln_col] = canon_last
-                df.at[i, cn_col] = canon_name
-                changed += 1
-    return changed
-
-
-def _join_initial_groups(groups: dict, candidates: list) -> dict:
-    """Join initials to fuller forms; add no unsupported given name."""
-    initials = {
-        key: {token for p in positions for token in _name_tokens(candidates[p] or "")[1:] if len(token) == 1}
-        for key, positions in groups.items()
-    }
-    joined = defaultdict(list)
-    for key, positions in groups.items():
-        first, names = key
-        fuller = [
-            other for other in groups
-            if other[0] == first and names < other[1]
-            and all(name[0] in initials[key] for name in other[1] - names)
-        ]
-        target = max(fuller, key=lambda other: (len(groups[other]), sorted(other[1]))) if fuller else key
-        joined[target].extend(positions)
-    return joined
-
-
-def _extra_given_words(first: str, own: set) -> tuple:
-    """Group by first initial and extra names, excluding the donor's."""
-    tokens = _name_tokens(first)
-    if not tokens:
-        return ("", frozenset())
-    return (
-        NICKNAME_MAP.get(tokens[0], tokens[0])[0],  # BILL keys as WILLIAM
-        frozenset(token for token in tokens[1:] if len(token) > 1 and token not in own),
-    )
+        firsts = [v.strip() if isinstance(v, str) else "" for v in rows["contributor_first_name"]]
+        surname, given = donor_names(lasts, firsts, rare)
+        df.loc[idx, "contributor_last_name"] = surname
+        df.loc[idx, "contributor_first_name"] = pd.Series(given, index=idx, dtype=object)
+        df.loc[idx, "contributor_name"] = [f"{surname}, {g}" if g else surname for g in given]
