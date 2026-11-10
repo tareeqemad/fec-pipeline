@@ -300,16 +300,19 @@ def test_same_words_in_another_order_are_one_name():
     assert keys['624'] == keys['625']
 
 
-def test_held_filing_takes_no_part_in_matching():
-    # A reviewed hold (this name at this street) keeps a filing outside the donor its name would join.
+def test_held_filing_takes_no_part_in_matching(monkeypatch):
+    # A reviewed hold keeps a filing outside the donor its name and street would join.
+    from fec.donor_match import keys, rules
+    for module in (keys, rules):
+        monkeypatch.setattr(module, 'HELD_FILINGS', {'633': 'GOLDSTEIN, RICHARD | unproven'})
     rows = [
         _row('631', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '9 OTHER ST'),
         _row('632', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '9 OTHER ST'),
-        _row('633', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '200 SE MIZNER BLVD'),
+        _row('633', 'GOLDSTEIN, RICHARD', 'RICHARD', 'GOLDSTEIN', 'BOCA RATON', 'FL', '33432', '9 OTHER ST'),
     ]
     df = _identify(rows)
-    keys = _keys(df)
-    assert keys['631'] == keys['632'] != keys['633']
+    keys_ = _keys(df)
+    assert keys_['631'] == keys_['632'] != keys_['633']
     assert df.set_index('sub_id')['identity_status'].to_dict() == {'631': 'confirmed', '632': 'confirmed', '633': 'held'}
 
 

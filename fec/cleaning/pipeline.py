@@ -60,9 +60,9 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("[3/5] Applying corrections")
     df = apply_record_rules(df, filed_employers, filed_occupations)
 
-    # After the record rules: a company left in the occupation box has moved by now.
-    _learn_categories(df)
+    # After the record rules and the reviewed filings: only texts that stay are sent to the model.
     apply_reviewed_filings(df)
+    _learn_categories(df)
     # Donors are matched on the category of the occupation as it now reads.
     rederive_occupation_category(df)
     return df
