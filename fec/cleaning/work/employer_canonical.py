@@ -1,7 +1,8 @@
 """Loose keys for comparing employer text."""
-import re
-from fec.config.tables import words
 
+import re
+
+from fec.config.tables import words
 
 _CORP_SUFFIXES = (
     "INCORPORATED",
@@ -25,7 +26,6 @@ _GLUED_BRAND_SUFFIXES = words("glued_brand_suffixes")
 
 # Abbreviations folded for grouping only; ASSOC is deliberately absent.
 _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
-
 
 
 def employer_text_key(name: str) -> str:
@@ -57,5 +57,3 @@ def employer_text_key(name: str) -> str:
         else:
             break
     return key
-
-

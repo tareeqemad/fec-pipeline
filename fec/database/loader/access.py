@@ -1,4 +1,5 @@
 """Give the read-only login SELECT on every table and view."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -9,8 +10,8 @@ from fec.env import (
 )
 
 
-# Require a reader without admin rights or inherited roles.
 def _check_reader(cur: Any) -> None:
+    """Require a reader without admin rights or inherited roles."""
     cur.execute(
         """
         SELECT
@@ -34,8 +35,8 @@ def _check_reader(cur: Any) -> None:
         raise RuntimeError(f"{DATABASE_READER} must not inherit another role")
 
 
-# Give the reader SELECT access to tables and views.
 def grant_read_access(cur: Any) -> None:
+    """Give the reader SELECT access to tables and views."""
     _check_reader(cur)
 
     reader = _quote_identifier(DATABASE_READER)

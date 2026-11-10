@@ -1,17 +1,17 @@
 """Load curated leader profile data."""
+
 from __future__ import annotations
 
 from typing import Any
 
 import pandas as pd
 
-from fec.cleaning.work.status import classify_employer_status, is_real_employer
 from fec.cleaning.work.normalize import categorize_final
-from fec.donor_match.rules import resolve_donor_key
+from fec.cleaning.work.status import classify_employer_status, is_real_employer
 from fec.database.loader.locations import select_location
+from fec.donor_match.rules import resolve_donor_key
 
 
-# Match a roster donor by its saved or merged key.
 def find_or_create_donor(
     cur: Any,
     donor_key: str,
@@ -20,6 +20,7 @@ def find_or_create_donor(
     first: str,
     last: str,
 ) -> int:
+    """Match a roster donor by its saved or merged key."""
     donor_key = donor_key.strip()
     if not donor_key:
         raise ValueError(f"Missing donor_key for {name!r}")
@@ -33,10 +34,7 @@ def find_or_create_donor(
         return row[0]
 
     if not create_if_missing:
-        raise ValueError(
-            f"Unknown donor_key {donor_key!r} for {name!r}; "
-            "update the editorial CSV"
-        )
+        raise ValueError(f"Unknown donor_key {donor_key!r} for {name!r}; update the editorial CSV")
 
     cur.execute(
         """
@@ -49,8 +47,8 @@ def find_or_create_donor(
     return cur.fetchone()[0]
 
 
-# Reuse an address or insert it with its coordinates.
 def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: float | None) -> int:
+    """Reuse an address or insert it with its coordinates."""
     cur.execute(
         """
         SELECT address_id FROM addresses
@@ -69,8 +67,7 @@ def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: floa
         address_id = row[0]
         if latitude is not None:
             cur.execute(
-                "UPDATE addresses SET latitude=%s, longitude=%s "
-                "WHERE address_id=%s AND latitude IS NULL",
+                "UPDATE addresses SET latitude=%s, longitude=%s WHERE address_id=%s AND latitude IS NULL",
                 (latitude, longitude, address_id),
             )
         return address_id
@@ -87,13 +84,19 @@ def _address_id(cur: Any, fields: tuple, latitude: float | None, longitude: floa
     return cur.fetchone()[0]
 
 
-# Link the curated address to its donor.
 def upsert_donor_address(
-    cur: Any, donor_id: int, street_1: str | None, street_2: str | None,
-    city: str | None, state: str | None, zip_5: str | None = None,
-    latitude: float | None = None, longitude: float | None = None,
+    cur: Any,
+    donor_id: int,
+    street_1: str | None,
+    street_2: str | None,
+    city: str | None,
+    state: str | None,
+    zip_5: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> None:
     # Treat blank strings as missing.
+    """Link the curated address to its donor."""
     fields = tuple((value or "").strip() or None for value in (street_1, street_2, city, state, zip_5))
     if all(value is None for value in fields):
         return
@@ -111,12 +114,15 @@ def upsert_donor_address(
     )
 
 
-# Same-city office, then a nearby state office, else default.
 def employment_address_id(
-    cur: Any, employer: str, locations: dict | None,
-    state: str | None = "", zip_5: str | None = "",
+    cur: Any,
+    employer: str,
+    locations: dict | None,
+    state: str | None = "",
+    zip_5: str | None = "",
     city: str | None = "",
 ) -> int | None:
+    """Same-city office, then a nearby state office, else default."""
     if not employer or not locations:
         return None
     location = select_location(locations.get(employer), zip_5 or "", state or "", city or "")
@@ -127,26 +133,33 @@ def employment_address_id(
         location.get(field) or None
         for field in ("employer_address", "", "employer_city", "employer_state", "employer_zip")
     )
-    return _address_id(cur, fields, _coordinate(location.get("employer_latitude")),
-                       _coordinate(location.get("employer_longitude")))
+    return _address_id(
+        cur, fields, _coordinate(location.get("employer_latitude")), _coordinate(location.get("employer_longitude"))
+    )
 
 
-# Read an optional coordinate, ignoring invalid text.
 def _coordinate(value) -> float | None:
+    """Read an optional coordinate, ignoring invalid text."""
     try:
         return float(value) if str(value or "").strip() else None
     except ValueError:
         return None
 
 
-# Add roster employment only when the donor has none.
-def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
-                             occupation: str | None = None, *,
-                             state: str | None = "", zip_5: str | None = "",
-                             city: str | None = "",
-                             locations: dict | None = None) -> None:
-    employer_name = (employer or '').strip()
-    occupation = (occupation or '').strip() or None
+def upsert_leader_employment(
+    cur: Any,
+    donor_id: int,
+    employer: str | None,
+    occupation: str | None = None,
+    *,
+    state: str | None = "",
+    zip_5: str | None = "",
+    city: str | None = "",
+    locations: dict | None = None,
+) -> None:
+    """Add roster employment only when the donor has none."""
+    employer_name = (employer or "").strip()
+    occupation = (occupation or "").strip() or None
     if not employer_name and not occupation:
         return
 
@@ -156,7 +169,7 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
 
     if not employer_name or not is_real_employer(employer_name):
         employer_id = None
-        status = classify_employer_status(employer_name) if employer_name else 'missing'
+        status = classify_employer_status(employer_name) if employer_name else "missing"
     else:
         cur.execute(
             "INSERT INTO employers (name) VALUES (%s) ON CONFLICT (name) DO NOTHING",
@@ -164,7 +177,7 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
         )
         cur.execute("SELECT employer_id FROM employers WHERE name = %s", (employer_name,))
         employer_id = cur.fetchone()[0]
-        status = 'active'
+        status = "active"
 
     category_id = None
     if occupation:
@@ -174,8 +187,7 @@ def upsert_leader_employment(cur: Any, donor_id: int, employer: str | None,
         category_id = found[0] if found else None
 
     address_id = (
-        employment_address_id(cur, employer_name, locations, state, zip_5, city)
-        if status == 'active' else None
+        employment_address_id(cur, employer_name, locations, state, zip_5, city) if status == "active" else None
     )
 
     cur.execute(

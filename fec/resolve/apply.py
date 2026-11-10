@@ -1,6 +1,7 @@
 """Set each filing's employer status and its donor's previous employer."""
 
 import pandas as pd
+
 from fec.cleaning.work.status import classify_employer_statuses
 from fec.resolve.previous import previous_employers
 

@@ -16,6 +16,7 @@ A job is never a company, however many organisation words it holds
 filed: it may stay an employer, but it is never moved out of the
 occupation.
 """
+
 from __future__ import annotations
 
 import re
@@ -43,8 +44,22 @@ COMPANY_LEVELS = frozenset(LEVELS)
 
 # Legal forms, after punctuation is removed: "L.L.C." -> "LLC".
 _LEGAL_FORMS = (
-    "LLC", "PLLC", "LLP", "LP", "INC", "INCORPORATED", "CORP", "CORPORATION",
-    "LTD", "LIMITED", "PLC", "PC", "PA", "CO", "APLC", "APC",
+    "LLC",
+    "PLLC",
+    "LLP",
+    "LP",
+    "INC",
+    "INCORPORATED",
+    "CORP",
+    "CORPORATION",
+    "LTD",
+    "LIMITED",
+    "PLC",
+    "PC",
+    "PA",
+    "CO",
+    "APLC",
+    "APC",
 )
 _LEGAL_FORM_END_RE = re.compile(r"\b(?:" + "|".join(_LEGAL_FORMS) + r")$")
 # "CO" alone is a word (COMPANY) only at the end: "TRADING CO".
@@ -72,8 +87,8 @@ def _head_word(word: str) -> bool:
     return word in JOB_TITLE_HEADS or (word.endswith("S") and word[:-1] in JOB_TITLE_HEADS)
 
 
-# Organisation and filler words only, so a field rather than a name.
 def _only_common_words(text: str) -> bool:
+    """Organisation and filler words only, so a field rather than a name."""
     words = _WORDS_RE.findall(text)
     return bool(words) and all(w in ORGANISATION_WORDS or w in _FILLER_WORDS or w == "AND" for w in words)
 
@@ -93,14 +108,19 @@ def _job_words() -> frozenset[str]:
     """Exact values that are a job, field or status, never a company."""
     return frozenset(
         {k for k, v in CATEGORY_OVERRIDES.items() if v != "OTHER"}
-        | ROLE_AS_EMPLOYER | OCCUPATION_AS_EMPLOYER | JOB_TITLE_AS_EMPLOYER
-        | SECTOR_AS_EMPLOYER | STATUS_WORDS | SKIP_EMPLOYERS | SKIP_OCCUPATIONS
+        | ROLE_AS_EMPLOYER
+        | OCCUPATION_AS_EMPLOYER
+        | JOB_TITLE_AS_EMPLOYER
+        | SECTOR_AS_EMPLOYER
+        | STATUS_WORDS
+        | SKIP_EMPLOYERS
+        | SKIP_OCCUPATIONS
         | NOT_REAL_EMPLOYER
     )
 
 
-# upper text with the punctuation that varies between filings removed
 def company_key(value) -> str:
+    """Upper text with the punctuation that varies between filings removed."""
     return employer_rule_key(value)
 
 
@@ -147,7 +167,7 @@ def _text_evidence(key: str, ampersand: bool = False) -> str:
 
 
 def evidence(text: str) -> str:
-    """The evidence level of a text on its own."""
+    """Return the evidence level of a text on its own."""
     return _text_evidence(company_key(text), "&" in text)
 
 
@@ -161,11 +181,16 @@ class Filings:
         self.own = set(zip(names[filed], keys[filed]))
 
     def level(self, text: str, min_filers: int = 3) -> str:
-        """The evidence level of a text; 'frequent' when enough different filers name it as their employer."""
+        """Return the evidence level of a text; 'frequent' when enough different filers name it as their employer."""
         key = company_key(text)
         level = evidence(text)
-        if (level in ("unknown", "named_org") and self.filers.get(key, 0) >= min_filers
-                and len(re.sub(r"[^A-Z]", "", key)) >= 3 and is_real_employer(key) and not _only_common_words(key)):
+        if (
+            level in ("unknown", "named_org")
+            and self.filers.get(key, 0) >= min_filers
+            and len(re.sub(r"[^A-Z]", "", key)) >= 3
+            and is_real_employer(key)
+            and not _only_common_words(key)
+        ):
             return "frequent"
         return level
 
@@ -174,6 +199,5 @@ _LEGAL_TOKENS = words("legal_tokens")
 
 
 def has_legal_form_token(values: pd.Series) -> pd.Series:
-    """A legal form anywhere in the text, as a name filed LAST, FIRST may carry one."""
+    """Find a legal form anywhere in the text, as a name filed LAST, FIRST may carry one."""
     return values.map(company_key).map(lambda key: any(w in _LEGAL_TOKENS for w in key.split()))
-

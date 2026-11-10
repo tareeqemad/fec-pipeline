@@ -5,8 +5,8 @@ from __future__ import annotations
 import csv
 import logging
 import os
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from tqdm import tqdm
 
@@ -17,13 +17,13 @@ from fec.pull_rows import COLUMNS, FIELDS, SOURCE_COLUMNS, build_row, source_val
 log = logging.getLogger(__name__)
 
 
-# Keep source fields beside the raw CSV.
 def source_path(csv_path: Path) -> Path:
+    """Keep source fields beside the raw CSV."""
     return csv_path.parent / FEC_SOURCE_CSV.name
 
 
-# Append source fields, adding the CSV header when needed.
 def append_source_fields(path: Path, records: list[dict]) -> None:
+    """Append source fields, adding the CSV header when needed."""
     if not records:
         return
     new = not path.exists() or path.stat().st_size == 0
@@ -34,17 +34,17 @@ def append_source_fields(path: Path, records: list[dict]) -> None:
         writer.writerows(records)
 
 
-# Keep source fields for a newly pulled filing.
 def _source_record(sub_id: str, result: dict) -> dict:
+    """Keep source fields for a newly pulled filing."""
     return {"sub_id": sub_id, **source_values(result), "matched_by": "pulled", "fec_sub_id": ""}
 
 
-# Find saved filing IDs for this committee and period.
 def read_existing_ids(
     csv_path: Path,
     committee_id: str,
     period: int,
 ) -> set[str]:
+    """Find saved filing IDs for this committee and period."""
     if not csv_path.exists():
         return set()
 
@@ -58,8 +58,8 @@ def read_existing_ids(
         }
 
 
-# Follow FEC pagination cursors until no results or cursor remain.
 def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
+    """Follow FEC pagination cursors until no results or cursor remain."""
     params = dict(params)
     while True:
         data = fetch_page(session, params, limiter)
@@ -70,14 +70,12 @@ def iter_pages(session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
         indexes = (data.get("pagination") or {}).get("last_indexes")
         if not indexes:
             return
-        params["last_contribution_receipt_date"] = indexes.get(
-            "last_contribution_receipt_date"
-        )
+        params["last_contribution_receipt_date"] = indexes.get("last_contribution_receipt_date")
         params["last_index"] = indexes.get("last_index")
 
 
-# Request the configured fields for one committee and period.
 def _pull_params(api_key: str, committee_id: str, period: int) -> dict:
+    """Request the configured fields for one committee and period."""
     return {
         "api_key": api_key,
         "committee_id": committee_id,
@@ -88,8 +86,8 @@ def _pull_params(api_key: str, committee_id: str, period: int) -> dict:
     }
 
 
-# Scan the full period and append only new filing IDs.
 def run(committee_id: str, period: int) -> None:
+    """Scan the full period and append only new filing IDs."""
     api_key = required_env("FEC_API_KEY")
     RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
     csv_path = RAW_CSV
@@ -116,7 +114,8 @@ def run(committee_id: str, period: int) -> None:
                         if total:
                             progress = tqdm(
                                 total=-(-total // 100),
-                                desc=f"{committee_id}/{period}", unit="pg",
+                                desc=f"{committee_id}/{period}",
+                                unit="pg",
                             )
                     stats["pages"] += 1
                     if progress:
@@ -148,15 +147,20 @@ def run(committee_id: str, period: int) -> None:
                 progress.close()
     except KeyboardInterrupt:
         _log_summary(
-            "STOPPED", committee_id, period, stats, csv_path, log.warning,
+            "STOPPED",
+            committee_id,
+            period,
+            stats,
+            csv_path,
+            log.warning,
         )
         raise
 
     _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
 
 
-# Log the saved, skipped and missing-ID counts.
 def _log_summary(status, committee_id, period, stats, csv_path, writer) -> None:
+    """Log the saved, skipped and missing-ID counts."""
     writer(
         "[%s] %s / %s: new=%s skipped=%s no_sub_id=%s pages=%s file=%s",
         status,

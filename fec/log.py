@@ -1,4 +1,5 @@
 """Console messages and optional detailed file logs."""
+
 import io
 import logging
 import os
@@ -10,13 +11,13 @@ _CONFIGURED = False
 class CleanFormatter(logging.Formatter):
     """Message-only console formatting."""
 
-    # Show only the message in the console.
     def format(self, record):
+        """Show only the message in the console."""
         return record.getMessage()
 
 
-# Configure console and optional file logging once.
 def setup_logging() -> None:
+    """Configure console and optional file logging once."""
     global _CONFIGURED
     if _CONFIGURED:
         return
@@ -38,17 +39,19 @@ def setup_logging() -> None:
 
     if log_file:
         fh = logging.FileHandler(log_file, encoding="utf-8")
-        fh.setFormatter(logging.Formatter(
-            "%(asctime)s  %(levelname)-5s  %(name)-30s  %(message)s",
-            datefmt="%H:%M:%S",
-        ))
+        fh.setFormatter(
+            logging.Formatter(
+                "%(asctime)s  %(levelname)-5s  %(name)-30s  %(message)s",
+                datefmt="%H:%M:%S",
+            )
+        )
         root.addHandler(fh)
 
     _CONFIGURED = True
 
 
-# Set up logging when needed and return the module logger.
 def get_logger(name: str) -> logging.Logger:
+    """Set up logging when needed and return the module logger."""
     if not _CONFIGURED:
         setup_logging()
     return logging.getLogger(name)

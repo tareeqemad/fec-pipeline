@@ -12,6 +12,7 @@ a different word for the same thing (MYSELF, SOLE PROPRIETOR, JOBLESS,
 NOT WORKING) and a status beside other words (MOSTLY RETIRED), which the
 RETIRED reader handles.
 """
+
 from __future__ import annotations
 
 import re
@@ -39,7 +40,7 @@ def _slips_allowed(letters: str) -> int:
 
 @lru_cache(maxsize=65536)
 def status_word(text) -> str | None:
-    """The status a text means, or None when it names something else."""
+    """Return the status a text means, or None when it names something else."""
     if not isinstance(text, str):
         return None
     letters = _LETTERS_RE.sub("", text.upper())
@@ -82,7 +83,9 @@ def learn_status_typos(texts, canonical: dict | None = None) -> dict[str, str]:
 def extend_spellings(df) -> int:
     """Read the filed work fields once; add the status slips to the spelling maps."""
     import pandas as pd
+
     from fec.config.occupation_rules.rules import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
+
     texts = pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna()
     learnt = learn_status_typos(texts, canonical=EMPLOYER_NORMALIZE)
     for text, status in learnt.items():

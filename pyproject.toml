@@ -1,0 +1,33 @@
+# One style for the whole project: `ruff format .` then `ruff check --fix .`
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["data"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes: unused imports and names
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # import order
+    "UP",   # modern Python syntax
+    "D",    # docstrings
+    "ANN",  # type hints on function signatures
+]
+ignore = [
+    "D203", "D213",          # one docstring layout: summary on the first line
+    "D100", "D104",          # package __init__ files carry no docstring
+    "ANN401",                # Any is allowed where pandas or psycopg2 values pass through
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "ANN"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+known-first-party = ["fec"]

@@ -9,7 +9,6 @@ import requests
 
 from fec.geocoding.validation import US_TERRITORIES, is_foreign_address
 
-
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {"User-Agent": "FEC-Geocoder/1.0 (research project)"}
 NOMINATIM_TIMEOUT = 10
@@ -19,10 +18,30 @@ CENSUS_TIMEOUT = 10
 CENSUS_RETRIES = 2
 
 _AREA_TYPES = {
-    "administrative", "boundary", "country", "state", "province", "region",
-    "county", "city", "town", "village", "hamlet", "municipality", "borough",
-    "district", "city_district", "suburb", "neighbourhood", "quarter",
-    "postcode", "postal_code", "road", "street", "pedestrian", "residential",
+    "administrative",
+    "boundary",
+    "country",
+    "state",
+    "province",
+    "region",
+    "county",
+    "city",
+    "town",
+    "village",
+    "hamlet",
+    "municipality",
+    "borough",
+    "district",
+    "city_district",
+    "suburb",
+    "neighbourhood",
+    "quarter",
+    "postcode",
+    "postal_code",
+    "road",
+    "street",
+    "pedestrian",
+    "residential",
 }
 _HOUSE_NUMBER = re.compile(r"^\s*(\d+[A-Z]?(?:[-/]\d+[A-Z]?)?(?:\s+\d/\d)?)\b", re.IGNORECASE)
 _last_nominatim_request: float | None = None
@@ -36,8 +55,8 @@ class CensusUnavailable(RuntimeError):
     """Census failed temporarily; this is not an address miss."""
 
 
-# Compare the supplied and returned house numbers.
 def _same_house_number(street: str, returned_number: str) -> bool:
+    """Compare the supplied and returned house numbers."""
     expected = _HOUSE_NUMBER.match(street)
     if expected is None:
         first = street.split()[0] if street.strip() else ""
@@ -45,8 +64,8 @@ def _same_house_number(street: str, returned_number: str) -> bool:
     return expected.group(1).upper() == returned_number.strip().upper()
 
 
-# Reject a different state or ZIP; allow postal city aliases.
 def _same_us_place(state: str, zipcode: str, returned_state, returned_zip) -> bool:
+    """Reject a different state or ZIP; allow postal city aliases."""
     if state and returned_state:
         actual_state = str(returned_state).strip().upper().removeprefix("US-")
         if actual_state != state.strip().upper():
@@ -57,8 +76,8 @@ def _same_us_place(state: str, zipcode: str, returned_state, returned_zip) -> bo
     return True
 
 
-# Accept buildings and addresses, excluding street and area centres.
 def _is_address_result(result: dict, street: str) -> bool:
+    """Accept buildings and addresses, excluding street and area centres."""
     category = result.get("category", result.get("class", ""))
     kind = result.get("type", "")
     address_type = result.get("addresstype", "")
@@ -70,14 +89,15 @@ def _is_address_result(result: dict, street: str) -> bool:
     if not _same_house_number(street, number):
         return False
     return bool(
-        number or category in {"building", "amenity", "shop", "office", "tourism", "historic"}
+        number
+        or category in {"building", "amenity", "shop", "office", "tourism", "historic"}
         or kind in {"house", "building", "apartments"}
         or address_type in {"house", "building"}
     )
 
 
-# Space every request and retry using the same clock.
 def _wait_for_nominatim(url: str) -> None:
+    """Space every request and retry using the same clock."""
     global _last_nominatim_request
     public = urlparse(url).hostname == "nominatim.openstreetmap.org"
     minimum = 15.0 if public else 1.0
@@ -89,13 +109,15 @@ def _wait_for_nominatim(url: str) -> None:
     _last_nominatim_request = time.monotonic()
 
 
-# Look up the address; no US filter for foreign addresses.
 def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
+    """Look up the address; no US filter for foreign addresses."""
     if not street:
         return None
     params = {
         "q": ", ".join(part for part in (street, city, state, zipcode) if part),
-        "format": "jsonv2", "limit": 1, "addressdetails": 1,
+        "format": "jsonv2",
+        "limit": 1,
+        "addressdetails": 1,
     }
     foreign = is_foreign_address(state, zipcode)
     if not foreign:
@@ -126,7 +148,8 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
                     return None
                 address = result.get("address") or {}
                 if not foreign and not _same_us_place(
-                    state, zipcode,
+                    state,
+                    zipcode,
                     address.get("ISO3166-2-lvl4") or address.get("state_code"),
                     address.get("postcode"),
                 ):
@@ -138,17 +161,18 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
         except (KeyError, TypeError, ValueError, AttributeError) as error:
             raise NominatimUnavailable("Invalid Nominatim response") from error
         if attempt < NOMINATIM_RETRIES:
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
     raise NominatimUnavailable(last_error)
 
 
-# Match the supplied US address with Census.
 def census(street: str, city: str, state: str, zipcode: str) -> dict | None:
+    """Match the supplied US address with Census."""
     if not street or is_foreign_address(state, zipcode):
         return None
     params = {
         "address": ", ".join(part for part in (street, city, state, zipcode) if part),
-        "benchmark": "Public_AR_Current", "format": "json",
+        "benchmark": "Public_AR_Current",
+        "format": "json",
     }
     last_error = "Census unavailable"
     for attempt in range(1 + CENSUS_RETRIES):
@@ -181,5 +205,5 @@ def census(street: str, city: str, state: str, zipcode: str) -> dict | None:
         except (KeyError, TypeError, ValueError, AttributeError) as error:
             raise CensusUnavailable("Invalid Census response") from error
         if attempt < CENSUS_RETRIES:
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
     raise CensusUnavailable(last_error)

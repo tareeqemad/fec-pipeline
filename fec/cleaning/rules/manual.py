@@ -4,6 +4,7 @@ A filled cell replaces the filing's value and [CLEAR] empties it. Rows marked
 after_matching wait until donors are matched, so the correction does not
 change who the donor is.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -18,14 +19,19 @@ from fec.env import MANUAL_EMPLOYER_OVERRIDES_CSV
 
 CLEAR = "[CLEAR]"
 FIELDS = (
-    "contributor_employer", "contributor_occupation", "occupation_category",
-    "contributor_street_1", "contributor_street_2", "contributor_city", "contributor_zip",
+    "contributor_employer",
+    "contributor_occupation",
+    "occupation_category",
+    "contributor_street_1",
+    "contributor_street_2",
+    "contributor_city",
+    "contributor_zip",
 )
 
 
 @lru_cache(maxsize=1)
 def _reviewed() -> pd.DataFrame:
-    """The reviewed rows by sub_id, employers in their shared company spelling."""
+    """Read the reviewed rows by sub_id, employers in their shared company spelling."""
     if not MANUAL_EMPLOYER_OVERRIDES_CSV.exists():
         return pd.DataFrame(columns=[*FIELDS, "after_matching"])
     rows = pd.read_csv(MANUAL_EMPLOYER_OVERRIDES_CSV, dtype=str, keep_default_na=False)
@@ -34,7 +40,8 @@ def _reviewed() -> pd.DataFrame:
     if unknown:
         raise ValueError(f"Invalid manual occupation category: {sorted(unknown)}")
     rows["contributor_employer"] = rows["contributor_employer"].map(
-        lambda name: reviewed_employer_name(name) if name and name.upper() != CLEAR else name)
+        lambda name: reviewed_employer_name(name) if name and name.upper() != CLEAR else name
+    )
     return rows
 
 
@@ -51,7 +58,7 @@ def apply_reviewed_filings(df: pd.DataFrame, matched: bool = False) -> None:
 
 
 def categorize_records(df: pd.DataFrame) -> pd.Series:
-    """The category of each occupation, a reviewed category for the filing first."""
+    """Return the category of each occupation, a reviewed category for the filing first."""
     reviewed = _reviewed()["occupation_category"]
     reviewed = df["sub_id"].astype(str).str.strip().map(reviewed[reviewed.ne("")])
     return categorize_final(df["contributor_occupation"]).where(reviewed.isna(), reviewed)

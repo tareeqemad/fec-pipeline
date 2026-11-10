@@ -1,10 +1,11 @@
 """Normalize fields and compare name variants for donor matching."""
+
 import re
 
 from rapidfuzz.distance import Levenshtein
+
 from fec.cleaning.work.employer_aliases import employer_rule_key
 from fec.config.tables import CONFIG_DIR, read_map, read_rows
-
 
 _NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
@@ -21,14 +22,28 @@ _BLOCKED_FIRST_PAIRS = {
 NICKNAME_MAP = read_map(CONFIG_DIR / "nicknames.csv")
 
 # Keep replacement order: donor keys depend on these comparisons.
-_EMPLOYER_STRIP = (" LLC", " INC", " INC.", " LLP", " LP", " CO", " CO.",
-                   " CORP", " CORP.", " LTD", " LTD.", ",", ".", "'")
+_EMPLOYER_STRIP = (
+    " LLC",
+    " INC",
+    " INC.",
+    " LLP",
+    " LP",
+    " CO",
+    " CO.",
+    " CORP",
+    " CORP.",
+    " LTD",
+    " LTD.",
+    ",",
+    ".",
+    "'",
+)
 
 
 # A trailing title at the end of a name.
 _COMM_SUFFIXES_RE = re.compile(
-    r'\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)'
-    r'\.?\s*$',
+    r"\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)"
+    r"\.?\s*$",
     re.IGNORECASE,
 )
 
@@ -42,10 +57,7 @@ def extract_generational_suffix(name: str) -> str:
     last, comma, first = text.partition(",")
     parts = (last, first) if comma else (text,)
     found = {
-        tokens[-1]
-        for part in parts
-        if (tokens := _NAME_TOKEN_RE.findall(part))
-        and tokens[-1] in _GENERATION_SUFFIXES
+        tokens[-1] for part in parts if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in _GENERATION_SUFFIXES
     }
     return next(iter(found)) if len(found) == 1 else ""
 
@@ -117,7 +129,7 @@ def normalize_committee_name(name: str) -> str:
 
 
 def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts=None) -> bool:
-    """Same surname with nickname, near-spelling or truncated first names.
+    """Tell whether two names share a surname with nickname, near-spelling or truncated first names.
 
     surname_firsts holds every first name filed with this surname: a short
     form that begins two different names there (CHRIS beside CHRISTINE and
@@ -153,9 +165,7 @@ def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts=None) -> 
         return True
     # Truncated further: TIM / TIMOTHY, BRAD / BRADLEY, ALLI / ALLISON.
     longer = {
-        NICKNAME_MAP.get(name, name)
-        for name in (surname_firsts or {long})
-        if name != short and name.startswith(short)
+        NICKNAME_MAP.get(name, name) for name in (surname_firsts or {long}) if name != short and name.startswith(short)
     }
     return len(longer) == 1
 
@@ -169,13 +179,13 @@ def _is_surname_variant(last1: str, last2: str) -> bool:
     """Surname spelling variants; the phase still demands strong geography."""
     if not last1 or not last2 or last1 == last2:
         return False
-    if _squash(last1) == _squash(last2):        # DE TOLEDO == DETOLEDO
+    if _squash(last1) == _squash(last2):  # DE TOLEDO == DETOLEDO
         return True
     d = Levenshtein.distance(last1, last2)
     m = min(len(last1), len(last2))
-    if m < 4:                                   # short surnames: single-char slip only
+    if m < 4:  # short surnames: single-char slip only
         return d == 1
-    if d <= 2:                                  # KHODAR/KHODARI (1), A SPIEGEL/SPIEGEL (2)
+    if d <= 2:  # KHODAR/KHODARI (1), A SPIEGEL/SPIEGEL (2)
         return True
-    lo, hi = sorted((last1, last2), key=len)    # truncation: DOLNER/DOLINER
+    lo, hi = sorted((last1, last2), key=len)  # truncation: DOLNER/DOLINER
     return hi.startswith(lo) and len(lo) >= 4 and (len(hi) - len(lo)) <= 3

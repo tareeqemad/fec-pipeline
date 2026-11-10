@@ -1,6 +1,5 @@
 from fec.contract import LOADED_COLUMNS, STAGES, check_input, check_loadable
 
-
 ORDER = ("clean", "geocode", "resolve")
 
 

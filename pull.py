@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Pull raw FEC contributions into data/raw/contributions.csv."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,30 +8,36 @@ import re
 from datetime import date
 
 from fec.committees import committee_id_to_name
-from fec.log import get_logger
 from fec.fec_api import PullError
+from fec.log import get_logger
 from fec.pull import run as pull_run
 
 logger = get_logger(__name__)
 
-# Use the even year ending the two-year FEC period.
+
 def _current_period(year: int) -> int:
+    """Use the even year ending the two-year FEC period."""
     return year + (year % 2)
 
 
 CURRENT_PERIOD = _current_period(date.today().year)
 
 
-# Validate the committee and period, then pull new records.
 def main(argv: list[str] | None = None) -> int:
+    """Validate the committee and period, then pull new records."""
     ap = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
     ap.add_argument("committee_id", help="Committee ID from committees.csv.")
-    ap.add_argument("--period", type=int, default=CURRENT_PERIOD,
-                    help="Two-year transaction period (even year, default %(default)s).")
+    ap.add_argument(
+        "--period",
+        type=int,
+        default=CURRENT_PERIOD,
+        help="Two-year transaction period (even year, default %(default)s).",
+    )
     ap.add_argument("--full", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
 
     from fec import env
+
     env.load_env()
 
     committee_id = args.committee_id.strip().upper()

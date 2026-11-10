@@ -21,9 +21,7 @@ QUALITY_GATES_JSON = "quality_gates.json"
 
 
 def _parse_args():
-    parser = argparse.ArgumentParser(
-        description="Resolve employer status and previous employers"
-    )
+    parser = argparse.ArgumentParser(description="Resolve employer status and previous employers")
     parser.add_argument("--apply", action="store_true", help="Write resolve columns to CSV")
     args = parser.parse_args()
     if not args.apply:

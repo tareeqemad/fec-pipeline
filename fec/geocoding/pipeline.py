@@ -13,12 +13,16 @@ logger = get_logger(__name__)
 
 
 def _contributor_keys(df: pd.DataFrame) -> pd.Series:
-    return df[["contributor_street_1", "contributor_city", "contributor_state",
-               "contributor_zip"]].fillna("").astype(str).agg("|".join, axis=1)
+    return (
+        df[["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]]
+        .fillna("")
+        .astype(str)
+        .agg("|".join, axis=1)
+    )
 
 
-# Retry missing or temporary failures; keep completed misses.
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
+    """Retry missing or temporary failures; keep completed misses."""
     entry = cache.get(key)
     if cache.needs_retry(key):
         return True
@@ -27,8 +31,8 @@ def _needs_lookup(key: str, cache: GeoCache) -> bool:
     return accepted_coordinates(key, entry)[0] is None
 
 
-# Try OpenStreetMap, then Census; keep an unmatched address blank.
 def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | None:
+    """Try OpenStreetMap, then Census; keep an unmatched address blank."""
     if not street.strip() or is_po_box(street) or unclear_house_number(street):
         return None
     key = "|".join((street, city, state, zipcode))
@@ -49,18 +53,19 @@ def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | Non
     return None
 
 
-# Look up each uncached address once.
 def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int) -> None:
+    """Look up each uncached address once."""
     keys = list(dict.fromkeys(key for key in keys if key != "|||"))
     todo = [key for key in keys if _needs_lookup(key, cache)]
-    logger.info("Addresses: %s | cached: %s | remaining: %s",
-                f"{len(keys):,}", f"{len(keys) - len(todo):,}", f"{len(todo):,}")
+    logger.info(
+        "Addresses: %s | cached: %s | remaining: %s", f"{len(keys):,}", f"{len(keys) - len(todo):,}", f"{len(todo):,}"
+    )
     if todo:
         _geocode_todo(todo, cache, batch_size)
 
 
-# Save lookup results in batches and when the run stops.
 def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
+    """Save lookup results in batches and when the run stops."""
     found = missed = transient = 0
     try:
         for done, key in enumerate(todo, 1):
@@ -79,22 +84,24 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
                     found += 1
             if done % batch_size == 0:
                 cache.save()
-                logger.info("[%s/%s] found: %s | not found: %s | retry later: %s",
-                            done, len(todo), found, missed, transient)
+                logger.info(
+                    "[%s/%s] found: %s | not found: %s | retry later: %s", done, len(todo), found, missed, transient
+                )
     finally:
         cache.save()
-    logger.info("Lookups finished: %s | found: %s | not found: %s | retry later: %s",
-                len(todo), found, missed, transient)
+    logger.info(
+        "Lookups finished: %s | found: %s | not found: %s | retry later: %s", len(todo), found, missed, transient
+    )
 
 
-# Look up donor addresses eligible for geocoding.
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
+    """Look up donor addresses eligible for geocoding."""
     keys = _contributor_keys(df)[~kept_as_filed_mask(df)]
     _geocode_keys(keys, cache, batch_size)
 
 
-# Apply donor coordinates, leaving preserved foreign filings ungeocoded.
 def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
+    """Apply donor coordinates, leaving preserved foreign filings ungeocoded."""
     keys = _contributor_keys(df)
     points = {key: accepted_coordinates(key, cache.get(key))[:2] for key in keys.unique()}
     df["latitude"] = keys.map(lambda key: points[key][0]).astype(float)

@@ -1,4 +1,5 @@
 """Read the plain-text rule tables kept as CSV files."""
+
 import csv
 
 from fec.env import DATA_DIR
@@ -12,8 +13,8 @@ def read_rows(path) -> list[dict]:
         return list(csv.DictReader(handle))
 
 
-# First column to second, in file order.
 def read_map(path) -> dict:
+    """First column to second, in file order."""
     rows = read_rows(path)
     if not rows:
         return {}
@@ -25,9 +26,8 @@ def read_set(path) -> frozenset:
     return frozenset(row["word"] for row in read_rows(path))
 
 
-
-# One named word list from word_lists.csv.
 def words(name: str) -> frozenset:
+    """One named word list from word_lists.csv."""
     global _WORD_LISTS
     if _WORD_LISTS is None:
         _WORD_LISTS = {}

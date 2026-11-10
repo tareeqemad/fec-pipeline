@@ -3,6 +3,7 @@
 The key comes from OPENAI_API_KEY; without it ask_lines returns {} and the
 caller falls back to whatever it did before the model.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,14 +32,19 @@ def have_key() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY"))
 
 
-def _ask(lines: list[str], instructions: str, user_prefix: str, schema: dict, key_field: str, model: str) -> dict[str, dict]:
+def _ask(
+    lines: list[str], instructions: str, user_prefix: str, schema: dict, key_field: str, model: str
+) -> dict[str, dict]:
     body = {
         "model": model,
         "messages": [
             {"role": "system", "content": instructions},
             {"role": "user", "content": user_prefix + "\n".join(lines)},
         ],
-        "response_format": {"type": "json_schema", "json_schema": {"name": "answers", "strict": True, "schema": schema}},
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "answers", "strict": True, "schema": schema},
+        },
     }
     if model.startswith("gpt-5"):
         body["reasoning_effort"] = "low"
@@ -53,7 +59,7 @@ def _ask(lines: list[str], instructions: str, user_prefix: str, schema: dict, ke
             raise RuntimeError(f"OpenAI refused the key: {response.status_code}")
         if response.status_code == 429 and "insufficient_quota" in response.text:
             raise OutOfCredit("the OpenAI account has no credits left")
-        time.sleep(2 ** attempt)
+        time.sleep(2**attempt)
     raise RuntimeError(f"OpenAI: {response.status_code} {response.text[:200]}")
 
 
@@ -61,8 +67,16 @@ class OutOfCredit(RuntimeError):
     """The account cannot pay for the call; the caller falls back and says so."""
 
 
-def ask_lines(lines, instructions: str, item_schema: dict, *, key_field: str,
-              user_prefix: str = "", batch: int = 80, model: str | None = None) -> dict[str, dict]:
+def ask_lines(
+    lines,
+    instructions: str,
+    item_schema: dict,
+    *,
+    key_field: str,
+    user_prefix: str = "",
+    batch: int = 80,
+    model: str | None = None,
+) -> dict[str, dict]:
     """{line: answer item} for every line the model answered; {} without a key.
 
     item_schema describes one answer; key_field is the property that echoes the line.
@@ -73,18 +87,28 @@ def ask_lines(lines, instructions: str, item_schema: dict, *, key_field: str,
     if not have_key():
         logger.warning("WARNING: OPENAI_API_KEY not set; %s line(s) left as they are", f"{len(lines):,}")
         return {}
-    schema = {"type": "object", "properties": {"items": {"type": "array", "items": item_schema}},
-              "required": ["items"], "additionalProperties": False}
-    batches = [lines[i:i + batch] for i in range(0, len(lines), batch)]
+    schema = {
+        "type": "object",
+        "properties": {"items": {"type": "array", "items": item_schema}},
+        "required": ["items"],
+        "additionalProperties": False,
+    }
+    batches = [lines[i : i + batch] for i in range(0, len(lines), batch)]
     answers: dict[str, dict] = {}
     try:
         with ThreadPoolExecutor(WORKERS) as pool:
-            for got in pool.map(lambda b: _ask(b, instructions, user_prefix, schema, key_field, model_name(model)), batches):
+            for got in pool.map(
+                lambda b: _ask(b, instructions, user_prefix, schema, key_field, model_name(model)), batches
+            ):
                 answers.update(got)
         missing = [line for line in lines if line not in answers]
         if missing:
             answers.update(_ask(missing, instructions, user_prefix, schema, key_field, model_name(model)))
     except OutOfCredit as problem:
-        logger.warning("WARNING: %s; %s of %s line(s) read, the rest left as they are",
-                       problem, f"{len(answers):,}", f"{len(lines):,}")
+        logger.warning(
+            "WARNING: %s; %s of %s line(s) read, the rest left as they are",
+            problem,
+            f"{len(answers):,}",
+            f"{len(lines):,}",
+        )
     return answers

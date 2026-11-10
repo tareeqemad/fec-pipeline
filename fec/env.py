@@ -1,4 +1,5 @@
 """Environment settings, database connection and project paths."""
+
 import os
 from pathlib import Path
 
@@ -12,8 +13,8 @@ DATABASE_OWNER = "fec_owner"
 DATABASE_READER = "fec_app"
 
 
-# Load .env without replacing existing environment variables.
 def load_env(env_path: Path | None = None) -> None:
+    """Load .env without replacing existing environment variables."""
     path = env_path or PROJECT_ROOT / ".env"
     if not path.exists():
         logger.warning(".env not found at %s - using environment variables only", path)
@@ -31,19 +32,16 @@ def load_env(env_path: Path | None = None) -> None:
                 os.environ[key] = value
 
 
-# Read a setting and report missing required values.
 def get_env(key: str, default: str | None = None, required: bool = False) -> str | None:
+    """Read a setting and report missing required values."""
     value = os.environ.get(key, default)
     if required and not value:
-        raise EnvironmentError(
-            f"Required environment variable {key} is not set. "
-            f"Add it to .env or export it."
-        )
+        raise OSError(f"Required environment variable {key} is not set. Add it to .env or export it.")
     return value
 
 
-# Build PostgreSQL connection settings from the environment.
 def get_db_config() -> dict:
+    """Build PostgreSQL connection settings from the environment."""
     return {
         "host": get_env("PG_HOST", "localhost"),
         "port": int(get_env("PG_PORT", "5432")),

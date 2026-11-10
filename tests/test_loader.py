@@ -1,14 +1,16 @@
+import re
+
 import numpy as np
 import pandas as pd
-import fec.database.loader.addresses as address_loader
-from fec.database.loader.addresses import load_address_dimension
-import re
 import pytest
+
+import fec.database.loader.addresses as address_loader
 import fec.database.loader.employers as employer_loader
+from fec.database.loader._base import load_transaction, stage
+from fec.database.loader.addresses import load_address_dimension
 from fec.database.loader.contributions import _map_employment_ids
 from fec.database.loader.employers import _make_employer_resolver, load_employments
 from fec.env import SCHEMA_SQL
-from fec.database.loader._base import load_transaction, stage
 
 
 class AddressCursor:
@@ -32,8 +34,7 @@ class AddressCursor:
 
 def _load_addresses(monkeypatch, donors, locations):
     cursor = AddressCursor()
-    monkeypatch.setattr(address_loader, "execute_values",
-                        lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
+    monkeypatch.setattr(address_loader, "execute_values", lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
     address_ids = load_address_dimension(cursor, donors, locations)
     return cursor.rows, address_ids
 
@@ -77,8 +78,7 @@ class FakeEmploymentDB:
         pass
 
     def insert(self, sql, values):
-        columns = [c.strip() for c in re.search(
-            r"donor_employments\s*\(([^)]*)\)", sql, re.S).group(1).split(",")]
+        columns = [c.strip() for c in re.search(r"donor_employments\s*\(([^)]*)\)", sql, re.S).group(1).split(",")]
         keys = {tuple(row.get(c) for c in self.unique_columns) for row in self.rows}
         for value in values:
             row = dict(zip(columns, value))
@@ -90,7 +90,7 @@ class FakeEmploymentDB:
     def execute(self, sql, params=None):
         text = " ".join(sql.split())
         assert text.startswith("SELECT donor_employment_id,"), text
-        columns = [c.strip() for c in text[len("SELECT "):text.index(" FROM ")].split(",")]
+        columns = [c.strip() for c in text[len("SELECT ") : text.index(" FROM ")].split(",")]
         self._result = [
             tuple(index if c == "donor_employment_id" else row.get(c) for c in columns)
             for index, row in enumerate(self.rows, 1)
@@ -103,8 +103,7 @@ class FakeEmploymentDB:
 @pytest.fixture
 def db(monkeypatch):
     fake = FakeEmploymentDB()
-    monkeypatch.setattr(employer_loader, "execute_values",
-                        lambda _cur, sql, rows, **_kw: fake.insert(sql, rows))
+    monkeypatch.setattr(employer_loader, "execute_values", lambda _cur, sql, rows, **_kw: fake.insert(sql, rows))
     return fake
 
 
@@ -136,22 +135,30 @@ def _load(db, filings, employers=None):
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
     get_employer_id = _make_employer_resolver(employers or {})
     employment_ids = load_employments(
-        db, frame, donor_ids, {"LEGAL": 1}, get_employer_id, HOME, [],
+        db,
+        frame,
+        donor_ids,
+        {"LEGAL": 1},
+        get_employer_id,
+        HOME,
+        [],
     )
     rows = frame.assign(_donor_id=frame["donor_key"].map(donor_ids))
     _map_employment_ids(rows, employment_ids, get_employer_id, {"LEGAL": 1})
     by_id = dict(enumerate(db.rows, 1))
-    return {sub_id: by_id[int(employment_id)]
-            for sub_id, employment_id in zip(rows["sub_id"], rows["_employment_id"])}
+    return {sub_id: by_id[int(employment_id)] for sub_id, employment_id in zip(rows["sub_id"], rows["_employment_id"])}
 
 
 def test_statuses_sharing_a_null_employer_keep_their_own_rows(db):
     """ABELSON: 15 SELF-EMPLOYED ATTORNEY filings, then one RETIRED ATTORNEY filing."""
-    linked = _load(db, [
-        _filing("1", "2022-03-03", "SELF-EMPLOYED", "ATTORNEY", "self_employed"),
-        _filing("2", "2024-10-24", "SELF-EMPLOYED", "ATTORNEY", "self_employed"),
-        _filing("3", "2026-04-07", "RETIRED", "ATTORNEY", "retired"),
-    ])
+    linked = _load(
+        db,
+        [
+            _filing("1", "2022-03-03", "SELF-EMPLOYED", "ATTORNEY", "self_employed"),
+            _filing("2", "2024-10-24", "SELF-EMPLOYED", "ATTORNEY", "self_employed"),
+            _filing("3", "2026-04-07", "RETIRED", "ATTORNEY", "retired"),
+        ],
+    )
 
     assert len(db.rows) == 2
     assert linked["1"]["employer_status"] == "self_employed"

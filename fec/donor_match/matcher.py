@@ -7,7 +7,6 @@ import pandas as pd
 from fec.config.constants import EMPLOYER_STATUS_VALUES
 from fec.donor_match.keys import _donor_keys, individual_record_id
 from fec.donor_match.normalize import extract_middle, normalize_employer, normalize_name
-from fec.donor_match.rules import NAME_MERGES, held_groups, split_zip
 from fec.donor_match.phases import (
     MatchContext,
     _score_cross_groups,
@@ -16,11 +15,15 @@ from fec.donor_match.phases import (
     _score_surname_variants,
     _score_within_groups,
 )
+from fec.donor_match.rules import NAME_MERGES, held_groups, split_zip
 from fec.donor_match.scoring import GENERIC_OCC_CATEGORIES
 
 PHASES = (
-    _score_within_groups, _score_cross_groups, _score_surname_variants,
-    _score_name_variants, _score_surname_superset_variants,
+    _score_within_groups,
+    _score_cross_groups,
+    _score_surname_variants,
+    _score_name_variants,
+    _score_surname_superset_variants,
 )
 
 
@@ -36,7 +39,9 @@ def match_donors(df: pd.DataFrame) -> dict:
         name_groups[profile["norm_name"]].append(rid)
     uf = UnionFind()
     context = MatchContext(
-        name_groups=name_groups, profiles=profiles, union_find=uf,
+        name_groups=name_groups,
+        profiles=profiles,
+        union_find=uf,
         component_suffixes={uf.find(rid): ({p["suffix"]} if p["suffix"] else set()) for rid, p in profiles.items()},
     )
     for phase in PHASES:

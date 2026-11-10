@@ -1,4 +1,5 @@
 """Load contribution records."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -20,8 +21,8 @@ _INSERT_SQL = """
 """
 
 
-# Require matching donor and committee IDs for every filing.
 def _map_required_ids(df, donor_ids, committee_ids):
+    """Require matching donor and committee IDs for every filing."""
     rows = df.assign(
         _donor_id=df["donor_key"].map(donor_ids),
         _committee_id=df["recipient_committee"].map(committee_ids),
@@ -37,36 +38,45 @@ def _map_required_ids(df, donor_ids, committee_ids):
     return rows
 
 
-# Match each filing to its donor-address link.
 def _map_address_ids(rows, address_ids):
+    """Match each filing to its donor-address link."""
     addresses = rows[DONOR_ADDRESS_COLUMNS].fillna("").astype(str)
     rows["_address_id"] = [
         address_ids.get((int(donor_id), *address))
-        for donor_id, address in zip(
-            rows["_donor_id"], addresses.itertuples(index=False, name=None)
-        )
+        for donor_id, address in zip(rows["_donor_id"], addresses.itertuples(index=False, name=None))
     ]
 
 
-# Match each filing to its own employment row.
 def _map_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids):
+    """Match each filing to its own employment row."""
     employer_ids = [
         get_employer_id(current_employer_name(status, employer))
-        for status, employer in rows[[
-            "employer_status", "contributor_employer",
-        ]].itertuples(index=False)
+        for status, employer in rows[
+            [
+                "employer_status",
+                "contributor_employer",
+            ]
+        ].itertuples(index=False)
     ]
     previous_names = rows["previous_employer"] if "previous_employer" in rows else [None] * len(rows)
     filings = zip(
-        rows["_donor_id"], employer_ids, rows["contributor_occupation"],
-        rows["employer_status"], previous_names,
+        rows["_donor_id"],
+        employer_ids,
+        rows["contributor_occupation"],
+        rows["employer_status"],
+        previous_names,
         rows["occupation_category"].map(occupation_category_ids),
     )
     matched_ids = []
     for donor_id, employer_id, occupation, status, previous_employer, category_id in filings:
         key = filing_employment_key(
-            donor_id, to_int_or_none(employer_id), occupation, status,
-            previous_employer, category_id, get_employer_id,
+            donor_id,
+            to_int_or_none(employer_id),
+            occupation,
+            status,
+            previous_employer,
+            category_id,
+            get_employer_id,
         )
         matched_ids.append(employment_ids.get(key))
     rows["_employment_id"] = matched_ids
@@ -81,10 +91,19 @@ def _map_employment_ids(rows, employment_ids, get_employer_id, occupation_catego
         )
 
 
-# Convert one contribution to PostgreSQL values.
 def _native_row(values):
-    (sub_id, transaction_id, donor_id, committee_id, address_id, employment_id,
-     amount, receipt_date, election_cycle) = values
+    """Convert one contribution to PostgreSQL values."""
+    (
+        sub_id,
+        transaction_id,
+        donor_id,
+        committee_id,
+        address_id,
+        employment_id,
+        amount,
+        receipt_date,
+        election_cycle,
+    ) = values
     return (
         int(sub_id),
         str(transaction_id),
@@ -98,25 +117,39 @@ def _native_row(values):
     )
 
 
-# Prepare contribution rows for insertion.
 def _build_rows(rows):
-    receipt_dates = pd.to_datetime(
-        rows["contribution_receipt_date"], errors="coerce"
+    """Prepare contribution rows for insertion."""
+    receipt_dates = pd.to_datetime(rows["contribution_receipt_date"], errors="coerce")
+    election_cycles = pd.to_numeric(rows["two_year_transaction_period"], errors="coerce")
+    return list(
+        map(
+            _native_row,
+            zip(
+                rows["sub_id"],
+                rows["transaction_id"],
+                rows["_donor_id"],
+                rows["_committee_id"],
+                rows["_address_id"],
+                rows["_employment_id"],
+                rows["contribution_receipt_amount"],
+                receipt_dates,
+                election_cycles,
+            ),
+        )
     )
-    election_cycles = pd.to_numeric(
-        rows["two_year_transaction_period"], errors="coerce"
-    )
-    return list(map(_native_row, zip(
-        rows["sub_id"], rows["transaction_id"], rows["_donor_id"],
-        rows["_committee_id"], rows["_address_id"], rows["_employment_id"],
-        rows["contribution_receipt_amount"], receipt_dates, election_cycles,
-    )))
 
 
-# Load contributions with their donor, address and employment links.
-def load_contributions(cur: Any, df: pd.DataFrame, donor_ids: dict,
-                       committee_ids: dict, address_ids: dict,
-                       employment_ids: dict, get_employer_id, occupation_category_ids: dict) -> None:
+def load_contributions(
+    cur: Any,
+    df: pd.DataFrame,
+    donor_ids: dict,
+    committee_ids: dict,
+    address_ids: dict,
+    employment_ids: dict,
+    get_employer_id,
+    occupation_category_ids: dict,
+) -> None:
+    """Load contributions with their donor, address and employment links."""
     rows = _map_required_ids(df, donor_ids, committee_ids)
     _map_address_ids(rows, address_ids)
     _map_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids)

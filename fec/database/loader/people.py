@@ -1,4 +1,5 @@
 """Load roster identities, addresses, jobs and images."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -17,14 +18,14 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-# Read a field from either roster format.
 def _person_value(row, field: str) -> str:
+    """Read a field from either roster format."""
     value = row.get(f"leader_{field}") or row.get(f"accomplice_{field}") or ""
     return value.strip()
 
 
-# Read the roster name and place, filling split names.
 def _person_identity(row) -> tuple[str, str, str, str, str]:
+    """Read the roster name and place, filling split names."""
     name = _person_value(row, "name")
     first = _person_value(row, "first_name")
     last = _person_value(row, "last_name")
@@ -43,20 +44,18 @@ def _person_identity(row) -> tuple[str, str, str, str, str]:
     )
 
 
-# Accept true or false; reject missing or invalid values.
 def _boolean(row, field: str, csv_filename: str, name: str) -> bool:
+    """Accept true or false; reject missing or invalid values."""
     value = (row.get(field) or "").strip().lower()
     if value == "true":
         return True
     if value == "false":
         return False
-    raise ValueError(
-        f"{csv_filename}: {name!r} needs {field}=true or false"
-    )
+    raise ValueError(f"{csv_filename}: {name!r} needs {field}=true or false")
 
 
-# Read an optional coordinate and warn about invalid text.
 def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
+    """Read an optional coordinate and warn about invalid text."""
     raw = (row.get(field) or "").strip()
     if not raw:
         return None
@@ -65,13 +64,16 @@ def _coordinate(row, field: str, csv_filename: str, name: str) -> float | None:
     except ValueError:
         logger.warning(
             "  %s: %s -- unparseable %s %r, storing NULL",
-            csv_filename, name, field, raw,
+            csv_filename,
+            name,
+            field,
+            raw,
         )
         return None
 
 
-# Save the donor image when a path is provided.
 def _upsert_image(cur: Any, row, donor_id: int) -> None:
+    """Save the donor image when a path is provided."""
     image_path = (row.get("image_path") or "").strip()
     if not image_path:
         return
@@ -82,7 +84,6 @@ def _upsert_image(cur: Any, row, donor_id: int) -> None:
     )
 
 
-# Save the roster address and optional coordinates.
 def _upsert_address(
     cur: Any,
     row,
@@ -92,6 +93,7 @@ def _upsert_address(
     city: str,
     state: str,
 ) -> None:
+    """Save the roster address and optional coordinates."""
     street_1 = _person_value(row, "street_1")
     if not street_1 and not city:
         return
@@ -109,11 +111,14 @@ def _upsert_address(
     )
 
 
-# Validate and load the roster, linking rows to donors.
 def _load_donor_linked_csv(
-    cur: Any, csv_filename: str, table: str, insert_row,
+    cur: Any,
+    csv_filename: str,
+    table: str,
+    insert_row,
     validate_rows=None,
 ) -> None:
+    """Validate and load the roster, linking rows to donors."""
     csv_path = REFERENCE_DIR / csv_filename
     if not csv_path.exists():
         logger.info(f"  {csv_path.name} not found -- skipping {table}")
@@ -134,8 +139,8 @@ def _load_donor_linked_csv(
         logger.warning("WARNING: %s has %s rows without a name; skipped", csv_path.name, skipped)
 
 
-# Save one roster donor; False for a row without a name.
 def _load_person(cur, row, csv_filename: str, locations, insert_row) -> bool:
+    """Save one roster donor; False for a row without a name."""
     name, first, last, city, state = _person_identity(row)
     if not name:
         return False

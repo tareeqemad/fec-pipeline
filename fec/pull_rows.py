@@ -1,4 +1,5 @@
 """Turn one FEC API result into one row of contributions.csv."""
+
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
@@ -42,8 +43,8 @@ COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-# Reject missing or invalid amounts instead of recording zero.
 def _number(value, sub_id: str) -> Decimal:
+    """Reject missing or invalid amounts instead of recording zero."""
     try:
         amount = Decimal(str(value).strip())
     except (InvalidOperation, ValueError):
@@ -53,8 +54,8 @@ def _number(value, sub_id: str) -> Decimal:
     return amount
 
 
-# Build a raw CSV row, skipping filings without an ID.
 def build_row(result: dict[str, Any]) -> list | None:
+    """Build a raw CSV row, skipping filings without an ID."""
     sub_id = str(result.get("sub_id") or "").strip()
     if not sub_id:
         return None
@@ -69,15 +70,10 @@ def build_row(result: dict[str, Any]) -> list | None:
     values["sub_id"] = sub_id
     values["contribution_receipt_date"] = receipt_date
     values["contributor_year"] = year
-    values["contribution_receipt_amount"] = _number(
-        result.get("contribution_receipt_amount"), sub_id
-    )
+    values["contribution_receipt_amount"] = _number(result.get("contribution_receipt_amount"), sub_id)
     return [values.get(column) for column in COLUMNS]
 
 
-# Read the FEC source fields saved beside the raw CSV.
 def source_values(result: dict[str, Any]) -> dict[str, str]:
-    return {
-        column: str(result.get(field) or "").strip().upper()
-        for column, field in SOURCE_FIELDS.items()
-    }
+    """Read the FEC source fields saved beside the raw CSV."""
+    return {column: str(result.get(field) or "").strip().upper() for column, field in SOURCE_FIELDS.items()}

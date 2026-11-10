@@ -11,6 +11,7 @@ def apply_record_rules(df: pd.DataFrame, filed_employers: pd.Series, filed_occup
     df["is_individual"] = df["entity_type"].eq("INDIVIDUAL")
     normalize_business_names(df)
     read_work(df, df["is_individual"], filed_employers, filed_occupations)
-    df.loc[df["entity_type"].eq("COMMITTEE/PAC") & df["occupation_category"].isna(), "occupation_category"] = "POLITICAL COMMITTEE"
+    df.loc[df["entity_type"].eq("COMMITTEE/PAC") & df["occupation_category"].isna(), "occupation_category"] = (
+        "POLITICAL COMMITTEE"
+    )
     return df
-

@@ -5,6 +5,7 @@ fullest spelling (MATTHEW over MATT), a rare one-letter slip aside
 (ZIPORAH beside 87 ZIPORA). Filings with a different given name under the
 same donor (a spouse on a joint account) keep their own.
 """
+
 import re
 from collections import Counter, defaultdict
 
@@ -18,8 +19,8 @@ _TOKEN = re.compile(r"[A-Z0-9]+")
 _ASIDE = re.compile(r"\([^()]*\)?")
 
 
-# Apply reviewed committee names and keys after the cleaning steps.
 def canonicalize_committee_names(df: pd.DataFrame) -> int:
+    """Apply reviewed committee names and keys after the cleaning steps."""
     committees = df["entity_type"].eq("COMMITTEE/PAC") & df["identity_status"].eq("confirmed")
     filings = df["sub_id"].astype(str)
     total = 0
@@ -39,13 +40,13 @@ def _tokens(text: str) -> list:
 
 
 def _core(first: str) -> str:
-    """A given name without what the filer wrote in brackets."""
+    """Return a given name without what the filer wrote in brackets."""
     text = " ".join(_ASIDE.sub(" ", first).replace(")", " ").split()).strip(" ,-")
-    return re.sub(r"(?<=[A-Z]{3})\.+$", "", text)                # JOHN.
+    return re.sub(r"(?<=[A-Z]{3})\.+$", "", text)  # JOHN.
 
 
 def _surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
-    """The most filed surname, and an initial typed before it (W. HAHN)."""
+    """Return the most filed surname, and an initial typed before it (W. HAHN)."""
     filed = Counter(last for last in lasts if last)
 
     def base(variant: str) -> str:
@@ -63,18 +64,25 @@ def _surname(lasts: list[str], firsts: list[str]) -> tuple[str, str]:
         roots[base(variant)] += count
     surname = min(roots, key=lambda v: (-roots[v], v))
     initial, _, rest = surname.partition(" ")
-    if rest and len(initial.rstrip(".")) == 1 and not (initial[0] in "OD" or (initial[0] == "L" and rest[0] in "AEIOUH")):
+    if (
+        rest
+        and len(initial.rstrip(".")) == 1
+        and not (initial[0] in "OD" or (initial[0] == "L" and rest[0] in "AEIOUH"))
+    ):
         return rest.strip(), initial
     return surname, ""
 
 
 def _fullest(spellings: list[str], asides: set, rare: frozenset) -> str | None:
-    """The fullest spelling; among equals the most filed, then the first filed."""
+    """Return the fullest spelling; among equals the most filed, then the first filed."""
     if not spellings:
         return None
     words = Counter(_tokens(s)[0] for s in spellings)
-    slips = {w for w in words if len(w) >= 4 and w in rare
-             and any(words[o] > words[w] and OSA.distance(w, o) == 1 for o in words)}
+    slips = {
+        w
+        for w in words
+        if len(w) >= 4 and w in rare and any(words[o] > words[w] and OSA.distance(w, o) == 1 for o in words)
+    }
     kept = [s for s in spellings if _tokens(s)[0] not in slips] or spellings
     filed = Counter(kept)
 
@@ -82,21 +90,32 @@ def _fullest(spellings: list[str], asides: set, rare: frozenset) -> str | None:
         first, *rest = _core(s).split() or [""]
         return " ".join([first, *(w for w in rest if not set(_tokens(w)) <= asides or not _tokens(w))])
 
-    rank = {s: (len("".join(_tokens(plain(s)))), plain(s) == s, len(s) if plain(s) == s else 0, filed[s], -kept.index(s)) for s in filed}
+    rank = {
+        s: (len("".join(_tokens(plain(s)))), plain(s) == s, len(s) if plain(s) == s else 0, filed[s], -kept.index(s))
+        for s in filed
+    }
     best = max(rank, key=rank.get)
-    return best if plain(best) == best or "(" in best and _core(best) == plain(best) and best.count("(") == best.count(")") else plain(best)
+    return (
+        best
+        if plain(best) == best or "(" in best and _core(best) == plain(best) and best.count("(") == best.count(")")
+        else plain(best)
+    )
 
 
 def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset()) -> tuple[str, list]:
-    """The donor's surname and, for each filing, the given name to show."""
+    """Return the donor's surname and, for each filing, the given name to show."""
     surname, initial = _surname(lasts, firsts)
     own = {t for last in lasts for t in _tokens(last)} | set(surname.split())
     asides = {t for first in firsts for inner in re.findall(r"\(([^()]*)", first) for t in _tokens(inner)}
     # the surname typed again in the first-name box is no given name
     given = [" ".join(w for w in first.split() if w not in surname.split()) for first in firsts]
     # GLENN STUART CHRYSTA: the surname again, cut short by the field
-    given = [g.rsplit(" ", 1)[0] if " " in g and len(g.split()[-1]) >= len(surname) - 2 and surname.startswith(g.split()[-1]) else g
-             for g in given]
+    given = [
+        g.rsplit(" ", 1)[0]
+        if " " in g and len(g.split()[-1]) >= len(surname) - 2 and surname.startswith(g.split()[-1])
+        else g
+        for g in given
+    ]
     groups = defaultdict(list)
     for position, first in enumerate(given):
         tokens = _tokens(first)
@@ -106,7 +125,9 @@ def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset
     # P R beside P RICHARD: initials that a fuller filing spells out are the same name
     for key in sorted(groups, key=lambda k: len(k[1])):
         initials = {t for p in groups[key] for t in _tokens(given[p])[1:] if len(t) == 1}
-        fuller = [k for k in groups if k[0] == key[0] and key[1] < k[1] and all(n[0] in initials for n in k[1] - key[1])]
+        fuller = [
+            k for k in groups if k[0] == key[0] and key[1] < k[1] and all(n[0] in initials for n in k[1] - key[1])
+        ]
         if fuller:
             groups[max(fuller, key=lambda k: len(groups[k]))] += groups.pop(key)
     everyone = _fullest([g for g in given if g], asides, rare)

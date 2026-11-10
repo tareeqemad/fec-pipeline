@@ -13,6 +13,7 @@ word (the RETIRED reader owns those), and any text already listed or
 already corrected. Only the occupation box is read: a company name in the
 employer box can be one letter from a job (GARTNER / PARTNER).
 """
+
 from __future__ import annotations
 
 import re
@@ -53,7 +54,8 @@ def _one_word_slip(text: str, listed: str) -> bool:
 def learn_typos(texts, listed=None) -> dict[str, str]:
     """{filed text: listed occupation} for every text one slip from one listed occupation."""
     listed = [
-        k for k in (CATEGORY_OVERRIDES if listed is None else listed)
+        k
+        for k in (CATEGORY_OVERRIDES if listed is None else listed)
         if k not in OCCUPATION_CORRECTIONS and k not in STATUS_WORDS
     ]
     known = set(listed)

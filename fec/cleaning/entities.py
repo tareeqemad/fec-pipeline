@@ -1,4 +1,5 @@
 """Say what each contributor is: a person, an organisation or a committee."""
+
 from __future__ import annotations
 
 import re
@@ -18,8 +19,13 @@ from fec.env import FEC_SOURCE_CSV, RULES_DIR
 SOURCE_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
 # FEC entity codes; a candidate (CAN) giving is a person.
 FEC_ENTITY_TYPES = {
-    "IND": "INDIVIDUAL", "CAN": "INDIVIDUAL", "ORG": "ORGANIZATION",
-    "COM": "COMMITTEE/PAC", "PAC": "COMMITTEE/PAC", "PTY": "COMMITTEE/PAC", "CCM": "COMMITTEE/PAC",
+    "IND": "INDIVIDUAL",
+    "CAN": "INDIVIDUAL",
+    "ORG": "ORGANIZATION",
+    "COM": "COMMITTEE/PAC",
+    "PAC": "COMMITTEE/PAC",
+    "PTY": "COMMITTEE/PAC",
+    "CCM": "COMMITTEE/PAC",
 }
 CATEGORY_OF_TYPE = {"ORGANIZATION": "ORGANIZATION", "COMMITTEE/PAC": "POLITICAL COMMITTEE"}
 
@@ -42,7 +48,7 @@ def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
 
 
 def names_committee(name: str) -> bool:
-    """A committee word, a word ending in PAC, or a campaign phrase."""
+    """Tell whether a name holds a committee word, a word ending in PAC, or a campaign phrase."""
     name = name.upper()
     return bool(_CAMPAIGN_RE.search(name)) or any(
         word in _COMMITTEE_WORDS or word.endswith("PAC") for word in re.findall(r"[A-Z]+", name)
@@ -63,8 +69,12 @@ def classify_entities(df: pd.DataFrame) -> None:
     level = names.map(lambda name: filings.level(name, 1))
     legal_form = has_legal_form_token(names)
     # KAHAN TRUST, DAVID names a trust; TRUST, MARK names a person.
-    trust_head = names.str.split(",").str[0].str.upper().str.split().map(
-        lambda head: len(head) >= 2 and head[-1] in ORGANISATION_WORDS
+    trust_head = (
+        names.str.split(",")
+        .str[0]
+        .str.upper()
+        .str.split()
+        .map(lambda head: len(head) >= 2 and head[-1] in ORGANISATION_WORDS)
     )
     certain = legal_form | level.isin(("legal_form", "reviewed", "frequent")) | (level.eq("named_org") & trust_head)
     company = legal_form | level.isin(COMPANY_LEVELS)
@@ -73,7 +83,9 @@ def classify_entities(df: pd.DataFrame) -> None:
     trusted = flagged & df[["contributor_first_name", "contributor_last_name"]].fillna("").ne("").all(axis=1)
     person = ~committee & np.where(names.str.match(INDIV_NAME_RE), trusted | ~certain, trusted & ~company)
 
-    kind = pd.Series(np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC"), index=df.index)
+    kind = pd.Series(
+        np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC"), index=df.index
+    )
     # FEC's type for a name holds for every filing of that name.
     filed = df["fec_entity_type"].map(FEC_ENTITY_TYPES) if "fec_entity_type" in df.columns else pd.Series(dtype=object)
     filed = filed.dropna()

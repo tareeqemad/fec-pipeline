@@ -1,10 +1,10 @@
 """Compare donor pairs in the five matching phases.
 
-    1. the same normalised name (LAST|FIRST)
-    2. first-name variants of one surname: nickname, typo, truncation
-    3. surname variants, with strong geography
-    4. other formats of one name: FIRST, LAST or the words reordered
-    5. a surname inside a compound surname, on the same street
+1. the same normalised name (LAST|FIRST)
+2. first-name variants of one surname: nickname, typo, truncation
+3. surname variants, with strong geography
+4. other formats of one name: FIRST, LAST or the words reordered
+5. a surname inside a compound surname, on the same street
 """
 
 import re
@@ -45,8 +45,11 @@ def _suffixes_allow_merge(context: MatchContext, rid_a: str, rid_b: str) -> bool
 
 def _merge(context: MatchContext, rid_a: str, rid_b: str, score: int) -> None:
     """Join the two profiles' groups when the score and the identity rules allow."""
-    if (score < MERGE_THRESHOLD or not _suffixes_allow_merge(context, rid_a, rid_b)
-            or identities_must_stay_separate(context.profiles[rid_a], context.profiles[rid_b])):
+    if (
+        score < MERGE_THRESHOLD
+        or not _suffixes_allow_merge(context, rid_a, rid_b)
+        or identities_must_stay_separate(context.profiles[rid_a], context.profiles[rid_b])
+    ):
         return
     root_a, root_b = context.union_find.find(rid_a), context.union_find.find(rid_b)
     if context.union_find.union(rid_a, rid_b):
@@ -100,7 +103,7 @@ def _cross_name_adjust(evidence: Evidence) -> int:
 
 
 def _same_words_adjust(evidence: Evidence) -> int:
-    """The same words in another order: a bonus unless the middle initials differ."""
+    """Score the same words in another order: a bonus unless the middle initials differ."""
     return evidence.score if evidence.middle_conflict else evidence.score + SCORE_CROSS_NAME_BONUS
 
 
@@ -140,13 +143,16 @@ def _surnames_vary(name_a: str, name_b: str) -> bool:
 def _score_surname_variants(context: MatchContext) -> None:
     """Surname typos need a shared street, or ZIP and employer."""
     _score_bucket_pairs(
-        context, _norms_by_first_name(context.name_groups),
-        _surnames_vary, _same_street_or_zip_and_employer, lambda evidence: evidence.score,
+        context,
+        _norms_by_first_name(context.name_groups),
+        _surnames_vary,
+        _same_street_or_zip_and_employer,
+        lambda evidence: evidence.score,
     )
 
 
 def _name_token_key(norm_name: str) -> frozenset:
-    """The surname and first name, in either order."""
+    """Return the surname and first name, in either order."""
     last, _, first = norm_name.partition("|")
     return frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
 
@@ -206,7 +212,11 @@ def _superset_candidates(tokens: frozenset, token_index: dict) -> set:
 
 
 def _is_valid_superset(
-    shorter_name: str, longer_name: str, shorter_tokens: frozenset, key_of: dict, first_of: dict,
+    shorter_name: str,
+    longer_name: str,
+    shorter_tokens: frozenset,
+    key_of: dict,
+    first_of: dict,
 ) -> bool:
     if longer_name == shorter_name:
         return False
