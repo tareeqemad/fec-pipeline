@@ -15,11 +15,6 @@ SKIP_EMPLOYERS = SKIP_OCCUPATIONS | words("skip_employers_own")
 # Life statuses for matching; narrower than NOT_REAL_EMPLOYER.
 EMPLOYER_STATUS_VALUES = SKIP_OCCUPATIONS | words("employer_status_values_own")
 
-# Real brands containing a slash, kept verbatim and gate-checked.
-SLASH_BRAND_EMPLOYERS = frozenset({
-    'BRIDGESTONE/FIRESTONE',
-})
-
 # Refusals and non-answers; the shared base for null employers.
 REFUSAL_EMPLOYERS = words("refusal_employers")
 

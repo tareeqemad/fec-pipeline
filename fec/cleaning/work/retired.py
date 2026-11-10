@@ -19,10 +19,8 @@ from __future__ import annotations
 
 import re
 
-import numpy as np
-import pandas as pd
 
-from fec.cleaning.work.company import COMPANY_LEVELS, company_evidence
+from fec.cleaning.work.company import COMPANY_LEVELS, evidence
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.cleaning.work.status_words import status_word
 from fec.config.constants import STATUS_WORDS
@@ -108,68 +106,32 @@ def _names_nothing(rest: str) -> bool:
     return not rest or rest in _NOTHING or len(re.sub(r"[^A-Z]", "", rest)) < 3
 
 
-def settle_retired_fields(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Read RETIRED in both work fields; keep the former job and company.
+def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
+    """(employer, occupation, former company, said retired) of one filed pair.
 
-    A field without the marker is left as filed: it already names the
+    A box without the marker is left as filed: it already names the
     profession or the company.
     """
-    people = df["is_individual"].astype(bool)
-    rows = df.index[people]
-    emp = df.loc[rows, "contributor_employer"]
-    occ = df.loc[rows, "contributor_occupation"]
-    emp_split = pd.DataFrame(emp.map(split_retired).tolist(), index=rows, columns=["retired", "rest"])
-    occ_split = pd.DataFrame(occ.map(split_retired).tolist(), index=rows, columns=["retired", "rest"])
-    retired = emp_split["retired"] | occ_split["retired"]
-    # Not retired, but a former part was dropped: OFFICE MANAGER, RETIRED NURSE.
-    current = ~retired & occ_split["rest"].ne(occ.map(_plain)) & occ_split["rest"].ne("")
-    df.loc[rows[current], "contributor_occupation"] = occ_split.loc[current, "rest"]
-    if not retired.any():
-        return df, int(current.sum())
-    hit = rows[retired]
-    if "previous_employer" not in df.columns:
-        df["previous_employer"] = pd.Series(dtype="object", index=df.index)
-    # The donor step reads this flag once the donor's filings are matched.
-    if "_retired_marker" not in df.columns:
-        df["_retired_marker"] = False
-    df.loc[hit, "_retired_marker"] = True
-
-    # What a marker-bearing field names once the marker is removed.
-    emp_rest = emp_split.loc[hit, "rest"].where(emp_split.loc[hit, "retired"], "")
-    occ_rest = occ_split.loc[hit, "rest"].where(occ_split.loc[hit, "retired"], "")
-    emp_rest = emp_rest.where(~emp_rest.map(_names_nothing), "")
-    occ_rest = occ_rest.where(~occ_rest.map(_names_nothing), "")
-
-    emp_is_job = emp_rest.ne("") & emp_rest.map(is_job_title)
-    emp_level = company_evidence(emp_rest)
-    emp_is_company = emp_rest.ne("") & ~emp_is_job & (
-        emp_level.isin(COMPANY_LEVELS) | (emp_level.eq("unknown") & emp_rest.map(is_real_employer))
+    e_retired, e_rest = split_retired(employer)
+    o_retired, o_rest = split_retired(occupation)
+    if not (e_retired or o_retired):
+        # Not retired, but a former part was dropped: OFFICE MANAGER, RETIRED NURSE.
+        return employer, (o_rest if o_rest and o_rest != _plain(occupation) else occupation), "", False
+    e_rest = e_rest if e_retired and not _names_nothing(e_rest) else ""
+    o_rest = o_rest if o_retired and not _names_nothing(o_rest) else ""
+    level = evidence(e_rest)
+    e_is_job = bool(e_rest) and is_job_title(e_rest)
+    e_is_company = bool(e_rest) and not e_is_job and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(e_rest)))
+    o_is_company = bool(o_rest) and evidence(o_rest) in ("legal_form", "reviewed")
+    # An employer box without the marker: a job word is the profession (PHYSICIAN / RETIRED);
+    # a company stays for the donor step, which moves it to previous_employer.
+    unmarked = bool(employer) and not e_retired
+    unmarked_job = unmarked and is_job_title(employer)
+    # The former profession: the occupation's own words, else a job from the employer box.
+    profession = (
+        ("" if o_is_company else o_rest) or ("" if o_retired else occupation)
+        or (e_rest if e_is_job else "") or (employer if unmarked_job else "")
     )
-    occ_is_company = occ_rest.ne("") & company_evidence(occ_rest).isin(("legal_form", "reviewed", "frequent"))
-
-    # The former profession: the occupation's own words, else a job from the
-    # employer box; a filed occupation without the marker stays as it is.
-    occ_text = occ.loc[hit].fillna("").astype(str).str.strip()
-    occ_marked = occ_split.loc[hit, "retired"]
-    profession = occ_rest.where(~occ_is_company, "")
-    profession = profession.where(profession.ne("") | occ_marked | occ_text.eq(""), occ_text)
-    profession = profession.where(profession.ne(""), emp_rest.where(emp_is_job, ""))
-    # An employer box without the marker: a job word is the profession
-    # (PHYSICIAN / RETIRED); a company stays for the donor step, which moves
-    # it to previous_employer once the donor's filings are matched.
-    emp_text = emp.loc[hit].fillna("").astype(str).str.strip()
-    unmarked = ~emp_split.loc[hit, "retired"] & emp_text.ne("")
-    unmarked_job = unmarked & emp_text.str.upper().map(is_job_title)
-    profession = profession.where(profession.ne("") | ~unmarked_job, emp_text.str.upper())
-    company = emp_rest.where(emp_is_company, "")
-    company = company.where(company.ne(""), occ_rest.where(occ_is_company, ""))
-    keep_employer = unmarked & ~unmarked_job & emp_text.map(is_real_employer)
-
-    df.loc[hit[~keep_employer], "contributor_employer"] = "RETIRED"
-    df.loc[hit, "contributor_occupation"] = profession.where(profession.ne(""), "RETIRED")
-    previous = df.loc[hit, "previous_employer"].fillna("").astype(str).str.strip()
-    fill = company.ne("") & previous.eq("")
-    df.loc[hit[fill], "previous_employer"] = company[fill]
-    if "occupation_category" in df.columns:
-        df.loc[hit, "occupation_category"] = np.where(profession.ne(""), df.loc[hit, "occupation_category"], "RETIRED")
-    return df, len(hit) + int(current.sum())
+    company = e_rest if e_is_company else o_rest if o_is_company else ""
+    keeps_employer = unmarked and not unmarked_job and is_real_employer(employer)
+    return (employer if keeps_employer else "RETIRED"), profession or "RETIRED", company, True

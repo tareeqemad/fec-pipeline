@@ -76,10 +76,6 @@
       "passed": true,
       "count": 0
     },
-    "no_slash_in_previous_employer": {
-      "passed": true,
-      "count": 0
-    },
     "null_surname_preserved": {
       "passed": true,
       "count": 0

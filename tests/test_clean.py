@@ -157,14 +157,14 @@ def test_keys_stay_with_their_filings_across_runs():
 
 
 def test_company_evidence_levels():
-    from fec.cleaning.work.company import company_evidence
+    from fec.cleaning.work.company import Filings, evidence
     values = pd.Series([
         'ACME, L.L.C.', 'KIRKLAND & ELLIS LLP', 'BROWN & BROWN', 'REAL ESTATE',
         'INVESTMENT PORTFOLIO MANAGER', 'VENTURE CAPITALIST', 'CHAIRMAN AND CEO',
         'DIRECTOR OF POLICY', 'CRESCENT REALTY ADVISORS', 'ZORVAL CAPITAL',
         'ZORVAL & TARQUIN', 'WEALTH MANAGEMENT', 'MEDSTAR HEALTH', 'MATTEL', '',
     ])
-    assert company_evidence(values).tolist() == [
+    assert values.map(evidence).tolist() == [
         'legal_form', 'legal_form', 'reviewed', 'job',
         'job', 'job', 'job',
         'job', 'named_org', 'named_org',
@@ -174,8 +174,8 @@ def test_company_evidence_levels():
     # Other donors filing the value as their employer lifts an unknown name.
     employers = pd.Series(['MATTEL', 'MATTEL', 'MATTEL', 'REAL ESTATE MANAGEMENT', 'REAL ESTATE MANAGEMENT', 'ME'])
     filers = pd.Series(['A', 'B', 'C', 'D', 'E', 'F'])
-    levels = company_evidence(pd.Series(['MATTEL', 'REAL ESTATE MANAGEMENT', 'ME']), employers=employers, filers=filers, min_filers=2)
-    assert levels.tolist() == ['frequent', 'job', 'unknown']
+    filings = Filings(filers, employers)
+    assert [filings.level(text, 2) for text in ('MATTEL', 'REAL ESTATE MANAGEMENT', 'ME')] == ['frequent', 'job', 'unknown']
 
 
 def test_entity_type_from_committee_signal_and_company_evidence():
@@ -230,47 +230,34 @@ def test_split_retired_reads_every_spelling():
     assert split_retired('ACME LLC') == (False, 'ACME LLC')
 
 
-def test_settle_retired_fields_keeps_job_and_company():
-    from fec.cleaning.work.retired import settle_retired_fields
-    df = pd.DataFrame({
-        'is_individual': [True] * 6,
-        'contributor_employer': ['RETIRED FROM DAIICHI SANKYO', 'RETIRE', 'RETIRED TEACHER', "I'M RETIRED", 'RETIRED', 'ACME LLC'],
-        'contributor_occupation': ['RETIRED', 'SOCIAL WORKER', 'RETIRED', 'RETIRED.', 'RETIRED ATTORNEY', 'ENGINEER'],
-        'occupation_category': ['RETIRED', 'OTHER', 'RETIRED', 'RETIRED', 'RETIRED', 'TECHNOLOGY'],
-    })
-
-    assert settle_retired_fields(df)[1] == 5
-    assert df['contributor_employer'].tolist() == ['RETIRED'] * 5 + ['ACME LLC']
-    assert df['contributor_occupation'].tolist() == ['RETIRED', 'SOCIAL WORKER', 'TEACHER', 'RETIRED', 'ATTORNEY', 'ENGINEER']
-    assert df['previous_employer'].fillna('').tolist() == ['DAIICHI SANKYO', '', '', '', '', '']
-
-
-def test_settle_retired_fields_keeps_a_current_role_before_a_retired_one():
-    from fec.cleaning.work.retired import settle_retired_fields
-    df = pd.DataFrame({
-        'is_individual': [True] * 3,
-        'contributor_employer': ['STEVEN TENNENBAUM', '', 'JAMS'],
-        'contributor_occupation': ['OFFICE MANAGER, RETIRED NURSE', 'VOLUNTEER (RETIRED ATTORNEY)', 'RETIRED JUDGE MEDIATOR'],
-        'occupation_category': ['MEDICAL / HEALTHCARE', 'LEGAL', 'LEGAL'],
-    })
-
-    assert settle_retired_fields(df)[1] == 3
+def test_read_retired_keeps_job_and_company():
+    from fec.cleaning.work.retired import read_retired
+    # (employer, occupation) -> (employer, occupation, former company, said retired)
+    assert read_retired('RETIRED FROM DAIICHI SANKYO', 'RETIRED') == ('RETIRED', 'RETIRED', 'DAIICHI SANKYO', True)
+    assert read_retired('RETIRE', 'SOCIAL WORKER') == ('RETIRED', 'SOCIAL WORKER', '', True)
+    assert read_retired('RETIRED TEACHER', 'RETIRED') == ('RETIRED', 'TEACHER', '', True)
+    assert read_retired("I'M RETIRED", 'RETIRED') == ('RETIRED', 'RETIRED', '', True)
+    assert read_retired('RETIRED', 'RETIRED ATTORNEY') == ('RETIRED', 'ATTORNEY', '', True)
+    assert read_retired('ACME LLC', 'ENGINEER') == ('ACME LLC', 'ENGINEER', '', False)
+    # a current role before a retired one: still working
+    assert read_retired('STEVEN TENNENBAUM', 'OFFICE MANAGER, RETIRED NURSE') == ('STEVEN TENNENBAUM', 'OFFICE MANAGER', '', False)
+    assert read_retired('', 'VOLUNTEER (RETIRED ATTORNEY)') == ('', 'VOLUNTEER', '', False)
     # JAMS stays here; the donor step moves a retiree's company to previous_employer.
-    assert df['contributor_employer'].tolist() == ['STEVEN TENNENBAUM', '', 'JAMS']
-    assert df['contributor_occupation'].tolist() == ['OFFICE MANAGER', 'VOLUNTEER', 'JUDGE MEDIATOR']
+    assert read_retired('JAMS', 'RETIRED JUDGE MEDIATOR') == ('JAMS', 'JUDGE MEDIATOR', '', True)
 
 
 def test_split_self_marker_and_previous_employer():
-    from fec.cleaning.work.previous import normalize_previous_employer_value, split_self_marker
+    from fec.cleaning.work.self_employed import split_self_marker
+    from fec.cleaning.work.read import company_named
     assert split_self_marker('SELF - ACME LLC') == (True, 'ACME LLC')
     assert split_self_marker('SELF; JACK A FRYDRYCH APLC') == (True, 'JACK A FRYDRYCH APLC')
     assert split_self_marker('SELF EMPLOYED AND TOTAL REALTY') == (True, 'TOTAL REALTY')
     assert split_self_marker('CONSULTANT (SELF-EMPLOYED)') == (True, 'CONSULTANT')
     assert split_self_marker('SELF') == (True, '')
     assert split_self_marker('ACME LLC') == (False, '')
-    assert normalize_previous_employer_value('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
-    assert normalize_previous_employer_value('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
-    assert normalize_previous_employer_value('SELF EMPLOYED; DENTIST') == 'SELF-EMPLOYED'
+    assert company_named('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
+    assert company_named('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
+    assert company_named('SELF EMPLOYED; DENTIST') == ''          # a trade, no company
 
 
 

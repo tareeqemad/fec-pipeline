@@ -102,7 +102,7 @@ Warnings worth reading after `clean.py`:
 | `data/raw/` | FEC data as pulled; never edited |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, each with its source. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A retiree's previous employer is set in `previous_employers.csv` (`[CLEAR]` empties it) |
+| `data/rules/` | Reviewed decisions, each with its source. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A donor whose latest contribution says retired gets a previous employer: the company on their latest earlier contribution, or the answer in `previous_employers.csv` for people whose former work is known (`[CLEAR]` empties it) |
 | `data/config/` | Spelling and word lists (`word_lists.csv` holds every list of words the code reads, one row per word); `written_as` is the text as filed. `occupation_category_rules.md` is the instructions the model reads to categorize occupations: edit it to change how a kind of occupation is handled |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
 | `data/cache/` | Map points, donor keys, and the model's occupation categories from earlier runs; keep it |

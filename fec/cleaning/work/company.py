@@ -146,34 +146,28 @@ def _text_evidence(key: str, ampersand: bool = False) -> str:
     return "named_org"
 
 
-def company_evidence(
-    values: pd.Series,
-    *,
-    employers: pd.Series | None = None,
-    filers: pd.Series | None = None,
-    min_filers: int = 3,
-) -> pd.Series:
-    """The evidence level of each value.
+def evidence(text: str) -> str:
+    """The evidence level of a text on its own."""
+    return _text_evidence(company_key(text), "&" in text)
 
-    With employers and filers (the same length), a value filed as the
-    employer by at least min_filers different filers is 'frequent' when the
-    text alone says 'unknown' or 'named_org'.
-    """
-    keys = values.map(company_key)
-    ampersands = values.map(lambda v: isinstance(v, str) and "&" in v)
-    levels = pd.Series([_text_evidence(k, a) for k, a in zip(keys, ampersands)], index=values.index, dtype=object)
-    if employers is not None and filers is not None:
-        emp_keys = employers.map(company_key)
-        counts = filers.groupby(emp_keys.to_numpy()).nunique()
-        frequent = (
-            levels.isin(("unknown", "named_org"))
-            & keys.map(counts).fillna(0).ge(min_filers)
-            & keys.str.replace(r"[^A-Z]", "", regex=True).str.len().ge(3)
-            & keys.map(is_real_employer)
-            & ~keys.map(_only_common_words)
-        )
-        levels = levels.mask(frequent, "frequent")
-    return levels
+
+class Filings:
+    """What the filings say together: who names which text as their employer."""
+
+    def __init__(self, names: pd.Series, employers: pd.Series):
+        keys = employers.map(company_key)
+        filed = keys.ne("")
+        self.filers = names[filed].groupby(keys[filed].to_numpy()).nunique().to_dict()
+        self.own = set(zip(names[filed], keys[filed]))
+
+    def level(self, text: str, min_filers: int = 3) -> str:
+        """The evidence level of a text; 'frequent' when enough different filers name it as their employer."""
+        key = company_key(text)
+        level = evidence(text)
+        if (level in ("unknown", "named_org") and self.filers.get(key, 0) >= min_filers
+                and len(re.sub(r"[^A-Z]", "", key)) >= 3 and is_real_employer(key) and not _only_common_words(key)):
+            return "frequent"
+        return level
 
 
 _LEGAL_TOKENS = words("legal_tokens")

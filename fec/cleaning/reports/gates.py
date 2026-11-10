@@ -9,7 +9,6 @@ from fec.cleaning.reports.employment_gates import (
     _gate_retired_active_sync,
     _gate_retired_employer_marker,
     _gate_self_employed_status,
-    _gate_slash_previous_employer,
     _gate_valid_categories,
 )
 
@@ -151,7 +150,6 @@ _QUALITY_GATES = [
     _gate_special_chars_names,
     _gate_retired_active_sync,
     _gate_retired_employer_marker,
-    _gate_slash_previous_employer,
     _gate_null_surname,
 ]
 

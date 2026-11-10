@@ -1,11 +1,14 @@
-"""One previous employer per retired donor."""
+"""The previous employer of a donor whose latest contribution says retired.
+
+In order: a reviewed answer (data/rules/previous_employers.csv, for people
+whose former work is known), the company the retired filing itself names
+(RETIRED FROM ACME), else the company on the donor's latest earlier
+contribution, to any committee, where they still filed an employer.
+"""
 import pandas as pd
 
 from fec.cleaning.rules.manual import CLEAR
-from fec.cleaning.work.employer_aliases import reviewed_employer_name
-from fec.cleaning.work.employer_names import expand_abbreviation_text
-from fec.cleaning.work.previous import normalize_previous_employer_value
-from fec.cleaning.work.status import is_real_employer
+from fec.cleaning.work.read import companies_named, company_named
 from fec.config.tables import read_rows
 from fec.env import PREVIOUS_EMPLOYERS_CSV
 from fec.log import get_logger
@@ -13,18 +16,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-def _usable(value) -> str:
-    cleaned = normalize_previous_employer_value(value)
-    return cleaned if cleaned == "SELF-EMPLOYED" or is_real_employer(cleaned) else ""
-
-
-# The chosen name in previous-employer form.
-def _clean(value: str) -> str:
-    expanded = expand_abbreviation_text(pd.Series([_usable(value)])).iloc[0]
-    return reviewed_employer_name(expanded) if expanded else ""
-
-
-# Reviewed answers by donor; an empty answer clears.
+# Reviewed answers by donor; [CLEAR] says there is none.
 def _reviewed(donors: dict) -> dict:
     found, missing = {}, []
     for row in read_rows(PREVIOUS_EMPLOYERS_CSV):
@@ -33,40 +25,34 @@ def _reviewed(donors: dict) -> dict:
         if not donor:
             missing.append(row["sub_id"])
         elif value:
-            found[donor] = "" if value.upper() == CLEAR else value
+            found[donor] = "" if value.upper() == CLEAR else company_named(value)
     if missing:
         logger.warning("WARNING: %s previous employer rules found no filing: %s", len(missing), ", ".join(missing[:5]))
     return found
 
 
-def _address(rows: pd.DataFrame) -> pd.Series:
-    zips = rows["contributor_zip"].fillna("").astype(str).str[:5]
-    return rows["contributor_street_1"].fillna("").astype(str) + "|" + zips
-
-
-# Each donor's latest usable filed name.
+# Each donor's latest company in a column.
 def _latest(rows: pd.DataFrame, column: str) -> dict:
-    named = rows[rows[column].map(_usable).ne("")].sort_values("contribution_receipt_date")
-    return named.groupby("donor_key")[column].last().to_dict()
+    names = companies_named(rows[column])
+    named = rows.assign(company=names)[names.ne("")].sort_values("contribution_receipt_date")
+    return named.groupby("donor_key")["company"].last().to_dict()
 
 
 def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
-    """Reviewed rule, retired filing, then latest filed employer."""
-    retired = status.eq("retired")
-    donors = dict(zip(df["sub_id"].astype(str), df["donor_key"]))
-    working = df[df["entity_type"].eq("INDIVIDUAL") & status.isin({"active", "self_employed"})]
-    # Only work filed at an address the donor also used when retired.
-    homes = set(zip(df.loc[retired, "donor_key"], _address(df[retired])))
-    working = working[[key in homes for key in zip(working["donor_key"], _address(working))]]
+    """The previous employer on the retired filings of donors who are retired now."""
+    people = df["entity_type"].eq("INDIVIDUAL")
+    retired = people & status.eq("retired")
+    latest = df[people].sort_values("contribution_receipt_date").groupby("donor_key").tail(1)
+    retired_now = set(latest.loc[status[latest.index].eq("retired"), "donor_key"])
     found = {
-        **_latest(working, "contributor_employer"),
+        **_latest(df[people & status.eq("active")], "contributor_employer"),
         **_latest(df[retired], "previous_employer"),
-        **_reviewed(donors),
+        **_reviewed(dict(zip(df["sub_id"].astype(str), df["donor_key"]))),
     }
     result = pd.Series("", index=df.index, dtype=object)
-    found = {donor: _clean(name) for donor, name in found.items()}
-    result[retired] = df.loc[retired, "donor_key"].map(found).fillna("")
-    # Unconfirmed donors keep only their own filing's answer.
+    target = retired & df["donor_key"].isin(retired_now)
+    result[target] = df.loc[target, "donor_key"].map(found).fillna("")
+    # A donor whose identity is not confirmed keeps only what their own filing names.
     held = retired & df["identity_status"].ne("confirmed")
-    result[held] = df.loc[held, "previous_employer"].fillna("")
+    result[held] = companies_named(df.loc[held, "previous_employer"])
     return result
