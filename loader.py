@@ -10,7 +10,7 @@ from typing import Any
 import pandas as pd
 from psycopg2.extras import execute_values
 
-from fec.database.loader._base import _count, connect, load_transaction, stage, to_native
+from fec.database.loader._base import connect, load_transaction, stage, to_native
 from fec.database.loader.access import _check_reader, grant_read_access
 from fec.database.loader.addresses import (
     link_employer_locations,
@@ -30,11 +30,7 @@ from fec.database.loader.leadership import (
 )
 from fec.database.loader.previous_employers import link_previous_employers
 from fec.database.loader.reference import load_lookups, load_reference_tables
-from fec.database.loader.schema_create import (
-    TABLES,
-    create_schema,
-    verify_extensions,
-)
+from fec.database.loader.schema_create import create_schema, verify_extensions
 from fec.database.loader.schema_reset import reset_schema
 from fec.database.loader.validate import _read_input
 from fec.env import CLEANED_CSV
@@ -129,13 +125,6 @@ def _require_reset_flag() -> None:
         parser.error("use --reset to reload the database")
 
 
-# Update PostgreSQL statistics for non-empty tables.
-def _analyze_tables(cur: Any) -> None:
-    for table in TABLES:
-        if _count(cur, table) > 0:
-            cur.execute(f"ANALYZE {table}")
-
-
 # entry point: reset and reload the database from cleaned CSV
 def main() -> None:
     total_start = time.perf_counter()
@@ -172,7 +161,7 @@ def main() -> None:
             load_key_accomplices(cur)
         logger.info("[6/6] Updating views and read access")
         with stage("statistics and views"):
-            _analyze_tables(cur)
+            cur.execute("ANALYZE")
             refresh_materialized_views(cur)
         with stage("read access"):
             grant_read_access(cur)
