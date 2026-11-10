@@ -70,11 +70,6 @@ more_ambiguous_cities_own,ME,
 more_ambiguous_cities_own,NE,
 more_ambiguous_cities_own,NM,
 more_ambiguous_cities_own,NY,
-numbered_roads,HWY,
-numbered_roads,RTE,
-numbered_roads,RD,
-numbered_roads,FWY,
-numbered_roads,EXPY,
 needs_no_id,BSMT,
 needs_no_id,FRNT,
 needs_no_id,LBBY,
@@ -84,19 +79,6 @@ needs_no_id,PH,
 needs_no_id,REAR,
 needs_no_id,SIDE,
 needs_no_id,UPPR,
-comma_suffixes,JR,
-comma_suffixes,SR,
-comma_suffixes,II,
-comma_suffixes,III,
-comma_suffixes,IV,
-comma_suffixes,V,
-comma_suffixes,MD,
-comma_suffixes,M.D,
-comma_suffixes,PHD,
-comma_suffixes,PH.D,
-comma_suffixes,ESQ,
-comma_suffixes,DDS,
-comma_suffixes,DO,
 job_words,REAL ESTATE,
 job_words,FINANCE,
 job_words,SALES,
@@ -144,19 +126,6 @@ pure_title,JR,
 pure_title,JR.,
 pure_title,SR,
 pure_title,SR.,
-org_title_roles,CEO,
-org_title_roles,COO,
-org_title_roles,PRESIDENT,
-org_title_roles,PRESIDENT CEO,
-org_title_roles,VICE PRESIDENT,
-org_title_roles,VP,
-org_title_roles,CHAIRMAN,
-org_title_roles,FOUNDER,
-org_title_roles,DEPUTY CEO,
-org_title_roles,SENIOR DIRECTOR,
-org_title_roles,MANAGING DIRECTOR,
-org_title_roles,MANAGING PARTNER,
-org_title_roles,EXEC DIRECTOR,
 generic_self_tails,LAW OFFICE,
 generic_self_tails,COMPANY OWNER,
 generic_self_tails,PRIVATE CONTRACTOR,
@@ -300,30 +269,6 @@ glued_brand_suffixes,CO,
 glued_brand_suffixes,PC,
 glued_brand_suffixes,PA,
 glued_brand_suffixes,LP,
-slash_status_words,RETIRED,
-slash_status_words,REITRED,
-slash_status_words,HOMEMAKER,
-slash_status_words,UNEMPLOYED,
-slash_status_words,NOT EMPLOYED,
-slash_status_words,NONE,
-slash_status_words,N/A,
-slash_status_words,NA,
-slash_status_words,NAN,
-slash_status_words,N A,
-slash_status_words,VOLUNTEER,
-slash_status_words,,
-slash_self_words,SELF,
-slash_self_words,SELFEMPLOYED,
-slash_self_words,SELF-EMPLOYED,
-slash_self_words,SELF EMPLOYED,
-slash_sector_only,INVESTMENTS,
-slash_sector_only,INSURANCE,
-slash_sector_only,BUILDER,
-slash_sector_only,DEVELOPER,
-slash_sector_only,INVESTOR,
-slash_sector_only,REAL ESTATE AGENT,
-slash_sector_only,DEVELOPER R E,
-slash_sector_only,RETIRED LAWYER,
 person_titles,DR,
 person_titles,MR,
 person_titles,MRS,
@@ -554,51 +499,6 @@ ok_short_employers,QC,
 ok_short_employers,F5,"F5, UW and KP are real names, kept as filed."
 ok_short_employers,UW,"F5, UW and KP are real names, kept as filed."
 ok_short_employers,KP,"F5, UW and KP are real names, kept as filed."
-ok_short_occupations,MD,medical
-ok_short_occupations,DO,medical
-ok_short_occupations,DDS,medical
-ok_short_occupations,DMD,medical
-ok_short_occupations,RN,medical
-ok_short_occupations,LPN,medical
-ok_short_occupations,NP,medical
-ok_short_occupations,PA,medical
-ok_short_occupations,PT,medical
-ok_short_occupations,OT,medical
-ok_short_occupations,DVM,medical
-ok_short_occupations,GP,medical
-ok_short_occupations,ESQ,legal / finance credentials
-ok_short_occupations,JD,legal / finance credentials
-ok_short_occupations,CPA,legal / finance credentials
-ok_short_occupations,PHD,legal / finance credentials
-ok_short_occupations,MBA,legal / finance credentials
-ok_short_occupations,CEO,executive titles
-ok_short_occupations,CFO,executive titles
-ok_short_occupations,COO,executive titles
-ok_short_occupations,CTO,executive titles
-ok_short_occupations,CIO,executive titles
-ok_short_occupations,CMO,executive titles
-ok_short_occupations,CLO,executive titles
-ok_short_occupations,CGO,executive titles
-ok_short_occupations,CRO,executive titles
-ok_short_occupations,CHRO,executive titles
-ok_short_occupations,VP,executive titles
-ok_short_occupations,EVP,executive titles
-ok_short_occupations,SVP,executive titles
-ok_short_occupations,GM,executive titles
-ok_short_occupations,IT,fields and roles
-ok_short_occupations,HR,fields and roles
-ok_short_occupations,PR,fields and roles
-ok_short_occupations,RE,fields and roles
-ok_short_occupations,SW,fields and roles
-ok_short_occupations,UX,fields and roles
-ok_short_occupations,QA,fields and roles
-ok_short_occupations,VFX,fields and roles
-ok_short_occupations,CPT,fields and roles
-ok_short_occupations,RSM,fields and roles
-ok_short_occupations,PM,fields and roles
-ok_short_occupations,PMO,fields and roles
-ok_short_occupations,SRE,fields and roles
-ok_short_occupations,DJ,fields and roles
 status_slips_beyond_rule,SLEF,
 status_slips_beyond_rule,SELP,
 status_slips_beyond_rule,SWLF,
