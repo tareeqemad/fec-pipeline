@@ -23,8 +23,8 @@ ID_DTYPES = {
 
 
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
+    """Read a pipeline CSV, keeping ID leading zeros and surnames like NULL and NA."""
     # Apply dtypes only to columns present in the header.
-    """Keep ID leading zeros and surnames like NULL and NA."""
     peek = pd.read_csv(path, nrows=0)
     present = set(peek.columns)
     dtypes = {k: v for k, v in ID_DTYPES.items() if k in present}
