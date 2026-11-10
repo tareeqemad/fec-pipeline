@@ -4,7 +4,6 @@ import re
 
 import pandas as pd
 
-from fec.config.constants import SKIP_EMPLOYERS
 from fec.env import EMPLOYER_NAME_RULES_CSV
 
 
@@ -17,36 +16,29 @@ def employer_rule_key(name) -> str:
 
 
 def _load_rules():
-    aliases, separate, scoped = {}, set(), []
+    """Reviewed spellings: variant -> canonical everywhere, or for one donor (anchor_sub_id) in one cycle."""
+    aliases, scoped = {}, []
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
             variant = (row.get("variant") or "").strip().upper()
             canonical = (row.get("canonical") or "").strip().upper()
             source = (row.get("source") or "").strip()
-            action = (row.get("action") or "rename").strip()
             anchor = (row.get("anchor_sub_id") or "").strip()
             cycle = (row.get("cycle") or "").strip()
-            if not variant or not canonical or not source or action not in {"rename", "separate"}:
+            if not variant or not canonical or not source or (row.get("action") or "rename").strip() != "rename":
                 raise ValueError(f"Invalid employer rule on row {number}")
             if cycle and (not anchor or not cycle.isdigit() or int(cycle) % 2):
                 raise ValueError(f"Invalid employer rule cycle on row {number}")
             if anchor:
-                if action != "rename":
-                    raise ValueError(f"Scoped employer rule must rename on row {number}")
                 scoped.append((anchor, cycle, employer_rule_key(variant), canonical))
-                separate.update((variant, canonical))
-            elif action == "separate":
-                separate.update((variant, canonical))
-                separate.update(part.strip() for name in (variant, canonical)
-                                for part in name.split("/") if part.strip())
             else:
                 if variant in aliases and aliases[variant] != canonical:
                     raise ValueError(f"Conflicting employer rule on row {number}")
                 aliases[variant] = canonical
-    return aliases, separate, scoped
+    return aliases, scoped
 
 
-EMPLOYER_SYNONYMS, _SEPARATE_NAMES, _SCOPED_RULES = _load_rules()
+EMPLOYER_SYNONYMS, _SCOPED_RULES = _load_rules()
 
 # Resolve explicit chains; a spelling cannot acquire two meanings globally.
 for _variant in EMPLOYER_SYNONYMS:
@@ -66,7 +58,6 @@ for _variant, _canonical in EMPLOYER_SYNONYMS.items():
         if _key in _ALIASES and _ALIASES[_key] != _canonical:
             raise ValueError(f"Conflicting company spellings in employer rules: {_name}")
         _ALIASES[_key] = _canonical
-_SEPARATE_KEYS = {employer_rule_key(name) for name in _SEPARATE_NAMES if name not in SKIP_EMPLOYERS}
 
 
 def documented_employer_name(name) -> str | None:
