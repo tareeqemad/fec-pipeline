@@ -17,7 +17,7 @@ from fec.cleaning._helpers import name_words
 from fec.cleaning.work.company import COMPANY_LEVELS, _only_common_words, _text_evidence, company_key
 from fec.cleaning.work.employer_aliases import documented_employer_name, reviewed_employer_name
 from fec.cleaning.work.normalize import EMPLOYER_STATUS_TEXT, _categorize, _normalize_text
-from fec.cleaning.work.previous import firm_after_self_marker, split_self_marker
+from fec.cleaning.work.self_employed import firm_after_self_marker, split_self_marker
 from fec.cleaning.work.retired import settle_retired_fields
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.cleaning.work.status_words import status_word
@@ -142,6 +142,20 @@ def settle(e: str, o: str, name: str, first: str, last: str, filings: Filings) -
     if o and _text_evidence(company_key(o), "&" in o) not in ("legal_form", "reviewed"):
         o = normalize_occupation_style(o)
     return e, o
+
+
+def companies_named(texts: pd.Series) -> pd.Series:
+    """The company each employer text names, read as the employer box is; '' for a status, a job or nothing."""
+    filed = pd.Series(texts.dropna().astype(str).unique())
+    spelled = _normalize_text(filed, EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT).fillna("")
+    alone = Filings(pd.Series(dtype=str), pd.Series(dtype=str))
+    read = (settle(text, "", "", "", "", alone)[0] for text in spelled)
+    named = {text: (company if is_real_employer(company) else "") for text, company in zip(filed, read)}
+    return texts.map(named).fillna("")
+
+
+def company_named(text: str) -> str:
+    return companies_named(pd.Series([text])).iloc[0]
 
 
 def read_work(df: pd.DataFrame, people: pd.Series, filed_employers: pd.Series, filed_occupations: pd.Series) -> None:

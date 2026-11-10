@@ -69,11 +69,6 @@ for _variant, _canonical in EMPLOYER_SYNONYMS.items():
 _SEPARATE_KEYS = {employer_rule_key(name) for name in _SEPARATE_NAMES if name not in SKIP_EMPLOYERS}
 
 
-def preserved_employer_name(name) -> str | None:
-    if isinstance(name, str) and employer_rule_key(name) in _SEPARATE_KEYS:
-        return " ".join(name.upper().split()).rstrip(".,")
-
-
 def documented_employer_name(name) -> str | None:
     return _ALIASES.get(employer_rule_key(name))
 

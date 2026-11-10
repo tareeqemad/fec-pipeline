@@ -261,16 +261,17 @@ def test_settle_retired_fields_keeps_a_current_role_before_a_retired_one():
 
 
 def test_split_self_marker_and_previous_employer():
-    from fec.cleaning.work.previous import normalize_previous_employer_value, split_self_marker
+    from fec.cleaning.work.self_employed import split_self_marker
+    from fec.cleaning.work.read import company_named
     assert split_self_marker('SELF - ACME LLC') == (True, 'ACME LLC')
     assert split_self_marker('SELF; JACK A FRYDRYCH APLC') == (True, 'JACK A FRYDRYCH APLC')
     assert split_self_marker('SELF EMPLOYED AND TOTAL REALTY') == (True, 'TOTAL REALTY')
     assert split_self_marker('CONSULTANT (SELF-EMPLOYED)') == (True, 'CONSULTANT')
     assert split_self_marker('SELF') == (True, '')
     assert split_self_marker('ACME LLC') == (False, '')
-    assert normalize_previous_employer_value('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
-    assert normalize_previous_employer_value('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
-    assert normalize_previous_employer_value('SELF EMPLOYED; DENTIST') == 'SELF-EMPLOYED'
+    assert company_named('SELF; JACK A FRYDRYCH APLC') == 'JACK A FRYDRYCH APLC'
+    assert company_named('SELF - ROUND ROCK PERIODONTICS') == 'ROUND ROCK PERIODONTICS'
+    assert company_named('SELF EMPLOYED; DENTIST') == ''          # a trade, no company
 
 
 

@@ -1,7 +1,6 @@
 """Quality gates for employment status, categories and previous employers."""
 from fec.cleaning.work.status import classify_employer_statuses, is_real_employer
 from fec.cleaning.rules.manual import categorize_records
-from fec.config.constants import SLASH_BRAND_EMPLOYERS
 from fec.config.occupation_rules.categories import VALID_CATEGORIES
 
 
@@ -182,16 +181,3 @@ def _gate_retired_employer_marker(df):
     return [('retired_employer_marker', {'passed': count == 0, 'count': count}, issue)]
 
 
-# Reject COMPANY/TITLE leftovers; allow known slash brands.
-def _gate_slash_previous_employer(df):
-    prev_emp = df['previous_employer'].fillna('').astype(str)
-    slashy = (
-        prev_emp.str.contains('/', regex=False)
-        & ~prev_emp.str.upper().isin(SLASH_BRAND_EMPLOYERS)
-    )
-    n_slash = int(slashy.sum())
-    issue = (
-        f"previous_employer slash leaks: {n_slash} rows "
-        "-- check fec/cleaning/work/previous.py"
-    ) if n_slash else None
-    return [('no_slash_in_previous_employer', {'passed': n_slash == 0, 'count': n_slash}, issue)]
