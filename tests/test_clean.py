@@ -579,3 +579,17 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
     # another given name under the same donor keeps its own: a spouse on a joint account
     assert names([('MARGERY', 'GOTTESMAN')] * 2 + [('ARCHIE', 'GOTTESMAN')]) == ('GOTTESMAN', ['ARCHIE', 'MARGERY'])
 
+
+
+def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
+    from fec.cleaning.rules import manual
+    rows = manual._reviewed()
+    waiting = rows.index[rows['after_matching'].str.lower().eq('true') & rows['contributor_employer'].ne('')][0]
+    cleared = rows.index[rows['contributor_employer'].str.upper().eq(manual.CLEAR)][0]
+    df = pd.DataFrame({'sub_id': [waiting, cleared, '1'], 'contributor_employer': ['FILED', 'FILED', 'FILED']})
+    for column in manual.FIELDS[1:]:
+        df[column] = 'FILED'
+    manual.apply_reviewed_filings(df)
+    assert df['contributor_employer'].tolist()[0] == 'FILED' and pd.isna(df['contributor_employer'][1])
+    manual.apply_reviewed_filings(df, matched=True)
+    assert df['contributor_employer'][0] == rows.at[waiting, 'contributor_employer'] and df['contributor_employer'][2] == 'FILED'

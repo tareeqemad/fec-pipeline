@@ -14,7 +14,7 @@ from fec.cleaning.donors.work import (
 from fec.cleaning.entities import apply_entity_overrides
 from fec.cleaning.names import apply_name_corrections
 from fec.cleaning.reports.donors import build_donor_dedup_review
-from fec.cleaning.rules.manual import apply_manual_employer_overrides
+from fec.cleaning.rules.manual import apply_reviewed_filings
 from fec.cleaning.work.employer_aliases import canonicalize_current_employers
 from fec.donor_match.keys import (
     apply_curated_key_merges,
@@ -74,10 +74,10 @@ def standardize(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFr
     canonicalize_current_employers(df)
     unify_units(df, donor="donor_key")
     apply_name_corrections(df)
-    apply_manual_employer_overrides(df, company_names_only=True)
+    apply_reviewed_filings(df, matched=True)
     for step in DONOR_WORK_STEPS:
         step(df)
-    apply_manual_employer_overrides(df, company_names_only=True)
+    apply_reviewed_filings(df, matched=True)
     canonicalize_committee_names(df)
     build_donor_dedup_review(df, out_dir)
 
