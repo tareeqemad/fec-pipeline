@@ -4,7 +4,7 @@ from typing import NamedTuple
 
 from rapidfuzz.distance import Levenshtein
 
-from fec.matching.name_compare import name_words
+from fec.matching.name_compare import filed_name_words
 
 # Generic categories support no match; retirement is scored separately.
 GENERIC_OCC_CATEGORIES = {
@@ -119,7 +119,7 @@ def compare(p1: dict, p2: dict, name_freq: int) -> Evidence:
         score += SCORE_OCC_RETIRED
 
     middle = 0
-    if name_words(p1["name"]) != name_words(p2["name"]):
+    if filed_name_words(p1["name"]) != filed_name_words(p2["name"]):
         middle = _middle_score(p1["middle"], p2["middle"])
         if middle == BLOCKED:
             return Evidence(BLOCKED, street, zip5, employer)

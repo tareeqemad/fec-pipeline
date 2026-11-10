@@ -26,7 +26,7 @@ def db_config() -> dict:
     return get_db_config()
 
 
-def _quote_identifier(value: str) -> str:
+def quote_identifier(value: str) -> str:
     """Quote an SQL identifier and escape embedded quotes."""
     return '"' + value.replace('"', '""') + '"'
 

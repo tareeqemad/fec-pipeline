@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-import fec.cleaning.pipeline as cli
+from fec.cleaning import pipeline as cleaning_pipeline
 from fec.cleaning.work.company_names import apply_reviewed_employer_names
 from fec.matching.pipeline import identify_donors
 
@@ -20,16 +20,18 @@ def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypat
             "contributor_street_2": [""],
         }
     )
-    monkeypatch.setattr(cli, "CLEANED_CSV", output)
-    monkeypatch.setattr(cli, "read_pipeline_csv", lambda path: cleaned.copy())
-    monkeypatch.setattr(cli, "REPORTS_DIR", tmp_path)
-    monkeypatch.setattr(cli, "clean_pipeline", lambda df, **_dirs: df)
+    monkeypatch.setattr(cleaning_pipeline, "CLEANED_CSV", output)
+    monkeypatch.setattr(cleaning_pipeline, "read_pipeline_csv", lambda path: cleaned.copy())
+    monkeypatch.setattr(cleaning_pipeline, "REPORTS_DIR", tmp_path)
+    monkeypatch.setattr(cleaning_pipeline, "clean_pipeline", lambda df, **_dirs: df)
     monkeypatch.setattr(
-        cli, "run_quality_gates", lambda df: {"passed": False, "checks": {}, "issues": ["1 rows with a missing amount"]}
+        cleaning_pipeline,
+        "run_quality_gates",
+        lambda df: {"passed": False, "checks": {}, "issues": ["1 rows with a missing amount"]},
     )
 
     with pytest.raises(SystemExit):
-        cli.main()
+        cleaning_pipeline.main()
 
     assert output.read_text(encoding="utf-8") == "previous good file\n"
     assert (tmp_path / "quality_gates.json").exists()
@@ -155,7 +157,7 @@ def test_keys_stay_with_their_filings_across_runs():
 
 
 def test_company_evidence_levels():
-    from fec.cleaning.work.company_evidence import Filings, evidence
+    from fec.cleaning.work.company_evidence import Filings, company_evidence_level
 
     values = pd.Series(
         [
@@ -176,7 +178,7 @@ def test_company_evidence_levels():
             "",
         ]
     )
-    assert values.map(evidence).tolist() == [
+    assert values.map(company_evidence_level).tolist() == [
         "legal_form",
         "legal_form",
         "reviewed",
@@ -327,16 +329,16 @@ def test_split_self_marker_and_previous_employer():
 
 
 def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
-    from fec.cleaning.addresses import address_rules as verified
+    from fec.cleaning.addresses import address_rules
 
-    rules = tmp_path / "rules.csv"
-    rules.write_text(
+    rules_csv = tmp_path / "address_rules.csv"
+    rules_csv.write_text(
         "match_street,match_state,match_zip,street,unit,city,state,zip,source,match_unit,match_sub_id\n"
         "CALIFORNIA SUPPLY,CA,90247,[CLEAR],,,,,the street field held a company name,,\n"
         "1150 KANE CONCOURSE,FL,33154,1150 KANE CONCOURSE,,BAY HARBOR ISLANDS,,,county records,,\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(verified, "ADDRESS_RULES_CSV", rules)
+    monkeypatch.setattr(address_rules, "ADDRESS_RULES_CSV", rules_csv)
     df = pd.DataFrame(
         {
             "sub_id": ["1", "2"],
@@ -348,12 +350,12 @@ def test_address_rule_can_clear_the_street(monkeypatch, tmp_path):
         }
     )
 
-    assert verified.apply_verified_address_fixes(df, city_only=False) == 2
+    assert address_rules.apply_verified_address_fixes(df, city_only=False) == 2
     assert df["contributor_street_1"].isna().tolist() == [True, False]
     assert df["contributor_city"].tolist() == ["GARDENA", "BAY HARBOR ISLANDS"]
     # The city-only rule also runs in the second pass; the clearing rule does not.
     df.loc[1, "contributor_city"] = "SURFSIDE"
-    assert verified.apply_verified_address_fixes(df, city_only=True) == 1
+    assert address_rules.apply_verified_address_fixes(df, city_only=True) == 1
     assert df["contributor_city"].tolist() == ["GARDENA", "BAY HARBOR ISLANDS"]
 
 
@@ -412,10 +414,9 @@ def test_same_words_in_another_order_are_one_name():
 
 def test_held_filing_takes_no_part_in_matching(monkeypatch):
     # A reviewed hold keeps a filing outside the donor its name and street would join.
-    from fec.matching import donor_keys as keys
-    from fec.matching import identity_rules as rules
+    from fec.matching import donor_keys, identity_rules
 
-    for module in (keys, rules):
+    for module in (donor_keys, identity_rules):
         monkeypatch.setattr(module, "HELD_FILINGS", {"633": "GOLDSTEIN, RICHARD | unproven"})
     rows = [
         _row("631", "GOLDSTEIN, RICHARD", "RICHARD", "GOLDSTEIN", "BOCA RATON", "FL", "33432", "9 OTHER ST"),
@@ -476,11 +477,11 @@ def test_extend_corrections_adds_learnt_typos_to_the_table():
 
 
 def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, monkeypatch):
-    from fec.cleaning.work import occupation_categories as categorize
+    from fec.cleaning.work import occupation_categories
     from fec.cleaning.work.model_client import DEFAULT_MODEL
     from fec.vocabulary.occupations import CATEGORY_OVERRIDES
 
-    monkeypatch.setattr(categorize, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
+    monkeypatch.setattr(occupation_categories, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
     asked = []
 
     def fake_model(texts):
@@ -495,7 +496,7 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
         }
     )
     try:
-        assert categorize.learn_categories(df, ask=fake_model) == 1
+        assert occupation_categories.learn_categories(df, ask=fake_model) == 1
         assert asked == ["QUANTUM TOPOLOGIST"]  # ATTORNEY is listed, the committee is not a person
         assert df["occupation_category"].fillna("").tolist() == [
             "LEGAL",
@@ -508,7 +509,7 @@ def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, m
             "occupation,category,model",
             f"QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{DEFAULT_MODEL}",
         ]
-        assert categorize.learn_categories(df, ask=fake_model) == 0  # remembered: not asked again
+        assert occupation_categories.learn_categories(df, ask=fake_model) == 0  # remembered: not asked again
     finally:
         CATEGORY_OVERRIDES.pop("QUANTUM TOPOLOGIST", None)
 
@@ -749,17 +750,17 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
 
 
 def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
-    from fec.cleaning import filing_corrections as manual
+    from fec.cleaning import filing_corrections
 
-    rows = manual._reviewed()
+    rows = filing_corrections._read_reviewed_filings()
     waiting = rows.index[rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")][0]
-    cleared = rows.index[rows["contributor_employer"].str.upper().eq(manual.CLEAR)][0]
+    cleared = rows.index[rows["contributor_employer"].str.upper().eq(filing_corrections.CLEAR)][0]
     df = pd.DataFrame({"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]})
-    for column in manual.FIELDS[1:]:
+    for column in filing_corrections.FIELDS[1:]:
         df[column] = "FILED"
-    manual.apply_reviewed_filings(df)
+    filing_corrections.apply_reviewed_filings(df)
     assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(df["contributor_employer"][1])
-    manual.apply_reviewed_filings(df, matched=True)
+    filing_corrections.apply_reviewed_filings(df, matched=True)
     assert (
         df["contributor_employer"][0] == rows.at[waiting, "contributor_employer"]
         and df["contributor_employer"][2] == "FILED"

@@ -33,7 +33,7 @@ def _related(first_a: str, first_b: str) -> str:
     return f"initial/prefix {short}->{long}" if long.startswith(short) else ""
 
 
-def build_donor_dedup_review(df: pd.DataFrame, out_dir: str | None) -> int:
+def write_duplicate_review(df: pd.DataFrame, out_dir: str | None) -> int:
     """Write the pairs to data/reports/donor_dedup_review.csv, largest combined amount first."""
     people = df[df["entity_type"].eq("INDIVIDUAL")].copy() if out_dir else df.iloc[:0]
     path = Path(out_dir or ".") / "donor_dedup_review.csv"

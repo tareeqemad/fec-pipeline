@@ -5,13 +5,13 @@ import pandas as pd
 from fec.cleaning.filing_corrections import categorize_records
 from fec.cleaning.work.employer_key import employer_text_key
 from fec.cleaning.work.employer_status import is_real_employer
-from fec.cleaning.work.occupation_categories import categorize_final
-from fec.common.text import _norm
+from fec.cleaning.work.occupation_categories import categorize_occupations
+from fec.common.text import upper_text
 from fec.vocabulary.occupations import EMPLOYER_FROM_CATEGORY, FINAL_EMPLOYER_FROM_OCCUPATION
 from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
 
 
-def rederive_occupation_category(df: pd.DataFrame) -> None:
+def recategorize_occupations(df: pd.DataFrame) -> None:
     """Make every individual's category match the occupation as it now reads."""
     people = df[df["entity_type"].eq("INDIVIDUAL")]
     df.loc[people.index, "occupation_category"] = categorize_records(people)
@@ -39,7 +39,7 @@ def fill_occupation_from_donor(df: pd.DataFrame) -> None:
         .dropna()
     )
     df.loc[found.index, "contributor_occupation"] = found
-    df.loc[found.index, "occupation_category"] = categorize_final(found)
+    df.loc[found.index, "occupation_category"] = categorize_occupations(found)
 
 
 def fill_status_employer(df: pd.DataFrame) -> None:
@@ -55,10 +55,10 @@ def fill_status_employer(df: pd.DataFrame) -> None:
 
 def settle_retired_employer(df: pd.DataFrame) -> None:
     """Make a retired filing's employer RETIRED; a company filed there becomes the previous employer."""
-    said_retired = df["occupation_category"].eq("RETIRED") & _norm(df["contributor_occupation"]).eq("RETIRED")
+    said_retired = df["occupation_category"].eq("RETIRED") & upper_text(df["contributor_occupation"]).eq("RETIRED")
     # The filing said RETIRED beside a profession (RETIRED JUDGE MEDIATOR).
     said_retired |= df["_retired_marker"].fillna(False).astype(bool)
-    retired = df["entity_type"].eq("INDIVIDUAL") & said_retired & _norm(df["contributor_employer"]).ne("RETIRED")
-    company = retired & _norm(df["previous_employer"]).eq("") & df["contributor_employer"].map(is_real_employer)
+    retired = df["entity_type"].eq("INDIVIDUAL") & said_retired & upper_text(df["contributor_employer"]).ne("RETIRED")
+    company = retired & upper_text(df["previous_employer"]).eq("") & df["contributor_employer"].map(is_real_employer)
     df.loc[company, "previous_employer"] = df.loc[company, "contributor_employer"]
     df.loc[retired, "contributor_employer"] = "RETIRED"

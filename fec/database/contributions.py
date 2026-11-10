@@ -48,7 +48,7 @@ def _map_address_ids(rows: pd.DataFrame, address_ids: dict) -> None:
     ]
 
 
-def _map_employment_ids(
+def map_employment_ids(
     rows: pd.DataFrame,
     employment_ids: dict,
     get_employer_id: Callable[[str], int | None],
@@ -158,6 +158,6 @@ def load_contributions(
     """Load contributions with their donor, address and employment links."""
     rows = _map_required_ids(df, donor_ids, committee_ids)
     _map_address_ids(rows, address_ids)
-    _map_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids)
+    map_employment_ids(rows, employment_ids, get_employer_id, occupation_category_ids)
 
     execute_values(cur, _INSERT_SQL, _build_rows(rows), page_size=5000)

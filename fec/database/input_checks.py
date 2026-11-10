@@ -95,7 +95,7 @@ def _validate_input(df: pd.DataFrame, locations: pd.DataFrame) -> None:
     _validate_committees(df)
 
 
-def _read_input() -> tuple[pd.DataFrame, list[dict]]:
+def read_load_input() -> tuple[pd.DataFrame, list[dict]]:
     """Read and validate contributions and company locations."""
     if not CLEANED_CSV.exists():
         raise FileNotFoundError(f"{CLEANED_CSV} not found; run the pipeline first")

@@ -10,7 +10,7 @@ from psycopg2.extras import execute_values
 
 from fec.cleaning.work.employer_status import current_employer_name, referenced_employers
 from fec.database.connection import to_native
-from fec.database.offices import _employment_address_id, _location_index
+from fec.database.offices import filing_office_address_id, offices_by_company
 from fec.database.previous_employers import filing_previous
 from fec.vocabulary.not_employers import NOT_REAL_EMPLOYER
 
@@ -92,7 +92,7 @@ def _latest_employment_rows(individuals: pd.DataFrame) -> pd.DataFrame:
     ).drop_duplicates(keys, keep="first")
 
 
-def _make_employer_resolver(employer_ids: dict) -> Callable[[Any], int | None]:
+def make_employer_lookup(employer_ids: dict) -> Callable[[Any], int | None]:
     """Create an exact company-name lookup."""
 
     def get_employer_id(name: Any) -> int | None:
@@ -165,7 +165,7 @@ def _employment_rows(
     employment_rows = []
     seen = set()
 
-    locations = _location_index(employer_locations) if address_ids else {}
+    locations = offices_by_company(employer_locations) if address_ids else {}
     latest_filings = _latest_employment_rows(individuals)
 
     for _, row in latest_filings.iterrows():
@@ -199,7 +199,7 @@ def _employment_rows(
         location_employer = employer_name
         if not employer_id:
             location_employer = row.get("previous_employer") if status == "retired" else None
-        location_address_id = _employment_address_id(
+        location_address_id = filing_office_address_id(
             row,
             location_employer,
             locations,

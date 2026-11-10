@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.work.company_names import reviewed_employer_name
-from fec.cleaning.work.occupation_categories import categorize_final
+from fec.cleaning.work.occupation_categories import categorize_occupations
 from fec.common.settings import MANUAL_EMPLOYER_OVERRIDES_CSV
 from fec.vocabulary.occupations import VALID_CATEGORIES
 
@@ -31,7 +31,7 @@ FIELDS = (
 
 
 @lru_cache(maxsize=1)
-def _reviewed() -> pd.DataFrame:
+def _read_reviewed_filings() -> pd.DataFrame:
     """Read the reviewed rows by sub_id, employers in their shared company spelling."""
     if not MANUAL_EMPLOYER_OVERRIDES_CSV.exists():
         return pd.DataFrame(columns=[*FIELDS, "after_matching"])
@@ -48,7 +48,7 @@ def _reviewed() -> pd.DataFrame:
 
 def apply_reviewed_filings(df: pd.DataFrame, matched: bool = False) -> None:
     """Write the reviewed cells; before donors are matched, the rows marked after_matching wait."""
-    rows = _reviewed()
+    rows = _read_reviewed_filings()
     if not matched:
         rows = rows[rows["after_matching"].str.lower().ne("true")]
     sub_ids = df["sub_id"].astype(str).str.strip()
@@ -60,6 +60,6 @@ def apply_reviewed_filings(df: pd.DataFrame, matched: bool = False) -> None:
 
 def categorize_records(df: pd.DataFrame) -> pd.Series:
     """Return the category of each occupation, a reviewed category for the filing first."""
-    reviewed = _reviewed()["occupation_category"]
+    reviewed = _read_reviewed_filings()["occupation_category"]
     reviewed = df["sub_id"].astype(str).str.strip().map(reviewed[reviewed.ne("")])
-    return categorize_final(df["contributor_occupation"]).where(reviewed.isna(), reviewed)
+    return categorize_occupations(df["contributor_occupation"]).where(reviewed.isna(), reviewed)

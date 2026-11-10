@@ -25,10 +25,10 @@ from fec.matching.donor_names import canonicalize_committee_names, canonicalize_
 from fec.matching.donor_work import (
     fill_occupation_from_donor,
     fill_status_employer,
-    rederive_occupation_category,
+    recategorize_occupations,
     settle_retired_employer,
 )
-from fec.matching.duplicate_report import build_donor_dedup_review
+from fec.matching.duplicate_report import write_duplicate_review
 from fec.matching.identity_rules import held_groups
 from fec.matching.matcher import match_donors
 
@@ -39,7 +39,7 @@ DONOR_WORK_STEPS = (
     fill_occupation_from_donor,
     fill_status_employer,
     apply_entity_overrides,
-    rederive_occupation_category,
+    recategorize_occupations,
     settle_retired_employer,
 )
 
@@ -70,7 +70,7 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
     return df_clean
 
 
-def standardize(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFrame:
+def standardize_donors(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFrame:
     """Make each donor consistent across filings."""
     df = df_clean.reset_index(drop=True)
     _separate_network_filings(df)
@@ -88,7 +88,7 @@ def standardize(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFr
         step(df)
     apply_reviewed_filings(df, matched=True)
     canonicalize_committee_names(df)
-    build_donor_dedup_review(df, out_dir)
+    write_duplicate_review(df, out_dir)
 
     # Committees and organisations have no person name or employer.
     other = df["entity_type"].ne("INDIVIDUAL")

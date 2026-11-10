@@ -64,7 +64,7 @@ def unify(df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Series, *,
 
 
 @cache
-def _zip_place(zipcode: str) -> tuple[str, frozenset]:
+def zip_place(zipcode: str) -> tuple[str, frozenset]:
     """Return the state of a ZIP and the cities USPS names for it."""
     found = zipcodes.matching(zipcode) if len(zipcode) == 5 and zipcode.isdigit() else []
     cities = {name.upper() for record in found for name in (record["city"], *record.get("acceptable_cities", []))}
@@ -87,7 +87,7 @@ def unify_state(df: pd.DataFrame) -> None:
 def settle_state_and_zip(df: pd.DataFrame) -> None:
     """Settle a ZIP of another state: the state is wrong when the city belongs to the ZIP, else the ZIP is."""
     zips, states, cities = _text(df, "contributor_zip"), _text(df, "contributor_state"), _text(df, "contributor_city")
-    place = zips.map(_zip_place)
+    place = zips.map(zip_place)
     zip_state = place.str[0]
     conflict = zips.ne("") & states.ne("") & zip_state.ne("") & zip_state.ne(states)
     city_fits = pd.Series([city in names for city, (_, names) in zip(cities, place)], index=df.index)

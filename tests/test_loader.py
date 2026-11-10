@@ -4,13 +4,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import fec.database.addresses as address_loader
-import fec.database.employments as employer_loader
 from fec.common.settings import SCHEMA_SQL
+from fec.database import addresses, employments
 from fec.database.addresses import load_address_dimension
 from fec.database.connection import load_transaction, stage
-from fec.database.contributions import _map_employment_ids
-from fec.database.employments import _make_employer_resolver, load_employments
+from fec.database.contributions import map_employment_ids
+from fec.database.employments import load_employments, make_employer_lookup
 
 
 class AddressCursor:
@@ -34,7 +33,7 @@ class AddressCursor:
 
 def _load_addresses(monkeypatch, donors, locations):
     cursor = AddressCursor()
-    monkeypatch.setattr(address_loader, "execute_values", lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
+    monkeypatch.setattr(addresses, "execute_values", lambda _cur, _sql, rows, **_kw: cursor.rows.extend(rows))
     address_ids = load_address_dimension(cursor, donors, locations)
     return cursor.rows, address_ids
 
@@ -103,7 +102,7 @@ class FakeEmploymentDB:
 @pytest.fixture
 def db(monkeypatch):
     fake = FakeEmploymentDB()
-    monkeypatch.setattr(employer_loader, "execute_values", lambda _cur, sql, rows, **_kw: fake.insert(sql, rows))
+    monkeypatch.setattr(employments, "execute_values", lambda _cur, sql, rows, **_kw: fake.insert(sql, rows))
     return fake
 
 
@@ -133,7 +132,7 @@ def _load(db, filings, employers=None):
     """Run the employment load and return each filing's row."""
     frame = pd.DataFrame(filings)
     donor_ids = {key: index for index, key in enumerate(sorted(frame["donor_key"].unique()), 1)}
-    get_employer_id = _make_employer_resolver(employers or {})
+    get_employer_id = make_employer_lookup(employers or {})
     employment_ids = load_employments(
         db,
         frame,
@@ -144,7 +143,7 @@ def _load(db, filings, employers=None):
         [],
     )
     rows = frame.assign(_donor_id=frame["donor_key"].map(donor_ids))
-    _map_employment_ids(rows, employment_ids, get_employer_id, {"LEGAL": 1})
+    map_employment_ids(rows, employment_ids, get_employer_id, {"LEGAL": 1})
     by_id = dict(enumerate(db.rows, 1))
     return {sub_id: by_id[int(employment_id)] for sub_id, employment_id in zip(rows["sub_id"], rows["_employment_id"])}
 

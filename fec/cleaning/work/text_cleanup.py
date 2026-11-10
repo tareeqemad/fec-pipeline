@@ -34,7 +34,7 @@ _WORD_DIGITS_RE = r"(\b[A-Z]{3,})\d+\b"
 EMPLOYER_STATUS_TEXT = frozenset(EMPLOYER_STATUS_VALUES) | frozenset(SKIP_EMPLOYERS)
 
 
-def _normalize_text(
+def clean_box_text(
     series: pd.Series, normalize_map: dict, digits_only_before: frozenset | set | None = None
 ) -> pd.Series:
     """Clean text with a spelling map; occupation digits are noise."""

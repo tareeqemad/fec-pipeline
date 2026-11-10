@@ -24,7 +24,7 @@ from functools import lru_cache
 
 import pandas as pd
 
-from fec.cleaning.work.company_names import _load_rules, employer_rule_key
+from fec.cleaning.work.company_names import employer_rule_key, read_company_name_rules
 from fec.cleaning.work.employer_status import is_job_title, is_real_employer
 from fec.vocabulary.not_employers import (
     JOB_TITLE_AS_EMPLOYER,
@@ -103,7 +103,7 @@ def _only_common_words(text: str) -> bool:
 @lru_cache(maxsize=1)
 def _reviewed_names() -> frozenset[str]:
     """Return every company name the reviewed employer rules mention."""
-    aliases, scoped = _load_rules()
+    aliases, scoped = read_company_name_rules()
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
     names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
     names |= {canonical for _anchor, _cycle, _variant, canonical in scoped}
@@ -174,7 +174,7 @@ def _text_evidence(key: str, ampersand: bool = False) -> str:
     return "named_org"
 
 
-def evidence(text: str) -> str:
+def company_evidence_level(text: str) -> str:
     """Return the evidence level of a text on its own."""
     return _text_evidence(company_key(text), "&" in text)
 
@@ -192,7 +192,7 @@ class Filings:
     def level(self, text: str, min_filers: int = 3) -> str:
         """Return the evidence level of a text; 'frequent' when enough different filers name it as their employer."""
         key = company_key(text)
-        level = evidence(text)
+        level = company_evidence_level(text)
         if (
             level in ("unknown", "named_org")
             and self.filers.get(key, 0) >= min_filers

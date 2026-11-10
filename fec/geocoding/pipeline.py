@@ -108,7 +108,7 @@ def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50) -
     _geocode_keys(keys, cache, batch_size)
 
 
-def apply_to_dataframe(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
+def apply_coordinates(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
     """Apply donor coordinates, leaving preserved foreign filings ungeocoded."""
     keys = _contributor_keys(df)
     points = {key: accepted_coordinates(key, cache.get(key))[:2] for key in keys.unique()}
@@ -136,7 +136,7 @@ def _geocode_contributors(
     """Look up donor addresses and apply cached coordinates."""
     logger.info("[1/2] Finding contributor coordinates")
     geocode_addresses(df, cache)
-    df = apply_to_dataframe(df, cache)
+    df = apply_coordinates(df, cache)
 
     logger.info(
         "Rows with contributor coordinates: %s / %s",

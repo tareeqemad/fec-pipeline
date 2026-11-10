@@ -16,7 +16,7 @@ def employer_rule_key(name: object) -> str:
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
-def _load_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
+def read_company_name_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
     """Reviewed spellings: variant -> canonical everywhere, or for one donor (anchor_sub_id) in one cycle."""
     aliases, scoped = {}, []
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
@@ -39,7 +39,7 @@ def _load_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
     return aliases, scoped
 
 
-EMPLOYER_SYNONYMS, _SCOPED_RULES = _load_rules()
+EMPLOYER_SYNONYMS, _SCOPED_RULES = read_company_name_rules()
 
 # Resolve explicit chains; a spelling cannot acquire two meanings globally.
 for _variant in EMPLOYER_SYNONYMS:

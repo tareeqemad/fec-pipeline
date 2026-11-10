@@ -24,7 +24,7 @@ FIXED = {
 }
 
 
-def _read_rules() -> pd.DataFrame:
+def _read_address_rules() -> pd.DataFrame:
     """Read the rules as text; a blank match_zip matches filings with no ZIP (a foreign address)."""
     rules = pd.read_csv(ADDRESS_RULES_CSV, dtype=str, keep_default_na=False, encoding="utf-8-sig")
     rules = rules.apply(lambda column: column.str.strip())
@@ -45,7 +45,7 @@ def apply_verified_address_fixes(df: pd.DataFrame, *, city_only: bool = False, w
     A rule that only sets the city also runs after the alignment steps
     (city_only), which may have changed the city again.
     """
-    rules = _read_rules()
+    rules = _read_address_rules()
     if city_only:
         rules = rules[
             rules["street"].str.upper().eq(rules["match_street"])

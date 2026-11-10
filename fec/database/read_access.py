@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fec.common.settings import DATABASE_READER
-from fec.database.connection import _quote_identifier
+from fec.database.connection import quote_identifier
 
 
-def _check_reader(cur: Any) -> None:
+def check_reader_role(cur: Any) -> None:
     """Require a reader without admin rights or inherited roles."""
     cur.execute(
         """
@@ -35,9 +35,9 @@ def _check_reader(cur: Any) -> None:
 
 def grant_read_access(cur: Any) -> None:
     """Give the reader SELECT access to tables and views."""
-    _check_reader(cur)
+    check_reader_role(cur)
 
-    reader = _quote_identifier(DATABASE_READER)
+    reader = quote_identifier(DATABASE_READER)
 
     statements = (
         "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC",

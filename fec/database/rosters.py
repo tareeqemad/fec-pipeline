@@ -8,7 +8,7 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.common.log import get_logger
-from fec.database.roster_people import _load_donor_linked_csv
+from fec.database.roster_people import load_roster_csv
 
 logger = get_logger(__name__)
 
@@ -100,7 +100,7 @@ def load_leadership(cur: Any) -> None:
                 [(leader_id, committee_id) for committee_id in committee_ids],
             )
 
-    _load_donor_linked_csv(
+    load_roster_csv(
         cur,
         "leaders.csv",
         "leaders",
@@ -160,7 +160,7 @@ def load_key_accomplices(cur: Any) -> None:
             ),
         )
 
-    _load_donor_linked_csv(
+    load_roster_csv(
         cur,
         "key_accomplices.csv",
         "key_accomplices",

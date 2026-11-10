@@ -41,7 +41,7 @@ def _identity(name: str, city: str, state: str, zip5: str = "") -> str:
     return "|".join(map(_normalize, parts))
 
 
-def _read_rules() -> dict[str, list[dict]]:
+def _read_identity_rules() -> dict[str, list[dict]]:
     """Read the rule rows by action; every row needs its fields, a source and a review date."""
     if not RULES_PATH.exists():
         raise FileNotFoundError(f"Missing donor identity rules: {RULES_PATH}")
@@ -102,7 +102,7 @@ def _load_separations(
     return name_pairs, identity_pairs, frozenset(zip_names)
 
 
-_RULES = _read_rules()
+_RULES = _read_identity_rules()
 
 SEPARATE_NAMES, SEPARATE_IDENTITIES, ZIP_SPLIT_NAMES = _load_separations(_RULES["separate"])
 

@@ -14,10 +14,10 @@ from fec.common.settings import CLEANED_CSV
 from fec.database.addresses import link_employer_locations, load_address_dimension, load_donor_addresses
 from fec.database.connection import connect, load_transaction, stage, to_native
 from fec.database.contributions import load_contributions
-from fec.database.employments import _make_employer_resolver, load_employers, load_employments
-from fec.database.input_checks import _read_input
+from fec.database.employments import load_employers, load_employments, make_employer_lookup
+from fec.database.input_checks import read_load_input
 from fec.database.previous_employers import link_previous_employers
-from fec.database.read_access import _check_reader, grant_read_access
+from fec.database.read_access import check_reader_role, grant_read_access
 from fec.database.reference_tables import load_lookups, load_reference_tables
 from fec.database.rosters import committee_lookup, load_key_accomplices, load_leadership
 from fec.database.schema import create_schema, reset_schema, verify_extensions
@@ -74,7 +74,7 @@ def load_all(
     with stage("employers"):
         employer_ids = load_employers(cur, df)
         link_previous_employers(cur, df, employer_ids)
-    get_employer_id = _make_employer_resolver(employer_ids)
+    get_employer_id = make_employer_lookup(employer_ids)
 
     logger.info("[4/6] Loading addresses, employments and contributions")
     with stage("addresses"):
@@ -126,7 +126,7 @@ def main() -> None:
     total_start = time.perf_counter()
     _require_reset_flag()
     try:
-        df, employer_locations = _read_input()
+        df, employer_locations = read_load_input()
     except (FileNotFoundError, ValueError) as error:
         raise SystemExit(f"ERROR: {error}") from error
 
@@ -137,7 +137,7 @@ def main() -> None:
     logger.info("Reading: %s (%s rows)", CLEANED_CSV.name, f"{len(df):,}")
     logger.info("Database: %s", conn.info.dbname)
     logger.info("[1/6] Checking database")
-    _check_reader(cur)
+    check_reader_role(cur)
     verify_extensions(cur)
 
     # One transaction from drop to grants; failures keep the old.

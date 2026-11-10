@@ -48,7 +48,7 @@ _COMM_SUFFIXES_RE = re.compile(
 )
 
 
-_GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
+GENERATION_SUFFIXES = frozenset({"JR", "SR", "II", "III", "IV", "V"})
 
 
 def extract_generational_suffix(name: str) -> str:
@@ -57,12 +57,12 @@ def extract_generational_suffix(name: str) -> str:
     last, comma, first = text.partition(",")
     parts = (last, first) if comma else (text,)
     found = {
-        tokens[-1] for part in parts if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in _GENERATION_SUFFIXES
+        tokens[-1] for part in parts if (tokens := _NAME_TOKEN_RE.findall(part)) and tokens[-1] in GENERATION_SUFFIXES
     }
     return next(iter(found)) if len(found) == 1 else ""
 
 
-def name_words(name: str) -> frozenset:
+def filed_name_words(name: str) -> frozenset:
     """Every word of the filed name, initials included, whatever the order."""
     words = _NAME_TOKEN_RE.findall(str(name or "").upper())
     return frozenset(w for w in words if w not in NAME_SUFFIXES)
@@ -128,7 +128,7 @@ def normalize_committee_name(name: str) -> str:
     return f"{org}|{first}"
 
 
-def _are_cross_group_candidates(norm1: str, norm2: str, surname_firsts: set[str] | None = None) -> bool:
+def first_names_may_match(norm1: str, norm2: str, surname_firsts: set[str] | None = None) -> bool:
     """Tell whether two names share a surname with nickname, near-spelling or truncated first names.
 
     surname_firsts holds every first name filed with this surname: a short
@@ -175,7 +175,7 @@ def _squash(s: str) -> str:
     return s.replace(" ", "").replace("-", "").replace(".", "")
 
 
-def _is_surname_variant(last1: str, last2: str) -> bool:
+def is_surname_variant(last1: str, last2: str) -> bool:
     """Surname spelling variants; the phase still demands strong geography."""
     if not last1 or not last2 or last1 == last2:
         return False

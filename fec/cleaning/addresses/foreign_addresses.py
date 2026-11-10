@@ -4,7 +4,7 @@ import re
 
 import pandas as pd
 
-from fec.common.text import _norm
+from fec.common.text import upper_text
 from fec.vocabulary.geography import AMBIGUOUS_CITIES, FOREIGN_CITIES_NO_US_STATE
 from fec.vocabulary.tables import words
 
@@ -93,16 +93,16 @@ def kept_as_filed_mask(df: pd.DataFrame) -> pd.Series:
 
 def foreign_address_mask(df: pd.DataFrame) -> pd.Series:
     """Mark the rows whose filed address is outside the US."""
-    city = _norm(df["contributor_city"])
-    state = _norm(df["contributor_state"])
-    street_1 = _norm(df["contributor_street_1"])
-    street_2 = _norm(df["contributor_street_2"])
+    city = upper_text(df["contributor_city"])
+    state = upper_text(df["contributor_state"])
+    street_1 = upper_text(df["contributor_street_1"])
+    street_2 = upper_text(df["contributor_street_2"])
 
     mask = city.isin(FOREIGN_CITIES_NO_US_STATE) | city.isin(_MORE_FOREIGN_CITIES)
     ambiguous = {**AMBIGUOUS_CITIES, **_MORE_AMBIGUOUS_CITIES}
     for name, valid_states in ambiguous.items():
         mask |= city.eq(name) & ~state.isin(valid_states)
-    mask |= _norm(df["sub_id"]).isin(REVIEWED_FOREIGN_SUB_IDS)
+    mask |= upper_text(df["sub_id"]).isin(REVIEWED_FOREIGN_SUB_IDS)
     mask |= city.str.contains(_COUNTRY_TAIL_RE, na=False)
     mask |= street_1.str.contains(_COUNTRY_TAIL_RE, na=False)
     mask |= street_2.str.contains(_COUNTRY_TAIL_RE, na=False)

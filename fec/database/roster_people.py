@@ -8,10 +8,10 @@ from typing import Any
 import pandas as pd
 
 from fec.cleaning.work.employer_status import classify_employer_status, is_real_employer
-from fec.cleaning.work.occupation_categories import categorize_final
+from fec.cleaning.work.occupation_categories import categorize_occupations
 from fec.common.log import get_logger
 from fec.common.settings import REFERENCE_DIR
-from fec.database.offices import _location_index, select_location
+from fec.database.offices import offices_by_company, select_location
 from fec.matching.identity_rules import resolve_donor_key
 
 
@@ -117,7 +117,7 @@ def upsert_donor_address(
     )
 
 
-def employment_address_id(
+def roster_office_address_id(
     cur: Any,
     employer: str,
     locations: dict | None,
@@ -187,13 +187,13 @@ def upsert_leader_employment(
 
     category_id = None
     if occupation:
-        category = categorize_final(pd.Series([occupation])).iloc[0]
+        category = categorize_occupations(pd.Series([occupation])).iloc[0]
         cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
         found = cur.fetchone()
         category_id = found[0] if found else None
 
     address_id = (
-        employment_address_id(cur, employer_name, locations, state, zip_5, city) if status == "active" else None
+        roster_office_address_id(cur, employer_name, locations, state, zip_5, city) if status == "active" else None
     )
 
     cur.execute(
@@ -303,7 +303,7 @@ def _upsert_address(
     )
 
 
-def _load_donor_linked_csv(
+def load_roster_csv(
     cur: Any,
     csv_filename: str,
     table: str,
@@ -321,7 +321,7 @@ def _load_donor_linked_csv(
         # Validate the whole roster before writing any row.
         validate_rows(rows)
     # Use the same office choices as the FEC loader.
-    locations = _location_index()
+    locations = offices_by_company()
     skipped = 0
 
     for _, row in rows.iterrows():

@@ -42,7 +42,7 @@ def non_individual_donor_key(name: object) -> str:
     return hashlib.sha256(normalized.encode()).hexdigest()[:12]
 
 
-def _donor_keys(components: dict) -> dict:
+def keys_for_groups(components: dict) -> dict:
     """Assign a group root's key to every member."""
     rid_to_key = {}
     for root, members in components.items():

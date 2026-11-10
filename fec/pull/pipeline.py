@@ -92,7 +92,7 @@ def _pull_params(api_key: str, committee_id: str, period: int) -> dict:
     }
 
 
-def run(committee_id: str, period: int) -> None:
+def pull_committee(committee_id: str, period: int) -> None:
     """Scan the full period and append only new filing IDs."""
     api_key = required_env("FEC_API_KEY")
     RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -231,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("=" * 60)
 
     try:
-        run(committee_id=committee_id, period=period)
+        pull_committee(committee_id=committee_id, period=period)
     except PullError as error:
         logger.error("  %s", error)
         return 2

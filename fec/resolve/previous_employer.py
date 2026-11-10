@@ -17,7 +17,7 @@ from fec.vocabulary.tables import read_rows
 logger = get_logger(__name__)
 
 
-def _reviewed(donors: dict) -> dict:
+def _read_reviewed_previous_employers(donors: dict) -> dict:
     """Reviewed answers by donor; [CLEAR] says there is none."""
     found, missing = {}, []
     for row in read_rows(PREVIOUS_EMPLOYERS_CSV):
@@ -48,7 +48,7 @@ def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
     found = {
         **_latest(df[people & status.eq("active")], "contributor_employer"),
         **_latest(df[retired], "previous_employer"),
-        **_reviewed(dict(zip(df["sub_id"].astype(str), df["donor_key"]))),
+        **_read_reviewed_previous_employers(dict(zip(df["sub_id"].astype(str), df["donor_key"]))),
     }
     result = pd.Series("", index=df.index, dtype=object)
     target = retired & df["donor_key"].isin(retired_now)

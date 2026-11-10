@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from fec.matching.identity_rules import identities_must_stay_separate
-from fec.matching.name_compare import _GENERATION_SUFFIXES, _are_cross_group_candidates, _is_surname_variant, name_words
+from fec.matching.name_compare import GENERATION_SUFFIXES, filed_name_words, first_names_may_match, is_surname_variant
 from fec.matching.scoring import MERGE_THRESHOLD, SCORE_CROSS_NAME_BONUS, Evidence, compare
 
 _TOKEN_SPLIT_RE = re.compile(r"[\s,]+")
@@ -55,7 +55,7 @@ def _merge(context: MatchContext, rid_a: str, rid_b: str, score: int) -> None:
         context.component_suffixes[context.union_find.find(rid_a)] = suffixes
 
 
-def _score_within_groups(context: MatchContext) -> None:
+def score_same_names(context: MatchContext) -> None:
     """Score all candidate pairs within each name group."""
     for rids in context.name_groups.values():
         for rid_a, rid_b in combinations(rids, 2):
@@ -114,14 +114,14 @@ def _same_words_adjust(evidence: Evidence) -> int:
     return evidence.score if evidence.middle_conflict else evidence.score + SCORE_CROSS_NAME_BONUS
 
 
-def _score_cross_groups(context: MatchContext) -> None:
+def score_first_name_variants(context: MatchContext) -> None:
     """First-name variants only with a shared street, ZIP or employer."""
     buckets = _norms_by_last_name(context.name_groups)
     firsts = {last: {norm.split("|", 1)[1] for norm in norms} for last, norms in buckets.items()}
 
     def candidates(name_a: str, name_b: str) -> bool:
         """Return whether two names of one surname are cross-group candidates."""
-        return _are_cross_group_candidates(name_a, name_b, firsts[name_a.split("|", 1)[0]])
+        return first_names_may_match(name_a, name_b, firsts[name_a.split("|", 1)[0]])
 
     _score_bucket_pairs(context, buckets, candidates, _any_records, _cross_name_adjust)
 
@@ -148,10 +148,10 @@ def _same_street_or_zip_and_employer(p1: dict, p2: dict) -> bool:
 
 def _surnames_vary(name_a: str, name_b: str) -> bool:
     """Return whether the surnames of two names are variants of each other."""
-    return _is_surname_variant(name_a.split("|", 1)[0], name_b.split("|", 1)[0])
+    return is_surname_variant(name_a.split("|", 1)[0], name_b.split("|", 1)[0])
 
 
-def _score_surname_variants(context: MatchContext) -> None:
+def score_surname_variants(context: MatchContext) -> None:
     """Surname typos need a shared street, or ZIP and employer."""
     _score_bucket_pairs(
         context,
@@ -168,7 +168,7 @@ def _name_token_key(norm_name: str) -> frozenset:
     return frozenset(t for t in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(t) >= 2)
 
 
-def _score_name_variants(context: MatchContext) -> None:
+def score_name_formats(context: MatchContext) -> None:
     """Other formats of one name, sharing a street or ZIP.
 
     FIRST, LAST beside LAST, FIRST; and the same words in another order or
@@ -177,7 +177,7 @@ def _score_name_variants(context: MatchContext) -> None:
     """
     buckets = defaultdict(set)
     for rid, profile in context.profiles.items():
-        words = name_words(profile["name"])
+        words = filed_name_words(profile["name"])
         if len(words) >= 2:
             buckets[words].add(rid)
         tokens = _name_token_key(profile["norm_name"])
@@ -238,12 +238,12 @@ def _is_valid_superset(
     if not shorter_tokens < longer_tokens:
         return False
     extra = longer_tokens - shorter_tokens
-    if len(extra) > 2 or extra <= _GENERATION_SUFFIXES:
+    if len(extra) > 2 or extra <= GENERATION_SUFFIXES:
         return False
     return bool(first_of[shorter_name] & longer_tokens)
 
 
-def _score_surname_superset_variants(context: MatchContext) -> None:
+def score_compound_surnames(context: MatchContext) -> None:
     """Short and compound surnames only on the same exact street."""
     key_of, first_of, tok_index = _superset_name_index(context.name_groups)
     for nn1, k1 in key_of.items():

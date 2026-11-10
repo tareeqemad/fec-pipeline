@@ -32,7 +32,7 @@ def _first_name_rule(number: int, raw: str, corrected: str, zip_field: str) -> l
     return [(last, first, z) for z in zips]
 
 
-def _load_rules(path: Path = CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
+def read_name_rules(path: Path = CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
     """Read the reviewed name rules, grouped by rule type."""
     if not path.exists():
         raise FileNotFoundError(f"Missing contributor name rules: {path}")
@@ -62,7 +62,7 @@ def _load_rules(path: Path = CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
     return rules
 
 
-_RULES = _load_rules()
+_RULES = read_name_rules()
 
 EXACT_NAME_CORRECTIONS = _RULES["exact_name"]
 
@@ -82,7 +82,7 @@ _ENDINGS = words("name_endings")
 _ONLY_A_TITLE = words("pure_title")
 
 
-def _preclean_name_punctuation(df: pd.DataFrame) -> None:
+def preclean_name_punctuation(df: pd.DataFrame) -> None:
     """Remove backticks, semicolons, stray dots, collapse double commas."""
     df["contributor_name"] = (
         df["contributor_name"]

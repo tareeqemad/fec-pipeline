@@ -9,17 +9,17 @@ from typing import Any
 import pandas as pd
 
 from fec.common.settings import REFERENCE_DIR
-from fec.database.addresses import _akey, _employer_locations
+from fec.database.addresses import address_key, employer_locations_or_file
 from fec.database.connection import to_native
 from fec.geocoding.coordinate_checks import EARTH_RADIUS_MILES, great_circle
 
 
-def _location_index(
+def offices_by_company(
     employer_locations: list[dict] | None = None,
 ) -> dict[str, dict]:
     """Group offices by company, keeping the primary office first."""
     grouped: dict[str, list[dict]] = {}
-    for location in _employer_locations(employer_locations):
+    for location in employer_locations_or_file(employer_locations):
         grouped.setdefault(location["employer_name"], []).append(location)
 
     lookup = {}
@@ -32,7 +32,7 @@ def _location_index(
     return lookup
 
 
-def _employment_address_id(
+def filing_office_address_id(
     row: pd.Series,
     employer_name: Any,
     locations: dict,
@@ -45,7 +45,7 @@ def _employment_address_id(
         return None
 
     if status == "self_employed":
-        address = _akey(
+        address = address_key(
             row.get("contributor_street_1"),
             row.get("contributor_street_2"),
             row.get("contributor_city"),
@@ -73,7 +73,7 @@ def _employment_address_id(
     if not location:
         return None
 
-    address = _akey(
+    address = address_key(
         location["employer_address"],
         None,
         location["employer_city"],

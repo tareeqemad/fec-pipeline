@@ -8,7 +8,7 @@ from typing import Any
 import sqlparse
 
 from fec.common.settings import DATABASE_OWNER, SCHEMA_SQL
-from fec.database.connection import _quote_identifier
+from fec.database.connection import quote_identifier
 
 
 def create_schema(cur: Any) -> None:
@@ -74,4 +74,4 @@ def reset_schema(cur: Any) -> None:
         raise RuntimeError(f"Ownership check failed. Expected {DATABASE_OWNER}: {preview}")
 
     for name, kind, _owner in objects:
-        cur.execute(f"DROP {kind} IF EXISTS {_quote_identifier(name)} CASCADE")
+        cur.execute(f"DROP {kind} IF EXISTS {quote_identifier(name)} CASCADE")

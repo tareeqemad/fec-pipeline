@@ -55,7 +55,7 @@ def _write_quality_gates(quality: dict, csv_written: bool) -> None:
 
 def _write_results(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> pd.DataFrame:
     """Resolve the data, run the checks, and save the CSV and quality report."""
-    df = apply_results(df)
+    df = resolve_employers(df)
     quality = run_quality_gates(df)
     if not quality["passed"]:
         _write_quality_gates(quality, csv_written=False)
@@ -93,7 +93,7 @@ def main() -> None:
     logger.info("Next: python loader.py --reset")
 
 
-def apply_results(df: pd.DataFrame) -> pd.DataFrame:
+def resolve_employers(df: pd.DataFrame) -> pd.DataFrame:
     """Set each filing's employer status and its donor's previous employer."""
     status = classify_employer_statuses(df)
     status[df["entity_type"].eq("COMMITTEE/PAC")] = "committee"

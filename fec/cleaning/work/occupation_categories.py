@@ -68,12 +68,12 @@ def learn_categories(df: pd.DataFrame, *, ask: Callable[..., dict[str, str]] = c
     return len(answers)
 
 
-def _categorize(occupation_series: pd.Series) -> pd.Series:
+def lookup_categories(occupation_series: pd.Series) -> pd.Series:
     """Occupation category: the listed one, else OTHER until the model reads the text."""
     result = occupation_series.map(CATEGORY_OVERRIDES).astype(object)
     return result.where(result.notna(), "OTHER").where(occupation_series.notna(), pd.NA)
 
 
-def categorize_final(occupation_series: pd.Series) -> pd.Series:
+def categorize_occupations(occupation_series: pd.Series) -> pd.Series:
     """Return the category of final cleaned occupations."""
-    return _categorize(occupation_series.fillna("").astype(str).str.strip().str.upper())
+    return lookup_categories(occupation_series.fillna("").astype(str).str.strip().str.upper())

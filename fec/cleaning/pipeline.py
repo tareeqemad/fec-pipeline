@@ -14,7 +14,7 @@ from fec.cleaning.addresses.foreign_addresses import (
     snapshot_foreign_addresses,
 )
 from fec.cleaning.addresses.pipeline import clean_addresses
-from fec.cleaning.contributor_names import _preclean_name_punctuation, apply_name_corrections, clean_names
+from fec.cleaning.contributor_names import apply_name_corrections, clean_names, preclean_name_punctuation
 from fec.cleaning.entity_types import attach_source_fields, classify_entities, normalize_business_names
 from fec.cleaning.filing_corrections import apply_reviewed_filings
 from fec.cleaning.quality_gates import run_quality_gates
@@ -28,10 +28,9 @@ from fec.common.committees import committee_id_to_name, load_committees
 from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
 from fec.common.settings import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DIR
-from fec.matching.donor_work import rederive_occupation_category
+from fec.matching.donor_work import recategorize_occupations
 from fec.matching.name_compare import extract_generational_suffix
-from fec.matching.pipeline import identify_donors
-from fec.matching.pipeline import standardize as standardize_donors
+from fec.matching.pipeline import identify_donors, standardize_donors
 from fec.vocabulary.occupations import CATEGORY_OVERRIDES
 
 logger = get_logger(__name__)
@@ -74,7 +73,7 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     apply_reviewed_filings(df)
     _learn_categories(df)
     # Donors are matched on the category of the occupation as it now reads.
-    rederive_occupation_category(df)
+    recategorize_occupations(df)
     return df
 
 
@@ -132,7 +131,7 @@ def _sanity_check(df: pd.DataFrame) -> list[str]:
 
 def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     """Clean names, work fields and entity types."""
-    _preclean_name_punctuation(df)
+    preclean_name_punctuation(df)
 
     people = df["is_individual"].astype(bool)
     read_work(df, people, df["contributor_employer"].copy(), df["contributor_occupation"].copy())

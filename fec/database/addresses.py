@@ -91,7 +91,7 @@ def _empty_to_none(value: Any) -> Any:
     return None if value == "" else value
 
 
-def _akey(street_1: Any, street_2: Any, city: Any, state: Any, zip_code: Any) -> tuple:
+def address_key(street_1: Any, street_2: Any, city: Any, state: Any, zip_code: Any) -> tuple:
     """Use '' for missing address parts, matching SQL COALESCE."""
     return tuple(to_native(value) or "" for value in (street_1, street_2, city, state, zip_code))
 
@@ -102,7 +102,7 @@ def load_address_dimension(
     employer_locations: list[dict] | None = None,
 ) -> dict:
     """Load shared donor and company addresses."""
-    address_rows = _address_rows(df, _employer_locations(employer_locations))
+    address_rows = _address_rows(df, employer_locations_or_file(employer_locations))
     execute_values(
         cur,
         """INSERT INTO addresses
@@ -120,7 +120,7 @@ def load_address_dimension(
     return address_ids
 
 
-def _employer_locations(employer_locations: list[dict] | None) -> list[dict]:
+def employer_locations_or_file(employer_locations: list[dict] | None) -> list[dict]:
     """Read the CSV for None; keep an explicit empty list."""
     if employer_locations is None:
         return load_employer_locations()
@@ -170,7 +170,7 @@ def _add_address(
 ) -> None:
     """Add an address or fill its missing coordinates."""
     parts = (street_1, street_2, city, state, zip_code)
-    key = _akey(*parts)
+    key = address_key(*parts)
     entry = address_rows.get(key)
     if entry is None:
         # '' and NULL share one key, so store NULL.
@@ -187,7 +187,7 @@ def load_donor_addresses(cur: Any, df: pd.DataFrame, donor_ids: dict, address_id
         donor_id = donor_ids.get(donor_key)
         if not donor_id:
             continue
-        address_id = address_ids.get(_akey(street_1, street_2, city, state, zip_code))
+        address_id = address_ids.get(address_key(street_1, street_2, city, state, zip_code))
         if address_id is None:
             continue
         donor_address_rows.append((donor_id, address_id))
@@ -215,7 +215,7 @@ def link_employer_locations(
 ) -> None:
     """Link each company to its primary address."""
     employer_rows = _primary_location_rows(
-        _employer_locations(employer_locations),
+        employer_locations_or_file(employer_locations),
         address_ids,
         get_employer_id,
     )
@@ -247,7 +247,7 @@ def _primary_location_rows(
         if not employer_id:
             raise RuntimeError(f"employer location has no exact employer match: {location['employer_name']!r}")
         address_id = address_ids.get(
-            _akey(
+            address_key(
                 location["employer_address"],
                 None,
                 location["employer_city"],

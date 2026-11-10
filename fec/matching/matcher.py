@@ -4,26 +4,26 @@ from collections import defaultdict
 
 import pandas as pd
 
-from fec.matching.donor_keys import _donor_keys, individual_record_id
+from fec.matching.donor_keys import individual_record_id, keys_for_groups
 from fec.matching.identity_rules import NAME_MERGES, held_groups, split_zip
 from fec.matching.name_compare import extract_middle, normalize_employer, normalize_name
 from fec.matching.phases import (
     MatchContext,
-    _score_cross_groups,
-    _score_name_variants,
-    _score_surname_superset_variants,
-    _score_surname_variants,
-    _score_within_groups,
+    score_compound_surnames,
+    score_first_name_variants,
+    score_name_formats,
+    score_same_names,
+    score_surname_variants,
 )
 from fec.matching.scoring import GENERIC_OCC_CATEGORIES
 from fec.vocabulary.statuses import EMPLOYER_STATUS_VALUES
 
 PHASES = (
-    _score_within_groups,
-    _score_cross_groups,
-    _score_surname_variants,
-    _score_name_variants,
-    _score_surname_superset_variants,
+    score_same_names,
+    score_first_name_variants,
+    score_surname_variants,
+    score_name_formats,
+    score_compound_surnames,
 )
 
 
@@ -51,7 +51,7 @@ def match_donors(df: pd.DataFrame) -> dict:
     for rid in uf.parent:
         components[uf.find(rid)].add(rid)
     _apply_force_merges(components, profiles)
-    return _donor_keys(components)
+    return keys_for_groups(components)
 
 
 def _s(val: object) -> str:

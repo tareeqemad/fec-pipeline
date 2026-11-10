@@ -7,7 +7,7 @@ before resolve) is skipped and listed as not run.
 
 import pandas as pd
 
-from fec.cleaning.addresses.donor_addresses import _zip_place
+from fec.cleaning.addresses.donor_addresses import zip_place
 from fec.cleaning.filing_corrections import categorize_records
 from fec.cleaning.work.employer_status import classify_employer_statuses, is_real_employer
 from fec.vocabulary.occupations import VALID_CATEGORIES
@@ -68,7 +68,7 @@ def _not_an_employer(df: pd.DataFrame) -> pd.Series:
 
 def _zip_of_another_state(df: pd.DataFrame) -> pd.Series:
     """Return the rows whose ZIP belongs to a different state."""
-    state = _text(df, "contributor_zip").map(lambda zipcode: _zip_place(zipcode)[0])
+    state = _text(df, "contributor_zip").map(lambda zipcode: zip_place(zipcode)[0])
     return state.ne("") & _text(df, "contributor_state").ne("") & state.ne(_text(df, "contributor_state"))
 
 
