@@ -21,7 +21,7 @@ from fec.log import get_logger
 logger = get_logger(__name__)
 
 
-def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
+def main() -> pd.DataFrame:
     start = time.perf_counter()
     env.load_env()
 
@@ -42,35 +42,13 @@ def main(expected: pd.DataFrame | None = None) -> pd.DataFrame:
 
     _assert_known_committees(output)
     _ensure_zip_format(output)
-    if expected is not None:
-        _check_reclean(expected, output)
 
     _save_if_gates_pass(output, out_dir, output_path)
     _save_donor_keys(cleaned)
     _write_new_occupations(output, out_dir)
     _print_summary(output, output_path, out_dir, time.perf_counter() - start)
-    if expected is None:
-        logger.info("Next: python geocode.py")
+    logger.info("Next: python geocode.py")
     return output
-
-
-# City corrections may rename keys but keep contributions and donors.
-def _check_reclean(expected: pd.DataFrame, output: pd.DataFrame) -> None:
-    columns = ['sub_id', 'contribution_receipt_amount', 'donor_key', 'contributor_city']
-    before = expected[columns].set_index('sub_id', verify_integrity=True).sort_index()
-    after = output[columns].set_index('sub_id', verify_integrity=True).sort_index()
-    if not before.index.equals(after.index):
-        raise ValueError('City correction changed contribution IDs; the previous CSV was kept')
-    amount = 'contribution_receipt_amount'
-    if not pd.to_numeric(before[amount]).eq(pd.to_numeric(after[amount])).all():
-        raise ValueError('City correction changed amounts; the previous CSV was kept')
-    groups = pd.DataFrame({'before': before['donor_key'], 'after': after['donor_key']})
-    split = groups.groupby('before', dropna=False)['after'].nunique(dropna=False).gt(1).any()
-    merged = groups.groupby('after', dropna=False)['before'].nunique(dropna=False).gt(1).any()
-    if split or merged:
-        raise ValueError('City correction changed donor groups; the previous CSV was kept')
-    if not before['contributor_city'].fillna('').eq(after['contributor_city'].fillna('')).all():
-        raise ValueError('City corrections were not applied as expected; the previous CSV was kept')
 
 
 # Stop if a recipient is missing from committees.csv.

@@ -2,7 +2,6 @@
 
 import math
 import re
-from urllib.parse import urlsplit
 
 from fec.config.geography import US_STATES, US_STATE_BBOX
 
@@ -73,82 +72,3 @@ def accepted_coordinates(key: str, entry: dict | None) -> tuple:
         if (country != "US" and not territory_country) or not valid_for_state(lat, lng, state):
             return None, None, "rejected_out_of_us"
     return lat, lng, source
-
-
-_CITY_HOUSE_RE = re.compile(r"^(\d+[A-Z]?(?:[-/]\d+[A-Z]?)?(?: \d+/[1-9]\d*| ?[¼½¾])?) (.+)$")
-_CITY_DIRECTIONS = {
-    "NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W",
-    "NORTHEAST": "NE", "NORTHWEST": "NW", "SOUTHEAST": "SE", "SOUTHWEST": "SW",
-}
-_CITY_STREET_TYPES = {
-    "STREET": "ST", "AVENUE": "AVE", "ROAD": "RD", "BOULEVARD": "BLVD",
-    "DRIVE": "DR", "LANE": "LN", "COURT": "CT", "CIRCLE": "CIR", "PLACE": "PL",
-    "PARKWAY": "PKWY", "HIGHWAY": "HWY", "TERRACE": "TER", "SQUARE": "SQ",
-    "TRAIL": "TRL", "PLAZA": "PLZ", "TURNPIKE": "TPKE", "EXPRESSWAY": "EXPY",
-    "ALLEY": "ALY", "CRESCENT": "CRES", "POINT": "PT", "HEIGHTS": "HTS",
-    "JUNCTION": "JCT", "RIDGE": "RDG", "ROUTE": "RTE", "EXTENSION": "EXT",
-}
-
-
-# Keep road words in order; format directions and suffix only.
-def _city_road_tokens(street: str) -> tuple[str, ...]:
-    tokens = street.upper().split()
-    if not tokens:
-        return ()
-    directions = set(_CITY_DIRECTIONS.values())
-    if len(tokens) > 2:
-        for index in (0, len(tokens) - 1):
-            word = tokens[index].replace(".", "")
-            if word in _CITY_DIRECTIONS or word in directions:
-                tokens[index] = _CITY_DIRECTIONS.get(word, word)
-    suffix = len(tokens) - 2 if len(tokens) > 1 and tokens[-1] in directions else len(tokens) - 1
-    word = tokens[suffix].rstrip(".")
-    if word in _CITY_STREET_TYPES or word in _CITY_STREET_TYPES.values():
-        tokens[suffix] = _CITY_STREET_TYPES.get(word, word)
-    return tuple(tokens)
-
-
-# A provider city counts only when other address parts agree.
-def confirmed_city(key: str, entry: dict | None) -> str | None:
-    if not isinstance(entry, dict) or entry.get("source") not in {"nominatim", "census"}:
-        return None
-    parts = key.split("|")
-    if len(parts) != 4:
-        return None
-    street, city, state, zipcode = (" ".join(part.upper().split()) for part in parts)
-    if state not in US_STATES or not re.fullmatch(r"\d{5}(?:-\d{4})?", zipcode):
-        return None
-    country = str(entry.get("country") or "").upper()
-    if country != "US" and not (state in US_TERRITORIES and country == state):
-        return None
-    matched = entry.get("matched_address")
-    fields = ("text", "house_number", "street", "city", "state", "zip", "source_url")
-    if not isinstance(matched, dict) or any(
-        not isinstance(matched.get(field), str) or not matched[field].strip() for field in fields
-    ):
-        return None
-    try:
-        source_url = urlsplit(matched["source_url"].strip())
-        if source_url.scheme not in {"http", "https"} or not source_url.hostname:
-            return None
-    except ValueError:
-        return None
-    if any(char.isspace() for char in matched["source_url"].strip()):
-        return None
-    evidence = {field: " ".join(matched[field].upper().split()) for field in fields}
-    if evidence["state"].removeprefix("US-") != state:
-        return None
-    if not re.fullmatch(r"\d{5}(?:-\d{4})?", evidence["zip"]) or evidence["zip"][:5] != zipcode[:5]:
-        return None
-    house = _CITY_HOUSE_RE.fullmatch(street)
-    if not house or house.group(1) != evidence["house_number"]:
-        return None
-    if _city_road_tokens(house.group(2)) != _city_road_tokens(evidence["street"]):
-        return None
-    lat, lng, source = accepted_coordinates(key, entry)
-    if lat is None or lng is None or source not in {"nominatim", "census"}:
-        return None
-    actual = evidence["city"]
-    return actual if actual != city and any(char.isalpha() for char in actual) else None
-
-

@@ -4,10 +4,9 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.addresses.foreign import kept_as_filed_mask
-from fec.cleaning.addresses.fixes.verified import apply_verified_address_fixes, save_verified_city_corrections
 from fec.geocoding.cache import GeoCache
 from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, census, nominatim
-from fec.geocoding.validation import accepted_coordinates, confirmed_city, is_po_box, unclear_house_number
+from fec.geocoding.validation import accepted_coordinates, is_po_box, unclear_house_number
 from fec.log import get_logger
 
 logger = get_logger(__name__)
@@ -92,46 +91,6 @@ def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
 def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50):
     keys = _contributor_keys(df)[~kept_as_filed_mask(df)]
     _geocode_keys(keys, cache, batch_size)
-
-
-# Save city evidence for clean to apply before donor matching.
-def save_city_corrections(df: pd.DataFrame, cache: GeoCache) -> int:
-    keys = _contributor_keys(df.loc[~kept_as_filed_mask(df)])
-    cities = {key: confirmed_city(key, cache.get(key)) for key in keys.unique()}
-    rows = []
-    for index, key in keys.items():
-        city = cities[key]
-        sub_id = df.at[index, "sub_id"]
-        if city is None or pd.isna(sub_id) or not str(sub_id).strip():
-            continue
-        street, _, state, zipcode = key.split("|")
-        rows.append({
-            "match_street": street, "match_state": state, "match_zip": zipcode,
-            "match_sub_id": str(sub_id).strip(), "street": street, "city": city,
-            "source": cache.get(key)["matched_address"]["source_url"],
-        })
-    return save_verified_city_corrections(rows) if rows else 0
-
-
-# Keep coordinates under both city names before clean applies rules.
-def prepare_city_corrections(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame | None:
-    save_city_corrections(df, cache)
-    corrected = df.copy()
-    pending = apply_verified_address_fixes(corrected, city_only=True)
-    if not pending:
-        return None
-    pairs = pd.DataFrame({'old': _contributor_keys(df), 'new': _contributor_keys(corrected)})
-    saved = False
-    for old, new in pairs.loc[pairs.old.ne(pairs.new)].drop_duplicates().itertuples(index=False, name=None):
-        entry = cache.get(old)
-        lat, lng, source = accepted_coordinates(old, entry)
-        if lat is not None and accepted_coordinates(new, cache.get(new))[0] is None:
-            cache.data[new] = {**(entry or {}), 'lat': lat, 'lng': lng, 'source': source}
-            cache.data[new].pop('lookup_status', None)
-            saved = True
-    if saved:
-        cache.save()
-    return corrected
 
 
 # Read accepted coordinates once per distinct address.
