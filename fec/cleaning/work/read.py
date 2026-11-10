@@ -14,11 +14,11 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning._helpers import name_words
-from fec.cleaning.work.company import COMPANY_LEVELS, _only_common_words, _text_evidence, company_key
+from fec.cleaning.work.company import COMPANY_LEVELS, Filings, company_key, evidence
 from fec.cleaning.work.employer_aliases import documented_employer_name, reviewed_employer_name
 from fec.cleaning.work.normalize import EMPLOYER_STATUS_TEXT, _categorize, _normalize_text
 from fec.cleaning.work.self_employed import firm_after_self_marker, split_self_marker
-from fec.cleaning.work.retired import settle_retired_fields
+from fec.cleaning.work.retired import read_retired
 from fec.cleaning.work.status import is_job_title, is_real_employer
 from fec.cleaning.work.status_words import status_word
 from fec.cleaning.work.style import normalize_occupation_style
@@ -43,25 +43,6 @@ _PLACEHOLDER_WORDS = FINAL_JUNK_EMPLOYERS | FINAL_NULL_EMPLOYERS | REFUSAL_EMPLO
 _JUNK_RE = re.compile(JUNK_EMPLOYER_RE)
 # A role, then the company: "PRESIDENT, ACME INC", "CEO AT ACME LLC".
 _ROLE_THEN_COMPANY_RE = re.compile(r'^(?P<role>[A-Z][A-Z .&-]*?)\s*(?:,|/|\bAT\b|\bOF\b| - )\s*(?P<company>.+)$')
-
-
-class Filings:
-    """What the filings say together: who names which text as their employer."""
-
-    def __init__(self, names: pd.Series, employers: pd.Series):
-        keys = employers.map(company_key)
-        filed = keys.ne("")
-        self.filers = names[filed].groupby(keys[filed].to_numpy()).nunique().to_dict()
-        self.own = set(zip(names[filed], keys[filed]))
-
-    def level(self, text: str, min_filers: int) -> str:
-        """How surely a text names a company (see fec.cleaning.work.company)."""
-        key = company_key(text)
-        level = _text_evidence(key, "&" in text)
-        if (level in ("unknown", "named_org") and self.filers.get(key, 0) >= min_filers
-                and len(re.sub(r"[^A-Z]", "", key)) >= 3 and is_real_employer(key) and not _only_common_words(key)):
-            return "frequent"
-        return level
 
 
 def names_no_employer(text: str, *, also_words: bool = True) -> bool:
@@ -139,7 +120,7 @@ def settle(e: str, o: str, name: str, first: str, last: str, filings: Filings) -
         o = e
     if not e:
         e = EMPLOYER_FROM_OCCUPATION.get(o, "")
-    if o and _text_evidence(company_key(o), "&" in o) not in ("legal_form", "reviewed"):
+    if o and evidence(o) not in ("legal_form", "reviewed"):
         o = normalize_occupation_style(o)
     return e, o
 
@@ -164,22 +145,21 @@ def read_work(df: pd.DataFrame, people: pd.Series, filed_employers: pd.Series, f
     e = _normalize_text(filed_employers.loc[rows], EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT)
     o = _normalize_text(filed_occupations.loc[rows], OCCUPATION_NORMALIZE)
     # RETIRED, read in both boxes (see fec.cleaning.work.retired).
-    work = pd.DataFrame({"contributor_employer": e, "contributor_occupation": o, "is_individual": True,
-                         "previous_employer": pd.Series(np.nan, index=rows, dtype=object), "_retired_marker": False})
-    settle_retired_fields(work)
-    work = work.fillna({"contributor_employer": "", "contributor_occupation": ""})
+    filed = list(zip(e.fillna("").astype(str), o.fillna("").astype(str)))
+    retired = {pair: read_retired(*pair) for pair in set(filed)}
+    work = pd.DataFrame([retired[pair] for pair in filed], index=rows, columns=["e", "o", "previous", "said_retired"])
 
     def text(column: str) -> pd.Series:
         return df.loc[rows, column].fillna("").astype(str).str.strip().str.upper()
 
     names = text("contributor_name")
-    filings = Filings(names, work["contributor_employer"])
-    keys = list(zip(work["contributor_employer"], work["contributor_occupation"], names,
+    filings = Filings(names, work["e"])
+    keys = list(zip(work["e"], work["o"], names,
                     text("contributor_first_name"), text("contributor_last_name")))
     read = {key: settle(*key, filings) for key in set(keys)}
     df.loc[rows, "contributor_employer"] = pd.Series([read[k][0] or np.nan for k in keys], index=rows, dtype=object)
     occupation = pd.Series([read[k][1] or np.nan for k in keys], index=rows, dtype=object)
     df.loc[rows, "contributor_occupation"] = occupation
     df.loc[rows, "occupation_category"] = _categorize(occupation)
-    df.loc[rows, "previous_employer"] = work["previous_employer"]
-    df["_retired_marker"] = work["_retired_marker"].reindex(df.index, fill_value=False)
+    df.loc[rows, "previous_employer"] = work["previous"].replace("", np.nan).astype(object)
+    df["_retired_marker"] = work["said_retired"].reindex(df.index, fill_value=False)

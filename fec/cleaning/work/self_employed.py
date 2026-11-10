@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from fec.cleaning.work.company import COMPANY_LEVELS, _text_evidence, company_key
+from fec.cleaning.work.company import COMPANY_LEVELS, evidence
 from fec.cleaning.work.status import is_job_title, is_real_employer, single_letters
 from fec.config.not_employers import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.config.tables import words
@@ -41,7 +41,7 @@ def firm_after_self_marker(rest: str) -> str:
     """
     if not rest or rest in ROLE_AS_EMPLOYER or rest in OCCUPATION_AS_EMPLOYER or is_job_title(rest):
         return ''
-    level = _text_evidence(company_key(rest), '&' in rest)
+    level = evidence(rest)
     if level in COMPANY_LEVELS or _FIRM_WORD_RE.search(rest):
         return rest
     # DR RICHARD ALPERIN beside SELF is the person, not a firm.

@@ -13,7 +13,7 @@ from fec.config.geography import US_STATES
 from fec.config.not_employers import LEGAL_SUFFIX_RE
 from fec.config.data import INDIV_NAME_RE
 from fec.cleaning.work.company import (
-    COMPANY_LEVELS, ORGANISATION_WORDS, company_evidence, has_legal_form_token,
+    COMPANY_LEVELS, ORGANISATION_WORDS, Filings, has_legal_form_token,
 )
 from fec.cleaning.work.employer_aliases import (
     documented_employer_name, employer_rule_key, reviewed_employer_name,
@@ -131,10 +131,8 @@ _DEFINITE_COMM_RE = re.compile(
 # name other donors file as their employer counts as well.
 def _company_levels(df: pd.DataFrame, names: pd.Series) -> pd.Series:
     people = df["is_individual"].astype(bool)
-    return company_evidence(
-        names, employers=df.loc[people, "contributor_employer"],
-        filers=df.loc[people, "contributor_name"], min_filers=1,
-    )
+    filings = Filings(df.loc[people, "contributor_name"], df.loc[people, "contributor_employer"].fillna(""))
+    return names.map(lambda name: filings.level(name, 1) if isinstance(name, str) else "")
 
 
 def _blank(s: pd.Series) -> pd.Series:
