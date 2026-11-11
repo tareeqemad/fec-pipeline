@@ -1,7 +1,6 @@
-"""Columns each stage needs and writes, and the column order of the cleaned file."""
+"""The columns of the cleaned file, and the checks each stage runs on a file's columns."""
 
 from collections.abc import Iterable
-from dataclasses import dataclass
 
 # clean.py writes exactly these, in this order
 CLEAN_COLUMNS = (
@@ -36,129 +35,41 @@ LOADED_COLUMNS = CLEAN_COLUMNS + DONOR_COORDINATES + ("employer_status",)
 
 
 class ContractError(ValueError):
-    """A stage used columns its contract does not allow."""
+    """A file does not hold the columns its stage expects."""
 
 
-@dataclass(frozen=True)
-class Stage:
-    """Describe the columns one pipeline stage needs, adds, drops and refuses."""
-
-    command: str
-    needs: tuple[str, ...] = ()
-    adds: tuple[str, ...] = ()
-    drops: tuple[str, ...] = ()
-    # columns that mean the file already went through this stage
-    refuses: tuple[str, ...] = ()
-
-
-STAGES = {
-    "clean": Stage("clean.py", adds=CLEAN_COLUMNS),
-    "geocode": Stage("geocode.py", needs=CLEAN_COLUMNS, adds=DONOR_COORDINATES),
-    "resolve": Stage(
-        "resolve.py --apply",
-        needs=CLEAN_COLUMNS,
-        adds=("employer_status",),
-        # Resolve must read filed employers, not its own earlier answers.
-        refuses=("employer_status",),
-    ),
-}
-
-
-def _find_adding_command(column: str) -> str:
-    return next((stage.command for stage in STAGES.values() if column in stage.adds), "clean.py")
-
-
-def check_input(stage_name: str, columns: Iterable[str]) -> None:
-    """Check required columns; reject stages run on their own output."""
-    stage = STAGES[stage_name]
-    rerun = [column for column in stage.refuses if column in set(columns)]
-    if rerun:
-        raise ContractError(f"{stage.command} already ran on this file ({', '.join(rerun)}); run clean.py first")
-    missing = [column for column in stage.needs if column not in set(columns)]
+def check_input(command: str, columns: Iterable[str], added_by_this_command: str | None = None) -> None:
+    """Stop when a cleaned column is missing, or the file already went through this command."""
+    columns = set(columns)
+    if added_by_this_command in columns:
+        raise ContractError(f"{command} already ran on this file ({added_by_this_command}); run clean.py first")
+    missing = [column for column in CLEAN_COLUMNS if column not in columns]
     if missing:
-        first = _find_adding_command(missing[0])
-        raise ContractError(f"{stage.command} needs columns {', '.join(missing)}; run {first} first")
+        raise ContractError(f"{command} needs columns {', '.join(missing)}; run clean.py first")
 
 
-def check_output(stage_name: str, input_columns: Iterable[str], output_columns: Iterable[str]) -> None:
-    """Check output columns against the stage, including duplicates."""
-    stage = STAGES[stage_name]
-    expected = (set(input_columns) | set(stage.adds)) - set(stage.drops)
-    written = list(output_columns)
-    written_columns = set(written)
-    problems = []
-    duplicated = sorted({column for column in written if written.count(column) > 1})
-    if duplicated:
-        problems.append(f"duplicated {', '.join(duplicated)}")
-    extra = sorted(written_columns - expected)
-    if extra:
-        problems.append(f"unexpected {', '.join(extra)}")
-    missing = sorted(expected - written_columns)
-    if missing:
-        problems.append(f"missing {', '.join(missing)}")
-    working = sorted(column for column in written if column.startswith("_"))
-    if working:
-        problems.append(f"working columns {', '.join(working)}")
-    if problems:
-        raise ContractError(f"{stage.command} would write a broken file: " + "; ".join(problems))
+def _describe_difference(columns: Iterable[str], expected: Iterable[str]) -> str:
+    columns, expected = list(columns), set(expected)
+    found = {
+        "missing": sorted(expected - set(columns)),
+        "unexpected": sorted(set(columns) - expected),
+        "duplicated": sorted({column for column in columns if columns.count(column) > 1}),
+    }
+    return "; ".join(f"{problem} {', '.join(names)}" for problem, names in found.items() if names)
+
+
+def check_output(command: str, columns: Iterable[str], expected: Iterable[str]) -> None:
+    """Stop when the file to write does not hold exactly the expected columns, each once."""
+    difference = _describe_difference(columns, expected)
+    if difference:
+        raise ContractError(f"{command} would write a broken file: {difference}")
 
 
 def check_loadable(columns: Iterable[str]) -> None:
-    """Require the finished columns expected by the loader."""
-    columns = list(columns)
-    missing = [column for column in LOADED_COLUMNS if column not in columns]
-    extra = [column for column in columns if column not in LOADED_COLUMNS]
-    if missing or extra:
-        hint = f"; run {_find_adding_command(missing[0])}" if missing else ""
-        problems = []
-        if missing:
-            problems.append(f"missing {', '.join(missing)}")
-        if extra:
-            problems.append(f"unexpected {', '.join(extra)}")
-        detail = "; ".join(problems)
-        raise ContractError(f"contributions_cleaned.csv is not the finished file: {detail}{hint}")
-
-
-# Output column order; recipient_committee is the receiving PAC.
-OUTPUT_COLUMNS = [
-    # ids
-    "sub_id",
-    "transaction_id",
-    "two_year_transaction_period",
-    "recipient_committee",
-    # entity (is_individual removed — entity_type is canonical)
-    "entity_type",
-    # name
-    "contributor_name",
-    "contributor_first_name",
-    "contributor_last_name",
-    # address
-    "contributor_street_1",
-    "contributor_street_2",
-    "contributor_city",
-    "contributor_state",
-    "contributor_zip",
-    # Work; contributor_employer is the per-donor unified name.
-    "contributor_employer",
-    "contributor_occupation",
-    "occupation_category",
-    # Internal working fields for later safety nets; dropped at save.
-    "_generational_suffix",
-    # Contribution; amounts alone mark refunds (below zero).
-    "contribution_receipt_date",
-    "contribution_receipt_amount",
-    # What FEC itself says about the contributor.
-    "fec_entity_type",
-    "fec_contributor_id",
-    "fec_image_number",
-]
-
-# Working columns no writer may save; coordinates are kept.
-INTERNAL_OUTPUT_COLUMNS = [
-    "is_individual",  # redundant with entity_type
-    "_generational_suffix",  # identity evidence from the raw contributor name
-    # FEC's own type and id, read while cleaning, never written.
-    "fec_entity_type",
-    "fec_contributor_id",
-    "fec_image_number",
-]
+    """Stop when the file is not the finished one: cleaned, geocoded and resolved."""
+    difference = _describe_difference(columns, LOADED_COLUMNS)
+    if difference:
+        raise ContractError(
+            f"contributions_cleaned.csv is not the finished file: {difference}; "
+            "run clean.py, geocode.py and resolve.py --apply"
+        )

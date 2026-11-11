@@ -6,6 +6,7 @@ import time
 import requests
 
 from fec.geocoding.coordinate_checks import US_TERRITORIES, is_foreign_address
+from fec.vocabulary.tables import words
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_HEADERS = {"User-Agent": "FEC-Geocoder/1.0 (research project)"}
@@ -15,32 +16,7 @@ TIMEOUT = 10
 RETRIES = 2
 
 # Nominatim answers of these kinds are an area or a road, not the address itself.
-_AREA_TYPES = {
-    "administrative",
-    "boundary",
-    "country",
-    "state",
-    "province",
-    "region",
-    "county",
-    "city",
-    "town",
-    "village",
-    "hamlet",
-    "municipality",
-    "borough",
-    "district",
-    "city_district",
-    "suburb",
-    "neighbourhood",
-    "quarter",
-    "postcode",
-    "postal_code",
-    "road",
-    "street",
-    "pedestrian",
-    "residential",
-}
+_AREA_TYPES = words("nominatim_area_types")
 _HOUSE_NUMBER = re.compile(r"^\s*(\d+[A-Z]?(?:[-/]\d+[A-Z]?)?(?:\s+\d/\d)?)\b", re.IGNORECASE)
 _last_nominatim_request = float("-inf")
 

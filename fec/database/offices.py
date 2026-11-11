@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 import csv
+import math
 from functools import lru_cache
 
 import pandas as pd
 
 from fec.common.settings import REFERENCE_DIR
-from fec.geocoding.coordinate_checks import EARTH_RADIUS_MILES, great_circle
 
 # How far a company address is proven; only the first two are published.
+EARTH_RADIUS_MILES = 3958.8
+
 ADDRESS_TRUST_VALUES = frozenset({"verified", "grounded", "corroborated", "uncorroborated"})
 
 PUBLISHABLE_ADDRESS_TRUST = frozenset({"verified", "grounded"})
+
+
+def miles_between(first: tuple, second: tuple) -> float:
+    """Return the great-circle distance in miles between two (lat, lng) points."""
+    first_lat, first_lng = map(math.radians, first)
+    second_lat, second_lng = map(math.radians, second)
+    haversine = math.sin((second_lat - first_lat) / 2) ** 2
+    haversine += math.cos(first_lat) * math.cos(second_lat) * math.sin((second_lng - first_lng) / 2) ** 2
+    return EARTH_RADIUS_MILES * 2 * math.asin(min(1.0, math.sqrt(haversine)))
 
 
 def _text_or_none(text: str) -> str | None:
@@ -109,5 +120,5 @@ def _rank_office(office: dict, donor_point: tuple | None, centroids: dict) -> tu
     office_point = centroids.get(_normalize(office["zip_code"])[:5])
     if donor_point is None or office_point is None:
         return (1, 0.0, not office["is_primary"], address)
-    distance = great_circle(donor_point, office_point, EARTH_RADIUS_MILES)
+    distance = miles_between(donor_point, office_point)
     return (0, distance, not office["is_primary"], address)

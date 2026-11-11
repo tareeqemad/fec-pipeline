@@ -25,18 +25,7 @@ ID_DTYPES = {
 
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:
     """Read a pipeline CSV, keeping ID leading zeros and surnames like NULL and NA."""
-    # Apply dtypes only to columns present in the header.
-    peek = pd.read_csv(path, nrows=0)
-    present = set(peek.columns)
-    dtypes = {column: dtype for column, dtype in ID_DTYPES.items() if column in present}
-
-    return pd.read_csv(
-        path,
-        dtype=dtypes if dtypes else None,
-        low_memory=False,
-        keep_default_na=False,
-        na_values=NA_VALUES,
-    )
+    return pd.read_csv(path, dtype=ID_DTYPES, low_memory=False, keep_default_na=False, na_values=NA_VALUES)
 
 
 # Allow short Windows file locks to clear.
@@ -79,24 +68,3 @@ def write_csv_atomic(df: pd.DataFrame, path: str | Path, **to_csv_options: Any) 
     temp_path = path + ".tmp"
     df.to_csv(temp_path, **to_csv_options)
     replace_file(temp_path, path)
-
-
-class JsonCache:
-    """Keyed entries in a JSON file, saved atomically."""
-
-    def __init__(self, path: str | Path) -> None:
-        """Load the entries from the file, or start empty if it does not exist."""
-        self.path = path
-        self.data = json.loads(Path(path).read_text(encoding="utf-8")) if Path(path).exists() else {}
-
-    def get(self, key: str) -> Any:
-        """Return the entry stored under key, or None."""
-        return self.data.get(key)
-
-    def put(self, key: str, value: Any) -> None:
-        """Store an entry under key."""
-        self.data[key] = value
-
-    def save(self) -> None:
-        """Write the entries to the file atomically."""
-        write_json_atomic(self.path, self.data, ensure_ascii=False)

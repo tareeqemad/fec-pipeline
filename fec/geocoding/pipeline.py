@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from fec.cleaning.addresses.foreign_addresses import kept_as_filed_mask
-from fec.common.columns import check_input, check_output
+from fec.common.columns import DONOR_COORDINATES, check_input, check_output
 from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
 from fec.common.settings import CLEANED_CSV, GEOCODE_CACHE_JSON, PROJECT_ROOT
@@ -135,7 +135,7 @@ def main() -> None:
         sys.exit(1)
     csv_name = CLEANED_CSV.relative_to(PROJECT_ROOT)
     df = read_pipeline_csv(CLEANED_CSV)
-    check_input("geocode", df.columns)
+    check_input("geocode.py", df.columns)
     input_columns = list(df.columns)
     logger.info("Reading: %s (%s rows)", csv_name, f"{len(df):,}")
 
@@ -146,7 +146,7 @@ def main() -> None:
     logger.info("Rows with contributor coordinates: %s / %s", f"{df['latitude'].notna().sum():,}", f"{len(df):,}")
 
     logger.info("[2/2] Checking data and saving")
-    check_output("geocode", input_columns, df.columns)
+    check_output("geocode.py", df.columns, [*input_columns, *DONOR_COORDINATES])
     write_csv_atomic(df, CLEANED_CSV, index=False)
 
     minutes, seconds = divmod(round(time.perf_counter() - start), 60)

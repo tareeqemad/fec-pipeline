@@ -1,15 +1,14 @@
 """Decide which addresses can be looked up and which coordinates are accepted."""
 
-import math
 import re
 
 from fec.vocabulary.geography import US_STATE_BBOX, US_STATES
+from fec.vocabulary.tables import words
 
-EARTH_RADIUS_MILES = 3958.8
+# Cache sources that place a point at the street address itself.
+STREET_LEVEL_SOURCES = words("street_level_geocode_sources")
 
-STREET_LEVEL_SOURCES = {"nominatim", "census", "google", "manual_census", "manual_verified", "nominatim_intl"}
-
-US_TERRITORIES = {"AS", "GU", "MP", "PR", "VI"}
+US_TERRITORIES = words("us_territories")
 
 # A Canadian or British postcode.
 _FOREIGN_POSTCODE = re.compile(r"[ABCEGHJ-NPRSTVXY]\d[A-Z]\s?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}")
@@ -29,15 +28,6 @@ def is_foreign_address(state: str, zipcode: str) -> bool:
     if state:
         return state not in US_STATES or bool(_FOREIGN_POSTCODE.fullmatch(zipcode))
     return not re.fullmatch(r"\d{5}(?:-?\d{4})?", zipcode)
-
-
-def great_circle(first: tuple, second: tuple, radius: float) -> float:
-    """Return the great-circle distance between two (lat, lng) points on a sphere of this radius."""
-    first_lat, first_lng = map(math.radians, first)
-    second_lat, second_lng = map(math.radians, second)
-    haversine = math.sin((second_lat - first_lat) / 2) ** 2
-    haversine += math.cos(first_lat) * math.cos(second_lat) * math.sin((second_lng - first_lng) / 2) ** 2
-    return radius * 2 * math.asin(min(1.0, math.sqrt(haversine)))
 
 
 def _is_within_state(lat: float, lng: float, state: str) -> bool:

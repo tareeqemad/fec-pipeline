@@ -51,7 +51,7 @@ def main() -> None:
         sys.exit(1)
     csv_name = CLEANED_CSV.relative_to(PROJECT_ROOT)
     df = read_pipeline_csv(CLEANED_CSV)
-    check_input("resolve", df.columns)
+    check_input("resolve.py --apply", df.columns, "employer_status")
     input_columns = list(df.columns)
     logger.info("Reading: %s (%s rows)", csv_name, f"{len(df):,}")
 
@@ -61,7 +61,7 @@ def main() -> None:
     if not quality["passed"]:
         write_json_atomic(QUALITY_GATES_JSON, report, indent=2)
         raise ValueError(f"Resolved CSV was not written: {'; '.join(quality['issues']) or 'quality gate failed'}")
-    check_output("resolve", input_columns, df.columns)
+    check_output("resolve.py --apply", df.columns, [*input_columns, "employer_status"])
     write_csv_atomic(df, CLEANED_CSV, index=False)
     write_json_atomic(QUALITY_GATES_JSON, {**report, "csv_written": True}, indent=2)
 
