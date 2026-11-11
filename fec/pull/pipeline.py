@@ -113,28 +113,16 @@ def pull_committee(committee_id: str, period: int) -> None:
             counts["new"] += len(rows)
             counts["pages"] += 1
 
-    logger.info(
-        "[DONE] %s / %s: new=%s skipped=%s no_sub_id=%s pages=%s file=%s",
-        committee_id,
-        period,
-        f"{counts['new']:,}",
-        f"{counts['skipped']:,}",
-        f"{counts['no_sub_id']:,}",
-        counts["pages"],
-        RAW_CSV,
-    )
+    summary = f"new={counts['new']:,} skipped={counts['skipped']:,} no_sub_id={counts['no_sub_id']:,}"
+    logger.info("[DONE] %s / %s: %s pages=%s file=%s", committee_id, period, summary, counts["pages"], RAW_CSV)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Validate the committee and period, then pull new records."""
     parser = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
     parser.add_argument("committee_id", help="Committee ID from committees.csv.")
-    parser.add_argument(
-        "--period",
-        type=int,
-        default=date.today().year,
-        help="Two-year transaction period; an odd year means the period it ends in (default: the current period).",
-    )
+    period_help = "Two-year transaction period; an odd year means the period it ends in (default: the current one)."
+    parser.add_argument("--period", type=int, default=date.today().year, help=period_help)
     args = parser.parse_args(argv)
     load_env()
 

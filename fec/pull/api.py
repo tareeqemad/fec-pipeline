@@ -11,11 +11,8 @@ from fec.common.log import get_logger
 logger = get_logger(__name__)
 
 BASE_URL = "https://api.open.fec.gov/v1/schedules/schedule_a/"
-
-MAX_ATTEMPTS = 6
-
-RATE_LIMIT_MAX_WAIT = 65 * 60
-
+MAX_ATTEMPTS = 6  # for a request that fails or gets a temporary server error
+RATE_LIMIT_MAX_WAIT = 65 * 60  # seconds of waiting for the rate limit before giving up
 TRANSIENT_STATUSES = {500, 502, 503, 504}
 
 
