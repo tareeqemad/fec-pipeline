@@ -75,6 +75,9 @@ _ORDINALS = dict(
 # USPS Publication 28: these designators stand without an id
 _NEEDS_NO_ID = words("needs_no_id")
 
+# Words that start a street's name but that the parser reads as a street type before it: BEACH 137TH ST
+_NAME_WORDS_READ_AS_TYPES = words("name_words_read_as_types")
+
 _PO_BOX = re.compile(r"^(?:P ?O|POST OFFICE|P ?O ?B)(?: ?BOX)? ?#? ?(\w*\d\w*|[A-Z])$")
 
 _CARE_OF = re.compile(r"^(?:C/O|CARE OF|ATTN|ATTENTION)\b")
@@ -112,7 +115,8 @@ def _build_street(tagged: list) -> str | None:
         elif label.endswith("Directional") and "StreetName" in labels and not direction_is_name:
             words[position] = DIRECTIONAL_REPLACEMENTS.get(words[position], words[position])
         elif label.endswith("Type") and last_of_run:
-            words[position] = STREET_TYPE_ABBREVIATIONS.get(words[position], words[position])
+            if not (label == "StreetNamePreType" and words[position] in _NAME_WORDS_READ_AS_TYPES):
+                words[position] = STREET_TYPE_ABBREVIATIONS.get(words[position], words[position])
         elif (
             label == "StreetName"
             and labels[position + 1 : position + 2] == ["StreetNamePostType"]
