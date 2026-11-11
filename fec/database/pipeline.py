@@ -46,8 +46,7 @@ from fec.database.schema import (
     verify_extensions,
 )
 
-# Keep the existing log-file category when moving the entry point.
-logger = get_logger("fec.database.loader.run")
+logger = get_logger(__name__)
 
 
 def _require_reset_flag() -> None:

@@ -52,7 +52,7 @@ def load_key_accomplices(cur: Any, offices: list[dict]) -> None:
                 person["subtitle"] or None,
                 person["body_text"] or None,
                 committee_id,
-                _read_display_order(person),
+                int(person["display_order"] or 0),
             ),
         )
 
@@ -92,23 +92,9 @@ def _find_committee_id(committee_ids: dict[str, int], short_name: str, person: d
     return committee_ids[short_name]
 
 
-def _read_display_order(person: dict) -> int:
-    text = person["display_order"]
-    if text.lstrip("-").isdigit():
-        return int(text)
-    if text:
-        logger.warning("  key_accomplices.csv: %s -- unparseable display_order %r, using 0", person["name"], text)
-    return 0
-
-
-def _read_coordinate(person: dict, column: str) -> float | None:
-    text = person[column]
-    try:
-        return float(text)
-    except ValueError:
-        if text:
-            logger.warning("  %s -- unparseable %s %r, storing NULL", person["name"], column, text)
-        return None
+def _number_or_none(text: str) -> float | None:
+    # A value that is not a number stops the load, so that a typing slip is seen.
+    return float(text) if text else None
 
 
 def _load_person(cur: Any, person: dict, workplaces: dict) -> int:
@@ -194,8 +180,8 @@ def _find_or_insert_address(cur: Any, address: tuple, latitude: float | None, lo
 
 def _link_donor_address(cur: Any, donor_id: int, person: dict) -> None:
     address = tuple(person[column] or None for column in ("street_1", "street_2", "city", "state", "zip"))
-    latitude = _read_coordinate(person, "address_lat")
-    longitude = _read_coordinate(person, "address_lng")
+    latitude = _number_or_none(person["address_lat"])
+    longitude = _number_or_none(person["address_lng"])
     address_id = _find_or_insert_address(cur, address, latitude, longitude)
     cur.execute(
         """
