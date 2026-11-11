@@ -1,15 +1,27 @@
-"""Tests of the shared column contract between stages."""
+"""Tests of the shared column checks between stages."""
 
-from fec.common.columns import LOADED_COLUMNS, STAGES, check_input, check_loadable
+import pytest
 
-ORDER = ("clean", "geocode", "resolve")
+from fec.common.columns import CLEAN_COLUMNS, LOADED_COLUMNS, ContractError, check_input, check_loadable, check_output
 
 
-def test_the_stages_in_order_end_with_the_loaded_columns():
-    columns: set[str] = set()
-    for name in ORDER:
-        check_input(name, columns)
-        stage = STAGES[name]
-        columns = (columns | set(stage.adds)) - set(stage.drops)
-    assert columns == set(LOADED_COLUMNS)
-    check_loadable(LOADED_COLUMNS)
+def test_each_stage_accepts_the_file_the_stage_before_it_writes():
+    check_input("geocode.py", CLEAN_COLUMNS)
+    geocoded = [*CLEAN_COLUMNS, "latitude", "longitude"]
+    check_input("resolve.py --apply", geocoded, "employer_status")
+    check_loadable([*geocoded, "employer_status"])
+    assert set(LOADED_COLUMNS) == {*geocoded, "employer_status"}
+
+
+def test_a_stage_refuses_its_own_output_and_a_file_missing_a_column():
+    with pytest.raises(ContractError, match="already ran"):
+        check_input("resolve.py --apply", LOADED_COLUMNS, "employer_status")
+    with pytest.raises(ContractError, match="needs columns sub_id"):
+        check_input("geocode.py", CLEAN_COLUMNS[1:])
+    with pytest.raises(ContractError, match="not the finished file: missing employer_status"):
+        check_loadable([*CLEAN_COLUMNS, "latitude", "longitude"])
+
+
+def test_a_stage_refuses_to_write_missing_extra_or_repeated_columns():
+    with pytest.raises(ContractError, match="missing b; unexpected _work; duplicated a"):
+        check_output("clean.py", ["a", "a", "_work"], ["a", "b"])

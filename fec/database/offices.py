@@ -1,231 +1,124 @@
-"""Choose the company office for each employment: same city, else the nearest in the state."""
+"""Company offices: read the publishable ones and choose the office a donor most likely works at."""
 
 from __future__ import annotations
 
 import csv
+import math
 from functools import lru_cache
-from typing import Any
 
 import pandas as pd
 
 from fec.common.settings import REFERENCE_DIR
-from fec.database.addresses import address_key, employer_offices_or_file
-from fec.database.connection import to_native
-from fec.geocoding.coordinate_checks import EARTH_RADIUS_MILES, great_circle
+
+# How far a company address is proven; only the first two are published.
+EARTH_RADIUS_MILES = 3958.8
+
+ADDRESS_TRUST_VALUES = frozenset({"verified", "grounded", "corroborated", "uncorroborated"})
+
+PUBLISHABLE_ADDRESS_TRUST = frozenset({"verified", "grounded"})
 
 
-def offices_by_company(
-    employer_locations: list[dict] | None = None,
-) -> dict[str, dict]:
-    """Group offices by company, keeping the primary office first."""
-    grouped: dict[str, list[dict]] = {}
-    for location in employer_offices_or_file(employer_locations):
-        grouped.setdefault(location["employer_name"], []).append(location)
+def miles_between(first: tuple, second: tuple) -> float:
+    """Return the great-circle distance in miles between two (lat, lng) points."""
+    first_lat, first_lng = map(math.radians, first)
+    second_lat, second_lng = map(math.radians, second)
+    haversine = math.sin((second_lat - first_lat) / 2) ** 2
+    haversine += math.cos(first_lat) * math.cos(second_lat) * math.sin((second_lng - first_lng) / 2) ** 2
+    return EARTH_RADIUS_MILES * 2 * math.asin(min(1.0, math.sqrt(haversine)))
 
-    lookup = {}
-    for name, locations in grouped.items():
-        primary = next(
-            (location for location in locations if location["is_primary"]),
-            None,
+
+def _text_or_none(text: str) -> str | None:
+    return text if text.strip() else None
+
+
+def _coordinate_or_none(text: str) -> float | None:
+    return float(text) if text.strip() else None
+
+
+def publishable_offices(locations: pd.DataFrame) -> list[dict]:
+    """Return the publishable offices in file order, each company with a primary office."""
+    offices = []
+    for row in locations.to_dict("records"):
+        street = _text_or_none(row["employer_address"])
+        city = _text_or_none(row["employer_city"])
+        state = _text_or_none(row["employer_state"])
+        # A town alone is a location; a row with neither street nor town is not.
+        if row["address_trust"] not in PUBLISHABLE_ADDRESS_TRUST or (street is None and city is None):
+            continue
+        checked_by_hand = row["address_source"] == "manual" and row["address_trust"] == "verified"
+        offices.append(
+            {
+                "employer_name": row["employer_name"],
+                "street": street,
+                "city": city,
+                "state": state,
+                "zip_code": _text_or_none(row["employer_zip"]),
+                "latitude": _coordinate_or_none(row["employer_latitude"]),
+                "longitude": _coordinate_or_none(row["employer_longitude"]),
+                "is_primary": row["is_primary"].lower() == "true",
+                # A donor is placed only at a street address, or at a town checked by hand.
+                "is_workplace": street is not None or (checked_by_hand and city is not None and state is not None),
+            }
         )
-        lookup[name] = {
-            **(primary or {}),
-            "locations": [location for location in locations if location is not primary],
-        }
-    return lookup
+
+    # When a company's primary office is not publishable, its first publishable office becomes primary.
+    companies_with_primary = {office["employer_name"] for office in offices if office["is_primary"]}
+    for office in offices:
+        if office["employer_name"] not in companies_with_primary:
+            office["is_primary"] = True
+            companies_with_primary.add(office["employer_name"])
+    return offices
 
 
-def filing_office_address_id(
-    row: pd.Series,
-    employer_name: Any,
-    locations: dict,
-    address_ids: dict,
-) -> int | None:
-    """Choose a company office or the self-employed donor address."""
-    status = str(to_native(row.get("employer_status")) or "")
-
-    if status == "not_employed":
-        return None
-    if status == "self_employed":
-        return _find_self_employed_address_id(row, address_ids)
-    return _find_company_office_address_id(row, employer_name, locations, address_ids)
+def office_address(office: dict) -> tuple:
+    """Return the office as street_1, street_2, city, state and zip code; an office has no second street line."""
+    return (office["street"], None, office["city"], office["state"], office["zip_code"])
 
 
-def _find_self_employed_address_id(row: pd.Series, address_ids: dict) -> int | None:
-    address = address_key(
-        row.get("contributor_street_1"),
-        row.get("contributor_street_2"),
-        row.get("contributor_city"),
-        row.get("contributor_state"),
-        row.get("contributor_zip"),
-    )
-    if not any(address):
-        return None
-    address_id = address_ids.get(address)
-    if address_id is None:
-        raise RuntimeError(f"self-employed address was not loaded: donor_key={row.get('donor_key')}")
-    return address_id
-
-
-def _find_company_office_address_id(
-    row: pd.Series,
-    employer_name: Any,
-    locations: dict,
-    address_ids: dict,
-) -> int | None:
-    name = str(to_native(employer_name) or "").strip()
-    if not name or not locations:
-        return None
-
-    company_offices = locations.get(name)
-    location = select_office(
-        company_offices,
-        str(to_native(row.get("contributor_zip")) or ""),
-        str(to_native(row.get("contributor_state")) or ""),
-        str(to_native(row.get("contributor_city")) or ""),
-    )
-    if not location:
-        return None
-
-    address = address_key(
-        location["employer_address"],
-        None,
-        location["employer_city"],
-        location["employer_state"],
-        location["employer_zip"],
-    )
-    address_id = address_ids.get(address)
-    if address_id is None:
-        raise RuntimeError(f"employer address was not loaded: {name!r}")
-    return address_id
-
-
-ADDRESS_FIELDS = (
-    "employer_address",
-    "employer_city",
-    "employer_state",
-    "employer_zip",
-)
-
-
-def _trim_text(value: Any) -> str:
-    return str(value or "").strip()
-
-
-def _is_usable(location: dict | None) -> bool:
-    if not location:
-        return False
-    if _trim_text(location.get("employer_address")):
-        return True
-    return bool(
-        location.get("method") == "manual_override"
-        and _trim_text(location.get("employer_city"))
-        and _trim_text(location.get("employer_state"))
-    )
-
-
-def _build_signature(location: dict) -> tuple[str, ...]:
-    return tuple(_trim_text(location.get(field)).upper() for field in ADDRESS_FIELDS)
-
-
-def office_candidates(entry: dict | None) -> list[dict]:
-    """Return unique locations from one employer cache entry."""
-    if not isinstance(entry, dict):
-        return []
-
-    candidates = []
-    if _is_usable(entry):
-        candidates.append({**entry, "is_primary": True})
-    other_offices = [
-        {**location, "is_primary": False}
-        for location in entry.get("locations", [])
-        if isinstance(location, dict) and _is_usable(location)
-    ]
-    candidates.extend(other_offices)
-
-    unique = {}
-    for location in candidates:
-        unique.setdefault(_build_signature(location), location)
-    return list(unique.values())
+def workplaces_by_company(offices: list[dict]) -> dict[str, list[dict]]:
+    """Group the offices a donor can be placed at by company name."""
+    workplaces: dict[str, list[dict]] = {}
+    for office in offices:
+        if office["is_workplace"]:
+            workplaces.setdefault(office["employer_name"], []).append(office)
+    return workplaces
 
 
 @lru_cache(maxsize=1)
-def _read_zip_centroids() -> dict[str, tuple[float, float]]:
-    path = REFERENCE_DIR / "zip_centroids.csv"
-    if not path.exists():
-        return {}
-
-    centroids = {}
-    with path.open(encoding="utf-8", newline="") as handle:
-        for row in csv.DictReader(handle):
-            try:
-                point = (float(row["lat"]), float(row["lng"]))
-                zip_code = str(row["zip"]).strip().zfill(5)
-            except (KeyError, TypeError, ValueError):
-                continue
-            centroids[zip_code] = point
-    return centroids
+def read_zip_centroids() -> dict[str, tuple[float, float]]:
+    """Read the centre point of each ZIP code from zip_centroids.csv."""
+    with open(REFERENCE_DIR / "zip_centroids.csv", newline="", encoding="utf-8") as handle:
+        return {row["zip"].zfill(5): (float(row["lat"]), float(row["lng"])) for row in csv.DictReader(handle)}
 
 
-def select_office(
-    entry: dict | None,
-    donor_zip: str = "",
-    donor_state: str = "",
-    donor_city: str = "",
-) -> dict | None:
-    """Choose the office in the same city and state, else the nearest one in the state."""
-    candidates = office_candidates(entry)
-    if not candidates:
+def _normalize(text: str | None) -> str:
+    return (text or "").strip().upper()
+
+
+def choose_office(workplaces: list[dict], donor_zip: str, donor_state: str, donor_city: str) -> dict | None:
+    """Choose the company office in the donor's city, else the nearest in the donor's state, else the primary."""
+    if not workplaces:
         return None
-    if len(candidates) == 1:
-        return candidates[0]
+    donor_state, donor_city = _normalize(donor_state), _normalize(donor_city)
+    in_state = [office for office in workplaces if _normalize(office["state"]) == donor_state]
+    if not in_state:
+        primary = [office for office in workplaces if office["is_primary"]]
+        return (primary or workplaces)[0]
 
-    donor_zip = _trim_text(donor_zip)[:5]
-    donor_state = _trim_text(donor_state).upper()
-    same_state = [
-        location for location in candidates if _trim_text(location.get("employer_state")).upper() == donor_state
-    ]
-
-    if not same_state:
-        return next(
-            (location for location in candidates if location.get("is_primary")),
-            candidates[0],
-        )
-
-    donor_city = _trim_text(donor_city).upper()
-    same_city = [
-        location
-        for location in same_state
-        if donor_city and _trim_text(location.get("employer_city")).upper() == donor_city
-    ]
-    nearby = same_city or same_state
-
-    nearest = _find_nearest_office(nearby, donor_zip)
-    if nearest is not None:
-        return nearest
-    return min(nearby, key=_rank_office)
+    in_city = [office for office in in_state if donor_city and _normalize(office["city"]) == donor_city]
+    nearby = in_city or in_state
+    centroids = read_zip_centroids()
+    donor_point = centroids.get(_normalize(donor_zip)[:5])
+    ranks = [_rank_office(office, donor_point, centroids) for office in nearby]
+    return nearby[ranks.index(min(ranks))]
 
 
-def _find_nearest_office(offices: list[dict], donor_zip: str) -> dict | None:
-    centroids = _read_zip_centroids()
-    donor_point = centroids.get(donor_zip)
-    if not donor_point:
-        return None
-
-    ranked = []
-    for location in offices:
-        point = centroids.get(_trim_text(location.get("employer_zip"))[:5])
-        if point:
-            ranked.append((great_circle(donor_point, point, EARTH_RADIUS_MILES), location))
-    if not ranked:
-        return None
-    return min(ranked, key=_rank_by_distance)[1]
-
-
-def _rank_office(location: dict) -> tuple[bool, tuple[str, ...]]:
-    return (not location.get("is_primary", False), _build_signature(location))
-
-
-def _rank_by_distance(ranked_office: tuple[float, dict]) -> tuple[float, bool, tuple[str, ...]]:
-    distance, location = ranked_office
-    return (distance, not location.get("is_primary", False), _build_signature(location))
+def _rank_office(office: dict, donor_point: tuple | None, centroids: dict) -> tuple:
+    # Lowest is best: the nearest office, offices of unknown distance after those,
+    # then the primary office, then the address so that the choice never depends on file order.
+    address = tuple(_normalize(office[part]) for part in ("street", "city", "state", "zip_code"))
+    office_point = centroids.get(_normalize(office["zip_code"])[:5])
+    if donor_point is None or office_point is None:
+        return (1, 0.0, not office["is_primary"], address)
+    distance = miles_between(donor_point, office_point)
+    return (0, distance, not office["is_primary"], address)

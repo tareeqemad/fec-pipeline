@@ -55,54 +55,32 @@ def get_db_config() -> dict:
 
 # Project data folders.
 DATA_DIR = PROJECT_ROOT / "data"
-
 RAW_DIR = DATA_DIR / "raw"
-
 RULES_DIR = DATA_DIR / "rules"
-
 REFERENCE_DIR = DATA_DIR / "reference"
-
 CACHE_DIR = DATA_DIR / "cache"
-
-OUTPUT_DIR = DATA_DIR / "output"
-
 REPORTS_DIR = DATA_DIR / "reports"
 
-# raw FEC data; pull.py appends, nothing rewrites it
+# Raw FEC data; pull.py appends, nothing rewrites it. The second file holds FEC's own entity type and id per sub_id.
 RAW_CSV = RAW_DIR / "contributions.csv"
-
-# FEC's own entity type and id per sub_id; raw unchanged.
 FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
 
-CLEANED_CSV = OUTPUT_DIR / "contributions_cleaned.csv"
+CLEANED_CSV = DATA_DIR / "output" / "contributions_cleaned.csv"
 
-# Company offices, gathered once; new companies are added by hand.
+# Reference files, added to by hand: the committee list and the company offices.
+COMMITTEES_CSV = REFERENCE_DIR / "committees.csv"
 EMPLOYER_LOCATIONS_CSV = REFERENCE_DIR / "employer_locations.csv"
 
 SCHEMA_SQL = PROJECT_ROOT / "fec" / "database" / "schema.sql"
 
-# The single committee list; add a row per new committee.
-COMMITTEES_CSV = REFERENCE_DIR / "committees.csv"
-
-# Curated employer spelling rules
+# Reviewed decisions, every row with its source.
 EMPLOYER_NAME_RULES_CSV = RULES_DIR / "employer_name_rules.csv"
-
-# Curated contributor name rules
 CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
-
-# Curated contributor address corrections
 ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
-
-# Hand-set employer, occupation and address per filing
 FILING_CORRECTIONS_CSV = RULES_DIR / "filing_corrections.csv"
-
-# Reviewed previous employers, each with its source
 PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "previous_employers.csv"
-
-GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
-
-# The category of each occupation text, each with its source
 OCCUPATION_CATEGORIES_CSV = RULES_DIR / "occupation_categories.csv"
 
-# Each filing's donor key from the last run, so keys stay stable.
+# Kept between runs: map points already looked up, and each filing's donor key so keys stay stable.
+GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
 DONOR_KEYS_CSV = CACHE_DIR / "donor_keys.csv"

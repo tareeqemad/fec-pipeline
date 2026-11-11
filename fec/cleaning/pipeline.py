@@ -50,7 +50,7 @@ from fec.cleaning.work.status_spellings import extend_spellings
 from fec.cleaning.work.text_cleanup import EMPLOYER_STATUS_TEXT, clean_box_text
 from fec.cleaning.work.work_fields import read_work
 from fec.common import settings as env
-from fec.common.columns import CLEAN_COLUMNS, INTERNAL_OUTPUT_COLUMNS, OUTPUT_COLUMNS, check_output
+from fec.common.columns import CLEAN_COLUMNS
 from fec.common.committees import committee_id_to_name, read_committees
 from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
@@ -61,6 +61,15 @@ from fec.matching.pipeline import identify_donors, standardize_donors
 from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_CATEGORIES
 
 logger = get_logger(__name__)
+
+# Read while cleaning and matching, never written: FEC's own type and id, and what the filed name and work said.
+_WORKING_COLUMNS = (
+    "fec_entity_type",
+    "fec_contributor_id",
+    "fec_image_number",
+    "_generational_suffix",
+    "_retired_marker",
+)
 
 
 def clean_and_match(
@@ -173,12 +182,8 @@ def _finish_records(df: pd.DataFrame) -> pd.DataFrame:
     if unknown:
         logger.warning("WARNING: committee_id(s) not in committees.csv (kept raw): %s", unknown)
 
-    columns = [column for column in OUTPUT_COLUMNS if column in df.columns]
-    # Donor repairs still need this flag; output cleanup removes it.
-    for column in ("previous_employer", "_retired_marker"):
-        if column in df.columns and column not in columns:
-            columns.append(column)
-    return df[columns]
+    # The cleaned columns, and the working columns donor matching still reads.
+    return df[[column for column in df.columns if column in CLEAN_COLUMNS or column in _WORKING_COLUMNS]]
 
 
 def apply_record_rules(df: pd.DataFrame, filed_employers: pd.Series, filed_occupations: pd.Series) -> pd.DataFrame:
@@ -208,10 +213,7 @@ def main() -> pd.DataFrame:
     logger.info("Reading: %s (%s rows)", os.path.relpath(input_path, env.PROJECT_ROOT), f"{len(df):,}")
 
     cleaned = clean_and_match(df, out_dir=out_dir, earlier_keys=_read_earlier_donor_keys())
-    internal_columns = [
-        column for column in cleaned.columns if column.startswith("_") or column in INTERNAL_OUTPUT_COLUMNS
-    ]
-    output = cleaned.drop(columns=internal_columns)
+    output = cleaned[list(CLEAN_COLUMNS)].copy()
 
     _assert_known_committees(output)
     _ensure_zip_format(output)
@@ -303,5 +305,4 @@ def _save_if_gates_pass(output: pd.DataFrame, out_dir: str, output_path: str) ->
         for issue in quality["issues"]:
             logger.error("    %s", issue)
         raise SystemExit(1)
-    check_output("clean", (), output.columns)
-    write_csv_atomic(output[list(CLEAN_COLUMNS)], output_path, index=False)
+    write_csv_atomic(output, output_path, index=False)

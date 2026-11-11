@@ -8,13 +8,15 @@ import pytest
 
 from fec.cleaning import pipeline as cleaning_pipeline
 from fec.cleaning.work.company_names import apply_reviewed_employer_names
+from fec.common.columns import CLEAN_COLUMNS
 
 
 def test_failed_quality_gates_keep_the_previous_cleaned_file(tmp_path, monkeypatch):
     output = tmp_path / "contributions_cleaned.csv"
     output.write_text("previous good file\n", encoding="utf-8")
     cleaned = pd.DataFrame(
-        {
+        dict.fromkeys(CLEAN_COLUMNS, [""])
+        | {
             "sub_id": ["1"],
             "recipient_committee": [None],
             "contributor_zip": ["60601"],
