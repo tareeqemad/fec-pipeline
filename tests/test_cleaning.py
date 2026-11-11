@@ -552,3 +552,38 @@ def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
         df["contributor_employer"][0] == rows.at[waiting, "contributor_employer"]
         and df["contributor_employer"][2] == "FILED"
     )
+
+
+def test_previous_employer_survives_a_later_not_employed_but_not_a_later_job():
+    from fec.resolve.previous_employer import previous_employers
+
+    filings = [
+        # donor, date, status, employer: MAGIC, then retired, then not employed: retirement goes on
+        ("epstein", "2024-02-10", "active", "MAGIC"),
+        ("epstein", "2024-05-21", "retired", "RETIRED"),
+        ("epstein", "2025-09-28", "not_employed", "NOT EMPLOYED"),
+        # retired, then a new job: the later company is not a former one
+        ("adler", "2022-03-21", "retired", "RETIRED"),
+        ("adler", "2023-06-01", "active", "ACME"),
+        ("adler", "2025-01-10", "not_employed", "NOT EMPLOYED"),
+        # retired now, as before
+        ("koum", "2021-01-01", "active", "WHATSAPP LLC"),
+        ("koum", "2022-01-01", "retired", "RETIRED"),
+    ]
+    df = pd.DataFrame(
+        {
+            "sub_id": [str(number) for number in range(len(filings))],
+            "donor_key": [filing[0] for filing in filings],
+            "contribution_receipt_date": [filing[1] for filing in filings],
+            "contributor_employer": [filing[3] for filing in filings],
+            "previous_employer": [""] * len(filings),
+            "entity_type": ["INDIVIDUAL"] * len(filings),
+            "identity_status": ["confirmed"] * len(filings),
+        }
+    )
+    status = pd.Series([filing[2] for filing in filings])
+    found = previous_employers(df, status)
+    assert found[1] == "MAGIC"
+    assert found[3] == ""
+    assert found[7] == "WHATSAPP LLC"
+    assert (found[status.ne("retired")] == "").all()  # only retired filings carry one

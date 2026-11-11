@@ -1,5 +1,7 @@
 """The previous employer of a donor whose latest contribution says retired.
 
+A later NOT EMPLOYED filing does not end the retirement (RETIRED in 2024, NOT EMPLOYED in 2025); a later job does.
+
 In order: a reviewed answer (data/rules/previous_employers.csv, for people
 whose former work is known), the company the retired filing itself names
 (RETIRED FROM ACME), else the company on the donor's latest earlier
@@ -45,7 +47,8 @@ def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
     """Return the previous employer on the retired filings of donors who are retired now."""
     people = df["entity_type"].eq("INDIVIDUAL")
     retired = people & status.eq("retired")
-    latest = df[people].sort_values("contribution_receipt_date").groupby("donor_key").tail(1)
+    working_or_retired = people & status.ne("not_employed")
+    latest = df[working_or_retired].sort_values("contribution_receipt_date").groupby("donor_key").tail(1)
     retired_now = set(latest.loc[status[latest.index].eq("retired"), "donor_key"])
     donor_of_filing = dict(zip(df["sub_id"].astype(str), df["donor_key"]))
     found = {

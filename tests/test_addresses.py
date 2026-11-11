@@ -49,6 +49,10 @@ def test_standard_address_follows_usps_with_no_table_of_ours():
     assert std("750 SOUTH ST") == ("750 SOUTH ST", "", "SAINT LOUIS")  # SOUTH is the name
     assert std("374 N COAST HIGHWAY 101 SUITE 2") == ("374 N COAST HWY 101", "STE 2", "SAINT LOUIS")
     assert std("9 W 57 ST", "PMB #333") == ("9 W 57TH ST", "PMB 333", "SAINT LOUIS")
+    assert std("181 BEACH 137TH STREET")[0] == "181 BEACH 137TH ST"  # BEACH starts the name
+    assert std("4910 E MISSION HILL DR")[0] == "4910 E MISSION HILL DR"
+    assert std("122 LA PLATA")[0] == "122 LA PLATA"
+    assert std("1811 AVENUE V")[0] == std("1811 AVE V")[0] == "1811 AVE V"  # a real type stays one short form
     assert std("123 MAIN ST", "5TH FLOOR") == ("123 MAIN ST", "FL 5", "SAINT LOUIS")
     assert std("P.O. BOX 68033") == ("PO BOX 68033", "", "SAINT LOUIS")
     assert std("C/O RED CURVE SOLUTIONS LLC", "138 CONANT ST STE 401") == (

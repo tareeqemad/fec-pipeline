@@ -913,3 +913,6 @@ us_territories,GU,
 us_territories,MP,
 us_territories,PR,
 us_territories,VI,
+name_words_read_as_types,BEACH,Beach 137th St in Queens: the parser reads BEACH as a street type before the name
+name_words_read_as_types,MISSION,Mission Hill Dr: the parser reads MISSION as a street type before the name
+name_words_read_as_types,LA,La Plata: Spanish article the parser reads as LANE before the name
