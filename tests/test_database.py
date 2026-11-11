@@ -167,3 +167,37 @@ def test_a_finished_load_is_committed():
     with load_transaction(conn):
         pass
     assert conn.commits == 1 and conn.rollbacks == 0
+
+
+def test_roster_people_are_read_as_rows_shaped_like_filings(tmp_path, monkeypatch):
+    from fec.database import rosters
+
+    leaders = "donor_key,create_if_missing,leader_name,leader_street_1,leader_street_2,leader_city,leader_state"
+    leaders += ",leader_zip,leader_employer,leader_occupation,committee_ids,address_lat,address_lng,image_path\n"
+    leaders += 'known,false,"DOE, JANE",1 MAIN ST,,AUSTIN,TX,78701,ACME INC,ATTORNEY,{AIPAC},30.1,-97.7,jane.png\n'
+    leaders += 'new,true,"ROE, RICHARD",2 OAK AVE,,AUSTIN,TX,78702,ACME INC,ATTORNEY,,,,\n'
+    cards = "donor_key,create_if_missing,accomplice_name,accomplice_first_name,accomplice_last_name"
+    cards += ",accomplice_street_1,accomplice_street_2,accomplice_city,accomplice_state,accomplice_zip"
+    cards += ",accomplice_employer,accomplice_occupation,sign,subtitle,body_text,image_path,committee_id"
+    cards += ",display_order,address_lat,address_lng\n"
+    cards += "new,true,Richard Roe,Richard,Roe,2 OAK AVE,,AUSTIN,TX,78702,OTHER LLC,BANKER,,,text,,AIPAC,3,,\n"
+    (tmp_path / "leaders.csv").write_text(leaders, encoding="utf-8")
+    (tmp_path / "key_accomplices.csv").write_text(cards, encoding="utf-8")
+    monkeypatch.setattr(rosters, "REFERENCE_DIR", tmp_path)
+    monkeypatch.setattr(rosters, "resolve_donor_key", lambda key: key)
+    filings = pd.DataFrame({"donor_key": ["known"], "entity_type": ["INDIVIDUAL"]})
+
+    people = rosters.read_roster_people(filings)
+
+    jane, richard, richard_card = people.to_dict("records")
+    assert (jane["contributor_first_name"], jane["contributor_last_name"]) == ("JANE", "DOE")
+    assert (jane["latitude"], jane["contributor_zip"], jane["image_path"]) == (30.1, "78701", "jane.png")
+    assert pd.isna(jane["employer_status"])  # the filings already give her job
+    assert (richard["contributor_employer"], richard["employer_status"]) == ("ACME INC", "active")
+    assert richard["occupation_category"] == "LEGAL"
+    assert pd.isna(richard_card["employer_status"])  # one job per person: the first roster's
+    assert (richard_card["contributor_first_name"], richard_card["card_committee"]) == ("RICHARD", "AIPAC")
+
+    filings = pd.DataFrame({"donor_key": ["other"], "entity_type": ["INDIVIDUAL"]})
+    with pytest.raises(ValueError, match="Unknown donor_key for .*DOE, JANE"):
+        rosters.read_roster_people(filings)

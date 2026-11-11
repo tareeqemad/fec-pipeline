@@ -52,7 +52,8 @@ def load_employers(cur: Any, df: pd.DataFrame) -> dict:
 
 def load_employments(cur: Any, df: pd.DataFrame, offices: list[dict], address_ids: dict) -> None:
     """Load each donor's distinct employments with a workplace address and add donor_employment_id to df."""
-    individuals = df[df["entity_type"] == "INDIVIDUAL"]
+    # A roster person whose job the filings already give has no employer status of their own.
+    individuals = df[df["entity_type"].eq("INDIVIDUAL") & df["employer_status"].notna()]
     # The workplace comes from the latest filing that reports the employment.
     latest = individuals.sort_values("contribution_receipt_date", ascending=False).drop_duplicates(EMPLOYMENT_KEY)
     workplaces = workplaces_by_company(offices)

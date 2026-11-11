@@ -7,10 +7,12 @@ Steps, in order (main -> _reload_tables), all in one transaction:
     2. reset_schema, create_schema (schema.sql), load_occupation_categories, load_committees
     3. load_donors, load_employers
     4. load_addresses, load_donor_addresses, load_employments, load_contributions, link_employer_offices
-    5. load_reference_tables, load_leaders, load_key_accomplices
+    5. load_reference_tables, load_roster_tables
     6. refresh_donor_profiles, grant_read_access
 
-Each loader of step 2 to 4 adds the IDs it created to the filings as a new column,
+The people of the rosters are added to the filings as rows without a contribution
+(read_roster_people), so steps 3 and 4 load their donors, addresses and jobs too.
+Each loader of step 2 to 4 adds the IDs it created to these rows as a new column,
 so that the next loader can use them.
 """
 
@@ -36,7 +38,7 @@ from fec.database.reference_tables import (
     load_occupation_categories,
     load_reference_tables,
 )
-from fec.database.rosters import load_key_accomplices, load_leaders
+from fec.database.rosters import load_roster_tables, read_roster_people
 from fec.database.schema import (
     check_reader_role,
     create_schema,
@@ -66,25 +68,23 @@ def _reload_tables(cur: Any, df: pd.DataFrame, offices: list[dict]) -> None:
     create_schema(cur)
     load_occupation_categories(cur, df)
     load_committees(cur)
-    df["committee_id"] = df["recipient_committee"].map(committee_ids_by_short_name(cur))
+    df["committee_id"] = df["recipient_committee"].map(committee_ids_by_short_name(cur)).astype("Int64")
 
     logger.info("[3/6] Loading donors and employers")
     load_donors(cur, df)
     employer_ids = load_employers(cur, df)
-    # The rosters may name other companies; the filings use only the offices of their own.
-    filing_offices = [office for office in offices if office["employer_name"] in employer_ids]
+    offices = [office for office in offices if office["employer_name"] in employer_ids]
 
     logger.info("[4/6] Loading addresses, employments and contributions")
-    address_ids = load_addresses(cur, df, filing_offices)
+    address_ids = load_addresses(cur, df, offices)
     load_donor_addresses(cur, df)
-    load_employments(cur, df, filing_offices, address_ids)
-    load_contributions(cur, df)
-    link_employer_offices(cur, filing_offices, employer_ids, address_ids)
+    load_employments(cur, df, offices, address_ids)
+    load_contributions(cur, df[df["sub_id"].notna()])
+    link_employer_offices(cur, offices, employer_ids, address_ids)
 
     logger.info("[5/6] Loading reference and roster data")
     load_reference_tables(cur)
-    load_leaders(cur, offices)
-    load_key_accomplices(cur, offices)
+    load_roster_tables(cur, df[df["roster"].notna()])
 
     logger.info("[6/6] Updating views and read access")
     refresh_donor_profiles(cur)
@@ -105,7 +105,7 @@ def main() -> None:
     logger.info("Database: %s", conn.info.dbname)
     # One transaction from the drop to the grants; a failure keeps the old database.
     with load_transaction(conn):
-        _reload_tables(conn.cursor(), df, offices)
+        _reload_tables(conn.cursor(), pd.concat([df, read_roster_people(df)], ignore_index=True), offices)
     conn.close()
 
     minutes, seconds = divmod(round(time.perf_counter() - total_start), 60)

@@ -26,15 +26,21 @@ def address_key(parts: tuple) -> tuple:
 
 def load_addresses(cur: Any, df: pd.DataFrame, offices: list[dict]) -> dict:
     """Load each donor and office address once, add address_id to df and return the IDs by address key."""
-    donor_addresses = df.drop_duplicates(ADDRESS_COLUMNS).sort_values(ADDRESS_COLUMNS)
+    columns = [*ADDRESS_COLUMNS, "latitude", "longitude"]
+    donor_addresses = df.drop_duplicates(columns).sort_values(ADDRESS_COLUMNS, kind="stable")
+    from_filings = donor_addresses["sub_id"].notna()
+    office_addresses = [(*office_address(office), office["latitude"], office["longitude"]) for office in offices]
+    # An address keeps the first coordinates found for it: a filing's, then a company office's, then a roster's.
+    in_order = [
+        *to_rows(donor_addresses.loc[from_filings, columns]),
+        *office_addresses,
+        *to_rows(donor_addresses.loc[~from_filings, columns]),
+    ]
     rows = {}
-    for row in to_rows(donor_addresses[[*ADDRESS_COLUMNS, "latitude", "longitude"]]):
-        rows[address_key(row[:5])] = row
-    for office in offices:
-        key = address_key(office_address(office))
-        # An address seen before is kept; the office only supplies the coordinates it lacks (item 5 is the latitude).
-        if key not in rows or rows[key][5] is None:
-            rows[key] = (*office_address(office), office["latitude"], office["longitude"])
+    for row in in_order:
+        # Item 5 is the latitude.
+        if address_key(row[:5]) not in rows or rows[address_key(row[:5])][5] is None:
+            rows[address_key(row[:5])] = row
 
     execute_values(
         cur,

@@ -1,4 +1,9 @@
-"""Load the leader and key-accomplice rosters: each person's donor, image, address and job, then the roster row."""
+"""The leader and key-accomplice rosters.
+
+Each person is read as a row with the columns of a filing, so that the donor,
+address and employment loaders treat a person like a filing without a contribution.
+The roster tables themselves (leaders, key accomplices, images) are loaded last.
+"""
 
 from __future__ import annotations
 
@@ -10,222 +15,136 @@ from fec.cleaning.work.employer_status import classify_employer_status, is_real_
 from fec.cleaning.work.occupation_categories import categorize_occupations
 from fec.common.log import get_logger
 from fec.common.settings import REFERENCE_DIR
-from fec.database.offices import choose_office, office_address, workplaces_by_company
+from fec.database.connection import missing_as_none, to_rows
 from fec.database.reference_tables import committee_ids_by_short_name
 from fec.matching.identity_rules import resolve_donor_key
 
 logger = get_logger(__name__)
 
+# Roster file and the prefix of its name, address and job columns.
+ROSTERS = {"leaders": "leader_", "key_accomplices": "accomplice_"}
 
-def load_leaders(cur: Any, offices: list[dict]) -> None:
-    """Load leaders.csv: each leader and the committees they lead."""
+# Roster column and the filing column it fills.
+FILING_COLUMNS = {
+    "name": "contributor_name",
+    "street_1": "contributor_street_1",
+    "street_2": "contributor_street_2",
+    "city": "contributor_city",
+    "state": "contributor_state",
+    "zip": "contributor_zip",
+    "address_lat": "latitude",
+    "address_lng": "longitude",
+    "committee_id": "card_committee",
+}
+
+
+def _read_roster(roster: str, column_prefix: str) -> pd.DataFrame:
+    people = pd.read_csv(REFERENCE_DIR / f"{roster}.csv", dtype=str, keep_default_na=False)
+    people.columns = people.columns.str.removeprefix(column_prefix)
+    people = people.apply(lambda column: column.str.strip())
+    unnamed = people["name"].eq("")
+    if unnamed.any():
+        logger.warning("WARNING: %s.csv has %s rows without a name; skipped", roster, int(unnamed.sum()))
+    return people[~unnamed].assign(roster=roster)
+
+
+def _check_donor_keys(people: pd.DataFrame, filings: pd.DataFrame) -> None:
+    create = people["create_if_missing"].str.lower()
+    undecided = people[~create.isin(["true", "false"])]
+    if len(undecided):
+        raise ValueError(f"{undecided['name'].tolist()} need create_if_missing=true or false in the roster CSV")
+    keyless = people[people["donor_key"].eq("")]
+    if len(keyless):
+        raise ValueError(f"Missing donor_key for {keyless['name'].tolist()}")
+    unknown = people[create.eq("false") & ~people["donor_key"].isin(filings["donor_key"])]
+    if len(unknown):
+        raise ValueError(f"Unknown donor_key for {unknown['name'].tolist()}; update the roster CSV")
+
+
+def read_roster_people(filings: pd.DataFrame) -> pd.DataFrame:
+    """Return the people of both rosters as rows with the columns of the filings.
+
+    A person the filings do not know becomes a new donor. A person gets the roster's job
+    only when the filings give them none.
+    """
+    people = pd.concat([_read_roster(roster, prefix) for roster, prefix in ROSTERS.items()], ignore_index=True)
+    people = people.fillna("")
+    # Follow merged keys, so that an old roster key creates no second donor.
+    people["donor_key"] = people["donor_key"].map(lambda key: resolve_donor_key(key) if key else "")
+    _check_donor_keys(people, filings)
+
+    # leaders.csv has no name columns; its names are written LAST, FIRST.
+    last_part, comma, first_part = (people["name"].str.partition(",")[part].str.strip() for part in range(3))
+    first = people["first_name"].where(people["first_name"].ne("") | comma.eq(""), first_part)
+    last = people["last_name"].where(people["last_name"].ne("") | comma.eq(""), last_part)
+
+    files_as_individual = set(filings.loc[filings["entity_type"].eq("INDIVIDUAL"), "donor_key"])
+    has_job = (
+        (people["employer"].ne("") | people["occupation"].ne(""))
+        & ~people["donor_key"].isin(files_as_individual)
+        & ~people["donor_key"].duplicated()
+    )
+    status = people["employer"].map(lambda name: "active" if is_real_employer(name) else classify_employer_status(name))
+
+    rows = people.rename(columns=FILING_COLUMNS).assign(
+        entity_type="INDIVIDUAL",
+        identity_status="confirmed",
+        contributor_first_name=first.str.upper(),
+        contributor_last_name=last.str.upper(),
+        contributor_employer=people["employer"].where(has_job, ""),
+        contributor_occupation=people["occupation"].where(has_job, ""),
+        employer_status=status.where(has_job, ""),
+    )
+    rows = rows.replace("", None)
+    rows["occupation_category"] = categorize_occupations(rows["contributor_occupation"]).where(has_job)
+    for column in ("latitude", "longitude"):
+        # A coordinate that is not a number stops the load, so that a typing slip is seen.
+        rows[column] = pd.to_numeric(rows[column])
+    return rows
+
+
+def load_roster_tables(cur: Any, people: pd.DataFrame) -> None:
+    """Load the images, the leaders with their committees, and the key accomplices' cards."""
+    people = missing_as_none(people)
     committee_ids = committee_ids_by_short_name(cur)
-    workplaces = workplaces_by_company(offices)
-    for person in _read_roster("leaders.csv", "leader_"):
-        donor_id = _load_person(cur, person, workplaces)
-        cur.execute("INSERT INTO leaders (donor_id) VALUES (%s) RETURNING leader_id", (donor_id,))
+    unknown = sorted(set(_committee_names(people)) - set(committee_ids))
+    if unknown:
+        raise ValueError(f"The rosters name unknown committees {unknown}; use one of {sorted(committee_ids)}")
+
+    # A person on both rosters keeps the image of the roster loaded last.
+    images = people.dropna(subset="image_path").drop_duplicates("donor_id", keep="last")
+    for donor_id, image_path in to_rows(images[["donor_id", "image_path"]]):
+        cur.execute("INSERT INTO donor_images (donor_id, image_path) VALUES (%s, %s)", (donor_id, image_path))
+
+    for leader in people[people["roster"].eq("leaders")].to_dict("records"):
+        cur.execute("INSERT INTO leaders (donor_id) VALUES (%s) RETURNING leader_id", (leader["donor_id"],))
         leader_id = cur.fetchone()[0]
-        for short_name in _read_committee_names(person["committee_ids"]):
+        for short_name in _split_committee_names(leader["committee_ids"]):
             cur.execute(
                 "INSERT INTO leader_committees (leader_id, committee_id) VALUES (%s, %s)",
-                (leader_id, _find_committee_id(committee_ids, short_name, person)),
+                (leader_id, committee_ids[short_name]),
             )
 
-
-def load_key_accomplices(cur: Any, offices: list[dict]) -> None:
-    """Load key_accomplices.csv: each person and the text of their card."""
-    committee_ids = committee_ids_by_short_name(cur)
-    workplaces = workplaces_by_company(offices)
-    for person in _read_roster("key_accomplices.csv", "accomplice_"):
-        donor_id = _load_person(cur, person, workplaces)
-        committee_id = None
-        if person["committee_id"]:
-            committee_id = _find_committee_id(committee_ids, person["committee_id"], person)
+    cards = people[people["roster"].eq("key_accomplices")].copy()
+    cards["committee_id"] = cards["card_committee"].map(committee_ids).astype("Int64")
+    # A display order that is not a number stops the load.
+    cards["display_order"] = pd.to_numeric(cards["display_order"]).fillna(0).astype(int)
+    for card in to_rows(cards[["donor_id", "sign", "subtitle", "body_text", "committee_id", "display_order"]]):
         cur.execute(
             """
             INSERT INTO key_accomplices (donor_id, sign, subtitle, body_text, committee_id, display_order)
             VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (
-                donor_id,
-                person["sign"] or None,
-                person["subtitle"] or None,
-                person["body_text"] or None,
-                committee_id,
-                int(person["display_order"] or 0),
-            ),
+            card,
         )
 
 
-def _read_roster(csv_name: str, column_prefix: str) -> list[dict]:
-    """Read one roster: a record per named person, values trimmed, columns named without the roster's prefix."""
-    people = pd.read_csv(REFERENCE_DIR / csv_name, dtype=str, keep_default_na=False)
-    people.columns = people.columns.str.removeprefix(column_prefix)
-    for column in people.columns:
-        people[column] = people[column].str.strip()
-
-    unnamed = people["name"].eq("")
-    if unnamed.any():
-        logger.warning("WARNING: %s has %s rows without a name; skipped", csv_name, int(unnamed.sum()))
-    people = people[~unnamed]
-    undecided = people[~people["create_if_missing"].str.lower().isin(["true", "false"])]
-    if len(undecided):
-        raise ValueError(f"{csv_name}: {undecided['name'].tolist()} need create_if_missing=true or false")
-    return people.to_dict("records")
+def _split_committee_names(text: str | None) -> list[str]:
+    # A leader's committees are written as {AIPAC,DMFI}; blank for a leader of no committee.
+    names = (text or "").strip("{}").split(",")
+    return [name.strip() for name in names if name.strip()]
 
 
-def _read_committee_names(text: str) -> list[str]:
-    # Written as {AIPAC,DMFI}; blank for a leader of no committee.
-    if text.startswith("{") and text.endswith("}"):
-        text = text[1:-1]
-    if not text.strip():
-        return []
-    return [short_name.strip() for short_name in text.split(",")]
-
-
-def _find_committee_id(committee_ids: dict[str, int], short_name: str, person: dict) -> int:
-    if short_name not in committee_ids:
-        raise ValueError(
-            f"{person['name']!r} names unknown committee {short_name!r}; "
-            f"use one of {sorted(committee_ids)} (committee_short in committees.csv)"
-        )
-    return committee_ids[short_name]
-
-
-def _number_or_none(text: str) -> float | None:
-    # A value that is not a number stops the load, so that a typing slip is seen.
-    return float(text) if text else None
-
-
-def _load_person(cur: Any, person: dict, workplaces: dict) -> int:
-    """Save the person's donor, image, address and job; return the donor ID."""
-    donor_id = _find_or_create_donor(cur, person)
-    if person["image_path"]:
-        # A person on both rosters keeps the image of the roster loaded last.
-        cur.execute(
-            "INSERT INTO donor_images (donor_id, image_path) VALUES (%s, %s) "
-            "ON CONFLICT (donor_id) DO UPDATE SET image_path = EXCLUDED.image_path",
-            (donor_id, person["image_path"]),
-        )
-    if person["street_1"] or person["city"]:
-        _link_donor_address(cur, donor_id, person)
-    if person["employer"] or person["occupation"]:
-        _add_first_employment(cur, donor_id, person, workplaces)
-    return donor_id
-
-
-def _find_or_create_donor(cur: Any, person: dict) -> int:
-    name = person["name"]
-    if not person["donor_key"]:
-        raise ValueError(f"Missing donor_key for {name!r}")
-    # Follow merged keys so old roster keys create no duplicates.
-    donor_key = resolve_donor_key(person["donor_key"])
-    cur.execute("SELECT donor_id FROM donors WHERE donor_key = %s", (donor_key,))
-    donor = cur.fetchone()
-    if donor:
-        return donor[0]
-    if person["create_if_missing"].lower() != "true":
-        raise ValueError(f"Unknown donor_key {person['donor_key']!r} for {name!r}; update the editorial CSV")
-
-    first, last = person.get("first_name", ""), person.get("last_name", "")
-    if (not first or not last) and "," in name:
-        # leaders.csv has no name columns; its names are written LAST, FIRST.
-        last_part, _, first_part = name.partition(",")
-        last = last or last_part.strip()
-        first = first or first_part.strip()
-    cur.execute(
-        """
-        INSERT INTO donors (donor_key, entity_type, first_name, last_name)
-        VALUES (%s, 'INDIVIDUAL', %s, %s)
-        RETURNING donor_id
-        """,
-        (donor_key, first.upper() or None, last.upper() or None),
-    )
-    return cur.fetchone()[0]
-
-
-def _find_or_insert_address(cur: Any, address: tuple, latitude: float | None, longitude: float | None) -> int:
-    """Return the ID of the address (street_1, street_2, city, state, zip code); add coordinates it lacks."""
-    cur.execute(
-        """
-        SELECT address_id FROM addresses
-        WHERE street_1   IS NOT DISTINCT FROM %s
-          AND street_2   IS NOT DISTINCT FROM %s
-          AND city       IS NOT DISTINCT FROM %s
-          AND state_code IS NOT DISTINCT FROM %s
-          AND zip_code   IS NOT DISTINCT FROM %s
-        ORDER BY address_id
-        LIMIT 1
-        """,
-        address,
-    )
-    found = cur.fetchone()
-    if found is None:
-        cur.execute(
-            """
-            INSERT INTO addresses (street_1, street_2, city, state_code, zip_code, latitude, longitude)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING address_id
-            """,
-            (*address, latitude, longitude),
-        )
-        return cur.fetchone()[0]
-    if latitude is not None:
-        cur.execute(
-            "UPDATE addresses SET latitude = %s, longitude = %s WHERE address_id = %s AND latitude IS NULL",
-            (latitude, longitude, found[0]),
-        )
-    return found[0]
-
-
-def _link_donor_address(cur: Any, donor_id: int, person: dict) -> None:
-    address = tuple(person[column] or None for column in ("street_1", "street_2", "city", "state", "zip"))
-    latitude = _number_or_none(person["address_lat"])
-    longitude = _number_or_none(person["address_lng"])
-    address_id = _find_or_insert_address(cur, address, latitude, longitude)
-    cur.execute(
-        """
-        INSERT INTO donor_addresses (donor_id, address_id)
-        SELECT %s, %s
-        WHERE NOT EXISTS (SELECT 1 FROM donor_addresses WHERE donor_id = %s AND address_id = %s)
-        """,
-        (donor_id, address_id, donor_id, address_id),
-    )
-
-
-def _add_first_employment(cur: Any, donor_id: int, person: dict, workplaces: dict) -> None:
-    """Give the donor the roster's job, unless the filings already gave them one."""
-    cur.execute("SELECT 1 FROM donor_employments WHERE donor_id = %s LIMIT 1", (donor_id,))
-    if cur.fetchone():
-        return
-
-    employer, occupation = person["employer"], person["occupation"]
-    employer_id, workplace_address_id = None, None
-    if is_real_employer(employer):
-        status = "active"
-        cur.execute("INSERT INTO employers (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (employer,))
-        cur.execute("SELECT employer_id FROM employers WHERE name = %s", (employer,))
-        employer_id = cur.fetchone()[0]
-        office = choose_office(workplaces.get(employer, []), person["zip"], person["state"], person["city"])
-        if office:
-            workplace_address_id = _find_or_insert_address(
-                cur, office_address(office), office["latitude"], office["longitude"]
-            )
-    else:
-        status = classify_employer_status(employer)
-
-    category_id = None
-    if occupation:
-        category = categorize_occupations(pd.Series([occupation])).iloc[0]
-        cur.execute("SELECT occupation_category_id FROM occupation_categories WHERE name = %s", (category,))
-        found = cur.fetchone()
-        category_id = found[0] if found else None
-
-    cur.execute(
-        """
-        INSERT INTO donor_employments
-            (donor_id, employer_id, occupation, occupation_category_id, employer_status, address_id)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        """,
-        (donor_id, employer_id, occupation or None, category_id, status, workplace_address_id),
-    )
+def _committee_names(people: pd.DataFrame) -> list[str]:
+    names = [name for text in people["committee_ids"] for name in _split_committee_names(text)]
+    return names + people["card_committee"].dropna().tolist()
