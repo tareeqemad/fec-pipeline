@@ -45,7 +45,6 @@ JUDGE,LEGAL,7 of the 8 occupations in data/rules/occupation_categories.csv endin
 LAWYER,LEGAL,10 of the 11 occupations in data/rules/occupation_categories.csv ending in LAWYER
 LECTURER,EDUCATION,4 of the 4 occupations in data/rules/occupation_categories.csv ending in LECTURER
 LEGAL,LEGAL,5 of the 5 occupations in data/rules/occupation_categories.csv ending in LEGAL
-MARKETER,SALES / MARKETING,3 of the 3 occupations in data/rules/occupation_categories.csv ending in MARKETER
 MEDIATOR,LEGAL,8 of the 8 occupations in data/rules/occupation_categories.csv ending in MEDIATOR
 MEDICINE,MEDICAL / HEALTHCARE,3 of the 3 occupations in data/rules/occupation_categories.csv ending in MEDICINE
 NURSE,MEDICAL / HEALTHCARE,5 of the 5 occupations in data/rules/occupation_categories.csv ending in NURSE
