@@ -1,4 +1,4 @@
-"""Database connection and value conversion."""
+"""Connect to PostgreSQL, run the load as one transaction, and turn frames into rows."""
 
 from __future__ import annotations
 
@@ -6,41 +6,45 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-import numpy as np
 import pandas as pd
+import psycopg2
 
 from fec.common.log import get_logger
 from fec.common.settings import get_db_config, load_env
 
-try:
-    import psycopg2
-except ImportError:
-    raise ImportError("psycopg2 not installed. Run: pip install psycopg2-binary")
-
 logger = get_logger(__name__)
 
 
-def db_config() -> dict:
-    """Read database settings when connecting."""
+def connect() -> Any:
+    """Connect to PostgreSQL with the settings from .env or the environment."""
     load_env()
-    return get_db_config()
+    return psycopg2.connect(**get_db_config())
 
 
-def quote_identifier(value: str) -> str:
-    """Quote an SQL identifier and escape embedded quotes."""
-    return '"' + value.replace('"', '""') + '"'
+@contextmanager
+def load_transaction(conn: Any) -> Iterator[None]:
+    """Commit the whole load, or roll it back on any failure."""
+    try:
+        yield
+    except BaseException:
+        conn.rollback()
+        logger.error("  load failed: rolled back, the database is unchanged")
+        raise
+    conn.commit()
 
 
-def connect(dbname: str | None = None) -> Any:
-    """Connect to PostgreSQL using the configured credentials."""
-    config = db_config()
-    return psycopg2.connect(
-        host=config["host"],
-        port=config["port"],
-        dbname=dbname or config["dbname"],
-        user=config["user"],
-        password=config["password"],
-    )
+def missing_as_none(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return the frame with Python values, None where a value is missing."""
+    return frame.astype(object).where(frame.notna(), None)
+
+
+def to_rows(frame: pd.DataFrame) -> list[tuple]:
+    """Return the frame's rows as tuples ready to insert, None where a value is missing."""
+    return list(missing_as_none(frame).itertuples(index=False, name=None))
+
+
+# Converters still used by the filing-table loaders.
+import numpy as np  # noqa: E402
 
 
 def to_native(value: Any) -> Any:
@@ -82,25 +86,3 @@ def to_int_or_none(value: Any) -> int | None:
         return int(value)
     except (ValueError, TypeError):
         raise ValueError(f"to_int_or_none: cannot parse {value!r} as int")
-
-
-@contextmanager
-def load_transaction(conn: Any) -> Iterator[None]:
-    """Commit the whole load, or roll it back on failure."""
-    try:
-        yield
-    except BaseException:
-        conn.rollback()
-        logger.error("  load failed: rolled back, the database is unchanged")
-        raise
-    conn.commit()
-
-
-@contextmanager
-def logged_stage(name: str) -> Iterator[None]:
-    """Log the failed stage before the transaction rolls back."""
-    try:
-        yield
-    except BaseException:
-        logger.error("  stage '%s' failed", name)
-        raise

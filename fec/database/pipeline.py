@@ -4,13 +4,13 @@ Run: python loader.py --reset
 
 Steps, in order (main -> _reload_tables), all in one transaction:
     1. check_reader_role, verify_extensions
-    2. reset_schema, create_schema (schema.sql), load_lookups
+    2. reset_schema, create_schema (schema.sql), load_occupation_categories, load_committees
     3. load_filing_tables
        load_donors, load_employers, link_previous_employers,
        load_address_dimension, load_donor_addresses, load_employments,
        load_contributions, link_employer_offices
     4. load_reference_tables, load_leadership, load_key_accomplices
-    5. ANALYZE, refresh_materialized_views, grant_read_access
+    5. refresh_donor_profiles, grant_read_access
 """
 
 from __future__ import annotations
@@ -29,15 +29,26 @@ from fec.database.addresses import (
     load_address_dimension,
     load_donor_addresses,
 )
-from fec.database.connection import connect, load_transaction, logged_stage, to_native
+from fec.database.connection import connect, load_transaction, to_native
 from fec.database.contributions import load_contributions
 from fec.database.employments import load_employers, load_employments, make_employer_lookup
 from fec.database.input_checks import read_load_input
 from fec.database.previous_employers import link_previous_employers
-from fec.database.read_access import check_reader_role, grant_read_access
-from fec.database.reference_tables import load_lookups, load_reference_tables
-from fec.database.rosters import committee_ids_by_short_name, load_key_accomplices, load_leadership
-from fec.database.schema import create_schema, reset_schema, verify_extensions
+from fec.database.reference_tables import (
+    load_committees,
+    load_occupation_categories,
+    load_reference_tables,
+    read_committee_ids,
+)
+from fec.database.rosters import load_key_accomplices, load_leadership
+from fec.database.schema import (
+    check_reader_role,
+    create_schema,
+    grant_read_access,
+    refresh_donor_profiles,
+    reset_schema,
+    verify_extensions,
+)
 
 
 def load_donors(cur: Any, df: pd.DataFrame) -> dict:
@@ -70,8 +81,6 @@ def load_donors(cur: Any, df: pd.DataFrame) -> dict:
 # Keep the existing log-file category when moving the entry point.
 logger = get_logger("fec.database.loader.run")
 
-__all__ = ["main", "connect"]
-
 
 def load_filing_tables(
     cur: Any,
@@ -85,32 +94,20 @@ def load_filing_tables(
     cur.execute("SELECT occupation_category_id, name FROM occupation_categories")
     id_maps["occupation_category"] = {name: category_id for category_id, name in cur.fetchall()}
 
-    id_maps["committee"] = committee_ids_by_short_name(cur)
+    id_maps["committee"] = read_committee_ids(cur)
 
     logger.info("[3/6] Loading donors and employers")
-    with logged_stage("donors"):
-        id_maps["donor"] = load_donors(cur, df)
-    with logged_stage("employers"):
-        employer_ids = load_employers(cur, df)
-        link_previous_employers(cur, df, employer_ids)
+    id_maps["donor"] = load_donors(cur, df)
+    employer_ids = load_employers(cur, df)
+    link_previous_employers(cur, df, employer_ids)
     get_employer_id = make_employer_lookup(employer_ids)
 
     logger.info("[4/6] Loading addresses, employments and contributions")
-    with logged_stage("addresses"):
-        id_maps["address"] = load_address_dimension(cur, df, employer_locations)
-        id_maps["donor_address"] = load_donor_addresses(cur, df, id_maps["donor"], id_maps["address"])
-    with logged_stage("employments"):
-        id_maps["employment"] = load_employments(cur, df, id_maps, get_employer_id, employer_locations)
-    with logged_stage("contributions"):
-        load_contributions(cur, df, id_maps, get_employer_id)
-    with logged_stage("employer locations"):
-        link_employer_offices(cur, id_maps["address"], get_employer_id, employer_locations)
-
-
-def refresh_materialized_views(cur: Any) -> None:
-    """Refresh the donor view using its existing unique index."""
-    cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
-    cur.execute("ANALYZE mv_donor_profile")
+    id_maps["address"] = load_address_dimension(cur, df, employer_locations)
+    id_maps["donor_address"] = load_donor_addresses(cur, df, id_maps["donor"], id_maps["address"])
+    id_maps["employment"] = load_employments(cur, df, id_maps, get_employer_id, employer_locations)
+    load_contributions(cur, df, id_maps, get_employer_id)
+    link_employer_offices(cur, id_maps["address"], get_employer_id, employer_locations)
 
 
 def _require_reset_flag() -> None:
@@ -124,24 +121,18 @@ def _require_reset_flag() -> None:
 
 def _reload_tables(cur: Any, df: pd.DataFrame, employer_locations: list[dict]) -> None:
     logger.info("[2/6] Resetting schema and loading lookups")
-    with logged_stage("schema"):
-        reset_schema(cur)
-        create_schema(cur)
-    with logged_stage("lookups"):
-        load_lookups(cur)
+    reset_schema(cur)
+    create_schema(cur)
+    load_occupation_categories(cur, df)
+    load_committees(cur)
     load_filing_tables(cur, df, employer_locations)
     logger.info("[5/6] Loading reference and roster data")
-    with logged_stage("reference tables"):
-        load_reference_tables(cur)
-    with logged_stage("leaders and accomplices"):
-        load_leadership(cur)
-        load_key_accomplices(cur)
+    load_reference_tables(cur)
+    load_leadership(cur)
+    load_key_accomplices(cur)
     logger.info("[6/6] Updating views and read access")
-    with logged_stage("statistics and views"):
-        cur.execute("ANALYZE")
-        refresh_materialized_views(cur)
-    with logged_stage("read access"):
-        grant_read_access(cur)
+    refresh_donor_profiles(cur)
+    grant_read_access(cur)
 
 
 def main() -> None:
@@ -154,7 +145,6 @@ def main() -> None:
         raise SystemExit(f"ERROR: {error}") from error
 
     conn = connect()
-    conn.autocommit = False
     cur = conn.cursor()
 
     logger.info("Reading: %s (%s rows)", CLEANED_CSV.name, f"{len(df):,}")

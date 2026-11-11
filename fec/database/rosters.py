@@ -9,15 +9,10 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.common.log import get_logger
+from fec.database.reference_tables import read_committee_ids
 from fec.database.roster_people import load_roster_csv
 
 logger = get_logger(__name__)
-
-
-def committee_ids_by_short_name(cur: Any) -> dict[str, int]:
-    """Map committee short names to database IDs."""
-    cur.execute("SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL")
-    return dict(cur.fetchall())
 
 
 def resolve_committee(
@@ -99,7 +94,7 @@ def _insert_leader(committees: dict[str, int], cur: Any, row: pd.Series, donor_i
 
 def load_leadership(cur: Any) -> None:
     """Load leaders and their committee memberships."""
-    committees = committee_ids_by_short_name(cur)
+    committees = read_committee_ids(cur)
     load_roster_csv(
         cur,
         "leaders.csv",
@@ -157,7 +152,7 @@ def _insert_accomplice(committees: dict[str, int], cur: Any, row: pd.Series, don
 
 def load_key_accomplices(cur: Any) -> None:
     """Load curated cards and link them to donors."""
-    committees = committee_ids_by_short_name(cur)
+    committees = read_committee_ids(cur)
     load_roster_csv(
         cur,
         "key_accomplices.csv",

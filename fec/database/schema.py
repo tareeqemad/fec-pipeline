@@ -1,52 +1,15 @@
-"""Drop the public tables and views, then create the schema from schema.sql."""
+"""Prepare the database: check roles and extensions, drop the old tables, create the schema, grant read access."""
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-import sqlparse
+from psycopg2.extensions import quote_ident
 
-from fec.common.settings import DATABASE_OWNER, SCHEMA_SQL
-from fec.database.connection import quote_identifier
+from fec.common.settings import DATABASE_OWNER, DATABASE_READER, SCHEMA_SQL
 
-
-def create_schema(cur: Any) -> None:
-    """Run schema.sql on the freshly reset database; any error ends the load."""
-    for statement in sqlparse.split(SCHEMA_SQL.read_text(encoding="utf-8")):
-        if sqlparse.format(statement, strip_comments=True).strip():
-            cur.execute(statement)
-
-
-def _read_database_name(cur: Any) -> str:
-    connection = getattr(cur, "connection", None)
-    connection_info = getattr(connection, "info", None)
-    dbname = getattr(connection_info, "dbname", None)
-    return dbname or os.getenv("PG_DBNAME", "fec_db")
-
-
-def verify_extensions(cur: Any) -> None:
-    """Check required extensions before resetting tables."""
-    required = {
-        "pg_trgm": "fuzzy text search (gin_trgm_ops indexes)",
-        "cube": "dependency of earthdistance",
-        "earthdistance": "ll_to_earth() for map radius queries",
-    }
-    cur.execute("SELECT extname FROM pg_extension")
-    present = {row[0] for row in cur.fetchall()}
-    missing = sorted(set(required) - present)
-
-    if not missing:
-        return
-
-    details = ", ".join(f"{extension} ({required[extension]})" for extension in missing)
-    sql = " ".join(f"CREATE EXTENSION IF NOT EXISTS {extension};" for extension in missing)
-    raise RuntimeError(
-        f"Missing PostgreSQL extensions: {details}\n"
-        "Run as a PostgreSQL superuser before loader.py --reset:\n"
-        f'  sudo -u postgres psql -d {_read_database_name(cur)} -c "{sql}"'
-    )
-
+# pg_trgm for name search; cube and earthdistance for map radius queries.
+REQUIRED_EXTENSIONS = ["pg_trgm", "cube", "earthdistance"]
 
 OBJECTS_SQL = """
     SELECT matviewname, 'MATERIALIZED VIEW', matviewowner
@@ -58,21 +21,77 @@ OBJECTS_SQL = """
 """
 
 
+def check_reader_role(cur: Any) -> None:
+    """Require a reader login without admin rights or inherited roles."""
+    cur.execute(
+        """
+        SELECT
+            rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls,
+            EXISTS (SELECT 1 FROM pg_auth_members WHERE member = pg_roles.oid)
+        FROM pg_roles
+        WHERE rolname = %s
+        """,
+        (DATABASE_READER,),
+    )
+    role = cur.fetchone()
+    if role is None:
+        raise RuntimeError(f"Database role {DATABASE_READER} does not exist")
+    if role[0]:
+        raise RuntimeError(f"{DATABASE_READER} must be unprivileged")
+    if role[1]:
+        raise RuntimeError(f"{DATABASE_READER} must not inherit another role")
+
+
+def verify_extensions(cur: Any) -> None:
+    """Require the extensions the schema uses; only a superuser can add them."""
+    cur.execute("SELECT extname FROM pg_extension")
+    present = {row[0] for row in cur.fetchall()}
+    missing = [extension for extension in REQUIRED_EXTENSIONS if extension not in present]
+    if missing:
+        sql = " ".join(f"CREATE EXTENSION IF NOT EXISTS {extension};" for extension in missing)
+        raise RuntimeError(
+            f"Missing PostgreSQL extensions: {', '.join(missing)}\n"
+            "Run as a PostgreSQL superuser before loader.py --reset:\n"
+            f'  sudo -u postgres psql -d {cur.connection.info.dbname} -c "{sql}"'
+        )
+
+
 def reset_schema(cur: Any) -> None:
-    """Check ownership, drop public tables and views, then verify removal."""
+    """Drop every public table and view, after checking the loader owns them all."""
     cur.execute("SELECT current_user")
     current_user = cur.fetchone()[0]
-
     if current_user != DATABASE_OWNER:
         raise RuntimeError(f"Loader must run as {DATABASE_OWNER}, not {current_user}. Set PG_USER={DATABASE_OWNER}.")
 
     cur.execute(OBJECTS_SQL)
     objects = cur.fetchall()
-
-    wrongly_owned = [(name, kind, owner) for name, kind, owner in objects if owner != DATABASE_OWNER]
+    wrongly_owned = [f"{kind} {name} ({owner})" for name, kind, owner in objects if owner != DATABASE_OWNER]
     if wrongly_owned:
-        preview = ", ".join(f"{kind} {name} ({owner})" for name, kind, owner in wrongly_owned[:5])
-        raise RuntimeError(f"Ownership check failed. Expected {DATABASE_OWNER}: {preview}")
+        raise RuntimeError(f"Ownership check failed. Expected {DATABASE_OWNER}: {', '.join(wrongly_owned[:5])}")
 
-    for name, kind, _owner in objects:
-        cur.execute(f"DROP {kind} IF EXISTS {quote_identifier(name)} CASCADE")
+    for name, kind, _ in objects:
+        cur.execute(f"DROP {kind} IF EXISTS {quote_ident(name, cur)} CASCADE")
+
+
+def create_schema(cur: Any) -> None:
+    """Run schema.sql on the emptied database."""
+    cur.execute(SCHEMA_SQL.read_text(encoding="utf-8"))
+
+
+def refresh_donor_profiles(cur: Any) -> None:
+    """Update the table statistics and fill the cached donor profiles."""
+    cur.execute("ANALYZE")
+    cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_donor_profile")
+    cur.execute("ANALYZE mv_donor_profile")
+
+
+def grant_read_access(cur: Any) -> None:
+    """Leave the reader login with SELECT on every table and view, and nothing else."""
+    for statement in (
+        "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC",
+        f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {DATABASE_READER}",
+        "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC",
+        f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {DATABASE_READER}",
+        f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {DATABASE_READER}",
+    ):
+        cur.execute(statement)

@@ -9,7 +9,7 @@ import pytest
 from fec.common.settings import SCHEMA_SQL
 from fec.database import addresses, employments
 from fec.database.addresses import load_address_dimension
-from fec.database.connection import load_transaction, logged_stage
+from fec.database.connection import load_transaction
 from fec.database.contributions import map_employment_ids
 from fec.database.employments import load_employments, make_employer_lookup
 
@@ -195,8 +195,6 @@ class Connection:
 def test_a_late_failure_rolls_back_the_drop_too():
     conn = Connection()
     with pytest.raises(ValueError), load_transaction(conn):
-        with logged_stage("schema"):
-            pass  # the old tables are gone inside the transaction
-        with logged_stage("contributions"):
-            raise ValueError("bad row")
+        # the old tables are already dropped inside the transaction when a later step fails
+        raise ValueError("bad row")
     assert conn.commits == 0 and conn.rollbacks == 1
