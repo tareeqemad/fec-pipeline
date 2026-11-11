@@ -3,7 +3,7 @@
 Pulls political contributions from the FEC, cleans them, finds a map point for each address and loads everything
 into PostgreSQL.
 
-You need **Git**, **Python 3.12 or later** and **PostgreSQL 15 or later**.
+You need **Git**, **Python 3.12 or later** and **PostgreSQL 18**.
 
 ## 1. Download the project
 
