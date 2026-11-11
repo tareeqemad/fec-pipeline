@@ -32,6 +32,7 @@ Next time, only enter the folder and activate: `cd fec-pipeline` then `source .v
 ## 2. Fill in `.env`
 
 - `FEC_API_KEY`: your FEC key (only for pulling data).
+- Optional, for `geocode.py`: `NOMINATIM_URL` to use your own Nominatim server instead of the public one, `NOMINATIM_USER_AGENT` to name your project to it, `NOMINATIM_DELAY_SECONDS` to wait longer between requests (the public server is never asked more than once in 15 seconds).
 - No other key is needed. Occupation categories come from `data/rules/occupation_categories.csv`; addresses are written in USPS form offline, by the `usaddress` parser and the USPS tables of `usaddress-scourgify` and `zipcodes`.
 - `PG_PASSWORD`: the `fec_owner` password from step 3.
 

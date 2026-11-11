@@ -1,5 +1,6 @@
 """One address query per provider (OpenStreetMap's Nominatim, then Census), with bounded retries and pacing."""
 
+import os
 import re
 import time
 
@@ -9,7 +10,7 @@ from fec.geocoding.coordinate_checks import US_TERRITORIES, is_foreign_address
 from fec.vocabulary.tables import words
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-NOMINATIM_HEADERS = {"User-Agent": "FEC-Geocoder/1.0 (research project)"}
+NOMINATIM_USER_AGENT = "FEC-Geocoder/1.0 (research project)"
 NOMINATIM_SECONDS_BETWEEN_REQUESTS = 15.0
 CENSUS_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
 TIMEOUT = 10
@@ -25,12 +26,18 @@ class GeocoderUnavailable(RuntimeError):
     """A provider failed temporarily; this is not an address miss."""
 
 
+def _seconds_between_nominatim_requests(url: str) -> float:
+    # The public server asks for slow use; one's own server (NOMINATIM_URL) may go faster, never under a second.
+    minimum = NOMINATIM_SECONDS_BETWEEN_REQUESTS if "nominatim.openstreetmap.org" in url else 1.0
+    return max(minimum, float(os.environ.get("NOMINATIM_DELAY_SECONDS", minimum)))
+
+
 def _get_json(provider: str, url: str, params: dict, headers: dict | None = None) -> object:
     global _last_nominatim_request
     last_error = f"{provider} unavailable"
     for attempt in range(1 + RETRIES):
-        if url == NOMINATIM_URL:
-            wait = NOMINATIM_SECONDS_BETWEEN_REQUESTS - (time.monotonic() - _last_nominatim_request)
+        if provider == "Nominatim":
+            wait = _seconds_between_nominatim_requests(url) - (time.monotonic() - _last_nominatim_request)
             if wait > 0:
                 time.sleep(wait)
             _last_nominatim_request = time.monotonic()
@@ -112,7 +119,9 @@ def nominatim(street: str, city: str, state: str, zipcode: str) -> dict | None:
     if not is_foreign_address(state, zipcode):
         state_code = state.strip().upper()
         params["countrycodes"] = f"us,{state_code.lower()}" if state_code in US_TERRITORIES else "us"
-    results = _get_json("Nominatim", NOMINATIM_URL, params, NOMINATIM_HEADERS)
+    url = os.environ.get("NOMINATIM_URL", NOMINATIM_URL)
+    headers = {"User-Agent": os.environ.get("NOMINATIM_USER_AGENT", NOMINATIM_USER_AGENT)}
+    results = _get_json("Nominatim", url, params, headers)
     try:
         return _read_nominatim_results(results, street, state, zipcode)
     except (KeyError, TypeError, ValueError, AttributeError) as error:
