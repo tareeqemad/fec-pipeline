@@ -28,8 +28,8 @@ def load_addresses(cur: Any, df: pd.DataFrame, offices: list[dict]) -> dict:
     """Load each donor and office address once, add address_id to df and return the IDs by address key."""
     donor_addresses = df.drop_duplicates(ADDRESS_COLUMNS).sort_values(ADDRESS_COLUMNS)
     rows = {}
-    for *parts, latitude, longitude in to_rows(donor_addresses[[*ADDRESS_COLUMNS, "latitude", "longitude"]]):
-        rows[address_key(parts)] = (*parts, latitude, longitude)
+    for row in to_rows(donor_addresses[[*ADDRESS_COLUMNS, "latitude", "longitude"]]):
+        rows[address_key(row[:5])] = row
     for office in offices:
         key = address_key(office_address(office))
         # An address seen before is kept; the office only supplies the coordinates it lacks (item 5 is the latitude).

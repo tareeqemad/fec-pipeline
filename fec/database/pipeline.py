@@ -7,7 +7,7 @@ Steps, in order (main -> _reload_tables), all in one transaction:
     2. reset_schema, create_schema (schema.sql), load_occupation_categories, load_committees
     3. load_donors, load_employers
     4. load_addresses, load_donor_addresses, load_employments, load_contributions, link_employer_offices
-    5. load_reference_tables, load_leadership, load_key_accomplices
+    5. load_reference_tables, load_leaders, load_key_accomplices
     6. refresh_donor_profiles, grant_read_access
 
 Each loader of step 2 to 4 adds the IDs it created to the filings as a new column,
@@ -31,12 +31,12 @@ from fec.database.donors import load_donors
 from fec.database.employments import load_employers, load_employments
 from fec.database.input_checks import read_load_input
 from fec.database.reference_tables import (
+    committee_ids_by_short_name,
     load_committees,
     load_occupation_categories,
     load_reference_tables,
-    read_committee_ids,
 )
-from fec.database.rosters import load_key_accomplices, load_leadership
+from fec.database.rosters import load_key_accomplices, load_leaders
 from fec.database.schema import (
     check_reader_role,
     create_schema,
@@ -67,7 +67,7 @@ def _reload_tables(cur: Any, df: pd.DataFrame, offices: list[dict]) -> None:
     create_schema(cur)
     load_occupation_categories(cur, df)
     load_committees(cur)
-    df["committee_id"] = df["recipient_committee"].map(read_committee_ids(cur))
+    df["committee_id"] = df["recipient_committee"].map(committee_ids_by_short_name(cur))
 
     logger.info("[3/6] Loading donors and employers")
     load_donors(cur, df)
@@ -84,7 +84,7 @@ def _reload_tables(cur: Any, df: pd.DataFrame, offices: list[dict]) -> None:
 
     logger.info("[5/6] Loading reference and roster data")
     load_reference_tables(cur)
-    load_leadership(cur, offices)
+    load_leaders(cur, offices)
     load_key_accomplices(cur, offices)
 
     logger.info("[6/6] Updating views and read access")

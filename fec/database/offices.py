@@ -24,7 +24,7 @@ def _coordinate_or_none(text: str) -> float | None:
     return float(text) if text.strip() else None
 
 
-def read_employer_offices(locations: pd.DataFrame) -> list[dict]:
+def publishable_offices(locations: pd.DataFrame) -> list[dict]:
     """Return the publishable offices in file order, each company with a primary office."""
     offices = []
     for row in locations.to_dict("records"):

@@ -43,7 +43,7 @@ def load_committees(cur: Any) -> None:
     execute_values(cur, f"INSERT INTO committees ({', '.join(COMMITTEE_COLUMNS)}) VALUES %s", rows)
 
 
-def read_committee_ids(cur: Any) -> dict[str, int]:
+def committee_ids_by_short_name(cur: Any) -> dict[str, int]:
     """Return the committee IDs by short name."""
     cur.execute("SELECT committee_short, committee_id FROM committees WHERE committee_short IS NOT NULL")
     return dict(cur.fetchall())

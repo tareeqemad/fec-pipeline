@@ -10,7 +10,7 @@ from fec.common.columns import check_loadable
 from fec.common.committees import read_committees
 from fec.common.files import read_pipeline_csv
 from fec.common.settings import CLEANED_CSV, EMPLOYER_LOCATIONS_CSV
-from fec.database.offices import ADDRESS_TRUST_VALUES, read_employer_offices
+from fec.database.offices import ADDRESS_TRUST_VALUES, publishable_offices
 
 
 def _check_employer_locations(locations: pd.DataFrame) -> None:
@@ -62,4 +62,4 @@ def read_load_input() -> tuple[pd.DataFrame, list[dict]]:
     _check_committees(df)
 
     df["contribution_receipt_amount"] = pd.to_numeric(df["contribution_receipt_amount"])
-    return df, read_employer_offices(locations)
+    return df, publishable_offices(locations)

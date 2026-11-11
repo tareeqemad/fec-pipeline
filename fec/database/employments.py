@@ -59,7 +59,8 @@ def load_employments(cur: Any, df: pd.DataFrame, offices: list[dict], address_id
     rows = []
     for filing in missing_as_none(latest).to_dict("records"):
         workplace_address_id = _find_workplace_address_id(filing, workplaces, address_ids)
-        rows.append((*[filing[column] for column in EMPLOYMENT_KEY], workplace_address_id))
+        key = [filing[column] for column in EMPLOYMENT_KEY]
+        rows.append((*key, workplace_address_id))
 
     execute_values(
         cur,
