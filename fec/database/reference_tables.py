@@ -31,7 +31,7 @@ REFERENCE_TABLES = {
 
 def load_occupation_categories(cur: Any, df: pd.DataFrame) -> None:
     """Load the occupation categories of the filings and add occupation_category_id to df."""
-    names = sorted(df["occupation_category"].unique())
+    names = sorted(df["occupation_category"].dropna().unique())
     execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s", [(name,) for name in names])
     cur.execute("SELECT name, occupation_category_id FROM occupation_categories")
     df["occupation_category_id"] = df["occupation_category"].map(dict(cur.fetchall()))
