@@ -329,64 +329,20 @@ def test_extend_corrections_adds_learnt_typos_to_the_table():
             table.pop("ORTHODONTISTT", None)
 
 
-def test_learn_categories_asks_only_for_unlisted_texts_and_remembers(tmp_path, monkeypatch):
-    from fec.cleaning.work import occupation_categories
-    from fec.cleaning.work.model_client import DEFAULT_MODEL
-    from fec.vocabulary.occupations import CATEGORY_OVERRIDES
+def test_an_unlisted_occupation_takes_the_category_of_its_last_listed_word():
+    from fec.cleaning.work.occupation_categories import category_of, lookup_categories
 
-    monkeypatch.setattr(occupation_categories, "OCCUPATION_CATEGORY_CACHE_CSV", tmp_path / "cache.csv")
-    asked = []
-
-    def fake_model(texts):
-        asked.extend(sorted(texts))
-        return dict.fromkeys(texts, "SCIENCE / RESEARCH")
-
-    df = pd.DataFrame(
-        {
-            "entity_type": ["INDIVIDUAL", "INDIVIDUAL", "COMMITTEE/PAC", "INDIVIDUAL"],
-            "contributor_occupation": ["ATTORNEY", "QUANTUM TOPOLOGIST", "QUANTUM TOPOLOGIST", ""],
-            "occupation_category": ["LEGAL", "OTHER", "POLITICAL COMMITTEE", None],
-        }
-    )
-    try:
-        assert occupation_categories.learn_categories(df, ask=fake_model) == 1
-        assert asked == ["QUANTUM TOPOLOGIST"]  # ATTORNEY is listed, the committee is not a person
-        assert df["occupation_category"].fillna("").tolist() == [
-            "LEGAL",
-            "SCIENCE / RESEARCH",
-            "POLITICAL COMMITTEE",
-            "",
-        ]
-        assert CATEGORY_OVERRIDES["QUANTUM TOPOLOGIST"] == "SCIENCE / RESEARCH"
-        assert (tmp_path / "cache.csv").read_text().splitlines() == [
-            "occupation,category,model",
-            f"QUANTUM TOPOLOGIST,SCIENCE / RESEARCH,{DEFAULT_MODEL}",
-        ]
-        assert occupation_categories.learn_categories(df, ask=fake_model) == 0  # remembered: not asked again
-    finally:
-        CATEGORY_OVERRIDES.pop("QUANTUM TOPOLOGIST", None)
+    assert category_of("ATTORNEY") == "LEGAL"  # in the table
+    assert category_of("PEDIATRIC CARDIAC SURGEON") == "MEDICAL / HEALTHCARE"  # SURGEON
+    assert category_of("QUANTUM TOPOLOGIST") == "OTHER"  # no listed word
+    assert lookup_categories(pd.Series(["ATTORNEY", None])).tolist() == ["LEGAL", pd.NA]
 
 
-def test_ask_model_without_a_key_returns_no_category(monkeypatch):
-    from fec.cleaning.work.occupation_categories import ask_model_for_categories
+def test_every_category_in_the_tables_is_a_known_category():
+    from fec.vocabulary.occupations import OCCUPATION_CATEGORIES, OCCUPATION_CATEGORY_WORDS, VALID_CATEGORIES
 
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    assert ask_model_for_categories(["QUANTUM TOPOLOGIST"]) == {}
-
-
-def test_reviewed_category_overrides_win_over_the_model():
-    import csv
-
-    from fec.common.settings import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
-    from fec.vocabulary.occupations import CATEGORY_OVERRIDES, VALID_CATEGORIES
-
-    with open(OCCUPATION_CATEGORY_CACHE_CSV) as handle:
-        cache = {row["occupation"]: row["category"] for row in csv.DictReader(handle)}
-    with open(OCCUPATION_CATEGORY_OVERRIDES_CSV) as handle:
-        overrides = {row["occupation"]: row["category"] for row in csv.DictReader(handle)}
-    assert set(cache.values()) <= VALID_CATEGORIES and set(overrides.values()) <= VALID_CATEGORIES
-    assert all(CATEGORY_OVERRIDES[k] == v for k, v in overrides.items())
-    assert all(CATEGORY_OVERRIDES[k] == v for k, v in cache.items() if k not in overrides)
+    assert set(OCCUPATION_CATEGORIES.values()) <= VALID_CATEGORIES
+    assert set(OCCUPATION_CATEGORY_WORDS.values()) <= VALID_CATEGORIES
 
 
 def test_status_word_reads_a_slip_and_leaves_other_words():

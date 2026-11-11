@@ -1,0 +1,67 @@
+word,category,source
+ACCOUNTANT,ACCOUNTING / TAX,4 of the 5 occupations in data/rules/occupation_categories.csv ending in ACCOUNTANT
+ADJUSTER,INSURANCE,4 of the 4 occupations in data/rules/occupation_categories.csv ending in ADJUSTER
+ADVERTISING,SALES / MARKETING,3 of the 3 occupations in data/rules/occupation_categories.csv ending in ADVERTISING
+ARBITRATOR,LEGAL,5 of the 5 occupations in data/rules/occupation_categories.csv ending in ARBITRATOR
+ATTORNEY,LEGAL,35 of the 38 occupations in data/rules/occupation_categories.csv ending in ATTORNEY
+BANKER,FINANCE / INVESTMENT,10 of the 10 occupations in data/rules/occupation_categories.csv ending in BANKER
+BANKING,FINANCE / INVESTMENT,7 of the 7 occupations in data/rules/occupation_categories.csv ending in BANKING
+CEO,EXECUTIVE / C-SUITE,19 of the 21 occupations in data/rules/occupation_categories.csv ending in CEO
+CFO,EXECUTIVE / C-SUITE,5 of the 6 occupations in data/rules/occupation_categories.csv ending in CFO
+CHAIR,EXECUTIVE / C-SUITE,7 of the 8 occupations in data/rules/occupation_categories.csv ending in CHAIR
+CHAIRMAN,EXECUTIVE / C-SUITE,12 of the 12 occupations in data/rules/occupation_categories.csv ending in CHAIRMAN
+CHEF,FOOD / HOSPITALITY,3 of the 3 occupations in data/rules/occupation_categories.csv ending in CHEF
+CIO,EXECUTIVE / C-SUITE,5 of the 6 occupations in data/rules/occupation_categories.csv ending in CIO
+COACHING,CONSULTING,3 of the 3 occupations in data/rules/occupation_categories.csv ending in COACHING
+COMMUNICATIONS,SALES / MARKETING,7 of the 8 occupations in data/rules/occupation_categories.csv ending in COMMUNICATIONS
+CONSTRUCTION,CONSTRUCTION / TRADES,5 of the 5 occupations in data/rules/occupation_categories.csv ending in CONSTRUCTION
+CONTRACTOR,CONSTRUCTION / TRADES,7 of the 8 occupations in data/rules/occupation_categories.csv ending in CONTRACTOR
+CONTROLLER,ACCOUNTING / TAX,3 of the 3 occupations in data/rules/occupation_categories.csv ending in CONTROLLER
+COO,EXECUTIVE / C-SUITE,6 of the 7 occupations in data/rules/occupation_categories.csv ending in COO
+COUNSEL,LEGAL,21 of the 23 occupations in data/rules/occupation_categories.csv ending in COUNSEL
+CURATOR,ARTS / ENTERTAINMENT,3 of the 3 occupations in data/rules/occupation_categories.csv ending in CURATOR
+DIRECTOR,EXECUTIVE / C-SUITE,67 of the 81 occupations in data/rules/occupation_categories.csv ending in DIRECTOR
+DOCTOR,MEDICAL / HEALTHCARE,4 of the 4 occupations in data/rules/occupation_categories.csv ending in DOCTOR
+DRIVER,TRANSPORTATION,3 of the 3 occupations in data/rules/occupation_categories.csv ending in DRIVER
+EDITOR,ARTS / ENTERTAINMENT,9 of the 10 occupations in data/rules/occupation_categories.csv ending in EDITOR
+EDUCATOR,EDUCATION,6 of the 7 occupations in data/rules/occupation_categories.csv ending in EDUCATOR
+ENGINEER,TECHNOLOGY,26 of the 28 occupations in data/rules/occupation_categories.csv ending in ENGINEER
+ESTATE,REAL ESTATE,29 of the 29 occupations in data/rules/occupation_categories.csv ending in ESTATE
+FOUNDER,EXECUTIVE / C-SUITE,17 of the 19 occupations in data/rules/occupation_categories.csv ending in FOUNDER
+FUND,FINANCE / INVESTMENT,3 of the 3 occupations in data/rules/occupation_categories.csv ending in FUND
+GASTROENTEROLOGIST,MEDICAL / HEALTHCARE,3 of the 3 occupations in data/rules/occupation_categories.csv ending in GASTROENTEROLOGIST
+HEALTH,MEDICAL / HEALTHCARE,5 of the 5 occupations in data/rules/occupation_categories.csv ending in HEALTH
+INSTRUCTOR,EDUCATION,11 of the 13 occupations in data/rules/occupation_categories.csv ending in INSTRUCTOR
+INSURANCE,INSURANCE,4 of the 4 occupations in data/rules/occupation_categories.csv ending in INSURANCE
+JUDGE,LEGAL,7 of the 8 occupations in data/rules/occupation_categories.csv ending in JUDGE
+LAWYER,LEGAL,10 of the 11 occupations in data/rules/occupation_categories.csv ending in LAWYER
+LECTURER,EDUCATION,4 of the 4 occupations in data/rules/occupation_categories.csv ending in LECTURER
+LEGAL,LEGAL,5 of the 5 occupations in data/rules/occupation_categories.csv ending in LEGAL
+MARKETER,SALES / MARKETING,3 of the 3 occupations in data/rules/occupation_categories.csv ending in MARKETER
+MEDIATOR,LEGAL,8 of the 8 occupations in data/rules/occupation_categories.csv ending in MEDIATOR
+MEDICINE,MEDICAL / HEALTHCARE,3 of the 3 occupations in data/rules/occupation_categories.csv ending in MEDICINE
+NURSE,MEDICAL / HEALTHCARE,5 of the 5 occupations in data/rules/occupation_categories.csv ending in NURSE
+OFFICIAL,GOVERNMENT / MILITARY,3 of the 3 occupations in data/rules/occupation_categories.csv ending in OFFICIAL
+ONCOLOGIST,MEDICAL / HEALTHCARE,4 of the 4 occupations in data/rules/occupation_categories.csv ending in ONCOLOGIST
+PATHOLOGIST,MEDICAL / HEALTHCARE,4 of the 4 occupations in data/rules/occupation_categories.csv ending in PATHOLOGIST
+PHYSICIAN,MEDICAL / HEALTHCARE,7 of the 7 occupations in data/rules/occupation_categories.csv ending in PHYSICIAN
+PRESIDENT,EXECUTIVE / C-SUITE,21 of the 24 occupations in data/rules/occupation_categories.csv ending in PRESIDENT
+PRODUCER,ARTS / ENTERTAINMENT,22 of the 24 occupations in data/rules/occupation_categories.csv ending in PRODUCER
+PROPERTIES,REAL ESTATE,3 of the 3 occupations in data/rules/occupation_categories.csv ending in PROPERTIES
+PROVIDER,MEDICAL / HEALTHCARE,5 of the 5 occupations in data/rules/occupation_categories.csv ending in PROVIDER
+PSYCHOLOGIST,MEDICAL / HEALTHCARE,8 of the 8 occupations in data/rules/occupation_categories.csv ending in PSYCHOLOGIST
+RADIOLOGIST,MEDICAL / HEALTHCARE,3 of the 3 occupations in data/rules/occupation_categories.csv ending in RADIOLOGIST
+RECRUITER,SALES / MARKETING,5 of the 5 occupations in data/rules/occupation_categories.csv ending in RECRUITER
+SPEAKER,ARTS / ENTERTAINMENT,4 of the 4 occupations in data/rules/occupation_categories.csv ending in SPEAKER
+STRATEGIST,CONSULTING,8 of the 9 occupations in data/rules/occupation_categories.csv ending in STRATEGIST
+STYLIST,ARTS / ENTERTAINMENT,3 of the 3 occupations in data/rules/occupation_categories.csv ending in STYLIST
+SURGEON,MEDICAL / HEALTHCARE,16 of the 16 occupations in data/rules/occupation_categories.csv ending in SURGEON
+SURGERY,MEDICAL / HEALTHCARE,4 of the 4 occupations in data/rules/occupation_categories.csv ending in SURGERY
+TEACHER,EDUCATION,16 of the 17 occupations in data/rules/occupation_categories.csv ending in TEACHER
+THERAPIST,MEDICAL / HEALTHCARE,13 of the 14 occupations in data/rules/occupation_categories.csv ending in THERAPIST
+TRADER,FINANCE / INVESTMENT,9 of the 9 occupations in data/rules/occupation_categories.csv ending in TRADER
+TRADING,FINANCE / INVESTMENT,4 of the 4 occupations in data/rules/occupation_categories.csv ending in TRADING
+TREASURER,FINANCE / INVESTMENT,3 of the 3 occupations in data/rules/occupation_categories.csv ending in TREASURER
+TUTOR,EDUCATION,4 of the 4 occupations in data/rules/occupation_categories.csv ending in TUTOR
+VP,EXECUTIVE / C-SUITE,7 of the 7 occupations in data/rules/occupation_categories.csv ending in VP
+WRITER,ARTS / ENTERTAINMENT,12 of the 13 occupations in data/rules/occupation_categories.csv ending in WRITER

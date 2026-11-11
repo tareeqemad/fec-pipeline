@@ -12,12 +12,11 @@ Steps, in order (main):
           _finish_records           recipient committee names
           apply_record_rules        business names, then the work fields of each person (read_work)
           apply_filing_corrections  reviewed corrections by sub_id (data/rules/filing_corrections.csv)
-          _learn_categories         ask the model for occupation texts no table lists
        b. identify_donors           one donor key per person (fec/matching)
        c. standardize_donors        one name, job and address spelling per donor (fec/matching)
     3. _save_if_gates_pass          the quality checks, then data/output/contributions_cleaned.csv
     4. _save_donor_keys             data/cache/donor_keys.csv, so keys stay stable next month
-    5. _write_new_occupations       data/reports/new_occupations.csv
+    5. _write_new_occupations       data/reports/new_occupations.csv, texts not yet in the category table
 """
 
 from __future__ import annotations
@@ -46,7 +45,6 @@ from fec.cleaning.entity_types import (
 )
 from fec.cleaning.filing_corrections import apply_filing_corrections
 from fec.cleaning.quality_gates import run_quality_gates
-from fec.cleaning.work.occupation_categories import learn_categories
 from fec.cleaning.work.occupation_typos import extend_corrections
 from fec.cleaning.work.status_spellings import extend_spellings
 from fec.cleaning.work.text_cleanup import EMPLOYER_STATUS_TEXT, clean_box_text
@@ -60,7 +58,7 @@ from fec.common.settings import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DI
 from fec.matching.donor_work import recategorize_occupations
 from fec.matching.name_compare import extract_generational_suffix
 from fec.matching.pipeline import identify_donors, standardize_donors
-from fec.vocabulary.occupations import CATEGORY_OVERRIDES, EMPLOYER_NORMALIZE
+from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_CATEGORIES
 
 logger = get_logger(__name__)
 
@@ -101,19 +99,10 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("[3/5] Applying corrections")
     df = apply_record_rules(df, filed_employers, filed_occupations)
 
-    # After the record rules and the reviewed filings: only texts that stay are sent to the model.
     apply_filing_corrections(df)
-    _learn_categories(df)
     # Donors are matched on the category of the occupation as it now reads.
     recategorize_occupations(df)
     return df
-
-
-def _learn_categories(df: pd.DataFrame) -> int:
-    learnt = learn_categories(df)
-    if learnt:
-        logger.info("Occupation categories read from the model: %s", f"{learnt:,}")
-    return learnt
 
 
 def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
@@ -285,7 +274,7 @@ def _save_donor_keys(cleaned: pd.DataFrame) -> None:
 
 def _write_new_occupations(df: pd.DataFrame, out_dir: str) -> None:
     occupation = df["contributor_occupation"].fillna("")
-    new = df[df["entity_type"].eq("INDIVIDUAL") & occupation.ne("") & ~occupation.isin(CATEGORY_OVERRIDES)]
+    new = df[df["entity_type"].eq("INDIVIDUAL") & occupation.ne("") & ~occupation.isin(OCCUPATION_CATEGORIES)]
     report = new.groupby(["contributor_occupation", "occupation_category"]).size().reset_index(name="rows")
     write_csv_atomic(report, os.path.join(out_dir, "new_occupations.csv"), index=False)
     if len(report):

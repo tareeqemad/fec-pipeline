@@ -24,7 +24,7 @@ from rapidfuzz import process
 from rapidfuzz.distance import OSA
 
 from fec.vocabulary.occupations import (
-    CATEGORY_OVERRIDES,
+    OCCUPATION_CATEGORIES,
     OCCUPATION_CORRECTIONS,
     OCCUPATION_NORMALIZE,
     TEXT_CORRECTIONS,
@@ -54,7 +54,7 @@ def _is_one_word_slip(text: str, listed: str) -> bool:
 
 def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) -> dict[str, str]:
     """{filed text: listed occupation} for every text one slip from one listed occupation."""
-    candidates = CATEGORY_OVERRIDES if listed is None else listed
+    candidates = OCCUPATION_CATEGORIES if listed is None else listed
     listed = [
         occupation
         for occupation in candidates

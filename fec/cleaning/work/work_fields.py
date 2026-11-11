@@ -40,13 +40,13 @@ from fec.vocabulary.not_employers import (
     SELF_EMPLOYMENT_WORDS,
 )
 from fec.vocabulary.occupations import (
-    CATEGORY_OVERRIDES,
     EMPLOYER_FROM_OCCUPATION,
     EMPLOYER_NORMALIZE,
     FINAL_JUNK_EMPLOYERS,
     FINAL_NULL_EMPLOYERS,
     FINAL_SHORT_OCCUPATIONS,
     HOMEMAKER_EMPLOYER_VALUES,
+    OCCUPATION_CATEGORIES,
     OCCUPATION_KEYWORDS,
     OCCUPATION_NORMALIZE,
     SWAP_JOB_TITLES,
@@ -118,7 +118,7 @@ def _clear_boxes_naming_nothing(employer: str, occupation: str) -> tuple[str, st
         occupation = ""
     occupation = re.sub(r"^([A-Z ]+?)\s+\d+$", r"\1", occupation)
     if names_no_employer(employer):
-        if company_key(occupation) == company_key(employer) and occupation not in CATEGORY_OVERRIDES:
+        if company_key(occupation) == company_key(employer) and occupation not in OCCUPATION_CATEGORIES:
             occupation = ""
         employer = documented_employer_name(employer) or ""
     return employer, occupation
@@ -155,7 +155,7 @@ def _move_job_as_employer(employer: str, occupation: str) -> tuple[str, str]:
     says_self = (
         occupation == "SELF-EMPLOYED"
         or bool({employer, occupation} & SELF_EMPLOYMENT_WORDS)
-        or CATEGORY_OVERRIDES.get(employer) == "SELF-EMPLOYED"
+        or OCCUPATION_CATEGORIES.get(employer) == "SELF-EMPLOYED"
     )
     self_employed = "SELF-EMPLOYED" if says_self else ""
     occupation_open = occupation in ("", "SELF-EMPLOYED", "RETIRED", "NOT EMPLOYED") or (

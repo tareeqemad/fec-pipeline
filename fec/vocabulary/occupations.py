@@ -1,6 +1,6 @@
 """Occupation and employer spellings, the categories in use, and cross-field rules."""
 
-from fec.common.settings import OCCUPATION_CATEGORY_CACHE_CSV, OCCUPATION_CATEGORY_OVERRIDES_CSV
+from fec.common.settings import OCCUPATION_CATEGORIES_CSV
 from fec.vocabulary.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 from fec.vocabulary.statuses import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.vocabulary.tables import CONFIG_DIR, read_map, read_set, words
@@ -30,13 +30,12 @@ OCCUPATION_NORMALIZE = {
     **{written: (_nan if occupation is None else occupation) for written, occupation in OCCUPATION_CORRECTIONS.items()},
 }
 
-# Each occupation's category: the model's answers, then the reviewed
-# overrides on top. Unlisted texts are classified by the model when the
-# pipeline runs (fec.cleaning.work.occupation_categories); until then they are OTHER.
-CATEGORY_OVERRIDES = {
-    **(read_map(OCCUPATION_CATEGORY_CACHE_CSV) if OCCUPATION_CATEGORY_CACHE_CSV.exists() else {}),
-    **(read_map(OCCUPATION_CATEGORY_OVERRIDES_CSV) if OCCUPATION_CATEGORY_OVERRIDES_CSV.exists() else {}),
-}
+# Each occupation text's category; a text not listed is read by its words
+# (fec.cleaning.work.occupation_categories).
+OCCUPATION_CATEGORIES = read_map(OCCUPATION_CATEGORIES_CSV)
+
+# The category a word gives an unlisted occupation text: SURGEON, MEDICAL / HEALTHCARE.
+OCCUPATION_CATEGORY_WORDS = read_map(CONFIG_DIR / "occupation_category_words.csv")
 
 
 # Occupation status -> employer during the field-level pass.
@@ -77,4 +76,4 @@ KNOWN_COMPANY_OCCUPATIONS = words("known_company_occupations")
 
 HOMEMAKER_EMPLOYER_VALUES = words("homemaker_employer_values")
 
-VALID_CATEGORIES = read_set(CONFIG_DIR / "occupation_categories.csv")
+VALID_CATEGORIES = read_set(CONFIG_DIR / "category_names.csv")

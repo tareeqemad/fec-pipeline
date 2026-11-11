@@ -35,7 +35,7 @@ from fec.vocabulary.not_employers import (
     ROLE_AS_EMPLOYER,
     SECTOR_AS_EMPLOYER,
 )
-from fec.vocabulary.occupations import CATEGORY_OVERRIDES, KNOWN_COMPANY_OCCUPATIONS
+from fec.vocabulary.occupations import KNOWN_COMPANY_OCCUPATIONS, OCCUPATION_CATEGORIES
 from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
 from fec.vocabulary.tables import words
 
@@ -110,7 +110,7 @@ def _read_reviewed_names() -> frozenset[str]:
 @lru_cache(maxsize=1)
 def _collect_job_words() -> frozenset[str]:
     return frozenset(
-        {text for text, category in CATEGORY_OVERRIDES.items() if category != "OTHER"}
+        {text for text, category in OCCUPATION_CATEGORIES.items() if category != "OTHER"}
         | ROLE_AS_EMPLOYER
         | OCCUPATION_AS_EMPLOYER
         | JOB_TITLE_AS_EMPLOYER

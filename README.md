@@ -32,7 +32,7 @@ Next time, only enter the folder and activate: `cd fec-pipeline` then `source .v
 ## 2. Fill in `.env`
 
 - `FEC_API_KEY`: your FEC key (only for pulling data).
-- `OPENAI_API_KEY`: an OpenAI key; `clean.py` asks the model for the category of every occupation text it has not seen before. Without it, a new occupation text is OTHER and listed in `data/reports/new_occupations.csv` until the model reads it. Addresses need no key: they are written in USPS form offline, by the `usaddress` parser and the USPS tables of `usaddress-scourgify` and `zipcodes`.
+- No other key is needed. Occupation categories come from `data/rules/occupation_categories.csv`; addresses are written in USPS form offline, by the `usaddress` parser and the USPS tables of `usaddress-scourgify` and `zipcodes`.
 - `PG_PASSWORD`: the `fec_owner` password from step 3.
 
 ## 3. Create the database (once)
@@ -89,7 +89,7 @@ To load the files already in the repository, run only `python loader.py --reset`
 Warnings worth reading after `clean.py`:
 
 - `address rules matched no filing`: a rule in `data/rules/address_rules.csv` is mistyped or no longer needed.
-- `OPENAI_API_KEY not set; N line(s) left as they are`: new occupations were not read by the model; set the key and run `clean.py` again.
+- `New occupations: N`: occupation texts not in `data/rules/occupation_categories.csv`, listed in `data/reports/new_occupations.csv` with the category their last listed word gives (else OTHER); add the right row to the table.
 - `donor merge rules found no donor`: a rule in `data/rules/donor_identity_rules.csv` needs an updated key.
 - `previous employer rules found no filing` (from `resolve.py`): a `sub_id` in `data/rules/previous_employers.csv` is mistyped.
 - `earlier donor keys no longer used`: a donor split or merged since the last run; check it.
@@ -101,10 +101,10 @@ Warnings worth reading after `clean.py`:
 | `data/raw/` | FEC data as pulled; never edited |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, one file per kind, every row with its `source`. `donor_identity_rules.csv` merges, separates or holds donors: a filing whose owner is not proven is held (`identity_status` `held`) and counts toward nobody rather than risk the wrong person. `filing_corrections.csv` corrects one filing by its `sub_id` (employer, occupation, category or address). `contributor_name_rules.csv` corrects a filed name. `employer_name_rules.csv` gives a company its one spelling. `entity_overrides.csv` says a name is a person, an organization or a committee. `occupation_category_overrides.csv` fixes one occupation's category when the model gets it wrong. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A donor whose latest contribution says retired gets a previous employer: the company on their latest earlier contribution, or the answer in `previous_employers.csv` for people whose former work is known (`[CLEAR]` empties it) |
-| `data/config/` | Spelling and word lists (`word_lists.csv` holds every list of words the code reads, one row per word). `occupation_category_rules.md` is the instructions the model reads to categorize occupations: edit it to change how a kind of occupation is handled |
+| `data/rules/` | Reviewed decisions, one file per kind, every row with its `source`. `donor_identity_rules.csv` merges, separates or holds donors: a filing whose owner is not proven is held (`identity_status` `held`) and counts toward nobody rather than risk the wrong person. `filing_corrections.csv` corrects one filing by its `sub_id` (employer, occupation, category or address). `contributor_name_rules.csv` corrects a filed name. `employer_name_rules.csv` gives a company its one spelling. `entity_overrides.csv` says a name is a person, an organization or a committee. `occupation_categories.csv` gives each occupation text its category. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A donor whose latest contribution says retired gets a previous employer: the company on their latest earlier contribution, or the answer in `previous_employers.csv` for people whose former work is known (`[CLEAR]` empties it) |
+| `data/config/` | Spelling and word lists (`word_lists.csv` holds every list of words the code reads, one row per word). `category_names.csv` lists the categories; `occupation_category_words.csv` gives a new occupation text the category of its last listed word (REGISTERED NURSE, NURSE) |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
-| `data/cache/` | Map points, donor keys, and the model's occupation categories from earlier runs; keep it |
+| `data/cache/` | Map points and donor keys from earlier runs; keep it |
 
 ## How the code is organised
 
