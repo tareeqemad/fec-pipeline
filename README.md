@@ -1,44 +1,40 @@
 # FEC Pipeline
 
-Pulls FEC contributions, cleans them, finds map points and loads PostgreSQL.
-You need Git, Python 3.12 and PostgreSQL 18.
+Pulls political contributions from the FEC, cleans them, finds a map point for each address and loads everything
+into PostgreSQL.
 
-## 1. Download and create the environment
+You need **Git**, **Python 3.12 or later** and **PostgreSQL 18**.
+
+## 1. Download the project
+
+Windows (PowerShell):
+
+```powershell
+git clone https://github.com/tareeqemad/fec-pipeline.git
+cd fec-pipeline
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
 
 Linux / macOS:
 
 ```bash
 git clone https://github.com/tareeqemad/fec-pipeline.git
 cd fec-pipeline
-python3.12 -m venv .venv --prompt fec-pipeline
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Windows PowerShell:
+Every time you come back, enter the folder and activate the environment again
+(`.venv\Scripts\Activate.ps1` on Windows, `source .venv/bin/activate` on Linux / macOS).
 
-```powershell
-git clone https://github.com/tareeqemad/fec-pipeline.git
-cd fec-pipeline
-py -3.12 -m venv .venv --prompt fec-pipeline
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-```
+## 2. Create the database (once)
 
-Next time, only enter the folder and activate: `cd fec-pipeline` then `source .venv/bin/activate`.
-
-## 2. Fill in `.env`
-
-- `FEC_API_KEY`: your FEC key (only for pulling data).
-- Optional, for `geocode.py`: `NOMINATIM_URL` to use your own Nominatim server instead of the public one, `NOMINATIM_USER_AGENT` to name your project to it, `NOMINATIM_DELAY_SECONDS` to wait longer between requests (the public server is never asked more than once in 15 seconds).
-- No other key is needed. Occupation categories come from `data/rules/occupation_categories.csv`; addresses are written in USPS form offline, by the `usaddress` parser and the USPS tables of `usaddress-scourgify` and `zipcodes`.
-- `PG_PASSWORD`: the `fec_owner` password from step 3.
-
-## 3. Create the database (once)
-
-Open `psql` as the administrator (`sudo -u postgres psql` on Linux) and run:
+Open `psql` as the PostgreSQL administrator (on Linux: `sudo -u postgres psql`) and run:
 
 ```sql
 CREATE ROLE fec_owner LOGIN;
@@ -60,89 +56,123 @@ ALTER DEFAULT PRIVILEGES FOR ROLE fec_owner IN SCHEMA public GRANT SELECT ON TAB
 \quit
 ```
 
-The website reads with `fec_app`; the loader writes with `fec_owner`.
+`fec_owner` loads the data. `fec_app` can only read it; the website uses that one.
 
-## 4. Pull new data (monthly)
+## 3. Fill in `.env`
+
+Open the `.env` file you copied in step 1 and set two values:
+
+| Setting | What to put |
+| --- | --- |
+| `PG_PASSWORD` | the password you gave `fec_owner` in step 2 |
+| `FEC_API_KEY` | your FEC key, free from https://api.data.gov/signup/ (only needed for pulling) |
+
+Leave the rest as it is. Never commit `.env`.
+
+## 4. First run: load what is already in the project
+
+The project comes with the data already pulled and cleaned. To put it in your database:
 
 ```bash
-python pull.py C00797670 --period 2026  # AIPAC
-python pull.py C00710848 --period 2026  # DMFI
-python pull.py C00799031 --period 2026  # UDP
+python loader.py --reset
 ```
 
-The same command next month adds only new contributions.
-For a new committee, first add a row to `data/reference/committees.csv`.
+It takes about a minute and ends with `Database load committed.`
 
-## 5. Clean and load
+## 5. Every month: pull, clean, load
 
-Run in order; stop if one fails, fix it, and start again from `clean.py`:
+Run these in order. If one fails, fix the cause and start again from `clean.py`.
 
 ```bash
+python pull.py C00797670 --period 2026
+python pull.py C00710848 --period 2026
+python pull.py C00799031 --period 2026
 python clean.py
 python geocode.py
 python resolve.py --apply
 python loader.py --reset
 ```
 
-`loader.py --reset` replaces every table in `fec_db`.
-To load the files already in the repository, run only `python loader.py --reset`.
+| Command | What it does | How long |
+| --- | --- | --- |
+| `pull.py` | Asks the FEC for one committee's contributions and adds only the new ones to `data/raw/contributions.csv`. The three lines are AIPAC, DMFI and UDP | minutes |
+| `clean.py` | Cleans names, employers, occupations and addresses, gives every person one donor key, and checks the result | about 3 minutes |
+| `geocode.py` | Finds the map point of each new address. Addresses seen before come from the cache | seconds, or long when there are many new addresses |
+| `resolve.py --apply` | Sets each person's work status and the previous employer of retired donors | seconds |
+| `loader.py --reset` | Replaces every table in `fec_db` with the new data, all or nothing | about a minute |
 
-Warnings worth reading after `clean.py`:
+Good to know:
 
-- `address rules matched no filing`: a rule in `data/rules/address_rules.csv` is mistyped or no longer needed.
-- `New occupations: N`: occupation texts not in `data/rules/occupation_categories.csv`, listed in `data/reports/new_occupations.csv` with the category their last listed word gives (else OTHER); add the right row to the table.
-- `donor merge rules found no donor`: a rule in `data/rules/donor_identity_rules.csv` needs an updated key.
-- `previous employer rules found no filing` (from `resolve.py`): a `sub_id` in `data/rules/previous_employers.csv` is mistyped.
-- `earlier donor keys no longer used`: a donor split or merged since the last run; check it.
+- `--period` is the two-year election period: `2026` covers 2025 and 2026.
+- Running `pull.py` twice is safe: the second run adds nothing.
+- `resolve.py` refuses a file it already resolved. Run `clean.py` again first.
+- To pull a new committee, first add a row for it in `data/reference/committees.csv`.
 
-## Where things are
+## 6. What the cleaning does
+
+`clean.py` reads `data/raw/contributions.csv` and writes `data/output/contributions_cleaned.csv`. In order:
+
+1. **Names**: fixes punctuation and spelling slips, splits first and last name.
+2. **Who is it**: decides whether each contributor is a person, an organization or a committee.
+3. **Work**: reads the employer and the occupation together (RETIRED, SELF-EMPLOYED, a job written in the employer
+   box, a company written in the occupation box) and gives each occupation a category. The occupation a donor
+   filed is never replaced by another one.
+4. **Addresses**: writes every address in the standard USPS form.
+5. **Reviewed corrections**: applies the decisions in `data/rules/`.
+6. **Donors**: gives every filing of the same person the same donor key. Two people are never joined without
+   proof; a filing whose owner is not proven is held and counts toward nobody.
+7. **Checks**: if a check fails, nothing is saved and the old file stays.
+
+After `clean.py`, read its warnings:
+
+| Warning | What to do |
+| --- | --- |
+| `New occupations: N` | Open `data/reports/new_occupations.csv` and add each occupation with its category to `data/rules/occupation_categories.csv` |
+| `Review: N donor pairs` | Open `data/reports/donor_dedup_review.csv`: each row is two donors with the same last name and ZIP whose first names are close (TIM, TIMOTHY). They stay two donors until you decide; record the decision in `data/rules/donor_identity_rules.csv` with its source |
+| `address rules matched no filing` | A row in `data/rules/address_rules.csv` is mistyped or no longer needed |
+| `donor merge rules found no donor` | A row in `data/rules/donor_identity_rules.csv` needs an updated key |
+| `earlier donor keys no longer used` | A donor was split or merged since the last run; check it |
+| `previous employer rules found no filing` (from `resolve.py`) | A `sub_id` in `data/rules/previous_employers.csv` is mistyped |
+
+## 7. Where things are
 
 | Folder | What is in it |
 | --- | --- |
-| `data/raw/` | FEC data as pulled; never edited |
+| `data/raw/` | FEC data as pulled. Never edit it |
 | `data/output/` | The cleaned file the database loads |
-| `data/reports/` | Possible duplicate donors and new occupations to review |
-| `data/rules/` | Reviewed decisions, one file per kind, every row with its `source`. `donor_identity_rules.csv` merges, separates or holds donors: a filing whose owner is not proven is held (`identity_status` `held`) and counts toward nobody rather than risk the wrong person. `filing_corrections.csv` corrects one filing by its `sub_id` (employer, occupation, category or address). `contributor_name_rules.csv` corrects a filed name. `employer_name_rules.csv` gives a company its one spelling. `entity_overrides.csv` says a name is a person, an organization or a committee. `occupation_categories.csv` gives each occupation text its category. `address_rules.csv` corrects one address the parser or the filer got wrong, matched on the street and ZIP as cleaned. A donor whose latest contribution says retired gets a previous employer: the company on their latest earlier contribution, or the answer in `previous_employers.csv` for people whose former work is known (`[CLEAR]` empties it) |
-| `data/config/` | Spelling and word lists (`word_lists.csv` holds every list of words the code reads, one row per word). `category_names.csv` lists the categories; `occupation_category_words.csv` gives a new occupation text the category of its last listed word (REGISTERED NURSE, NURSE) |
+| `data/reports/` | Lists to review after `clean.py`: `new_occupations.csv`, and `donor_dedup_review.csv`, which is written only when two donors look like the same person |
+| `data/rules/` | Reviewed decisions, every row with its `source`: names, companies, addresses, occupation categories, who is the same donor |
+| `data/config/` | Spelling and word lists the code reads |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |
-| `data/cache/` | Map points and donor keys from earlier runs; keep it |
+| `data/cache/` | Map points and donor keys from earlier runs. Keep it: it saves lookups and keeps donor keys stable |
+| `fec/` | The code, one folder per command: `pull`, `cleaning` (with `matching`), `geocoding`, `resolve`, `database` |
 
-## How the code is organised
+Each folder's `pipeline.py` lists its steps in order at the top; start reading there.
 
-Each command at the root only starts one stage; the stage is a folder in `fec/` whose `pipeline.py` is its entry point.
+## 8. Optional settings
 
-| Command | Stage folder | What it does |
-| --- | --- | --- |
-| `pull.py` | `fec/pull/` | Pulls new contributions from the FEC API into `data/raw/` |
-| `clean.py` | `fec/cleaning/` | Cleans names, work fields and addresses, then calls `fec/matching/` to give every person one donor key |
-| `geocode.py` | `fec/geocoding/` | Finds a map point for each cleaned address |
-| `resolve.py` | `fec/resolve/` | Sets each filing's employer status and the previous employer of retired donors |
-| `loader.py` | `fec/database/` | Loads the result into PostgreSQL in one transaction |
+In `.env`, only if you need them:
 
-Shared code: `fec/common/` (settings and paths, logging, files, the columns each stage needs) and `fec/vocabulary/` (the word lists the code reads, built from `data/config/`).
-Inside `fec/cleaning/`, `addresses/` holds the address steps and `work/` the employer and occupation steps.
+| Setting | Use |
+| --- | --- |
+| `FEC_RPM` | FEC requests per minute (15 is safe) |
+| `NOMINATIM_URL`, `NOMINATIM_USER_AGENT`, `NOMINATIM_DELAY_SECONDS` | Use your own map server instead of the public one, name your project to it, or wait longer between requests |
 
-Writing rules, checked by `ruff check .` (configured in `pyproject.toml`; run `ruff format .` before committing):
-
-- Every function and class has a type-hinted signature and a docstring whose first line starts with a verb.
-- A name starting with `_` is used only in its own file; anything another file imports has a public name.
-- Each file is named after what it does, and a name is not reused for something else in another file.
-- Verbs: `read_` reads a file or a filing's boxes, `apply_` applies reviewed rules, `clean_` is a cleaning step, `load_` writes to the database.
-- Word lists live in `data/config/`, reviewed decisions in `data/rules/`, never inside the code.
-
-## Update the code
+## 9. Update the code and run the tests
 
 ```bash
 git pull --ff-only origin main
 pip install -r requirements.txt
 ```
 
-## Tests
-
-One test file per stage folder: `tests/test_pull.py`, `test_cleaning.py`, `test_addresses.py`, `test_matching.py`, `test_geocoding.py`, `test_database.py`, and `test_common.py` for the shared code.
+For people who change the code:
 
 ```bash
 pip install -r requirements-dev.txt
 ruff check .
 python -m pytest
 ```
+
+Code rules: every function has type hints and a docstring; a name starting with `_` is used only in its own file;
+`read_` reads a file, `apply_` applies reviewed rules, `clean_` is a cleaning step, `load_` writes to the
+database; word lists live in `data/config/` and reviewed decisions in `data/rules/`, never inside the code.
