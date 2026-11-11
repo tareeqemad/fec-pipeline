@@ -254,3 +254,33 @@ def test_main_returns_2_when_the_pull_cannot_continue(monkeypatch):
     monkeypatch.delenv("FEC_API_KEY", raising=False)
     monkeypatch.setattr(pull_pipeline, "load_env", lambda: None)
     assert pull_pipeline.main(["C00000001"]) == 2
+
+
+def test_fetch_page_reports_an_answer_that_is_not_json():
+    class NotJson(Response):
+        def json(self):
+            raise requests.exceptions.JSONDecodeError("no JSON", "", 0)
+
+    with pytest.raises(api.PullError, match="invalid JSON"):
+        api.fetch_page(Session(NotJson()), {"api_key": "secret"}, Limiter())
+
+
+def test_main_returns_1_when_the_pull_fails_for_another_reason(monkeypatch):
+    def fail(committee_id, period):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(pull_pipeline, "committee_id_to_name", lambda: {"C00000001": "TEST"})
+    monkeypatch.setattr(pull_pipeline, "load_env", lambda: None)
+    monkeypatch.setattr(pull_pipeline, "pull_committee", fail)
+    assert pull_pipeline.main(["C00000001"]) == 1
+
+
+def test_saved_ids_are_read_from_a_file_excel_saved_and_from_an_empty_one(tmp_path):
+    saved = tmp_path / "contributions.csv"
+    saved.write_text(
+        "sub_id,committee_id,two_year_transaction_period\n7,C00000001,2026\n8,C00000002,2026\n", "utf-8-sig"
+    )
+    assert pull_pipeline.read_existing_ids(saved, "C00000001", 2026) == {"7"}
+    saved.write_text("", "utf-8")
+    assert pull_pipeline.read_existing_ids(saved, "C00000001", 2026) == set()
+    assert pull_pipeline.read_existing_ids(tmp_path / "missing.csv", "C00000001", 2026) == set()

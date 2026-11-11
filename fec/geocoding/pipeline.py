@@ -21,7 +21,7 @@ from fec.cleaning.addresses.foreign_addresses import kept_as_filed_mask
 from fec.common.columns import DONOR_COORDINATES, check_input, check_output
 from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
-from fec.common.settings import CLEANED_CSV, GEOCODE_CACHE_JSON, PROJECT_ROOT
+from fec.common.settings import CLEANED_CSV, GEOCODE_CACHE_JSON, PROJECT_ROOT, load_env
 from fec.geocoding.coordinate_checks import accepted_coordinates, is_street_address
 from fec.geocoding.providers import GeocoderUnavailable, census, nominatim
 
@@ -130,6 +130,7 @@ def apply_coordinates(df: pd.DataFrame, cache: dict) -> pd.DataFrame:
 def main() -> None:
     """Read the cleaned data, geocode the addresses not yet in the cache and save."""
     start = time.perf_counter()
+    load_env()
     if not CLEANED_CSV.exists():
         logger.error("No cleaned CSV found. Run python clean.py first.")
         sys.exit(1)

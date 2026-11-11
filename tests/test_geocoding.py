@@ -198,7 +198,7 @@ def test_nominatim_asks_for_one_us_address_and_reads_the_house(web):
         "addressdetails": 1,
         "countrycodes": "us",
     }
-    assert web["requests"] == [(providers.NOMINATIM_URL, params, providers.NOMINATIM_HEADERS, 10)]
+    assert web["requests"] == [(providers.NOMINATIM_URL, params, {"User-Agent": providers.NOMINATIM_USER_AGENT}, 10)]
 
 
 def test_nominatim_refuses_an_area_another_house_or_another_state(web):
@@ -262,3 +262,27 @@ def test_census_reads_a_match_of_the_same_house_and_place(web):
     assert web["requests"][0] == (providers.CENSUS_URL, params, None, 10)
     assert providers.census("10 HIGH ST", "LONDON", "", "SW1A 1AA") is None  # foreign: Census is not asked
     assert len(web["requests"]) == 4
+
+
+def test_nominatim_settings_come_from_the_environment(monkeypatch):
+    from fec.geocoding import providers
+
+    sent = []
+
+    def fake_get_json(provider, url, params, headers):
+        sent.append((url, headers))
+        return []
+
+    monkeypatch.setattr(providers, "_get_json", fake_get_json)
+    providers.nominatim("1 MAIN ST", "AUSTIN", "TX", "78701")
+    monkeypatch.setenv("NOMINATIM_URL", "http://localhost:8080/search")
+    monkeypatch.setenv("NOMINATIM_USER_AGENT", "my project")
+    providers.nominatim("1 MAIN ST", "AUSTIN", "TX", "78701")
+
+    assert sent[0] == (providers.NOMINATIM_URL, {"User-Agent": providers.NOMINATIM_USER_AGENT})
+    assert sent[1] == ("http://localhost:8080/search", {"User-Agent": "my project"})
+    assert providers._seconds_between_nominatim_requests(providers.NOMINATIM_URL) == 15.0
+    assert providers._seconds_between_nominatim_requests("http://localhost:8080/search") == 1.0
+    monkeypatch.setenv("NOMINATIM_DELAY_SECONDS", "5")
+    assert providers._seconds_between_nominatim_requests(providers.NOMINATIM_URL) == 15.0
+    assert providers._seconds_between_nominatim_requests("http://localhost:8080/search") == 5.0
