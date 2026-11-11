@@ -92,7 +92,7 @@ def _insert_leader(committees: dict[str, int], cur: Any, row: pd.Series, donor_i
         )
 
 
-def load_leadership(cur: Any) -> None:
+def load_leadership(cur: Any, offices: list[dict]) -> None:
     """Load leaders and their committee memberships."""
     committees = read_committee_ids(cur)
     load_roster_csv(
@@ -101,6 +101,7 @@ def load_leadership(cur: Any) -> None:
         "leaders",
         partial(_insert_leader, committees),
         partial(_validate_leader_committees, committees),
+        offices,
     )
 
 
@@ -150,7 +151,7 @@ def _insert_accomplice(committees: dict[str, int], cur: Any, row: pd.Series, don
     )
 
 
-def load_key_accomplices(cur: Any) -> None:
+def load_key_accomplices(cur: Any, offices: list[dict]) -> None:
     """Load curated cards and link them to donors."""
     committees = read_committee_ids(cur)
     load_roster_csv(
@@ -159,4 +160,5 @@ def load_key_accomplices(cur: Any) -> None:
         "key_accomplices",
         partial(_insert_accomplice, committees),
         partial(_validate_accomplice_committees, committees),
+        offices,
     )

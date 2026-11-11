@@ -11,7 +11,7 @@ from fec.cleaning.work.employer_status import classify_employer_status, is_real_
 from fec.cleaning.work.occupation_categories import categorize_occupations
 from fec.common.log import get_logger
 from fec.common.settings import REFERENCE_DIR
-from fec.database.offices import offices_by_company, select_office
+from fec.database.offices import choose_office, office_address, workplaces_by_company
 from fec.matching.identity_rules import resolve_donor_key
 
 logger = get_logger(__name__)
@@ -130,20 +130,10 @@ def roster_office_address_id(
     """Same-city office, then a nearby state office, else default."""
     if not employer or not locations:
         return None
-    location = select_office(locations.get(employer), zip_5 or "", state or "", city or "")
+    location = choose_office(locations.get(employer, []), zip_5 or "", state or "", city or "")
     if not location:
         return None
-
-    fields = tuple(
-        location.get(field) or None
-        for field in ("employer_address", "", "employer_city", "employer_state", "employer_zip")
-    )
-    return _find_or_insert_address(
-        cur,
-        fields,
-        _read_office_coordinate(location.get("employer_latitude")),
-        _read_office_coordinate(location.get("employer_longitude")),
-    )
+    return _find_or_insert_address(cur, office_address(location), location["latitude"], location["longitude"])
 
 
 def _read_office_coordinate(value: Any) -> float | None:
@@ -310,7 +300,8 @@ def load_roster_csv(
     csv_filename: str,
     table: str,
     insert_row: Callable[[Any, pd.Series, int], None],
-    validate_rows: Callable[[pd.DataFrame], None] | None = None,
+    validate_rows: Callable[[pd.DataFrame], None],
+    offices: list[dict],
 ) -> None:
     """Validate and load the roster, linking rows to donors."""
     csv_path = REFERENCE_DIR / csv_filename
@@ -319,11 +310,8 @@ def load_roster_csv(
         return
 
     rows = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
-    if validate_rows is not None:
-        # Validate the whole roster before writing any row.
-        validate_rows(rows)
-    # Use the same office choices as the FEC loader.
-    locations = offices_by_company()
+    validate_rows(rows)
+    locations = workplaces_by_company(offices)
     skipped = 0
 
     for _, row in rows.iterrows():

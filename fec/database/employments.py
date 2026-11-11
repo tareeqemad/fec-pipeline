@@ -1,258 +1,107 @@
-"""Load employers and donor employments."""
+"""Load the companies the filings name and each donor's employments."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from functools import partial
 from typing import Any
 
 import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.cleaning.work.employer_status import current_employer_name, referenced_employers
-from fec.database.connection import to_native
-from fec.database.offices import filing_office_address_id, offices_by_company
-from fec.database.previous_employers import previous_employer_of_filing
-from fec.vocabulary.not_employers import NOT_REAL_EMPLOYER
+from fec.database.addresses import ADDRESS_COLUMNS, address_key
+from fec.database.connection import missing_as_none, to_rows
+from fec.database.offices import choose_office, office_address, workplaces_by_company
 
-# Match the seven-field UNIQUE NULLS NOT DISTINCT key in schema.sql.
-EMPLOYMENT_KEY_COLUMNS = (
+# Stored as previous_self_employed, never as a company in employers.
+PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
+
+# The df columns of the UNIQUE key of donor_employments in schema.sql, in the order they are read back.
+EMPLOYMENT_KEY = [
     "donor_id",
     "employer_id",
-    "occupation",
+    "contributor_occupation",
     "employer_status",
     "previous_employer_id",
     "previous_self_employed",
     "occupation_category_id",
-)
-
-
-def employment_key(fields: tuple) -> tuple:
-    """Build the seven-field employment key with None for missing values."""
-    (
-        donor_id,
-        employer_id,
-        occupation,
-        employer_status,
-        previous_employer_id,
-        previous_self_employed,
-        occupation_category_id,
-    ) = fields
-    employer_id = to_native(employer_id)
-    previous_employer_id = to_native(previous_employer_id)
-    occupation_category_id = to_native(occupation_category_id)
-    return (
-        int(donor_id),
-        None if employer_id is None else int(employer_id),
-        to_native(occupation),
-        to_native(employer_status),
-        None if previous_employer_id is None else int(previous_employer_id),
-        bool(previous_self_employed),
-        None if occupation_category_id is None else int(occupation_category_id),
-    )
-
-
-def filing_employment_key(filing: tuple, get_employer_id: Callable[[str], int | None]) -> tuple:
-    """Build an employment key from this filing only.
-
-    filing holds donor_id, employer_id, occupation, employer_status,
-    previous_employer and occupation_category_id.
-    """
-    (
-        donor_id,
-        employer_id,
-        occupation,
-        employer_status,
-        previous_employer,
-        occupation_category_id,
-    ) = filing
-    previous_employer_id, previous_self_employed = previous_employer_of_filing(
-        employer_status,
-        previous_employer,
-        get_employer_id,
-    )
-    return employment_key(
-        (
-            donor_id,
-            employer_id,
-            occupation,
-            employer_status,
-            previous_employer_id,
-            previous_self_employed,
-            occupation_category_id,
-        )
-    )
-
-
-def _keep_latest_filings(individuals: pd.DataFrame) -> pd.DataFrame:
-    keys = [
-        "donor_key",
-        "contributor_employer",
-        "contributor_occupation",
-        "employer_status",
-        "previous_employer",
-        "occupation_category",
-    ]
-    return individuals.sort_values(
-        "contribution_receipt_date",
-        ascending=False,
-    ).drop_duplicates(keys, keep="first")
-
-
-def _find_exact_employer_id(employer_ids: dict, name: Any) -> int | None:
-    if pd.isna(name):
-        return None
-    employer = str(name).strip()
-    if employer.upper() in NOT_REAL_EMPLOYER:
-        return None
-    return employer_ids.get(employer)
-
-
-def make_employer_lookup(employer_ids: dict) -> Callable[[Any], int | None]:
-    """Create an exact company-name lookup."""
-    return partial(_find_exact_employer_id, employer_ids)
+]
 
 
 def load_employers(cur: Any, df: pd.DataFrame) -> dict:
-    """Load referenced companies and return their IDs."""
-    employer_rows = [(name,) for name in sorted(referenced_employers(df))]
+    """Load the companies, add each filing's employer columns to df and return the company IDs by name.
 
-    execute_values(
-        cur,
-        "INSERT INTO employers (name) VALUES %s ON CONFLICT (name) DO NOTHING",
-        employer_rows,
-        page_size=5000,
-    )
-
-    cur.execute("SELECT employer_id, name FROM employers")
-    return {row[1]: row[0] for row in cur.fetchall()}
-
-
-def load_employments(
-    cur: Any,
-    df: pd.DataFrame,
-    id_maps: dict[str, dict],
-    get_employer_id: Callable[[str], int | None],
-    employer_locations: list[dict] | None = None,
-) -> dict:
-    """Load employment rows and return their IDs.
-
-    id_maps holds the "donor" and "occupation_category" ID maps, and
-    optionally the "address" IDs used to link each company office.
+    The columns are employer_id, previous_employer_id and previous_self_employed.
     """
-    rows = _build_employment_rows(df, id_maps, get_employer_id, employer_locations)
+    names = sorted(referenced_employers(df))
+    execute_values(cur, "INSERT INTO employers (name) VALUES %s", [(name,) for name in names], page_size=5000)
+    cur.execute("SELECT name, employer_id FROM employers")
+    employer_ids = dict(cur.fetchall())
+
+    current_names = [
+        current_employer_name(status, employer)
+        for status, employer in zip(df["employer_status"], df["contributor_employer"])
+    ]
+    df["employer_id"] = pd.Series(current_names, index=df.index).map(employer_ids).astype("Int64")
+    # The quality gates allow a previous employer only on a retired filing.
+    # The column is text even when it is empty and was read as numbers.
+    previous_names = df["previous_employer"].astype("str").str.strip()
+    df["previous_employer_id"] = previous_names.map(employer_ids).astype("Int64")
+    df["previous_self_employed"] = previous_names.str.upper().eq(PREVIOUS_SELF_EMPLOYED)
+    return employer_ids
+
+
+def load_employments(cur: Any, df: pd.DataFrame, offices: list[dict], address_ids: dict) -> None:
+    """Load each donor's distinct employments with a workplace address and add donor_employment_id to df."""
+    individuals = df[df["entity_type"] == "INDIVIDUAL"]
+    # The workplace comes from the latest filing that reports the employment.
+    latest = individuals.sort_values("contribution_receipt_date", ascending=False).drop_duplicates(EMPLOYMENT_KEY)
+    workplaces = workplaces_by_company(offices)
+    rows = []
+    for filing in missing_as_none(latest).to_dict("records"):
+        workplace_address_id = _find_workplace_address_id(filing, workplaces, address_ids)
+        rows.append((*[filing[column] for column in EMPLOYMENT_KEY], workplace_address_id))
+
     execute_values(
         cur,
-        """INSERT INTO donor_employments
-           (donor_id, employer_id, occupation, occupation_category_id,
-            employer_status, previous_employer_id, previous_self_employed,
-            address_id)
-           VALUES %s ON CONFLICT DO NOTHING""",
+        """
+        INSERT INTO donor_employments (
+            donor_id, employer_id, occupation, employer_status, previous_employer_id,
+            previous_self_employed, occupation_category_id, address_id
+        ) VALUES %s
+        """,
         rows,
         page_size=5000,
     )
-    return _read_employment_ids(cur)
+    cur.execute("""
+        SELECT donor_employment_id, donor_id, employer_id, occupation, employer_status, previous_employer_id,
+               previous_self_employed, occupation_category_id
+        FROM donor_employments
+    """)
+    employment_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
+    # Committees and organizations have no employment.
+    filing_ids = [employment_ids.get(key) for key in to_rows(df[EMPLOYMENT_KEY])]
+    df["donor_employment_id"] = pd.array(filing_ids, dtype="Int64")
 
 
-def _build_employment_rows(
-    df: pd.DataFrame,
-    id_maps: dict[str, dict],
-    get_employer_id: Callable[[str], int | None],
-    employer_locations: list[dict] | None,
-) -> list[tuple]:
-    donor_ids = id_maps["donor"]
-    occupation_category_ids = id_maps["occupation_category"]
-    address_ids = id_maps.get("address")
+def _find_workplace_address_id(filing: dict, workplaces: dict, address_ids: dict) -> int | None:
+    status = filing["employer_status"]
+    if status == "self_employed":
+        # A self-employed donor works at the address on the filing, when it has one.
+        has_address = any(filing[column] for column in ADDRESS_COLUMNS)
+        return filing["address_id"] if has_address else None
+    if status == "active":
+        company = filing["contributor_employer"].strip()
+    elif status == "retired" and filing["previous_employer_id"] is not None:
+        company = filing["previous_employer"].strip()
+    else:
+        return None
 
-    individuals = df[df["entity_type"] == "INDIVIDUAL"]
-    employment_rows = []
-    seen = set()
-
-    locations = offices_by_company(employer_locations) if address_ids else {}
-    latest_filings = _keep_latest_filings(individuals)
-
-    for _, row in latest_filings.iterrows():
-        donor_key = row["donor_key"]
-
-        donor_id = donor_ids.get(donor_key)
-        if not donor_id:
-            continue
-
-        status = to_native(row.get("employer_status"))
-        employer_name, employer_id = _find_current_employer(
-            status,
-            row["contributor_employer"],
-            donor_key,
-            get_employer_id,
-        )
-        category_id = occupation_category_ids.get(to_native(row.get("occupation_category")))
-        filing = (
-            donor_id,
-            employer_id,
-            row["contributor_occupation"],
-            status,
-            row.get("previous_employer"),
-            category_id,
-        )
-        key = filing_employment_key(filing, get_employer_id)
-        if key in seen:
-            continue
-        seen.add(key)
-
-        office_employer = _pick_office_employer(row, status, employer_name, employer_id)
-        office_address_id = filing_office_address_id(
-            row,
-            office_employer,
-            locations,
-            address_ids or {},
-        )
-        employment_rows.append(_build_employment_insert_values(key, office_address_id))
-
-    return employment_rows
-
-
-def _pick_office_employer(row: pd.Series, status: Any, employer_name: str, employer_id: int | None) -> Any:
-    if employer_id:
-        return employer_name
-    if status == "retired":
-        return row.get("previous_employer")
-    return None
-
-
-def _build_employment_insert_values(key: tuple, address_id: int | None) -> tuple:
-    (
-        donor_id,
-        employer_id,
-        occupation,
-        status,
-        previous_employer_id,
-        previous_self_employed,
-        category_id,
-    ) = key
-    return (
-        donor_id,
-        employer_id,
-        occupation,
-        category_id,
-        status,
-        previous_employer_id,
-        previous_self_employed,
-        address_id,
+    office = choose_office(
+        workplaces.get(company, []),
+        filing["contributor_zip"] or "",
+        filing["contributor_state"] or "",
+        filing["contributor_city"] or "",
     )
-
-
-def _find_current_employer(
-    status: str | None, employer: Any, donor_key: str, get_employer_id: Callable[[str], int | None]
-) -> tuple[str, int | None]:
-    employer_name = current_employer_name(status, employer)
-    if status == "active" and not employer_name:
-        raise RuntimeError(f"active employment has no employer: donor_key={donor_key}")
-    employer_id = get_employer_id(employer_name)
-    if employer_name and employer_id is None:
-        raise RuntimeError(f"cleaned employer has no exact database match: {employer_name!r}")
-    return employer_name, employer_id
-
-
-def _read_employment_ids(cur: Any) -> dict:
-    cur.execute("SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS) + " FROM donor_employments")
-    return {employment_key(row[1:]): row[0] for row in cur.fetchall()}
+    if office is None:
+        return None
+    return address_ids[address_key(office_address(office))]
