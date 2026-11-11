@@ -1,22 +1,18 @@
-"""FEC API access: session, retries, rate limit, one page."""
+"""FEC API access: the rate limit, retries, and following the pages of one query."""
 
-from __future__ import annotations
-
-import logging
-import os
+from collections.abc import Iterator
 from time import monotonic, sleep
 
 import requests
 from requests.exceptions import ConnectionError, ConnectTimeout, ReadTimeout
 
-log = logging.getLogger(__name__)
+from fec.common.log import get_logger
+
+logger = get_logger(__name__)
 
 BASE_URL = "https://api.open.fec.gov/v1/schedules/schedule_a/"
-
-MAX_ATTEMPTS = 6
-
-RATE_LIMIT_MAX_WAIT = 65 * 60
-
+MAX_ATTEMPTS = 6  # for a request that fails or gets a temporary server error
+RATE_LIMIT_MAX_WAIT = 65 * 60  # seconds of waiting for the rate limit before giving up
 TRANSIENT_STATUSES = {500, 502, 503, 504}
 
 
@@ -27,9 +23,9 @@ class PullError(RuntimeError):
 class RateLimiter:
     """Keep request starts within the configured requests-per-minute limit."""
 
-    def __init__(self, rpm: int = 15) -> None:
+    def __init__(self, requests_per_minute: int) -> None:
         """Set the minimum delay between request starts."""
-        self.interval = 60.0 / max(1, int(rpm))
+        self.interval = 60.0 / max(1, requests_per_minute)
         self.last_request = 0.0
 
     def wait(self) -> None:
@@ -40,66 +36,22 @@ class RateLimiter:
         self.last_request = monotonic()
 
 
-def required_env(name: str) -> str:
-    """Read a required setting or report what is missing."""
-    value = os.getenv(name)
-    if not value:
-        raise PullError(f"missing env {name} - check .env file")
-    return value
-
-
-def build_session() -> requests.Session:
-    """Create the shared FEC HTTP session."""
-    session = requests.Session()
-    session.headers.update(
-        {
-            "User-Agent": "fec-pull/1.0",
-            "Accept-Encoding": "gzip, deflate",
-        }
-    )
-    return session
-
-
-def _find_retry_delay(attempt: int, response: requests.Response | None = None, cap: float = 60.0) -> float:
+def _retry_delay(attempt: int, response: requests.Response | None, longest: float) -> float:
+    # The server's Retry-After when it sent a readable one, else 1s, 2s, 4s ... up to the longest wait.
     retry_after = response.headers.get("Retry-After") if response is not None else None
-    fallback = min(cap, 2 ** (attempt - 1))
-    if not retry_after:
-        return fallback
     try:
         return max(0.0, float(retry_after))
     except (TypeError, ValueError):
-        return fallback
+        return min(longest, 2 ** (attempt - 1))
 
 
-def _retry_or_raise(
-    attempt: int,
-    failure: str,
-    gave_up: str,
-    response: requests.Response | None = None,
-    error: Exception | None = None,
-) -> None:
-    if attempt == MAX_ATTEMPTS:
-        raise PullError(f"{gave_up} after {attempt} attempts") from error
-    delay = _find_retry_delay(attempt, response)
-    log.warning("%s; retrying in %.1fs", failure, delay)
+def _wait_after_failure(attempt: int, failure: str, response: requests.Response | None) -> None:
+    delay = _retry_delay(attempt, response, 60.0)
+    logger.warning("%s; retrying in %.1fs", failure, delay)
     sleep(delay)
 
 
-def _wait_for_rate_limit(response: requests.Response, attempt: int, waited: float) -> float:
-    delay = max(1.0, _find_retry_delay(attempt, response, cap=120.0))
-    if waited + delay > RATE_LIMIT_MAX_WAIT:
-        raise PullError(f"FEC rate limit did not clear after {waited / 60:.0f} minutes")
-    waited += delay
-    log.warning(
-        "FEC rate limit; retrying in %.1fs (waited %.1f min)",
-        delay,
-        waited / 60,
-    )
-    sleep(delay)
-    return waited
-
-
-def _read_response_data(response: requests.Response, params: dict) -> dict:
+def _read_page(response: requests.Response, api_key: str) -> dict:
     if response.status_code == 403:
         raise PullError("FEC API key is invalid or expired")
     if response.status_code == 404:
@@ -107,8 +59,8 @@ def _read_response_data(response: requests.Response, params: dict) -> dict:
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError as error:
-        message = str(error).replace(params.get("api_key", ""), "***")
-        raise PullError(message) from error
+        # The error text holds the request URL, and the URL holds the key.
+        raise PullError(str(error).replace(api_key, "***")) from error
     try:
         return response.json()
     except requests.exceptions.JSONDecodeError as error:
@@ -116,43 +68,47 @@ def _read_response_data(response: requests.Response, params: dict) -> dict:
 
 
 def fetch_page(session: requests.Session, params: dict, limiter: RateLimiter) -> dict:
-    """Fetch one page, retrying temporary errors and quota limits."""
-    transient_attempts = 0
-    rate_limit_attempts = 0
+    """Fetch one page, retrying temporary errors and waiting for the rate limit to clear."""
+    failures = 0
+    rate_limit_answers = 0
     rate_limit_waited = 0.0
-
     while True:
         limiter.wait()
         try:
             response = session.get(BASE_URL, params=params, timeout=(10, 180))
         except (ReadTimeout, ConnectTimeout, ConnectionError) as error:
-            transient_attempts += 1
-            _retry_or_raise(
-                transient_attempts,
-                type(error).__name__,
-                "FEC API unavailable",
-                error=error,
-            )
+            failures += 1
+            if failures == MAX_ATTEMPTS:
+                raise PullError(f"FEC API unavailable after {failures} attempts") from error
+            _wait_after_failure(failures, type(error).__name__, None)
             continue
 
-        over_limit = response.status_code == 429 or "OVER_RATE_LIMIT" in response.text
-        if over_limit:
-            rate_limit_attempts += 1
-            rate_limit_waited = _wait_for_rate_limit(
-                response,
-                rate_limit_attempts,
-                rate_limit_waited,
-            )
-            continue
+        if response.status_code == 429 or "OVER_RATE_LIMIT" in response.text:
+            rate_limit_answers += 1
+            delay = max(1.0, _retry_delay(rate_limit_answers, response, 120.0))
+            if rate_limit_waited + delay > RATE_LIMIT_MAX_WAIT:
+                raise PullError(f"FEC rate limit did not clear after {rate_limit_waited / 60:.0f} minutes")
+            rate_limit_waited += delay
+            logger.warning("FEC rate limit; retrying in %.1fs (waited %.1f min)", delay, rate_limit_waited / 60)
+            sleep(delay)
+        elif response.status_code in TRANSIENT_STATUSES:
+            failures += 1
+            if failures == MAX_ATTEMPTS:
+                raise PullError(f"FEC API returned HTTP {response.status_code} after {failures} attempts")
+            _wait_after_failure(failures, f"HTTP {response.status_code}", response)
+        else:
+            return _read_page(response, params["api_key"])
 
-        if response.status_code in TRANSIENT_STATUSES:
-            transient_attempts += 1
-            _retry_or_raise(
-                transient_attempts,
-                f"HTTP {response.status_code}",
-                f"FEC API returned HTTP {response.status_code}",
-                response=response,
-            )
-            continue
 
-        return _read_response_data(response, params)
+def iter_pages(session: requests.Session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
+    """Follow FEC pagination cursors until no results or cursor remain."""
+    params = dict(params)
+    while True:
+        page = fetch_page(session, params, limiter)
+        yield page
+
+        last_indexes = (page.get("pagination") or {}).get("last_indexes")
+        if not page.get("results") or not last_indexes:
+            return
+        params["last_contribution_receipt_date"] = last_indexes.get("last_contribution_receipt_date")
+        params["last_index"] = last_indexes.get("last_index")

@@ -3,66 +3,37 @@
 Run: python pull.py C00797670 --period 2026
 
 Steps, in order (main -> pull_committee):
-    1. read_existing_ids     the filing IDs already in data/raw/contributions.csv
-    2. iter_pages            every page of the committee's period from the FEC API
-    3. _write_pages          append only the new filings, and their FEC source fields
-    4. _log_summary          how many filings were new
+    1. read_existing_ids      the filing IDs already in data/raw/contributions.csv
+    2. iter_pages             every page of the committee's period from the FEC API (api.py)
+    3. _read_new_filings      the rows of the filings not saved yet (rows.py)
+    4. append_source_fields   their FEC source fields, then the rows themselves, page by page
 """
-
-from __future__ import annotations
 
 import argparse
 import csv
-import logging
+import math
 import os
-import re
-from collections.abc import Callable, Iterator
 from datetime import date
 from pathlib import Path
-from typing import TextIO
 
 import requests
 from tqdm import tqdm
 
 from fec.common.committees import committee_id_to_name
 from fec.common.log import get_logger
-from fec.common.settings import FEC_SOURCE_CSV, RAW_CSV
-from fec.pull.api import PullError, RateLimiter, build_session, fetch_page, required_env
-from fec.pull.rows import COLUMNS, FIELDS, SOURCE_COLUMNS, build_row, source_values
+from fec.common.settings import FEC_SOURCE_CSV, RAW_CSV, load_env
+from fec.pull.api import PullError, RateLimiter, iter_pages
+from fec.pull.rows import COLUMNS, FIELDS, SOURCE_COLUMNS, build_row, build_source_row
 
-log = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-
-def source_path(csv_path: Path) -> Path:
-    """Keep source fields beside the raw CSV."""
-    return csv_path.parent / FEC_SOURCE_CSV.name
+PER_PAGE = 100
 
 
-def append_source_fields(path: Path, records: list[dict]) -> None:
-    """Append source fields, adding the CSV header when needed."""
-    if not records:
-        return
-    new = not path.exists() or path.stat().st_size == 0
-    with open(path, "a", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SOURCE_COLUMNS, restval="")
-        if new:
-            writer.writeheader()
-        writer.writerows(records)
-
-
-def _build_source_record(sub_id: str, result: dict) -> dict:
-    return {"sub_id": sub_id, **source_values(result), "matched_by": "pulled", "fec_sub_id": ""}
-
-
-def read_existing_ids(
-    csv_path: Path,
-    committee_id: str,
-    period: int,
-) -> set[str]:
+def read_existing_ids(csv_path: Path, committee_id: str, period: int) -> set[str]:
     """Find saved filing IDs for this committee and period."""
     if not csv_path.exists():
         return set()
-
     with open(csv_path, newline="", encoding="utf-8-sig") as handle:
         return {
             row["sub_id"]
@@ -73,191 +44,101 @@ def read_existing_ids(
         }
 
 
-def iter_pages(session: requests.Session, params: dict, limiter: RateLimiter) -> Iterator[dict]:
-    """Follow FEC pagination cursors until no results or cursor remain."""
-    params = dict(params)
-    while True:
-        data = fetch_page(session, params, limiter)
-        yield data
-
-        if not data.get("results"):
-            return
-        indexes = (data.get("pagination") or {}).get("last_indexes")
-        if not indexes:
-            return
-        params["last_contribution_receipt_date"] = indexes.get("last_contribution_receipt_date")
-        params["last_index"] = indexes.get("last_index")
+def append_source_fields(path: Path, source_rows: list[dict]) -> None:
+    """Append source fields, adding the CSV header when needed."""
+    if not source_rows:
+        return
+    is_new = not path.exists() or path.stat().st_size == 0
+    with open(path, "a", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SOURCE_COLUMNS)
+        if is_new:
+            writer.writeheader()
+        writer.writerows(source_rows)
 
 
-def _build_pull_params(api_key: str, committee_id: str, period: int) -> dict:
-    return {
-        "api_key": api_key,
-        "committee_id": committee_id,
-        "two_year_transaction_period": period,
-        "sort": "-contribution_receipt_date",
-        "per_page": 100,
-        "fields": ",".join(FIELDS),
-    }
+def _read_new_filings(results: list[dict], saved_ids: set[str], counts: dict) -> tuple[list[list], list[dict]]:
+    rows, source_rows = [], []
+    for result in results:
+        sub_id = str(result.get("sub_id") or "").strip()
+        if not sub_id:
+            counts["no_sub_id"] += 1
+        elif sub_id in saved_ids:
+            counts["skipped"] += 1
+        else:
+            saved_ids.add(sub_id)
+            rows.append(build_row(sub_id, result))
+            source_rows.append(build_source_row(sub_id, result))
+    return rows, source_rows
 
 
 def pull_committee(committee_id: str, period: int) -> None:
     """Scan the full period and append only new filing IDs."""
-    api_key = required_env("FEC_API_KEY")
+    api_key = os.getenv("FEC_API_KEY")
+    if not api_key:
+        raise PullError("missing env FEC_API_KEY - check .env file")
     RAW_CSV.parent.mkdir(parents=True, exist_ok=True)
-    csv_path = RAW_CSV
-    existing_ids = read_existing_ids(csv_path, committee_id, period)
-    log.info("[SCAN] period %s; skipping %s saved sub_id values", period, f"{len(existing_ids):,}")
+    saved_ids = read_existing_ids(RAW_CSV, committee_id, period)
+    logger.info("[SCAN] period %s; skipping %s saved sub_id values", period, f"{len(saved_ids):,}")
 
-    params = _build_pull_params(api_key, committee_id, period)
-    session = build_session()
-    limiter = RateLimiter(rpm=int(os.getenv("FEC_RPM", "15")))
-    stats = {"new_rows": 0, "duplicates": 0, "missing_ids": 0, "pages": 0}
+    params = {
+        "api_key": api_key,
+        "committee_id": committee_id,
+        "two_year_transaction_period": period,
+        "sort": "-contribution_receipt_date",
+        "per_page": PER_PAGE,
+        "fields": ",".join(FIELDS),
+    }
+    session = requests.Session()
+    session.headers.update({"User-Agent": "fec-pull/1.0", "Accept-Encoding": "gzip, deflate"})
+    limiter = RateLimiter(int(os.getenv("FEC_RPM", "15")))
+    counts = {"new": 0, "skipped": 0, "no_sub_id": 0, "pages": 0}
 
-    log.info("[START] %s / %s -> %s", committee_id, period, csv_path)
-    pages = iter_pages(session, params, limiter)
-    label = f"{committee_id}/{period}"
-    try:
-        with open(csv_path, "a", newline="", encoding="utf-8") as handle:
-            _write_pages(handle, pages, label, source_path(csv_path), existing_ids, stats)
-    except KeyboardInterrupt:
-        _log_summary("STOPPED", committee_id, period, stats, csv_path, log.warning)
-        raise
+    logger.info("[START] %s / %s -> %s", committee_id, period, RAW_CSV)
+    progress = tqdm(desc=f"{committee_id}/{period}", unit="pg")
+    with open(RAW_CSV, "a", newline="", encoding="utf-8") as handle, progress:
+        writer = csv.writer(handle)
+        if handle.tell() == 0:
+            writer.writerow(COLUMNS)
+        for page in iter_pages(session, params, limiter):
+            filings_in_period = (page.get("pagination") or {}).get("count")
+            if filings_in_period:
+                progress.total = math.ceil(filings_in_period / PER_PAGE)
+            progress.update(1)
 
-    _log_summary("DONE", committee_id, period, stats, csv_path, log.info)
-
-
-def _write_pages(
-    handle: TextIO,
-    pages: Iterator[dict],
-    label: str,
-    sources_csv: Path,
-    existing_ids: set[str],
-    stats: dict[str, int],
-) -> None:
-    writer = csv.writer(handle)
-    if handle.tell() == 0:
-        writer.writerow(COLUMNS)
-
-    progress = None
-    try:
-        for data in pages:
-            if progress is None:
-                progress = _start_progress(data, label)
-            stats["pages"] += 1
-            if progress:
-                progress.update(1)
-
-            rows, page_ids, sources = _read_new_rows(data, existing_ids, stats)
-            # Save metadata first, so filings always have source fields.
-            append_source_fields(sources_csv, sources)
+            rows, source_rows = _read_new_filings(page.get("results", []), saved_ids, counts)
+            # Save the source fields first, so a saved filing always has them.
+            append_source_fields(FEC_SOURCE_CSV, source_rows)
             writer.writerows(rows)
             handle.flush()
-            existing_ids.update(page_ids)
-            stats["new_rows"] += len(rows)
-    finally:
-        if progress:
-            progress.close()
+            counts["new"] += len(rows)
+            counts["pages"] += 1
 
-
-def _start_progress(data: dict, label: str) -> tqdm | None:
-    total = (data.get("pagination") or {}).get("count")
-    if not total:
-        return None
-    return tqdm(total=-(-total // 100), desc=label, unit="pg")
-
-
-def _read_new_rows(
-    data: dict, existing_ids: set[str], stats: dict[str, int]
-) -> tuple[list[list], set[str], list[dict]]:
-    rows = []
-    page_ids = set()
-    sources = []
-    for result in data.get("results", []):
-        sub_id = str(result.get("sub_id") or "").strip()
-        if not sub_id:
-            stats["missing_ids"] += 1
-            continue
-        if sub_id in existing_ids or sub_id in page_ids:
-            stats["duplicates"] += 1
-            continue
-        rows.append(build_row(result))
-        page_ids.add(sub_id)
-        sources.append(_build_source_record(sub_id, result))
-    return rows, page_ids, sources
-
-
-def _log_summary(
-    status: str,
-    committee_id: str,
-    period: int,
-    stats: dict[str, int],
-    csv_path: Path,
-    writer: Callable[..., None],
-) -> None:
-    writer(
-        "[%s] %s / %s: new=%s skipped=%s no_sub_id=%s pages=%s file=%s",
-        status,
-        committee_id,
-        period,
-        f"{stats['new_rows']:,}",
-        f"{stats['duplicates']:,}",
-        f"{stats['missing_ids']:,}",
-        stats["pages"],
-        csv_path,
-    )
-
-
-logger = get_logger(__name__)
-
-
-def _round_up_to_period(year: int) -> int:
-    return year + (year % 2)
-
-
-CURRENT_PERIOD = _round_up_to_period(date.today().year)
+    summary = f"new={counts['new']:,} skipped={counts['skipped']:,} no_sub_id={counts['no_sub_id']:,}"
+    logger.info("[DONE] %s / %s: %s pages=%s file=%s", committee_id, period, summary, counts["pages"], RAW_CSV)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Validate the committee and period, then pull new records."""
     parser = argparse.ArgumentParser(description="Check a committee's full FEC period and save new records.")
     parser.add_argument("committee_id", help="Committee ID from committees.csv.")
-    parser.add_argument(
-        "--period",
-        type=int,
-        default=CURRENT_PERIOD,
-        help="Two-year transaction period (even year, default %(default)s).",
-    )
-    parser.add_argument("--full", action="store_true", help=argparse.SUPPRESS)
+    period_help = "Two-year transaction period; an odd year means the period it ends in (default: the current one)."
+    parser.add_argument("--period", type=int, default=date.today().year, help=period_help)
     args = parser.parse_args(argv)
-
-    from fec.common import settings as env
-
-    env.load_env()
+    load_env()
 
     committee_id = args.committee_id.strip().upper()
-    if not re.fullmatch(r"C\d{8}", committee_id):
-        parser.error("invalid committee id (expected C + 8 digits)")
     if committee_id not in committee_id_to_name():
         parser.error(f"{committee_id} is not configured in data/reference/committees.csv")
+    period = args.period + args.period % 2
 
-    period = _round_up_to_period(args.period)
-    logger.info("=" * 60)
-    logger.info(
-        "  FEC pull - %s, period %s, full period, new records only",
-        committee_id,
-        period,
-    )
-    logger.info("=" * 60)
-
+    logger.info("FEC pull - %s, period %s, full period, new records only", committee_id, period)
     try:
-        pull_committee(committee_id=committee_id, period=period)
+        pull_committee(committee_id, period)
     except PullError as error:
         logger.error("  %s", error)
         return 2
     except Exception as error:
         logger.error("  %s failed: %s: %s", committee_id, type(error).__name__, error)
         return 1
-
-    logger.info("\n" + "=" * 60)
-    logger.info("  Done. Run clean.py next to process the new data.")
+    logger.info("Done. Run clean.py next to process the new data.")
     return 0

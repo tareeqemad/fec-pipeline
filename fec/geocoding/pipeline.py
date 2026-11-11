@@ -4,12 +4,13 @@ Run: python geocode.py
 
 Steps, in order (main):
     1. read_pipeline_csv       data/output/contributions_cleaned.csv
-    2. geocode_addresses       look up each address the cache does not hold (providers.py)
-    3. apply_coordinates       latitude and longitude from the cache; foreign filings stay empty
-    4. _write_output           save the CSV with the coordinates
+    2. read_geocode_cache      data/cache/geocode_cache.json: the answer of every earlier lookup, by address
+    3. geocode_addresses       look up each address the cache does not hold (providers.py) and save the cache
+    4. apply_coordinates       latitude and longitude from the cache; foreign filings stay empty
+    5. write_csv_atomic        save the CSV with the coordinates
 """
 
-import os
+import json
 import sys
 import time
 
@@ -18,181 +19,137 @@ import pandas as pd
 
 from fec.cleaning.addresses.foreign_addresses import kept_as_filed_mask
 from fec.common.columns import check_input, check_output
-from fec.common.files import write_csv_atomic
+from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
-from fec.common.settings import CLEANED_CSV, GEOCODE_CACHE_JSON, PROJECT_ROOT, load_env
-from fec.geocoding.cache import GeoCache
-from fec.geocoding.coordinate_checks import accepted_coordinates, is_po_box, unclear_house_number
-from fec.geocoding.providers import CensusUnavailable, NominatimUnavailable, census, nominatim
+from fec.common.settings import CLEANED_CSV, GEOCODE_CACHE_JSON, PROJECT_ROOT
+from fec.geocoding.coordinate_checks import accepted_coordinates, is_street_address
+from fec.geocoding.providers import GeocoderUnavailable, census, nominatim
 
 logger = get_logger(__name__)
 
-
-def _build_cache_keys(df: pd.DataFrame) -> pd.Series:
-    return (
-        df[["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]]
-        .fillna("")
-        .astype(str)
-        .agg("|".join, axis=1)
-    )
+SAVE_CACHE_EVERY = 50
 
 
-def _needs_lookup(key: str, cache: GeoCache) -> bool:
-    entry = cache.get(key)
-    if cache.needs_retry(key):
+def read_geocode_cache() -> dict:
+    """Read the cache: {"street|city|state|zip": {"lat", "lng", "source", "country"}}, or empty on a first run."""
+    if not GEOCODE_CACHE_JSON.exists():
+        return {}
+    return json.loads(GEOCODE_CACHE_JSON.read_text(encoding="utf-8"))
+
+
+def _address_keys(df: pd.DataFrame) -> pd.Series:
+    address = df[["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]]
+    return address.fillna("").astype(str).agg("|".join, axis=1)
+
+
+def _needs_lookup(key: str, entry: dict | None) -> bool:
+    if entry is None:
         return True
-    if entry.get("lookup_status", entry.get("source")) == "not_found":
+    last_lookup = entry.get("lookup_status", entry.get("source"))
+    if last_lookup == "transient_fail":
+        return True
+    if last_lookup == "not_found":
         return False
-    return accepted_coordinates(key, entry)[0] is None
+    return accepted_coordinates(key, entry) is None
 
 
-def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | None:
-    if not street.strip() or is_po_box(street) or unclear_house_number(street):
+def _look_up(key: str) -> dict | None:
+    street, city, state, zipcode = key.split("|")
+    if not is_street_address(street):
         return None
-    key = "|".join((street, city, state, zipcode))
     unavailable = None
-    for source, provider in (("nominatim", nominatim), ("census", census)):
+    for provider in (nominatim, census):
         try:
             entry = provider(street, city, state, zipcode)
-        except (NominatimUnavailable, CensusUnavailable) as error:
+        except GeocoderUnavailable as error:
             unavailable = error
             continue
-        if entry is None:
-            continue
-        entry = {**entry, "source": source}
-        if accepted_coordinates(key, entry)[0] is not None:
+        if entry is not None and accepted_coordinates(key, entry) is not None:
             return entry
     if unavailable is not None:
         raise unavailable
     return None
 
 
-def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int) -> None:
-    keys = list(dict.fromkeys(key for key in keys if key != "|||"))
-    todo = [key for key in keys if _needs_lookup(key, cache)]
-    logger.info(
-        "Addresses: %s | cached: %s | remaining: %s",
-        f"{len(keys):,}",
-        f"{len(keys) - len(todo):,}",
-        f"{len(todo):,}",
-    )
-    if todo:
-        _geocode_todo(todo, cache, batch_size)
-
-
-def _look_up_and_cache(key: str, cache: GeoCache) -> str:
+def _look_up_and_record(key: str, cache: dict) -> str:
     try:
-        entry = _geocode_one(*key.split("|"))
-    except (NominatimUnavailable, CensusUnavailable) as error:
-        cache.put_transient(key)
+        entry = _look_up(key)
+    except GeocoderUnavailable as error:
         logger.debug("Geocoding unavailable for %s: %s", key, error)
-        return "transient"
-    if entry is None:
-        cache.put_failed(key)
-        return "missed"
-    cache.put(key, **entry)
-    return "found"
+        entry, outcome = None, "transient_fail"
+    else:
+        outcome = "found" if entry else "not_found"
+    earlier = cache.get(key)
+    if entry:
+        cache[key] = entry
+    elif earlier and earlier.get("lat") is not None:
+        # Keep coordinates an earlier run stored; only note how this lookup ended.
+        cache[key] = {**earlier, "lookup_status": outcome}
+    else:
+        cache[key] = {"lat": None, "lng": None, "source": outcome}
+    return outcome
 
 
-def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
-    counts = {"found": 0, "missed": 0, "transient": 0}
+def geocode_addresses(df: pd.DataFrame, cache: dict) -> None:
+    """Look up the addresses the cache has no settled answer for, saving the cache as it grows."""
+    keys = _address_keys(df)[~kept_as_filed_mask(df)]
+    keys = [key for key in keys.unique() if key != "|||"]
+    todo = [key for key in keys if _needs_lookup(key, cache.get(key))]
+    logger.info(
+        "Addresses: %s | cached: %s | remaining: %s", f"{len(keys):,}", f"{len(keys) - len(todo):,}", f"{len(todo):,}"
+    )
+    if not todo:
+        return
+    counts = {"found": 0, "not_found": 0, "transient_fail": 0}
+    outcomes = "found: %s | not found: %s | retry later: %s"
     try:
         for done, key in enumerate(todo, 1):
-            outcome = _look_up_and_cache(key, cache)
-            counts[outcome] += 1
-            if done % batch_size == 0:
-                cache.save()
-                logger.info(
-                    "[%s/%s] found: %s | not found: %s | retry later: %s",
-                    done,
-                    len(todo),
-                    counts["found"],
-                    counts["missed"],
-                    counts["transient"],
-                )
+            counts[_look_up_and_record(key, cache)] += 1
+            if done % SAVE_CACHE_EVERY == 0:
+                write_json_atomic(GEOCODE_CACHE_JSON, cache, ensure_ascii=False)
+                logger.info("[%s/%s] " + outcomes, done, len(todo), *counts.values())
     finally:
-        cache.save()
-    logger.info(
-        "Lookups finished: %s | found: %s | not found: %s | retry later: %s",
-        len(todo),
-        counts["found"],
-        counts["missed"],
-        counts["transient"],
-    )
+        write_json_atomic(GEOCODE_CACHE_JSON, cache, ensure_ascii=False)
+    logger.info("Lookups finished: %s | " + outcomes, len(todo), *counts.values())
 
 
-def geocode_addresses(df: pd.DataFrame, cache: GeoCache, batch_size: int = 50) -> None:
-    """Look up donor addresses eligible for geocoding."""
-    keys = _build_cache_keys(df)[~kept_as_filed_mask(df)]
-    _geocode_keys(keys, cache, batch_size)
-
-
-def apply_coordinates(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
-    """Apply donor coordinates, leaving preserved foreign filings ungeocoded."""
-    keys = _build_cache_keys(df)
+def apply_coordinates(df: pd.DataFrame, cache: dict) -> pd.DataFrame:
+    """Set latitude and longitude from the accepted cache entries; foreign filings stay empty."""
+    keys = _address_keys(df)
     latitudes, longitudes = {}, {}
     for key in keys.unique():
-        latitude, longitude, _ = accepted_coordinates(key, cache.get(key))
-        latitudes[key] = latitude
-        longitudes[key] = longitude
+        point = accepted_coordinates(key, cache.get(key))
+        if point is not None:
+            latitudes[key], longitudes[key] = point
     df["latitude"] = keys.map(latitudes).astype(float)
     df["longitude"] = keys.map(longitudes).astype(float)
     df.loc[kept_as_filed_mask(df), ["latitude", "longitude"]] = np.nan
     return df
 
 
-def _find_csv() -> str:
-    if CLEANED_CSV.exists():
-        return str(CLEANED_CSV)
-    logger.error("No cleaned CSV found. Run python clean.py first.")
-    sys.exit(1)
-
-
-def _geocode_contributors(
-    df: pd.DataFrame,
-    cache: GeoCache,
-) -> pd.DataFrame:
-    logger.info("[1/2] Finding contributor coordinates")
-    geocode_addresses(df, cache)
-    df = apply_coordinates(df, cache)
-
-    logger.info(
-        "Rows with contributor coordinates: %s / %s",
-        f"{df['latitude'].notna().sum():,}",
-        f"{len(df):,}",
-    )
-    return df
-
-
-def _write_output(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> None:
-    from fec.common.columns import INTERNAL_OUTPUT_COLUMNS
-
-    df = df.drop(columns=INTERNAL_OUTPUT_COLUMNS, errors="ignore")
-    check_output("geocode", input_columns, df.columns)
-    write_csv_atomic(df, csv_path, index=False)
-
-
 def main() -> None:
-    """Read the cleaned data, geocode the selected addresses and save."""
+    """Read the cleaned data, geocode the addresses not yet in the cache and save."""
     start = time.perf_counter()
-    load_env()
-
-    csv_path = _find_csv()
-    cache = GeoCache(str(GEOCODE_CACHE_JSON))
-
-    from fec.common.files import read_pipeline_csv
-
-    df = read_pipeline_csv(csv_path)
+    if not CLEANED_CSV.exists():
+        logger.error("No cleaned CSV found. Run python clean.py first.")
+        sys.exit(1)
+    csv_name = CLEANED_CSV.relative_to(PROJECT_ROOT)
+    df = read_pipeline_csv(CLEANED_CSV)
     check_input("geocode", df.columns)
     input_columns = list(df.columns)
-    logger.info("Reading: %s (%s rows)", os.path.relpath(csv_path, PROJECT_ROOT), f"{len(df):,}")
+    logger.info("Reading: %s (%s rows)", csv_name, f"{len(df):,}")
 
-    df = _geocode_contributors(df, cache)
+    logger.info("[1/2] Finding contributor coordinates")
+    cache = read_geocode_cache()
+    geocode_addresses(df, cache)
+    df = apply_coordinates(df, cache)
+    logger.info("Rows with contributor coordinates: %s / %s", f"{df['latitude'].notna().sum():,}", f"{len(df):,}")
 
     logger.info("[2/2] Checking data and saving")
-    _write_output(df, csv_path, input_columns)
+    check_output("geocode", input_columns, df.columns)
+    write_csv_atomic(df, CLEANED_CSV, index=False)
 
     minutes, seconds = divmod(round(time.perf_counter() - start), 60)
-    logger.info("Saved: %s", os.path.relpath(csv_path, PROJECT_ROOT))
+    logger.info("Saved: %s", csv_name)
     logger.info("Completed in %dm %02ds.", minutes, seconds)
     logger.info("Next: python resolve.py --apply")

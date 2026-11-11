@@ -1,9 +1,6 @@
-"""Turn one FEC API result into one row of contributions.csv."""
-
-from __future__ import annotations
+"""Turn one FEC API result into one row of contributions.csv and one of fec_source_fields.csv."""
 
 from decimal import Decimal, InvalidOperation
-from typing import Any
 
 RAW_FIELDS = [
     "sub_id",
@@ -25,8 +22,7 @@ RAW_FIELDS = [
     "contribution_receipt_amount",
 ]
 
-
-# FEC fields saved separately in fec_source_fields.csv.
+# FEC fields saved separately in fec_source_fields.csv: the column there, and the API field it holds.
 SOURCE_FIELDS = {
     "fec_entity_type": "entity_type",
     "fec_contributor_id": "contributor_id",
@@ -34,45 +30,40 @@ SOURCE_FIELDS = {
     "fec_image_number": "image_number",
 }
 
+# The fields asked of the API.
 FIELDS = RAW_FIELDS + list(SOURCE_FIELDS.values())
 
-# Keep the raw CSV column order.
+# The raw CSV columns: the API fields, with the year of the receipt date before the amount.
 COLUMNS = RAW_FIELDS[:-1] + ["contributor_year"] + RAW_FIELDS[-1:]
 
 # matched_by is the match method; fec_sub_id an amendment's ID.
 SOURCE_COLUMNS = ["sub_id", *SOURCE_FIELDS, "matched_by", "fec_sub_id"]
 
 
-def _parse_amount(value: object, sub_id: str) -> Decimal:
+def _read_amount(value: object, sub_id: str) -> Decimal:
     try:
         amount = Decimal(str(value).strip())
-    except (InvalidOperation, ValueError):
-        raise ValueError(f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}") from None
+    except InvalidOperation:
+        amount = Decimal("NaN")
     if not amount.is_finite():
         raise ValueError(f"Invalid contribution_receipt_amount for sub_id {sub_id}: {value!r}")
     return amount
 
 
-def build_row(result: dict[str, Any]) -> list | None:
-    """Build a raw CSV row, skipping filings without an ID."""
-    sub_id = str(result.get("sub_id") or "").strip()
-    if not sub_id:
-        return None
-
-    date_value = result.get("contribution_receipt_date")
-    receipt_date = str(date_value)[:10] if date_value and str(date_value).strip() else None
-    try:
-        year = int(receipt_date[:4]) if receipt_date else None
-    except ValueError:
-        year = None
+def build_row(sub_id: str, result: dict) -> list:
+    """Build the raw CSV row of one filing: date without time, its year, and a checked amount."""
     values = {field: result.get(field) for field in RAW_FIELDS}
     values["sub_id"] = sub_id
-    values["contribution_receipt_date"] = receipt_date
-    values["contributor_year"] = year
-    values["contribution_receipt_amount"] = _parse_amount(result.get("contribution_receipt_amount"), sub_id)
-    return [values.get(column) for column in COLUMNS]
+    filed_date = str(result.get("contribution_receipt_date") or "")
+    values["contribution_receipt_date"] = filed_date[:10] if filed_date.strip() else None
+    values["contributor_year"] = int(filed_date[:4]) if filed_date[:4].isdecimal() else None
+    values["contribution_receipt_amount"] = _read_amount(result.get("contribution_receipt_amount"), sub_id)
+    return [values[column] for column in COLUMNS]
 
 
-def source_values(result: dict[str, Any]) -> dict[str, str]:
-    """Read the FEC source fields saved beside the raw CSV."""
-    return {column: str(result.get(field) or "").strip().upper() for column, field in SOURCE_FIELDS.items()}
+def build_source_row(sub_id: str, result: dict) -> dict:
+    """Build the fec_source_fields.csv row of one pulled filing."""
+    source_row = {"sub_id": sub_id, "matched_by": "pulled", "fec_sub_id": ""}
+    for column, field in SOURCE_FIELDS.items():
+        source_row[column] = str(result.get(field) or "").strip().upper()
+    return source_row
