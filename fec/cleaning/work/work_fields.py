@@ -211,13 +211,17 @@ def _move_company_out_of_occupation(employer: str, occupation: str, name: str, f
         role, company = "", occupation
     if employer in ("", "SELF-EMPLOYED"):
         employer = company
+    elif role and is_real_employer(employer) and company_key(company) != company_key(employer):
+        # The employer box names another company: the occupation keeps both the role and its company.
+        return employer, occupation
     return employer, role
 
 
 def _fill_from_status(employer: str, occupation: str) -> tuple[str, str]:
     if employer and employer != "SELF-EMPLOYED":
         employer = reviewed_employer_name(employer)
-    if not occupation and employer in ("RETIRED", "SELF-EMPLOYED", "NOT EMPLOYED"):
+    # SELF-EMPLOYED says how a donor works, not what they do: it never fills an empty occupation.
+    if not occupation and employer in ("RETIRED", "NOT EMPLOYED"):
         occupation = employer
     if not employer:
         employer = EMPLOYER_FROM_OCCUPATION.get(occupation, "")

@@ -404,7 +404,7 @@ def test_work_fields_are_read_from_the_filed_pair():
         # a status in one box fills the other
         ("A, B", "HOUSEWIFE", ""): ("NOT EMPLOYED", "HOMEMAKER"),
         ("A, B", "NONE", "HOMEMAKER"): ("NOT EMPLOYED", "HOMEMAKER"),
-        ("A, B", "SELF EMPLOYEED", ""): ("SELF-EMPLOYED", "SELF-EMPLOYED"),
+        ("A, B", "SELF EMPLOYEED", ""): ("SELF-EMPLOYED", ""),
         # an employer that names none
         ("A, B", "NOTYOURBUSINESS", "NOTYOURBUSINESS"): ("", ""),
         ("A, B", "VOLUNTEER", "VOLUNTEER"): ("", "VOLUNTEER"),
@@ -426,13 +426,13 @@ def test_work_fields_are_read_from_the_filed_pair():
         ("A, B", "ATTORNEY", "ATTORNEY"): ("", "ATTORNEY"),
         # a company in the occupation box: the role stays, the company moves to an open employer
         ("A, B", "", "PRESIDENT, RELAY HUMAN CLOUD, INC"): ("RELAY HUMAN CLOUD INC", "PRESIDENT"),
-        ("A, B", "BOXER PROPERTY CORP", "CEO AT ACME LLC"): ("BOXER PROPERTY CORP", "CEO"),
+        ("A, B", "BOXER PROPERTY CORP", "CEO AT ACME LLC"): ("BOXER PROPERTY CORP", "CEO AT ACME LLC"),
         ("A, B", "", "MD ANDERSON CANCER CENTER INC"): ("MD ANDERSON CANCER CENTER INC", ""),
         ("A, B", "ACME LLC", "PRESIDENT OF HEALTH TECH COMPANY"): (
             "ACME LLC",
             "PRESIDENT OF HEALTH TECH COMPANY",
         ),
-        ("A, B", "SELF-EMPLOYED", "COMPANY"): ("SELF-EMPLOYED", "SELF-EMPLOYED"),
+        ("A, B", "SELF-EMPLOYED", "COMPANY"): ("SELF-EMPLOYED", ""),
         # the donor's own name is no employer, unless it carries a legal form
         ("DOE, JANE", "JANE DOE", "WRITER"): ("SELF-EMPLOYED", "WRITER"),
         ("DOE, JANE", "JANE DOE LLC", "WRITER"): ("JANE DOE LLC", "WRITER"),

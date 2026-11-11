@@ -49,7 +49,8 @@ def previous_employers(df: pd.DataFrame, status: pd.Series) -> pd.Series:
     retired_now = set(latest.loc[status[latest.index].eq("retired"), "donor_key"])
     donor_of_filing = dict(zip(df["sub_id"].astype(str), df["donor_key"]))
     found = {
-        **_find_latest_companies(df[people & status.eq("active")], "contributor_employer"),
+        # A self-employed filing counts when its employer box names a company (NJ MANAGEMENT CORP).
+        **_find_latest_companies(df[people & status.isin(["active", "self_employed"])], "contributor_employer"),
         **_find_latest_companies(df[retired], "previous_employer"),
         **_read_reviewed_previous_employers(donor_of_filing),
     }
