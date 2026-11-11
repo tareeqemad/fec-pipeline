@@ -18,7 +18,6 @@ PREVIOUS_SELF_EMPLOYED = "SELF-EMPLOYED"
 
 
 def _is_previous_self_employed(name: Any) -> bool:
-    """Check the previous self-employment marker."""
     return not pd.isna(name) and str(name).strip().upper() == PREVIOUS_SELF_EMPLOYED
 
 

@@ -84,17 +84,14 @@ def split_retired(value: object) -> tuple[bool, str]:
 
 
 def _drop_retired_word(match: re.Match) -> str:
-    """Return a matched word, or '' when it is a retired word."""
     return "" if is_retired_word(match.group()) else match.group()
 
 
 def _to_plain_text(value: object) -> str:
-    """Return the text as split_retired reads it before any word is removed."""
     return " ".join(value.upper().replace(".", " ").split()) if isinstance(value, str) else ""
 
 
 def _tidy(text: str) -> str:
-    """Spacing and dangling punctuation after a word was removed."""
     text = " ".join(text.split())
     text = re.sub(r"\s*([,;:])\s*", r"\1 ", text)
     text = re.sub(r"\s*([/-])\s*", r"\1", text)
@@ -108,7 +105,6 @@ def _tidy(text: str) -> str:
 
 
 def _names_nothing(rest: str) -> bool:
-    """Return whether the rest of a text names nothing."""
     return not rest or rest in _NOTHING or len(re.sub(r"[^A-Z]", "", rest)) < 3
 
 

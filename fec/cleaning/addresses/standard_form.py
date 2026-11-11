@@ -81,12 +81,10 @@ _CARE_OF = re.compile(r"^(?:C/O|CARE OF|ATTN|ATTENTION)\b")
 
 
 def _strip_punctuation(text: str) -> str:
-    """Replace periods, commas and semicolons with spaces and collapse whitespace."""
     return re.sub(r"\s+", " ", re.sub(r"[.,;]", " ", text)).strip()
 
 
 def _to_ordinal(number: str) -> str:
-    """Return a street number as an ordinal (1 -> 1ST) or a spelled ordinal in its short form."""
     if not number.isdigit():
         return _ORDINALS.get(number, number)
     if number[-2:] in ("11", "12", "13"):
@@ -95,7 +93,6 @@ def _to_ordinal(number: str) -> str:
 
 
 def _build_street(tagged: list) -> str | None:
-    """Build the street from the parser's words: number, direction, name and type in USPS form."""
     labels = [label for _, label in tagged]
     words = [word for word, _ in tagged]
     if any(not label.startswith(("AddressNumber", "StreetName")) for label in labels):
@@ -128,7 +125,6 @@ def _build_street(tagged: list) -> str | None:
 
 
 def _build_unit(text: str) -> str:
-    """Designator then id: STE 205, APT 13K, FL 10, # 420."""
     parts, kind = [], ""
     for word in text.replace("#", " # ").split():
         number = re.fullmatch(r"(\d+)(?:ST|ND|RD|TH)", _ORDINALS.get(word, word))
@@ -146,7 +142,6 @@ def _build_unit(text: str) -> str:
 
 
 def _strip_line_extras(text: str) -> str:
-    """Remove a care-of name, split a glued number and put a unit typed first after the street."""
     # C/O JFI 410 PARK AVENUE
     text = re.sub(r"^(?:C/O|CARE OF|ATTN|ATTENTION)\b\D*(?=\d+ \S+ \S)", "", text)
     # 13764RIVOLI
@@ -160,7 +155,6 @@ def _strip_line_extras(text: str) -> str:
 
 
 def _tag_words(text: str, after_hash: str) -> list[tuple[str, str]]:
-    """Name each word of a line with the parser, fixing two of its known misreadings."""
     tagged = [(word.strip(" ,.;"), label) for word, label in usaddress.parse(text.strip())]
     if tagged and tagged[0][0].isdigit() and all(label == "BuildingName" for _, label in tagged):
         # 3 BETHESDA METRO CENTER: a numbered building is its own street
@@ -196,7 +190,6 @@ def _find_street_end(tagged: list[tuple[str, str]]) -> int:
 
 
 def _read_unit_at_end(text: str, after_hash: str) -> tuple[str, str] | None:
-    """Read a line the parser cannot name: a unit written at its end is still a unit."""
     line = text.strip()
     ending = re.fullmatch(r"(.*\w) (?:SUITE|STE|APT|UNIT) ([\w-]+)", line)
     if not ending or after_hash.strip():
@@ -235,7 +228,6 @@ def parse_line(line: str) -> tuple[str, str] | None:
 
 
 def _get_initials(text: str) -> str:
-    """Return the first letter of each word."""
     return "".join(word[0] for word in text.split())
 
 
@@ -254,7 +246,6 @@ def _repeats_the_place(text: str, city: str, state: str, zipcode: str) -> bool:
 
 
 def _split_street_words(street_1: str) -> list[str]:
-    """Return the words of the first line without a later part that repeats the street."""
     first_part, *later = [_strip_punctuation(part) for part in street_1.split(",")]
     start = first_part.split()[:2]
     starts_with_number = bool(start) and start[0].isdigit()
@@ -267,7 +258,6 @@ def _split_street_words(street_1: str) -> list[str]:
 
 
 def _drop_place_after_street(words: list[str], city: str, state: str, zipcode: str) -> list[str]:
-    """Drop the city, state and ZIP typed after the street words."""
     if len(city) < 4:
         return words
     place = f"{city} {state} {zipcode}"
@@ -318,7 +308,6 @@ def standard_street(
 
 @cache
 def _find_zip_cities(zipcode: str) -> tuple[str, ...]:
-    """Return the city names accepted for a five-digit ZIP."""
     if not (len(zipcode) == 5 and zipcode.isdigit()):
         return ()
     names = [
@@ -339,12 +328,10 @@ def _spell_out_city(city: str) -> str:
 
 
 def _keep_letters(text: str) -> str:
-    """Return only the letters of a text."""
     return re.sub(r"[^A-Z]", "", text)
 
 
 def _is_shortening(short: str, full: str) -> bool:
-    """HUNTINGTN BCH for HUNTINGTON BEACH: each word a shortening of the full word."""
     pairs = list(zip(short.split(), full.split()))
     if len(short.split()) != len(full.split()) or short == full:
         return False
@@ -358,7 +345,6 @@ def _is_shortening(short: str, full: str) -> bool:
 
 
 def _find_full_zip_names(zipcode: str) -> list[str]:
-    """Return the full USPS city names of a ZIP, without the short forms USPS also lists."""
     listed = [name for name in _find_zip_cities(zipcode[:5]) if set(name.split()[-1]) & set("AEIOUY")]
     listed = [_spell_out_city(name) for name in listed]
     # USPS lists its own short forms too (PARADISE VLY, SLC): only the full names are answers
@@ -425,7 +411,6 @@ def standard_address(street_1: str, street_2: str, city: str, state: str, zipcod
 
 
 def _upper_stripped(column: pd.Series) -> pd.Series:
-    """Return a text column in capitals without surrounding spaces."""
     return column.str.upper().str.strip()
 
 

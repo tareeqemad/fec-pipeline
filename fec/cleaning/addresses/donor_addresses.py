@@ -30,23 +30,19 @@ _BUILDING_RE = re.compile(r"\b(?:BLDG|BUILDING)\b\.?")
 
 
 def _read_text(df: pd.DataFrame, column: str) -> pd.Series:
-    """Return a column as text, with blanks for missing values."""
     return df[column].fillna("").astype(str)
 
 
 def _build_key(df: pd.DataFrame, *parts: str | pd.Series) -> pd.Series:
-    """Return the filings that belong together: columns by name, or values already worked out."""
     series = [_read_text(df, part) if isinstance(part, str) else part for part in parts]
     return series[0].str.cat(series[1:], sep="\x00")
 
 
 def _count_runner_up(counts: pd.Series) -> int:
-    """Return the second highest count, or 0 when there is only one."""
     return sorted(counts)[-2] if len(counts) > 1 else 0
 
 
 def _find_most_filed(values: pd.Series, key: pd.Series, *, longest: bool = False) -> pd.DataFrame:
-    """Per key: the value filed most (or the longest), how often, and how many values there are."""
     counts = pd.DataFrame({"key": key, "value": values}).groupby(["key", "value"]).size().rename("n").reset_index()
     counts["length"] = counts["value"].str.len()
     # 1017 GREENTREE DR over 10 17 GREENTREE DR
@@ -110,17 +106,14 @@ def settle_state_and_zip(df: pd.DataFrame) -> None:
 
 
 def _read_long_types(tokens: list[str]) -> list[str]:
-    """Return the words of a street with a rare street type written in full."""
     return [token if token in _TYPE_TOKENS else LONGHAND_STREET_TYPES.get(token, token) for token in tokens]
 
 
 def _join_bare_words(tokens: list[str]) -> str:
-    """Return the words of a street that are not a street type."""
     return " ".join(token for token in tokens if token not in _TYPE_TOKENS)
 
 
 def _join_type_words(tokens: list[str]) -> str:
-    """Return the words of a street that are a street type."""
     return " ".join(token for token in tokens if token in _TYPE_TOKENS)
 
 
@@ -213,7 +206,6 @@ def align_place(df: pd.DataFrame) -> None:
 
 
 def _set_city_most_filed(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) -> None:
-    """Blank and less filed cities take the most filed one, when it strictly outnumbers them."""
     cities, zips = _read_text(df, "contributor_city"), _read_text(df, "contributor_zip")
     named = eligible & cities.ne("")
     counts = pd.DataFrame({"key": key[named], "city": cities[named]}).value_counts()
@@ -239,7 +231,6 @@ def _set_city_most_filed(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) 
 
 
 def _fill_blank(df: pd.DataFrame, column: str, key: pd.Series, eligible: pd.Series) -> None:
-    """Fill a blank with the one value the same donor files at the same place."""
     values = _read_text(df, column)
     known = eligible & values.ne("") & ~key.str.contains("\x00\x00|\x00$", regex=True)
     if column == "contributor_zip":

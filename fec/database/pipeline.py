@@ -114,7 +114,6 @@ def refresh_materialized_views(cur: Any) -> None:
 
 
 def _require_reset_flag() -> None:
-    """Require --reset before reloading the database."""
     parser = argparse.ArgumentParser(description="Load FEC data into normalized PostgreSQL")
     parser.add_argument("--reset", action="store_true", help="Drop all objects & reload")
     args = parser.parse_args()
@@ -124,7 +123,6 @@ def _require_reset_flag() -> None:
 
 
 def _reload_tables(cur: Any, df: pd.DataFrame, employer_locations: list[dict]) -> None:
-    """Rebuild the schema, load every table and grant read access."""
     logger.info("[2/6] Resetting schema and loading lookups")
     with logged_stage("schema"):
         reset_schema(cur)

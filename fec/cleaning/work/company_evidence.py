@@ -35,7 +35,7 @@ from fec.vocabulary.not_employers import (
     ROLE_AS_EMPLOYER,
     SECTOR_AS_EMPLOYER,
 )
-from fec.vocabulary.occupations import CATEGORY_OVERRIDES, KNOWN_COMPANY_OCCUPATIONS
+from fec.vocabulary.occupations import KNOWN_COMPANY_OCCUPATIONS, OCCUPATION_CATEGORIES
 from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
 from fec.vocabulary.tables import words
 
@@ -80,7 +80,6 @@ _PART_SPLIT_RE = re.compile(r"\s*(?:/|,|;| AND | & )\s*")
 
 
 def _is_job(text: str) -> bool:
-    """Return whether a text names a job rather than a company."""
     if text in _collect_job_words() or is_job_title(text):
         return True
     words = _WORDS_RE.findall(text)
@@ -90,19 +89,16 @@ def _is_job(text: str) -> bool:
 
 
 def _is_head_word(word: str) -> bool:
-    """Return whether a word, or its singular, is a job title head word."""
     return word in JOB_TITLE_HEADS or (word.endswith("S") and word[:-1] in JOB_TITLE_HEADS)
 
 
 def _has_only_common_words(text: str) -> bool:
-    """Organisation and filler words only, so a field rather than a name."""
     words = _WORDS_RE.findall(text)
     return bool(words) and all(word in ORGANISATION_WORDS or word in _FILLER_WORDS or word == "AND" for word in words)
 
 
 @lru_cache(maxsize=1)
 def _read_reviewed_names() -> frozenset[str]:
-    """Return every company name the reviewed employer rules mention."""
     aliases, scoped = read_company_name_rules()
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
     names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
@@ -113,9 +109,8 @@ def _read_reviewed_names() -> frozenset[str]:
 
 @lru_cache(maxsize=1)
 def _collect_job_words() -> frozenset[str]:
-    """Exact values that are a job, field or status, never a company."""
     return frozenset(
-        {text for text, category in CATEGORY_OVERRIDES.items() if category != "OTHER"}
+        {text for text, category in OCCUPATION_CATEGORIES.items() if category != "OTHER"}
         | ROLE_AS_EMPLOYER
         | OCCUPATION_AS_EMPLOYER
         | JOB_TITLE_AS_EMPLOYER
@@ -133,7 +128,6 @@ def company_key(value: object) -> str:
 
 
 def _has_legal_form_end(key: str) -> bool:
-    """Tell whether a key of several words ends in a legal form; CO only after a real name."""
     if " " not in key or not _LEGAL_FORM_END_RE.search(key):
         return False
     if not key.endswith(" CO"):
@@ -142,7 +136,6 @@ def _has_legal_form_end(key: str) -> bool:
 
 
 def _describes_job(key: str) -> bool:
-    """Tell whether a key names a job, joins jobs and statuses, or describes a role."""
     if _is_job(key) or _is_job(key.replace(" AND ", " & ")):
         return True
     # "CHAIRMAN AND CEO", "RETIRED/REAL ESTATE": every part a job or status.
@@ -157,7 +150,6 @@ def _describes_job(key: str) -> bool:
 
 
 def _read_proper_name_evidence(words: list[str]) -> str:
-    """Return the evidence of the proper name left after organisation and filler words."""
     rest = [word for word in words if word not in ORGANISATION_WORDS and word not in _FILLER_WORDS and word != "AND"]
     if not rest:
         # Organisation words alone (CAPITAL GROUP, INSURANCE SERVICES): a
@@ -228,7 +220,6 @@ _LEGAL_TOKENS = words("legal_tokens")
 
 
 def _has_legal_token(key: str) -> bool:
-    """Tell whether any word of a key is a legal form."""
     return any(word in _LEGAL_TOKENS for word in key.split())
 
 

@@ -51,7 +51,6 @@ def append_source_fields(path: Path, records: list[dict]) -> None:
 
 
 def _build_source_record(sub_id: str, result: dict) -> dict:
-    """Keep source fields for a newly pulled filing."""
     return {"sub_id": sub_id, **source_values(result), "matched_by": "pulled", "fec_sub_id": ""}
 
 
@@ -91,7 +90,6 @@ def iter_pages(session: requests.Session, params: dict, limiter: RateLimiter) ->
 
 
 def _build_pull_params(api_key: str, committee_id: str, period: int) -> dict:
-    """Request the configured fields for one committee and period."""
     return {
         "api_key": api_key,
         "committee_id": committee_id,
@@ -136,7 +134,6 @@ def _write_pages(
     existing_ids: set[str],
     stats: dict[str, int],
 ) -> None:
-    """Append each page's new rows, showing progress once the page count is known."""
     writer = csv.writer(handle)
     if handle.tell() == 0:
         writer.writerow(COLUMNS)
@@ -163,7 +160,6 @@ def _write_pages(
 
 
 def _start_progress(data: dict, label: str) -> tqdm | None:
-    """Start a progress bar when the page reports the total row count."""
     total = (data.get("pagination") or {}).get("count")
     if not total:
         return None
@@ -173,7 +169,6 @@ def _start_progress(data: dict, label: str) -> tqdm | None:
 def _read_new_rows(
     data: dict, existing_ids: set[str], stats: dict[str, int]
 ) -> tuple[list[list], set[str], list[dict]]:
-    """Validate one page and return its new rows, their IDs and their source fields."""
     rows = []
     page_ids = set()
     sources = []
@@ -199,7 +194,6 @@ def _log_summary(
     csv_path: Path,
     writer: Callable[..., None],
 ) -> None:
-    """Log the saved, skipped and missing-ID counts."""
     writer(
         "[%s] %s / %s: new=%s skipped=%s no_sub_id=%s pages=%s file=%s",
         status,
@@ -217,7 +211,6 @@ logger = get_logger(__name__)
 
 
 def _round_up_to_period(year: int) -> int:
-    """Use the even year ending the two-year FEC period."""
     return year + (year % 2)
 
 

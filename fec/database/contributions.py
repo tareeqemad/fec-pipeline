@@ -23,7 +23,6 @@ _INSERT_SQL = """
 
 
 def _map_required_ids(df: pd.DataFrame, donor_ids: dict, committee_ids: dict) -> pd.DataFrame:
-    """Require matching donor and committee IDs for every filing."""
     rows = df.assign(
         _donor_id=df["donor_key"].map(donor_ids),
         _committee_id=df["recipient_committee"].map(committee_ids),
@@ -40,7 +39,6 @@ def _map_required_ids(df: pd.DataFrame, donor_ids: dict, committee_ids: dict) ->
 
 
 def _map_address_ids(rows: pd.DataFrame, address_ids: dict) -> None:
-    """Match each filing to its donor-address link."""
     addresses = rows[DONOR_ADDRESS_COLUMNS].fillna("").astype(str)
     rows["_address_id"] = [
         address_ids.get((int(donor_id), *address))
@@ -65,7 +63,6 @@ def _find_filing_employment_ids(
     get_employer_id: Callable[[str], int | None],
     occupation_category_ids: dict,
 ) -> list:
-    """Look up the employment ID of each filing, None when unmatched."""
     statuses_and_employers = rows[["employer_status", "contributor_employer"]].itertuples(index=False)
     employer_ids = [
         get_employer_id(current_employer_name(status, employer)) for status, employer in statuses_and_employers
@@ -95,7 +92,6 @@ def _find_filing_employment_ids(
 
 
 def _require_individual_employments(rows: pd.DataFrame) -> None:
-    """Reject individual filings that matched no employment row."""
     missing = rows["entity_type"].eq("INDIVIDUAL") & rows["_employment_id"].isna()
     if missing.any():
         sample = rows.loc[missing, "sub_id"].head(10).tolist()
@@ -107,7 +103,6 @@ def _require_individual_employments(rows: pd.DataFrame) -> None:
 
 
 def _build_native_row(values: tuple) -> tuple:
-    """Convert one contribution to PostgreSQL values."""
     (
         sub_id,
         transaction_id,
@@ -133,7 +128,6 @@ def _build_native_row(values: tuple) -> tuple:
 
 
 def _build_rows(rows: pd.DataFrame) -> list[tuple]:
-    """Prepare contribution rows for insertion."""
     receipt_dates = pd.to_datetime(rows["contribution_receipt_date"], errors="coerce")
     election_cycles = pd.to_numeric(rows["two_year_transaction_period"], errors="coerce")
     contribution_values = zip(

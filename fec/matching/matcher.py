@@ -60,14 +60,12 @@ def match_donors(df: pd.DataFrame) -> dict:
 
 
 def _clean_cell(value: object) -> str:
-    """Cell value as a stripped string, NaN -> ''."""
     if pd.isna(value):
         return ""
     return str(value).strip()
 
 
 def _build_new_profile(row: pd.Series, suffix: str) -> dict:
-    """Start the profile of a filed name at a place, with no filings counted yet."""
     return {
         "name": _clean_cell(row["contributor_name"]),
         "norm_name": normalize_name(row["contributor_name"]),
@@ -154,7 +152,6 @@ class UnionFind:
 
 
 def _apply_force_merges(components: dict, profiles: dict) -> None:
-    """Join the groups of every profile a verified name merge covers."""
     root_of = {profile_id: root for root, members in components.items() for profile_id in members}
     for prefixes in NAME_MERGES.values():
         roots = sorted(

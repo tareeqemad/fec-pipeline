@@ -17,7 +17,6 @@ def employer_rule_key(name: object) -> str:
 
 
 def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str]:
-    """Check one row of the employer rules; return its variant, canonical, anchor and cycle."""
     variant = (row.get("variant") or "").strip().upper()
     canonical = (row.get("canonical") or "").strip().upper()
     source = (row.get("source") or "").strip()
@@ -50,7 +49,6 @@ def read_company_name_rules() -> tuple[dict[str, str], list[tuple[str, str, str,
 
 
 def _resolve_chains(synonyms: dict[str, str]) -> None:
-    """Point each variant at the end of its chain of renames; a cycle is an error."""
     for variant in synonyms:
         seen = {variant}
         target = synonyms[variant]
@@ -63,7 +61,6 @@ def _resolve_chains(synonyms: dict[str, str]) -> None:
 
 
 def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
-    """Map the key of every variant and canonical spelling to the canonical name."""
     aliases = {}
     for variant, canonical in synonyms.items():
         for name in (variant, canonical):
@@ -110,7 +107,6 @@ def scoped_employer_rules(df: pd.DataFrame) -> dict:
 
 
 def _find_scoped_name(key: str, donor_key: str, cycle: str, scoped: dict[tuple[str, str, str], str]) -> str | None:
-    """Return the name a scoped rule gives this donor, this cycle first, or None."""
     spellings = (key, employer_rule_key(_ALIASES.get(key, key)))
     for period in (str(cycle), ""):
         for spelling in spellings:
@@ -152,7 +148,6 @@ def _review_names_per_donor(
     confirmed: pd.Series,
     scoped: dict[tuple[str, str, str], str],
 ) -> pd.Series:
-    """Return the reviewed name of each value; scoped rules apply to confirmed donors only."""
     rows = values.index
     return pd.Series(
         [

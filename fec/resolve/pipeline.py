@@ -32,7 +32,6 @@ QUALITY_GATES_JSON = "quality_gates.json"
 
 
 def _parse_args() -> argparse.Namespace:
-    """Parse the command line; stop unless --apply is given."""
     parser = argparse.ArgumentParser(description="Resolve employer status and previous employers")
     parser.add_argument("--apply", action="store_true", help="Write resolve columns to CSV")
     args = parser.parse_args()
@@ -42,7 +41,6 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _load_data(csv_path: str) -> pd.DataFrame:
-    """Read the cleaned CSV and stop if an amount is missing or unreadable."""
     df = read_pipeline_csv(csv_path)
     amounts = pd.to_numeric(df["contribution_receipt_amount"], errors="coerce")
     unreadable = amounts.isna()
@@ -58,13 +56,11 @@ def _load_data(csv_path: str) -> pd.DataFrame:
 
 
 def _write_quality_gates(quality: dict, csv_written: bool) -> None:
-    """Write the quality report for the resolved data."""
     report = {**quality, "stage": "resolve", "csv_written": csv_written}
     write_json_atomic(Path(REPORTS_DIR) / QUALITY_GATES_JSON, report, indent=2)
 
 
 def _write_results(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> pd.DataFrame:
-    """Resolve the data, run the checks, and save the CSV and quality report."""
     df = resolve_employers(df)
     quality = run_quality_gates(df)
     if not quality["passed"]:

@@ -77,7 +77,6 @@ class Evidence(NamedTuple):
 
 
 def _score_middle_names(middle_a: str, middle_b: str) -> int:
-    """Points for the middle names; BLOCKED for two different full names."""
     if not middle_a and not middle_b:
         return 0
     if not middle_a or not middle_b:
@@ -94,7 +93,6 @@ def _score_middle_names(middle_a: str, middle_b: str) -> int:
 
 
 def _limit_without_geography(score: int, employer: bool, name_freq: int) -> int:
-    """Without geography only a shared employer of a rare name is enough."""
     if employer and name_freq <= 3:
         return score + SCORE_RARE_EMPLOYER_OK
     if employer and name_freq > 10:

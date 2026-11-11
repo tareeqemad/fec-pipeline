@@ -19,7 +19,6 @@ def create_schema(cur: Any) -> None:
 
 
 def _read_database_name(cur: Any) -> str:
-    """Read the database name for error messages."""
     connection = getattr(cur, "connection", None)
     connection_info = getattr(connection, "info", None)
     dbname = getattr(connection_info, "dbname", None)

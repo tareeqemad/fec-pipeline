@@ -72,7 +72,6 @@ def accomplice_committee_id(
 
 
 def _validate_leader_committees(committees: dict[str, int], rows: pd.DataFrame) -> None:
-    """Check every leader committee before inserting rows."""
     for _, row in rows.iterrows():
         leader_committee_ids(
             row.get("committee_ids"),
@@ -82,7 +81,6 @@ def _validate_leader_committees(committees: dict[str, int], rows: pd.DataFrame) 
 
 
 def _insert_leader(committees: dict[str, int], cur: Any, row: pd.Series, donor_id: int) -> None:
-    """Save the leader and replace its committee links."""
     committee_ids = leader_committee_ids(
         row.get("committee_ids"),
         committees,
@@ -112,7 +110,6 @@ def load_leadership(cur: Any) -> None:
 
 
 def _read_display_order(raw: str | None, who: str) -> int:
-    """Read display order, using zero for missing or invalid text."""
     text = (raw or "").strip()
     if not text:
         return 0
@@ -123,13 +120,11 @@ def _read_display_order(raw: str | None, who: str) -> int:
 
 
 def _read_optional_text(row: pd.Series, column: str) -> str | None:
-    """Return trimmed text or None."""
     value = (row.get(column) or "").strip()
     return value or None
 
 
 def _validate_accomplice_committees(committees: dict[str, int], rows: pd.DataFrame) -> None:
-    """Check every card committee before inserting rows."""
     for _, row in rows.iterrows():
         accomplice_committee_id(
             row.get("committee_id"),
@@ -139,7 +134,6 @@ def _validate_accomplice_committees(committees: dict[str, int], rows: pd.DataFra
 
 
 def _insert_accomplice(committees: dict[str, int], cur: Any, row: pd.Series, donor_id: int) -> None:
-    """Save the card text, committee and display order."""
     who = (row.get("accomplice_name") or "").strip()
     committee_id = accomplice_committee_id(row.get("committee_id"), committees, who)
     display_order = _read_display_order(row.get("display_order"), who)

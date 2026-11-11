@@ -85,7 +85,6 @@ def filing_employment_key(filing: tuple, get_employer_id: Callable[[str], int | 
 
 
 def _keep_latest_filings(individuals: pd.DataFrame) -> pd.DataFrame:
-    """Keep the newest filing for each distinct employment."""
     keys = [
         "donor_key",
         "contributor_employer",
@@ -101,7 +100,6 @@ def _keep_latest_filings(individuals: pd.DataFrame) -> pd.DataFrame:
 
 
 def _find_exact_employer_id(employer_ids: dict, name: Any) -> int | None:
-    """Reject non-company values and find the exact company name."""
     if pd.isna(name):
         return None
     employer = str(name).strip()
@@ -162,7 +160,6 @@ def _build_employment_rows(
     get_employer_id: Callable[[str], int | None],
     employer_locations: list[dict] | None,
 ) -> list[tuple]:
-    """Build each employment from its newest filing."""
     donor_ids = id_maps["donor"]
     occupation_category_ids = id_maps["occupation_category"]
     address_ids = id_maps.get("address")
@@ -215,7 +212,6 @@ def _build_employment_rows(
 
 
 def _pick_office_employer(row: pd.Series, status: Any, employer_name: str, employer_id: int | None) -> Any:
-    """Pick the company whose office is linked: current, else a retiree's previous one."""
     if employer_id:
         return employer_name
     if status == "retired":
@@ -224,7 +220,6 @@ def _pick_office_employer(row: pd.Series, status: Any, employer_name: str, emplo
 
 
 def _build_employment_insert_values(key: tuple, address_id: int | None) -> tuple:
-    """Order an employment key and its office address as the INSERT columns."""
     (
         donor_id,
         employer_id,
@@ -249,7 +244,6 @@ def _build_employment_insert_values(key: tuple, address_id: int | None) -> tuple
 def _find_current_employer(
     status: str | None, employer: Any, donor_key: str, get_employer_id: Callable[[str], int | None]
 ) -> tuple[str, int | None]:
-    """Find the filing company and require its database ID."""
     employer_name = current_employer_name(status, employer)
     if status == "active" and not employer_name:
         raise RuntimeError(f"active employment has no employer: donor_key={donor_key}")
@@ -260,6 +254,5 @@ def _find_current_employer(
 
 
 def _read_employment_ids(cur: Any) -> dict:
-    """Map each employment key to its database ID."""
     cur.execute("SELECT donor_employment_id, " + ", ".join(EMPLOYMENT_KEY_COLUMNS) + " FROM donor_employments")
     return {employment_key(row[1:]): row[0] for row in cur.fetchall()}

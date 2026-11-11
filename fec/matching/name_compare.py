@@ -171,7 +171,6 @@ def first_names_may_match(norm_name_a: str, norm_name_b: str, surname_firsts: se
 
 
 def _squash(surname: str) -> str:
-    """Strip spaces, hyphens and dots for surname comparison."""
     return surname.replace(" ", "").replace("-", "").replace(".", "")
 
 

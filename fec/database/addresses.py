@@ -34,7 +34,6 @@ PUBLISHABLE_ADDRESS_TRUST = frozenset({"verified", "grounded"})
 
 
 def _blank_to_none(value: Any) -> Any:
-    """Convert missing and whitespace-only values to None."""
     value = to_native(value)
     if isinstance(value, str) and not value.strip():
         return None
@@ -62,7 +61,6 @@ def read_employer_offices(frame: pd.DataFrame | None = None) -> list[dict]:
 
 
 def _read_publishable_office(row: dict) -> dict | None:
-    """Turn one CSV row into an office, None when it has no place or is not publishable."""
     street = _blank_to_none(row.get("employer_address"))
     city = _blank_to_none(row.get("employer_city"))
     # Allow town-only locations; skip rows with neither street nor town.
@@ -84,7 +82,6 @@ def _read_publishable_office(row: dict) -> dict | None:
 
 
 def _find_office_method(row: dict) -> str:
-    """Mark a verified manual address as a manual override."""
     is_manual = row.get("address_source") == "manual"
     is_verified = row.get("address_trust") == "verified"
     if is_manual and is_verified:
@@ -93,7 +90,6 @@ def _find_office_method(row: dict) -> str:
 
 
 def _make_first_office_primary(locations: list[dict]) -> None:
-    """Make the first office primary for a company that has no primary office."""
     grouped: dict[str, list[dict]] = {}
     for location in locations:
         grouped.setdefault(location["employer_name"], []).append(location)
@@ -103,7 +99,6 @@ def _make_first_office_primary(locations: list[dict]) -> None:
 
 
 def _empty_to_none(value: Any) -> Any:
-    """Convert missing values and '' to None; keep whitespace."""
     value = to_native(value)
     return None if value == "" else value
 
@@ -144,7 +139,6 @@ def employer_offices_or_file(employer_locations: list[dict] | None) -> list[dict
 
 
 def _build_address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
-    """Collect distinct donor and company addresses."""
     address_rows = {}
     columns = DONOR_ADDRESS_COLUMNS + ["latitude", "longitude"]
     donor_addresses = df[columns].groupby(DONOR_ADDRESS_COLUMNS, dropna=False)
@@ -168,7 +162,6 @@ def _build_address_rows(df: pd.DataFrame, locations: list[dict]) -> dict:
 
 
 def _build_office_address_parts(location: dict) -> tuple:
-    """Return an office's street, empty second line, city, state and ZIP."""
     return (
         location["employer_address"],
         None,
@@ -259,7 +252,6 @@ def link_employer_offices(
 def _match_primary_offices(
     locations: list[dict], address_ids: dict, get_employer_id: Callable[[str], int | None]
 ) -> list[tuple]:
-    """Match each primary office to company and address IDs."""
     employer_rows = []
     for location in locations:
         if not location["is_primary"]:
@@ -275,7 +267,6 @@ def _match_primary_offices(
 
 
 def _prune_orphan_addresses(cur: Any) -> None:
-    """Delete addresses with no remaining links."""
     cur.execute("""
         DELETE FROM addresses a
         WHERE NOT EXISTS (SELECT 1 FROM donor_addresses d WHERE d.address_id = a.address_id)

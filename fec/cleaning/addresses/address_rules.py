@@ -25,17 +25,14 @@ FIXED = {
 
 
 def _strip_column(column: pd.Series) -> pd.Series:
-    """Return a text column without surrounding spaces."""
     return column.str.strip()
 
 
 def _upper_column(column: pd.Series) -> pd.Series:
-    """Return a text column in capitals."""
     return column.str.upper()
 
 
 def _read_address_rules() -> pd.DataFrame:
-    """Read the rules as text; a blank match_zip matches filings with no ZIP (a foreign address)."""
     rules = pd.read_csv(ADDRESS_RULES_CSV, dtype=str, keep_default_na=False, encoding="utf-8-sig")
     rules = rules.apply(_strip_column)
     upper_columns = list(MATCH[:4])
@@ -52,7 +49,6 @@ def _read_address_rules() -> pd.DataFrame:
 
 
 def _find_rule_filings(df: pd.DataFrame, rule: tuple, sub_ids: pd.Series) -> pd.Series:
-    """Return the filings one rule matches: street, state and ZIP, then unit and sub_id if set."""
     mask = (
         df[FIXED["street"]].fillna("").eq(rule.match_street)
         & df[FIXED["state"]].fillna("").eq(rule.match_state)

@@ -18,7 +18,6 @@ logger = get_logger(__name__)
 
 
 def _read_reviewed_previous_employers(donors: dict) -> dict:
-    """Reviewed answers by donor; [CLEAR] says there is none."""
     found, missing = {}, []
     for row in read_rows(PREVIOUS_EMPLOYERS_CSV):
         value = (row.get("previous_employer") or "").strip()
@@ -37,7 +36,6 @@ def _read_reviewed_previous_employers(donors: dict) -> dict:
 
 
 def _find_latest_companies(rows: pd.DataFrame, column: str) -> dict:
-    """Each donor's latest company in a column."""
     names = companies_named(rows[column])
     named = rows.assign(company=names)[names.ne("")].sort_values("contribution_receipt_date")
     return named.groupby("donor_key")["company"].last().to_dict()

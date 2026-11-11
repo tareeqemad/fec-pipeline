@@ -42,7 +42,6 @@ _MIN_PREFIX = 7  # SELFEMP: a truncated SELF-EMPLOYED
 
 
 def _count_slips_allowed(letters: str) -> int:
-    """Return how many slips a status word of this length allows."""
     return 2 if len(letters) >= 10 else 1
 
 

@@ -53,7 +53,6 @@ def keys_for_groups(components: dict) -> dict:
 
 
 def _find_row_donor_key(row: pd.Series, profile_keys: dict) -> str:
-    """Look up or fall back to compute this row's donor_key."""
     if row["entity_type"] != "INDIVIDUAL":
         return non_individual_donor_key(row.get("contributor_name"))
     name = row["contributor_name"]
@@ -118,7 +117,6 @@ def apply_curated_key_merges(df: pd.DataFrame) -> int:
 
 
 def _build_held_key(group: str) -> str:
-    """Build the separate donor key of a hold group."""
     return hashlib.sha256(f"HOLD|{group}".encode()).hexdigest()[:12]
 
 

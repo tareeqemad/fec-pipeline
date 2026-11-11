@@ -29,7 +29,6 @@ logger = get_logger(__name__)
 
 
 def _build_cache_keys(df: pd.DataFrame) -> pd.Series:
-    """Return each row's cache key: street|city|state|zip."""
     return (
         df[["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]]
         .fillna("")
@@ -39,7 +38,6 @@ def _build_cache_keys(df: pd.DataFrame) -> pd.Series:
 
 
 def _needs_lookup(key: str, cache: GeoCache) -> bool:
-    """Retry missing or temporary failures; keep completed misses."""
     entry = cache.get(key)
     if cache.needs_retry(key):
         return True
@@ -49,7 +47,6 @@ def _needs_lookup(key: str, cache: GeoCache) -> bool:
 
 
 def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | None:
-    """Try OpenStreetMap, then Census; keep an unmatched address blank."""
     if not street.strip() or is_po_box(street) or unclear_house_number(street):
         return None
     key = "|".join((street, city, state, zipcode))
@@ -71,7 +68,6 @@ def _geocode_one(street: str, city: str, state: str, zipcode: str) -> dict | Non
 
 
 def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int) -> None:
-    """Look up each uncached address once."""
     keys = list(dict.fromkeys(key for key in keys if key != "|||"))
     todo = [key for key in keys if _needs_lookup(key, cache)]
     logger.info(
@@ -85,7 +81,6 @@ def _geocode_keys(keys: pd.Series, cache: GeoCache, batch_size: int) -> None:
 
 
 def _look_up_and_cache(key: str, cache: GeoCache) -> str:
-    """Look up one address, cache the outcome, and return found, missed or transient."""
     try:
         entry = _geocode_one(*key.split("|"))
     except (NominatimUnavailable, CensusUnavailable) as error:
@@ -100,7 +95,6 @@ def _look_up_and_cache(key: str, cache: GeoCache) -> str:
 
 
 def _geocode_todo(todo: list, cache: GeoCache, batch_size: int) -> None:
-    """Save lookup results in batches and when the run stops."""
     counts = {"found": 0, "missed": 0, "transient": 0}
     try:
         for done, key in enumerate(todo, 1):
@@ -148,7 +142,6 @@ def apply_coordinates(df: pd.DataFrame, cache: GeoCache) -> pd.DataFrame:
 
 
 def _find_csv() -> str:
-    """Find the cleaned file or stop with a clear message."""
     if CLEANED_CSV.exists():
         return str(CLEANED_CSV)
     logger.error("No cleaned CSV found. Run python clean.py first.")
@@ -159,7 +152,6 @@ def _geocode_contributors(
     df: pd.DataFrame,
     cache: GeoCache,
 ) -> pd.DataFrame:
-    """Look up donor addresses and apply cached coordinates."""
     logger.info("[1/2] Finding contributor coordinates")
     geocode_addresses(df, cache)
     df = apply_coordinates(df, cache)
@@ -173,7 +165,6 @@ def _geocode_contributors(
 
 
 def _write_output(df: pd.DataFrame, csv_path: str, input_columns: list[str]) -> None:
-    """Check the output columns and save the CSV."""
     from fec.common.columns import INTERNAL_OUTPUT_COLUMNS
 
     df = df.drop(columns=INTERNAL_OUTPUT_COLUMNS, errors="ignore")

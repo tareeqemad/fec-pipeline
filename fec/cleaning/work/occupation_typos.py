@@ -24,7 +24,7 @@ from rapidfuzz import process
 from rapidfuzz.distance import OSA
 
 from fec.vocabulary.occupations import (
-    CATEGORY_OVERRIDES,
+    OCCUPATION_CATEGORIES,
     OCCUPATION_CORRECTIONS,
     OCCUPATION_NORMALIZE,
     TEXT_CORRECTIONS,
@@ -37,12 +37,10 @@ _TEXT_RE = re.compile(r"[A-Z][A-Z '&/.-]*")
 
 
 def _to_plain_text(value: object) -> str:
-    """Return a text uppercased with single spaces, or '' if it is not a string."""
     return " ".join(value.upper().split()) if isinstance(value, str) else ""
 
 
 def _is_one_word_slip(text: str, listed: str) -> bool:
-    """Exactly one word differs, by one slip, and that word is long enough."""
     text_words, listed_words = text.split(), listed.split()
     if len(text_words) != len(listed_words):
         return False
@@ -56,7 +54,7 @@ def _is_one_word_slip(text: str, listed: str) -> bool:
 
 def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) -> dict[str, str]:
     """{filed text: listed occupation} for every text one slip from one listed occupation."""
-    candidates = CATEGORY_OVERRIDES if listed is None else listed
+    candidates = OCCUPATION_CATEGORIES if listed is None else listed
     listed = [
         occupation
         for occupation in candidates

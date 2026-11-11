@@ -30,7 +30,6 @@ _KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIA
 
 
 def _strip_one_suffix(key: str, brand_length: int) -> str:
-    """Return the key without its first trailing corporate suffix, or unchanged if it has none."""
     for suffix in _CORP_SUFFIXES:
         cuts_brand = len(key) - len(suffix) < brand_length
         if cuts_brand and suffix in _GLUED_BRAND_SUFFIXES:

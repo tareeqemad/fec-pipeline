@@ -40,13 +40,13 @@ from fec.vocabulary.not_employers import (
     SELF_EMPLOYMENT_WORDS,
 )
 from fec.vocabulary.occupations import (
-    CATEGORY_OVERRIDES,
     EMPLOYER_FROM_OCCUPATION,
     EMPLOYER_NORMALIZE,
     FINAL_JUNK_EMPLOYERS,
     FINAL_NULL_EMPLOYERS,
     FINAL_SHORT_OCCUPATIONS,
     HOMEMAKER_EMPLOYER_VALUES,
+    OCCUPATION_CATEGORIES,
     OCCUPATION_KEYWORDS,
     OCCUPATION_NORMALIZE,
     SWAP_JOB_TITLES,
@@ -94,7 +94,6 @@ def names_no_employer(text: str, *, also_words: bool = True) -> bool:
 
 
 def _read_status_words(employer: str, occupation: str) -> tuple[str, str]:
-    """Read status words: SELF-EMPLOYED in any spelling, a homemaker, the reviewed name."""
     if status_word(employer) == "SELF-EMPLOYED":
         employer = "SELF-EMPLOYED"
     if employer in HOMEMAKER_EMPLOYER_VALUES:
@@ -106,7 +105,6 @@ def _read_status_words(employer: str, occupation: str) -> tuple[str, str]:
 
 
 def _is_empty_occupation(occupation: str) -> bool:
-    """Tell whether an occupation names nothing: a short code, junk, a web artifact, an email."""
     return (
         (len(occupation) <= 2 and occupation not in FINAL_SHORT_OCCUPATIONS)
         or bool(_JUNK_RE.match(occupation))
@@ -116,19 +114,17 @@ def _is_empty_occupation(occupation: str) -> bool:
 
 
 def _clear_boxes_naming_nothing(employer: str, occupation: str) -> tuple[str, str]:
-    """Clear a box that names nothing; such an employer keeps only a documented name."""
     if _is_empty_occupation(occupation):
         occupation = ""
     occupation = re.sub(r"^([A-Z ]+?)\s+\d+$", r"\1", occupation)
     if names_no_employer(employer):
-        if company_key(occupation) == company_key(employer) and occupation not in CATEGORY_OVERRIDES:
+        if company_key(occupation) == company_key(employer) and occupation not in OCCUPATION_CATEGORIES:
             occupation = ""
         employer = documented_employer_name(employer) or ""
     return employer, occupation
 
 
 def _split_self_employed(employer: str, occupation: str) -> tuple[str, str]:
-    """SELF - ACME LLC: the firm stays; a trade beside the marker fills an empty occupation."""
     if employer == "SELF-EMPLOYED":
         return employer, occupation
     marked, rest = split_self_marker(employer)
@@ -141,7 +137,6 @@ def _split_self_employed(employer: str, occupation: str) -> tuple[str, str]:
 
 
 def _settle_same_text(employer: str, occupation: str, first: str, last: str) -> tuple[str, str]:
-    """One text in both boxes: a job leaves the employer unknown, a company the occupation."""
     if (
         not employer
         or employer in SKIP_EMPLOYERS
@@ -157,11 +152,10 @@ def _settle_same_text(employer: str, occupation: str, first: str, last: str) -> 
 
 
 def _move_job_as_employer(employer: str, occupation: str) -> tuple[str, str]:
-    """Move a job filed as the employer to an open occupation, else drop it."""
     says_self = (
         occupation == "SELF-EMPLOYED"
         or bool({employer, occupation} & SELF_EMPLOYMENT_WORDS)
-        or CATEGORY_OVERRIDES.get(employer) == "SELF-EMPLOYED"
+        or OCCUPATION_CATEGORIES.get(employer) == "SELF-EMPLOYED"
     )
     self_employed = "SELF-EMPLOYED" if says_self else ""
     occupation_open = occupation in ("", "SELF-EMPLOYED", "RETIRED", "NOT EMPLOYED") or (
@@ -175,7 +169,6 @@ def _move_job_as_employer(employer: str, occupation: str) -> tuple[str, str]:
 
 
 def _move_job_out_of_employer(employer: str, occupation: str, filings: Filings) -> tuple[str, str]:
-    """Swap a job in the employer box with a company, move it to the occupation, or drop it."""
     if employer in _SWAP_JOBS and (
         occupation == "SELF-EMPLOYED"
         or (occupation not in _SWAP_JOBS and filings.level(occupation, 1) in COMPANY_LEVELS)
@@ -189,7 +182,6 @@ def _move_job_out_of_employer(employer: str, occupation: str, filings: Filings) 
 
 
 def _replace_own_name(employer: str, first: str, last: str, legal_form: bool) -> str:
-    """Read the donor's own name as SELF-EMPLOYED, unless it was filed with a legal form."""
     first_words = name_words_without_initials(first)
     last_words = name_words_without_initials(last)
     own = first_words | last_words if first_words and last_words else None
@@ -199,7 +191,6 @@ def _replace_own_name(employer: str, first: str, last: str, legal_form: bool) ->
 
 
 def _move_company_out_of_occupation(employer: str, occupation: str, name: str, filings: Filings) -> tuple[str, str]:
-    """Move a company out of the occupation box to an open employer; the role stays."""
     level = filings.level(occupation, 2) if occupation else ""
     own_employer = (
         (name, company_key(occupation)) in filings.own
@@ -224,7 +215,6 @@ def _move_company_out_of_occupation(employer: str, occupation: str, name: str, f
 
 
 def _fill_from_status(employer: str, occupation: str) -> tuple[str, str]:
-    """Fill one box from a status in the other; give the occupation the house style."""
     if employer and employer != "SELF-EMPLOYED":
         employer = reviewed_employer_name(employer)
     if not occupation and employer in ("RETIRED", "SELF-EMPLOYED", "NOT EMPLOYED"):
@@ -271,7 +261,6 @@ def company_named(text: str) -> str:
 
 
 def _read_upper_text(df: pd.DataFrame, rows: pd.Index, column: str) -> pd.Series:
-    """Return the column for these rows as stripped uppercase text."""
     return df.loc[rows, column].fillna("").astype(str).str.strip().str.upper()
 
 

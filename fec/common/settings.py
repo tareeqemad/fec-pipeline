@@ -93,8 +93,6 @@ CONTRIBUTOR_NAME_RULES_CSV = RULES_DIR / "contributor_name_rules.csv"
 # Curated contributor address corrections
 ADDRESS_RULES_CSV = RULES_DIR / "address_rules.csv"
 
-# The model's standard form of every filed US address it has read.
-# Address review cases already decided, each with its source
 # Hand-set employer, occupation and address per filing
 FILING_CORRECTIONS_CSV = RULES_DIR / "filing_corrections.csv"
 
@@ -103,14 +101,8 @@ PREVIOUS_EMPLOYERS_CSV = RULES_DIR / "previous_employers.csv"
 
 GEOCODE_CACHE_JSON = CACHE_DIR / "geocode_cache.json"
 
-# The model's category for every occupation text it has read.
-OCCUPATION_CATEGORY_CACHE_CSV = CACHE_DIR / "occupation_categories.csv"
-
-# Reviewed categories that win over the model.
-OCCUPATION_CATEGORY_OVERRIDES_CSV = RULES_DIR / "occupation_category_overrides.csv"
-
-# The instruction the model reads.
-OCCUPATION_CATEGORY_RULES_MD = DATA_DIR / "config" / "occupation_category_rules.md"
+# The category of each occupation text, each with its source
+OCCUPATION_CATEGORIES_CSV = RULES_DIR / "occupation_categories.csv"
 
 # Each filing's donor key from the last run, so keys stay stable.
 DONOR_KEYS_CSV = CACHE_DIR / "donor_keys.csv"

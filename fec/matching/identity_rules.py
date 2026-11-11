@@ -31,28 +31,23 @@ VALID_REVIEW_STATUSES = {"verified_fec", "verified_web"}
 
 
 def _normalize(value: str) -> str:
-    """Uppercase with single spaces."""
     return " ".join(str(value or "").upper().split())
 
 
 def _build_identity(name: str, city: str, state: str, zip5: str = "") -> str:
-    """Key a name at a place, with the ZIP when the rule is that narrow."""
     parts = (name, city, state, zip5) if zip5 else (name, city, state)
     return "|".join(map(_normalize, parts))
 
 
 def _build_profile_identity(person: dict, zip5: str = "") -> str:
-    """Key a donor profile's name at its place, with the ZIP when given."""
     return _build_identity(person["name"], person["city"], person["state"], zip5)
 
 
 def _build_held_address_key(row: dict) -> tuple[str, str, str]:
-    """Key a hold_address rule by its name, street and ZIP5."""
     return (_normalize(row["name_a"]), _normalize(row["street_a"]), _normalize(row["zip_a"])[:5])
 
 
 def _is_valid_rule(action: str, row: dict) -> bool:
-    """Return whether a rule row has a known action, its fields, a source and a review."""
     review_status = (row.get("review_status") or "").strip().lower()
     reviewed_at = (row.get("reviewed_at") or "").strip()
     return (
@@ -65,7 +60,6 @@ def _is_valid_rule(action: str, row: dict) -> bool:
 
 
 def _read_identity_rules() -> dict[str, list[dict]]:
-    """Read the rule rows by action; every row needs its fields, a source and a review date."""
     if not RULES_PATH.exists():
         raise FileNotFoundError(f"Missing donor identity rules: {RULES_PATH}")
     by_action = {action: [] for action in REQUIRED_FIELDS}
@@ -84,7 +78,6 @@ def _read_identity_rules() -> dict[str, list[dict]]:
 def _load_separations(
     rows: list[dict],
 ) -> tuple[set[frozenset[str]], set[frozenset[str]], frozenset[str]]:
-    """Name pairs, name-at-place pairs, and the names only a ZIP can tell apart."""
     separations = [
         (
             _normalize(row["name_a"]),
