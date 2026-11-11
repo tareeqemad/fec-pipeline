@@ -27,14 +27,38 @@ from fec.vocabulary.statuses import STATUS_WORDS
 from fec.vocabulary.tables import words
 
 _RETIRED_WORDS = words("retired_words")
-_PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
 _WORD_RE = re.compile(r"[A-Z][A-Z']*")
 # RETIREDPHYSICIAN: the space was dropped.
 _GLUED_RE = re.compile(r"^RETIRED([A-Z]{4,})$")
-# "RETIRED FROM ACME", "(RETIRED) ACME", "RETIRED - ACME"
-_PREFIX_RE = re.compile(rf"^\(?{_PARTLY}(?P<word>[A-Z]+)\)?(?:\s+FROM\b)?[\s,;:/()-]*")
-# "ACME RETIRED", "PHYSICIAN, RETIRED", "DENTIST (RETIRED)"
-_SUFFIX_RE = re.compile(rf"[\s,;:/(-]*\(?\s*{_PARTLY}(?P<word>[A-Z]+)\s*\)?\.?$")
+
+# SEMI-RETIRED, MOSTLY RETIRED, NOW RETIRED: an optional word before the marker.
+_PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
+
+# The marker at the start: "RETIRED FROM ACME", "(RETIRED) ACME", "RETIRED - ACME".
+_PREFIX_RE = re.compile(
+    rf"""
+    ^ \(?               # an optional opening bracket
+    {_PARTLY}
+    (?P<word>[A-Z]+)    # the word tested: RETIRED, a variant or a slip
+    \)?                 # an optional closing bracket
+    (?:\s+FROM\b)?      # RETIRED FROM
+    [\s,;:/()-]*        # the separators before the rest
+    """,
+    re.VERBOSE,
+)
+
+# The marker at the end: "ACME RETIRED", "PHYSICIAN, RETIRED", "DENTIST (RETIRED)".
+_SUFFIX_RE = re.compile(
+    rf"""
+    [\s,;:/(-]*         # the separators after the rest
+    \(? \s*             # an optional opening bracket
+    {_PARTLY}
+    (?P<word>[A-Z]+)    # the word tested: RETIRED, a variant or a slip
+    \s* \)?             # an optional closing bracket
+    \.? $               # an optional final period
+    """,
+    re.VERBOSE,
+)
 # Keep RETIRED when it ends a truncated organisation name.
 _NAME_BEFORE_RE = re.compile(r"\b(?:OF|FOR|THE|AND|&)$")
 # Parts of one occupation text: "OFFICE MANAGER, RETIRED NURSE", "VOLUNTEER (RETIRED ATTORNEY)"
@@ -50,34 +74,53 @@ def is_retired_word(word: str) -> bool:
 
 
 def split_retired(value: object) -> tuple[bool, str]:
-    """(retired, rest): whether the text says retired, and what else it names."""
-    if not isinstance(value, str):
-        return False, ""
-    upper = " ".join(value.upper().replace(".", " ").split())
+    """(retired, rest): whether the text says retired, and what else it names.
+
+    The marker is looked for at the start of the text, then at its end, then inside it.
+    """
+    upper = _to_plain_text(value)
     if not upper:
         return False, ""
     upper = _GLUED_RE.sub(r"RETIRED \1", upper)
+    return _retired_at_start(upper) or _retired_at_end(upper) or _retired_inside(upper)
+
+
+def _has_retired_word(text: str) -> bool:
+    return any(is_retired_word(word) for word in _WORD_RE.findall(text))
+
+
+def _letter_count(text: str) -> int:
+    return sum("A" <= character <= "Z" for character in text)
+
+
+def _retired_at_start(upper: str) -> tuple[bool, str] | None:
     match = _PREFIX_RE.match(upper)
     if match and is_retired_word(match.group("word")):
         return True, _tidy(upper[match.end() :])
+    return None
+
+
+def _retired_at_end(upper: str) -> tuple[bool, str] | None:
     match = _SUFFIX_RE.search(upper)
-    if match and match.start() > 0 and is_retired_word(match.group("word")):
-        head = _tidy(upper[: match.start()])
-        if _NAME_BEFORE_RE.search(head):
-            return False, upper  # "BOARD OF RETIRED ...": a truncated name
-        return True, head
-    words = _WORD_RE.findall(upper)
-    if not words or all(not is_retired_word(word) for word in words):
+    if not match or match.start() == 0 or not is_retired_word(match.group("word")):
+        return None
+    head = _tidy(upper[: match.start()])
+    if _NAME_BEFORE_RE.search(head):
+        return False, upper  # "BOARD OF RETIRED ...": a truncated name
+    return True, head
+
+
+def _retired_inside(upper: str) -> tuple[bool, str]:
+    if not _has_retired_word(upper):
         return False, upper
     # RETIRED inside one part of the text: "OFFICE MANAGER, RETIRED NURSE".
-    # The parts before it name the current role; the retired part is a
-    # former one and goes.
+    # The parts without it name the current role; the retired part is a former one and goes.
     parts = [part for part in _PART_RE.split(upper) if part.strip()]
-    current = [part for part in parts if not any(is_retired_word(word) for word in _WORD_RE.findall(part))]
+    current = [part for part in parts if not _has_retired_word(part)]
     if current and len(current) < len(parts):
         role = _tidy(" ".join(current))
         # A status word (HOMEMAKER) is a current role too.
-        if role not in _NO_ROLE and len(re.sub(r"[^A-Z]", "", role)) >= 3:
+        if role not in _NO_ROLE and _letter_count(role) >= 3:
             return False, role
     kept = re.sub(r"\b[A-Z']+\b", _drop_retired_word, upper)
     return True, _tidy(kept)
@@ -93,10 +136,12 @@ def _to_plain_text(value: object) -> str:
 
 def _tidy(text: str) -> str:
     text = " ".join(text.split())
-    text = re.sub(r"\s*([,;:])\s*", r"\1 ", text)
-    text = re.sub(r"\s*([/-])\s*", r"\1", text)
-    text = re.sub(r"\(\s+", "(", text).replace("()", "")
-    text = re.sub(r"\s+\)", ")", text).strip(" ,;:/-")
+    text = re.sub(r"\s*([,;:])\s*", r"\1 ", text)  # "A ,B" becomes "A, B"
+    text = re.sub(r"\s*([/-])\s*", r"\1", text)  # "A / B" becomes "A/B"
+    text = re.sub(r"\(\s+", "(", text).replace("()", "")  # "( A" becomes "(A"; empty brackets go
+    text = re.sub(r"\s+\)", ")", text)  # "A )" becomes "A)"
+    text = text.strip(" ,;:/-")
+    # A bracket left without its pair.
     if text.startswith("(") and ")" not in text:
         text = text[1:]
     if text.endswith(")") and "(" not in text:
@@ -105,7 +150,7 @@ def _tidy(text: str) -> str:
 
 
 def _names_nothing(rest: str) -> bool:
-    return not rest or rest in _NOTHING or len(re.sub(r"[^A-Z]", "", rest)) < 3
+    return not rest or rest in _NOTHING or _letter_count(rest) < 3
 
 
 def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:

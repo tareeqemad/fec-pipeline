@@ -124,27 +124,20 @@ def _strip_periods(word: str) -> str:
 
 
 def read_name(name: str, first: str, last: str) -> tuple[str, str, str]:
-    """(contributor_name, first, last) of a person, from the three filed boxes."""
+    """(contributor_name, first, last) of a person, from the three filed boxes.
+
+    In order: tidy the boxes, read a credential between surname and given name, drop
+    titles and endings, split a whole name typed in both boxes, add given names the
+    first-name box left out, and write the name as LAST, FIRST.
+    """
     name, first, last = _tidy(name), _tidy(first).lstrip(". "), _tidy(last)
-    first = re.sub(r"\b([A-Z])\.(?=[A-Z]{2})", r"\1. ", first)  # W.DAVID
-    # LAST, MD, FIRST: a credential between the two
+    first = re.sub(r"\b([A-Z])\.(?=[A-Z]{2})", r"\1. ", first)  # W.DAVID becomes W. DAVID
     parts = [part.strip() for part in name.split(",")]
-    if len(parts) == 3 and _strip_periods(parts[1]).replace(" ", "") in _ENDINGS:
-        last, first = parts[0], parts[2].rstrip(".")
-    if not last and len(parts) == 2:
-        last = parts[0]
-    # A title before the given name; a generation or credential after the surname.
-    given = first.split()
-    while len(given) > 1 and _strip_periods(given[0]) in _TITLES:
-        given.pop(0)
+    last, first = _read_surname_and_given_name(parts, last, first)
+    given = _drop_titles(first.split())
     first = " ".join(given)
-    family = last.replace(",", " ").split()
-    while len(family) > 1 and (_strip_periods(family[-1]) in _ENDINGS or ("," in last and family[-1] in ("IV", "V"))):
-        family.pop()
-    last = " ".join(family)
-    # The whole name typed in both boxes.
-    if first == last and " " in first:
-        first, last = first.split()[0], " ".join(first.split()[1:])
+    last = _drop_endings(last)
+    first, last = _split_name_typed_in_both_boxes(first, last)
     # More given names in the filed name than in the first-name box: HARRIS, S. WOLF.
     if first and parts[0] == last:
         first = _add_filed_given_names(name, first, given)
@@ -155,6 +148,44 @@ def read_name(name: str, first: str, last: str) -> tuple[str, str, str]:
     if first and last:
         name = f"{last}, {first}"
     return _remove_periods(name), first, last
+
+
+def _read_surname_and_given_name(parts: list[str], last: str, first: str) -> tuple[str, str]:
+    # LAST, MD, FIRST: a credential between the surname and the given name.
+    if len(parts) == 3 and _strip_periods(parts[1]).replace(" ", "") in _ENDINGS:
+        return parts[0], parts[2].rstrip(".")
+    # An empty surname box: the surname is the part before the comma.
+    if not last and len(parts) == 2:
+        return parts[0], first
+    return last, first
+
+
+def _drop_titles(given: list[str]) -> list[str]:
+    # A title before the given name: DR, MRS. One word always stays.
+    while len(given) > 1 and _strip_periods(given[0]) in _TITLES:
+        given.pop(0)
+    return given
+
+
+def _drop_endings(last: str) -> str:
+    # A generation or a credential after the surname: JR, III, MD. One word always stays.
+    # IV and V count only when the surname box has a comma: SMITH, IV.
+    family = last.replace(",", " ").split()
+    while len(family) > 1:
+        ending = family[-1]
+        if _strip_periods(ending) in _ENDINGS or ("," in last and ending in ("IV", "V")):
+            family.pop()
+        else:
+            break
+    return " ".join(family)
+
+
+def _split_name_typed_in_both_boxes(first: str, last: str) -> tuple[str, str]:
+    # JOHN SMITH in both boxes: JOHN is the given name, SMITH the surname.
+    if first == last and " " in first:
+        words_typed = first.split()
+        return words_typed[0], " ".join(words_typed[1:])
+    return first, last
 
 
 def _add_filed_given_names(name: str, first: str, given: list[str]) -> str:
