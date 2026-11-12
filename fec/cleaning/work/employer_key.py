@@ -25,8 +25,6 @@ def _strip_one_suffix(key: str, brand_length: int) -> str:
 def employer_text_key(name: str) -> str:
     """Ignore punctuation and suffixes when comparing employer text."""
     key = name.strip().upper()
-    if not key:
-        return ""
     key = re.sub(r"\.(COM|ORG|NET|IO|AI|US|EDU|GOV)\b", "", key)
     # & becomes AND, then AND drops; boundaries before whitespace collapse.
     key = re.sub(r"[&$]", " AND ", key)

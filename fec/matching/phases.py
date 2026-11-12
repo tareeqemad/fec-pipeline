@@ -35,27 +35,22 @@ class MatchContext:
     component_suffixes: dict
 
 
-def _can_merge_suffixes(context: MatchContext, profile_id_a: str, profile_id_b: str) -> bool:
-    suffixes_a = context.component_suffixes[context.union_find.find(profile_id_a)]
-    suffixes_b = context.component_suffixes[context.union_find.find(profile_id_b)]
-    if len(suffixes_a | suffixes_b) > 1:
-        return False
-    if bool(suffixes_a) != bool(suffixes_b):
-        return _share_street(context.profiles[profile_id_a], context.profiles[profile_id_b])
-    return True
-
-
 def _merge(context: MatchContext, profile_id_a: str, profile_id_b: str, score: int) -> None:
-    if (
-        score < MERGE_THRESHOLD
-        or not _can_merge_suffixes(context, profile_id_a, profile_id_b)
-        or identities_must_stay_separate(context.profiles[profile_id_a], context.profiles[profile_id_b])
-    ):
+    if score < MERGE_THRESHOLD:
         return
-    root_a = context.union_find.find(profile_id_a)
-    root_b = context.union_find.find(profile_id_b)
+    profile_a, profile_b = context.profiles[profile_id_a], context.profiles[profile_id_b]
+    root_a, root_b = context.union_find.find(profile_id_a), context.union_find.find(profile_id_b)
+    suffixes = context.component_suffixes[root_a] | context.component_suffixes[root_b]
+    if len(suffixes) > 1:
+        return
+    # A suffix on one side only (JR beside no suffix) joins only on a shared street.
+    one_sided = bool(context.component_suffixes[root_a]) != bool(context.component_suffixes[root_b])
+    if one_sided and not _share_street(profile_a, profile_b):
+        return
+    if identities_must_stay_separate(profile_a, profile_b):
+        return
     if context.union_find.union(profile_id_a, profile_id_b):
-        suffixes = context.component_suffixes.pop(root_a) | context.component_suffixes.pop(root_b)
+        del context.component_suffixes[root_a], context.component_suffixes[root_b]
         context.component_suffixes[context.union_find.find(profile_id_a)] = suffixes
 
 
@@ -63,8 +58,7 @@ def score_same_names(context: MatchContext) -> None:
     """Score all candidate pairs within each name group."""
     for profile_ids in context.name_groups.values():
         for profile_id_a, profile_id_b in combinations(profile_ids, 2):
-            profile_a = context.profiles[profile_id_a]
-            profile_b = context.profiles[profile_id_b]
+            profile_a, profile_b = context.profiles[profile_id_a], context.profiles[profile_id_b]
             evidence = compare_profiles(profile_a, profile_b, len(profile_ids))
             _merge(context, profile_id_a, profile_id_b, evidence.score)
 
@@ -109,9 +103,8 @@ def _score_bucket_pairs(
     for norm_names in buckets.values():
         for name_a, name_b in combinations(sorted(norm_names), 2):
             if names_match(name_a, name_b):
-                profile_ids_a = context.name_groups[name_a]
-                profile_ids_b = context.name_groups[name_b]
-                _score_group_pairs(context, profile_ids_a, profile_ids_b, profiles_match, adjust)
+                ids_a, ids_b = context.name_groups[name_a], context.name_groups[name_b]
+                _score_group_pairs(context, ids_a, ids_b, profiles_match, adjust)
 
 
 def _share_street(profile_a: dict, profile_b: dict) -> bool:
@@ -120,10 +113,6 @@ def _share_street(profile_a: dict, profile_b: dict) -> bool:
 
 def _share_zip5(profile_a: dict, profile_b: dict) -> bool:
     return len(profile_a["zip5"]) == 5 and profile_a["zip5"] == profile_b["zip5"]
-
-
-def _share_street_or_zip(profile_a: dict, profile_b: dict) -> bool:
-    return _share_street(profile_a, profile_b) or _share_zip5(profile_a, profile_b)
 
 
 def _share_street_or_zip_and_employer(profile_a: dict, profile_b: dict) -> bool:
@@ -151,7 +140,6 @@ def score_first_name_variants(context: MatchContext) -> None:
     }
 
     def are_candidates(name_a: str, name_b: str) -> bool:
-        """Return whether two names of one surname are cross-group candidates."""
         surname = name_a.split("|", 1)[0]
         return first_names_may_match(name_a, name_b, first_names_by_surname[surname])
 
@@ -191,13 +179,12 @@ def score_name_formats(context: MatchContext) -> None:
     seen = set()
     for profile_ids in buckets.values():
         for profile_id_a, profile_id_b in combinations(sorted(profile_ids), 2):
-            profile_a = context.profiles[profile_id_a]
-            profile_b = context.profiles[profile_id_b]
+            profile_a, profile_b = context.profiles[profile_id_a], context.profiles[profile_id_b]
             pair = (profile_id_a, profile_id_b)
             if profile_a["norm_name"] == profile_b["norm_name"] or pair in seen:
                 continue
             seen.add(pair)
-            if not _share_street_or_zip(profile_a, profile_b):
+            if not (_share_street(profile_a, profile_b) or _share_zip5(profile_a, profile_b)):
                 continue
             freq_a = len(context.name_groups[profile_a["norm_name"]])
             freq_b = len(context.name_groups[profile_b["norm_name"]])
@@ -207,8 +194,7 @@ def score_name_formats(context: MatchContext) -> None:
 
 
 def _index_superset_names(name_groups: dict) -> tuple[dict, dict, dict]:
-    tokens_of: dict = {}
-    first_tokens_of: dict = {}
+    tokens_of, first_tokens_of, names_with_token = {}, {}, defaultdict(set)
     for norm_name in name_groups:
         if "|" not in norm_name:
             continue
@@ -217,54 +203,29 @@ def _index_superset_names(name_groups: dict) -> tuple[dict, dict, dict]:
         if len(name_tokens) >= 2:
             tokens_of[norm_name] = name_tokens
             first_tokens_of[norm_name] = _long_tokens(first)
-
-    names_with_token: dict = defaultdict(set)
-    for norm_name, name_tokens in tokens_of.items():
-        for token in name_tokens:
-            names_with_token[token].add(norm_name)
+            for token in name_tokens:
+                names_with_token[token].add(norm_name)
     return tokens_of, first_tokens_of, names_with_token
 
 
-def _find_superset_candidates(tokens: frozenset, names_with_token: dict) -> set:
-    candidates = None
-    for token in tokens:
-        if candidates is None:
-            candidates = set(names_with_token[token])
-        else:
-            candidates = candidates & names_with_token[token]
-    return candidates
-
-
-def _is_valid_superset(
-    shorter_name: str,
-    longer_name: str,
-    shorter_tokens: frozenset,
-    tokens_of: dict,
-    first_tokens_of: dict,
-) -> bool:
+def _is_valid_superset(short_tokens: frozenset, long_tokens: frozenset, short_first_tokens: frozenset) -> bool:
     """Return whether the longer name adds up to two words to the shorter one and shares its first name."""
-    if longer_name == shorter_name:
+    if not short_tokens < long_tokens:
         return False
-    longer_tokens = tokens_of[longer_name]
-    if not shorter_tokens < longer_tokens:
-        return False
-    extra = longer_tokens - shorter_tokens
+    extra = long_tokens - short_tokens
     if len(extra) > 2 or extra <= GENERATION_SUFFIXES:
         return False
-    return bool(first_tokens_of[shorter_name] & longer_tokens)
+    return bool(short_first_tokens & long_tokens)
 
 
 def score_compound_surnames(context: MatchContext) -> None:
     """Short and compound surnames only on the same exact street."""
     tokens_of, first_tokens_of, names_with_token = _index_superset_names(context.name_groups)
     for short_name, short_tokens in tokens_of.items():
-        for long_name in _find_superset_candidates(short_tokens, names_with_token):
-            if not _is_valid_superset(short_name, long_name, short_tokens, tokens_of, first_tokens_of):
+        # The names holding every word of the short name, the short name itself included.
+        candidates = set.intersection(*(names_with_token[token] for token in short_tokens))
+        for long_name in candidates:
+            if not _is_valid_superset(short_tokens, tokens_of[long_name], first_tokens_of[short_name]):
                 continue
-            _score_group_pairs(
-                context,
-                context.name_groups[short_name],
-                context.name_groups[long_name],
-                _share_street,
-                _adjust_same_words_score,
-            )
+            short_ids, long_ids = context.name_groups[short_name], context.name_groups[long_name]
+            _score_group_pairs(context, short_ids, long_ids, _share_street, _adjust_same_words_score)

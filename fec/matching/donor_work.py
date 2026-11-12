@@ -39,11 +39,8 @@ def fill_occupation_from_donor(df: pd.DataFrame) -> None:
 
 def fill_status_employer(df: pd.DataFrame) -> None:
     """Write a status with no employer (RETIRED, HOMEMAKER) as the employer too; no company is inferred."""
-    status = (
-        df["contributor_occupation"]
-        .map(FINAL_EMPLOYER_FROM_OCCUPATION)
-        .fillna(df["occupation_category"].map(EMPLOYER_FROM_CATEGORY))
-    )
+    status = df["contributor_occupation"].map(FINAL_EMPLOYER_FROM_OCCUPATION)
+    status = status.fillna(df["occupation_category"].map(EMPLOYER_FROM_CATEGORY))
     fill = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].fillna("").eq("") & status.notna()
     df.loc[fill, "contributor_employer"] = status[fill]
 

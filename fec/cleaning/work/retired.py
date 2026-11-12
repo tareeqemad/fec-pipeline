@@ -20,31 +20,12 @@ _GLUED_RE = re.compile(r"^RETIRED([A-Z]{4,})$")
 # SEMI-RETIRED, MOSTLY RETIRED, NOW RETIRED: an optional word before the marker.
 _PARTLY = r"(?:(?:SEMI|MOSTLY|PARTIALLY|PARTLY|NOW)[\s-]?)?"
 
-# The marker at the start: "RETIRED FROM ACME", "(RETIRED) ACME", "RETIRED - ACME".
-_PREFIX_RE = re.compile(
-    rf"""
-    ^ \(?               # an optional opening bracket
-    {_PARTLY}
-    (?P<word>[A-Z]+)    # the word tested: RETIRED, a variant or a slip
-    \)?                 # an optional closing bracket
-    (?:\s+FROM\b)?      # RETIRED FROM
-    [\s,;:/()-]*        # the separators before the rest
-    """,
-    re.VERBOSE,
-)
-
-# The marker at the end: "ACME RETIRED", "PHYSICIAN, RETIRED", "DENTIST (RETIRED)".
-_SUFFIX_RE = re.compile(
-    rf"""
-    [\s,;:/(-]*         # the separators after the rest
-    \(? \s*             # an optional opening bracket
-    {_PARTLY}
-    (?P<word>[A-Z]+)    # the word tested: RETIRED, a variant or a slip
-    \s* \)?             # an optional closing bracket
-    \.? $               # an optional final period
-    """,
-    re.VERBOSE,
-)
+# The marker at the start, maybe in brackets, then FROM and the separators: "RETIRED FROM ACME", "(RETIRED) ACME",
+# "RETIRED - ACME". The word group is the word tested: RETIRED, a variant or a slip.
+_PREFIX_RE = re.compile(rf"^\(?{_PARTLY}(?P<word>[A-Z]+)\)?(?:\s+FROM\b)?[\s,;:/()-]*")
+# The separators, then the marker at the end, maybe in brackets: "ACME RETIRED", "PHYSICIAN, RETIRED",
+# "DENTIST (RETIRED)".
+_SUFFIX_RE = re.compile(rf"[\s,;:/(-]*\(?\s*{_PARTLY}(?P<word>[A-Z]+)\s*\)?\.?$")
 # Keep RETIRED when it ends a truncated organisation name.
 _NAME_BEFORE_RE = re.compile(r"\b(?:OF|FOR|THE|AND|&)$")
 # Parts of one occupation text: "OFFICE MANAGER, RETIRED NURSE", "VOLUNTEER (RETIRED ATTORNEY)"
@@ -61,10 +42,7 @@ def _is_retired_word(word: str) -> bool:
 
 def split_retired(value: object) -> tuple[bool, str]:
     """(retired, rest): whether the text says retired (at its start, end, or inside), and what else it names."""
-    upper = _to_plain_text(value)
-    if not upper:
-        return False, ""
-    upper = _GLUED_RE.sub(r"RETIRED \1", upper)
+    upper = _GLUED_RE.sub(r"RETIRED \1", _to_plain_text(value))
     return _retired_at_start(upper) or _retired_at_end(upper) or _retired_inside(upper)
 
 
@@ -153,8 +131,7 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
         and not employer_is_job
         and (level in COMPANY_LEVELS or (level == "unknown" and is_real_employer(employer_rest)))
     )
-    occupation_level = company_evidence_level(occupation_rest) if occupation_rest else ""
-    occupation_is_company = occupation_level in ("legal_form", "reviewed")
+    occupation_is_company = company_evidence_level(occupation_rest) in ("legal_form", "reviewed")
     # An employer box without the marker: a job word is the profession (PHYSICIAN / RETIRED);
     # a company stays for the donor step, which moves it to previous_employer.
     unmarked = bool(employer) and not employer_retired
@@ -166,11 +143,8 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
         or (employer_rest if employer_is_job else "")
         or (employer if unmarked_job else "")
     )
-    if employer_is_company:
-        company = employer_rest
-    elif occupation_is_company:
+    company = employer_rest if employer_is_company else ""
+    if occupation_is_company and not employer_is_company:
         company = occupation_rest
-    else:
-        company = ""
     keeps_employer = unmarked and not unmarked_job and is_real_employer(employer)
     return (employer if keeps_employer else "RETIRED"), profession or "RETIRED", company, True

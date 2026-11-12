@@ -188,7 +188,7 @@ def _get_initials(text: str) -> str:
     return "".join(word[0] for word in text.split())
 
 
-def _repeats_the_place(text: str, city: str, state: str, zipcode: str) -> bool:
+def _repeats_the_place(text: str, city: str, state: str) -> bool:
     # The city, state and ZIP again, often cut by the field: BALT MD, NEW, # LA, ANTA GA3034, FL USA.
     words = [word for word in re.sub(r"[#\d]", " ", text).split() if word not in ("USA", "US", state)]
     rest = " ".join(words)
@@ -236,7 +236,7 @@ def _read_unnamed_second_line(street_2: str) -> tuple[str, str]:
 
 def standard_street(street_1: str, street_2: str, city: str, state: str, zipcode: str) -> tuple[str, str]:
     """Return the two street lines in standard form: the street, then the unit."""
-    if street_2 and city and _repeats_the_place(_strip_punctuation(street_2), city, state, zipcode):
+    if street_2 and city and _repeats_the_place(_strip_punctuation(street_2), city, state):
         street_2 = ""
     # 4400 WEST 87TH TERRACE, 4400 WEST: the street typed twice
     words = _split_street_words(street_1)
@@ -281,8 +281,7 @@ def _is_shortening(short: str, full: str) -> bool:
 
 
 def _find_full_zip_names(zipcode: str) -> list[str]:
-    listed = [name for name in zip_place(zipcode[:5])[1] if set(name.split()[-1]) & set("AEIOUY")]
-    listed = [_spell_out_city(name) for name in listed]
+    listed = [_spell_out_city(name) for name in zip_place(zipcode[:5])[1] if set(name.split()[-1]) & set("AEIOUY")]
     # USPS lists its own short forms too (PARADISE VLY, SLC): only the full names are answers
     full_names = (
         name
@@ -315,9 +314,7 @@ def standard_city(city: str, zipcode: str) -> str:
         return slipped[0] if len(slipped) == 1 else full
     # SANTA for SANTA FE: cut short
     cut_short = [name for name in names if len(full) >= 5 and name.startswith(full + " ")]
-    if cut_short:
-        return cut_short[0] if len(cut_short) == 1 else full
-    return full
+    return cut_short[0] if len(cut_short) == 1 else full
 
 
 def standard_address(street_1: str, street_2: str, city: str, state: str, zipcode: str) -> tuple[str, ...]:
@@ -355,17 +352,14 @@ def standardize_addresses(df: pd.DataFrame) -> int:
     return int((before != df.loc[us_rows, columns].fillna("").astype(str)).any(axis=1).sum())
 
 
-def clear_own_name_street(df: pd.DataFrame) -> int:
+def clear_own_name_street(df: pd.DataFrame) -> None:
     """Street_1 that only repeats the donor's own name is no street."""
     street = df["contributor_street_1"].fillna("").astype(str).str.upper()
-    first = df["contributor_first_name"].fillna("").astype(str).str.strip().str.upper()
-    last = df["contributor_last_name"].fillna("").astype(str).str.strip().str.upper()
+    first, last = upper_text(df["contributor_first_name"]), upper_text(df["contributor_last_name"])
     is_name = (
         ((street == first) & (first.str.len() >= 3))
         | ((street == last) & (last.str.len() >= 3))
         | (street == first + " " + last)
         | (street == last + " " + first)
     )
-    if is_name.any():
-        df.loc[is_name, "contributor_street_1"] = np.nan
-    return int(is_name.sum())
+    df.loc[is_name, "contributor_street_1"] = np.nan

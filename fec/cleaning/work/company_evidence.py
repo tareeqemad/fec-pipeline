@@ -11,17 +11,9 @@ import pandas as pd
 
 from fec.cleaning.work.company_names import employer_rule_key, read_company_name_rules
 from fec.cleaning.work.employer_status import is_job_title, is_real_employer
-from fec.vocabulary.not_employers import (
-    JOB_TITLE_AS_EMPLOYER,
-    JOB_TITLE_HEADS,
-    JOB_TITLE_MODIFIERS,
-    NOT_REAL_EMPLOYER,
-    OCCUPATION_AS_EMPLOYER,
-    ROLE_AS_EMPLOYER,
-    SECTOR_AS_EMPLOYER,
-)
+from fec.vocabulary.not_employers import JOB_TITLE_HEADS, JOB_TITLE_MODIFIERS, NOT_REAL_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.vocabulary.occupations import KNOWN_COMPANY_OCCUPATIONS, OCCUPATION_CATEGORIES
-from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
+from fec.vocabulary.statuses import STATUS_WORDS
 from fec.vocabulary.tables import ordered_words, words
 
 COMPANY_LEVELS = frozenset(("legal_form", "reviewed", "frequent", "named_org"))
@@ -37,24 +29,16 @@ _LEGAL_TOKENS = words("legal_tokens")
 _WORDS_RE = re.compile(r"[A-Z0-9][A-Z0-9'&-]*")
 _PART_SPLIT_RE = re.compile(r"\s*(?:/|,|;| AND | & )\s*")
 
+# NOT_REAL_EMPLOYER holds the roles, occupations, titles, sectors and placeholders filed as employers.
 _JOB_WORDS = frozenset(
-    {text for text, category in OCCUPATION_CATEGORIES.items() if category != "OTHER"}
-    | ROLE_AS_EMPLOYER
-    | OCCUPATION_AS_EMPLOYER
-    | JOB_TITLE_AS_EMPLOYER
-    | SECTOR_AS_EMPLOYER
-    | STATUS_WORDS
-    | SKIP_EMPLOYERS
-    | SKIP_OCCUPATIONS
-    | NOT_REAL_EMPLOYER
+    {text for text, category in OCCUPATION_CATEGORIES.items() if category != "OTHER"} | STATUS_WORDS | NOT_REAL_EMPLOYER
 )
 
 
 def _read_reviewed_names() -> frozenset[str]:
     aliases, scoped = read_company_name_rules()
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
-    names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
-    names |= {canonical for _anchor, _cycle, _variant, canonical in scoped}
+    names |= {name for _anchor, _cycle, variant, canonical in scoped for name in (variant, canonical)}
     names |= {employer_rule_key(name) for name in names}
     return frozenset(names - _JOB_WORDS)
 

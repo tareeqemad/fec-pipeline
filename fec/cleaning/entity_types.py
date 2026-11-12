@@ -33,8 +33,7 @@ def attach_source_fields(df: pd.DataFrame, path: Path = FEC_SOURCE_CSV) -> None:
         source = pd.read_csv(path, dtype=str, keep_default_na=False).drop_duplicates("sub_id", keep="last")
     source = source.set_index("sub_id").reindex(df["sub_id"].astype(str).str.strip())
     for column in SOURCE_COLUMNS:
-        values = source[column] if column in source.columns else pd.Series("", index=source.index)
-        df[column] = values.fillna("").astype(str).str.strip().str.upper().to_numpy()
+        df[column] = source[column].fillna("").astype(str).str.strip().str.upper().to_numpy()
 
 
 def is_committee_name(name: str) -> bool:
@@ -81,11 +80,8 @@ def classify_entities(df: pd.DataFrame) -> None:
     trusted = flagged & name_boxes.ne("").all(axis=1)
     written_as_person = names.str.match(INDIV_NAME_RE)
     person = ~committee & np.where(written_as_person, trusted | ~certain, trusted & ~company)
-    kind = pd.Series(
-        np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC"),
-        index=df.index,
-    )
-    _set_types(df, _apply_fec_types(df, names, kind))
+    kind = np.select([person, ~committee & company], ["INDIVIDUAL", "ORGANIZATION"], "COMMITTEE/PAC")
+    _set_types(df, _apply_fec_types(df, names, pd.Series(kind, index=df.index)))
 
 
 def _set_types(df: pd.DataFrame, kind: pd.Series) -> None:
@@ -97,10 +93,7 @@ def _set_types(df: pd.DataFrame, kind: pd.Series) -> None:
 
 def read_entity_overrides() -> dict[str, str]:
     """Reviewed contributor name -> entity type (entity_overrides.csv)."""
-    path = RULES_DIR / "entity_overrides.csv"
-    if not path.exists():
-        return {}
-    rows = pd.read_csv(path, dtype=str, keep_default_na=False)
+    rows = pd.read_csv(RULES_DIR / "entity_overrides.csv", dtype=str, keep_default_na=False)
     return dict(zip(rows["contributor_name"].str.strip().str.upper(), rows["entity_type"].str.strip().str.upper()))
 
 

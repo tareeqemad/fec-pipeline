@@ -16,8 +16,6 @@ Steps, in order:
         5. canonicalize_committee_names
 """
 
-from __future__ import annotations
-
 import re
 
 import numpy as np
@@ -50,6 +48,8 @@ from fec.matching.matcher import match_donors
 logger = get_logger(__name__)
 # The region before or after POLITICAL NETWORK.
 _NETWORK_NAME_RE = re.compile(r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL NETWORK)$", re.IGNORECASE)
+# What only a person has: a committee or an organisation leaves them empty.
+_PERSON_COLUMNS = ["contributor_first_name", "contributor_last_name", "contributor_employer"]
 
 
 def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) -> pd.DataFrame:
@@ -98,9 +98,7 @@ def standardize_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
     apply_filing_corrections(df, matched=True)
     canonicalize_committee_names(df)
 
-    # Committees and organisations have no person name or employer.
-    other = df["entity_type"].ne("INDIVIDUAL")
-    df.loc[other, ["contributor_first_name", "contributor_last_name", "contributor_employer"]] = np.nan
+    df.loc[df["entity_type"].ne("INDIVIDUAL"), _PERSON_COLUMNS] = np.nan
     df.loc[matched_keys.index, "donor_key"] = matched_keys
     return df
 
@@ -121,19 +119,8 @@ def _separate_network_filings(df: pd.DataFrame) -> None:
     rows = df.index[df["entity_type"].eq("INDIVIDUAL") & region.notna()]
     network_names = region[rows].str.strip().str.upper() + " POLITICAL NETWORK"
     df.loc[rows, "contributor_name"] = network_names
-    df.loc[rows, ["entity_type", "is_individual", "occupation_category", "identity_status"]] = [
-        "ORGANIZATION",
-        False,
-        "ORGANIZATION",
-        "unresolved",
-    ]
-    person_columns = [
-        "contributor_first_name",
-        "contributor_last_name",
-        "contributor_employer",
-        "contributor_occupation",
-        "previous_employer",
-    ]
-    df.loc[rows, person_columns] = np.nan
+    df.loc[rows, ["entity_type", "is_individual", "occupation_category"]] = ["ORGANIZATION", False, "ORGANIZATION"]
+    df.loc[rows, "identity_status"] = "unresolved"
+    df.loc[rows, [*_PERSON_COLUMNS, "contributor_occupation", "previous_employer"]] = np.nan
     filing_names = network_names + " " + df.loc[rows, "sub_id"].astype(str)
     df.loc[rows, "donor_key"] = filing_names.map(non_individual_donor_key)

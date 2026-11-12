@@ -46,14 +46,14 @@ cleaning step. A name starting with `_` stays inside its file.
 
 ## State on 2026-11-11
 
-Lines of Python: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) about 5,540; database 928;
-geocoding 378; common 335; pull 328; resolve 135. The owner's target for the cleaning stage is 4,000; it is not
-reached. Options measured but not done: drop the duplicate review report (about 150 lines, no data effect), turn
-the typo learning into a reviewed table (about 180 lines), turn nine small steps into rows of
-`filing_corrections.csv` (about 170 lines). The last two stop fixing new filings automatically.
+Lines of Python on 2026-11-12: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,994, under
+the owner's target of 4,000; database 928; geocoding 378; common 335; pull 328; resolve 139. The cut from 5,623
+changed no output: word lists moved to `data/config`, the duplicate review report (read by nothing) was removed.
+Options still measured but not done: turn the typo learning into a reviewed table (about 180 lines), turn nine
+small steps into rows of `filing_corrections.csv` (about 170 lines). Both stop fixing new filings automatically.
 
-A fresh clone of `main` runs steps 2 to 5 and reproduces the committed output exactly (222,603 filings, 20,024
-donor groups, 66 tests).
+A fresh clone of `main` runs steps 2 to 5 and reproduces the committed output exactly (222,603 filings, 20,013
+donor groups, 67 tests).
 
 ### First real run on the owner's machine: what to watch
 

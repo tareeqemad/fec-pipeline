@@ -78,17 +78,11 @@ def is_real_employer(employer: object) -> bool:
 
 def classify_employer_status(employer: object, occupation: object = "", category: object = "") -> str:
     """Classify work status without changing the reported company."""
-    employer_text = _read_status_text(employer)
-    occupation_text = _read_status_text(occupation)
-    category_text = _read_status_text(category)
+    employer_text, occupation_text, category_text = map(_read_status_text, (employer, occupation, category))
     if employer_text == "RETIRED":
         return "retired"
-    no_work = (
-        employer_text in _NO_WORK_OCCUPATIONS
-        or category_text in _NO_WORK_CATEGORIES
-        or occupation_text in _NO_WORK_OCCUPATIONS
-    )
-    if no_work:
+    no_work = employer_text in _NO_WORK_OCCUPATIONS or occupation_text in _NO_WORK_OCCUPATIONS
+    if no_work or category_text in _NO_WORK_CATEGORIES:
         return "not_employed"
     if employer_text in {"SELF-EMPLOYED", "SELF EMPLOYED"} or category_text == "SELF-EMPLOYED":
         return "self_employed"
@@ -97,11 +91,8 @@ def classify_employer_status(employer: object, occupation: object = "", category
 
 def classify_employer_statuses(df: pd.DataFrame) -> pd.Series:
     """Classify every row in a frame."""
-    blank = pd.Series("", index=df.index)
-    employers = df.get("contributor_employer", blank)
-    occupations = df.get("contributor_occupation", blank)
-    categories = df.get("occupation_category", blank)
-    statuses = [classify_employer_status(*work) for work in zip(employers, occupations, categories)]
+    work = zip(df["contributor_employer"], df["contributor_occupation"], df["occupation_category"])
+    statuses = [classify_employer_status(*fields) for fields in work]
     return pd.Series(statuses, index=df.index)
 
 
@@ -115,11 +106,8 @@ def current_employer_name(status: object, employer: object) -> str:
 def referenced_employers(df: pd.DataFrame) -> set[str]:
     """Companies the final database must contain."""
     rows = df[df["entity_type"].eq("INDIVIDUAL")]
-    names: set[str] = set()
-    for status, employer in rows[["employer_status", "contributor_employer"]].itertuples(index=False):
-        current = current_employer_name(status, employer)
-        if current:
-            names.add(current)
+    work = rows[["employer_status", "contributor_employer"]].itertuples(index=False)
+    names = {current_employer_name(status, employer) for status, employer in work} - {""}
     retired = rows[rows["employer_status"].eq("retired")]["previous_employer"]
     names.update(str(name).strip() for name in retired if is_real_employer(name))
     return names

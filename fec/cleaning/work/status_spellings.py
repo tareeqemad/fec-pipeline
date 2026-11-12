@@ -44,9 +44,7 @@ def status_word(text: object) -> str | None:
 def extend_spellings(df: pd.DataFrame) -> int:
     """Read the filed work fields once; add the status slips to the spelling maps."""
     learnt = {}
-    for value in set(pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna()):
-        if not isinstance(value, str):
-            continue
+    for value in set(pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna().astype(str)):
         plain = " ".join(value.upper().split())
         status = status_word(plain)
         if not status:

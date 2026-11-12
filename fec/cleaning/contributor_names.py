@@ -29,11 +29,8 @@ def _read_first_name_rule(number: int, raw: str, corrected: str, zip_field: str)
 
 
 def _add_name_rule(rules: dict[str, dict], number: int, row: dict[str, str]) -> None:
-    rule_type = (row.get("rule_type") or "").strip()
-    raw = (row.get("raw_value") or "").strip()
-    corrected = (row.get("corrected_value") or "").strip()
-    source = (row.get("source") or "").strip()
-    zip_field = (row.get("zip5") or "").strip()
+    columns = ("rule_type", "raw_value", "corrected_value", "source", "zip5")
+    rule_type, raw, corrected, source, zip_field = ((row.get(column) or "").strip() for column in columns)
     if rule_type not in RULE_TYPES:
         raise ValueError(f"Invalid name rule type on row {number}: {rule_type}")
     if not raw or not corrected or not source:
@@ -86,8 +83,7 @@ def preclean_name_punctuation(df: pd.DataFrame) -> None:
     df["contributor_first_name"] = (
         df["contributor_first_name"]
         .astype("string")
-        .str.replace("`", "", regex=False)
-        .str.replace(";", "", regex=False)
+        .str.replace("[`;]", "", regex=True)
         .str.replace(r"^\.+\s*", "", regex=True)
         .str.strip()
         .replace("", pd.NA)
@@ -146,12 +142,8 @@ def _drop_endings(last: str) -> str:
     # A generation or a credential after the surname: JR, III, MD. One word always stays.
     # IV and V count only when the surname box has a comma: SMITH, IV.
     family = last.replace(",", " ").split()
-    while len(family) > 1:
-        ending = family[-1]
-        if _strip_periods(ending) in _ENDINGS or ("," in last and ending in ("IV", "V")):
-            family.pop()
-        else:
-            break
+    while len(family) > 1 and (_strip_periods(family[-1]) in _ENDINGS or ("," in last and family[-1] in ("IV", "V"))):
+        family.pop()
     return " ".join(family)
 
 
@@ -203,8 +195,6 @@ def _fix_garbled_first_names(df: pd.DataFrame, people: pd.Index) -> None:
     for row in rows:
         word, _, rest = first.at[row].partition(" ")
         last = df.at[row, "contributor_last_name"]
-        if not isinstance(last, str):
-            continue
         fixed = _RULES["first_name"].get((last, word, zip5.at[row]))
         if fixed:
             df.at[row, "contributor_first_name"] = f"{fixed} {rest}".strip()

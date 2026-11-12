@@ -106,11 +106,9 @@ def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset)
 
 
 def _drop_cut_surname(given: str, surname: str) -> str:
-    if " " not in given:
-        return given
-    last_word = given.split()[-1]
-    if len(last_word) >= len(surname) - 2 and surname.startswith(last_word):
-        return given.rsplit(" ", 1)[0]
+    head, _, last_word = given.rpartition(" ")
+    if head and len(last_word) >= len(surname) - 2 and surname.startswith(last_word):
+        return head
     return given
 
 

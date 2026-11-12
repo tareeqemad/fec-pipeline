@@ -24,10 +24,10 @@ def clean_addresses(df: pd.DataFrame) -> pd.DataFrame:
     standardize_addresses(df)
     clear_own_name_street(df)
     _clean_zips(df)
-    apply_address_rules(df, city_only=False, warn_unused=True)
+    apply_address_rules(df, city_only=False)
     for align in ALIGN_STEPS:
         align(df)
-    apply_address_rules(df, city_only=True, warn_unused=True)
+    apply_address_rules(df, city_only=True)
     return df
 
 

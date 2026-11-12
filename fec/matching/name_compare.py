@@ -23,11 +23,9 @@ _COMM_SUFFIXES_RE = re.compile(r"\b(?:REP|SEN|MR|MRS|MS|DR|JR|SR|HON|HONORABLE)\
 
 def extract_generational_suffix(name: str) -> str:
     """Return a JR/SR/roman suffix from either side of the comma."""
-    text = str(name or "").strip().upper()
-    last, comma, first = text.partition(",")
-    parts = (last, first) if comma else (text,)
+    last, _, first = str(name or "").strip().upper().partition(",")
     found = set()
-    for part in parts:
+    for part in (last, first):
         tokens = _NAME_TOKEN_RE.findall(part)
         if tokens and tokens[-1] in GENERATION_SUFFIXES:
             found.add(tokens[-1])
@@ -75,11 +73,10 @@ def normalize_employer(employer: str) -> str:
 
 def normalize_committee_name(name: str) -> str:
     """Normalize a committee contributor name to ORG|FIRST for deduplication."""
-    name = str(name or "").strip().upper()
-    if "," not in name:
-        return name.replace(".", "").replace(" ", "").strip()
-    org, person = name.split(",", 1)
+    org, comma, person = str(name or "").strip().upper().partition(",")
     org = org.replace(".", "").replace(" ", "").strip()
+    if not comma:
+        return org
     person_words = _COMM_SUFFIXES_RE.sub("", person).replace(".", "").split()
     first = person_words[0] if person_words else ""
     return f"{org}|{first}"

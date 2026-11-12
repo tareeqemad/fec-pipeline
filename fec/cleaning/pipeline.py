@@ -30,12 +30,12 @@ import pandas as pd
 from fec.cleaning.addresses.foreign_addresses import restore_foreign_addresses, snapshot_foreign_addresses
 from fec.cleaning.addresses.pipeline import clean_addresses
 from fec.cleaning.contributor_names import apply_name_corrections, clean_names, preclean_name_punctuation
-from fec.cleaning.entity_types import attach_source_fields, classify_entities, normalize_business_names
+from fec.cleaning.entity_types import SOURCE_COLUMNS, attach_source_fields, classify_entities, normalize_business_names
 from fec.cleaning.filing_corrections import apply_filing_corrections
 from fec.cleaning.quality_gates import run_quality_gates
 from fec.cleaning.work.occupation_typos import extend_corrections
 from fec.cleaning.work.status_spellings import extend_spellings
-from fec.cleaning.work.text_cleanup import EMPLOYER_STATUS_TEXT, clean_box_text
+from fec.cleaning.work.text_cleanup import clean_box_text
 from fec.cleaning.work.work_fields import read_work
 from fec.common import settings as env
 from fec.common.columns import CLEAN_COLUMNS
@@ -46,13 +46,12 @@ from fec.common.settings import CLEANED_CSV, DONOR_KEYS_CSV, RAW_CSV, REPORTS_DI
 from fec.matching.donor_work import recategorize_occupations
 from fec.matching.name_compare import extract_generational_suffix
 from fec.matching.pipeline import identify_donors, standardize_donors
-from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_CATEGORIES
+from fec.vocabulary.occupations import OCCUPATION_CATEGORIES
 
 logger = get_logger(__name__)
 
 # Read while cleaning and matching, never written: FEC's own type and id, and what the filed name and work said.
-_WORKING_COLUMNS = ("fec_entity_type", "fec_contributor_id", "fec_image_number")
-_WORKING_COLUMNS += ("_generational_suffix", "_retired_marker")
+_WORKING_COLUMNS = (*SOURCE_COLUMNS, "_generational_suffix", "_retired_marker")
 
 
 def clean_and_match(df: pd.DataFrame, earlier_keys: dict | None = None) -> pd.DataFrame:
@@ -83,9 +82,6 @@ def clean_records(df: pd.DataFrame) -> pd.DataFrame:
     df["is_individual"] = df["entity_type"].eq("INDIVIDUAL")
     normalize_business_names(df)
     read_work(df, df["is_individual"], filed_employers, filed_occupations)
-    df.loc[df["entity_type"].eq("COMMITTEE/PAC") & df["occupation_category"].isna(), "occupation_category"] = (
-        "POLITICAL COMMITTEE"
-    )
     apply_filing_corrections(df)
     # Donors are matched on the category of the occupation as it now reads.
     recategorize_occupations(df)
@@ -122,9 +118,7 @@ def _clean_people(df: pd.DataFrame) -> pd.DataFrame:
     preclean_name_punctuation(df)
     people = df["is_individual"].astype(bool)
     # The type is read from the employer as spelled; the work fields are read once the type is known.
-    df.loc[people, "contributor_employer"] = clean_box_text(
-        df.loc[people, "contributor_employer"], EMPLOYER_NORMALIZE, digits_only_before=EMPLOYER_STATUS_TEXT
-    )
+    df.loc[people, "contributor_employer"] = clean_box_text(df.loc[people, "contributor_employer"], employer=True)
     df.loc[~people, ["contributor_occupation", "occupation_category"]] = [np.nan, "POLITICAL COMMITTEE"]
     classify_entities(df)
     clean_names(df)
@@ -137,8 +131,6 @@ def main() -> pd.DataFrame:
     start = time.perf_counter()
     env.load_env()
     out_dir = str(REPORTS_DIR)
-    for folder in (out_dir, CLEANED_CSV.parent):
-        os.makedirs(folder, exist_ok=True)
     df = read_pipeline_csv(RAW_CSV)
     logger.info("Reading: %s (%s rows)", os.path.relpath(RAW_CSV, env.PROJECT_ROOT), f"{len(df):,}")
     cleaned = clean_and_match(df, earlier_keys=_read_earlier_donor_keys())

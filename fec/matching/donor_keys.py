@@ -23,11 +23,11 @@ def _short_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
-def individual_record_id(name: object, city: object, state: object, suffix: object = "", zip5: object = "") -> str:
+def individual_record_id(name: object, city: object, state: object, suffix: object, zip5: str) -> str:
     """Individual record ID for matching; ZIP5 only for split names."""
     # Missing cells must not become literal "nan".
-    name, city, state, suffix, zip5 = ("" if pd.isna(value) else value for value in (name, city, state, suffix, zip5))
-    base = f"{name or ''}|{city or ''}|{state or ''}"
+    name, city, state, suffix = ("" if pd.isna(value) else value for value in (name, city, state, suffix))
+    base = f"{name}|{city}|{state}"
     if zip5:
         base = f"{base}|@{zip5}"
     return f"{base}|{suffix}" if suffix else base
@@ -64,12 +64,9 @@ def apply_donor_key(df: pd.DataFrame, profile_keys: dict) -> None:
 def keep_earlier_keys(df: pd.DataFrame, earlier: dict, skip: pd.Series | None = None) -> list[str]:
     """Give new keys their earlier names (skip: held filings claim none); return earlier keys left unused."""
     people = df["entity_type"].eq("INDIVIDUAL") & ~(False if skip is None else skip)
-    pairs = pd.DataFrame(
-        {
-            "new": df.loc[people, "donor_key"],
-            "old": df.loc[people, "sub_id"].astype(str).map(earlier),
-        }
-    ).dropna()
+    new_keys = df.loc[people, "donor_key"]
+    old_keys = df.loc[people, "sub_id"].astype(str).map(earlier)
+    pairs = pd.DataFrame({"new": new_keys, "old": old_keys}).dropna()
     counts = pairs.groupby(["old", "new"]).size().reset_index(name="rows")
     counts = counts.sort_values(["rows", "old", "new"], ascending=[False, True, True])
     rename, taken = {}, set()
@@ -78,10 +75,10 @@ def keep_earlier_keys(df: pd.DataFrame, earlier: dict, skip: pd.Series | None = 
             rename[new] = old
             taken.add(old)
     # A new key must not land on an earlier key now held by someone else.
-    for new in set(df.loc[people, "donor_key"]) - set(rename):
+    for new in set(new_keys) - set(rename):
         if new in taken:
             rename[new] = _short_hash(f"split|{new}")
-    df.loc[people, "donor_key"] = df.loc[people, "donor_key"].map(lambda key: rename.get(key, key))
+    df.loc[people, "donor_key"] = new_keys.map(lambda key: rename.get(key, key))
     return sorted(set(pairs["old"]) - taken)
 
 
@@ -113,13 +110,8 @@ def validate_separations(df: pd.DataFrame) -> None:
     profiles = df.loc[df["entity_type"].eq("INDIVIDUAL"), columns].drop_duplicates()
     for donor_key, group in profiles.groupby("donor_key"):
         people = [
-            {
-                "name": row.contributor_name,
-                "city": row.contributor_city,
-                "state": row.contributor_state,
-                "zip5": str(row.contributor_zip or "")[:5],
-            }
-            for row in group.itertuples(index=False)
+            {"name": name, "city": city, "state": state, "zip5": str(zip_code or "")[:5]}
+            for _, name, city, state, zip_code in group.itertuples(index=False)
         ]
         for person_a, person_b in combinations(people, 2):
             if identities_must_stay_separate(person_a, person_b):

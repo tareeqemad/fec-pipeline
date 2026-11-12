@@ -33,15 +33,8 @@ class Evidence(NamedTuple):
     """Hold a pair's match score and which shared facts support it."""
 
     score: int
-    street: bool = False
-    zip5: bool = False
-    employer: bool = False
+    anchored: bool  # a shared street, ZIP or employer stands behind the score
     middle_conflict: bool = False
-
-    @property
-    def anchored(self) -> bool:
-        """A shared street, ZIP or employer stands behind the score."""
-        return self.street or self.zip5 or self.employer
 
 
 def _score_middle_names(middle_a: str, middle_b: str) -> int:
@@ -79,6 +72,7 @@ def compare_profiles(profile_a: dict, profile_b: dict, name_freq: int) -> Eviden
     zip5 = both_zips and zip_a == zip_b
     zip3 = both_zips and not zip5 and zip_a[:3] == zip_b[:3]
     has_geo = street or state or zip5 or zip3
+    anchored = street or zip5 or employer
     score = (
         street * SCORE_SAME_STREET
         + employer * SCORE_SAME_EMPLOYER
@@ -99,7 +93,7 @@ def compare_profiles(profile_a: dict, profile_b: dict, name_freq: int) -> Eviden
     if filed_name_words(profile_a["name"]) != filed_name_words(profile_b["name"]):
         middle = _score_middle_names(profile_a["middle"], profile_b["middle"])
         if middle == BLOCKED:
-            return Evidence(BLOCKED, street, zip5, employer)
+            return Evidence(BLOCKED, anchored)
         score += middle
 
     if name_freq <= 3:
@@ -112,4 +106,4 @@ def compare_profiles(profile_a: dict, profile_b: dict, name_freq: int) -> Eviden
 
     if not has_geo:
         score = _limit_without_geography(score, employer, name_freq)
-    return Evidence(score, street, zip5, employer, middle == SCORE_MIDDLE_CONFLICT)
+    return Evidence(score, anchored, middle == SCORE_MIDDLE_CONFLICT)

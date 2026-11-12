@@ -17,11 +17,8 @@ def employer_rule_key(name: object) -> str:
 
 
 def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str]:
-    variant = (row.get("variant") or "").strip().upper()
-    canonical = (row.get("canonical") or "").strip().upper()
-    source = (row.get("source") or "").strip()
-    anchor = (row.get("anchor_sub_id") or "").strip()
-    cycle = (row.get("cycle") or "").strip()
+    variant, canonical = ((row.get(column) or "").strip().upper() for column in ("variant", "canonical"))
+    source, anchor, cycle = ((row.get(column) or "").strip() for column in ("source", "anchor_sub_id", "cycle"))
     action = (row.get("action") or "rename").strip()
     if not variant or not canonical or not source or action != "rename":
         raise ValueError(f"Invalid employer rule on row {number}")
@@ -82,9 +79,7 @@ def documented_employer_name(name: object) -> str | None:
 def _scoped_employer_rules(df: pd.DataFrame) -> dict:
     # Resolve evidence to its current donor; never match by company.
     confirmed = df["entity_type"].eq("INDIVIDUAL") & df["identity_status"].eq("confirmed")
-    anchors = df.loc[confirmed, ["sub_id", "donor_key"]].copy()
-    anchors["sub_id"] = anchors["sub_id"].astype(str)
-    anchors = anchors.set_index("sub_id")["donor_key"].to_dict()
+    anchors = dict(zip(df.loc[confirmed, "sub_id"].astype(str), df.loc[confirmed, "donor_key"]))
     rules = {}
     for anchor, cycle, variant, canonical in _SCOPED_RULES:
         donor = anchors.get(anchor)
@@ -133,14 +128,11 @@ def canonicalize_current_employers(df: pd.DataFrame) -> int:
     donors = df.loc[rows, "donor_key"].fillna("").astype(str)
     cycles = df.loc[rows, "two_year_transaction_period"].fillna("").astype(str)
     confirmed = df.loc[rows, "identity_status"].eq("confirmed")
-    names = pd.Series(
-        [
-            reviewed_employer_name(value, donor, cycle, scoped if known else None)
-            for value, donor, cycle, known in zip(values, donors, cycles, confirmed)
-        ],
-        index=rows,
-        dtype=object,
-    )
+    filings = zip(values, donors, cycles, confirmed)
+    names = [
+        reviewed_employer_name(text, donor, cycle, scoped if known else None) for text, donor, cycle, known in filings
+    ]
+    names = pd.Series(names, index=rows, dtype=object)
     different = names.ne(values)
     df.loc[rows[different], "contributor_employer"] = names[different]
     return int(different.sum())

@@ -44,8 +44,7 @@ def _find_status_differs(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_previous_employer_not_retired(df: pd.DataFrame) -> pd.Series:
-    has_previous = _read_text(df, "previous_employer").ne("")
-    return has_previous & _read_text(df, "employer_status").ne("retired")
+    return _read_text(df, "previous_employer").ne("") & _read_text(df, "employer_status").ne("retired")
 
 
 def _find_not_an_employer(df: pd.DataFrame) -> pd.Series:
@@ -75,9 +74,8 @@ def _find_email_street(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_odd_name_characters(df: pd.DataFrame) -> pd.Series:
-    first = _read_text(df, "contributor_first_name").str.contains(r"[`;\[\]@]")
-    last = _read_text(df, "contributor_last_name").str.contains(r"[`;\[\]@]")
-    return first | last
+    names = _read_text(df, "contributor_first_name") + " " + _read_text(df, "contributor_last_name")
+    return names.str.contains(r"[`;\[\]@]")
 
 
 def _find_retired_but_active(df: pd.DataFrame) -> pd.Series:

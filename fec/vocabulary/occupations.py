@@ -1,12 +1,11 @@
 """Occupation and employer spellings, the categories in use, and cross-field rules."""
 
 from fec.common.settings import OCCUPATION_CATEGORIES_CSV
-from fec.vocabulary.not_employers import OCCUPATION_AS_EMPLOYER as _OCCUPATION_AS_EMPLOYER
 from fec.vocabulary.statuses import REFUSAL_EMPLOYERS as _REFUSAL_EMPLOYERS
 from fec.vocabulary.tables import CONFIG_DIR, read_map, read_rows, read_set, words
 
 _nan = float("nan")
-# No HOMEMAKER: _deep_clean_employer fixes it with occupation.
+# No HOMEMAKER: the work fields read it with the occupation (HOMEMAKER_EMPLOYER_VALUES).
 EMPLOYER_NORMALIZE = read_map(CONFIG_DIR / "employer_spellings.csv")
 # Occupation corrections: a filed spelling, abbreviation or typo and the occupation it means; [CLEAR] marks a
 # placeholder that means no occupation. Applied when the text is first read and after each step that can expose one.
@@ -34,11 +33,11 @@ EMPLOYER_FROM_CATEGORY = {
     category: FINAL_EMPLOYER_FROM_OCCUPATION[category]
     for category in ("RETIRED", "NOT EMPLOYED", "HOMEMAKER", "STUDENT", "SELF-EMPLOYED")
 }
-SWAP_JOB_TITLES = _OCCUPATION_AS_EMPLOYER | words("swap_job_titles_own")
-OCCUPATION_KEYWORDS = _OCCUPATION_AS_EMPLOYER | words("occupation_keywords_own")
+# Jobs filed as the employer, besides the occupations, that swap with a company filed as the occupation.
+SWAP_JOB_TITLES = words("swap_job_titles_own") | words("occupation_keywords_own")
 FINAL_SHORT_OCCUPATIONS = words("final_short_occupations")
-FINAL_JUNK_EMPLOYERS = words("final_junk_employers")
-FINAL_NULL_EMPLOYERS = _REFUSAL_EMPLOYERS | words("final_null_employers_own")
+# Employer boxes that name nothing: junk and refusals.
+PLACEHOLDER_EMPLOYERS = _REFUSAL_EMPLOYERS | words("final_junk_employers") | words("final_null_employers_own")
 WEB_ARTIFACT_OCCUPATIONS = words("web_artifact_occupations")
 KNOWN_COMPANY_OCCUPATIONS = words("known_company_occupations")
 HOMEMAKER_EMPLOYER_VALUES = words("homemaker_employer_values")

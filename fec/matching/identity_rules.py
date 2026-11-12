@@ -47,8 +47,6 @@ def _is_valid_rule(action: str, row: dict) -> bool:
 
 
 def _read_identity_rules() -> dict[str, list[dict]]:
-    if not RULES_PATH.exists():
-        raise FileNotFoundError(f"Missing donor identity rules: {RULES_PATH}")
     by_action = {action: [] for action in REQUIRED_FIELDS}
     with RULES_PATH.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
@@ -62,9 +60,7 @@ def _read_identity_rules() -> dict[str, list[dict]]:
     return by_action
 
 
-def _load_separations(
-    rows: list[dict],
-) -> tuple[set[frozenset[str]], set[frozenset[str]], frozenset[str]]:
+def _load_separations(rows: list[dict]) -> tuple[set[frozenset[str]], set[frozenset[str]], frozenset[str]]:
     separations = [
         (
             _normalize(row["name_a"]),
@@ -87,9 +83,7 @@ def _load_separations(
         if not all(place_a + place_b):
             name_pairs.add(frozenset((name_a, name_b)))
             continue
-        by_zip = all(zips) and {name_a, name_b} <= zip_names
-        zip_a = zips[0] if by_zip else ""
-        zip_b = zips[1] if by_zip else ""
+        zip_a, zip_b = zips if all(zips) and {name_a, name_b} <= zip_names else ("", "")
         identity_a = _build_identity(name_a, *place_a, zip_a)
         identity_b = _build_identity(name_b, *place_b, zip_b)
         identity_pairs.add(frozenset((identity_a, identity_b)))

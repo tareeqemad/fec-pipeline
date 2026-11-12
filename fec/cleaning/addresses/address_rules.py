@@ -52,7 +52,7 @@ def _find_rule_filings(df: pd.DataFrame, rule: tuple, sub_ids: pd.Series) -> pd.
     return mask
 
 
-def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False, warn_unused: bool = False) -> int:
+def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False) -> int:
     """Apply the rules in file order and return the filings changed.
 
     A rule that only sets the city runs again after the alignment steps (city_only), which may change the city.
@@ -78,6 +78,6 @@ def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False, warn_unuse
             if value:
                 df.loc[mask, column] = pd.NA if value == CLEAR else value
     # A rule that matches nothing is mistyped or no longer needed.
-    if warn_unused and unused:
+    if unused:
         logger.warning("WARNING: %s address rules matched no filing: %s", len(unused), "; ".join(unused[:5]))
     return int(df[columns].fillna("").ne(before).any(axis=1).sum())

@@ -69,18 +69,14 @@ def zip_place(zipcode: str) -> tuple[str, tuple[str, ...]]:
 
 def unify_state(df: pd.DataFrame) -> None:
     """One person's city under two states: the state filed less is a slip."""
-    name, city, state = (
-        _read_text(df, column) for column in ("contributor_name", "contributor_city", "contributor_state")
-    )
+    name, city, state = (_read_text(df, f"contributor_{field}") for field in ("name", "city", "state"))
     eligible = df["entity_type"].eq("INDIVIDUAL") & name.ne("") & city.ne("") & state.ne("")
     unify(df, "contributor_state", _build_key(df, name, city), eligible)
 
 
 def settle_state_and_zip(df: pd.DataFrame) -> None:
     """Settle a ZIP of another state: the state is wrong when the city belongs to the ZIP, else the ZIP is."""
-    zips, states, cities = (
-        _read_text(df, column) for column in ("contributor_zip", "contributor_state", "contributor_city")
-    )
+    zips, states, cities = (_read_text(df, f"contributor_{field}") for field in ("zip", "state", "city"))
     place = zips.map(zip_place)
     zip_state = place.str[0]
     conflict = zips.ne("") & states.ne("") & zip_state.ne("") & zip_state.ne(states)
@@ -133,11 +129,9 @@ def unify_units(df: pd.DataFrame, donor: str = "contributor_name") -> None:
     core = unit.map(unit_core)
     people = df["entity_type"].eq("INDIVIDUAL") & _read_text(df, donor).ne("")
     eligible = people & _read_text(df, "contributor_street_1").ne("") & core.ne("")
-    place = (
-        ("contributor_street_1", "contributor_zip")
-        if donor == "donor_key"
-        else ("contributor_street_1", "contributor_city", "contributor_state", "contributor_zip")
-    )
+    place = ("contributor_street_1", "contributor_city", "contributor_state", "contributor_zip")
+    if donor == "donor_key":
+        place = ("contributor_street_1", "contributor_zip")
     unify(df, "contributor_street_2", _build_key(df, donor, *place, core), eligible & unit.ne(""))
 
 
@@ -166,8 +160,7 @@ def _set_city_most_filed(df: pd.DataFrame, key: pd.Series, eligible: pd.Series) 
     everyone, own = pairs.groupby(["city", "zip"]).size(), pairs.groupby(["key", "city", "zip"]).size()
     places = zip(key, top_city.fillna(""), zips)
     others = [everyone.get((city, zipcode), 0) - own.get((donor, city, zipcode), 0) for donor, city, zipcode in places]
-    others = pd.Series(others, index=df.index)
-    keep = cities.ne("") & zips.ne("") & others.eq(0)
+    keep = cities.ne("") & zips.ne("") & pd.Series(others, index=df.index).eq(0)
     df.loc[fewer & ~keep, "contributor_city"] = top_city[fewer & ~keep]
 
 

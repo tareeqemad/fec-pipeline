@@ -64,22 +64,19 @@ def build_profiles(individuals: pd.DataFrame) -> dict:
     profiles = {}
     for _, row in individuals.iterrows():
         name = _clean_cell(row["contributor_name"])
+        city = _clean_cell(row["contributor_city"])
+        state = _clean_cell(row["contributor_state"])
+        zip_code = _clean_cell(row["contributor_zip"])
         suffix = _clean_cell(row.get("_generational_suffix")).upper()
-        profile_id = individual_record_id(
-            name,
-            _clean_cell(row["contributor_city"]),
-            _clean_cell(row["contributor_state"]),
-            suffix,
-            split_zip(name, _clean_cell(row.get("contributor_zip"))),
-        )
+        profile_id = individual_record_id(name, city, state, suffix, split_zip(name, zip_code))
         if profile_id not in profiles:
             profiles[profile_id] = {
                 "name": name,
                 "norm_name": normalize_name(row["contributor_name"]),
                 "middle": extract_middle(row["contributor_name"]),
-                "city": _clean_cell(row["contributor_city"]).upper(),
-                "state": _clean_cell(row["contributor_state"]).upper(),
-                "zip5": _clean_cell(row["contributor_zip"]),
+                "city": city.upper(),
+                "state": state.upper(),
+                "zip5": zip_code,
                 "streets": set(),
                 "norm_employers": set(),
                 "occ_categories": set(),
