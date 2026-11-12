@@ -11,10 +11,10 @@ from collections import Counter, defaultdict
 import pandas as pd
 from rapidfuzz.distance import OSA
 
+from fec.common.text import WORD_TOKEN_RE
 from fec.matching.identity_rules import COMMITTEE_NAMES
 from fec.matching.name_compare import NICKNAME_MAP
 
-_TOKEN = re.compile(r"[A-Z0-9]+")
 _ASIDE = re.compile(r"\([^()]*\)?")
 
 
@@ -31,7 +31,7 @@ def canonicalize_committee_names(df: pd.DataFrame) -> None:
 
 
 def _split_tokens(text: str) -> list:
-    return _TOKEN.findall(text.upper())
+    return WORD_TOKEN_RE.findall(text.upper())
 
 
 def _strip_asides(first: str) -> str:

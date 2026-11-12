@@ -1,10 +1,10 @@
 """Company names supported by the shared rules file."""
 
-import csv
 import re
 
 import pandas as pd
 
+from fec.common.files import read_rows
 from fec.common.settings import EMPLOYER_NAME_RULES_CSV
 
 
@@ -30,15 +30,14 @@ def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str,
 def read_company_name_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
     """Read the reviewed spellings: variant -> canonical, everywhere or for one donor (anchor_sub_id) in one cycle."""
     aliases, scoped = {}, []
-    with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
-        for number, row in enumerate(csv.DictReader(handle), start=2):
-            variant, canonical, anchor, cycle = _read_company_rule(number, row)
-            if anchor:
-                scoped.append((anchor, cycle, employer_rule_key(variant), canonical))
-                continue
-            if variant in aliases and aliases[variant] != canonical:
-                raise ValueError(f"Conflicting employer rule on row {number}")
-            aliases[variant] = canonical
+    for number, row in enumerate(read_rows(EMPLOYER_NAME_RULES_CSV), start=2):
+        variant, canonical, anchor, cycle = _read_company_rule(number, row)
+        if anchor:
+            scoped.append((anchor, cycle, employer_rule_key(variant), canonical))
+            continue
+        if variant in aliases and aliases[variant] != canonical:
+            raise ValueError(f"Conflicting employer rule on row {number}")
+        aliases[variant] = canonical
     return aliases, scoped
 
 

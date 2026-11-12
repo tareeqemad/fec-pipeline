@@ -11,6 +11,7 @@ import pandas as pd
 from rapidfuzz import process
 from rapidfuzz.distance import OSA
 
+from fec.common.text import upper_single_spaced
 from fec.vocabulary.occupations import (
     OCCUPATION_CATEGORIES,
     OCCUPATION_CORRECTIONS,
@@ -41,7 +42,7 @@ def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) ->
     listed = [text for text in candidates if text not in OCCUPATION_CORRECTIONS and text not in STATUS_WORDS]
     known = set(listed)
     learnt: dict[str, str] = {}
-    for text in {" ".join(value.upper().split()) for value in texts if isinstance(value, str)}:
+    for text in {upper_single_spaced(value) for value in texts if isinstance(value, str)}:
         if not text or text in known or text in OCCUPATION_CORRECTIONS or not _TEXT_RE.fullmatch(text):
             continue
         near = process.extract(text, listed, scorer=OSA.distance, score_cutoff=1, limit=2)

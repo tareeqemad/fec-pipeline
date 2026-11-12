@@ -42,19 +42,19 @@ def load_addresses(cur: Any, df: pd.DataFrame, offices: list[dict]) -> dict:
         if address_key(row[:5]) not in rows or rows[address_key(row[:5])][5] is None:
             rows[address_key(row[:5])] = row
 
-    execute_values(
+    inserted = execute_values(
         cur,
-        "INSERT INTO addresses (street_1, street_2, city, state_code, zip_code, latitude, longitude) VALUES %s",
+        """
+        INSERT INTO addresses (street_1, street_2, city, state_code, zip_code, latitude, longitude) VALUES %s
+        RETURNING address_id, COALESCE(street_1, ''), COALESCE(street_2, ''), COALESCE(city, ''),
+                  COALESCE(state_code, ''), COALESCE(zip_code, '')
+        """,
         list(rows.values()),
         page_size=5000,
         template="(%s, %s, %s, %s, %s, %s::float8, %s::float8)",
+        fetch=True,
     )
-    cur.execute("""
-        SELECT address_id, COALESCE(street_1, ''), COALESCE(street_2, ''), COALESCE(city, ''),
-               COALESCE(state_code, ''), COALESCE(zip_code, '')
-        FROM addresses
-    """)
-    address_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
+    address_ids = {tuple(row[1:]): row[0] for row in inserted}
     df["address_id"] = [address_ids[address_key(parts)] for parts in to_rows(df[ADDRESS_COLUMNS])]
     return address_ids
 
@@ -63,14 +63,14 @@ def load_donor_addresses(cur: Any, df: pd.DataFrame) -> None:
     """Link each donor to each address they filed from and add donor_address_id to df."""
     columns = ["donor_key", *ADDRESS_COLUMNS]
     donor_addresses = df.drop_duplicates(columns).sort_values(columns)
-    execute_values(
+    inserted = execute_values(
         cur,
-        "INSERT INTO donor_addresses (donor_id, address_id) VALUES %s",
+        "INSERT INTO donor_addresses (donor_id, address_id) VALUES %s RETURNING donor_address_id, donor_id, address_id",
         to_rows(donor_addresses[["donor_id", "address_id"]]),
         page_size=5000,
+        fetch=True,
     )
-    cur.execute("SELECT donor_address_id, donor_id, address_id FROM donor_addresses")
-    donor_address_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
+    donor_address_ids = {tuple(row[1:]): row[0] for row in inserted}
     df["donor_address_id"] = [donor_address_ids[link] for link in zip(df["donor_id"], df["address_id"])]
 
 

@@ -32,9 +32,9 @@ REFERENCE_TABLES = {
 def load_occupation_categories(cur: Any, df: pd.DataFrame) -> None:
     """Load the occupation categories of the filings and add occupation_category_id to df."""
     names = sorted(df["occupation_category"].dropna().unique())
-    execute_values(cur, "INSERT INTO occupation_categories (name) VALUES %s", [(name,) for name in names])
-    cur.execute("SELECT name, occupation_category_id FROM occupation_categories")
-    df["occupation_category_id"] = df["occupation_category"].map(dict(cur.fetchall()))
+    sql = "INSERT INTO occupation_categories (name) VALUES %s RETURNING name, occupation_category_id"
+    category_ids = dict(execute_values(cur, sql, [(name,) for name in names], fetch=True))
+    df["occupation_category_id"] = df["occupation_category"].map(category_ids)
 
 
 def load_committees(cur: Any) -> None:

@@ -33,9 +33,8 @@ def load_employers(cur: Any, df: pd.DataFrame) -> dict:
     The columns are employer_id, previous_employer_id and previous_self_employed.
     """
     names = sorted(referenced_employers(df))
-    execute_values(cur, "INSERT INTO employers (name) VALUES %s", [(name,) for name in names], page_size=5000)
-    cur.execute("SELECT name, employer_id FROM employers")
-    employer_ids = dict(cur.fetchall())
+    sql = "INSERT INTO employers (name) VALUES %s RETURNING name, employer_id"
+    employer_ids = dict(execute_values(cur, sql, [(name,) for name in names], page_size=5000, fetch=True))
 
     current_names = [
         current_employer_name(status, employer)
@@ -63,23 +62,21 @@ def load_employments(cur: Any, df: pd.DataFrame, offices: list[dict], address_id
         key = [filing[column] for column in EMPLOYMENT_KEY]
         rows.append((*key, workplace_address_id))
 
-    execute_values(
+    inserted = execute_values(
         cur,
         """
         INSERT INTO donor_employments (
             donor_id, employer_id, occupation, employer_status, previous_employer_id,
             previous_self_employed, occupation_category_id, address_id
         ) VALUES %s
+        RETURNING donor_employment_id, donor_id, employer_id, occupation, employer_status, previous_employer_id,
+                  previous_self_employed, occupation_category_id
         """,
         rows,
         page_size=5000,
+        fetch=True,
     )
-    cur.execute("""
-        SELECT donor_employment_id, donor_id, employer_id, occupation, employer_status, previous_employer_id,
-               previous_self_employed, occupation_category_id
-        FROM donor_employments
-    """)
-    employment_ids = {tuple(row[1:]): row[0] for row in cur.fetchall()}
+    employment_ids = {tuple(row[1:]): row[0] for row in inserted}
     # Committees and organizations have no employment.
     filing_ids = [employment_ids.get(key) for key in to_rows(df[EMPLOYMENT_KEY])]
     df["donor_employment_id"] = pd.array(filing_ids, dtype="Int64")
