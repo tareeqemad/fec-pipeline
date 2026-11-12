@@ -1,9 +1,8 @@
 """One name per donor.
 
-The surname is the one the donor files most. A given name is shown in its
-fullest spelling (MATTHEW over MATT), a rare one-letter slip aside
-(ZIPORAH beside 87 ZIPORA). Filings with a different given name under the
-same donor (a spouse on a joint account) keep their own.
+The surname is the one the donor files most. A given name is shown in its fullest spelling (MATTHEW over MATT),
+a rare one-letter slip aside (ZIPORAH beside 87 ZIPORA). Another given name under the same donor (a spouse on a
+joint account) keeps its own.
 """
 
 import re
@@ -16,24 +15,19 @@ from fec.matching.identity_rules import COMMITTEE_NAMES
 from fec.matching.name_compare import NICKNAME_MAP
 
 _TOKEN = re.compile(r"[A-Z0-9]+")
-
 _ASIDE = re.compile(r"\([^()]*\)?")
 
 
-def canonicalize_committee_names(df: pd.DataFrame) -> int:
+def canonicalize_committee_names(df: pd.DataFrame) -> None:
     """Apply reviewed committee names and keys after the cleaning steps."""
     committees = df["entity_type"].eq("COMMITTEE/PAC") & df["identity_status"].eq("confirmed")
     filings = df["sub_id"].astype(str)
-    total = 0
     for keep, drop, name, sub_ids in COMMITTEE_NAMES:
         selected = committees & df["donor_key"].isin((keep, drop))
         if sub_ids:
             selected &= filings.isin(sub_ids)
-        changed = selected & (df["donor_key"].ne(keep) | df["contributor_name"].ne(name))
-        df.loc[changed, "donor_key"] = keep
-        df.loc[changed, "contributor_name"] = name
-        total += int(changed.sum())
-    return total
+        df.loc[selected, "donor_key"] = keep
+        df.loc[selected, "contributor_name"] = name
 
 
 def _split_tokens(text: str) -> list:
@@ -112,11 +106,9 @@ def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset)
 
 
 def _drop_cut_surname(given: str, surname: str) -> str:
-    if " " not in given:
-        return given
-    last_word = given.split()[-1]
-    if len(last_word) >= len(surname) - 2 and surname.startswith(last_word):
-        return given.rsplit(" ", 1)[0]
+    head, _, last_word = given.rpartition(" ")
+    if head and len(last_word) >= len(surname) - 2 and surname.startswith(last_word):
+        return head
     return given
 
 

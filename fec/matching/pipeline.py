@@ -12,11 +12,9 @@ Steps, in order:
         1. _separate_network_filings    network names filed as people
         2. canonicalize_donor_names     one surname and given name per donor
         3. canonicalize_current_employers, unify_units, apply_name_corrections
-        4. apply_filing_corrections, DONOR_WORK_STEPS, apply_filing_corrections
-        5. canonicalize_committee_names, write_duplicate_review
+        4. apply_filing_corrections, the donor work steps (donor_work.py), apply_filing_corrections
+        5. canonicalize_committee_names
 """
-
-from __future__ import annotations
 
 import re
 
@@ -44,20 +42,14 @@ from fec.matching.donor_work import (
     recategorize_occupations,
     settle_retired_employer,
 )
-from fec.matching.duplicate_report import write_duplicate_review
 from fec.matching.identity_rules import held_groups
 from fec.matching.matcher import match_donors
 
 logger = get_logger(__name__)
-
-# In order; reviewed row decisions are applied before and after them.
-DONOR_WORK_STEPS = (
-    fill_occupation_from_donor,
-    fill_status_employer,
-    apply_entity_overrides,
-    recategorize_occupations,
-    settle_retired_employer,
-)
+# The region before or after POLITICAL NETWORK.
+_NETWORK_NAME_RE = re.compile(r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL NETWORK)$", re.IGNORECASE)
+# What only a person has: a committee or an organisation leaves them empty.
+_PERSON_COLUMNS = ["contributor_first_name", "contributor_last_name", "contributor_employer"]
 
 
 def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) -> pd.DataFrame:
@@ -67,16 +59,12 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
         df_clean["_generational_suffix"] = ""
     # Hold rules and network classification can change this status later.
     df_clean["identity_status"] = "confirmed"
-    profile_keys = match_donors(df_clean)
-    df_clean = apply_donor_key(df_clean, profile_keys)
-
+    apply_donor_key(df_clean, match_donors(df_clean))
     if earlier_keys:
         lost = keep_earlier_keys(df_clean, earlier_keys, skip=held_groups(df_clean).ne(""))
         if lost:
             logger.warning(
-                "WARNING: %s earlier donor keys no longer used (split or merged): %s",
-                len(lost),
-                ", ".join(lost[:5]),
+                "WARNING: %s earlier donor keys no longer used (split or merged): %s", len(lost), ", ".join(lost[:5])
             )
     # Saved by clean.py so the next run reuses these keys.
     df_clean["_matched_key"] = df_clean["donor_key"]
@@ -84,35 +72,33 @@ def identify_donors(df_clean: pd.DataFrame, earlier_keys: dict | None = None) ->
     hold_unproven_filings(df_clean)
     _validate_generational_suffixes(df_clean)
     validate_separations(df_clean)
-
     return df_clean
 
 
-def standardize_donors(df_clean: pd.DataFrame, out_dir: str | None = None) -> pd.DataFrame:
+def standardize_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
     """Make each donor consistent across filings."""
     df = df_clean.reset_index(drop=True)
     _separate_network_filings(df)
     # An unconfirmed filing stands alone during every donor-history repair.
     unconfirmed = df["identity_status"].ne("confirmed")
     matched_keys = df.loc[unconfirmed, "donor_key"].copy()
-    unconfirmed_sub_ids = df.loc[unconfirmed, "sub_id"].astype(str)
-    df.loc[unconfirmed, "donor_key"] = matched_keys + "|" + unconfirmed_sub_ids
+    df.loc[unconfirmed, "donor_key"] = matched_keys + "|" + df.loc[unconfirmed, "sub_id"].astype(str)
 
     canonicalize_donor_names(df)
     canonicalize_current_employers(df)
     unify_units(df, donor="donor_key")
     apply_name_corrections(df)
+    # In this order, between two passes of the reviewed row decisions.
     apply_filing_corrections(df, matched=True)
-    for step in DONOR_WORK_STEPS:
-        step(df)
+    fill_occupation_from_donor(df)
+    fill_status_employer(df)
+    apply_entity_overrides(df)
+    recategorize_occupations(df)
+    settle_retired_employer(df)
     apply_filing_corrections(df, matched=True)
     canonicalize_committee_names(df)
-    write_duplicate_review(df, out_dir)
 
-    # Committees and organisations have no person name or employer.
-    other = df["entity_type"].ne("INDIVIDUAL")
-    person_columns = ["contributor_first_name", "contributor_last_name", "contributor_employer"]
-    df.loc[other, person_columns] = np.nan
+    df.loc[df["entity_type"].ne("INDIVIDUAL"), _PERSON_COLUMNS] = np.nan
     df.loc[matched_keys.index, "donor_key"] = matched_keys
     return df
 
@@ -127,30 +113,14 @@ def _validate_generational_suffixes(df: pd.DataFrame) -> None:
         raise ValueError(f"JR/SR identity guard rejected donor(s): {keys}")
 
 
-# The region before or after POLITICAL NETWORK.
-_NETWORK_NAME_RE = re.compile(r"^(?:POLITICAL NETWORK,\s*(.+)|(.+?)\s+POLITICAL NETWORK)$", re.IGNORECASE)
-
-
 def _separate_network_filings(df: pd.DataFrame) -> None:
     names = df["contributor_name"].fillna("").astype(str)
-    region_parts = names.str.extract(_NETWORK_NAME_RE)
-    region = region_parts.bfill(axis=1)[0]
+    region = names.str.extract(_NETWORK_NAME_RE).bfill(axis=1)[0]
     rows = df.index[df["entity_type"].eq("INDIVIDUAL") & region.notna()]
     network_names = region[rows].str.strip().str.upper() + " POLITICAL NETWORK"
     df.loc[rows, "contributor_name"] = network_names
-    df.loc[rows, ["entity_type", "is_individual", "occupation_category", "identity_status"]] = [
-        "ORGANIZATION",
-        False,
-        "ORGANIZATION",
-        "unresolved",
-    ]
-    person_columns = [
-        "contributor_first_name",
-        "contributor_last_name",
-        "contributor_employer",
-        "contributor_occupation",
-        "previous_employer",
-    ]
-    df.loc[rows, person_columns] = np.nan
+    df.loc[rows, ["entity_type", "is_individual", "occupation_category"]] = ["ORGANIZATION", False, "ORGANIZATION"]
+    df.loc[rows, "identity_status"] = "unresolved"
+    df.loc[rows, [*_PERSON_COLUMNS, "contributor_occupation", "previous_employer"]] = np.nan
     filing_names = network_names + " " + df.loc[rows, "sub_id"].astype(str)
     df.loc[rows, "donor_key"] = filing_names.map(non_individual_donor_key)

@@ -1,7 +1,7 @@
 """Exact, externally verified address corrections (address_rules.csv).
 
-A rule matches a filed street, state and ZIP, optionally one unit or one
-filing, and replaces the cells it fills; [CLEAR] empties the street or unit.
+A rule matches a filed street, state and ZIP, optionally one unit or one filing, and replaces the cells it fills;
+[CLEAR] empties the street or unit.
 """
 
 import pandas as pd
@@ -12,9 +12,7 @@ from fec.common.settings import ADDRESS_RULES_CSV
 logger = get_logger(__name__)
 
 CLEAR = "[CLEAR]"
-
 MATCH = ("match_street", "match_state", "match_zip", "match_unit", "match_sub_id")
-
 FIXED = {
     "street": "contributor_street_1",
     "unit": "contributor_street_2",
@@ -24,19 +22,12 @@ FIXED = {
 }
 
 
-def _strip_column(column: pd.Series) -> pd.Series:
-    return column.str.strip()
-
-
-def _upper_column(column: pd.Series) -> pd.Series:
-    return column.str.upper()
-
-
 def _read_address_rules() -> pd.DataFrame:
     rules = pd.read_csv(ADDRESS_RULES_CSV, dtype=str, keep_default_na=False, encoding="utf-8-sig")
-    rules = rules.apply(_strip_column)
-    upper_columns = list(MATCH[:4])
-    rules[upper_columns] = rules[upper_columns].apply(_upper_column)
+    for column in rules.columns:
+        rules[column] = rules[column].str.strip()
+        if column in MATCH[:4]:
+            rules[column] = rules[column].str.upper()
     invalid = (
         rules[["match_street", "match_state", "street", "source"]].eq("").any(axis=1)
         | (rules["unit"].eq(CLEAR) & rules["match_unit"].eq(""))
@@ -61,11 +52,10 @@ def _find_rule_filings(df: pd.DataFrame, rule: tuple, sub_ids: pd.Series) -> pd.
     return mask
 
 
-def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False, warn_unused: bool = False) -> int:
+def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False) -> int:
     """Apply the rules in file order and return the filings changed.
 
-    A rule that only sets the city also runs after the alignment steps
-    (city_only), which may have changed the city again.
+    A rule that only sets the city runs again after the alignment steps (city_only), which may change the city.
     """
     rules = _read_address_rules()
     if city_only:
@@ -88,6 +78,6 @@ def apply_address_rules(df: pd.DataFrame, *, city_only: bool = False, warn_unuse
             if value:
                 df.loc[mask, column] = pd.NA if value == CLEAR else value
     # A rule that matches nothing is mistyped or no longer needed.
-    if warn_unused and unused:
+    if unused:
         logger.warning("WARNING: %s address rules matched no filing: %s", len(unused), "; ".join(unused[:5]))
     return int(df[columns].fillna("").ne(before).any(axis=1).sum())

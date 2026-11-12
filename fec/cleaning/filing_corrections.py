@@ -1,11 +1,8 @@
-"""Reviewed corrections for single filings, matched by FEC sub_id (filing_corrections.csv).
+"""Reviewed corrections for single filings, by FEC sub_id (filing_corrections.csv).
 
-A filled cell replaces the filing's value and [CLEAR] empties it. Rows marked
-after_matching wait until donors are matched, so the correction does not
-change who the donor is.
+A filled cell replaces the filing's value and [CLEAR] empties it; rows marked after_matching wait until donors
+are matched, so the correction does not change who the donor is.
 """
-
-from __future__ import annotations
 
 from functools import lru_cache
 
@@ -18,20 +15,8 @@ from fec.common.settings import FILING_CORRECTIONS_CSV
 from fec.vocabulary.occupations import VALID_CATEGORIES
 
 CLEAR = "[CLEAR]"
-
-FIELDS = (
-    "contributor_employer",
-    "contributor_occupation",
-    "occupation_category",
-    "contributor_street_1",
-    "contributor_street_2",
-    "contributor_city",
-    "contributor_zip",
-)
-
-
-def _strip_column(column: pd.Series) -> pd.Series:
-    return column.str.strip()
+# Columns of the file that say about the row, not about the filing.
+_ROW_NOTES = ["note", "source", "after_matching"]
 
 
 def _review_employer_name(name: str) -> str:
@@ -42,10 +27,8 @@ def _review_employer_name(name: str) -> str:
 
 @lru_cache(maxsize=1)
 def _read_reviewed_filings() -> pd.DataFrame:
-    if not FILING_CORRECTIONS_CSV.exists():
-        return pd.DataFrame(columns=[*FIELDS, "after_matching"])
     rows = pd.read_csv(FILING_CORRECTIONS_CSV, dtype=str, keep_default_na=False)
-    rows = rows.apply(_strip_column).set_index("sub_id")
+    rows = rows.apply(lambda column: column.str.strip()).set_index("sub_id")
     unknown = set(rows["occupation_category"]) - VALID_CATEGORIES - {""}
     if unknown:
         raise ValueError(f"Invalid manual occupation category: {sorted(unknown)}")
@@ -59,7 +42,7 @@ def apply_filing_corrections(df: pd.DataFrame, matched: bool = False) -> None:
     if not matched:
         rows = rows[rows["after_matching"].str.lower().ne("true")]
     sub_ids = df["sub_id"].astype(str).str.strip()
-    for column in FIELDS:
+    for column in rows.columns.drop(_ROW_NOTES):
         cells = rows.loc[rows[column].ne(""), column]
         found = sub_ids[sub_ids.isin(cells.index)].map(cells)
         df.loc[found.index, column] = found.where(found.str.upper().ne(CLEAR), np.nan)

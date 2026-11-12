@@ -1,8 +1,6 @@
-"""Checks the cleaned data must pass before it is saved.
+"""Checks the cleaned data must pass before it is saved; each returns the filings that break it.
 
-Each check names what must hold and returns the filings that break it.
-A check that needs a column the stage has not written yet (employer_status
-before resolve) is skipped and listed as not run.
+A check needing a column not written yet (employer_status before resolve) is listed as not run.
 """
 
 import pandas as pd
@@ -22,14 +20,7 @@ def _find_people(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_nan_text(df: pd.DataFrame) -> pd.Series:
-    columns = (
-        "contributor_occupation",
-        "contributor_employer",
-        "contributor_name",
-        "contributor_city",
-        "contributor_state",
-        "contributor_street_1",
-    )
+    columns = [f"contributor_{name}" for name in ("occupation", "employer", "name", "city", "state", "street_1")]
     return pd.concat([df[column].astype("string").str.upper().eq("NAN") for column in columns], axis=1).any(axis=1)
 
 
@@ -53,8 +44,7 @@ def _find_status_differs(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_previous_employer_not_retired(df: pd.DataFrame) -> pd.Series:
-    has_previous = _read_text(df, "previous_employer").ne("")
-    return has_previous & _read_text(df, "employer_status").ne("retired")
+    return _read_text(df, "previous_employer").ne("") & _read_text(df, "employer_status").ne("retired")
 
 
 def _find_not_an_employer(df: pd.DataFrame) -> pd.Series:
@@ -68,29 +58,13 @@ def _find_not_an_employer(df: pd.DataFrame) -> pd.Series:
     return (working & ~current_is_real) | (retired & ~previous_is_real)
 
 
-def _find_no_zip(df: pd.DataFrame) -> pd.Series:
-    return _read_text(df, "contributor_zip").eq("")
-
-
-def _find_duplicate_sub_id(df: pd.DataFrame) -> pd.Series:
-    return df["sub_id"].duplicated()
-
-
-def _find_duplicate_transaction_id(df: pd.DataFrame) -> pd.Series:
-    return df["transaction_id"].duplicated()
-
-
 def _find_dated_ahead(df: pd.DataFrame) -> pd.Series:
     dates = pd.to_datetime(df["contribution_receipt_date"], errors="coerce")
     return dates > pd.Timestamp.now() + pd.Timedelta(days=60)
 
 
-def _read_zip_state(zipcode: str) -> str:
-    return zip_place(zipcode)[0]
-
-
 def _find_zip_of_another_state(df: pd.DataFrame) -> pd.Series:
-    zip_state = _read_text(df, "contributor_zip").map(_read_zip_state)
+    zip_state = _read_text(df, "contributor_zip").map(lambda zipcode: zip_place(zipcode)[0])
     filed_state = _read_text(df, "contributor_state")
     return zip_state.ne("") & filed_state.ne("") & zip_state.ne(filed_state)
 
@@ -100,9 +74,8 @@ def _find_email_street(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_odd_name_characters(df: pd.DataFrame) -> pd.Series:
-    first = _read_text(df, "contributor_first_name").str.contains(r"[`;\[\]@]")
-    last = _read_text(df, "contributor_last_name").str.contains(r"[`;\[\]@]")
-    return first | last
+    names = _read_text(df, "contributor_first_name") + " " + _read_text(df, "contributor_last_name")
+    return names.str.contains(r"[`;\[\]@]")
 
 
 def _find_retired_but_active(df: pd.DataFrame) -> pd.Series:
@@ -110,11 +83,8 @@ def _find_retired_but_active(df: pd.DataFrame) -> pd.Series:
 
 
 def _find_retired_without_retired_employer(df: pd.DataFrame) -> pd.Series:
-    return (
-        _find_people(df)
-        & df["occupation_category"].eq("RETIRED")
-        & _read_text(df, "contributor_employer").ne("RETIRED")
-    )
+    retired = _find_people(df) & df["occupation_category"].eq("RETIRED")
+    return retired & _read_text(df, "contributor_employer").ne("RETIRED")
 
 
 def _find_null_surname_lost(df: pd.DataFrame) -> pd.Series:
@@ -130,34 +100,23 @@ CHECKS = (
     ("every occupation category is a known one", _find_unknown_category, 0),
     ("the occupation category is the one of the occupation", _find_category_differs, 0),
     ("employer_status is the one the work fields give", _find_status_differs, 0),
-    (
-        "only a retired filing has a previous employer",
-        _find_previous_employer_not_retired,
-        0,
-    ),
+    ("only a retired filing has a previous employer", _find_previous_employer_not_retired, 0),
     ("an employer or previous employer names an employer", _find_not_an_employer, 0),
-    ("at least half the filings have a ZIP", _find_no_zip, 0.5),
-    ("sub_id is unique", _find_duplicate_sub_id, 0),
-    ("transaction_id is unique", _find_duplicate_transaction_id, 0),
+    ("at least half the filings have a ZIP", lambda df: _read_text(df, "contributor_zip").eq(""), 0.5),
+    ("sub_id is unique", lambda df: df["sub_id"].duplicated(), 0),
+    ("transaction_id is unique", lambda df: df["transaction_id"].duplicated(), 0),
     ("no contribution is dated more than 60 days ahead", _find_dated_ahead, 0),
     ("the ZIP belongs to the state", _find_zip_of_another_state, 99),
     ("no street is an email address", _find_email_street, 0),
     ("no name holds ` ; [ ] or @", _find_odd_name_characters, 0),
     ("a RETIRED category is never an active employer", _find_retired_but_active, 0),
-    (
-        "a RETIRED category has RETIRED as the employer",
-        _find_retired_without_retired_employer,
-        0,
-    ),
+    ("a RETIRED category has RETIRED as the employer", _find_retired_without_retired_employer, 0),
     ("the surname NULL is kept", _find_null_surname_lost, 0),
 )
 
 
 def run_quality_gates(df: pd.DataFrame) -> dict:
-    """Run every check and return the result.
-
-    The result is {'passed', 'rows', 'checks': {what must hold: filings that break it}, 'issues'}.
-    """
+    """Run every check: {'passed', 'rows', 'checks': {what must hold: filings that break it}, 'issues'}."""
     checks, issues = {}, []
     for must_hold, breaking, allowed in CHECKS:
         try:

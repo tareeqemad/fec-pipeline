@@ -17,7 +17,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from fec.cleaning.addresses.foreign_addresses import kept_as_filed_mask
+from fec.cleaning.addresses.foreign_addresses import foreign_address_mask
 from fec.common.columns import DONOR_COORDINATES, check_input, check_output
 from fec.common.files import read_pipeline_csv, write_csv_atomic, write_json_atomic
 from fec.common.log import get_logger
@@ -92,7 +92,7 @@ def _look_up_and_record(key: str, cache: dict) -> str:
 
 def geocode_addresses(df: pd.DataFrame, cache: dict) -> None:
     """Look up the addresses the cache has no settled answer for, saving the cache as it grows."""
-    keys = _address_keys(df)[~kept_as_filed_mask(df)]
+    keys = _address_keys(df)[~foreign_address_mask(df)]
     keys = [key for key in keys.unique() if key != "|||"]
     todo = [key for key in keys if _needs_lookup(key, cache.get(key))]
     logger.info(
@@ -123,7 +123,7 @@ def apply_coordinates(df: pd.DataFrame, cache: dict) -> pd.DataFrame:
             latitudes[key], longitudes[key] = point
     df["latitude"] = keys.map(latitudes).astype(float)
     df["longitude"] = keys.map(longitudes).astype(float)
-    df.loc[kept_as_filed_mask(df), ["latitude", "longitude"]] = np.nan
+    df.loc[foreign_address_mask(df), ["latitude", "longitude"]] = np.nan
     return df
 
 

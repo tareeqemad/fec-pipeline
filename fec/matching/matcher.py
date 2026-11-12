@@ -15,8 +15,8 @@ from fec.matching.phases import (
     score_same_names,
     score_surname_variants,
 )
-from fec.matching.scoring import GENERIC_OCC_CATEGORIES
 from fec.vocabulary.statuses import EMPLOYER_STATUS_VALUES
+from fec.vocabulary.tables import words
 
 PHASES = (
     score_same_names,
@@ -25,14 +25,13 @@ PHASES = (
     score_name_formats,
     score_compound_surnames,
 )
+# Generic categories support no match; retirement is scored separately.
+_GENERIC_OCC_CATEGORIES = words("generic_occupation_categories")
 
 
 def match_donors(df: pd.DataFrame) -> dict:
-    """Score-based donor matching; returns each profile's donor key.
-
-    A held filing (a joint name, an unproven owner) belongs to no donor, so
-    it takes no part and cannot join two people through itself.
-    """
+    """Score-based donor matching; returns each profile's donor key."""
+    # A held filing (a joint name, an unproven owner) belongs to no donor and cannot join two people.
     unheld_people = df["entity_type"].eq("INDIVIDUAL") & held_groups(df).eq("")
     profiles = build_profiles(df[unheld_people])
     name_groups = defaultdict(list)
@@ -43,12 +42,7 @@ def match_donors(df: pd.DataFrame) -> dict:
         union_find.find(profile_id): ({profile["suffix"]} if profile["suffix"] else set())
         for profile_id, profile in profiles.items()
     }
-    context = MatchContext(
-        name_groups=name_groups,
-        profiles=profiles,
-        union_find=union_find,
-        component_suffixes=component_suffixes,
-    )
+    context = MatchContext(name_groups, profiles, union_find, component_suffixes)
     for phase in PHASES:
         phase(context)
 
@@ -65,42 +59,31 @@ def _clean_cell(value: object) -> str:
     return str(value).strip()
 
 
-def _build_new_profile(row: pd.Series, suffix: str) -> dict:
-    return {
-        "name": _clean_cell(row["contributor_name"]),
-        "norm_name": normalize_name(row["contributor_name"]),
-        "middle": extract_middle(row["contributor_name"]),
-        "city": _clean_cell(row["contributor_city"]).upper(),
-        "state": _clean_cell(row["contributor_state"]).upper(),
-        "zip5": _clean_cell(row["contributor_zip"]),
-        "streets": set(),
-        "norm_employers": set(),
-        "occ_categories": set(),
-        "retired": False,
-        "record_count": 0,
-        "suffix": suffix,
-    }
-
-
 def build_profiles(individuals: pd.DataFrame) -> dict:
     """Build profiles by cleaned name, location, and generation suffix."""
     profiles = {}
-
     for _, row in individuals.iterrows():
         name = _clean_cell(row["contributor_name"])
+        city = _clean_cell(row["contributor_city"])
+        state = _clean_cell(row["contributor_state"])
+        zip_code = _clean_cell(row["contributor_zip"])
         suffix = _clean_cell(row.get("_generational_suffix")).upper()
-        profile_id = individual_record_id(
-            name,
-            _clean_cell(row["contributor_city"]),
-            _clean_cell(row["contributor_state"]),
-            suffix,
-            split_zip(name, _clean_cell(row.get("contributor_zip"))),
-        )
+        profile_id = individual_record_id(name, city, state, suffix, split_zip(name, zip_code))
         if profile_id not in profiles:
-            profiles[profile_id] = _build_new_profile(row, suffix)
-
+            profiles[profile_id] = {
+                "name": name,
+                "norm_name": normalize_name(row["contributor_name"]),
+                "middle": extract_middle(row["contributor_name"]),
+                "city": city.upper(),
+                "state": state.upper(),
+                "zip5": zip_code,
+                "streets": set(),
+                "norm_employers": set(),
+                "occ_categories": set(),
+                "retired": False,
+                "suffix": suffix,
+            }
         profile = profiles[profile_id]
-        profile["record_count"] += 1
 
         # Only a filed street can support a match.
         street = _clean_cell(row.get("contributor_street_1")).upper()
@@ -114,9 +97,8 @@ def build_profiles(individuals: pd.DataFrame) -> dict:
         category = _clean_cell(row.get("occupation_category")).upper()
         if category == "RETIRED":
             profile["retired"] = True
-        elif category and category not in GENERIC_OCC_CATEGORIES:
+        elif category and category not in _GENERIC_OCC_CATEGORIES:
             profile["occ_categories"].add(category)
-
     return profiles
 
 

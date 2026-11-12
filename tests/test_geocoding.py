@@ -109,7 +109,7 @@ def test_lookups_are_saved_in_the_cache_file_format(tmp_path, monkeypatch):
 
     use_providers(monkeypatch, nominatim, census=lambda *_address: None)
     monkeypatch.setattr(geocoding_pipeline, "GEOCODE_CACHE_JSON", cache_path)
-    monkeypatch.setattr(geocoding_pipeline, "kept_as_filed_mask", lambda df: df["contributor_city"].eq("LONDON"))
+    monkeypatch.setattr(geocoding_pipeline, "foreign_address_mask", lambda df: df["contributor_city"].eq("LONDON"))
     addresses = [key.split("|") for key in (found, missed, down, moved, kept, found, abroad)] + [[None] * 4]
     columns = ["contributor_street_1", "contributor_city", "contributor_state", "contributor_zip"]
     df = pd.DataFrame(addresses, columns=columns)

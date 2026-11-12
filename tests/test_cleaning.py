@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from fec.cleaning import pipeline as cleaning_pipeline
-from fec.cleaning.work.company_names import apply_reviewed_employer_names
+from fec.cleaning.work.company_names import canonicalize_current_employers
 from fec.common.columns import CLEAN_COLUMNS
 
 
@@ -47,17 +47,14 @@ def test_reviewed_company_names_rewrite_short_and_misspelt_employers():
     df = pd.DataFrame(
         {
             "entity_type": ["INDIVIDUAL"] * 6,
-            "contributor_employer": [
-                "SPGI",
-                "NMRK",
-                "JPMC",
-                "C21 STORES",
-                "ABINITIO SOFTWARE",
-                "SOFTERWARE",
-            ],
+            "contributor_employer": ["SPGI", "NMRK", "JPMC", "C21 STORES", "ABINITIO SOFTWARE", "SOFTERWARE"],
+            "sub_id": [str(number) for number in range(6)],
+            "donor_key": [str(number) for number in range(6)],
+            "identity_status": ["confirmed"] * 6,
+            "two_year_transaction_period": ["2026"] * 6,
         }
     )
-    apply_reviewed_employer_names(df, ("contributor_employer",))
+    canonicalize_current_employers(df)
     assert df["contributor_employer"].tolist() == [
         "S&P GLOBAL",
         "NMRK",
@@ -348,7 +345,8 @@ def test_every_category_in_the_tables_is_a_known_category():
 
 
 def test_status_word_reads_a_slip_and_leaves_other_words():
-    from fec.cleaning.work.status_spellings import learn_status_typos, status_word
+    from fec.cleaning.work.status_spellings import extend_spellings, status_word
+    from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
 
     assert status_word("RETIERD") == "RETIRED"
     assert status_word("RETRIED") == "RETIRED"  # transposition
@@ -368,13 +366,17 @@ def test_status_word_reads_a_slip_and_leaves_other_words():
         "RETIREMENT PLANNER",
     ):
         assert status_word(word) is None, word
-    assert learn_status_typos(
-        ["Self Employeed", "UN EMPLOYED", "ACME LLC", "RETIRED"],
-        canonical={"UNEMPLOYED": "NOT EMPLOYED"},
-    ) == {
-        "SELF EMPLOYEED": "SELF-EMPLOYED",
-        "UN EMPLOYED": "NOT EMPLOYED",
-    }
+    employers, occupations = ["Self Employeed", "ACME LLC"], ["UN EMPLOYED", "RETIRED"]
+    df = pd.DataFrame({"contributor_employer": employers, "contributor_occupation": occupations})
+    try:
+        assert extend_spellings(df) == 2
+        assert EMPLOYER_NORMALIZE["SELF EMPLOYEED"] == "SELF-EMPLOYED"
+        assert OCCUPATION_NORMALIZE["UN EMPLOYED"] == "NOT EMPLOYED"  # the form the tables use
+        assert "ACME LLC" not in EMPLOYER_NORMALIZE
+    finally:
+        for table in (EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE):
+            table.pop("SELF EMPLOYEED", None)
+            table.pop("UN EMPLOYED", None)
 
 
 def _read(rows):
@@ -453,16 +455,6 @@ def test_placeholder_employers_are_one_list():
     from fec.cleaning.work.work_fields import names_no_employer
 
     values = ["43209876", "A@B.COM", "XXX", "NM", "GE", "N A", "PRIVATE", "ACME LLC"]
-    assert [names_no_employer(v, also_words=False) for v in values] == [
-        True,
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-    ]
     assert [names_no_employer(v) for v in values] == [
         True,
         True,
@@ -543,7 +535,7 @@ def test_reviewed_filing_cells_replace_or_clear_and_wait_for_matching():
     waiting = rows.index[rows["after_matching"].str.lower().eq("true") & rows["contributor_employer"].ne("")][0]
     cleared = rows.index[rows["contributor_employer"].str.upper().eq(filing_corrections.CLEAR)][0]
     df = pd.DataFrame({"sub_id": [waiting, cleared, "1"], "contributor_employer": ["FILED", "FILED", "FILED"]})
-    for column in filing_corrections.FIELDS[1:]:
+    for column in rows.columns.drop("contributor_employer"):
         df[column] = "FILED"
     filing_corrections.apply_filing_corrections(df)
     assert df["contributor_employer"].tolist()[0] == "FILED" and pd.isna(df["contributor_employer"][1])

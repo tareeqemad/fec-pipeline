@@ -1,23 +1,8 @@
-"""One definition of a company name, as graded evidence.
+"""Whether a work-field value names a company, as a level of evidence, strongest first.
 
-Every rule that needs to know whether a work-field value names a company
-asks here. The answer is a level, strongest first:
-
-    legal_form   ends in a legal form: ACME LLC, SMITH & JONES PC
-    reviewed     a reviewed company name (employer_name_rules.csv)
-    job          a known job, field or status: REAL ESTATE, CONSULTANT
-    frequent     filed as the employer by several different donors
-    named_org    an organisation word plus a proper name: PENSAM CAPITAL
-    unknown      no evidence either way: MATTEL, CITY OF PHILADELPHIA
-    (blank)      empty value
-
-A job is never a company, however many organisation words it holds
-(VENTURE CAPITALIST, INVESTMENT MANAGER). An unknown value is left as
-filed: it may stay an employer, but it is never moved out of the
-occupation.
+legal_form (ACME LLC), reviewed (employer_name_rules.csv), job (REAL ESTATE), frequent (filed as the employer
+by several donors), named_org (PENSAM CAPITAL), unknown (MATTEL), or blank. A job is never a company.
 """
-
-from __future__ import annotations
 
 import re
 from functools import lru_cache
@@ -26,65 +11,46 @@ import pandas as pd
 
 from fec.cleaning.work.company_names import employer_rule_key, read_company_name_rules
 from fec.cleaning.work.employer_status import is_job_title, is_real_employer
-from fec.vocabulary.not_employers import (
-    JOB_TITLE_AS_EMPLOYER,
-    JOB_TITLE_HEADS,
-    JOB_TITLE_MODIFIERS,
-    NOT_REAL_EMPLOYER,
-    OCCUPATION_AS_EMPLOYER,
-    ROLE_AS_EMPLOYER,
-    SECTOR_AS_EMPLOYER,
-)
+from fec.vocabulary.not_employers import JOB_TITLE_HEADS, JOB_TITLE_MODIFIERS, NOT_REAL_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.vocabulary.occupations import KNOWN_COMPANY_OCCUPATIONS, OCCUPATION_CATEGORIES
-from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS, STATUS_WORDS
-from fec.vocabulary.tables import words
+from fec.vocabulary.statuses import STATUS_WORDS
+from fec.vocabulary.tables import ordered_words, words
 
-LEVELS = ("legal_form", "reviewed", "frequent", "named_org")
-
-COMPANY_LEVELS = frozenset(LEVELS)
-
+COMPANY_LEVELS = frozenset(("legal_form", "reviewed", "frequent", "named_org"))
 # Legal forms, after punctuation is removed: "L.L.C." -> "LLC".
-_LEGAL_FORMS = (
-    "LLC",
-    "PLLC",
-    "LLP",
-    "LP",
-    "INC",
-    "INCORPORATED",
-    "CORP",
-    "CORPORATION",
-    "LTD",
-    "LIMITED",
-    "PLC",
-    "PC",
-    "PA",
-    "CO",
-    "APLC",
-    "APC",
-)
-
-_LEGAL_FORM_END_RE = re.compile(r"\b(?:" + "|".join(_LEGAL_FORMS) + r")$")
-
+_LEGAL_FORM_END_RE = re.compile(r"\b(?:" + "|".join(ordered_words("legal_form_endings")) + r")$")
 # "CO" alone is a word (COMPANY) only at the end: "TRADING CO".
 _CO_AFTER_WORD_RE = re.compile(r"\b[A-Z0-9]{2,}\s+CO$")
-
 # Words that mark an organisation when a proper name stands beside them.
 ORGANISATION_WORDS = words("organisation_words")
-
 # Common words that name no company on their own.
 _FILLER_WORDS = words("filler_words")
-
+_LEGAL_TOKENS = words("legal_tokens")
 _WORDS_RE = re.compile(r"[A-Z0-9][A-Z0-9'&-]*")
-
 _PART_SPLIT_RE = re.compile(r"\s*(?:/|,|;| AND | & )\s*")
+
+# NOT_REAL_EMPLOYER holds the roles, occupations, titles, sectors and placeholders filed as employers.
+_JOB_WORDS = frozenset(
+    {text for text, category in OCCUPATION_CATEGORIES.items() if category != "OTHER"} | STATUS_WORDS | NOT_REAL_EMPLOYER
+)
+
+
+def _read_reviewed_names() -> frozenset[str]:
+    aliases, scoped = read_company_name_rules()
+    names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
+    names |= {name for _anchor, _cycle, variant, canonical in scoped for name in (variant, canonical)}
+    names |= {employer_rule_key(name) for name in names}
+    return frozenset(names - _JOB_WORDS)
+
+
+_REVIEWED_NAMES = _read_reviewed_names()
 
 
 def _is_job(text: str) -> bool:
-    if text in _collect_job_words() or is_job_title(text):
+    if text in _JOB_WORDS or is_job_title(text):
         return True
     words = _WORDS_RE.findall(text)
-    # "INVESTMENT PORTFOLIO MANAGER", "HEALTHCARE EXECUTIVE": a title word last,
-    # unless it also names an organisation (CRESCENT REALTY ADVISORS).
+    # "HEALTHCARE EXECUTIVE": a title word last, unless it also names an organisation (CRESCENT REALTY ADVISORS).
     return len(words) > 1 and _is_head_word(words[-1]) and words[-1] not in ORGANISATION_WORDS
 
 
@@ -95,36 +61,6 @@ def _is_head_word(word: str) -> bool:
 def _has_only_common_words(text: str) -> bool:
     words = _WORDS_RE.findall(text)
     return bool(words) and all(word in ORGANISATION_WORDS or word in _FILLER_WORDS or word == "AND" for word in words)
-
-
-@lru_cache(maxsize=1)
-def _read_reviewed_names() -> frozenset[str]:
-    aliases, scoped = read_company_name_rules()
-    names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
-    names |= {variant for _anchor, _cycle, variant, _canonical in scoped}
-    names |= {canonical for _anchor, _cycle, _variant, canonical in scoped}
-    names |= {employer_rule_key(name) for name in names}
-    return frozenset(names - _collect_job_words())
-
-
-@lru_cache(maxsize=1)
-def _collect_job_words() -> frozenset[str]:
-    return frozenset(
-        {text for text, category in OCCUPATION_CATEGORIES.items() if category != "OTHER"}
-        | ROLE_AS_EMPLOYER
-        | OCCUPATION_AS_EMPLOYER
-        | JOB_TITLE_AS_EMPLOYER
-        | SECTOR_AS_EMPLOYER
-        | STATUS_WORDS
-        | SKIP_EMPLOYERS
-        | SKIP_OCCUPATIONS
-        | NOT_REAL_EMPLOYER
-    )
-
-
-def company_key(value: object) -> str:
-    """Upper text with the punctuation that varies between filings removed."""
-    return employer_rule_key(value)
 
 
 def _has_legal_form_end(key: str) -> bool:
@@ -152,8 +88,7 @@ def _describes_job(key: str) -> bool:
 def _read_proper_name_evidence(words: list[str]) -> str:
     rest = [word for word in words if word not in ORGANISATION_WORDS and word not in _FILLER_WORDS and word != "AND"]
     if not rest:
-        # Organisation words alone (CAPITAL GROUP, INSURANCE SERVICES): a
-        # name or a field; only other filings can tell.
+        # Organisation words alone (CAPITAL GROUP): a name or a field; only other filings can tell.
         return "unknown"
     if _is_job(" ".join(rest)) or any(_is_head_word(word) for word in rest):
         return "job"
@@ -164,18 +99,15 @@ def _read_proper_name_evidence(words: list[str]) -> str:
 
 
 @lru_cache(maxsize=65536)
-def _read_text_evidence(key: str, ampersand: bool = False) -> str:
-    """Evidence from the text alone: legal_form, reviewed, job, named_org or unknown.
-
-    ampersand says the filing wrote "&" (SMITH & JONES), which the key spells AND.
-    """
+def _read_text_evidence(key: str, ampersand: bool) -> str:
+    # ampersand says the filing wrote "&" (SMITH & JONES), which the key spells AND.
     if not key:
         return ""
     if _has_legal_form_end(key):
         return "legal_form"
     if _describes_job(key):
         return "job"
-    if key in _read_reviewed_names():
+    if key in _REVIEWED_NAMES:
         return "reviewed"
     words = _WORDS_RE.findall(key)
     if not any(word in ORGANISATION_WORDS for word in words) and not ampersand:
@@ -185,7 +117,7 @@ def _read_text_evidence(key: str, ampersand: bool = False) -> str:
 
 def company_evidence_level(text: str) -> str:
     """Return the evidence level of a text on its own."""
-    return _read_text_evidence(company_key(text), "&" in text)
+    return _read_text_evidence(employer_rule_key(text), "&" in text)
 
 
 class Filings:
@@ -193,17 +125,14 @@ class Filings:
 
     def __init__(self, names: pd.Series, employers: pd.Series) -> None:
         """Count the different filers who name each employer text."""
-        keys = employers.map(company_key)
+        keys = employers.map(employer_rule_key)
         filed = keys.ne("")
         self.filers = names[filed].groupby(keys[filed].to_numpy()).nunique().to_dict()
         self.own = set(zip(names[filed], keys[filed]))
 
     def level(self, text: str, min_filers: int = 3) -> str:
-        """Return the evidence level of a text.
-
-        It is 'frequent' when enough different filers name it as their employer.
-        """
-        key = company_key(text)
+        """Return the evidence level of a text; 'frequent' when enough different filers name it."""
+        key = employer_rule_key(text)
         level = company_evidence_level(text)
         if (
             level in ("unknown", "named_org")
@@ -216,13 +145,6 @@ class Filings:
         return level
 
 
-_LEGAL_TOKENS = words("legal_tokens")
-
-
-def _has_legal_token(key: str) -> bool:
-    return any(word in _LEGAL_TOKENS for word in key.split())
-
-
 def has_legal_form_token(values: pd.Series) -> pd.Series:
     """Find a legal form anywhere in the text, as a name filed LAST, FIRST may carry one."""
-    return values.map(company_key).map(_has_legal_token)
+    return values.map(lambda value: any(word in _LEGAL_TOKENS for word in employer_rule_key(value).split()))

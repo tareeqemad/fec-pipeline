@@ -1,6 +1,7 @@
 """Read the plain-text rule tables kept as CSV files."""
 
 import csv
+from functools import cache
 from pathlib import Path
 
 from fec.common.settings import DATA_DIR
@@ -29,14 +30,13 @@ def read_set(path: Path) -> frozenset:
     return frozenset(row["word"] for row in read_rows(path))
 
 
+@cache
+def ordered_words(name: str) -> tuple:
+    """One named word list from word_lists.csv, in file order."""
+    rows = read_rows(CONFIG_DIR / "word_lists.csv")
+    return tuple(row["word"] for row in rows if row["list"] == name)
+
+
 def words(name: str) -> frozenset:
     """One named word list from word_lists.csv."""
-    global _WORD_LISTS
-    if _WORD_LISTS is None:
-        _WORD_LISTS = {}
-        for row in read_rows(CONFIG_DIR / "word_lists.csv"):
-            _WORD_LISTS.setdefault(row["list"], set()).add(row["word"])
-    return frozenset(_WORD_LISTS[name])
-
-
-_WORD_LISTS = None
+    return frozenset(ordered_words(name))
