@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import csv
 import re
 
 import numpy as np
 import pandas as pd
 
+from fec.common.files import read_rows
 from fec.common.settings import CONTRIBUTOR_NAME_RULES_CSV
 from fec.vocabulary.names import COMM_TAIL_RE
 from fec.vocabulary.tables import words
@@ -49,9 +49,8 @@ def _add_name_rule(rules: dict[str, dict], number: int, row: dict[str, str]) -> 
 
 def _read_name_rules() -> dict[str, dict]:
     rules = {rule_type: {} for rule_type in RULE_TYPES}
-    with CONTRIBUTOR_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
-        for number, row in enumerate(csv.DictReader(handle), start=2):
-            _add_name_rule(rules, number, row)
+    for number, row in enumerate(read_rows(CONTRIBUTOR_NAME_RULES_CSV), start=2):
+        _add_name_rule(rules, number, row)
     return rules
 
 
@@ -207,9 +206,11 @@ def apply_name_corrections(df: pd.DataFrame) -> None:
     corrected = df["sub_id"].astype(str).map(_RULES["sub_id"]).combine_first(by_name)
 
     changed = corrected.notna() & corrected.ne(df["contributor_name"])
-    for index, new_name in corrected[changed].items():
-        df.at[index, "contributor_name"] = new_name
-        if df.at[index, "entity_type"] == "INDIVIDUAL" and "," in new_name:
-            last, first = (part.strip() for part in new_name.split(",", 1))
-            df.at[index, "contributor_first_name"] = first
-            df.at[index, "contributor_last_name"] = last
+    new_names = corrected[changed].astype(str)
+    df.loc[new_names.index, "contributor_name"] = new_names
+    # A person's corrected LAST, FIRST also fills the two name columns.
+    is_person = df.loc[new_names.index, "entity_type"].eq("INDIVIDUAL")
+    people = new_names[is_person & new_names.str.contains(",", regex=False)]
+    parts = people.str.split(",", n=1)
+    df.loc[people.index, "contributor_last_name"] = parts.str[0].str.strip()
+    df.loc[people.index, "contributor_first_name"] = parts.str[1].str.strip()

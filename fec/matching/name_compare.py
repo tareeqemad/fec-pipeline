@@ -5,9 +5,9 @@ import re
 from rapidfuzz.distance import Levenshtein
 
 from fec.cleaning.work.company_names import employer_rule_key
+from fec.common.text import WORD_TOKEN_RE
 from fec.vocabulary.tables import CONFIG_DIR, ordered_words, read_map, read_rows, words
 
-_NAME_TOKEN_RE = re.compile(r"[A-Z0-9]+")
 GENERATION_SUFFIXES = words("generation_suffixes")
 NAME_SUFFIXES = GENERATION_SUFFIXES | words("credential_suffixes")
 NICKNAME_MAP = read_map(CONFIG_DIR / "nicknames.csv")
@@ -26,7 +26,7 @@ def extract_generational_suffix(name: str) -> str:
     last, _, first = str(name or "").strip().upper().partition(",")
     found = set()
     for part in (last, first):
-        tokens = _NAME_TOKEN_RE.findall(part)
+        tokens = WORD_TOKEN_RE.findall(part)
         if tokens and tokens[-1] in GENERATION_SUFFIXES:
             found.add(tokens[-1])
     return found.pop() if len(found) == 1 else ""
@@ -34,7 +34,7 @@ def extract_generational_suffix(name: str) -> str:
 
 def filed_name_words(name: str) -> frozenset:
     """Every word of the filed name, initials included, whatever the order."""
-    tokens = _NAME_TOKEN_RE.findall(str(name or "").upper())
+    tokens = WORD_TOKEN_RE.findall(str(name or "").upper())
     return frozenset(token for token in tokens if token not in NAME_SUFFIXES)
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
+from psycopg2.extras import execute_values
 
 from fec.cleaning.work.employer_status import classify_employer_status, is_real_employer
 from fec.cleaning.work.occupation_categories import categorize_occupations
@@ -113,30 +114,28 @@ def load_roster_tables(cur: Any, people: pd.DataFrame) -> None:
 
     # A person on both rosters keeps the image of the roster loaded last.
     images = people.dropna(subset="image_path").drop_duplicates("donor_id", keep="last")
-    for donor_id, image_path in to_rows(images[["donor_id", "image_path"]]):
-        cur.execute("INSERT INTO donor_images (donor_id, image_path) VALUES (%s, %s)", (donor_id, image_path))
+    image_rows = to_rows(images[["donor_id", "image_path"]])
+    execute_values(cur, "INSERT INTO donor_images (donor_id, image_path) VALUES %s", image_rows)
 
-    for leader in people[people["roster"].eq("leaders")].to_dict("records"):
-        cur.execute("INSERT INTO leaders (donor_id) VALUES (%s) RETURNING leader_id", (leader["donor_id"],))
-        leader_id = cur.fetchone()[0]
-        for short_name in _split_committee_names(leader["committee_ids"]):
-            cur.execute(
-                "INSERT INTO leader_committees (leader_id, committee_id) VALUES (%s, %s)",
-                (leader_id, committee_ids[short_name]),
-            )
+    leaders = people[people["roster"].eq("leaders")].to_dict("records")
+    sql = "INSERT INTO leaders (donor_id) VALUES %s RETURNING donor_id, leader_id"
+    leader_ids = dict(execute_values(cur, sql, [(leader["donor_id"],) for leader in leaders], fetch=True))
+    memberships = [
+        (leader_ids[leader["donor_id"]], committee_ids[short_name])
+        for leader in leaders
+        for short_name in _split_committee_names(leader["committee_ids"])
+    ]
+    execute_values(cur, "INSERT INTO leader_committees (leader_id, committee_id) VALUES %s", memberships)
 
     cards = people[people["roster"].eq("key_accomplices")].copy()
     cards["committee_id"] = cards["card_committee"].map(committee_ids).astype("Int64")
     # A display order that is not a number stops the load.
     cards["display_order"] = pd.to_numeric(cards["display_order"]).fillna(0).astype(int)
-    for card in to_rows(cards[["donor_id", "sign", "subtitle", "body_text", "committee_id", "display_order"]]):
-        cur.execute(
-            """
-            INSERT INTO key_accomplices (donor_id, sign, subtitle, body_text, committee_id, display_order)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            card,
-        )
+    execute_values(
+        cur,
+        "INSERT INTO key_accomplices (donor_id, sign, subtitle, body_text, committee_id, display_order) VALUES %s",
+        to_rows(cards[["donor_id", "sign", "subtitle", "body_text", "committee_id", "display_order"]]),
+    )
 
 
 def _split_committee_names(text: str | None) -> list[str]:

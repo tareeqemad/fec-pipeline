@@ -1,19 +1,13 @@
 """Read the plain-text rule tables kept as CSV files."""
 
-import csv
 from functools import cache
 from pathlib import Path
 
+from fec.common.files import read_rows
 from fec.common.settings import DATA_DIR
 
 # Built-in spellings and word lists; reviewed decisions stay in data/rules.
 CONFIG_DIR = DATA_DIR / "config"
-
-
-def read_rows(path: Path) -> list[dict]:
-    """Read a CSV file into a list of row dicts."""
-    with open(path, encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle))
 
 
 def read_map(path: Path) -> dict:

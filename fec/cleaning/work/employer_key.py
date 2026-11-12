@@ -2,6 +2,7 @@
 
 import re
 
+from fec.common.text import WORD_TOKEN_RE
 from fec.vocabulary.tables import CONFIG_DIR, ordered_words, read_map, words
 
 # Tried in file order.
@@ -32,7 +33,7 @@ def employer_text_key(name: str) -> str:
     key = re.sub(r"\bAND\b", " ", key)
     key = " ".join(_KEY_TOKEN_EXPANSIONS.get(token, token) for token in key.split())
     # One-word names keep a glued CO/PC/PA/LP: GOLDCO stays.
-    words = re.findall(r"[A-Z0-9]+", key)
+    words = WORD_TOKEN_RE.findall(key)
     while len(words) > 1 and words[-1] in _CORP_SUFFIXES:
         words.pop()
     brand_length = len(words[0]) if len(words) == 1 else 0

@@ -18,11 +18,14 @@ def load_donors(cur: Any, df: pd.DataFrame) -> None:
     unnamed = latest["contributor_last_name"].isna() & latest["entity_type"].ne("INDIVIDUAL")
     latest.loc[unnamed, "contributor_last_name"] = latest["contributor_name"]
     columns = ["donor_key", "entity_type", "contributor_first_name", "contributor_last_name", "identity_status"]
-    execute_values(
+    donor_ids = execute_values(
         cur,
-        "INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) VALUES %s",
+        """
+        INSERT INTO donors (donor_key, entity_type, first_name, last_name, identity_status) VALUES %s
+        RETURNING donor_key, donor_id
+        """,
         to_rows(latest[columns]),
         page_size=5000,
+        fetch=True,
     )
-    cur.execute("SELECT donor_key, donor_id FROM donors")
-    df["donor_id"] = df["donor_key"].map(dict(cur.fetchall()))
+    df["donor_id"] = df["donor_key"].map(dict(donor_ids))

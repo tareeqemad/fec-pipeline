@@ -9,6 +9,7 @@ from functools import lru_cache
 import pandas as pd
 from rapidfuzz.distance import OSA
 
+from fec.common.text import upper_single_spaced
 from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
 from fec.vocabulary.tables import ordered_words
 
@@ -45,7 +46,7 @@ def extend_spellings(df: pd.DataFrame) -> int:
     """Read the filed work fields once; add the status slips to the spelling maps."""
     learnt = {}
     for value in set(pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna().astype(str)):
-        plain = " ".join(value.upper().split())
+        plain = upper_single_spaced(value)
         status = status_word(plain)
         if not status:
             continue

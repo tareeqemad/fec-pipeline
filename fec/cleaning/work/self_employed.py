@@ -4,6 +4,7 @@ import re
 
 from fec.cleaning.work.company_evidence import COMPANY_LEVELS, company_evidence_level
 from fec.cleaning.work.employer_status import collapse_doubled_letters, is_job_title, is_real_employer
+from fec.common.text import upper_dots_as_spaces
 from fec.vocabulary.not_employers import OCCUPATION_AS_EMPLOYER, ROLE_AS_EMPLOYER
 from fec.vocabulary.tables import ordered_words, words
 
@@ -20,7 +21,7 @@ def split_self_marker(value: object) -> tuple[bool, str]:
     """(self_employed, rest): a SELF marker before or after the text, and what else it names."""
     if not isinstance(value, str):
         return False, ""
-    upper = " ".join(value.upper().replace(".", " ").split())
+    upper = upper_dots_as_spaces(value)
     if match := _PREFIX_RE.match(upper):
         return True, upper[match.end() :].strip(" ,;:/()-")
     if match := _TAIL_RE.search(upper):

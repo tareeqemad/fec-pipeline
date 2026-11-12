@@ -9,6 +9,7 @@ import re
 from fec.cleaning.work.company_evidence import COMPANY_LEVELS, company_evidence_level
 from fec.cleaning.work.employer_status import is_job_title, is_real_employer
 from fec.cleaning.work.status_spellings import status_word
+from fec.common.text import upper_dots_as_spaces
 from fec.vocabulary.statuses import STATUS_WORDS
 from fec.vocabulary.tables import words
 
@@ -42,7 +43,7 @@ def _is_retired_word(word: str) -> bool:
 
 def split_retired(value: object) -> tuple[bool, str]:
     """(retired, rest): whether the text says retired (at its start, end, or inside), and what else it names."""
-    upper = _GLUED_RE.sub(r"RETIRED \1", _to_plain_text(value))
+    upper = _GLUED_RE.sub(r"RETIRED \1", upper_dots_as_spaces(value))
     return _retired_at_start(upper) or _retired_at_end(upper) or _retired_inside(upper)
 
 
@@ -91,10 +92,6 @@ def _drop_retired_word(match: re.Match) -> str:
     return "" if _is_retired_word(match.group()) else match.group()
 
 
-def _to_plain_text(value: object) -> str:
-    return " ".join(value.upper().replace(".", " ").split()) if isinstance(value, str) else ""
-
-
 def _tidy(text: str) -> str:
     text = " ".join(text.split())
     text = re.sub(r"\s*([,;:])\s*", r"\1 ", text)  # "A ,B" becomes "A, B"
@@ -120,7 +117,7 @@ def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
     occupation_retired, occupation_rest = split_retired(occupation)
     if not (employer_retired or occupation_retired):
         # Not retired, but a former part was dropped: OFFICE MANAGER, RETIRED NURSE.
-        part_dropped = occupation_rest and occupation_rest != _to_plain_text(occupation)
+        part_dropped = occupation_rest and occupation_rest != upper_dots_as_spaces(occupation)
         return employer, (occupation_rest if part_dropped else occupation), "", False
     employer_rest = employer_rest if employer_retired and not _names_nothing(employer_rest) else ""
     occupation_rest = occupation_rest if occupation_retired and not _names_nothing(occupation_rest) else ""

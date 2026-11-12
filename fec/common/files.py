@@ -1,6 +1,7 @@
 """Read CSV values without losing names; replace completed output files."""
 
 import contextlib
+import csv
 import json
 import os
 import time
@@ -21,6 +22,12 @@ ID_DTYPES = {
     "contributor_zip": "string",
     "employer_zip": "string",
 }
+
+
+def read_rows(path: Path) -> list[dict]:
+    """Read a CSV file into a list of row dicts; a byte-order mark left by Excel is ignored."""
+    with open(path, encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle))
 
 
 def read_pipeline_csv(path: str | Path) -> pd.DataFrame:

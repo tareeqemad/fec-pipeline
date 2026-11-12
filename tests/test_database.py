@@ -21,27 +21,27 @@ def _schema_unique_columns() -> tuple[str, ...]:
 
 
 class FakeDatabase:
-    """Tables as lists of rows; a selected column that was never inserted is the row's serial ID."""
+    """Tables as lists of rows; a returned column that was never inserted is the row's serial ID."""
 
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
-        self._result = []
 
     def insert(self, sql, rows):
         table, columns = re.search(r"INSERT INTO (\w+) \(([^)]*)\)", sql, re.S).groups()
         columns = [column.strip() for column in columns.split(",")]
         stored = self.tables.setdefault(table, [])
+        first_new = len(stored)
         stored.extend(dict(zip(columns, row)) for row in rows)
         if table == "donor_employments":  # the UNIQUE NULLS NOT DISTINCT key of schema.sql
             keys = [tuple(row[column] for column in _schema_unique_columns()) for row in stored]
             assert len(keys) == len(set(keys))
-
-    def execute(self, sql, params=None):
-        columns, table = re.search(r"SELECT (.*) FROM (\w+)", " ".join(sql.split())).groups()
-        columns = re.sub(r"COALESCE\((\w+), ''\)", r"\1 or ''", columns).split(", ")
-        self._result = [
-            tuple(self._read(row, serial, column) for column in columns)
-            for serial, row in enumerate(self.tables.get(table, []), 1)
+        returning = re.search(r"RETURNING (.*)", " ".join(sql.split()))
+        if not returning:
+            return None
+        returned = re.sub(r"COALESCE\((\w+), ''\)", r"\1 or ''", returning.group(1)).split(", ")
+        return [
+            tuple(self._read(row, serial, column) for column in returned)
+            for serial, row in enumerate(stored[first_new:], first_new + 1)
         ]
 
     @staticmethod
@@ -49,9 +49,6 @@ class FakeDatabase:
         if column.endswith(" or ''"):
             return row[column.removesuffix(" or ''")] or ""
         return row.get(column, serial)
-
-    def fetchall(self):
-        return self._result
 
 
 @pytest.fixture

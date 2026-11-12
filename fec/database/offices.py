@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import csv
 import math
 from functools import lru_cache
 
 import pandas as pd
 
+from fec.common.files import read_rows
 from fec.common.settings import REFERENCE_DIR
 
 # How far a company address is proven; only the first two are published.
@@ -87,8 +87,8 @@ def workplaces_by_company(offices: list[dict]) -> dict[str, list[dict]]:
 @lru_cache(maxsize=1)
 def read_zip_centroids() -> dict[str, tuple[float, float]]:
     """Read the centre point of each ZIP code from zip_centroids.csv."""
-    with open(REFERENCE_DIR / "zip_centroids.csv", newline="", encoding="utf-8") as handle:
-        return {row["zip"].zfill(5): (float(row["lat"]), float(row["lng"])) for row in csv.DictReader(handle)}
+    rows = read_rows(REFERENCE_DIR / "zip_centroids.csv")
+    return {row["zip"].zfill(5): (float(row["lat"]), float(row["lng"])) for row in rows}
 
 
 def _normalize(text: str | None) -> str:
