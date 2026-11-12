@@ -1,53 +1,26 @@
-"""One reading of a status word written with a slip.
+"""A status word filed with a slip (RETIERD, SE;F EMPLOYED, SELF-EMPLO) is read as that status.
 
-RETIRED, SELF-EMPLOYED, NOT EMPLOYED, UNEMPLOYED, HOMEMAKER, HOUSEWIFE and
-STUDENT are filed in every spelling: RETIERD, SELF EMPLOYEED, SE;F EMPLOYED,
-NOT EMOLOYED, SELFEMPLOYED, SELF-EMPLO. status_word reads them all the same
-way: the letters alone, compared with the letters of each status word, are
-one slip apart (two for the long ones), or are the start of SELF-EMPLOYED.
-A text that already is a status word is returned as itself.
-
-What is not a slip stays for the spelling table (employer_spellings.csv):
-a different word for the same thing (MYSELF, SOLE PROPRIETOR, JOBLESS,
-NOT WORKING) and a status beside other words (MOSTLY RETIRED), which the
-RETIRED reader handles.
+A different word for the same thing (MYSELF, JOBLESS) stays for employer_spellings.csv.
 """
 
-from __future__ import annotations
-
 import re
-from collections.abc import Iterable
 from functools import lru_cache
-from typing import TYPE_CHECKING
 
+import pandas as pd
 from rapidfuzz.distance import OSA
 
-if TYPE_CHECKING:
-    import pandas as pd
-
-# status word -> its letters alone
-_STATUSES = {
-    "RETIRED": "RETIRED",
-    "SELF-EMPLOYED": "SELFEMPLOYED",
-    "NOT EMPLOYED": "NOTEMPLOYED",
-    "UNEMPLOYED": "UNEMPLOYED",
-    "HOMEMAKER": "HOMEMAKER",
-    "HOUSEWIFE": "HOUSEWIFE",
-    "STUDENT": "STUDENT",
-}
+from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
+from fec.vocabulary.tables import ordered_words
 
 _LETTERS_RE = re.compile(r"[^A-Z]")
-
+# status word -> its letters alone; on a tie the earlier status wins
+_STATUSES = {status: _LETTERS_RE.sub("", status) for status in ordered_words("status_slip_targets")}
 _MIN_PREFIX = 7  # SELFEMP: a truncated SELF-EMPLOYED
-
-
-def _count_slips_allowed(letters: str) -> int:
-    return 2 if len(letters) >= 10 else 1
 
 
 @lru_cache(maxsize=65536)
 def status_word(text: object) -> str | None:
-    """Return the status a text means, or None when it names something else."""
+    """Return the status a text means: one slip away (two for long words) or a start of SELF-EMPLOYED."""
     if not isinstance(text, str):
         return None
     letters = _LETTERS_RE.sub("", text.upper())
@@ -57,7 +30,7 @@ def status_word(text: object) -> str | None:
     for status, target in _STATUSES.items():
         if letters == target:
             return status
-        allowed = _count_slips_allowed(target)
+        allowed = 2 if len(target) >= 10 else 1
         distance = OSA.distance(letters, target, score_cutoff=allowed)
         if distance <= allowed and distance < best_distance:
             best, best_distance = status, distance
@@ -68,34 +41,20 @@ def status_word(text: object) -> str | None:
     return None
 
 
-def learn_status_typos(texts: Iterable[object], canonical: dict | None = None) -> dict[str, str]:
-    """{filed text: status word} for every text that is a status with a slip.
-
-    canonical maps a status to the form the tables use (UNEMPLOYED -> NOT EMPLOYED).
-    """
-    canonical = canonical or {}
+def extend_spellings(df: pd.DataFrame) -> int:
+    """Read the filed work fields once; add the status slips to the spelling maps."""
     learnt = {}
-    for value in set(texts):
+    for value in set(pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna()):
         if not isinstance(value, str):
             continue
         plain = " ".join(value.upper().split())
         status = status_word(plain)
         if not status:
             continue
-        status = canonical.get(status, status)
+        # The form the tables use: UNEMPLOYED -> NOT EMPLOYED.
+        status = EMPLOYER_NORMALIZE.get(status, status)
         if plain != status:
             learnt[plain] = status
-    return learnt
-
-
-def extend_spellings(df: pd.DataFrame) -> int:
-    """Read the filed work fields once; add the status slips to the spelling maps."""
-    import pandas as pd
-
-    from fec.vocabulary.occupations import EMPLOYER_NORMALIZE, OCCUPATION_NORMALIZE
-
-    texts = pd.concat([df["contributor_employer"], df["contributor_occupation"]]).dropna()
-    learnt = learn_status_typos(texts, canonical=EMPLOYER_NORMALIZE)
     for text, status in learnt.items():
         EMPLOYER_NORMALIZE.setdefault(text, status)
         OCCUPATION_NORMALIZE.setdefault(text, status)

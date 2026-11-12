@@ -1,22 +1,8 @@
-"""One reading of RETIRED in the work fields.
+"""RETIRED in the work fields, in any spelling or place: RETIREE, TETIRED, RETIRED TEACHER, UCLA RETIRED.
 
-A filer writes retirement in many ways: RETIRED, RETIREE, SEMI-RETIRED, a
-typo (TETIRED), or RETIRED beside what they used to do (RETIRED TEACHER,
-RETIRED FROM ACME, UCLA RETIRED, PHYSICIAN, RETIRED). split_retired reads
-them all the same way and returns the retirement marker and whatever else
-the text names; settle_retired_fields puts each part where it belongs:
-
-    employer           RETIRED
-    occupation         the former profession when one is named, else RETIRED
-    previous_employer  the former company when one is named
-
-RETIRED inside the text, after a current role (OFFICE MANAGER, RETIRED
-NURSE; VOLUNTEER (RETIRED ATTORNEY); ARBITRATOR/RETIRED JUDGE), qualifies
-only its own part: the filer still works, and the role before it is the
-occupation. The employer stays as filed.
+The employer becomes RETIRED, the occupation the former profession, previous_employer the former company.
+RETIRED after a current role (OFFICE MANAGER, RETIRED NURSE) qualifies only its own part: the filer still works.
 """
-
-from __future__ import annotations
 
 import re
 
@@ -68,16 +54,13 @@ _NO_ROLE = words("no_role")
 _NOTHING = _NO_ROLE | STATUS_WORDS
 
 
-def is_retired_word(word: str) -> bool:
-    """RETIRED, a known variant, or a slip away from it."""
+def _is_retired_word(word: str) -> bool:
+    # RETIRED, a known variant, or a slip away from it.
     return word in _RETIRED_WORDS or (word.isalpha() and status_word(word) == "RETIRED")
 
 
 def split_retired(value: object) -> tuple[bool, str]:
-    """(retired, rest): whether the text says retired, and what else it names.
-
-    The marker is looked for at the start of the text, then at its end, then inside it.
-    """
+    """(retired, rest): whether the text says retired (at its start, end, or inside), and what else it names."""
     upper = _to_plain_text(value)
     if not upper:
         return False, ""
@@ -86,7 +69,7 @@ def split_retired(value: object) -> tuple[bool, str]:
 
 
 def _has_retired_word(text: str) -> bool:
-    return any(is_retired_word(word) for word in _WORD_RE.findall(text))
+    return any(_is_retired_word(word) for word in _WORD_RE.findall(text))
 
 
 def _letter_count(text: str) -> int:
@@ -95,14 +78,14 @@ def _letter_count(text: str) -> int:
 
 def _retired_at_start(upper: str) -> tuple[bool, str] | None:
     match = _PREFIX_RE.match(upper)
-    if match and is_retired_word(match.group("word")):
+    if match and _is_retired_word(match.group("word")):
         return True, _tidy(upper[match.end() :])
     return None
 
 
 def _retired_at_end(upper: str) -> tuple[bool, str] | None:
     match = _SUFFIX_RE.search(upper)
-    if not match or match.start() == 0 or not is_retired_word(match.group("word")):
+    if not match or match.start() == 0 or not _is_retired_word(match.group("word")):
         return None
     head = _tidy(upper[: match.start()])
     if _NAME_BEFORE_RE.search(head):
@@ -127,7 +110,7 @@ def _retired_inside(upper: str) -> tuple[bool, str]:
 
 
 def _drop_retired_word(match: re.Match) -> str:
-    return "" if is_retired_word(match.group()) else match.group()
+    return "" if _is_retired_word(match.group()) else match.group()
 
 
 def _to_plain_text(value: object) -> str:
@@ -154,11 +137,7 @@ def _names_nothing(rest: str) -> bool:
 
 
 def read_retired(employer: str, occupation: str) -> tuple[str, str, str, bool]:
-    """(employer, occupation, former company, said retired) of one filed pair.
-
-    A box without the marker is left as filed: it already names the
-    profession or the company.
-    """
+    """(employer, occupation, former company, said retired) of one filed pair; a box without the marker stays."""
     employer_retired, employer_rest = split_retired(employer)
     occupation_retired, occupation_rest = split_retired(occupation)
     if not (employer_retired or occupation_retired):

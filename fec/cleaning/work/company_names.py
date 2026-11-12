@@ -31,10 +31,7 @@ def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str,
 
 
 def read_company_name_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
-    """Read the reviewed spellings: variant -> canonical.
-
-    A rule holds everywhere, or for one donor (anchor_sub_id) in one cycle.
-    """
+    """Read the reviewed spellings: variant -> canonical, everywhere or for one donor (anchor_sub_id) in one cycle."""
     aliases, scoped = {}, []
     with EMPLOYER_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
@@ -71,12 +68,10 @@ def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
     return aliases
 
 
-EMPLOYER_SYNONYMS, _SCOPED_RULES = read_company_name_rules()
-
+_SYNONYMS, _SCOPED_RULES = read_company_name_rules()
 # Resolve explicit chains; a spelling cannot acquire two meanings globally.
-_resolve_chains(EMPLOYER_SYNONYMS)
-
-_ALIASES = _build_aliases(EMPLOYER_SYNONYMS)
+_resolve_chains(_SYNONYMS)
+_ALIASES = _build_aliases(_SYNONYMS)
 
 
 def documented_employer_name(name: object) -> str | None:
@@ -84,11 +79,8 @@ def documented_employer_name(name: object) -> str | None:
     return _ALIASES.get(employer_rule_key(name))
 
 
-def scoped_employer_rules(df: pd.DataFrame) -> dict:
-    """Resolve evidence to its current donor; never match by company."""
-    needed = {"sub_id", "donor_key", "entity_type", "identity_status"}
-    if not _SCOPED_RULES or not needed.issubset(df.columns):
-        return {}
+def _scoped_employer_rules(df: pd.DataFrame) -> dict:
+    # Resolve evidence to its current donor; never match by company.
     confirmed = df["entity_type"].eq("INDIVIDUAL") & df["identity_status"].eq("confirmed")
     anchors = df.loc[confirmed, ["sub_id", "donor_key"]].copy()
     anchors["sub_id"] = anchors["sub_id"].astype(str)
@@ -116,16 +108,8 @@ def _find_scoped_name(key: str, donor_key: str, cycle: str, scoped: dict[tuple[s
     return None
 
 
-def reviewed_employer_name(
-    name: object,
-    donor_key: str = "",
-    cycle: str = "",
-    scoped: dict[tuple[str, str, str], str] | None = None,
-) -> str:
-    """Return the reviewed spelling of an employer name.
-
-    A scoped rule for this donor and cycle wins.
-    """
+def reviewed_employer_name(name: object, donor_key: str = "", cycle: str = "", scoped: dict | None = None) -> str:
+    """Return the reviewed spelling of an employer name; a scoped rule for this donor and cycle wins."""
     if not isinstance(name, str):
         return ""
     key = employer_rule_key(name)
@@ -141,49 +125,22 @@ def reviewed_employer_name(
     return " ".join(text.split())
 
 
-def _review_names_per_donor(
-    values: pd.Series,
-    donors: pd.Series,
-    cycles: pd.Series,
-    confirmed: pd.Series,
-    scoped: dict[tuple[str, str, str], str],
-) -> pd.Series:
+def canonicalize_current_employers(df: pd.DataFrame) -> int:
+    """Apply the reviewed names to the current employer; never fill a missing one."""
+    scoped = _scoped_employer_rules(df)
+    values = df.loc[df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].notna(), "contributor_employer"]
     rows = values.index
-    return pd.Series(
+    donors = df.loc[rows, "donor_key"].fillna("").astype(str)
+    cycles = df.loc[rows, "two_year_transaction_period"].fillna("").astype(str)
+    confirmed = df.loc[rows, "identity_status"].eq("confirmed")
+    names = pd.Series(
         [
             reviewed_employer_name(value, donor, cycle, scoped if known else None)
-            for value, donor, cycle, known in zip(values, donors.loc[rows], cycles.loc[rows], confirmed.loc[rows])
+            for value, donor, cycle, known in zip(values, donors, cycles, confirmed)
         ],
         index=rows,
         dtype=object,
     )
-
-
-def apply_reviewed_employer_names(
-    df: pd.DataFrame,
-    columns: tuple[str, ...] = ("contributor_employer", "previous_employer"),
-) -> int:
-    """Aliases change existing values only, never fill missing work."""
-    scoped = scoped_employer_rules(df)
-    mask = df["entity_type"].eq("INDIVIDUAL") if "entity_type" in df else pd.Series(True, index=df.index)
-    donors = df.get("donor_key", pd.Series("", index=df.index)).fillna("").astype(str)
-    cycles = df.get("two_year_transaction_period", pd.Series("", index=df.index)).fillna("").astype(str)
-    confirmed = df.get("identity_status", pd.Series("", index=df.index)).eq("confirmed")
-    changed = 0
-    for column in columns:
-        if column not in df:
-            continue
-        values = df.loc[mask & df[column].notna(), column]
-        if scoped:
-            names = _review_names_per_donor(values, donors, cycles, confirmed, scoped)
-        else:
-            names = values.map(reviewed_employer_name)
-        different = names.ne(values)
-        df.loc[values.index[different], column] = names[different]
-        changed += int(different.sum())
-    return changed
-
-
-def canonicalize_current_employers(df: pd.DataFrame) -> int:
-    """Apply documented names to the current employer only."""
-    return apply_reviewed_employer_names(df, ("contributor_employer",))
+    different = names.ne(values)
+    df.loc[rows[different], "contributor_employer"] = names[different]
+    return int(different.sum())

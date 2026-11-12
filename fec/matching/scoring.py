@@ -6,58 +6,26 @@ from rapidfuzz.distance import Levenshtein
 
 from fec.matching.name_compare import filed_name_words
 
-# Generic categories support no match; retirement is scored separately.
-GENERIC_OCC_CATEGORIES = {
-    "RETIRED",
-    "NOT EMPLOYED",
-    "SELF-EMPLOYED",
-    "OTHER",
-    "ORGANIZATION",
-    "POLITICAL COMMITTEE",
-    "HOMEMAKER",
-    "STUDENT",
-    "NAN",
-    "",
-}
-
 MERGE_THRESHOLD = 50  # a pair at this score is one donor, unless a rule separates it
-
 BLOCKED = -999  # two different full middle names: different people
-
 # shared evidence
 SCORE_SAME_STREET = 60
-
 SCORE_SAME_EMPLOYER = 30
-
 SCORE_SAME_STATE = 10
-
 SCORE_SAME_CITY = 15
-
 SCORE_SAME_ZIP5 = 25
-
 SCORE_SAME_ZIP3 = 5  # same ZIP area (first 3 digits)
-
 SCORE_SAME_OCC = 15  # same occupation category
-
 SCORE_OCC_RETIRED = 10  # an occupation on one record, retired on the other
-
 SCORE_MIDDLE_MATCH = 15  # same middle, an initial of the full form, or a one-letter slip
-
 SCORE_MIDDLE_PARTIAL = 5  # only one side has a middle name
-
 SCORE_MIDDLE_CONFLICT = -30  # different initials
-
 # name rarity (name_freq = profiles sharing the normalised name)
 SCORE_RARE_NAME = 15  # freq <= 3
-
 SCORE_VERY_RARE_BONUS = 20  # freq <= 2, on top of the rare bonus
-
 SCORE_RETIRED_NO_EMP = 25  # no employer on either side, a rare name and shared geography
-
 SCORE_RARE_EMPLOYER_OK = 10  # no geography, but a shared employer and a rare name
-
 SCORE_CROSS_NAME_BONUS = 10  # another spelling of the name, only with corroboration
-
 EMPLOYER_ONLY_COMMON_CAP = 30  # a common name sharing only an employer never merges
 
 
@@ -101,11 +69,7 @@ def _limit_without_geography(score: int, employer: bool, name_freq: int) -> int:
 
 
 def compare_profiles(profile_a: dict, profile_b: dict, name_freq: int) -> Evidence:
-    """Return the match score of two profiles and the anchors behind it.
-
-    Two spellings of the same words (LAST, FIRST MIDDLE / LAST, MIDDLE
-    FIRST) name one person, so their middle names are not compared.
-    """
+    """Return the match score of two profiles and the anchors behind it."""
     street = bool(profile_a["streets"] & profile_b["streets"])
     employer = bool(profile_a["norm_employers"] & profile_b["norm_employers"])
     state = bool(profile_a["state"]) and profile_a["state"] == profile_b["state"]
@@ -131,6 +95,7 @@ def compare_profiles(profile_a: dict, profile_b: dict, name_freq: int) -> Eviden
         score += SCORE_OCC_RETIRED
 
     middle = 0
+    # The same words in another order (LAST, MIDDLE FIRST) name one person: their middle names are not compared.
     if filed_name_words(profile_a["name"]) != filed_name_words(profile_b["name"]):
         middle = _score_middle_names(profile_a["middle"], profile_b["middle"])
         if middle == BLOCKED:

@@ -1,7 +1,5 @@
 """The category of an occupation: the reviewed table, else the category of its last listed word."""
 
-from __future__ import annotations
-
 import re
 
 import pandas as pd
@@ -10,10 +8,7 @@ from fec.vocabulary.occupations import OCCUPATION_CATEGORIES, OCCUPATION_CATEGOR
 
 
 def category_of(occupation: str) -> str:
-    """Return the table's category; an unlisted text takes the category of its last listed word, else OTHER.
-
-    REGISTERED NURSE ends in NURSE, so it is MEDICAL / HEALTHCARE.
-    """
+    """Return the table's category; an unlisted text takes the one of its last listed word (NURSE), else OTHER."""
     if occupation in OCCUPATION_CATEGORIES:
         return OCCUPATION_CATEGORIES[occupation]
     for word in reversed(re.findall(r"[A-Z]+", occupation)):

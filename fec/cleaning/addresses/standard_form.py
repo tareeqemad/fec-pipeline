@@ -1,14 +1,8 @@
-"""One standard form for a filed US address, with no table of our own.
+"""One standard form for a filed US address, offline and the same for the same filing.
 
-The usaddress parser names each word of a street line; the USPS
-Publication 28 tables shipped with usaddress-scourgify give the short form
-of street types, directions and unit designators; the USPS ZIP table
-shipped with zipcodes names the cities of a ZIP. The same filing always
-gives the same answer, offline.
-
-A line the parser cannot name stays as filed, without its punctuation.
-Foreign addresses are left as filed. Reviewed corrections in
-data/rules/address_rules.csv are applied afterwards and win.
+usaddress names each word of a street line; the USPS Publication 28 tables of usaddress-scourgify give the short
+forms; the USPS ZIP table of zipcodes names the cities of a ZIP. A line the parser cannot name stays as filed,
+without its punctuation. Foreign addresses stay as filed; data/rules/address_rules.csv is applied afterwards.
 """
 
 from __future__ import annotations
@@ -19,7 +13,6 @@ from functools import cache
 import numpy as np
 import pandas as pd
 import usaddress
-import zipcodes
 from rapidfuzz.distance import OSA
 from scourgify.address_constants import (
     CITY_ABBREVIATIONS,
@@ -29,57 +22,25 @@ from scourgify.address_constants import (
     STREET_TYPE_ABBREVIATIONS,
 )
 
-from fec.cleaning.addresses.foreign_addresses import foreign_address_mask
-from fec.vocabulary.tables import words
+from fec.cleaning.addresses.donor_addresses import zip_place
+from fec.cleaning.addresses.foreign_addresses import ADDRESS_FIELDS, foreign_address_mask
+from fec.common.text import upper_text
+from fec.vocabulary.tables import CONFIG_DIR, read_rows, words
 
-FIELDS = ("street_1", "street_2", "city", "state", "zip")
 
-COLUMNS = tuple(f"contributor_{field}" for field in FIELDS)
+def _read_address_words(kind: str) -> dict[str, str]:
+    return {row["word"]: row["short"] for row in read_rows(CONFIG_DIR / "address_words.csv") if row["kind"] == kind}
 
-_UNIT_TYPES = {
-    **OCCUPANCY_TYPE_ABBREVIATIONS,
-    "NUMBER": "#",
-    "NUM": "#",
-    "NO": "#",
-    "FLR": "FL",
-    "PMB": "PMB",
-}
 
+_UNIT_TYPES = {**OCCUPANCY_TYPE_ABBREVIATIONS, **_read_address_words("unit")}
 _UNIT_TYPES |= {short: short for short in OCCUPANCY_TYPE_ABBREVIATIONS.values()}
-
-_NUMBERS = dict(
-    zip(
-        ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"],
-        ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
-    )
-)
-
-_ORDINALS = dict(
-    zip(
-        [
-            "FIRST",
-            "SECOND",
-            "THIRD",
-            "FOURTH",
-            "FIFTH",
-            "SIXTH",
-            "SEVENTH",
-            "EIGHTH",
-            "NINTH",
-            "TENTH",
-        ],
-        ["1ST", "2ND", "3RD", "4TH", "5TH", "6TH", "7TH", "8TH", "9TH", "10TH"],
-    )
-)
-
+_NUMBERS = _read_address_words("number")
+_ORDINALS = _read_address_words("ordinal")
 # USPS Publication 28: these designators stand without an id
 _NEEDS_NO_ID = words("needs_no_id")
-
 # Words that start a street's name but that the parser reads as a street type before it: BEACH 137TH ST
 _NAME_WORDS_READ_AS_TYPES = words("name_words_read_as_types")
-
 _PO_BOX = re.compile(r"^(?:P ?O|POST OFFICE|P ?O ?B)(?: ?BOX)? ?#? ?(\w*\d\w*|[A-Z])$")
-
 _CARE_OF = re.compile(r"^(?:C/O|CARE OF|ATTN|ATTENTION)\b")
 
 
@@ -162,10 +123,7 @@ def _tag_words(text: str, after_hash: str) -> list[tuple[str, str]]:
     tagged = [(word.strip(" ,.;"), label) for word, label in usaddress.parse(text.strip())]
     if tagged and tagged[0][0].isdigit() and all(label == "BuildingName" for _, label in tagged):
         # 3 BETHESDA METRO CENTER: a numbered building is its own street
-        tagged = [
-            (tagged[0][0], "AddressNumber"),
-            *((word, "StreetName") for word, _ in tagged[1:]),
-        ]
+        tagged = [(tagged[0][0], "AddressNumber"), *((word, "StreetName") for word, _ in tagged[1:])]
     if len(tagged) >= 2 and tagged[-1][0] in ("NO", "SO") and tagged[-2][1] == "StreetNamePostType" and not after_hash:
         # 40TH AVENUE NO: north, as Minneapolis writes it
         tagged[-1] = (tagged[-1][0][0], "StreetNamePostDirectional")
@@ -173,14 +131,9 @@ def _tag_words(text: str, after_hash: str) -> list[tuple[str, str]]:
 
 
 def _find_street_end(tagged: list[tuple[str, str]]) -> int:
-    """Return where the street words end; a road number or a cut-off type is relabelled as street.
-
-    HIGHWAY 101: the number of a numbered road; RICHMOND D: a cut-off street type.
-    """
-    cut = next(
-        (i for i, (_, label) in enumerate(tagged) if label.startswith(("Occupancy", "Subaddress"))),
-        len(tagged),
-    )
+    # Where the street words end; HIGHWAY 101 (a road number) and RICHMOND D (a cut-off type) stay street.
+    unit_starts = [i for i, (_, label) in enumerate(tagged) if label.startswith(("Occupancy", "Subaddress"))]
+    cut = unit_starts[0] if unit_starts else len(tagged)
     if not cut or cut == len(tagged) or not tagged[cut][1].endswith("Identifier"):
         return cut
     word, before = tagged[cut][0], tagged[cut - 1]
@@ -236,10 +189,7 @@ def _get_initials(text: str) -> str:
 
 
 def _repeats_the_place(text: str, city: str, state: str, zipcode: str) -> bool:
-    """Tell whether a text is the city, state and ZIP again, often cut by the field.
-
-    BALT MD, NEW, # LA, ANTA GA3034, FL USA.
-    """
+    # The city, state and ZIP again, often cut by the field: BALT MD, NEW, # LA, ANTA GA3034, FL USA.
     words = [word for word in re.sub(r"[#\d]", " ", text).split() if word not in ("USA", "US", state)]
     rest = " ".join(words)
     if not rest:
@@ -277,19 +227,14 @@ def _drop_place_after_street(words: list[str], city: str, state: str, zipcode: s
 
 
 def _read_unnamed_second_line(street_2: str) -> tuple[str, str]:
-    """Read a second line the parser cannot name.
-
-    NUM 303 is a unit, a designator alone is nothing, the rest stays as filed.
-    """
+    # A second line the parser cannot name: NUM 303 is a unit, a designator alone is nothing, the rest stays.
     alone = _strip_punctuation(street_2).replace("#", " # ").split()
     if len(alone) <= 2 and alone[0] in _UNIT_TYPES:
         return "", _build_unit(street_2)
     return "", _strip_punctuation(street_2)
 
 
-def standard_street(
-    street_1: str, street_2: str, city: str = "", state: str = "", zipcode: str = ""
-) -> tuple[str, str]:
+def standard_street(street_1: str, street_2: str, city: str, state: str, zipcode: str) -> tuple[str, str]:
     """Return the two street lines in standard form: the street, then the unit."""
     if street_2 and city and _repeats_the_place(_strip_punctuation(street_2), city, state, zipcode):
         street_2 = ""
@@ -310,21 +255,8 @@ def standard_street(
     return one[0] or two[0], " ".join(part for part in units if part)
 
 
-@cache
-def _find_zip_cities(zipcode: str) -> tuple[str, ...]:
-    if not (len(zipcode) == 5 and zipcode.isdigit()):
-        return ()
-    names = [
-        name for record in zipcodes.matching(zipcode) for name in (record["city"], *record.get("acceptable_cities", []))
-    ]
-    return tuple(dict.fromkeys(name.upper() for name in names))
-
-
 def _spell_out_city(city: str) -> str:
-    """Write a city in full: ST LOUIS and FT WORTH.
-
-    A last word with no vowel is a USPS short form (MOUNTAIN BRK, MAYFIELD HTS).
-    """
+    # ST LOUIS and FT WORTH in full; a last word with no vowel is a USPS short form (MOUNTAIN BRK, MAYFIELD HTS).
     words = [CITY_ABBREVIATIONS.get(word, word) for word in _strip_punctuation(city).split()]
     if len(words) > 1 and not set(words[-1]) & set("AEIOUY"):
         words[-1] = LONGHAND_STREET_TYPES.get(words[-1], words[-1])
@@ -349,7 +281,7 @@ def _is_shortening(short: str, full: str) -> bool:
 
 
 def _find_full_zip_names(zipcode: str) -> list[str]:
-    listed = [name for name in _find_zip_cities(zipcode[:5]) if set(name.split()[-1]) & set("AEIOUY")]
+    listed = [name for name in zip_place(zipcode[:5])[1] if set(name.split()[-1]) & set("AEIOUY")]
     listed = [_spell_out_city(name) for name in listed]
     # USPS lists its own short forms too (PARADISE VLY, SLC): only the full names are answers
     full_names = (
@@ -361,10 +293,7 @@ def _find_full_zip_names(zipcode: str) -> list[str]:
 
 
 def standard_city(city: str, zipcode: str) -> str:
-    """Return the city in full, read through the USPS names of its ZIP.
-
-    No short form, no slip of a letter.
-    """
+    """Return the city in full, read through the USPS names of its ZIP: no short form, no slip of a letter."""
     full = _spell_out_city(city)
     names = _find_full_zip_names(zipcode)
     full_letters = _keep_letters(full)
@@ -393,16 +322,12 @@ def standard_city(city: str, zipcode: str) -> str:
 
 def standard_address(street_1: str, street_2: str, city: str, state: str, zipcode: str) -> tuple[str, ...]:
     """Return the standardized street, city, state and ZIP of one address."""
-    # 12230 BONE HOLLOW ROAD KAMAS 84036: a city and its own ZIP typed in the street
-    # are the real place
+    # 12230 BONE HOLLOW ROAD KAMAS 84036: a city and its own ZIP typed in the street are the real place
     *words, last = _strip_punctuation(street_1).split() or [""]
     for size in (1, 2, 3):
         city_words = " ".join(words[-size:])
-        if len(words) >= size + 2 and city_words in _find_zip_cities(last):
-            street_1 = " ".join(words[:-size])
-            city = city_words
-            zipcode = last
-            state = zipcodes.matching(last)[0]["state"]
+        if len(words) >= size + 2 and city_words in zip_place(last)[1]:
+            street_1, city, zipcode, state = " ".join(words[:-size]), city_words, last, zip_place(last)[0]
             break
     city = _strip_punctuation(city)
     if state:
@@ -414,29 +339,20 @@ def standard_address(street_1: str, street_2: str, city: str, state: str, zipcod
     return (*standard_street(street_1, street_2, town, state, five), town, state, zipcode)
 
 
-def _upper_stripped(column: pd.Series) -> pd.Series:
-    return column.str.upper().str.strip()
-
-
 def standardize_addresses(df: pd.DataFrame) -> int:
     """Rewrite every US address in its standard form; return how many filings changed."""
     us_rows = ~foreign_address_mask(df)
     if not us_rows.any():
         return 0
-    filed = df.loc[us_rows, list(COLUMNS)].fillna("").astype(str).apply(_upper_stripped)
+    columns = list(ADDRESS_FIELDS)
+    before = df.loc[us_rows, columns].fillna("").astype(str)
+    filed = before.apply(upper_text)
     distinct = filed.drop_duplicates()
-    standard = pd.DataFrame(
-        [standard_address(*row) for row in distinct.itertuples(index=False, name=None)],
-        columns=[f"{column}_standard" for column in COLUMNS],
-        index=distinct.index,
-    )
-    merged = filed.merge(pd.concat([distinct, standard], axis=1), on=list(COLUMNS), how="left")
-    merged.index = filed.index
-    before = df.loc[us_rows, list(COLUMNS)].fillna("").astype(str)
-    for column in COLUMNS:
-        df.loc[us_rows, column] = merged[f"{column}_standard"].replace("", np.nan).astype(object)
-    after = df.loc[us_rows, list(COLUMNS)].fillna("").astype(str)
-    return int((before != after).any(axis=1).sum())
+    standard = {address: standard_address(*address) for address in distinct.itertuples(index=False, name=None)}
+    after = pd.DataFrame([standard[address] for address in filed.itertuples(index=False, name=None)], index=filed.index)
+    for position, column in enumerate(columns):
+        df.loc[us_rows, column] = after[position].replace("", np.nan).astype(object)
+    return int((before != df.loc[us_rows, columns].fillna("").astype(str)).any(axis=1).sum())
 
 
 def clear_own_name_street(df: pd.DataFrame) -> int:

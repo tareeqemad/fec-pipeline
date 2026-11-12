@@ -1,20 +1,8 @@
-"""Misspelt occupations: one rule instead of a table row for each.
+"""A filed occupation one slip from one listed occupation (ATTORNY, PHYSICAIN) is added to the corrections.
 
-A filed text one slip away from a listed occupation names that occupation:
-a letter dropped, added, swapped or transposed (ATTORNY, CONSUTLANT,
-PHYSICAIN). The rule reads the filed texts once, before the work fields are
-cleaned, and adds what it learns to the occupation corrections, so every
-later step treats a learnt typo like a reviewed row.
-
-What the rule leaves alone, for the table: a slip in a word under six
-letters (CO / CEO), a text as close to two listed occupations, a difference
-only in spaces or punctuation (text normalisation reads those), a status
-word (the RETIRED reader owns those), and any text already listed or
-already corrected. Only the occupation box is read: a company name in the
-employer box can be one letter from a job (GARTNER / PARTNER).
+Left for the table: a slip in a word under six letters (CO / CEO), a text as close to two occupations, and
+status words. Only the occupation box is read: an employer can be one letter from a job (GARTNER / PARTNER).
 """
-
-from __future__ import annotations
 
 import re
 from collections.abc import Iterable
@@ -31,13 +19,8 @@ from fec.vocabulary.occupations import (
 )
 from fec.vocabulary.statuses import STATUS_WORDS
 
-MIN_WORD_LETTERS = 6
-
+_MIN_WORD_LETTERS = 6
 _TEXT_RE = re.compile(r"[A-Z][A-Z '&/.-]*")
-
-
-def _to_plain_text(value: object) -> str:
-    return " ".join(value.upper().split()) if isinstance(value, str) else ""
 
 
 def _is_one_word_slip(text: str, listed: str) -> bool:
@@ -49,20 +32,16 @@ def _is_one_word_slip(text: str, listed: str) -> bool:
         return False
     filed, known = differing[0]
     letters = re.sub(r"[^A-Z]", "", known)
-    return len(letters) >= MIN_WORD_LETTERS and filed.isalpha() and known.isalpha() and OSA.distance(filed, known) == 1
+    return len(letters) >= _MIN_WORD_LETTERS and filed.isalpha() and known.isalpha() and OSA.distance(filed, known) == 1
 
 
 def learn_typos(texts: Iterable[object], listed: Iterable[str] | None = None) -> dict[str, str]:
     """{filed text: listed occupation} for every text one slip from one listed occupation."""
     candidates = OCCUPATION_CATEGORIES if listed is None else listed
-    listed = [
-        occupation
-        for occupation in candidates
-        if occupation not in OCCUPATION_CORRECTIONS and occupation not in STATUS_WORDS
-    ]
+    listed = [text for text in candidates if text not in OCCUPATION_CORRECTIONS and text not in STATUS_WORDS]
     known = set(listed)
     learnt: dict[str, str] = {}
-    for text in set(map(_to_plain_text, texts)):
+    for text in {" ".join(value.upper().split()) for value in texts if isinstance(value, str)}:
         if not text or text in known or text in OCCUPATION_CORRECTIONS or not _TEXT_RE.fullmatch(text):
             continue
         near = process.extract(text, listed, scorer=OSA.distance, score_cutoff=1, limit=2)

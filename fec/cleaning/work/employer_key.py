@@ -2,31 +2,14 @@
 
 import re
 
-from fec.vocabulary.tables import words
+from fec.vocabulary.tables import CONFIG_DIR, ordered_words, read_map, words
 
-_CORP_SUFFIXES = (
-    "INCORPORATED",
-    "CORPORATION",
-    "COMPANY",
-    "ENTERPRISES",
-    "PLLC",
-    "CORP",
-    "GROUP",
-    "LLC",
-    "LLP",
-    "INC",
-    "LTD",
-    "CO",
-    "PC",
-    "PA",
-    "LP",
-)
-
+# Tried in file order.
+_CORP_SUFFIXES = ordered_words("corp_suffixes")
 # Short suffixes glued onto one word belong to the brand.
 _GLUED_BRAND_SUFFIXES = words("glued_brand_suffixes")
-
 # Abbreviations folded for grouping only; ASSOC is deliberately absent.
-_KEY_TOKEN_EXPANSIONS = {"UNIV": "UNIVERSITY", "MT": "MOUNT", "ASSOCS": "ASSOCIATES"}
+_KEY_TOKEN_EXPANSIONS = read_map(CONFIG_DIR / "employer_key_expansions.csv")
 
 
 def _strip_one_suffix(key: str, brand_length: int) -> str:
@@ -56,9 +39,7 @@ def employer_text_key(name: str) -> str:
         words.pop()
     brand_length = len(words[0]) if len(words) == 1 else 0
     key = re.sub(r"[^A-Z0-9]+", "", key)
-    # strip trailing corporate suffixes one at a time until none is left
-    while True:
-        shorter = _strip_one_suffix(key, brand_length)
-        if shorter == key:
-            return key
-        key = shorter
+    # Strip trailing corporate suffixes one at a time until none is left.
+    while _strip_one_suffix(key, brand_length) != key:
+        key = _strip_one_suffix(key, brand_length)
+    return key

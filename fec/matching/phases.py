@@ -41,9 +41,7 @@ def _can_merge_suffixes(context: MatchContext, profile_id_a: str, profile_id_b: 
     if len(suffixes_a | suffixes_b) > 1:
         return False
     if bool(suffixes_a) != bool(suffixes_b):
-        streets_a = context.profiles[profile_id_a]["streets"]
-        streets_b = context.profiles[profile_id_b]["streets"]
-        return bool(streets_a & streets_b)
+        return _share_street(context.profiles[profile_id_a], context.profiles[profile_id_b])
     return True
 
 
@@ -71,59 +69,66 @@ def score_same_names(context: MatchContext) -> None:
             _merge(context, profile_id_a, profile_id_b, evidence.score)
 
 
-def _group_norms_by_last_name(name_groups: dict) -> dict:
-    grouped = defaultdict(set)
+def _group_norms_by_name_part(name_groups: dict) -> tuple[dict, dict]:
+    by_last, by_first = defaultdict(set), defaultdict(set)
     for norm_name in name_groups:
-        if "|" in norm_name:
-            grouped[norm_name.split("|", 1)[0]].add(norm_name)
-    return grouped
+        if "|" not in norm_name:
+            continue
+        last, first = norm_name.split("|", 1)
+        by_last[last].add(norm_name)
+        if first and last:
+            by_first[first].add(norm_name)
+    return by_last, by_first
 
 
 def _score_group_pairs(
     context: MatchContext,
     profile_ids_a: list,
     profile_ids_b: list,
-    profiles_match: Callable[[dict, dict], bool],
-    adjust: Callable[[Evidence], int],
+    profiles_match: Callable[[dict, dict], bool] | None = None,
+    adjust: Callable[[Evidence], int] | None = None,
 ) -> None:
     name_freq = len(profile_ids_a) + len(profile_ids_b)
     for profile_id_a in profile_ids_a:
         for profile_id_b in profile_ids_b:
             profile_a, profile_b = context.profiles[profile_id_a], context.profiles[profile_id_b]
-            if not profiles_match(profile_a, profile_b):
+            if profiles_match and not profiles_match(profile_a, profile_b):
                 continue
             evidence = compare_profiles(profile_a, profile_b, name_freq)
-            _merge(context, profile_id_a, profile_id_b, adjust(evidence))
+            score = adjust(evidence) if adjust else evidence.score
+            _merge(context, profile_id_a, profile_id_b, score)
 
 
 def _score_bucket_pairs(
     context: MatchContext,
     buckets: dict,
     names_match: Callable[[str, str], bool],
-    profiles_match: Callable[[dict, dict], bool],
-    adjust: Callable[[Evidence], int],
+    profiles_match: Callable[[dict, dict], bool] | None = None,
+    adjust: Callable[[Evidence], int] | None = None,
 ) -> None:
     for norm_names in buckets.values():
         for name_a, name_b in combinations(sorted(norm_names), 2):
-            if not names_match(name_a, name_b):
-                continue
-            profile_ids_a = context.name_groups[name_a]
-            profile_ids_b = context.name_groups[name_b]
-            _score_group_pairs(context, profile_ids_a, profile_ids_b, profiles_match, adjust)
-
-
-def _accept_any_profiles(_profile_a: dict, _profile_b: dict) -> bool:
-    return True
+            if names_match(name_a, name_b):
+                profile_ids_a = context.name_groups[name_a]
+                profile_ids_b = context.name_groups[name_b]
+                _score_group_pairs(context, profile_ids_a, profile_ids_b, profiles_match, adjust)
 
 
 def _share_street(profile_a: dict, profile_b: dict) -> bool:
     return bool(profile_a["streets"] & profile_b["streets"])
 
 
+def _share_zip5(profile_a: dict, profile_b: dict) -> bool:
+    return len(profile_a["zip5"]) == 5 and profile_a["zip5"] == profile_b["zip5"]
+
+
 def _share_street_or_zip(profile_a: dict, profile_b: dict) -> bool:
-    zip_a, zip_b = profile_a["zip5"], profile_b["zip5"]
-    same_zip = bool(zip_a and len(zip_a) == 5 and zip_a == zip_b)
-    return bool(profile_a["streets"] & profile_b["streets"]) or same_zip
+    return _share_street(profile_a, profile_b) or _share_zip5(profile_a, profile_b)
+
+
+def _share_street_or_zip_and_employer(profile_a: dict, profile_b: dict) -> bool:
+    same_employer = bool(profile_a["norm_employers"] & profile_b["norm_employers"])
+    return _share_street(profile_a, profile_b) or (_share_zip5(profile_a, profile_b) and same_employer)
 
 
 def _adjust_cross_name_score(evidence: Evidence) -> int:
@@ -138,13 +143,9 @@ def _adjust_same_words_score(evidence: Evidence) -> int:
     return evidence.score + SCORE_CROSS_NAME_BONUS
 
 
-def _keep_score(evidence: Evidence) -> int:
-    return evidence.score
-
-
 def score_first_name_variants(context: MatchContext) -> None:
     """First-name variants only with a shared street, ZIP or employer."""
-    buckets = _group_norms_by_last_name(context.name_groups)
+    buckets, _ = _group_norms_by_name_part(context.name_groups)
     first_names_by_surname = {
         last: {norm_name.split("|", 1)[1] for norm_name in norm_names} for last, norm_names in buckets.items()
     }
@@ -154,25 +155,7 @@ def score_first_name_variants(context: MatchContext) -> None:
         surname = name_a.split("|", 1)[0]
         return first_names_may_match(name_a, name_b, first_names_by_surname[surname])
 
-    _score_bucket_pairs(context, buckets, are_candidates, _accept_any_profiles, _adjust_cross_name_score)
-
-
-def _group_norms_by_first_name(name_groups: dict) -> dict:
-    grouped = defaultdict(set)
-    for norm_name in name_groups:
-        if "|" not in norm_name:
-            continue
-        last, first = norm_name.split("|", 1)
-        if first and last:
-            grouped[first].add(norm_name)
-    return grouped
-
-
-def _share_street_or_zip_and_employer(profile_a: dict, profile_b: dict) -> bool:
-    zip_a, zip_b = profile_a["zip5"], profile_b["zip5"]
-    same_zip = bool(zip_a and len(zip_a) == 5 and zip_a == zip_b)
-    same_employer = bool(profile_a["norm_employers"] & profile_b["norm_employers"])
-    return bool(profile_a["streets"] & profile_b["streets"]) or (same_zip and same_employer)
+    _score_bucket_pairs(context, buckets, are_candidates, adjust=_adjust_cross_name_score)
 
 
 def _are_surname_variants(name_a: str, name_b: str) -> bool:
@@ -181,19 +164,12 @@ def _are_surname_variants(name_a: str, name_b: str) -> bool:
 
 def score_surname_variants(context: MatchContext) -> None:
     """Surname typos need a shared street, or ZIP and employer."""
-    _score_bucket_pairs(
-        context,
-        _group_norms_by_first_name(context.name_groups),
-        _are_surname_variants,
-        _share_street_or_zip_and_employer,
-        _keep_score,
-    )
+    _, buckets = _group_norms_by_name_part(context.name_groups)
+    _score_bucket_pairs(context, buckets, _are_surname_variants, _share_street_or_zip_and_employer)
 
 
-def _build_name_token_key(norm_name: str) -> frozenset:
-    last, _, first = norm_name.partition("|")
-    tokens = _TOKEN_SPLIT_RE.split(f"{last} {first}")
-    return frozenset(token for token in tokens if len(token) >= 2)
+def _long_tokens(text: str) -> frozenset:
+    return frozenset(token for token in _TOKEN_SPLIT_RE.split(text) if len(token) >= 2)
 
 
 def _group_profiles_by_name_words(profiles: dict) -> dict:
@@ -202,19 +178,15 @@ def _group_profiles_by_name_words(profiles: dict) -> dict:
         words = filed_name_words(profile["name"])
         if len(words) >= 2:
             buckets[words].add(profile_id)
-        tokens = _build_name_token_key(profile["norm_name"])
+        last, _, first = profile["norm_name"].partition("|")
+        tokens = _long_tokens(f"{last} {first}")
         if len(tokens) >= 2:
             buckets[tokens].add(profile_id)
     return buckets
 
 
 def score_name_formats(context: MatchContext) -> None:
-    """Other formats of one name, sharing a street or ZIP.
-
-    FIRST, LAST beside LAST, FIRST; and the same words in another order or
-    punctuation (LAST, MIDDLE FIRST; FIRST-MIDDLE), where the middle name
-    is the same person's and not evidence against.
-    """
+    """Other formats of one name (FIRST, LAST; LAST, MIDDLE FIRST; FIRST-MIDDLE), sharing a street or ZIP."""
     buckets = _group_profiles_by_name_words(context.profiles)
     seen = set()
     for profile_ids in buckets.values():
@@ -230,6 +202,7 @@ def score_name_formats(context: MatchContext) -> None:
             freq_a = len(context.name_groups[profile_a["norm_name"]])
             freq_b = len(context.name_groups[profile_b["norm_name"]])
             evidence = compare_profiles(profile_a, profile_b, freq_a + freq_b)
+            # The middle name here is the same person's, not evidence against.
             _merge(context, profile_id_a, profile_id_b, _adjust_same_words_score(evidence))
 
 
@@ -240,10 +213,10 @@ def _index_superset_names(name_groups: dict) -> tuple[dict, dict, dict]:
         if "|" not in norm_name:
             continue
         last, _, first = norm_name.partition("|")
-        name_tokens = frozenset(token for token in _TOKEN_SPLIT_RE.split(f"{last} {first}") if len(token) >= 2)
+        name_tokens = _long_tokens(f"{last} {first}")
         if len(name_tokens) >= 2:
             tokens_of[norm_name] = name_tokens
-            first_tokens_of[norm_name] = frozenset(token for token in _TOKEN_SPLIT_RE.split(first) if len(token) >= 2)
+            first_tokens_of[norm_name] = _long_tokens(first)
 
     names_with_token: dict = defaultdict(set)
     for norm_name, name_tokens in tokens_of.items():
@@ -269,10 +242,7 @@ def _is_valid_superset(
     tokens_of: dict,
     first_tokens_of: dict,
 ) -> bool:
-    """Return whether the longer name adds up to two words to the shorter one.
-
-    The two names must also share a first name.
-    """
+    """Return whether the longer name adds up to two words to the shorter one and shares its first name."""
     if longer_name == shorter_name:
         return False
     longer_tokens = tokens_of[longer_name]

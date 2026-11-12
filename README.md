@@ -128,7 +128,6 @@ After `clean.py`, read its warnings:
 | Warning | What to do |
 | --- | --- |
 | `New occupations: N` | Open `data/reports/new_occupations.csv` and add each occupation with its category to `data/rules/occupation_categories.csv` |
-| `Review: N donor pairs` | Open `data/reports/donor_dedup_review.csv`: each row is two donors with the same last name and ZIP whose first names are close (TIM, TIMOTHY). They stay two donors until you decide; record the decision in `data/rules/donor_identity_rules.csv` with its source |
 | `address rules matched no filing` | A row in `data/rules/address_rules.csv` is mistyped or no longer needed |
 | `donor merge rules found no donor` | A row in `data/rules/donor_identity_rules.csv` needs an updated key |
 | `earlier donor keys no longer used` | A donor was split or merged since the last run; check it |
@@ -140,7 +139,7 @@ After `clean.py`, read its warnings:
 | --- | --- |
 | `data/raw/` | FEC data as pulled. Never edit it |
 | `data/output/` | The cleaned file the database loads |
-| `data/reports/` | Lists to review after `clean.py`: `new_occupations.csv`, and `donor_dedup_review.csv`, which is written only when two donors look like the same person |
+| `data/reports/` | Lists to review after `clean.py`: `new_occupations.csv` |
 | `data/rules/` | Reviewed decisions, every row with its `source`: names, companies, addresses, occupation categories, who is the same donor |
 | `data/config/` | Spelling and word lists the code reads |
 | `data/reference/` | Committees, company offices, leaders and ZIP centres |

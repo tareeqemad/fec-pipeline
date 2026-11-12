@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import re
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,9 +12,7 @@ from fec.common.settings import CONTRIBUTOR_NAME_RULES_CSV
 from fec.vocabulary.names import COMM_TAIL_RE
 from fec.vocabulary.tables import words
 
-RULE_TYPES = {"exact_name", "sub_id", "first_name", "committee_name"}
-
-_ZIP5_RE = re.compile(r"\d{5}")
+RULE_TYPES = ("exact_name", "sub_id", "first_name", "committee_name")
 
 
 def _read_first_name_rule(number: int, raw: str, corrected: str, zip_field: str) -> list[tuple[str, str, str]]:
@@ -26,9 +23,8 @@ def _read_first_name_rule(number: int, raw: str, corrected: str, zip_field: str)
     if "," in corrected or len(corrected.split()) != 1:
         raise ValueError(f"first_name rule on row {number} must correct one word: {corrected}")
     zips = [part.strip() for part in zip_field.split("|")] if zip_field else []
-    if not zips or not all(_ZIP5_RE.fullmatch(zipcode) for zipcode in zips):
-        problem = f"first_name rule on row {number} needs the filer's ZIP5 ('|'-separated)"
-        raise ValueError(f"{problem}: {zip_field!r}")
+    if not zips or not all(re.fullmatch(r"\d{5}", zipcode) for zipcode in zips):
+        raise ValueError(f"first_name rule on row {number} needs the filer's ZIP5 ('|'-separated): {zip_field!r}")
     return [(last, first, zipcode) for zipcode in zips]
 
 
@@ -54,34 +50,18 @@ def _add_name_rule(rules: dict[str, dict], number: int, row: dict[str, str]) -> 
         rules[rule_type][key] = corrected
 
 
-def read_name_rules(path: Path = CONTRIBUTOR_NAME_RULES_CSV) -> dict[str, dict]:
-    """Read the reviewed name rules, grouped by rule type."""
-    if not path.exists():
-        raise FileNotFoundError(f"Missing contributor name rules: {path}")
-
+def _read_name_rules() -> dict[str, dict]:
     rules = {rule_type: {} for rule_type in RULE_TYPES}
-    with path.open(encoding="utf-8-sig", newline="") as handle:
+    with CONTRIBUTOR_NAME_RULES_CSV.open(encoding="utf-8-sig", newline="") as handle:
         for number, row in enumerate(csv.DictReader(handle), start=2):
             _add_name_rule(rules, number, row)
     return rules
 
 
-_RULES = read_name_rules()
-
-EXACT_NAME_CORRECTIONS = _RULES["exact_name"]
-
-ROW_NAME_CORRECTIONS = _RULES["sub_id"]
-
-# (surname, garbled first word, zip5) -> corrected first word
-FIRST_NAME_FIXES = _RULES["first_name"]
-
-COMMITTEE_NAME_FIXES = _RULES["committee_name"]
-
-
+# The reviewed name rules by type; a first_name rule is keyed (surname, garbled first word, zip5).
+_RULES = _read_name_rules()
 _TITLES = words("name_titles")
-
 _ENDINGS = words("name_endings")
-
 # A first-name box that holds only a title or a credential: MRS, MD.
 _ONLY_A_TITLE = words("pure_title")
 
@@ -91,8 +71,7 @@ def preclean_name_punctuation(df: pd.DataFrame) -> None:
     df["contributor_name"] = (
         df["contributor_name"]
         .astype(str)
-        .str.replace("`", "", regex=False)
-        .str.replace(";", "", regex=False)
+        .str.replace("[`;]", "", regex=True)
         .str.replace(r"^\.+", "", regex=True)
         # Remove dots after the comma, keeping dotted tails like "N.A.".
         .str.replace(r",\s*\.+\s*", ", ", regex=True)
@@ -124,12 +103,7 @@ def _strip_periods(word: str) -> str:
 
 
 def read_name(name: str, first: str, last: str) -> tuple[str, str, str]:
-    """(contributor_name, first, last) of a person, from the three filed boxes.
-
-    In order: tidy the boxes, read a credential between surname and given name, drop
-    titles and endings, split a whole name typed in both boxes, add given names the
-    first-name box left out, and write the name as LAST, FIRST.
-    """
+    """(contributor_name, first, last) of a person, from the three filed boxes, the name written LAST, FIRST."""
     name, first, last = _tidy(name), _tidy(first).lstrip(". "), _tidy(last)
     first = re.sub(r"\b([A-Z])\.(?=[A-Z]{2})", r"\1. ", first)  # W.DAVID becomes W. DAVID
     parts = [part.strip() for part in name.split(",")]
@@ -137,7 +111,8 @@ def read_name(name: str, first: str, last: str) -> tuple[str, str, str]:
     given = _drop_titles(first.split())
     first = " ".join(given)
     last = _drop_endings(last)
-    first, last = _split_name_typed_in_both_boxes(first, last)
+    if first == last and " " in first:
+        first, _, last = first.partition(" ")  # JOHN SMITH in both boxes
     # More given names in the filed name than in the first-name box: HARRIS, S. WOLF.
     if first and parts[0] == last:
         first = _add_filed_given_names(name, first, given)
@@ -180,14 +155,6 @@ def _drop_endings(last: str) -> str:
     return " ".join(family)
 
 
-def _split_name_typed_in_both_boxes(first: str, last: str) -> tuple[str, str]:
-    # JOHN SMITH in both boxes: JOHN is the given name, SMITH the surname.
-    if first == last and " " in first:
-        words_typed = first.split()
-        return words_typed[0], " ".join(words_typed[1:])
-    return first, last
-
-
 def _add_filed_given_names(name: str, first: str, given: list[str]) -> str:
     filed_first = name.partition(",")[2].strip().split()
     extra = filed_first[len(given) :]
@@ -223,13 +190,13 @@ def clean_names(df: pd.DataFrame) -> None:
         .str.strip()
         .str.rstrip(",")
         .str.strip()
-        .replace(COMMITTEE_NAME_FIXES)
+        .replace(_RULES["committee_name"])
         .map(_remove_periods)
     )
 
 
 def _fix_garbled_first_names(df: pd.DataFrame, people: pd.Index) -> None:
-    garbled = {word for _, word, _ in FIRST_NAME_FIXES}
+    garbled = {word for _, word, _ in _RULES["first_name"]}
     first = df.loc[people, "contributor_first_name"].fillna("").astype(str)
     rows = first.index[first.str.split().str[0].isin(garbled)]
     zip5 = df.loc[rows, "contributor_zip"].astype("string").fillna("").str.replace(r"\D", "", regex=True).str[:5]
@@ -238,17 +205,16 @@ def _fix_garbled_first_names(df: pd.DataFrame, people: pd.Index) -> None:
         last = df.at[row, "contributor_last_name"]
         if not isinstance(last, str):
             continue
-        fixed = FIRST_NAME_FIXES.get((last, word, zip5.at[row]))
+        fixed = _RULES["first_name"].get((last, word, zip5.at[row]))
         if fixed:
             df.at[row, "contributor_first_name"] = f"{fixed} {rest}".strip()
             df.at[row, "contributor_name"] = f"{last}, {fixed} {rest}".strip()
 
 
-def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Apply manual name corrections."""
-    corrected = df["contributor_name"].map(EXACT_NAME_CORRECTIONS)
-    by_row = df["sub_id"].astype(str).map(ROW_NAME_CORRECTIONS)
-    corrected = by_row.combine_first(corrected)
+def apply_name_corrections(df: pd.DataFrame) -> None:
+    """Apply the reviewed name corrections: by filing first, then by exact name."""
+    by_name = df["contributor_name"].map(_RULES["exact_name"])
+    corrected = df["sub_id"].astype(str).map(_RULES["sub_id"]).combine_first(by_name)
 
     changed = corrected.notna() & corrected.ne(df["contributor_name"])
     for index, new_name in corrected[changed].items():
@@ -257,5 +223,3 @@ def apply_name_corrections(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
             last, first = (part.strip() for part in new_name.split(",", 1))
             df.at[index, "contributor_first_name"] = first
             df.at[index, "contributor_last_name"] = last
-
-    return df, int(changed.sum())

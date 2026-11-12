@@ -30,21 +30,15 @@ def fill_occupation_from_donor(df: pd.DataFrame) -> None:
     roles_per_job = known.groupby(job)["contributor_occupation"].unique()
     one_role_jobs = roles_per_job[roles_per_job.map(len).eq(1)]
     roles = one_role_jobs.str[0].to_dict()
-    vague_jobs = pd.Series(
-        list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]])),
-        index=people.index[vague],
-        dtype=object,
-    )
+    vague_pairs = list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]]))
+    vague_jobs = pd.Series(vague_pairs, index=people.index[vague], dtype=object)
     found = vague_jobs.map(roles).dropna()
     df.loc[found.index, "contributor_occupation"] = found
     df.loc[found.index, "occupation_category"] = categorize_occupations(found)
 
 
 def fill_status_employer(df: pd.DataFrame) -> None:
-    """Write a status with no employer (RETIRED, HOMEMAKER) as the employer too.
-
-    No company is inferred.
-    """
+    """Write a status with no employer (RETIRED, HOMEMAKER) as the employer too; no company is inferred."""
     status = (
         df["contributor_occupation"]
         .map(FINAL_EMPLOYER_FROM_OCCUPATION)
@@ -55,10 +49,7 @@ def fill_status_employer(df: pd.DataFrame) -> None:
 
 
 def settle_retired_employer(df: pd.DataFrame) -> None:
-    """Make a retired filing's employer RETIRED.
-
-    A company filed there becomes the previous employer.
-    """
+    """Make a retired filing's employer RETIRED; a company filed there becomes the previous employer."""
     retired_category = df["occupation_category"].eq("RETIRED")
     retired_occupation = upper_text(df["contributor_occupation"]).eq("RETIRED")
     said_retired = retired_category & retired_occupation

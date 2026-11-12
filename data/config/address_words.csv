@@ -1,0 +1,26 @@
+kind,word,short,note
+number,ONE,1,a number written as a word in a house number
+number,TWO,2,
+number,THREE,3,
+number,FOUR,4,
+number,FIVE,5,
+number,SIX,6,
+number,SEVEN,7,
+number,EIGHT,8,
+number,NINE,9,
+number,TEN,10,
+ordinal,FIRST,1ST,"an ordinal written as a word: FIFTH AVE, 5TH FLOOR"
+ordinal,SECOND,2ND,
+ordinal,THIRD,3RD,
+ordinal,FOURTH,4TH,
+ordinal,FIFTH,5TH,
+ordinal,SIXTH,6TH,
+ordinal,SEVENTH,7TH,
+ordinal,EIGHTH,8TH,
+ordinal,NINTH,9TH,
+ordinal,TENTH,10TH,
+unit,NUMBER,#,unit words beyond USPS Publication 28: PMB #333 is PMB 333
+unit,NUM,#,
+unit,NO,#,
+unit,FLR,FL,
+unit,PMB,PMB,

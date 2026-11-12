@@ -1,0 +1,8 @@
+occupation,employer,final_employer,note
+RETIRED,RETIRED,RETIRED,"employer: written while the work fields are read; final_employer: what donor consistency writes, keeping HOMEMAKER apart"
+NOT EMPLOYED,NOT EMPLOYED,NOT EMPLOYED,
+HOMEMAKER,NOT EMPLOYED,HOMEMAKER,
+SELF-EMPLOYED,SELF-EMPLOYED,SELF-EMPLOYED,
+STUDENT,STUDENT,STUDENT,
+HOUSEWIFE,,HOMEMAKER,
+UNEMPLOYED,,NOT EMPLOYED,
