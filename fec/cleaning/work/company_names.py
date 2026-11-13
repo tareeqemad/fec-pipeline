@@ -16,6 +16,15 @@ def employer_rule_key(name: object) -> str:
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
+def _tidy_employer_name(name: str) -> str:
+    """Tidy punctuation only: a spaced & becomes AND, dots and commas go."""
+    # Glued brands like S&P and AT&T keep their &.
+    text = re.sub(r"\s+&\s*|\s*&\s+|^&|&$", " AND ", name.upper()).replace(",", " ")
+    # Web endings like .COM keep their dot.
+    text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
+    return " ".join(text.split())
+
+
 def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str]:
     variant, canonical = ((row.get(column) or "").strip().upper() for column in ("variant", "canonical"))
     source, anchor, cycle = ((row.get(column) or "").strip() for column in ("source", "anchor_sub_id", "cycle"))
@@ -56,11 +65,13 @@ def _resolve_chains(synonyms: dict[str, str]) -> None:
 def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
     aliases = {}
     for variant, canonical in synonyms.items():
+        # Reviewed names get the same tidy form as every other name.
+        tidy = _tidy_employer_name(canonical)
         for name in (variant, canonical):
             key = employer_rule_key(name)
-            if key in aliases and aliases[key] != canonical:
+            if key in aliases and aliases[key] != tidy:
                 raise ValueError(f"Conflicting company spellings in employer rules: {name}")
-            aliases[key] = canonical
+            aliases[key] = tidy
     return aliases
 
 
@@ -113,10 +124,7 @@ def reviewed_employer_name(name: object, donor_key: str = "", cycle: str = "", s
             return target
     if key in _ALIASES:
         return _ALIASES[key]
-    # Keep dots, name words and legal forms; tidy punctuation only.
-    text = name.upper().replace("&", " AND ").replace(",", " ")
-    text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
-    return " ".join(text.split())
+    return _tidy_employer_name(name)
 
 
 def canonicalize_current_employers(df: pd.DataFrame) -> int:
