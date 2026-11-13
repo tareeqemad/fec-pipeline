@@ -17,11 +17,9 @@ def employer_rule_key(name: object) -> str:
 
 
 def _tidy_employer_name(name: str, keep_glued_and: bool = False) -> str:
-    """Tidy punctuation only: & becomes AND, dots and commas go."""
-    # A reviewed name keeps a glued & as written, like S&P GLOBAL.
+    """Tidy punctuation only: & becomes AND (a reviewed S&P keeps it), commas go, dots go except in .COM."""
     ampersand = r"\s+&\s*|\s*&\s+|^&|&$" if keep_glued_and else "&"
     text = re.sub(ampersand, " AND ", name.upper()).replace(",", " ")
-    # Web endings like .COM keep their dot.
     text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
     return " ".join(text.split())
 
@@ -37,14 +35,8 @@ def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str,
     return variant, canonical, anchor, cycle, action
 
 
-def read_company_name_rules(
-    with_spellings: bool = True,
-) -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
-    """Read the reviewed spellings: variant -> canonical, everywhere or for one donor (anchor_sub_id) in one cycle.
-
-    A "rename" row also says the name is a company. A "spelling" row only joins two spellings of one company;
-    with_spellings=False leaves those rows out.
-    """
+def read_company_name_rules(with_spellings: bool = True) -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
+    """Read variant -> canonical rules; a "spelling" row joins spellings but, unlike "rename", proves no company."""
     aliases, scoped = {}, []
     for number, row in enumerate(read_rows(EMPLOYER_NAME_RULES_CSV), start=2):
         variant, canonical, anchor, cycle, action = _read_company_rule(number, row)
@@ -74,7 +66,6 @@ def _resolve_chains(synonyms: dict[str, str]) -> None:
 def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
     aliases = {}
     for variant, canonical in synonyms.items():
-        # Reviewed names get the same tidy form as every other name.
         tidy = _tidy_employer_name(canonical, keep_glued_and=True)
         for name in (variant, canonical):
             key = employer_rule_key(name)

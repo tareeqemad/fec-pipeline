@@ -36,7 +36,6 @@ _JOB_WORDS = frozenset(
 
 
 def _read_reviewed_names() -> frozenset[str]:
-    # Spelling rows join two spellings; they are no evidence that a text is a company.
     aliases, scoped = read_company_name_rules(with_spellings=False)
     names = set(aliases) | set(aliases.values()) | set(KNOWN_COMPANY_OCCUPATIONS)
     names |= {name for _anchor, _cycle, variant, canonical in scoped for name in (variant, canonical)}
