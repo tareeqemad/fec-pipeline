@@ -103,8 +103,9 @@ official pages.
   spelling (KIRKLAND AND ELLIS LLP). A reviewed name with a glued `&` keeps it (S&P GLOBAL). The website and the
   chatbot treat `&` and `AND` as the same word when they search.
 - `employer_name_rules.csv` has two actions. `rename` (the older rows) also says the text is a company.
-  `spelling` (807 rows added 2026-11-13) only joins spellings of one firm that differ by a legal form, spacing,
-  punctuation or a short form (GOOGLE LLC, GOOGLE; NYULANGONE, NYU LANGONE). Spelling rows are not evidence that
+  `spelling` (937 rows added 2026-11-13) only joins spellings of one firm that differ by a legal form, spacing,
+  punctuation, a short form or a typo (GOOGLE LLC, GOOGLE; NYULANGONE, NYU LANGONE; RAYMKND JAMES, RAYMOND JAMES).
+  Names one letter apart that can be two organisations stay apart (AES and ARES MANAGEMENT, STAMFORD and STANFORD). Spelling rows are not evidence that
   a text names a company, so they do not change how the work fields are read.
 - Kept apart on purpose: generic names that different organisations share (LEGAL AID SOCIETY, EAR NOSE THROAT
   CENTER, COMPASS, BAIN, FORBES, HEALTH FIRST and 50 more), and R-PAC and ADVOCATE BROKERAGE, whose legal forms
