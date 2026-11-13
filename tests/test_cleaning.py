@@ -91,12 +91,12 @@ def test_company_evidence_levels():
             "VENTURE CAPITALIST",
             "CHAIRMAN AND CEO",
             "DIRECTOR OF POLICY",
-            "CRESCENT HARBOR ADVISORS",
+            "CRESCENT REALTY ADVISORS",
             "ZORVAL CAPITAL",
             "ZORVAL & TARQUIN",
             "WEALTH MANAGEMENT",
             "MEDSTAR HEALTH",
-            "QUILLMORE",
+            "MATTEL",
             "",
         ]
     )
@@ -119,12 +119,10 @@ def test_company_evidence_levels():
     ]
 
     # Other donors filing the value as their employer lifts an unknown name.
-    employers = pd.Series(
-        ["QUILLMORE", "QUILLMORE", "QUILLMORE", "REAL ESTATE MANAGEMENT", "REAL ESTATE MANAGEMENT", "ME"]
-    )
+    employers = pd.Series(["MATTEL", "MATTEL", "MATTEL", "REAL ESTATE MANAGEMENT", "REAL ESTATE MANAGEMENT", "ME"])
     filers = pd.Series(["A", "B", "C", "D", "E", "F"])
     filings = Filings(filers, employers)
-    assert [filings.level(text, 2) for text in ("QUILLMORE", "REAL ESTATE MANAGEMENT", "ME")] == [
+    assert [filings.level(text, 2) for text in ("MATTEL", "REAL ESTATE MANAGEMENT", "ME")] == [
         "frequent",
         "job",
         "unknown",

@@ -26,22 +26,30 @@ def _tidy_employer_name(name: str, keep_glued_and: bool = False) -> str:
     return " ".join(text.split())
 
 
-def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str]:
+def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str, str]:
     variant, canonical = ((row.get(column) or "").strip().upper() for column in ("variant", "canonical"))
     source, anchor, cycle = ((row.get(column) or "").strip() for column in ("source", "anchor_sub_id", "cycle"))
     action = (row.get("action") or "rename").strip()
-    if not variant or not canonical or not source or action != "rename":
+    if not variant or not canonical or not source or action not in ("rename", "spelling"):
         raise ValueError(f"Invalid employer rule on row {number}")
     if cycle and (not anchor or not cycle.isdigit() or int(cycle) % 2):
         raise ValueError(f"Invalid employer rule cycle on row {number}")
-    return variant, canonical, anchor, cycle
+    return variant, canonical, anchor, cycle, action
 
 
-def read_company_name_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
-    """Read the reviewed spellings: variant -> canonical, everywhere or for one donor (anchor_sub_id) in one cycle."""
+def read_company_name_rules(
+    with_spellings: bool = True,
+) -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
+    """Read the reviewed spellings: variant -> canonical, everywhere or for one donor (anchor_sub_id) in one cycle.
+
+    A "rename" row also says the name is a company. A "spelling" row only joins two spellings of one company;
+    with_spellings=False leaves those rows out.
+    """
     aliases, scoped = {}, []
     for number, row in enumerate(read_rows(EMPLOYER_NAME_RULES_CSV), start=2):
-        variant, canonical, anchor, cycle = _read_company_rule(number, row)
+        variant, canonical, anchor, cycle, action = _read_company_rule(number, row)
+        if action == "spelling" and not with_spellings:
+            continue
         if anchor:
             scoped.append((anchor, cycle, employer_rule_key(variant), canonical))
             continue
