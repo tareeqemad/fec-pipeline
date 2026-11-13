@@ -65,13 +65,13 @@ def test_reviewed_company_names_rewrite_short_and_misspelt_employers():
     ]
 
 
-def test_employer_names_write_a_spaced_and_as_and():
+def test_employer_names_write_and_for_ampersand():
     from fec.cleaning.work.company_names import reviewed_employer_name
 
-    # Reviewed names and filed names get the same form; glued brands keep &.
+    # A filed & becomes AND; a reviewed name keeps a glued & (S&P GLOBAL).
     assert reviewed_employer_name("ZORVAL & TARQUIN") == "ZORVAL AND TARQUIN"
     assert reviewed_employer_name("Latham & Watkins") == "LATHAM AND WATKINS"
-    assert reviewed_employer_name("AT&T") == "AT&T"
+    assert reviewed_employer_name("AT&T") == "AT AND T"
     assert reviewed_employer_name("SPGI") == "S&P GLOBAL"
     # A reviewed legal-form-only rule joins spellings of one firm.
     assert reviewed_employer_name("GREENBERG TRAURIG, P.A.") == "GREENBERG TRAURIG"

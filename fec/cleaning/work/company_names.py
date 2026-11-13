@@ -16,10 +16,11 @@ def employer_rule_key(name: object) -> str:
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
-def _tidy_employer_name(name: str) -> str:
-    """Tidy punctuation only: a spaced & becomes AND, dots and commas go."""
-    # Glued brands like S&P and AT&T keep their &.
-    text = re.sub(r"\s+&\s*|\s*&\s+|^&|&$", " AND ", name.upper()).replace(",", " ")
+def _tidy_employer_name(name: str, keep_glued_and: bool = False) -> str:
+    """Tidy punctuation only: & becomes AND, dots and commas go."""
+    # A reviewed name keeps a glued & as written, like S&P GLOBAL.
+    ampersand = r"\s+&\s*|\s*&\s+|^&|&$" if keep_glued_and else "&"
+    text = re.sub(ampersand, " AND ", name.upper()).replace(",", " ")
     # Web endings like .COM keep their dot.
     text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
     return " ".join(text.split())
@@ -66,7 +67,7 @@ def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
     aliases = {}
     for variant, canonical in synonyms.items():
         # Reviewed names get the same tidy form as every other name.
-        tidy = _tidy_employer_name(canonical)
+        tidy = _tidy_employer_name(canonical, keep_glued_and=True)
         for name in (variant, canonical):
             key = employer_rule_key(name)
             if key in aliases and aliases[key] != tidy:
