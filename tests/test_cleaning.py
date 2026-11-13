@@ -65,6 +65,19 @@ def test_reviewed_company_names_rewrite_short_and_misspelt_employers():
     ]
 
 
+def test_employer_names_write_and_for_ampersand():
+    from fec.cleaning.work.company_names import reviewed_employer_name
+
+    # A filed & becomes AND; a reviewed name keeps a glued & (S&P GLOBAL).
+    assert reviewed_employer_name("ZORVAL & TARQUIN") == "ZORVAL AND TARQUIN"
+    assert reviewed_employer_name("Latham & Watkins") == "LATHAM AND WATKINS"
+    assert reviewed_employer_name("AT&T") == "AT AND T"
+    assert reviewed_employer_name("SPGI") == "S&P GLOBAL"
+    # A reviewed legal-form-only rule joins spellings of one firm.
+    assert reviewed_employer_name("GREENBERG TRAURIG, P.A.") == "GREENBERG TRAURIG"
+    assert reviewed_employer_name("GOLDMAN, SACHS & CO") == "GOLDMAN SACHS"
+
+
 def test_company_evidence_levels():
     from fec.cleaning.work.company_evidence import Filings, company_evidence_level
 

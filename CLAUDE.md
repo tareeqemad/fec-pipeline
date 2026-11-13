@@ -46,7 +46,7 @@ cleaning step. A name starting with `_` stays inside its file.
 
 ## State on 2026-11-11
 
-Lines of Python on 2026-11-12: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,994, under
+Lines of Python on 2026-11-13: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,997, under
 the owner's target of 4,000; database 928; geocoding 378; common 335; pull 328; resolve 139. The cut from 5,623
 changed no output: word lists moved to `data/config`, the duplicate review report (read by nothing) was removed.
 Options still measured but not done: turn the typo learning into a reviewed table (about 180 lines), turn nine
@@ -96,3 +96,25 @@ official pages.
   same loaders as the filings.
 - The Nominatim settings (`NOMINATIM_URL`, `NOMINATIM_USER_AGENT`, `NOMINATIM_DELAY_SECONDS`) are optional and
   documented in the README.
+
+### Company names (2026-11-13)
+
+- An `&` in a company name is written `AND`, in filed names and in reviewed names alike, so one firm has one
+  spelling (KIRKLAND AND ELLIS LLP). A reviewed name with a glued `&` keeps it (S&P GLOBAL). The website and the
+  chatbot treat `&` and `AND` as the same word when they search.
+- `employer_name_rules.csv` has two actions. `rename` (the older rows) also says the text is a company.
+  `spelling` (807 rows added 2026-11-13) only joins spellings of one firm that differ by a legal form, spacing,
+  punctuation or a short form (GOOGLE LLC, GOOGLE; NYULANGONE, NYU LANGONE). Spelling rows are not evidence that
+  a text names a company, so they do not change how the work fields are read.
+- Kept apart on purpose: generic names that different organisations share (LEGAL AID SOCIETY, EAR NOSE THROAT
+  CENTER, COMPASS, BAIN, FORBES, HEALTH FIRST and 50 more), and R-PAC and ADVOCATE BROKERAGE, whose legal forms
+  the donor identity review of 2026-10-24 kept separate. The list of the 56 names still waiting is not in the
+  repository; add a `spelling` row only after reading who files each spelling.
+- `data/reference/employer_locations.csv` follows the reviewed names: when spellings join, their office rows join,
+  one row per address, and the most trusted address is the primary one.
+- Effect on the output, measured against `main`: 6,261 employer and 374 previous-employer values take the joined
+  spelling (11,004 distinct employers become 10,201). 35 occupations of 7 donors change through
+  `fill_occupation_from_donor`, which fills an empty or SELF-EMPLOYED occupation only when the donor has one role at
+  that employer: joined spellings can add or remove that one role. Three organisations whose own name was joined
+  get a new donor key. No person was merged or split; OCHSTEIN's two keys, already joined by a reviewed
+  `merge_keys` row, are now joined by matching itself.

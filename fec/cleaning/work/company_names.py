@@ -16,22 +16,32 @@ def employer_rule_key(name: object) -> str:
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
-def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str]:
+def _tidy_employer_name(name: str, keep_glued_and: bool = False) -> str:
+    """Tidy punctuation only: & becomes AND (a reviewed S&P keeps it), commas go, dots go except in .COM."""
+    ampersand = r"\s+&\s*|\s*&\s+|^&|&$" if keep_glued_and else "&"
+    text = re.sub(ampersand, " AND ", name.upper()).replace(",", " ")
+    text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
+    return " ".join(text.split())
+
+
+def _read_company_rule(number: int, row: dict[str, str]) -> tuple[str, str, str, str, str]:
     variant, canonical = ((row.get(column) or "").strip().upper() for column in ("variant", "canonical"))
     source, anchor, cycle = ((row.get(column) or "").strip() for column in ("source", "anchor_sub_id", "cycle"))
     action = (row.get("action") or "rename").strip()
-    if not variant or not canonical or not source or action != "rename":
+    if not variant or not canonical or not source or action not in ("rename", "spelling"):
         raise ValueError(f"Invalid employer rule on row {number}")
     if cycle and (not anchor or not cycle.isdigit() or int(cycle) % 2):
         raise ValueError(f"Invalid employer rule cycle on row {number}")
-    return variant, canonical, anchor, cycle
+    return variant, canonical, anchor, cycle, action
 
 
-def read_company_name_rules() -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
-    """Read the reviewed spellings: variant -> canonical, everywhere or for one donor (anchor_sub_id) in one cycle."""
+def read_company_name_rules(with_spellings: bool = True) -> tuple[dict[str, str], list[tuple[str, str, str, str]]]:
+    """Read variant -> canonical rules; a "spelling" row joins spellings but, unlike "rename", proves no company."""
     aliases, scoped = {}, []
     for number, row in enumerate(read_rows(EMPLOYER_NAME_RULES_CSV), start=2):
-        variant, canonical, anchor, cycle = _read_company_rule(number, row)
+        variant, canonical, anchor, cycle, action = _read_company_rule(number, row)
+        if action == "spelling" and not with_spellings:
+            continue
         if anchor:
             scoped.append((anchor, cycle, employer_rule_key(variant), canonical))
             continue
@@ -56,11 +66,12 @@ def _resolve_chains(synonyms: dict[str, str]) -> None:
 def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
     aliases = {}
     for variant, canonical in synonyms.items():
+        tidy = _tidy_employer_name(canonical, keep_glued_and=True)
         for name in (variant, canonical):
             key = employer_rule_key(name)
-            if key in aliases and aliases[key] != canonical:
+            if key in aliases and aliases[key] != tidy:
                 raise ValueError(f"Conflicting company spellings in employer rules: {name}")
-            aliases[key] = canonical
+            aliases[key] = tidy
     return aliases
 
 
@@ -113,10 +124,7 @@ def reviewed_employer_name(name: object, donor_key: str = "", cycle: str = "", s
             return target
     if key in _ALIASES:
         return _ALIASES[key]
-    # Keep dots, name words and legal forms; tidy punctuation only.
-    text = name.upper().replace("&", " AND ").replace(",", " ")
-    text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
-    return " ".join(text.split())
+    return _tidy_employer_name(name)
 
 
 def canonicalize_current_employers(df: pd.DataFrame) -> int:
