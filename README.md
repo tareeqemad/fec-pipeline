@@ -95,7 +95,7 @@ python loader.py --reset
 
 | Command | What it does | How long |
 | --- | --- | --- |
-| `pull.py` | Asks the FEC for one committee's contributions and adds only the new ones to `data/raw/contributions.csv`. The three lines are AIPAC, DMFI and UDP | minutes |
+| `pull.py` | Asks the FEC for one committee's contributions, adds the new ones to `data/raw/contributions.csv` and removes the ones the FEC replaced with an amended report (listed in `data/raw/replaced_filings.csv`). The three lines are AIPAC, DMFI and UDP | minutes |
 | `clean.py` | Cleans names, employers, occupations and addresses, gives every person one donor key, and checks the result | about 3 minutes |
 | `geocode.py` | Finds the map point of each new address. Addresses seen before come from the cache | seconds, or long when there are many new addresses |
 | `resolve.py --apply` | Sets each person's work status and the previous employer of retired donors | seconds |
@@ -105,6 +105,7 @@ Good to know:
 
 - `--period` is the two-year election period: `2026` covers 2025 and 2026.
 - Running `pull.py` twice is safe: the second run adds nothing.
+- The FEC is the source: when a committee amends a report, the FEC gives its filings new IDs and drops the old ones. `pull.py` does the same after a complete scan, and moves the rules in `data/rules` and the donor key cache to the new IDs, so reviewed decisions and donor keys stay.
 - `resolve.py` refuses a file it already resolved. Run `clean.py` again first.
 - To pull a new committee, first add a row for it in `data/reference/committees.csv`.
 
@@ -137,7 +138,7 @@ After `clean.py`, read its warnings:
 
 | Folder | What is in it |
 | --- | --- |
-| `data/raw/` | FEC data as pulled. Never edit it |
+| `data/raw/` | FEC data as `pull.py` keeps it, the same as the FEC. Never edit it by hand |
 | `data/output/` | The cleaned file the database loads |
 | `data/reports/` | Lists to review after `clean.py`: `new_occupations.csv` |
 | `data/rules/` | Reviewed decisions, every row with its `source`: names, companies, addresses, occupation categories, who is the same donor |

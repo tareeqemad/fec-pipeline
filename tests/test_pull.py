@@ -284,3 +284,59 @@ def test_saved_ids_are_read_from_a_file_excel_saved_and_from_an_empty_one(tmp_pa
     saved.write_text("", "utf-8")
     assert pull_pipeline.read_existing_ids(saved, "C00000001", 2026) == set()
     assert pull_pipeline.read_existing_ids(tmp_path / "missing.csv", "C00000001", 2026) == set()
+
+
+def _pull_with_pages(tmp_path, monkeypatch, pages):
+    """Point the pull at files in tmp_path and answer its requests with these pages."""
+    monkeypatch.setattr(pull_pipeline, "RAW_CSV", tmp_path / "contributions.csv")
+    monkeypatch.setattr(pull_pipeline, "FEC_SOURCE_CSV", tmp_path / "fec_source_fields.csv")
+    monkeypatch.setattr(pull_pipeline, "REPLACED_FILINGS_CSV", tmp_path / "replaced_filings.csv")
+    monkeypatch.setattr(pull_pipeline, "RULES_DIR", tmp_path / "rules")
+    monkeypatch.setattr(pull_pipeline, "DONOR_KEYS_CSV", tmp_path / "donor_keys.csv")
+    monkeypatch.setattr(pull_pipeline.requests, "Session", lambda: Session(*[Response(200, page) for page in pages]))
+    monkeypatch.setenv("FEC_API_KEY", "test")
+    monkeypatch.setenv("FEC_RPM", "600000")
+    pull_pipeline.pull_committee("C00000001", 2026)
+
+
+def test_an_amended_filing_replaces_the_saved_one_and_rules_follow_it(tmp_path, monkeypatch):
+    with (tmp_path / "contributions.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(rows.COLUMNS)
+        for sub_id, transaction in (("1", "T1"), ("2", "T2"), ("3", "T3")):
+            writer.writerow(rows.build_row(sub_id, _filing(sub_id, transaction_id=transaction)))
+    (tmp_path / "rules").mkdir()
+    (tmp_path / "rules" / "previous_employers.csv").write_text("sub_id,note\n2,kept as reviewed\n", encoding="utf-8")
+    (tmp_path / "donor_keys.csv").write_text("sub_id,donor_key\n2,abc\n", encoding="utf-8")
+
+    # The FEC now lists 1 as before, 9 in place of 2 (same transaction), and no longer lists 3.
+    amended = _filing("9", transaction_id="T2", contributor_name="FIXED, NAME")
+    page = {"results": [_filing("1", transaction_id="T1"), amended], "pagination": {"count": 2}}
+    _pull_with_pages(tmp_path, monkeypatch, [page])
+
+    with (tmp_path / "contributions.csv").open(encoding="utf-8", newline="") as handle:
+        saved = list(csv.DictReader(handle))
+    assert [(row["sub_id"], row["contributor_name"]) for row in saved] == [("1", ""), ("9", "FIXED, NAME")]
+    with (tmp_path / "replaced_filings.csv").open(encoding="utf-8", newline="") as handle:
+        assert [(row["old_sub_id"], row["new_sub_id"]) for row in csv.DictReader(handle)] == [("2", "9"), ("3", "")]
+    assert (tmp_path / "rules" / "previous_employers.csv").read_text(
+        encoding="utf-8"
+    ) == "sub_id,note\n9,kept as reviewed\n"
+    assert (tmp_path / "donor_keys.csv").read_text(encoding="utf-8") == "sub_id,donor_key\n9,abc\n"
+
+
+def test_a_cut_scan_removes_no_saved_filing(tmp_path, monkeypatch):
+    with (tmp_path / "contributions.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(rows.COLUMNS)
+        writer.writerow(rows.build_row("1", _filing("1", transaction_id="T1")))
+        writer.writerow(rows.build_row("2", _filing("2", transaction_id="T2")))
+
+    # The FEC says 2 filings exist, but the scan only saw one of them.
+    _pull_with_pages(
+        tmp_path, monkeypatch, [{"results": [_filing("1", transaction_id="T1")], "pagination": {"count": 2}}]
+    )
+
+    with (tmp_path / "contributions.csv").open(encoding="utf-8", newline="") as handle:
+        assert [row["sub_id"] for row in csv.DictReader(handle)] == ["1", "2"]
+    assert not (tmp_path / "replaced_filings.csv").exists()

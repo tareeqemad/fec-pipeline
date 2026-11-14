@@ -61,9 +61,11 @@ REFERENCE_DIR = DATA_DIR / "reference"
 CACHE_DIR = DATA_DIR / "cache"
 REPORTS_DIR = DATA_DIR / "reports"
 
-# Raw FEC data; pull.py appends, nothing rewrites it. The second file holds FEC's own entity type and id per sub_id.
+# Raw FEC data, kept the same as the FEC by pull.py. The second file holds FEC's own entity type and id per sub_id;
+# the third lists the filings the FEC replaced (an amended report) or withdrew, and when.
 RAW_CSV = RAW_DIR / "contributions.csv"
 FEC_SOURCE_CSV = RAW_DIR / "fec_source_fields.csv"
+REPLACED_FILINGS_CSV = RAW_DIR / "replaced_filings.csv"
 
 CLEANED_CSV = DATA_DIR / "output" / "contributions_cleaned.csv"
 

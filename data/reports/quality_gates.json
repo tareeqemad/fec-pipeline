@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "rows": 222603,
+  "rows": 227972,
   "checks": {
     "no text column holds the word NAN": 0,
     "every contribution has a readable amount": 0,
@@ -9,7 +9,7 @@
     "employer_status is the one the work fields give": 0,
     "only a retired filing has a previous employer": 0,
     "an employer or previous employer names an employer": 0,
-    "at least half the filings have a ZIP": 5,
+    "at least half the filings have a ZIP": 7,
     "sub_id is unique": 0,
     "transaction_id is unique": 0,
     "no contribution is dated more than 60 days ahead": 0,
