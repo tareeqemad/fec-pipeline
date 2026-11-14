@@ -466,3 +466,17 @@ LLP,[CLEAR],a legal form or an acronym alone names no occupation
 LTD,[CLEAR],a legal form or an acronym alone names no occupation
 PLLC,[CLEAR],a legal form or an acronym alone names no occupation
 NIST,[CLEAR],a legal form or an acronym alone names no occupation
+BRIEKR,BROKER,spelling
+HOMEBUILER,HOME BUILDER,spelling
+NURSING JOME OWNER,NURSING HOME OWNER,spelling
+REAL EASTE,REAL ESTATE,spelling
+REAL ESTATE DEVELOPRT,REAL ESTATE DEVELOPER,spelling
+REAL ST,REAL ESTATE,spelling
+GENERAL MGR,GENERAL MANAGER,spelling
+INS AGENT,INSURANCE AGENT,spelling
+INS BROKER,INSURANCE BROKER,spelling
+MFGR,MANUFACTURER,spelling
+SOFTWARE ENG,SOFTWARE ENGINEER,spelling
+CORP DEV,CORPORATE DEVELOPMENT,spelling
+CORP. OFFICER,CORPORATE OFFICER,spelling
+QUANT DEV,QUANT DEVELOPER,spelling
