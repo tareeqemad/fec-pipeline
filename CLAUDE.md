@@ -23,7 +23,7 @@ order, in its docstring: start reading there.
 
 | Order | Command | Stage | Reads | Writes |
 | --- | --- | --- | --- | --- |
-| 1 | `python pull.py C00797670 --period 2026` | `fec/pull` | FEC API | `data/raw/contributions.csv` (appends new filings only) |
+| 1 | `python pull.py C00797670 --period 2026` | `fec/pull` | FEC API | `data/raw/contributions.csv` (adds new filings, drops those the FEC replaced) |
 | 2 | `python clean.py` | `fec/cleaning`, `fec/matching` | the raw file, `data/rules`, `data/config` | `data/output/contributions_cleaned.csv`, `data/cache/donor_keys.csv` |
 | 3 | `python geocode.py` | `fec/geocoding` | the cleaned file, `data/cache/geocode_cache.json` | latitude and longitude columns |
 | 4 | `python resolve.py --apply` | `fec/resolve` | the cleaned file | `employer_status`, previous employers |
@@ -57,11 +57,14 @@ donor groups, 67 tests).
 
 ### First real run on the owner's machine: what to watch
 
-1. **`pull.py` has not run against the real FEC since it was simplified.** It was checked by tests and by comparing
-   old and new code on faked answers only. On the first real pull, check that it appends only new filings, that
-   a second run adds nothing, and that `data/raw/fec_source_fields.csv` grows with it.
-2. The raw data is behind the FEC: for example four joint MEYERS filings of September and October 2025 (reported
-   in an amended report of March 2026) are not in `data/raw`. A fresh pull will bring such filings.
+1. **First real pull, 2026-11-14 (September 2026).** AIPAC: 5,369 new filings ($3,028,232). DMFI and UDP: none yet.
+   A second run added nothing. AIPAC's amended reports of 2026-03-30, 2026-04-14 and 2026-05-13 had re-issued
+   14,752 filings of September, October and December 2025 and January 2026 under new sub_ids (same
+   transaction_id, date and amount; corrected names, addresses and employers). `pull.py` now replaces them, as the
+   FEC does: see `data/raw/replaced_filings.csv`. Rules and donor keys followed the new IDs.
+2. An amended report can change who a filing names. On 2026-11-14 one held MORRIS joint filing ($1,000,
+   2025-09-09) came back as MORRIS, ELLEN alone; the owner decided the FEC's version stands and it counts for
+   Ellen. A pipeline stop on a separation pair after a pull means the same: read the amended filing, then decide.
 3. New filings bring new texts. After `clean.py`, read `data/reports/new_occupations.csv` (occupations not yet in
    `data/rules/occupation_categories.csv`) and the warnings listed in the README.
 4. `geocode.py` looks up only addresses not in the cache; the public Nominatim server allows one request per
@@ -70,14 +73,14 @@ donor groups, 67 tests).
    schema needs PostgreSQL 15 or later (`UNIQUE NULLS NOT DISTINCT`).
 6. Internal database IDs change on every load. Anything that points at a donor must use `donor_key`.
 
-### The 52 open filings
+### The 51 open filings
 
-50 filings are held and 2 are unresolved, on purpose. They were researched again on 2026-11-11 and nothing
+49 filings are held and 2 are unresolved, on purpose. They were researched again on 2026-11-11 and nothing
 proves an owner, so nothing was changed. The rows are in `data/rules/donor_identity_rules.csv` (`hold`).
 
 | Case | Filings | Why it is open |
 | --- | --- | --- |
-| Joint filings naming two people: MEYERS, MORRIS, BRAVERMAN, ZELDIN, SPELLMAN, SANDERSON, TAUBER, TISHKOFF | 35 | The filing does not say whose money it is. The full FEC record does not either: these are earmarked gifts and FEC carries no running total for them. Earlier decisions by "first-named person" were withdrawn at the owner's request (commit 316767d) |
+| Joint filings naming two people: MEYERS, MORRIS, BRAVERMAN, ZELDIN, SPELLMAN, SANDERSON, TAUBER, TISHKOFF | 34 | The filing does not say whose money it is. The full FEC record does not either: these are earmarked gifts and FEC carries no running total for them. Earlier decisions by "first-named person" were withdrawn at the owner's request (commit 316767d) |
 | GOLDSTEIN, RICHARD, retired, 200 SE Mizner Blvd, Boca Raton | 12 | Probably the Nixon Peabody attorney: his Boca filings stop in 2024-01 and these start in 2024-10 in the same ZIP, three of the same candidate committees, and he files as retired from Chevy Chase in 2025. Not proven: the name is common in Boca Raton. The closest case to proof, if the owner wants to restore one |
 | HEALTH, GOOD (Good Health Inc address) | 2 | A company name filed as a person. Eight payments of $1,875 came from that address in 2022 under several names, which suggests one pledge of the CEO, without proof |
 | VIOLIN, JON | 1 | Filed once from the address of Joan and George Violin; maybe a slip for JOAN, not proven |
