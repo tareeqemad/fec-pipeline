@@ -38,6 +38,8 @@ _NUMBERS = _read_address_words("number")
 _ORDINALS = _read_address_words("ordinal")
 # USPS Publication 28: these designators stand without an id
 _NEEDS_NO_ID = words("needs_no_id")
+# Placeholders written in the street box.
+_NOT_A_STREET = words("not_a_street")
 # Words that start a street's name but that the parser reads as a street type before it: BEACH 137TH ST
 _NAME_WORDS_READ_AS_TYPES = words("name_words_read_as_types")
 _PO_BOX = re.compile(r"^(?:P ?O|POST OFFICE|P ?O ?B)(?: ?BOX)? ?#? ?(\w*\d\w*|[A-Z])$")
@@ -352,8 +354,8 @@ def standardize_addresses(df: pd.DataFrame) -> int:
     return int((before != df.loc[us_rows, columns].fillna("").astype(str)).any(axis=1).sum())
 
 
-def clear_own_name_street(df: pd.DataFrame) -> None:
-    """Street_1 that only repeats the donor's own name is no street."""
+def clear_non_street(df: pd.DataFrame) -> None:
+    """Street_1 that only repeats the donor's own name, or holds a placeholder (HOME, N/A), is no street."""
     street = df["contributor_street_1"].fillna("").astype(str).str.upper()
     first, last = upper_text(df["contributor_first_name"]), upper_text(df["contributor_last_name"])
     is_name = (
@@ -361,5 +363,6 @@ def clear_own_name_street(df: pd.DataFrame) -> None:
         | ((street == last) & (last.str.len() >= 3))
         | (street == first + " " + last)
         | (street == last + " " + first)
+        | street.str.strip().isin(_NOT_A_STREET)
     )
     df.loc[is_name, "contributor_street_1"] = np.nan

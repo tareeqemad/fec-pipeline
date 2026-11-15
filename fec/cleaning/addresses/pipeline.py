@@ -2,7 +2,7 @@
 
 Steps, in order (clean_addresses):
     1. standardize_addresses   USPS standard form of street, unit, city, state and ZIP
-    2. clear_own_name_street   a street box that holds the filer's own name
+    2. clear_non_street        a street box that holds the filer's own name or a placeholder
     3. _clean_zips             five-digit US ZIP codes
     4. apply_address_rules     reviewed corrections (data/rules/address_rules.csv)
     5. ALIGN_STEPS             one spelling per donor and place (donor_addresses.py)
@@ -16,13 +16,13 @@ import pandas as pd
 
 from fec.cleaning.addresses.address_rules import apply_address_rules
 from fec.cleaning.addresses.donor_addresses import ALIGN_STEPS
-from fec.cleaning.addresses.standard_form import clear_own_name_street, standardize_addresses
+from fec.cleaning.addresses.standard_form import clear_non_street, standardize_addresses
 
 
 def clean_addresses(df: pd.DataFrame) -> pd.DataFrame:
     """USPS standard form, own-name streets cleared, ZIPs checked, rules and alignment applied."""
     standardize_addresses(df)
-    clear_own_name_street(df)
+    clear_non_street(df)
     _clean_zips(df)
     apply_address_rules(df, city_only=False)
     for align in ALIGN_STEPS:
