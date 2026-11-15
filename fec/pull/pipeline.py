@@ -83,8 +83,19 @@ def _read_new_filings(results: list[dict], saved_ids: set[str], counts: dict) ->
     return rows, source_rows
 
 
-def drop_replaced_filings(committee_id: str, period: int, current_ids: set[str]) -> dict[str, str]:
-    """Remove this period's saved filings the FEC no longer returns; return old sub_id -> new sub_id ('' if none)."""
+def find_replaced_filings(saved: list[dict], current_ids: set[str]) -> dict[str, str]:
+    """{old sub_id: the sub_id that replaced it} for the saved filings the FEC no longer returns.
+
+    An amended report keeps each contribution's transaction_id and gives it a new sub_id. A filing with no
+    successor was withdrawn: its new sub_id is ''.
+    """
+    current_by_transaction = {row["transaction_id"]: row["sub_id"] for row in saved if row["sub_id"] in current_ids}
+    gone = [row for row in saved if row["sub_id"] not in current_ids]
+    return {row["sub_id"]: current_by_transaction.get(row["transaction_id"], "") for row in gone}
+
+
+def drop_replaced_filings(committee_id: str, period: int, current_ids: set[str]) -> None:
+    """Make this period's saved filings the ones the FEC has now; record what left and move the rules along."""
     raw_bytes = RAW_CSV.read_bytes()
     encoding = "utf-8-sig" if raw_bytes[:3] == b"\xef\xbb\xbf" else "utf-8"
     raw_text = raw_bytes.decode(encoding)
@@ -94,19 +105,12 @@ def drop_replaced_filings(committee_id: str, period: int, current_ids: set[str])
     # One filing per line, so lines can be dropped without rewriting the others.
     if len(saved) != len([line for line in lines[1:] if line]):
         raise PullError(f"{RAW_CSV} has a filing written over several lines; it was not changed")
-    in_period = [
-        row
-        for row in saved
-        if row["committee_id"] == committee_id and row["two_year_transaction_period"] == str(period)
-    ]
-    current_by_transaction = {row["transaction_id"]: row["sub_id"] for row in in_period if row["sub_id"] in current_ids}
-    replaced = {
-        row["sub_id"]: current_by_transaction.get(row["transaction_id"], "")
-        for row in in_period
-        if row["sub_id"] not in current_ids
-    }
+
+    this_period = (committee_id, str(period))
+    in_period = [row for row in saved if (row["committee_id"], row["two_year_transaction_period"]) == this_period]
+    replaced = find_replaced_filings(in_period, current_ids)
     if not replaced:
-        return {}
+        return
 
     kept = [lines[0]] + [line for row, line in zip(saved, lines[1:]) if row["sub_id"] not in replaced]
     RAW_CSV.write_text(newline.join(kept) + newline, encoding=encoding, newline="")
@@ -114,7 +118,6 @@ def drop_replaced_filings(committee_id: str, period: int, current_ids: set[str])
     _follow_new_ids({old: new for old, new in replaced.items() if new})
     withdrawn = sum(1 for new in replaced.values() if not new)
     logger.info("[REPLACED] %s filings the FEC re-issued, %s it no longer lists", len(replaced) - withdrawn, withdrawn)
-    return replaced
 
 
 def _record_replaced(committee_id: str, period: int, replaced: dict[str, str], in_period: list[dict]) -> None:

@@ -48,7 +48,7 @@ cleaning step. A name starting with `_` stays inside its file.
 
 ## State on 2026-11-11
 
-Lines of Python on 2026-11-15: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,954, under
+Lines of Python on 2026-11-15: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,981, under
 the owner's target of 4,000; database 928; geocoding 378; common 335; pull 328; resolve 139. The cut from 5,623
 changed no output: word lists moved to `data/config`, the duplicate review report (read by nothing) was removed.
 Option still measured but not done: turn nine small steps into rows of `filing_corrections.csv` (about 170

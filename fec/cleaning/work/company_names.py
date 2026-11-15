@@ -16,11 +16,18 @@ def employer_rule_key(name: object) -> str:
     return " ".join(name.replace(",", " ").replace(".", "").split())
 
 
-def _tidy_employer_name(name: str, keep_glued_and: bool = False) -> str:
-    """Tidy punctuation only: & becomes AND (a reviewed S&P keeps it), commas go, dots go except in .COM."""
-    ampersand = r"\s+&\s*|\s*&\s+|^&|&$" if keep_glued_and else "&"
-    text = re.sub(ampersand, " AND ", name.upper()).replace(",", " ")
-    text = re.sub(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)", "", text)
+# An & that is not glued between two letters or digits: the one in "A & B", not the one in S&P.
+_LOOSE_AMPERSAND_RE = re.compile(r"(?<![A-Z0-9])&|&(?![A-Z0-9])")
+# A dot that does not start a web ending: the ones in "L.L.C.", not the one in AMAZON.COM.
+_PLAIN_DOT_RE = re.compile(r"\.(?!(?:COM|ORG|NET|IO|AI|US|EDU|GOV)\b)")
+
+
+def _tidy_employer_name(name: str, keep_glued_ampersand: bool = False) -> str:
+    """Tidy punctuation only: & becomes AND, commas become spaces, plain dots go; the words stay."""
+    text = name.upper()
+    # A reviewed name keeps a glued & as the reviewer wrote it (S&P GLOBAL); a filed name never does.
+    text = _LOOSE_AMPERSAND_RE.sub(" AND ", text) if keep_glued_ampersand else text.replace("&", " AND ")
+    text = _PLAIN_DOT_RE.sub("", text.replace(",", " "))
     return " ".join(text.split())
 
 
@@ -66,7 +73,7 @@ def _resolve_chains(synonyms: dict[str, str]) -> None:
 def _build_aliases(synonyms: dict[str, str]) -> dict[str, str]:
     aliases = {}
     for variant, canonical in synonyms.items():
-        tidy = _tidy_employer_name(canonical, keep_glued_and=True)
+        tidy = _tidy_employer_name(canonical, keep_glued_ampersand=True)
         for name in (variant, canonical):
             key = employer_rule_key(name)
             if key in aliases and aliases[key] != tidy:
