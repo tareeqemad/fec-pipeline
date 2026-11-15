@@ -37,6 +37,7 @@ from fec.matching.donor_keys import (
 )
 from fec.matching.donor_names import canonicalize_committee_names, canonicalize_donor_names
 from fec.matching.donor_work import (
+    categorize_from_donor,
     fill_occupation_from_donor,
     fill_status_employer,
     recategorize_occupations,
@@ -96,6 +97,8 @@ def standardize_donors(df_clean: pd.DataFrame) -> pd.DataFrame:
     recategorize_occupations(df)
     settle_retired_employer(df)
     apply_filing_corrections(df, matched=True)
+    # Last, on the employers and occupations as they will be saved: the quality gate checks it the same way.
+    categorize_from_donor(df)
     canonicalize_committee_names(df)
 
     df.loc[df["entity_type"].ne("INDIVIDUAL"), _PERSON_COLUMNS] = np.nan

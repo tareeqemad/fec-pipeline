@@ -33,7 +33,6 @@ from fec.cleaning.contributor_names import apply_name_corrections, clean_names, 
 from fec.cleaning.entity_types import SOURCE_COLUMNS, attach_source_fields, classify_entities, normalize_business_names
 from fec.cleaning.filing_corrections import apply_filing_corrections
 from fec.cleaning.quality_gates import run_quality_gates
-from fec.cleaning.work.occupation_typos import extend_corrections
 from fec.cleaning.work.status_spellings import extend_spellings
 from fec.cleaning.work.text_cleanup import clean_box_text
 from fec.cleaning.work.work_fields import read_work
@@ -105,9 +104,6 @@ def _prepare_records(df: pd.DataFrame) -> pd.DataFrame:
     raw = df["is_individual"].astype("string").fillna("").str.strip().str.lower()
     df["is_individual"] = raw.isin(("true", "t", "1", "yes"))
     attach_source_fields(df)
-    learnt = extend_corrections(df)
-    if learnt:
-        logger.info("Occupation typos read from the filings: %s", f"{learnt:,}")
     slips = extend_spellings(df)
     if slips:
         logger.info("Status words read through a slip: %s", f"{slips:,}")

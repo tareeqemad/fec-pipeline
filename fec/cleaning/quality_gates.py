@@ -8,6 +8,7 @@ import pandas as pd
 from fec.cleaning.addresses.donor_addresses import zip_place
 from fec.cleaning.filing_corrections import categorize_with_corrections
 from fec.cleaning.work.employer_status import classify_employer_statuses, is_real_employer
+from fec.matching.donor_work import categorize_from_donor
 from fec.vocabulary.occupations import VALID_CATEGORIES
 
 
@@ -34,8 +35,11 @@ def _find_unknown_category(df: pd.DataFrame) -> pd.Series:
 
 def _find_category_differs(df: pd.DataFrame) -> pd.Series:
     people = _find_people(df)
-    filed = _read_text(df, "occupation_category")[people]
-    differs = filed != categorize_with_corrections(df[people])
+    expected = df[people].copy()
+    expected["occupation_category"] = categorize_with_corrections(expected)
+    # A field-less occupation (BROKER) takes the field of the donor's other filings at the employer.
+    categorize_from_donor(expected)
+    differs = _read_text(df, "occupation_category")[people] != expected["occupation_category"]
     return differs.reindex(df.index, fill_value=False)
 
 

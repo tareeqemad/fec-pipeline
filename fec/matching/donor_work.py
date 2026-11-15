@@ -9,12 +9,31 @@ from fec.cleaning.work.occupation_categories import categorize_occupations
 from fec.common.text import upper_text
 from fec.vocabulary.occupations import EMPLOYER_FROM_CATEGORY, FINAL_EMPLOYER_FROM_OCCUPATION
 from fec.vocabulary.statuses import SKIP_EMPLOYERS, SKIP_OCCUPATIONS
+from fec.vocabulary.tables import words
+
+# Occupations that name no field (BROKER), and the categories that are a rank or a status, not a field.
+_FIELDLESS_OCCUPATIONS = words("fieldless_occupations")
+_CATEGORIES_WITHOUT_A_FIELD = words("categories_without_a_field")
 
 
 def recategorize_occupations(df: pd.DataFrame) -> None:
     """Make every individual's category match the occupation as it now reads."""
     people = df[df["entity_type"].eq("INDIVIDUAL")]
     df.loc[people.index, "occupation_category"] = categorize_with_corrections(people)
+
+
+def categorize_from_donor(df: pd.DataFrame) -> None:
+    """Give a field-less occupation (BROKER) the one field the donor's other filings at this employer name."""
+    employer = df["contributor_employer"]
+    people = df[df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
+    vague = people["contributor_occupation"].isin(_FIELDLESS_OCCUPATIONS)
+    named = people[~vague & ~people["occupation_category"].isin(_CATEGORIES_WITHOUT_A_FIELD)]
+    job = ["donor_key", "contributor_employer"]
+    fields_per_job = named.groupby(job)["occupation_category"].unique()
+    one_field_jobs = fields_per_job[fields_per_job.map(len).eq(1)].str[0].to_dict()
+    vague_pairs = list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]]))
+    found = pd.Series(vague_pairs, index=people.index[vague], dtype=object).map(one_field_jobs).dropna()
+    df.loc[found.index, "occupation_category"] = found
 
 
 def fill_occupation_from_donor(df: pd.DataFrame) -> None:

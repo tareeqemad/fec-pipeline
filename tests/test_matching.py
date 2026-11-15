@@ -168,3 +168,46 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
     assert names([("P R", "ZITELMAN")] * 2 + [("P RICHARD", "ZITELMAN")]) == ("ZITELMAN", ["P RICHARD"])
     # another given name under the same donor keeps its own: a spouse on a joint account
     assert names([("MARGERY", "GOTTESMAN")] * 2 + [("ARCHIE", "GOTTESMAN")]) == ("GOTTESMAN", ["ARCHIE", "MARGERY"])
+
+
+def test_a_fieldless_occupation_takes_the_field_of_the_donors_other_filings():
+    from fec.matching.donor_work import categorize_from_donor
+
+    def filing(donor, employer, occupation, category):
+        return {
+            "entity_type": "INDIVIDUAL",
+            "donor_key": donor,
+            "contributor_employer": employer,
+            "contributor_occupation": occupation,
+            "occupation_category": category,
+        }
+
+    df = pd.DataFrame(
+        [
+            # One field at this employer: BROKER follows it; the text stays as filed.
+            filing("a", "CBRE", "BROKER", "FINANCE / INVESTMENT"),
+            filing("a", "CBRE", "REAL ESTATE BROKER", "REAL ESTATE"),
+            filing("a", "CBRE", "CEO", "EXECUTIVE / C-SUITE"),  # a rank says nothing about the field
+            # Two fields at this employer: BROKER keeps the table's category.
+            filing("b", "ACME", "BROKER", "FINANCE / INVESTMENT"),
+            filing("b", "ACME", "REAL ESTATE BROKER", "REAL ESTATE"),
+            filing("b", "ACME", "INSURANCE AGENT", "INSURANCE"),
+            # Another employer of donor a, and a text that names its own field: untouched.
+            filing("a", "UBS", "BROKER", "FINANCE / INVESTMENT"),
+            filing("c", "CBRE", "ATTORNEY", "LEGAL"),
+            filing("c", "CBRE", "REAL ESTATE", "REAL ESTATE"),
+        ]
+    )
+    categorize_from_donor(df)
+    assert df["occupation_category"].tolist() == [
+        "REAL ESTATE",
+        "REAL ESTATE",
+        "EXECUTIVE / C-SUITE",
+        "FINANCE / INVESTMENT",
+        "REAL ESTATE",
+        "INSURANCE",
+        "FINANCE / INVESTMENT",
+        "LEGAL",
+        "REAL ESTATE",
+    ]
+    assert df["contributor_occupation"].tolist()[0] == "BROKER"

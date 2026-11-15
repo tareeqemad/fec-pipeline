@@ -288,59 +288,6 @@ def test_split_self_marker_and_previous_employer():
     assert company_named("SELF EMPLOYED; DENTIST") == ""  # a trade, no company
 
 
-def test_learn_typos_reads_one_slip_from_one_listed_occupation():
-    from fec.cleaning.work.occupation_typos import learn_typos
-
-    listed = [
-        "ATTORNEY",
-        "CONSULTANT",
-        "PHYSICIAN",
-        "PARTNER",
-        "ARCHITECT",
-        "CEO OWNER",
-        "CO-OWNER",
-        "RETIRED",
-    ]
-    texts = pd.Series(
-        [
-            "ATTORNEYY",
-            "CONSULTATN",
-            "PHYSICAIN ",
-            "ARCHITECTS",  # added, transposed, swapped, plural
-            # one slip from PARTNER: read, which is why only the occupation box is learnt from
-            "GARTNER",
-            "ATTORNEY",  # listed already
-            "CO OWNER",  # CO / CEO: a word under six letters
-            "ATTORNEY AT LAW",  # two words more, not a slip
-            "XX",  # junk
-            "RETIRE",  # a status word: the RETIRED reader owns it
-        ]
-    )
-    assert learn_typos(texts, listed=listed) == {
-        "ATTORNEYY": "ATTORNEY",
-        "CONSULTATN": "CONSULTANT",
-        "PHYSICAIN": "PHYSICIAN",
-        "ARCHITECTS": "ARCHITECT",
-        "GARTNER": "PARTNER",
-    }
-
-
-def test_extend_corrections_adds_learnt_typos_to_the_table():
-    from fec.cleaning.work.occupation_typos import extend_corrections
-    from fec.vocabulary.occupations import OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS
-
-    df = pd.DataFrame({"contributor_occupation": ["ORTHODONTISTT", "ATTORNEY"], "contributor_employer": ["", ""]})
-    try:
-        assert extend_corrections(df) == 1
-        assert (
-            OCCUPATION_CORRECTIONS["ORTHODONTISTT"] == "ORTHODONTIST"
-            and TEXT_CORRECTIONS["ORTHODONTISTT"] == "ORTHODONTIST"
-        )
-    finally:
-        for table in (OCCUPATION_CORRECTIONS, TEXT_CORRECTIONS):
-            table.pop("ORTHODONTISTT", None)
-
-
 def test_an_unlisted_occupation_takes_the_category_of_its_last_listed_word():
     from fec.cleaning.work.occupation_categories import category_of, lookup_categories
 
