@@ -50,3 +50,5 @@ FINANCIAL ADVISOR,
 INVESTMENT ADVISOR,
 SELF (LANDSCAPE DESIGNER),"""SELF"" with the trade in parentheses means self-employed."
 INDEPENDENT INVESTMENT MNGR,"Describes the work, not the employer; no company invented."
+INDEPENDENT CONSULTANT,filed as the employer by someone who works for themselves
+CONTRACTOR,filed as the employer by someone who works for themselves
