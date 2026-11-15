@@ -1,4 +1,15 @@
-"""Work fields that need the donor's other filings."""
+"""Work fields that need the donor's other filings.
+
+Steps, in the order standardize_donors runs them (fec/matching/pipeline.py):
+    1. fill_occupation_from_donor   an empty or SELF-EMPLOYED occupation takes the donor's one role at the employer
+    2. fill_status_employer         a status with no employer (RETIRED) is written as the employer too
+    3. recategorize_occupations     every category is read again from the occupation as it now stands
+    4. settle_retired_employer      a retired filing's employer is RETIRED; its company is the previous employer
+    5. categorize_from_donor        an occupation naming no field (BROKER) takes the donor's field at the employer
+
+Steps 1 and 5 work the same way: a "job" is one donor at one employer, and a value is taken from the donor's
+other filings of that job only when they all agree on it.
+"""
 
 import pandas as pd
 
@@ -14,44 +25,32 @@ from fec.vocabulary.tables import words
 # Occupations that name no field (BROKER), and the categories that are a rank or a status, not a field.
 _FIELDLESS_OCCUPATIONS = words("fieldless_occupations")
 _CATEGORIES_WITHOUT_A_FIELD = words("categories_without_a_field")
+# One donor at one employer.
+_JOB = ["donor_key", "contributor_employer"]
 
 
-def recategorize_occupations(df: pd.DataFrame) -> None:
-    """Make every individual's category match the occupation as it now reads."""
-    people = df[df["entity_type"].eq("INDIVIDUAL")]
-    df.loc[people.index, "occupation_category"] = categorize_with_corrections(people)
-
-
-def categorize_from_donor(df: pd.DataFrame) -> None:
-    """Give a field-less occupation (BROKER) the one field the donor's other filings at this employer name."""
+def _find_people_with_an_employer(df: pd.DataFrame) -> pd.DataFrame:
     employer = df["contributor_employer"]
-    people = df[df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
-    vague = people["contributor_occupation"].isin(_FIELDLESS_OCCUPATIONS)
-    named = people[~vague & ~people["occupation_category"].isin(_CATEGORIES_WITHOUT_A_FIELD)]
-    job = ["donor_key", "contributor_employer"]
-    fields_per_job = named.groupby(job)["occupation_category"].unique()
-    one_field_jobs = fields_per_job[fields_per_job.map(len).eq(1)].str[0].to_dict()
-    vague_pairs = list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]]))
-    found = pd.Series(vague_pairs, index=people.index[vague], dtype=object).map(one_field_jobs).dropna()
-    df.loc[found.index, "occupation_category"] = found
+    return df[df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
+
+
+def _take_from_the_job(people: pd.DataFrame, known: pd.Series, vague: pd.Series, column: str) -> pd.Series:
+    """For each vague filing, the value its job's known filings all give in this column; none if they differ."""
+    values_per_job = people[known].groupby(_JOB)[column].unique()
+    agreed = values_per_job[values_per_job.map(len).eq(1)].str[0].to_dict()
+    jobs = list(zip(people.loc[vague, _JOB[0]], people.loc[vague, _JOB[1]]))
+    return pd.Series(jobs, index=people.index[vague], dtype=object).map(agreed).dropna()
 
 
 def fill_occupation_from_donor(df: pd.DataFrame) -> None:
     """Fill an empty or SELF-EMPLOYED occupation with the donor's one role at this employer."""
-    employer = df["contributor_employer"]
-    people = df[df["entity_type"].eq("INDIVIDUAL") & employer.notna() & ~employer.isin(SKIP_EMPLOYERS)]
+    people = _find_people_with_an_employer(df)
     occupation = people["contributor_occupation"].fillna("").astype(str).str.strip()
     vague = occupation.isin(("", "SELF-EMPLOYED"))
-    occupation_key = occupation.map(employer_text_key)
-    employer_key = people["contributor_employer"].map(employer_text_key)
-    known = people[~vague & ~occupation.isin(SKIP_OCCUPATIONS) & occupation_key.ne(employer_key)]
-    job = ["donor_key", "contributor_employer"]
-    roles_per_job = known.groupby(job)["contributor_occupation"].unique()
-    one_role_jobs = roles_per_job[roles_per_job.map(len).eq(1)]
-    roles = one_role_jobs.str[0].to_dict()
-    vague_pairs = list(zip(people.loc[vague, job[0]], people.loc[vague, job[1]]))
-    vague_jobs = pd.Series(vague_pairs, index=people.index[vague], dtype=object)
-    found = vague_jobs.map(roles).dropna()
+    # A role is a real occupation: not a status, and not the employer's own name.
+    names_the_employer = occupation.map(employer_text_key).eq(people["contributor_employer"].map(employer_text_key))
+    known = ~vague & ~occupation.isin(SKIP_OCCUPATIONS) & ~names_the_employer
+    found = _take_from_the_job(people, known, vague, "contributor_occupation")
     df.loc[found.index, "contributor_occupation"] = found
     df.loc[found.index, "occupation_category"] = categorize_occupations(found)
 
@@ -62,6 +61,12 @@ def fill_status_employer(df: pd.DataFrame) -> None:
     status = status.fillna(df["occupation_category"].map(EMPLOYER_FROM_CATEGORY))
     fill = df["entity_type"].eq("INDIVIDUAL") & df["contributor_employer"].fillna("").eq("") & status.notna()
     df.loc[fill, "contributor_employer"] = status[fill]
+
+
+def recategorize_occupations(df: pd.DataFrame) -> None:
+    """Make every individual's category match the occupation as it now reads."""
+    people = df[df["entity_type"].eq("INDIVIDUAL")]
+    df.loc[people.index, "occupation_category"] = categorize_with_corrections(people)
 
 
 def settle_retired_employer(df: pd.DataFrame) -> None:
@@ -75,3 +80,12 @@ def settle_retired_employer(df: pd.DataFrame) -> None:
     company = retired & upper_text(df["previous_employer"]).eq("") & df["contributor_employer"].map(is_real_employer)
     df.loc[company, "previous_employer"] = df.loc[company, "contributor_employer"]
     df.loc[retired, "contributor_employer"] = "RETIRED"
+
+
+def categorize_from_donor(df: pd.DataFrame) -> None:
+    """Give a field-less occupation (BROKER) the one field the donor's other filings at this employer name."""
+    people = _find_people_with_an_employer(df)
+    vague = people["contributor_occupation"].isin(_FIELDLESS_OCCUPATIONS)
+    known = ~vague & ~people["occupation_category"].isin(_CATEGORIES_WITHOUT_A_FIELD)
+    found = _take_from_the_job(people, known, vague, "occupation_category")
+    df.loc[found.index, "occupation_category"] = found

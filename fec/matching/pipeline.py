@@ -12,7 +12,8 @@ Steps, in order:
         1. _separate_network_filings    network names filed as people
         2. canonicalize_donor_names     one surname and given name per donor
         3. canonicalize_current_employers, unify_units, apply_name_corrections
-        4. apply_filing_corrections, the donor work steps (donor_work.py), apply_filing_corrections
+        4. apply_filing_corrections, then the donor work steps in the order donor_work.py lists them, with
+           apply_filing_corrections once more before the last one (categorize_from_donor)
         5. canonicalize_committee_names
 """
 

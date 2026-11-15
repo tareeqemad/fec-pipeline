@@ -116,8 +116,8 @@ Good to know:
 1. **Names**: fixes punctuation and spelling slips, splits first and last name.
 2. **Who is it**: decides whether each contributor is a person, an organization or a committee.
 3. **Work**: reads the employer and the occupation together (RETIRED, SELF-EMPLOYED, a job written in the employer
-   box, a company written in the occupation box) and gives each occupation a category. The occupation a donor
-   filed is never replaced by another one.
+   box, a company written in the occupation box) and gives each occupation a category. The job a donor filed
+   is never replaced by another one.
 4. **Addresses**: writes every address in the standard USPS form.
 5. **Reviewed corrections**: applies the decisions in `data/rules/`.
 6. **Donors**: gives every filing of the same person the same donor key. Two people are never joined without
@@ -128,11 +128,34 @@ After `clean.py`, read its warnings:
 
 | Warning | What to do |
 | --- | --- |
-| `New occupations: N` | Open `data/reports/new_occupations.csv` and add each occupation with its category to `data/rules/occupation_categories.csv` |
+| `New occupations: N` | Open `data/reports/new_occupations.csv`. A misspelled or shortened occupation goes to `data/config/occupation_corrections.csv`; any other gets its category in `data/rules/occupation_categories.csv` |
+| `Donor identity rules joined a separation pair` (the run stops) | Usually after a pull: an amended report now names another person on a filing. Read the filing, then change the rule or the hold |
 | `address rules matched no filing` | A row in `data/rules/address_rules.csv` is mistyped or no longer needed |
 | `donor merge rules found no donor` | A row in `data/rules/donor_identity_rules.csv` needs an updated key |
 | `earlier donor keys no longer used` | A donor was split or merged since the last run; check it |
 | `previous employer rules found no filing` (from `resolve.py`) | A `sub_id` in `data/rules/previous_employers.csv` is mistyped |
+
+### Where each decision goes
+
+Nothing below needs a code change: add a row, then run `clean.py` again.
+
+| To do this | Add a row to | A row looks like |
+| --- | --- | --- |
+| Give an occupation its category | `data/rules/occupation_categories.csv` | `DMD,MEDICAL / HEALTHCARE,why` |
+| Fix a misspelled or shortened occupation | `data/config/occupation_corrections.csv` | `ATTORNY,ATTORNEY,typo` |
+| Say a word names no field, so the donor's other filings at the employer give it | `data/config/word_lists.csv`, list `fieldless_occupations` | `fieldless_occupations,BROKER,` |
+| Join two spellings of one company | `data/rules/employer_name_rules.csv`, action `spelling` | `GOOGLE LLC,GOOGLE,why,spelling,,` |
+| Rename a company, and say the text is a company | the same file, action `rename` | `SPGI,S&P GLOBAL,why,rename,,` |
+| Fix one filing (a title in the employer box, a wrong city) | `data/rules/filing_corrections.csv`, by `sub_id` | see the rows there |
+| Fix how a person's name is written | `data/rules/contributor_name_rules.csv` | see the rows there |
+| Fix an address | `data/rules/address_rules.csv` | see the rows there |
+| Join two donors, keep two apart, or hold a filing | `data/rules/donor_identity_rules.csv` | see the rows there |
+| Name a retired donor's previous employer | `data/rules/previous_employers.csv` | see the rows there |
+| Give a company its office address | `data/reference/employer_locations.csv` | see the rows there |
+
+How an occupation is read, in order: its spelling is corrected, an empty one takes the donor's one role at the
+employer, it gets its category from the table (else from its last listed word, else OTHER), and last a word that
+names no field takes the donor's field at the employer. The job a donor filed is never replaced by another one.
 
 ## 7. Where things are
 
