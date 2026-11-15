@@ -10,7 +10,9 @@ The owner writes in Arabic. Read this file before changing anything.
 - Never put a key in chat or in the repository. Keys live in `.env`, which is not committed.
 - **Never merge two people unless it is proven.** A wrong merge is worse than an open filing. When the owner of a
   filing is in doubt, the filing is held (`identity_status` `held`) and counts toward nobody.
-- **Never change what a donor filed as their occupation.** The occupation is only given a category.
+- **Never change the job a donor filed.** The occupation is given a category. A reviewed row in
+  `data/config/occupation_corrections.csv` may fix its spelling, write out an abbreviation, or give one wording to
+  the same job (REAL ESTATE INVESTMENTS, REAL ESTATE INVESTOR). No row may guess a job the filing does not name.
 - Every reviewed decision is a row in `data/rules/`, with where it comes from in its `source` column.
 - No word list and no table of patterns inside the code. They belong in `data/config/` or `data/rules/`.
 - Simple code: no clever tricks, no added layers, no dense one-liners. Clear function and variable names.
@@ -46,11 +48,11 @@ cleaning step. A name starting with `_` stays inside its file.
 
 ## State on 2026-11-11
 
-Lines of Python on 2026-11-13: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,997, under
+Lines of Python on 2026-11-15: cleaning stage (`fec/cleaning`, `fec/matching`, `fec/vocabulary`) 3,954, under
 the owner's target of 4,000; database 928; geocoding 378; common 335; pull 328; resolve 139. The cut from 5,623
 changed no output: word lists moved to `data/config`, the duplicate review report (read by nothing) was removed.
-Options still measured but not done: turn the typo learning into a reviewed table (about 180 lines), turn nine
-small steps into rows of `filing_corrections.csv` (about 170 lines). Both stop fixing new filings automatically.
+Option still measured but not done: turn nine small steps into rows of `filing_corrections.csv` (about 170
+lines); it stops fixing new filings automatically.
 
 A fresh clone of `main` runs steps 2 to 5 and reproduces the committed output exactly (222,603 filings, 20,013
 donor groups, 67 tests).
@@ -91,9 +93,17 @@ official pages.
 
 ### Decisions worth knowing
 
-- Occupation categories: `data/rules/occupation_categories.csv` (2,976 texts, all read by hand on 2026-11-11, 83
-  corrected). A text not in it takes the category of its last word listed in
+- Occupation categories: `data/rules/occupation_categories.csv` (3,019 texts; 2,976 read by hand on 2026-11-11, the
+  rest in the September 2026 pull). A text not in it takes the category of its last word listed in
   `data/config/occupation_category_words.csv`, else OTHER, and is listed in the new-occupations report.
+- Occupation typos are reviewed rows of `data/config/occupation_corrections.csv` (2026-11-15); the code no longer
+  learns them from the filings, because one new listed text could silently switch off another text's fix. A new
+  misspelling shows in the new-occupations report: add it there as a row with the note `typo`.
+- A category is a field (REAL ESTATE, LEGAL) or a rank (EXECUTIVE / C-SUITE, MANAGEMENT), read from the text of
+  each filing. One person can file CEO one month and REAL ESTATE the next: both are kept, neither is an error.
+  Only an occupation that names no field (`fieldless_occupations` in `word_lists.csv`: BROKER, AGENT, ADVISOR,
+  ADVISER, ANALYST, ASSOCIATE) takes the field of the donor's other filings at the same employer, when they name
+  exactly one (`categorize_from_donor`; 161 filings of 29 donors on 2026-11-15). The quality gate checks the same.
 - The work fields are read once, after the entity type is known.
 - Roster people (`leaders.csv`, `key_accomplices.csv`) are read as rows shaped like filings and go through the
   same loaders as the filings.
