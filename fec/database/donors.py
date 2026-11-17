@@ -8,15 +8,18 @@ import pandas as pd
 from psycopg2.extras import execute_values
 
 from fec.database.connection import to_rows
+from fec.database.display_names import cased_name
 
 
 def load_donors(cur: Any, df: pd.DataFrame) -> None:
-    """Load each donor as named on their latest filing and add donor_id to df."""
+    """Load each donor as named on their latest filing, in normal capitals, and add donor_id to df."""
     latest = df.sort_values("contribution_receipt_date", ascending=False).drop_duplicates("donor_key")
     latest = latest.sort_values("donor_key")
     # A committee or organization has only a full name; it is stored as the last name.
     unnamed = latest["contributor_last_name"].isna() & latest["entity_type"].ne("INDIVIDUAL")
     latest.loc[unnamed, "contributor_last_name"] = latest["contributor_name"]
+    for column in ("contributor_first_name", "contributor_last_name"):
+        latest[column] = latest[column].map(cased_name)
     columns = ["donor_key", "entity_type", "contributor_first_name", "contributor_last_name", "identity_status"]
     donor_ids = execute_values(
         cur,
