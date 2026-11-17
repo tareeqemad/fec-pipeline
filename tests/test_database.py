@@ -10,6 +10,7 @@ from fec.common.settings import SCHEMA_SQL
 from fec.database import addresses, employments
 from fec.database.addresses import load_addresses
 from fec.database.connection import load_transaction
+from fec.database.display_names import cased_name
 from fec.database.employments import load_employers, load_employments
 
 
@@ -198,3 +199,29 @@ def test_roster_people_are_read_as_rows_shaped_like_filings(tmp_path, monkeypatc
     filings = pd.DataFrame({"donor_key": ["other"], "entity_type": ["INDIVIDUAL"]})
     with pytest.raises(ValueError, match="Unknown donor_key for .*DOE, JANE"):
         rosters.read_roster_people(filings)
+
+
+@pytest.mark.parametrize(
+    ("filed", "stored"),
+    [
+        ("HAIM", "Haim"),
+        ("SABAN", "Saban"),
+        ("LYNN", "Lynn"),
+        ("MCDONALD", "McDonald"),
+        ("O'BRIEN", "O'Brien"),
+        ("SMITH-JONES", "Smith-Jones"),
+        ("ACTBLUE", "ActBlue"),
+        ("FRIENDS OF JOHN SMITH", "Friends of John Smith"),
+        ("KRAFT GROUP LLC", "Kraft Group LLC"),
+        ("DEMOCRATIC MAJORITY FOR ISRAEL PAC", "Democratic Majority for Israel PAC"),
+        ("SMITH JR", "Smith Jr"),
+        ("DSCC", "DSCC (Democratic Senatorial Campaign Committee)"),
+    ],
+)
+def test_names_are_stored_in_normal_capitals(filed, stored):
+    assert cased_name(filed) == stored
+
+
+def test_an_empty_name_is_left_alone():
+    assert cased_name(None) is None
+    assert cased_name("") == ""
