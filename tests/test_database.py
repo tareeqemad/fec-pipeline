@@ -216,6 +216,12 @@ def test_roster_people_are_read_as_rows_shaped_like_filings(tmp_path, monkeypatc
         ("DEMOCRATIC MAJORITY FOR ISRAEL PAC", "Democratic Majority for Israel PAC"),
         ("SMITH JR", "Smith Jr"),
         ("DSCC", "DSCC (Democratic Senatorial Campaign Committee)"),
+        ("1023 31ST ST NW STE 530", "1023 31st St NW Ste 530"),
+        ("PO BOX 441146", "PO Box 441146"),
+        ("APT 4B", "Apt 4B"),
+        ("WHATSAPP LLC", "WhatsApp LLC"),
+        ("GOLDMAN SACHS & CO", "Goldman Sachs & Co"),
+        ("N/A", "N/A"),
     ],
 )
 def test_names_are_stored_in_normal_capitals(filed, stored):

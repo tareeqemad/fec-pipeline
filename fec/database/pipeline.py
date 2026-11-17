@@ -8,7 +8,7 @@ Steps, in order (main -> _reload_tables), all in one transaction:
     3. load_donors, load_employers
     4. load_addresses, load_donor_addresses, load_employments, load_contributions, link_employer_offices
     5. load_reference_tables, load_roster_tables
-    6. refresh_donor_profiles, grant_read_access
+    6. case_stored_text, refresh_donor_profiles, grant_read_access
 
 The people of the rosters are added to the filings as rows without a contribution
 (read_roster_people), so steps 3 and 4 load their donors, addresses and jobs too.
@@ -29,6 +29,7 @@ from fec.common.settings import CLEANED_CSV
 from fec.database.addresses import link_employer_offices, load_addresses, load_donor_addresses
 from fec.database.connection import connect, load_transaction
 from fec.database.contributions import load_contributions
+from fec.database.display_names import case_stored_text
 from fec.database.donors import load_donors
 from fec.database.employments import load_employers, load_employments
 from fec.database.input_checks import read_load_input
@@ -86,7 +87,8 @@ def _reload_tables(cur: Any, df: pd.DataFrame, offices: list[dict]) -> None:
     load_reference_tables(cur)
     load_roster_tables(cur, df[df["roster"].notna()])
 
-    logger.info("[6/6] Updating views and read access")
+    logger.info("[6/6] Casing names, updating views and read access")
+    case_stored_text(cur)
     refresh_donor_profiles(cur)
     grant_read_access(cur)
 
