@@ -105,7 +105,8 @@ CREATE INDEX idx_donors_name_trgm   ON donors USING gin (last_name gin_trgm_ops)
 
 CREATE INDEX idx_addr_state         ON addresses (state_code);
 CREATE INDEX idx_addr_zip           ON addresses (zip_code);
-CREATE INDEX idx_addr_city          ON addresses (city);
+-- Cities are stored as people read them (Los Angeles); searches compare them in capitals.
+CREATE INDEX idx_addr_city          ON addresses (upper(city));
 CREATE INDEX idx_addr_geo           ON addresses (latitude, longitude)
     WHERE latitude IS NOT NULL;
 
