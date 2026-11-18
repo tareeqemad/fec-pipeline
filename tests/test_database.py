@@ -222,6 +222,16 @@ def test_roster_people_are_read_as_rows_shaped_like_filings(tmp_path, monkeypatc
         ("WHATSAPP LLC", "WhatsApp LLC"),
         ("GOLDMAN SACHS & CO", "Goldman Sachs & Co"),
         ("N/A", "N/A"),
+        ("REAL ESTATE INVESTOR", "Real Estate Investor"),
+        ("CEO", "CEO"),
+        ("LOS ANGELES", "Los Angeles"),
+        ("ST LOUIS", "St Louis"),
+        ("WINSTON-SALEM", "Winston-Salem"),
+        ("SELF-EMPLOYED", "Self-Employed"),
+        ("VP, SALES", "VP, Sales"),
+        ("IT CONSULTANT", "IT Consultant"),
+        ("SR. PROPERTY MGR", "Sr. Property Mgr"),
+        ("MD (RETIRED)", "MD (Retired)"),
     ],
 )
 def test_names_are_stored_in_normal_capitals(filed, stored):
