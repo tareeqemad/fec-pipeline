@@ -246,7 +246,10 @@ CREATE INDEX idx_mvdp_name_trgm     ON mv_donor_profile USING gin (last_name gin
 CREATE INDEX idx_mvdp_first_name_trgm ON mv_donor_profile USING gin (first_name gin_trgm_ops);
 CREATE INDEX idx_mvdp_employer      ON mv_donor_profile (current_employer);
 CREATE INDEX idx_mvdp_prev_employer ON mv_donor_profile (previous_employer);
-CREATE INDEX idx_mvdp_occ           ON mv_donor_profile (current_occ_category);
+-- Text is stored as people read it (Los Angeles, Legal); searches compare it in capitals.
+CREATE INDEX idx_mvdp_occ           ON mv_donor_profile (upper(current_occ_category));
+CREATE INDEX idx_mvdp_city          ON mv_donor_profile (upper(current_city));
+CREATE INDEX idx_mvdp_occupation    ON mv_donor_profile (upper(current_occupation));
 CREATE INDEX idx_mvdp_geo           ON mv_donor_profile (current_lat, current_lng)
     WHERE current_lat IS NOT NULL;
 CREATE INDEX idx_mvdp_earth         ON mv_donor_profile USING gist (ll_to_earth(current_lat, current_lng));

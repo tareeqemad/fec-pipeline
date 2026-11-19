@@ -1,8 +1,8 @@
 """Store names as people read them: HAIM SABAN is stored as Haim Saban, 251 H ST NW as 251 H St NW.
 
 The FEC files names in capitals. Cleaning, matching and loading keep working on those capitals; the last load
-step rewrites donor names, streets, cities, company names and jobs in the database, so the website and the chatbot
-show them as they are. Only the capitals change: a job stays the words the donor filed.
+step rewrites donor names, streets, cities, company names, jobs and job categories in the database, so the
+website and the chatbot show them as they are. Only the capitals change: a job stays the words the donor filed.
 """
 
 from __future__ import annotations
@@ -22,11 +22,12 @@ CASED_COLUMNS = {
     "addresses": ("address_id", ("street_1", "street_2", "city")),
     "employers": ("employer_id", ("name",)),
     "donor_employments": ("donor_employment_id", ("occupation",)),
+    "occupation_categories": ("occupation_category_id", ("name",)),
 }
 
 
 def case_stored_text(cur: Any) -> None:
-    """Rewrite donor names, streets, cities, company names and jobs in normal capitals, once every row is linked."""
+    """Rewrite stored names, places and work in normal capitals, once every row is linked."""
     for table, (key, columns) in CASED_COLUMNS.items():
         cur.execute(f"SELECT {key}, {', '.join(columns)} FROM {table}")
         rows = [(row[0], *(cased_name(value) for value in row[1:])) for row in cur.fetchall()]

@@ -225,6 +225,7 @@ def test_roster_people_are_read_as_rows_shaped_like_filings(tmp_path, monkeypatc
         ("REAL ESTATE INVESTOR", "Real Estate Investor"),
         ("CEO", "CEO"),
         ("LOS ANGELES", "Los Angeles"),
+        ("EXECUTIVE / C-SUITE", "Executive / C-Suite"),
         ("ST LOUIS", "St Louis"),
         ("WINSTON-SALEM", "Winston-Salem"),
         ("SELF-EMPLOYED", "Self-Employed"),
