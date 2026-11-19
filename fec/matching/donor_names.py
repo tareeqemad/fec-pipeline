@@ -1,8 +1,10 @@
 """One name per donor.
 
 The surname is the one the donor files most. A given name is shown in its fullest spelling (MATTHEW over MATT),
-a rare one-letter slip aside (ZIPORAH beside 87 ZIPORA). Another given name under the same donor (a spouse on a
-joint account) keeps its own.
+slips aside: a rare one-letter slip (ZIPORAH beside 87 ZIPORA), or a spelling that no other donor files and that
+only adds stray letters inside one this donor files more often (BASAHEVA beside 29 BASHEVA). MARTIN beside MARTY
+is a name, and ELIHU beside ELIE a fuller one. Another given name under the same donor (a spouse on a joint
+account) keeps its own.
 """
 
 import re
@@ -73,16 +75,29 @@ def _drop_repeated_asides(spelling: str, asides: set) -> str:
     return " ".join([first, *kept_words])
 
 
-def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset) -> str | None:
+def _is_slip_of(word: str, other: str, filed: Counter, rare: frozenset, everywhere: Counter) -> bool:
+    """Tell whether a given name is a slip of one filed more often, not a name or a fuller spelling of it."""
+    if filed[other] <= filed[word]:
+        return False
+    distance = OSA.distance(word, other)
+    only_this_donor = everywhere[word] <= filed[word]
+    return (word in rare and distance == 1) or (distance <= 2 and only_this_donor and _adds_stray_letters(word, other))
+
+
+def _adds_stray_letters(word: str, other: str) -> bool:
+    """Tell whether a spelling is another with letters added inside it, not at its end (BASAHEVA, BASHEVA)."""
+    letters = iter(word)
+    return len(word) > len(other) and not word.startswith(other) and all(letter in letters for letter in other)
+
+
+def _choose_fullest_spelling(spellings: list[str], asides: set, rare: frozenset, everywhere: Counter) -> str | None:
     if not spellings:
         return None
     words = Counter(_split_tokens(spelling)[0] for spelling in spellings)
     slips = {
         word
         for word in words
-        if len(word) >= 4
-        and word in rare
-        and any(words[other] > words[word] and OSA.distance(word, other) == 1 for other in words)
+        if len(word) >= 4 and any(_is_slip_of(word, other, words, rare, everywhere or words) for other in words)
     }
     kept = [spelling for spelling in spellings if _split_tokens(spelling)[0] not in slips] or spellings
     filed = Counter(kept)
@@ -135,8 +150,10 @@ def _group_given_names(given: list[str], own: set, asides: set) -> dict:
     return groups
 
 
-def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset()) -> tuple[str, list]:
-    """Return the donor's surname and, for each filing, the given name to show."""
+def donor_names(
+    lasts: list[str], firsts: list[str], rare: frozenset = frozenset(), everywhere: Counter | None = None
+) -> tuple[str, list]:
+    """Return the donor's surname and, for each filing, the given name to show; everywhere counts all donors' names."""
     surname, initial = _choose_surname(lasts, firsts)
     surname_words = surname.split()
     own = {token for last in lasts for token in _split_tokens(last)} | set(surname_words)
@@ -146,11 +163,11 @@ def donor_names(lasts: list[str], firsts: list[str], rare: frozenset = frozenset
     # GLENN STUART CHRYSTA: the surname again, cut short by the field
     given = [_drop_cut_surname(name, surname) for name in given]
     groups = _group_given_names(given, own, asides)
-    everyone = _choose_fullest_spelling([name for name in given if name], asides, rare)
+    everyone = _choose_fullest_spelling([name for name in given if name], asides, rare, everywhere)
     shown = [everyone] * len(given)
     if len(groups) > 1:
         for positions in groups.values():
-            name = _choose_fullest_spelling([given[position] for position in positions], asides, rare)
+            name = _choose_fullest_spelling([given[position] for position in positions], asides, rare, everywhere)
             for position in positions:
                 shown[position] = name
     if initial:
@@ -172,7 +189,7 @@ def canonicalize_donor_names(df: pd.DataFrame) -> None:
         if not any(lasts):
             continue
         firsts = [value.strip() if isinstance(value, str) else "" for value in rows["contributor_first_name"]]
-        surname, given = donor_names(lasts, firsts, rare)
+        surname, given = donor_names(lasts, firsts, rare, words)
         df.loc[rows_index, "contributor_last_name"] = surname
         df.loc[rows_index, "contributor_first_name"] = pd.Series(given, index=rows_index, dtype=object)
         df.loc[rows_index, "contributor_name"] = [f"{surname}, {name}" if name else surname for name in given]

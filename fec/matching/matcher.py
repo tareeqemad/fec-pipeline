@@ -133,11 +133,16 @@ class UnionFind:
         return True
 
 
+def _is_reviewed(profile: dict, reviewed: tuple) -> bool:
+    """Tell whether a profile is the reviewed person: the name's start, filed from a reviewed state."""
+    return any(profile["name"].startswith(name) and profile["state"] in states for name, states in reviewed)
+
+
 def _apply_force_merges(components: dict, profiles: dict) -> None:
     root_of = {profile_id: root for root, members in components.items() for profile_id in members}
-    for prefixes in NAME_MERGES.values():
+    for reviewed in NAME_MERGES.values():
         roots = sorted(
-            {root_of[profile_id] for profile_id, profile in profiles.items() if profile["name"].startswith(prefixes)}
+            {root_of[profile_id] for profile_id, profile in profiles.items() if _is_reviewed(profile, reviewed)}
         )
         for other_root in roots[1:]:
             for profile_id in components.pop(other_root):
