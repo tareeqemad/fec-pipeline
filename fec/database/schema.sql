@@ -99,8 +99,8 @@ CREATE TABLE contributions (
 
 -- Indexes
 CREATE INDEX idx_donors_entity      ON donors (entity_type);
-CREATE INDEX idx_donors_last        ON donors (last_name);
-CREATE INDEX idx_donors_first_last  ON donors (last_name, first_name);
+-- Names are stored as people read them (Haim Saban); searches compare them in capitals.
+CREATE INDEX idx_donors_first_last  ON donors (upper(last_name), upper(first_name));
 CREATE INDEX idx_donors_name_trgm   ON donors USING gin (last_name gin_trgm_ops);
 
 CREATE INDEX idx_addr_state         ON addresses (state_code);
@@ -126,7 +126,6 @@ CREATE INDEX idx_c_donor_address    ON contributions (donor_address_id);
 CREATE INDEX idx_c_donor_employment ON contributions (donor_employment_id);
 CREATE INDEX idx_c_donor_date       ON contributions (donor_id, receipt_date DESC);
 
-CREATE INDEX idx_emp_name           ON employers (name);
 CREATE INDEX idx_emp_name_trgm      ON employers USING gin (name gin_trgm_ops);
 CREATE INDEX idx_emp_address        ON employers (address_id);
 
@@ -221,7 +220,7 @@ SELECT
     e.employer_status,
     COALESCE(
         prev.name,
-        CASE WHEN e.previous_self_employed THEN 'SELF-EMPLOYED' END
+        CASE WHEN e.previous_self_employed THEN 'Self-Employed' END
     )               AS previous_employer
 FROM donors d
 LEFT JOIN v_donor_stats              s    ON s.donor_id   = d.donor_id

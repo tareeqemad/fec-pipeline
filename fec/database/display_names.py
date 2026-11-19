@@ -8,6 +8,7 @@ website and the chatbot show them as they are. Only the capitals change: a job s
 from __future__ import annotations
 
 import re
+from functools import cache
 from typing import Any
 
 from psycopg2.extras import execute_values
@@ -26,6 +27,12 @@ CASED_COLUMNS = {
 }
 
 
+@cache
+def _spellings() -> dict:
+    """Reviewed spellings, like ActBlue and MacArthur, read once."""
+    return read_map(CONFIG_DIR / "name_spellings.csv")
+
+
 def case_stored_text(cur: Any) -> None:
     """Rewrite stored names, places and work in normal capitals, once every row is linked."""
     for table, (key, columns) in CASED_COLUMNS.items():
@@ -42,11 +49,11 @@ def case_stored_text(cur: Any) -> None:
 
 
 def cased_name(name: object) -> object:
-    """One first or last name in normal capitals; an empty value stays as it is."""
+    """Write a stored name, place or job in normal capitals; an empty value stays as it is."""
     if not isinstance(name, str) or not name.strip():
         return name
     # A whole name with a reviewed spelling, like DSCC written out in full.
-    spelling = read_map(CONFIG_DIR / "name_spellings.csv").get(name.upper())
+    spelling = _spellings().get(name.upper())
     if spelling:
         return spelling
     small_words = words("name_small_words")
@@ -67,10 +74,10 @@ def _name_word(word: str) -> str:
 
 
 def _cased_word(word: str) -> str:
-    """One word of a name: acronyms kept, ActBlue, McDonald, MacArthur, O'Brien, 31st, 4B."""
+    """One word of a name: acronyms kept, ActBlue, McDonald, O'Brien, 31st, 4B; Mac names are spellings."""
     if word[:1].isdigit():
         return re.sub(r"^(\d+)(ST|ND|RD|TH)$", lambda match: match[1] + match[2].lower(), word)
-    spelling = read_map(CONFIG_DIR / "name_spellings.csv").get(word.upper())
+    spelling = _spellings().get(word.upper())
     if spelling:
         return spelling
     if not word or word in words("name_acronyms") or DOTTED_INITIALS.fullmatch(word):
@@ -80,8 +87,6 @@ def _cased_word(word: str) -> str:
     lower = word.lower()
     if re.match(r"mc[a-z]", lower):
         return "Mc" + lower[2].upper() + lower[3:]
-    if re.fullmatch(r"mac[a-z]{2,}", lower):
-        return "Mac" + lower[3].upper() + lower[4:]
     cased = lower[:1].upper() + lower[1:]
     return re.sub(r"^([ODL])'([a-z])", lambda match: f"{match[1]}'{match[2].upper()}", cased)
 
