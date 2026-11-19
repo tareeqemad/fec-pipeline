@@ -154,6 +154,13 @@ def test_a_donor_gets_one_surname_and_the_fullest_given_name():
     assert names([("MATT", "ENGEL")] * 3 + [("MATTHEW", "ENGEL")]) == ("ENGEL", ["MATTHEW"])
     assert names([("ZIPORA", "ARISON")] * 5 + [("ZIPORAH", "ARISON")], frozenset({"ZIPORAH"})) == ("ARISON", ["ZIPORA"])
     assert names([("STEVE", "FEIN")] * 3 + [("STEVEN", "FEIN")]) == ("FEIN", ["STEVEN"])  # a common name is no slip
+    # a fuller form filed less often is no slip; letters added inside a name filed more often are
+    assert names([("ELIE", "GORDIS")] * 2 + [("ELIHU", "GORDIS")]) == ("GORDIS", ["ELIHU"])
+    assert names([("BASHEVA", "GOLDBERG")] * 29 + [("BASAHEVA", "GOLDBERG")] * 3) == ("GOLDBERG", ["BASHEVA"])
+    assert names([("ITZHAK", "EZRATTI")] * 8 + [("ITCHKO", "EZRATTI")] * 5 + [("ITITCHKO", "EZRATTI")]) == (
+        "EZRATTI",
+        ["ITZHAK"],
+    )
     assert names([("ALIZA", "GUREN")] * 3 + [("ALIZA KARNEY", "GUREN"), ("ALIZA", "KARNEY GUREN")]) == (
         "GUREN",
         ["ALIZA KARNEY"],
@@ -211,3 +218,14 @@ def test_a_fieldless_occupation_takes_the_field_of_the_donors_other_filings():
         "REAL ESTATE",
     ]
     assert df["contributor_occupation"].tolist()[0] == "BROKER"
+
+
+def test_a_reviewed_name_merge_joins_only_its_reviewed_states():
+    rows = [
+        _row(1, "FAIN, RICHARD", "RICHARD", "FAIN", "MIAMI", "FL", "33156", "1 BAY RD", employer="RCL"),
+        _row(2, "FAIN, RICHARD", "RICHARD", "FAIN", "BOONE", "NC", "28607", "2 HILL RD", employer="RCL CRUISES"),
+        _row(3, "FAIN, RICHARD", "RICHARD", "FAIN", "AUSTIN", "TX", "73301", "3 OAK ST", employer="DELL"),
+    ]
+    keys = identify_donors(pd.DataFrame(rows))["donor_key"].tolist()
+    assert keys[0] == keys[1]
+    assert keys[2] != keys[0]

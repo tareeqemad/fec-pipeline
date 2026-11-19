@@ -1,7 +1,7 @@
 """Read and evaluate the reviewed donor identity rules (donor_identity_rules.csv).
 
 merge_keys    two donor keys are one person (or one committee, with a canonical name)
-merge_names   every filing whose name starts with name_a is one person
+merge_names   every filing whose name starts with name_a, from a state in state_a, is one person
 separate      two names, optionally at a place, are different people
 hold          one filing belongs to no confirmed donor
 hold_address  a name at a street and ZIP belongs to no confirmed donor
@@ -18,7 +18,7 @@ from fec.common.text import upper_single_spaced
 RULES_PATH = RULES_DIR / "donor_identity_rules.csv"
 REQUIRED_FIELDS = {
     "merge_keys": ("donor_key_a", "donor_key_b"),
-    "merge_names": ("name_a",),
+    "merge_names": ("name_a", "state_a"),
     "separate": ("name_a", "name_b"),
     "hold": ("sub_id", "group"),
     "hold_address": ("name_a", "street_a", "zip_a", "group"),
@@ -109,12 +109,13 @@ HELD_ADDRESSES = {
     ): row["group"].strip()
     for row in _RULES["hold_address"]
 }
-# group -> the name prefixes it joins, in file order.
+# group -> (name prefix, the reviewed states it may be filed from); a namesake elsewhere is matched as usual.
 NAME_MERGES = {}
 for _row in _RULES["merge_names"]:
     _name = upper_single_spaced(_row["name_a"])
     _group = (_row.get("group") or _name).strip()
-    NAME_MERGES[_group] = NAME_MERGES.get(_group, ()) + (_name,)
+    _states = frozenset(upper_single_spaced(_row["state_a"]).split())
+    NAME_MERGES[_group] = NAME_MERGES.get(_group, ()) + ((_name, _states),)
 
 
 def held_groups(df: pd.DataFrame) -> pd.Series:
