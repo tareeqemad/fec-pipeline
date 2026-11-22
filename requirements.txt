@@ -1,9 +1,9 @@
 # Python 3.12; explicit project dependency versions for reproducible setup.
 pandas==3.0.3
 numpy==2.4.6
-psycopg2-binary==2.9.12
+psycopg2-binary==2.9.13
 requests==2.34.2
-tqdm==4.68.2
+tqdm==4.70.1
 rapidfuzz==3.14.6
 usaddress==0.5.16
 usaddress-scourgify==0.7.1

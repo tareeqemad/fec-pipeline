@@ -98,46 +98,41 @@ CREATE TABLE contributions (
 );
 
 -- Indexes
-CREATE INDEX idx_donors_entity      ON donors (entity_type);
+CREATE INDEX idx_donors_type ON donors (entity_type);
 -- Names are stored as people read them (Haim Saban); searches compare them in capitals.
-CREATE INDEX idx_donors_first_last  ON donors (upper(last_name), upper(first_name));
-CREATE INDEX idx_donors_name_trgm   ON donors USING gin (last_name gin_trgm_ops);
+CREATE INDEX idx_donors_name ON donors (upper(last_name), upper(first_name));
+CREATE INDEX idx_donors_name_search ON donors USING gin (last_name gin_trgm_ops);
 
-CREATE INDEX idx_addr_state         ON addresses (state_code);
-CREATE INDEX idx_addr_zip           ON addresses (zip_code);
+CREATE INDEX idx_addresses_state ON addresses (state_code);
+CREATE INDEX idx_addresses_zip ON addresses (zip_code);
 -- Cities are stored as people read them (Los Angeles); searches compare them in capitals.
-CREATE INDEX idx_addr_city          ON addresses (upper(city));
-CREATE INDEX idx_addr_geo           ON addresses (latitude, longitude)
-    WHERE latitude IS NOT NULL;
+CREATE INDEX idx_addresses_city ON addresses (upper(city));
 
-CREATE INDEX idx_da_donor           ON donor_addresses (donor_id);
-CREATE INDEX idx_da_address         ON donor_addresses (address_id);
+CREATE INDEX idx_donor_addr_donor ON donor_addresses (donor_id);
+CREATE INDEX idx_donor_addr_address ON donor_addresses (address_id);
 
-CREATE INDEX idx_de_donor           ON donor_employments (donor_id);
-CREATE INDEX idx_de_employer        ON donor_employments (employer_id);
-CREATE INDEX idx_de_occ_cat         ON donor_employments (occupation_category_id);
-CREATE INDEX idx_de_prev_employer   ON donor_employments (previous_employer_id);
+CREATE INDEX idx_jobs_donor ON donor_employments (donor_id);
+CREATE INDEX idx_jobs_employer ON donor_employments (employer_id);
+CREATE INDEX idx_jobs_category ON donor_employments (occupation_category_id);
+CREATE INDEX idx_jobs_prev_employer ON donor_employments (previous_employer_id);
 
-CREATE INDEX idx_c_donor            ON contributions (donor_id);
-CREATE INDEX idx_c_committee        ON contributions (committee_id);
-CREATE INDEX idx_c_date             ON contributions (receipt_date);
-CREATE INDEX idx_c_cycle            ON contributions (election_cycle);
-CREATE INDEX idx_c_donor_address    ON contributions (donor_address_id);
-CREATE INDEX idx_c_donor_employment ON contributions (donor_employment_id);
-CREATE INDEX idx_c_donor_date       ON contributions (donor_id, receipt_date DESC);
+CREATE INDEX idx_contrib_committee ON contributions (committee_id);
+CREATE INDEX idx_contrib_date ON contributions (receipt_date);
+CREATE INDEX idx_contrib_cycle ON contributions (election_cycle);
+CREATE INDEX idx_contrib_address ON contributions (donor_address_id);
+CREATE INDEX idx_contrib_job ON contributions (donor_employment_id);
+CREATE INDEX idx_contrib_donor_date ON contributions (donor_id, receipt_date DESC);
 
-CREATE INDEX idx_emp_name_trgm      ON employers USING gin (name gin_trgm_ops);
-CREATE INDEX idx_emp_address        ON employers (address_id);
+CREATE INDEX idx_employers_name_search ON employers USING gin (name gin_trgm_ops);
+CREATE INDEX idx_employers_address ON employers (address_id);
 
 -- ZIP centres; the donor profile view falls back to them
 CREATE TABLE zip_centroids (
     zip         TEXT                NOT NULL PRIMARY KEY,
     lat         DOUBLE PRECISION    NOT NULL CHECK (lat BETWEEN  -90 AND  90),
     lng         DOUBLE PRECISION    NOT NULL CHECK (lng BETWEEN -180 AND 180),
-    source      TEXT                NOT NULL DEFAULT 'census_gazetteer_2023',
-    fetched_at  TIMESTAMPTZ         DEFAULT NOW()
+    source      TEXT                NOT NULL
 );
-CREATE INDEX idx_zip_centroids_geo ON zip_centroids (lat, lng);
 
 -- Latest donor address
 CREATE OR REPLACE VIEW v_donor_current_address AS
@@ -235,23 +230,16 @@ LEFT JOIN employers                  prev ON prev.employer_id          = e.previ
 CREATE MATERIALIZED VIEW mv_donor_profile AS
 SELECT * FROM v_donor_profile;
 
-CREATE UNIQUE INDEX idx_mvdp_id     ON mv_donor_profile (donor_id);
-CREATE INDEX idx_mvdp_key           ON mv_donor_profile (donor_key);
-CREATE INDEX idx_mvdp_entity        ON mv_donor_profile (entity_type);
-CREATE INDEX idx_mvdp_total         ON mv_donor_profile (total_amount DESC NULLS LAST);
-CREATE INDEX idx_mvdp_state         ON mv_donor_profile (current_state);
-CREATE INDEX idx_mvdp_state_total   ON mv_donor_profile (current_state, total_amount DESC NULLS LAST);
-CREATE INDEX idx_mvdp_name_trgm     ON mv_donor_profile USING gin (last_name gin_trgm_ops);
-CREATE INDEX idx_mvdp_first_name_trgm ON mv_donor_profile USING gin (first_name gin_trgm_ops);
-CREATE INDEX idx_mvdp_employer      ON mv_donor_profile (current_employer);
-CREATE INDEX idx_mvdp_prev_employer ON mv_donor_profile (previous_employer);
+CREATE UNIQUE INDEX idx_profiles_donor ON mv_donor_profile (donor_id);
+CREATE INDEX idx_profiles_key ON mv_donor_profile (donor_key);
+CREATE INDEX idx_profiles_type ON mv_donor_profile (entity_type);
+CREATE INDEX idx_profiles_total ON mv_donor_profile (total_amount DESC NULLS LAST);
+CREATE INDEX idx_profiles_state_total ON mv_donor_profile (current_state, total_amount DESC NULLS LAST);
 -- Text is stored as people read it (Los Angeles, Legal); searches compare it in capitals.
-CREATE INDEX idx_mvdp_occ           ON mv_donor_profile (upper(current_occ_category));
-CREATE INDEX idx_mvdp_city          ON mv_donor_profile (upper(current_city));
-CREATE INDEX idx_mvdp_occupation    ON mv_donor_profile (upper(current_occupation));
-CREATE INDEX idx_mvdp_geo           ON mv_donor_profile (current_lat, current_lng)
-    WHERE current_lat IS NOT NULL;
-CREATE INDEX idx_mvdp_earth         ON mv_donor_profile USING gist (ll_to_earth(current_lat, current_lng));
+CREATE INDEX idx_profiles_category ON mv_donor_profile (upper(current_occ_category));
+CREATE INDEX idx_profiles_city ON mv_donor_profile (upper(current_city));
+CREATE INDEX idx_profiles_job ON mv_donor_profile (upper(current_occupation));
+CREATE INDEX idx_profiles_location ON mv_donor_profile USING gist (ll_to_earth(current_lat, current_lng));
 
 -- Reference tables
 CREATE TABLE us_states (
@@ -281,8 +269,6 @@ CREATE TABLE donor_images (
     donor_id   INTEGER PRIMARY KEY REFERENCES donors(donor_id) ON DELETE CASCADE,
     image_path TEXT NOT NULL
 );
-CREATE INDEX idx_key_accomplices_sign  ON key_accomplices (sign) WHERE sign IS NOT NULL;
-CREATE INDEX idx_key_accomplices_order ON key_accomplices (display_order);
 
 -- Leaders
 CREATE TABLE leaders (
@@ -297,7 +283,6 @@ CREATE TABLE leader_committees (
     PRIMARY KEY (leader_id, committee_id)
 );
 
-CREATE INDEX idx_lc_committee ON leader_committees (committee_id);
 
 -- Database descriptions
 COMMENT ON COLUMN donors.identity_status IS 'confirmed = no identity flag; held = kept separate for review; unresolved = unknown donor behind a network name. These labels do not prove identity.';
